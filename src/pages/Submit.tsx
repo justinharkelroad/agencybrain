@@ -1,0 +1,547 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
+
+interface FormData {
+  sales: {
+    premium: number;
+    items: number;
+    policies: number;
+    alr: number;
+  };
+  marketing: {
+    totalSpend: number;
+    leadSources: { name: string; spend: number }[];
+  };
+  operations: {
+    numberQuoted: number;
+    teamRoster: { name: string; role: string }[];
+  };
+  retention: {
+    numberTerminated: number;
+  };
+  cashFlow: {
+    compensation: number;
+    expenses: number;
+    netProfit: number;
+  };
+  qualitative: {
+    biggestStress: string;
+    gutAction: string;
+    personalWin: string;
+    businessWin: string;
+  };
+}
+
+const initialFormData: FormData = {
+  sales: { premium: 0, items: 0, policies: 0, alr: 0 },
+  marketing: { totalSpend: 0, leadSources: [] },
+  operations: { numberQuoted: 0, teamRoster: [] },
+  retention: { numberTerminated: 0 },
+  cashFlow: { compensation: 0, expenses: 0, netProfit: 0 },
+  qualitative: { biggestStress: '', gutAction: '', personalWin: '', businessWin: '' },
+};
+
+export default function Submit() {
+  const { user } = useAuth();
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentPeriod, setCurrentPeriod] = useState<any>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      fetchCurrentPeriod();
+    }
+  }, [user]);
+
+  const fetchCurrentPeriod = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profile?.agency_id) {
+        const { data, error } = await supabase
+          .from('periods')
+          .select('*')
+          .eq('agency_id', profile.agency_id)
+          .eq('status', 'active')
+          .single();
+
+        if (data) {
+          setCurrentPeriod(data);
+          if (data.form_data) {
+            setFormData({ ...initialFormData, ...data.form_data });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateFormData = (section: keyof FormData, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }));
+  };
+
+  const addLeadSource = () => {
+    setFormData(prev => ({
+      ...prev,
+      marketing: {
+        ...prev.marketing,
+        leadSources: [...prev.marketing.leadSources, { name: '', spend: 0 }]
+      }
+    }));
+  };
+
+  const removeLeadSource = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      marketing: {
+        ...prev.marketing,
+        leadSources: prev.marketing.leadSources.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const addTeamMember = () => {
+    setFormData(prev => ({
+      ...prev,
+      operations: {
+        ...prev.operations,
+        teamRoster: [...prev.operations.teamRoster, { name: '', role: 'Sales' }]
+      }
+    }));
+  };
+
+  const removeTeamMember = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      operations: {
+        ...prev.operations,
+        teamRoster: prev.operations.teamRoster.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
+  const calculateNetProfit = () => {
+    const netProfit = (formData.sales.premium + formData.sales.alr) - formData.cashFlow.compensation - formData.cashFlow.expenses;
+    updateFormData('cashFlow', 'netProfit', Math.round(netProfit * 100) / 100);
+  };
+
+  useEffect(() => {
+    calculateNetProfit();
+  }, [formData.sales.premium, formData.sales.alr, formData.cashFlow.compensation, formData.cashFlow.expenses]);
+
+  const saveForm = async () => {
+    if (!currentPeriod) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('periods')
+        .update({ form_data: formData })
+        .eq('id', currentPeriod.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Form data saved successfully",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving form:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!currentPeriod) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="container mx-auto max-w-4xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>No Active Period</CardTitle>
+              <CardDescription>
+                You need to create a reporting period before you can submit data.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link to="/dashboard">
+                <Button>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="container mx-auto max-w-4xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <Link to="/dashboard">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold mt-4">Performance Form</h1>
+            <p className="text-muted-foreground">
+              Period: {new Date(currentPeriod.start_date).toLocaleDateString()} - {new Date(currentPeriod.end_date).toLocaleDateString()}
+            </p>
+          </div>
+          <Button onClick={saveForm} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Form'}
+          </Button>
+        </div>
+
+        <Tabs defaultValue="sales" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="sales">Sales</TabsTrigger>
+            <TabsTrigger value="marketing">Marketing</TabsTrigger>
+            <TabsTrigger value="operations">Operations</TabsTrigger>
+            <TabsTrigger value="retention">Retention</TabsTrigger>
+            <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
+            <TabsTrigger value="qualitative">Qualitative</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="sales">
+            <Card>
+              <CardHeader>
+                <CardTitle>Sales Metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="premium">Premium ($)</Label>
+                    <Input
+                      id="premium"
+                      type="number"
+                      step="0.01"
+                      value={formData.sales.premium}
+                      onChange={(e) => updateFormData('sales', 'premium', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="items">Items</Label>
+                    <Input
+                      id="items"
+                      type="number"
+                      value={formData.sales.items}
+                      onChange={(e) => updateFormData('sales', 'items', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="policies">Policies</Label>
+                    <Input
+                      id="policies"
+                      type="number"
+                      value={formData.sales.policies}
+                      onChange={(e) => updateFormData('sales', 'policies', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="alr">ALR ($)</Label>
+                    <Input
+                      id="alr"
+                      type="number"
+                      step="0.01"
+                      value={formData.sales.alr}
+                      onChange={(e) => updateFormData('sales', 'alr', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="marketing">
+            <Card>
+              <CardHeader>
+                <CardTitle>Marketing Metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="totalSpend">Total Spend ($)</Label>
+                  <Input
+                    id="totalSpend"
+                    type="number"
+                    step="0.01"
+                    value={formData.marketing.totalSpend}
+                    onChange={(e) => updateFormData('marketing', 'totalSpend', parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label>Lead Sources</Label>
+                    <Button type="button" size="sm" onClick={addLeadSource}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Source
+                    </Button>
+                  </div>
+                  {formData.marketing.leadSources.map((source, index) => (
+                    <div key={index} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Source name"
+                          value={source.name}
+                          onChange={(e) => {
+                            const newSources = [...formData.marketing.leadSources];
+                            newSources[index].name = e.target.value;
+                            updateFormData('marketing', 'leadSources', newSources);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Spend"
+                          value={source.spend}
+                          onChange={(e) => {
+                            const newSources = [...formData.marketing.leadSources];
+                            newSources[index].spend = parseFloat(e.target.value) || 0;
+                            updateFormData('marketing', 'leadSources', newSources);
+                          }}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeLeadSource(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="operations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Operations Metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="numberQuoted">Number Quoted</Label>
+                  <Input
+                    id="numberQuoted"
+                    type="number"
+                    value={formData.operations.numberQuoted}
+                    onChange={(e) => updateFormData('operations', 'numberQuoted', parseInt(e.target.value) || 0)}
+                  />
+                </div>
+                
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label>Team Roster</Label>
+                    <Button type="button" size="sm" onClick={addTeamMember}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Member
+                    </Button>
+                  </div>
+                  {formData.operations.teamRoster.map((member, index) => (
+                    <div key={index} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Name"
+                          value={member.name}
+                          onChange={(e) => {
+                            const newRoster = [...formData.operations.teamRoster];
+                            newRoster[index].name = e.target.value;
+                            updateFormData('operations', 'teamRoster', newRoster);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <select
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                          value={member.role}
+                          onChange={(e) => {
+                            const newRoster = [...formData.operations.teamRoster];
+                            newRoster[index].role = e.target.value;
+                            updateFormData('operations', 'teamRoster', newRoster);
+                          }}
+                        >
+                          <option value="Sales">Sales</option>
+                          <option value="Service">Service</option>
+                          <option value="Hybrid">Hybrid</option>
+                        </select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeTeamMember(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="retention">
+            <Card>
+              <CardHeader>
+                <CardTitle>Retention Metrics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <Label htmlFor="numberTerminated">Number Terminated</Label>
+                  <Input
+                    id="numberTerminated"
+                    type="number"
+                    value={formData.retention.numberTerminated}
+                    onChange={(e) => updateFormData('retention', 'numberTerminated', parseInt(e.target.value) || 0)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cashflow">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cash Flow Metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="compensation">Compensation ($)</Label>
+                    <Input
+                      id="compensation"
+                      type="number"
+                      step="0.01"
+                      value={formData.cashFlow.compensation}
+                      onChange={(e) => updateFormData('cashFlow', 'compensation', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="expenses">Expenses ($)</Label>
+                    <Input
+                      id="expenses"
+                      type="number"
+                      step="0.01"
+                      value={formData.cashFlow.expenses}
+                      onChange={(e) => updateFormData('cashFlow', 'expenses', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="netProfit">Net Profit ($)</Label>
+                    <Input
+                      id="netProfit"
+                      type="number"
+                      step="0.01"
+                      value={formData.cashFlow.netProfit}
+                      onChange={(e) => updateFormData('cashFlow', 'netProfit', parseFloat(e.target.value) || 0)}
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Auto-calculated: (Premium + ALR) - Compensation - Expenses
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="qualitative">
+            <Card>
+              <CardHeader>
+                <CardTitle>Qualitative Metrics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="biggestStress">Biggest Stress</Label>
+                  <Textarea
+                    id="biggestStress"
+                    value={formData.qualitative.biggestStress}
+                    onChange={(e) => updateFormData('qualitative', 'biggestStress', e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="gutAction">Gut Action</Label>
+                  <Textarea
+                    id="gutAction"
+                    value={formData.qualitative.gutAction}
+                    onChange={(e) => updateFormData('qualitative', 'gutAction', e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="personalWin">Personal Win</Label>
+                  <Textarea
+                    id="personalWin"
+                    value={formData.qualitative.personalWin}
+                    onChange={(e) => updateFormData('qualitative', 'personalWin', e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="businessWin">Business Win</Label>
+                  <Textarea
+                    id="businessWin"
+                    value={formData.qualitative.businessWin}
+                    onChange={(e) => updateFormData('qualitative', 'businessWin', e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
