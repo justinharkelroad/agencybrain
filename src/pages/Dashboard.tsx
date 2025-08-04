@@ -43,54 +43,41 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
+      // Fetch all periods for current user
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('periods')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('end_date', { ascending: false });
 
-      if (profileError) {
-        console.error('Profile error:', profileError);
+      if (periodsError) {
+        console.error('Periods error:', periodsError);
         return;
       }
 
-      if (profile?.agency_id) {
-        // Fetch all periods
-        const { data: periodsData, error: periodsError } = await supabase
-          .from('periods')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .order('end_date', { ascending: false });
+      setAllPeriods(periodsData || []);
+      
+      // Set current period (most recent active one)
+      const activePeriod = periodsData?.find(p => p.status === 'active');
+      const mostRecentPeriod = periodsData?.[0] || null;
+      const current = activePeriod || mostRecentPeriod;
+      
+      setCurrentPeriod(current);
+      setSelectedPeriodId(current?.id || '');
 
-        if (periodsError) {
-          console.error('Periods error:', periodsError);
-          return;
-        }
+      // Fetch uploads for current user
+      const { data: uploadsData, error: uploadsError } = await supabase
+        .from('uploads')
+        .select('id, category, original_name')
+        .eq('user_id', user?.id);
 
-        setAllPeriods(periodsData || []);
-        
-        // Set current period (most recent active one)
-        const activePeriod = periodsData?.find(p => p.status === 'active');
-        const mostRecentPeriod = periodsData?.[0] || null;
-        const current = activePeriod || mostRecentPeriod;
-        
-        setCurrentPeriod(current);
-        setSelectedPeriodId(current?.id || '');
+      if (!uploadsError && uploadsData) {
+        setUploads(uploadsData);
+      }
 
-        // Fetch uploads for current user
-        const { data: uploadsData, error: uploadsError } = await supabase
-          .from('uploads')
-          .select('id, category, original_name')
-          .eq('user_id', user?.id);
-
-        if (!uploadsError && uploadsData) {
-          setUploads(uploadsData);
-        }
-
-        // Calculate comparison data if we have multiple periods
-        if (periodsData && periodsData.length >= 2) {
-          calculateComparisonData(periodsData);
-        }
+      // Calculate comparison data if we have multiple periods
+      if (periodsData && periodsData.length >= 2) {
+        calculateComparisonData(periodsData);
       }
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -152,16 +139,10 @@ export default function Dashboard() {
 
   const createNewPeriod = async () => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (!profile?.agency_id) {
+      if (!user?.id) {
         toast({
           title: "Error",
-          description: "No agency found for your account",
+          description: "User not found",
           variant: "destructive",
         });
         return;
@@ -174,7 +155,8 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('periods')
         .insert({
-          agency_id: profile.agency_id,
+          user_id: user.id,
+          title: `Period ${new Date().toISOString().split('T')[0]}`,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
           status: 'active',
