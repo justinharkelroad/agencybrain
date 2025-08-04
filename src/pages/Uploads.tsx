@@ -17,7 +17,7 @@ interface Upload {
   file_size: number;
   file_type: string;
   category: string;
-  uploaded_at: string;
+  created_at: string;
 }
 
 const Uploads = () => {
@@ -45,7 +45,7 @@ const Uploads = () => {
         .from('uploads')
         .select('*')
         .eq('user_id', user?.id)
-        .order('uploaded_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setUploads(data || []);
@@ -234,7 +234,7 @@ const Uploads = () => {
                               <div>
                                 <p className="font-medium">{upload.original_name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatFileSize(upload.file_size)} • {formatDate(upload.uploaded_at)}
+                                  {formatFileSize(upload.file_size)} • {formatDate(upload.created_at)}
                                 </p>
                               </div>
                             </div>

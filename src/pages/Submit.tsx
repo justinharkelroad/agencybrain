@@ -102,7 +102,21 @@ export default function Submit() {
         setStartDate(new Date(data.start_date));
         setEndDate(new Date(data.end_date));
         if (data.form_data) {
-          setFormData({ ...initialFormData, ...data.form_data });
+          // Ensure all required nested fields exist
+          const safeFormData = {
+            ...initialFormData,
+            ...data.form_data,
+            // Specifically ensure qualitative.attackItems exists
+            qualitative: {
+              ...initialFormData.qualitative,
+              ...data.form_data.qualitative,
+              attackItems: {
+                ...initialFormData.qualitative.attackItems,
+                ...(data.form_data.qualitative?.attackItems || {})
+              }
+            }
+          };
+          setFormData(safeFormData);
         }
       }
     } catch (error) {
