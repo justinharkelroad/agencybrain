@@ -31,11 +31,16 @@ export default function Dashboard() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
         .single();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        return;
+      }
 
       if (profile?.agency_id) {
         const { data, error } = await supabase
@@ -43,16 +48,19 @@ export default function Dashboard() {
           .select('*')
           .eq('agency_id', profile.agency_id)
           .eq('status', 'active')
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching period:', error);
-        } else {
+        if (error) {
+          console.error('Periods error:', error);
+          return;
+        }
+
+        if (data) {
           setCurrentPeriod(data);
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Unexpected error:', error);
     } finally {
       setLoading(false);
     }

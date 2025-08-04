@@ -67,11 +67,21 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
         .single();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        toast({
+          title: "Error",
+          description: "Could not fetch your profile. Please try refreshing the page.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (profile?.agency_id) {
         const { data, error } = await supabase
@@ -79,7 +89,17 @@ export default function Submit() {
           .select('*')
           .eq('agency_id', profile.agency_id)
           .eq('status', 'active')
-          .single();
+          .maybeSingle();
+
+        if (error) {
+          console.error('Periods error:', error);
+          toast({
+            title: "Error",
+            description: "Could not fetch active period. Please try refreshing the page.",
+            variant: "destructive",
+          });
+          return;
+        }
 
         if (data) {
           setCurrentPeriod(data);
@@ -87,9 +107,20 @@ export default function Submit() {
             setFormData({ ...initialFormData, ...data.form_data });
           }
         }
+      } else {
+        toast({
+          title: "Error",
+          description: "No agency associated with your account. Please contact support.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Unexpected error:', error);
+      toast({
+        title: "Error", 
+        description: "An unexpected error occurred. Please try refreshing the page.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -155,19 +186,40 @@ export default function Submit() {
   }, [formData.sales.premium, formData.sales.alr, formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
   const saveForm = async () => {
-    if (!currentPeriod) return;
+    if (!currentPeriod) {
+      toast({
+        title: "Error",
+        description: "No active period found. Please create a new period first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic validation
+    if (!formData.sales.premium && !formData.sales.policies) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in at least premium or policies in the Sales section.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSaving(true);
     try {
       const { error } = await supabase
         .from('periods')
-        .update({ form_data: formData })
+        .update({ 
+          form_data: formData,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', currentPeriod.id);
 
       if (error) {
+        console.error('Save error:', error);
         toast({
           title: "Error",
-          description: error.message,
+          description: error.message || "Failed to save form data",
           variant: "destructive",
         });
       } else {
@@ -175,9 +227,16 @@ export default function Submit() {
           title: "Success",
           description: "Form data saved successfully",
         });
+        // Update current period to reflect the change
+        setCurrentPeriod(prev => ({ ...prev, form_data: formData, updated_at: new Date().toISOString() }));
       }
     } catch (error) {
-      console.error('Error saving form:', error);
+      console.error('Unexpected error saving form:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while saving. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
