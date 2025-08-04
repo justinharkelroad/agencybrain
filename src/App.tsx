@@ -10,6 +10,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Submit from "./pages/Submit";
 import Uploads from "./pages/Uploads";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import ClientDetail from "./pages/admin/ClientDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,16 @@ const App = () => (
             <Route path="/uploads" element={
               <ProtectedRoute>
                 <Uploads />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/client/:clientId" element={
+              <ProtectedRoute>
+                <ClientDetail />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
