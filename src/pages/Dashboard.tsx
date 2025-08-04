@@ -341,9 +341,9 @@ export default function Dashboard() {
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6 text-center">
                           <FileText className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <h3 className="font-semibold">Performance Form</h3>
+                          <h3 className="font-semibold">Meeting Form</h3>
                           <p className="text-sm text-muted-foreground">
-                            Submit your metrics
+                            Submit to update Dashboard
                           </p>
                         </CardContent>
                       </Card>
@@ -489,7 +489,7 @@ export default function Dashboard() {
                           <p className="text-sm text-muted-foreground">Marketing Spend</p>
                         </div>
                       )}
-                      {currentPeriod.form_data.cashFlow && (
+                       {currentPeriod.form_data.cashFlow && (
                         <div className="text-center">
                           <p className="text-2xl font-bold text-primary">
                             ${(() => {

@@ -21,6 +21,7 @@ interface FormData {
     premium: number;
     items: number;
     policies: number;
+    achievedVC: boolean;
   };
   marketing: {
     totalSpend: number;
@@ -47,16 +48,17 @@ interface FormData {
     gutAction: string;
     biggestPersonalWin: string;
     biggestBusinessWin: string;
+    attackItems: { item1: string; item2: string; item3: string };
   };
 }
 
 const initialFormData: FormData = {
-  sales: { premium: 0, items: 0, policies: 0 },
+  sales: { premium: 0, items: 0, policies: 0, achievedVC: false },
   marketing: { totalSpend: 0, policiesQuoted: 0, leadSources: [] },
   operations: { currentAlrTotal: 0, currentAapProjection: 'Emerging', currentBonusTrend: 0, teamRoster: [] },
   retention: { numberTerminated: 0, currentRetentionPercent: 0 },
   cashFlow: { compensation: 0, expenses: 0, netProfit: 0 },
-  qualitative: { biggestStress: '', gutAction: '', biggestPersonalWin: '', biggestBusinessWin: '' },
+  qualitative: { biggestStress: '', gutAction: '', biggestPersonalWin: '', biggestBusinessWin: '', attackItems: { item1: '', item2: '', item3: '' } },
 };
 
 export default function Submit() {
@@ -412,7 +414,7 @@ export default function Submit() {
                       step="0.01"
                       value={formData.sales.premium || ''}
                       onChange={(e) => updateFormData('sales', 'premium', parseFloat(e.target.value) || 0)}
-                      placeholder="0"
+                      placeholder=""
                     />
                   </div>
                   <div>
@@ -422,7 +424,7 @@ export default function Submit() {
                       type="number"
                       value={formData.sales.items || ''}
                       onChange={(e) => updateFormData('sales', 'items', parseInt(e.target.value) || 0)}
-                      placeholder="0"
+                      placeholder=""
                     />
                   </div>
                   <div>
@@ -432,8 +434,20 @@ export default function Submit() {
                       type="number"
                       value={formData.sales.policies || ''}
                       onChange={(e) => updateFormData('sales', 'policies', parseInt(e.target.value) || 0)}
-                      placeholder="0"
+                      placeholder=""
                     />
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="achievedVC"
+                      checked={formData.sales.achievedVC || false}
+                      onChange={(e) => updateFormData('sales', 'achievedVC', e.target.checked)}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="achievedVC">Did you achieve VC this past month?</Label>
                   </div>
                 </div>
               </CardContent>
@@ -447,25 +461,13 @@ export default function Submit() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="totalSpend">Total Spend ($)</Label>
-                  <Input
-                    id="totalSpend"
-                    type="number"
-                    step="0.01"
-                    value={formData.marketing.totalSpend || ''}
-                    onChange={(e) => updateFormData('marketing', 'totalSpend', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-                
-                <div>
                   <Label htmlFor="policiesQuoted"># of Policies Quoted</Label>
                   <Input
                     id="policiesQuoted"
                     type="number"
                     value={formData.marketing.policiesQuoted || ''}
                     onChange={(e) => updateFormData('marketing', 'policiesQuoted', parseInt(e.target.value) || 0)}
-                    placeholder="0"
+                    placeholder=""
                   />
                 </div>
                 
@@ -487,6 +489,9 @@ export default function Submit() {
                             const newSources = [...formData.marketing.leadSources];
                             newSources[index].name = e.target.value;
                             updateFormData('marketing', 'leadSources', newSources);
+                            // Update total spend when lead sources change
+                            const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                            updateFormData('marketing', 'totalSpend', totalSpend);
                           }}
                         />
                       </div>
@@ -494,12 +499,15 @@ export default function Submit() {
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder="0"
+                          placeholder=""
                           value={source.spend || ''}
                           onChange={(e) => {
                             const newSources = [...formData.marketing.leadSources];
                             newSources[index].spend = parseFloat(e.target.value) || 0;
                             updateFormData('marketing', 'leadSources', newSources);
+                            // Update total spend when lead sources change
+                            const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                            updateFormData('marketing', 'totalSpend', totalSpend);
                           }}
                         />
                       </div>
@@ -513,6 +521,19 @@ export default function Submit() {
                       </Button>
                     </div>
                   ))}
+                </div>
+                
+                <div>
+                  <Label htmlFor="totalSpend">Total Spend ($)</Label>
+                  <Input
+                    id="totalSpend"
+                    type="number"
+                    step="0.01"
+                    value={formData.marketing.totalSpend || ''}
+                    className="bg-muted"
+                    readOnly
+                    placeholder=""
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -743,6 +764,51 @@ export default function Submit() {
                     rows={3}
                     placeholder="Describe your biggest business win..."
                   />
+                </div>
+                
+                <div className="mt-6">
+                  <Label className="text-lg font-semibold">Here are 3 things I want to attack on this months call:</Label>
+                  <div className="space-y-3 mt-3">
+                    <div>
+                      <Label htmlFor="attackItem1">1.</Label>
+                      <Textarea
+                        id="attackItem1"
+                        value={formData.qualitative.attackItems.item1}
+                        onChange={(e) => {
+                          const newAttackItems = { ...formData.qualitative.attackItems, item1: e.target.value };
+                          updateFormData('qualitative', 'attackItems', newAttackItems);
+                        }}
+                        rows={2}
+                        placeholder="First thing to attack..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="attackItem2">2.</Label>
+                      <Textarea
+                        id="attackItem2"
+                        value={formData.qualitative.attackItems.item2}
+                        onChange={(e) => {
+                          const newAttackItems = { ...formData.qualitative.attackItems, item2: e.target.value };
+                          updateFormData('qualitative', 'attackItems', newAttackItems);
+                        }}
+                        rows={2}
+                        placeholder="Second thing to attack..."
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="attackItem3">3.</Label>
+                      <Textarea
+                        id="attackItem3"
+                        value={formData.qualitative.attackItems.item3}
+                        onChange={(e) => {
+                          const newAttackItems = { ...formData.qualitative.attackItems, item3: e.target.value };
+                          updateFormData('qualitative', 'attackItems', newAttackItems);
+                        }}
+                        rows={2}
+                        placeholder="Third thing to attack..."
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

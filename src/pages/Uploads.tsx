@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, FileText, Trash2 } from 'lucide-react';
+import { Download, FileText, Trash2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import FileUpload from '@/components/FileUpload';
@@ -26,13 +27,10 @@ const Uploads = () => {
   const [loading, setLoading] = useState(true);
 
   const categories = [
-    { id: 'sales', label: 'Sales' },
-    { id: 'marketing', label: 'Marketing' },
-    { id: 'operations', label: 'Operations' },
-    { id: 'retention', label: 'Retention' },
-    { id: 'cash_flow', label: 'Cash Flow' },
-    { id: 'qualitative', label: 'Qualitative' },
-    { id: 'transcripts', label: 'Transcripts' }
+    { id: 'sales', label: 'Sales (New Business Details Reports Etc)' },
+    { id: 'marketing', label: 'Marketing (Any Leads Purchased Reports Etc)' },
+    { id: 'operations', label: 'Current Biz Metrics' },
+    { id: 'retention', label: 'Termination Report' },
   ];
 
   useEffect(() => {
@@ -53,11 +51,14 @@ const Uploads = () => {
       setUploads(data || []);
     } catch (error) {
       console.error('Error fetching uploads:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load uploads",
-        variant: "destructive",
-      });
+      // Only show error if it's not just an empty result
+      if (error && (error as any).code !== 'PGRST116') {
+        toast({
+          title: "Error",
+          description: "Failed to load uploads",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -160,6 +161,14 @@ const Uploads = () => {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Link to="/dashboard">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
+          </div>
           <h1 className="text-3xl font-bold mb-2">File Management</h1>
           <p className="text-muted-foreground">
             Upload and manage your files organized by performance domains
