@@ -35,12 +35,12 @@ interface Profile {
 
 interface Period {
   id: string;
-  agency_id: string;
+  user_id: string;
   start_date: string;
   end_date: string;
   status: string;
   form_data: any;
-  agency: Agency;
+  created_at: string;
 }
 
 interface Upload {
@@ -48,7 +48,7 @@ interface Upload {
   user_id: string;
   category: string;
   original_name: string;
-  uploaded_at: string;
+  created_at: string;
 }
 
 const AdminDashboard = () => {
@@ -90,10 +90,7 @@ const AdminDashboard = () => {
       // Fetch recent submissions (periods)
       const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
-        .select(`
-          *,
-          agency:agencies(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -104,7 +101,7 @@ const AdminDashboard = () => {
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
-        .order('uploaded_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(10);
 
       if (uploadsError) throw uploadsError;
@@ -137,13 +134,13 @@ const AdminDashboard = () => {
 
   const getSubmissionStatus = (profile: Profile) => {
     const hasActivePeriod = recentSubmissions.some(
-      p => p.agency_id === profile.agency_id && p.status === 'active'
+      p => p.user_id === profile.id && p.status === 'active'
     );
     const hasCompletedSubmission = recentSubmissions.some(
-      p => p.agency_id === profile.agency_id && 
+      p => p.user_id === profile.id && 
       p.form_data && Object.keys(p.form_data).length > 0
     );
-    const hasUploads = recentUploads.some(u => u.user_id === profile.user_id);
+    const hasUploads = recentUploads.some(u => u.user_id === profile.id);
 
     if (hasCompletedSubmission && hasUploads) {
       return <Badge variant="default">Complete</Badge>;
@@ -338,19 +335,22 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recentSubmissions.slice(0, 5).map((submission) => (
-                  <div key={submission.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{submission.agency?.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(submission.end_date).toLocaleDateString()}
-                      </p>
+                {recentSubmissions.slice(0, 5).map((submission) => {
+                  const userProfile = clients.find(c => c.id === submission.user_id);
+                  return (
+                    <div key={submission.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{userProfile?.agency?.name || 'Unknown'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(submission.end_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant={submission.status === 'active' ? 'default' : 'secondary'}>
+                        {submission.status}
+                      </Badge>
                     </div>
-                    <Badge variant={submission.status === 'active' ? 'default' : 'secondary'}>
-                      {submission.status}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -366,7 +366,7 @@ const AdminDashboard = () => {
                     <div>
                       <p className="font-medium">{upload.original_name}</p>
                       <p className="text-sm text-muted-foreground capitalize">
-                        {upload.category} • {new Date(upload.uploaded_at).toLocaleDateString()}
+                        {upload.category} • {new Date(upload.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge variant="outline">{upload.category}</Badge>
