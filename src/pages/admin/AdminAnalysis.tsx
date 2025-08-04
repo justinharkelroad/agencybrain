@@ -29,19 +29,17 @@ interface Agency {
 
 interface Profile {
   id: string;
-  user_id: string;
   agency_id: string;
   agency: Agency;
 }
 
 interface Period {
   id: string;
-  agency_id: string;
+  user_id: string;
   start_date: string;
   end_date: string;
   status: string;
   form_data: any;
-  agency: Agency;
 }
 
 interface Upload {
@@ -49,7 +47,7 @@ interface Upload {
   user_id: string;
   category: string;
   original_name: string;
-  uploaded_at: string;
+  created_at: string;
 }
 
 interface Analysis {
@@ -178,8 +176,8 @@ const AdminAnalysis = () => {
       const { data, error } = await supabase
         .from('uploads')
         .select('*')
-        .eq('user_id', client.user_id)
-        .order('uploaded_at', { ascending: false });
+        .eq('user_id', client.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setUploads(data || []);
@@ -233,8 +231,8 @@ const AdminAnalysis = () => {
         body: {
           periodData: period.form_data,
           uploads: uploads.filter(u => 
-            new Date(u.uploaded_at) >= new Date(period.start_date) &&
-            new Date(u.uploaded_at) <= new Date(period.end_date)
+            new Date(u.created_at) >= new Date(period.start_date) &&
+            new Date(u.created_at) <= new Date(period.end_date)
           ),
           agencyName: client.agency.name,
           promptCategory: selectedCategory,

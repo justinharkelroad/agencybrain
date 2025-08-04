@@ -26,7 +26,6 @@ interface Agency {
 
 interface Profile {
   id: string;
-  user_id: string;
   agency_id: string;
   role: string;
   created_at: string;
@@ -35,12 +34,11 @@ interface Profile {
 
 interface Period {
   id: string;
-  agency_id: string;
+  user_id: string;
   start_date: string;
   end_date: string;
   status: string;
   form_data: any;
-  pdf_url: string | null;
   created_at: string;
 }
 
@@ -51,7 +49,7 @@ interface Upload {
   original_name: string;
   file_path: string;
   file_size: number;
-  uploaded_at: string;
+  created_at: string;
 }
 
 const ClientDetail = () => {
@@ -98,8 +96,8 @@ const ClientDetail = () => {
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
-        .eq('user_id', profileData.user_id)
-        .order('uploaded_at', { ascending: false });
+        .eq('user_id', profileData.id)
+        .order('created_at', { ascending: false });
 
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
@@ -161,8 +159,8 @@ const ClientDetail = () => {
   const getStatusBadge = (period: Period) => {
     const hasFormData = period.form_data && Object.keys(period.form_data).length > 0;
     const periodUploads = uploads.filter(u => 
-      new Date(u.uploaded_at) >= new Date(period.start_date) &&
-      new Date(u.uploaded_at) <= new Date(period.end_date)
+      new Date(u.created_at) >= new Date(period.start_date) &&
+      new Date(u.created_at) <= new Date(period.end_date)
     );
     
     if (hasFormData && periodUploads.length > 0) {
@@ -333,12 +331,6 @@ const ClientDetail = () => {
                         </div>
                         <div className="flex items-center space-x-3">
                           {getStatusBadge(period)}
-                          {period.pdf_url && (
-                            <Button variant="outline" size="sm">
-                              <Download className="w-4 h-4 mr-2" />
-                              PDF Report
-                            </Button>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -375,7 +367,7 @@ const ClientDetail = () => {
                             <p className="text-sm text-muted-foreground">
                               {formatFileSize(upload.file_size)} • 
                               <span className="capitalize ml-1">{upload.category}</span> • 
-                              {formatDate(upload.uploaded_at)}
+                              {formatDate(upload.created_at)}
                             </p>
                           </div>
                         </div>
