@@ -97,7 +97,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
             original_name: file.name,
             file_path: fileName,
             file_size: file.size,
-            file_type: file.type,
+            mime_type: file.type,
             category: category
           });
 
