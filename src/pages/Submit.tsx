@@ -7,27 +7,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 interface FormData {
   sales: {
     premium: number;
     items: number;
     policies: number;
-    alr: number;
   };
   marketing: {
     totalSpend: number;
+    policiesQuoted: number;
     leadSources: { name: string; spend: number }[];
   };
   operations: {
-    numberQuoted: number;
+    currentAlrTotal: number;
+    currentAapProjection: string;
+    currentBonusTrend: number;
     teamRoster: { name: string; role: string }[];
   };
   retention: {
     numberTerminated: number;
+    currentRetentionPercent: number;
   };
   cashFlow: {
     compensation: number;
@@ -37,18 +45,18 @@ interface FormData {
   qualitative: {
     biggestStress: string;
     gutAction: string;
-    personalWin: string;
-    businessWin: string;
+    biggestPersonalWin: string;
+    biggestBusinessWin: string;
   };
 }
 
 const initialFormData: FormData = {
-  sales: { premium: 0, items: 0, policies: 0, alr: 0 },
-  marketing: { totalSpend: 0, leadSources: [] },
-  operations: { numberQuoted: 0, teamRoster: [] },
-  retention: { numberTerminated: 0 },
+  sales: { premium: 0, items: 0, policies: 0 },
+  marketing: { totalSpend: 0, policiesQuoted: 0, leadSources: [] },
+  operations: { currentAlrTotal: 0, currentAapProjection: 'Emerging', currentBonusTrend: 0, teamRoster: [] },
+  retention: { numberTerminated: 0, currentRetentionPercent: 0 },
   cashFlow: { compensation: 0, expenses: 0, netProfit: 0 },
-  qualitative: { biggestStress: '', gutAction: '', personalWin: '', businessWin: '' },
+  qualitative: { biggestStress: '', gutAction: '', biggestPersonalWin: '', biggestBusinessWin: '' },
 };
 
 export default function Submit() {
@@ -57,6 +65,8 @@ export default function Submit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<any>(null);
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,6 +97,8 @@ export default function Submit() {
 
       if (data) {
         setCurrentPeriod(data);
+        setStartDate(new Date(data.start_date));
+        setEndDate(new Date(data.end_date));
         if (data.form_data) {
           setFormData({ ...initialFormData, ...data.form_data });
         }
@@ -111,6 +123,45 @@ export default function Submit() {
         [field]: value
       }
     }));
+  };
+
+  const updatePeriodDates = async () => {
+    if (!currentPeriod || !startDate || !endDate) return;
+
+    try {
+      const { error } = await supabase
+        .from('periods')
+        .update({
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentPeriod.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update period dates",
+          variant: "destructive",
+        });
+      } else {
+        setCurrentPeriod(prev => ({
+          ...prev,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+        }));
+        toast({
+          title: "Success",
+          description: "Period dates updated successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while updating dates",
+        variant: "destructive",
+      });
+    }
   };
 
   const addLeadSource = () => {
@@ -154,13 +205,13 @@ export default function Submit() {
   };
 
   const calculateNetProfit = () => {
-    const netProfit = (formData.sales.premium + formData.sales.alr) - formData.cashFlow.compensation - formData.cashFlow.expenses;
+    const netProfit = (formData.sales.premium + formData.operations.currentAlrTotal) - formData.cashFlow.compensation - formData.cashFlow.expenses;
     updateFormData('cashFlow', 'netProfit', Math.round(netProfit * 100) / 100);
   };
 
   useEffect(() => {
     calculateNetProfit();
-  }, [formData.sales.premium, formData.sales.alr, formData.cashFlow.compensation, formData.cashFlow.expenses]);
+  }, [formData.sales.premium, formData.operations.currentAlrTotal, formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
   const saveForm = async () => {
     if (!currentPeriod) {
@@ -263,10 +314,73 @@ export default function Submit() {
                 Back to Dashboard
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold mt-4">Performance Form</h1>
-            <p className="text-muted-foreground">
-              Period: {new Date(currentPeriod.start_date).toLocaleDateString()} - {new Date(currentPeriod.end_date).toLocaleDateString()}
-            </p>
+            <h1 className="text-3xl font-bold mt-4">Meeting Form</h1>
+            <p className="text-muted-foreground mb-4">Submit to update Dashboard</p>
+            
+            {/* Editable Period Dates */}
+            <div className="flex gap-4 items-center">
+              <div className="flex flex-col">
+                <Label className="mb-2">Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[200px] justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={setStartDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <div className="flex flex-col">
+                <Label className="mb-2">End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[200px] justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <Button 
+                onClick={updatePeriodDates} 
+                disabled={!startDate || !endDate}
+                className="mt-6"
+              >
+                Update Dates
+              </Button>
+            </div>
           </div>
           <Button onClick={saveForm} disabled={saving}>
             {saving ? 'Saving...' : 'Save Form'}
@@ -277,10 +391,10 @@ export default function Submit() {
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="marketing">Marketing</TabsTrigger>
-            <TabsTrigger value="operations">Operations</TabsTrigger>
+            <TabsTrigger value="operations">Bonus/Ops</TabsTrigger>
             <TabsTrigger value="retention">Retention</TabsTrigger>
             <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
-            <TabsTrigger value="qualitative">Qualitative</TabsTrigger>
+            <TabsTrigger value="qualitative">Current Reality</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sales">
@@ -296,8 +410,9 @@ export default function Submit() {
                       id="premium"
                       type="number"
                       step="0.01"
-                      value={formData.sales.premium}
+                      value={formData.sales.premium || ''}
                       onChange={(e) => updateFormData('sales', 'premium', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
                     />
                   </div>
                   <div>
@@ -305,8 +420,9 @@ export default function Submit() {
                     <Input
                       id="items"
                       type="number"
-                      value={formData.sales.items}
+                      value={formData.sales.items || ''}
                       onChange={(e) => updateFormData('sales', 'items', parseInt(e.target.value) || 0)}
+                      placeholder="0"
                     />
                   </div>
                   <div>
@@ -314,18 +430,9 @@ export default function Submit() {
                     <Input
                       id="policies"
                       type="number"
-                      value={formData.sales.policies}
+                      value={formData.sales.policies || ''}
                       onChange={(e) => updateFormData('sales', 'policies', parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="alr">ALR ($)</Label>
-                    <Input
-                      id="alr"
-                      type="number"
-                      step="0.01"
-                      value={formData.sales.alr}
-                      onChange={(e) => updateFormData('sales', 'alr', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -345,8 +452,20 @@ export default function Submit() {
                     id="totalSpend"
                     type="number"
                     step="0.01"
-                    value={formData.marketing.totalSpend}
+                    value={formData.marketing.totalSpend || ''}
                     onChange={(e) => updateFormData('marketing', 'totalSpend', parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="policiesQuoted"># of Policies Quoted</Label>
+                  <Input
+                    id="policiesQuoted"
+                    type="number"
+                    value={formData.marketing.policiesQuoted || ''}
+                    onChange={(e) => updateFormData('marketing', 'policiesQuoted', parseInt(e.target.value) || 0)}
+                    placeholder="0"
                   />
                 </div>
                 
@@ -359,7 +478,7 @@ export default function Submit() {
                     </Button>
                   </div>
                   {formData.marketing.leadSources.map((source, index) => (
-                    <div key={index} className="flex gap-2 items-end">
+                    <div key={index} className="flex gap-2 items-end mb-2">
                       <div className="flex-1">
                         <Input
                           placeholder="Source name"
@@ -375,8 +494,8 @@ export default function Submit() {
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder="Spend"
-                          value={source.spend}
+                          placeholder="0"
+                          value={source.spend || ''}
                           onChange={(e) => {
                             const newSources = [...formData.marketing.leadSources];
                             newSources[index].spend = parseFloat(e.target.value) || 0;
@@ -402,16 +521,46 @@ export default function Submit() {
           <TabsContent value="operations">
             <Card>
               <CardHeader>
-                <CardTitle>Operations Metrics</CardTitle>
+                <CardTitle>Bonus/Ops Metrics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="numberQuoted">Number Quoted</Label>
+                  <Label htmlFor="currentAlrTotal">Current ALR Total YTD ($)</Label>
                   <Input
-                    id="numberQuoted"
+                    id="currentAlrTotal"
                     type="number"
-                    value={formData.operations.numberQuoted}
-                    onChange={(e) => updateFormData('operations', 'numberQuoted', parseInt(e.target.value) || 0)}
+                    step="0.01"
+                    value={formData.operations.currentAlrTotal || ''}
+                    onChange={(e) => updateFormData('operations', 'currentAlrTotal', parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="currentAapProjection">Current AAP Projection</Label>
+                  <Select
+                    value={formData.operations.currentAapProjection}
+                    onValueChange={(value) => updateFormData('operations', 'currentAapProjection', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select AAP level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Emerging">Emerging</SelectItem>
+                      <SelectItem value="Pro">Pro</SelectItem>
+                      <SelectItem value="Elite">Elite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="currentBonusTrend">Current Bonus Trend #</Label>
+                  <Input
+                    id="currentBonusTrend"
+                    type="number"
+                    value={formData.operations.currentBonusTrend || ''}
+                    onChange={(e) => updateFormData('operations', 'currentBonusTrend', parseFloat(e.target.value) || 0)}
+                    placeholder="0"
                   />
                 </div>
                 
@@ -424,7 +573,7 @@ export default function Submit() {
                     </Button>
                   </div>
                   {formData.operations.teamRoster.map((member, index) => (
-                    <div key={index} className="flex gap-2 items-end">
+                    <div key={index} className="flex gap-2 items-end mb-2">
                       <div className="flex-1">
                         <Input
                           placeholder="Name"
@@ -437,19 +586,23 @@ export default function Submit() {
                         />
                       </div>
                       <div className="flex-1">
-                        <select
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        <Select
                           value={member.role}
-                          onChange={(e) => {
+                          onValueChange={(value) => {
                             const newRoster = [...formData.operations.teamRoster];
-                            newRoster[index].role = e.target.value;
+                            newRoster[index].role = value;
                             updateFormData('operations', 'teamRoster', newRoster);
                           }}
                         >
-                          <option value="Sales">Sales</option>
-                          <option value="Service">Service</option>
-                          <option value="Hybrid">Hybrid</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Sales">Sales</SelectItem>
+                            <SelectItem value="Service">Service</SelectItem>
+                            <SelectItem value="Hybrid">Hybrid</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <Button
                         type="button"
@@ -471,14 +624,28 @@ export default function Submit() {
               <CardHeader>
                 <CardTitle>Retention Metrics</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="numberTerminated">Number Terminated</Label>
+                  <Label htmlFor="numberTerminated">Number of Policies Terminated</Label>
                   <Input
                     id="numberTerminated"
                     type="number"
-                    value={formData.retention.numberTerminated}
+                    value={formData.retention.numberTerminated || ''}
                     onChange={(e) => updateFormData('retention', 'numberTerminated', parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="currentRetentionPercent">Current Retention %</Label>
+                  <Input
+                    id="currentRetentionPercent"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={formData.retention.currentRetentionPercent || ''}
+                    onChange={(e) => updateFormData('retention', 'currentRetentionPercent', parseFloat(e.target.value) || 0)}
+                    placeholder="0"
                   />
                 </div>
               </CardContent>
@@ -498,8 +665,9 @@ export default function Submit() {
                       id="compensation"
                       type="number"
                       step="0.01"
-                      value={formData.cashFlow.compensation}
+                      value={formData.cashFlow.compensation || ''}
                       onChange={(e) => updateFormData('cashFlow', 'compensation', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
                     />
                   </div>
                   <div>
@@ -508,8 +676,9 @@ export default function Submit() {
                       id="expenses"
                       type="number"
                       step="0.01"
-                      value={formData.cashFlow.expenses}
+                      value={formData.cashFlow.expenses || ''}
                       onChange={(e) => updateFormData('cashFlow', 'expenses', parseFloat(e.target.value) || 0)}
+                      placeholder="0"
                     />
                   </div>
                   <div>
@@ -518,13 +687,11 @@ export default function Submit() {
                       id="netProfit"
                       type="number"
                       step="0.01"
-                      value={formData.cashFlow.netProfit}
+                      value={formData.cashFlow.netProfit || ''}
                       onChange={(e) => updateFormData('cashFlow', 'netProfit', parseFloat(e.target.value) || 0)}
                       className="bg-muted"
+                      placeholder="0"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Auto-calculated: (Premium + ALR) - Compensation - Expenses
-                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -534,7 +701,7 @@ export default function Submit() {
           <TabsContent value="qualitative">
             <Card>
               <CardHeader>
-                <CardTitle>Qualitative Metrics</CardTitle>
+                <CardTitle>Current Reality</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -544,33 +711,37 @@ export default function Submit() {
                     value={formData.qualitative.biggestStress}
                     onChange={(e) => updateFormData('qualitative', 'biggestStress', e.target.value)}
                     rows={3}
+                    placeholder="Describe your biggest stress..."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gutAction">Gut Action</Label>
+                  <Label htmlFor="gutAction">Gut Action You Feel You Should Take On That Stress</Label>
                   <Textarea
                     id="gutAction"
                     value={formData.qualitative.gutAction}
                     onChange={(e) => updateFormData('qualitative', 'gutAction', e.target.value)}
                     rows={3}
+                    placeholder="What action do you feel you should take..."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="personalWin">Personal Win</Label>
+                  <Label htmlFor="biggestPersonalWin">Biggest Personal Win</Label>
                   <Textarea
-                    id="personalWin"
-                    value={formData.qualitative.personalWin}
-                    onChange={(e) => updateFormData('qualitative', 'personalWin', e.target.value)}
+                    id="biggestPersonalWin"
+                    value={formData.qualitative.biggestPersonalWin}
+                    onChange={(e) => updateFormData('qualitative', 'biggestPersonalWin', e.target.value)}
                     rows={3}
+                    placeholder="Describe your biggest personal win..."
                   />
                 </div>
                 <div>
-                  <Label htmlFor="businessWin">Business Win</Label>
+                  <Label htmlFor="biggestBusinessWin">Biggest Business Win</Label>
                   <Textarea
-                    id="businessWin"
-                    value={formData.qualitative.businessWin}
-                    onChange={(e) => updateFormData('qualitative', 'businessWin', e.target.value)}
+                    id="biggestBusinessWin"
+                    value={formData.qualitative.biggestBusinessWin}
+                    onChange={(e) => updateFormData('qualitative', 'biggestBusinessWin', e.target.value)}
                     rows={3}
+                    placeholder="Describe your biggest business win..."
                   />
                 </div>
               </CardContent>
