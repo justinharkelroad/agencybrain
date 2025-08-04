@@ -468,7 +468,7 @@ export default function Dashboard() {
                       {currentPeriod.form_data.sales && (
                         <div className="text-center">
                           <p className="text-2xl font-bold text-primary">
-                            ${currentPeriod.form_data.sales.premium?.toLocaleString() || '0'}
+                            ${currentPeriod.form_data.sales.premium || '0'}
                           </p>
                           <p className="text-sm text-muted-foreground">Premium</p>
                         </div>
@@ -484,7 +484,7 @@ export default function Dashboard() {
                       {currentPeriod.form_data.marketing && (
                         <div className="text-center">
                           <p className="text-2xl font-bold text-primary">
-                            ${currentPeriod.form_data.marketing.totalSpend?.toLocaleString() || '0'}
+                            ${currentPeriod.form_data.marketing.totalSpend || '0'}
                           </p>
                           <p className="text-sm text-muted-foreground">Marketing Spend</p>
                         </div>
@@ -492,9 +492,81 @@ export default function Dashboard() {
                       {currentPeriod.form_data.cashFlow && (
                         <div className="text-center">
                           <p className="text-2xl font-bold text-primary">
-                            ${currentPeriod.form_data.cashFlow.netProfit?.toLocaleString() || '0'}
+                            ${(() => {
+                              const compensation = parseFloat(currentPeriod.form_data.cashFlow.compensation || '0');
+                              const expenses = parseFloat(currentPeriod.form_data.cashFlow.expenses || '0');
+                              return compensation - expenses;
+                            })()}
                           </p>
                           <p className="text-sm text-muted-foreground">Net Profit</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Additional metrics from form data */}
+                    <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-6 border-t">
+                      {currentPeriod.form_data.marketing?.policiesQuoted && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.marketing.policiesQuoted}
+                          </p>
+                          <p className="text-sm text-muted-foreground"># of Policies Quoted</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.bonusOps?.currentALR && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.bonusOps.currentALR}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Current ALR Total YTD</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.bonusOps?.aapProjection && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.bonusOps.aapProjection}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Current AAP Projection</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.bonusOps?.bonusTrend && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.bonusOps.bonusTrend}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Current Bonus Trend #</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.retention?.currentRetention && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.retention.currentRetention}%
+                          </p>
+                          <p className="text-sm text-muted-foreground">Current Retention %</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.retention?.terminated && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            {currentPeriod.form_data.retention.terminated}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Policies Terminated</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.cashFlow?.compensation && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            ${currentPeriod.form_data.cashFlow.compensation}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Compensation</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.cashFlow?.expenses && (
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-primary">
+                            ${currentPeriod.form_data.cashFlow.expenses}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Expenses</p>
                         </div>
                       )}
                     </div>
