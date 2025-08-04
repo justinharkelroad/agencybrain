@@ -194,29 +194,25 @@ export default function Dashboard() {
                       </Card>
                     </Link>
 
-                    <Link to="/uploads">
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6 text-center">
-                          <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <h3 className="font-semibold">File Uploads</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Upload supporting documents
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer opacity-50">
+                      <CardContent className="p-6 text-center">
+                        <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
+                        <h3 className="font-semibold">File Uploads</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Upload supporting documents
+                        </p>
+                      </CardContent>
+                    </Card>
 
-                    <Link to="/history">
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6 text-center">
-                          <History className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <h3 className="font-semibold">History</h3>
-                          <p className="text-sm text-muted-foreground">
-                            View past periods
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer opacity-50">
+                      <CardContent className="p-6 text-center">
+                        <History className="w-8 h-8 mx-auto mb-2 text-primary" />
+                        <h3 className="font-semibold">History</h3>
+                        <p className="text-sm text-muted-foreground">
+                          View past periods
+                        </p>
+                      </CardContent>
+                    </Card>
                   </div>
                 </CardContent>
               </Card>
