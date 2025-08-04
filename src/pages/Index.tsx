@@ -24,9 +24,15 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">The Standard App</h1>
+          <div className="flex items-center">
+            <img 
+              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
+              alt="Standard" 
+              className="h-8 mr-3"
+            />
+          </div>
           <Link to="/auth">
-            <Button>Get Started</Button>
+            <Button>Sign In</Button>
           </Link>
         </div>
       </header>
@@ -85,7 +91,7 @@ const Index = () => {
           <div className="flex justify-center">
             <Link to="/auth">
               <Button size="lg" className="text-lg px-8 py-4">
-                Start Your Free Trial
+                Sign In
               </Button>
             </Link>
           </div>
