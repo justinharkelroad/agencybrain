@@ -193,12 +193,12 @@ const AdminDashboard = () => {
               <Link to="/admin">
                 <Button variant="ghost" size="sm">Dashboard</Button>
               </Link>
-              <Button variant="ghost" size="sm" disabled>
-                Analysis
-              </Button>
-              <Button variant="ghost" size="sm" disabled>
-                Prompts
-              </Button>
+              <Link to="/admin/analysis">
+                <Button variant="ghost" size="sm">Analysis</Button>
+              </Link>
+              <Link to="/admin/prompts">
+                <Button variant="ghost" size="sm">Prompts</Button>
+              </Link>
             </nav>
             <Link to="/dashboard">
               <Button variant="outline" size="sm">Back to App</Button>

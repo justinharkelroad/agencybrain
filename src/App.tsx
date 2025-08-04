@@ -11,6 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import Submit from "./pages/Submit";
 import Uploads from "./pages/Uploads";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAnalysis from "./pages/admin/AdminAnalysis";
+import AdminPrompts from "./pages/admin/AdminPrompts";
 import ClientDetail from "./pages/admin/ClientDetail";
 import NotFound from "./pages/NotFound";
 
@@ -49,6 +51,16 @@ const App = () => (
             <Route path="/admin/client/:clientId" element={
               <ProtectedRoute>
                 <ClientDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/analysis" element={
+              <ProtectedRoute>
+                <AdminAnalysis />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/prompts" element={
+              <ProtectedRoute>
+                <AdminPrompts />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
