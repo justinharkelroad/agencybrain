@@ -88,7 +88,7 @@ const ClientDetail = () => {
       const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
         .select('*')
-        .eq('agency_id', profileData.agency_id)
+        .eq('user_id', profileData.id)
         .order('end_date', { ascending: false });
 
       if (periodsError) throw periodsError;

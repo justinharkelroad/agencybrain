@@ -157,7 +157,7 @@ const AdminAnalysis = () => {
       const { data, error } = await supabase
         .from('periods')
         .select('*')
-        .eq('agency_id', client.agency_id)
+        .eq('user_id', client.id)
         .order('end_date', { ascending: false });
 
       if (error) throw error;

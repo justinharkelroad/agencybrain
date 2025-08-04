@@ -67,52 +67,29 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
+      // Fetch active period for current user
+      const { data, error } = await supabase
+        .from('periods')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-      if (profileError) {
-        console.error('Profile error:', profileError);
+      if (error) {
+        console.error('Periods error:', error);
         toast({
           title: "Error",
-          description: "Could not fetch your profile. Please try refreshing the page.",
+          description: "Could not fetch active period. Please try refreshing the page.",
           variant: "destructive",
         });
         return;
       }
 
-      if (profile?.agency_id) {
-        const { data, error } = await supabase
-          .from('periods')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (error) {
-          console.error('Periods error:', error);
-          toast({
-            title: "Error",
-            description: "Could not fetch active period. Please try refreshing the page.",
-            variant: "destructive",
-          });
-          return;
+      if (data) {
+        setCurrentPeriod(data);
+        if (data.form_data) {
+          setFormData({ ...initialFormData, ...data.form_data });
         }
-
-        if (data) {
-          setCurrentPeriod(data);
-          if (data.form_data) {
-            setFormData({ ...initialFormData, ...data.form_data });
-          }
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "No agency associated with your account. Please contact support.",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       console.error('Unexpected error:', error);
