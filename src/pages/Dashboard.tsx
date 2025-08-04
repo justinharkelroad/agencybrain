@@ -271,6 +271,9 @@ export default function Dashboard() {
               <Link to="/uploads">
                 <Button variant="ghost" size="sm">Uploads</Button>
               </Link>
+              <Link to="/file-processor">
+                <Button variant="ghost" size="sm">File Processing</Button>
+              </Link>
             </nav>
             {isAdmin && (
               <Link to="/admin">

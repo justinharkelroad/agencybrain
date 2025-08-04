@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      column_mappings: {
+        Row: {
+          category: string
+          created_at: string
+          file_type: string
+          id: string
+          is_active: boolean
+          mapped_columns: Json
+          mapping_rules: Json | null
+          original_columns: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          file_type: string
+          id?: string
+          is_active?: boolean
+          mapped_columns: Json
+          mapping_rules?: Json | null
+          original_columns: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_type?: string
+          id?: string
+          is_active?: boolean
+          mapped_columns?: Json
+          mapping_rules?: Json | null
+          original_columns?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
