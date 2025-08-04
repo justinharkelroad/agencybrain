@@ -4,14 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, FileText, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 const Index = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner size="lg" text="Loading..." />
       </div>
     );
   }
@@ -38,11 +39,11 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-5xl font-bold mb-6 text-foreground">
+        <div className="max-w-4xl mx-auto text-center animate-fade-in">
+          <h2 className="text-5xl font-bold mb-6 text-foreground responsive-text-3xl gradient-primary bg-clip-text text-transparent">
             Insurance Agency Performance Reporting
           </h2>
-          <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto responsive-text-lg">
             Streamline your agency's performance tracking with structured 30-day reports, 
             AI-powered analysis, and comprehensive coaching tools.
           </p>
