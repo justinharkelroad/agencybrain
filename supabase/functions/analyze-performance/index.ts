@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -90,11 +91,34 @@ serve(async (req) => {
             context += fileText;
             context += `\n--- End of ${upload.original_name} ---\n\n`;
           } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-            // For Excel files, we need to inform the AI that it's binary data
-            context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
-            context += `This is an Excel file containing structured data. The file has been uploaded and is available for analysis, but requires specialized parsing to extract the data content.\n`;
-            context += `File size: ${fileData.size} bytes\n`;
-            context += `\n--- End of ${upload.original_name} ---\n\n`;
+            // Handle Excel files
+            try {
+              const arrayBuffer = await fileData.arrayBuffer();
+              const workbook = XLSX.read(arrayBuffer);
+              
+              context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+              
+              // Process each sheet
+              workbook.SheetNames.forEach((sheetName, index) => {
+                const worksheet = workbook.Sheets[sheetName];
+                const csvData = XLSX.utils.sheet_to_csv(worksheet);
+                
+                if (workbook.SheetNames.length > 1) {
+                  context += `\n--- Sheet: ${sheetName} ---\n`;
+                }
+                context += csvData;
+                if (workbook.SheetNames.length > 1) {
+                  context += `\n--- End of Sheet: ${sheetName} ---\n`;
+                }
+              });
+              
+              context += `\n--- End of ${upload.original_name} ---\n\n`;
+            } catch (excelError) {
+              console.error(`Error parsing Excel file ${upload.original_name}:`, excelError);
+              context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+              context += `Error parsing Excel file: ${excelError.message}\n`;
+              context += `\n--- End of ${upload.original_name} ---\n\n`;
+            }
           } else {
             // Try to read as text for other file types
             try {
