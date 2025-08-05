@@ -208,10 +208,20 @@ const AdminAnalysis = () => {
         .eq('period_id', selectedPeriod)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching analyses:', error);
+        throw error;
+      }
+      
+      console.log('Fetched analyses:', data);
       setAnalyses(data || []);
     } catch (error) {
       console.error('Error fetching analyses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load analyses",
+        variant: "destructive",
+      });
     }
   };
 
@@ -243,6 +253,8 @@ const AdminAnalysis = () => {
             new Date(u.created_at) >= new Date(period.start_date) &&
             new Date(u.created_at) <= new Date(period.end_date)
           );
+
+      console.log('Uploads to analyze:', uploadsToAnalyze);
 
       const response = await supabase.functions.invoke('analyze-performance', {
         body: {

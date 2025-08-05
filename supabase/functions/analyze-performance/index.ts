@@ -1,7 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +17,8 @@ serve(async (req) => {
   }
 
   try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { 
       periodData, 
       uploads, 
@@ -49,9 +54,31 @@ serve(async (req) => {
 
     if (uploads && uploads.length > 0) {
       context += `\nUploaded Files:\n`;
-      uploads.forEach((upload: any) => {
-        context += `- ${upload.original_name} (${upload.category})\n`;
-      });
+      
+      // Fetch actual file contents from storage
+      for (const upload of uploads) {
+        try {
+          const { data: fileData, error: fileError } = await supabase.storage
+            .from('uploads')
+            .download(upload.file_path);
+            
+          if (fileError) {
+            console.error(`Error downloading file ${upload.original_name}:`, fileError);
+            context += `- ${upload.original_name} (${upload.category}) - Error reading file\n`;
+            continue;
+          }
+          
+          // Convert blob to text for analysis
+          const fileText = await fileData.text();
+          context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+          context += fileText;
+          context += `\n--- End of ${upload.original_name} ---\n\n`;
+          
+        } catch (error) {
+          console.error(`Error processing file ${upload.original_name}:`, error);
+          context += `- ${upload.original_name} (${upload.category}) - Error processing file\n`;
+        }
+      }
     }
 
     // Default prompts by category
@@ -111,7 +138,7 @@ Focus on strategic positioning and competitive advantage.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
