@@ -35,6 +35,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_analysis: {
+        Row: {
+          analysis_result: string
+          analysis_type: string
+          created_at: string
+          id: string
+          period_id: string
+          prompt_id: string | null
+          prompt_used: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_result: string
+          analysis_type: string
+          created_at?: string
+          id?: string
+          period_id: string
+          prompt_id?: string | null
+          prompt_used: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_result?: string
+          analysis_type?: string
+          created_at?: string
+          id?: string
+          period_id?: string
+          prompt_id?: string | null
+          prompt_used?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analysis_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_analysis_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       column_mappings: {
         Row: {
           category: string
@@ -141,6 +189,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      prompts: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       uploads: {
         Row: {
