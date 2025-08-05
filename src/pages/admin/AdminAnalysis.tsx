@@ -232,10 +232,19 @@ const AdminAnalysis = () => {
   };
 
   const runAnalysis = async () => {
-    if (!selectedPeriod) {
+    if (!selectedClient || !selectedCategory) {
       toast({
-        title: "Error",
-        description: "Please select a period to analyze",
+        title: "Missing Information",
+        description: "Please select a client and analysis type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedPeriod && selectedUploads.length === 0) {
+      toast({
+        title: "Missing Information", 
+        description: "Please select either a period or at least one file to analyze.",
         variant: "destructive",
       });
       return;
@@ -244,10 +253,10 @@ const AdminAnalysis = () => {
     setIsAnalyzing(true);
 
     try {
-      const period = periods.find(p => p.id === selectedPeriod);
+      const period = selectedPeriod ? periods.find(p => p.id === selectedPeriod) : null;
       const client = clients.find(c => c.id === selectedClient);
       
-      if (!period || !client) throw new Error('Invalid selection');
+      if (!client) throw new Error('Invalid client selection');
 
       // Get custom prompt if provided, otherwise use category
       const promptToUse = customPrompt || prompts.find(p => p.category === selectedCategory)?.content;
@@ -255,16 +264,18 @@ const AdminAnalysis = () => {
       // Get selected uploads or filter by period if none selected
       const uploadsToAnalyze = selectedUploads.length > 0 
         ? uploads.filter(u => selectedUploads.includes(u.id))
-        : uploads.filter(u => 
-            new Date(u.created_at) >= new Date(period.start_date) &&
-            new Date(u.created_at) <= new Date(period.end_date)
-          );
+        : period 
+          ? uploads.filter(u => 
+              new Date(u.created_at) >= new Date(period.start_date) &&
+              new Date(u.created_at) <= new Date(period.end_date)
+            )
+          : [];
 
       console.log('Uploads to analyze:', uploadsToAnalyze);
 
       const response = await supabase.functions.invoke('analyze-performance', {
         body: {
-          periodData: period.form_data,
+          periodData: period?.form_data || null,
           uploads: uploadsToAnalyze,
           agencyName: client.agency.name,
           promptCategory: selectedCategory,
@@ -276,19 +287,30 @@ const AdminAnalysis = () => {
 
       const { analysis } = response.data;
 
-      // Save analysis to database
-      const { error: saveError } = await supabase
-        .from('ai_analysis')
-        .insert({
-          period_id: selectedPeriod,
-          analysis_type: selectedCategory,
-          analysis_result: analysis,
-          prompt_used: promptToUse,
-          shared_with_client: false, // Always start as not shared
-          selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
+      // Save analysis to database 
+      if (selectedPeriod) {
+        const { error: saveError } = await supabase
+          .from('ai_analysis')
+          .insert({
+            period_id: selectedPeriod,
+            analysis_type: selectedCategory,
+            analysis_result: analysis,
+            prompt_used: promptToUse,
+            shared_with_client: false, // Always start as not shared
+            selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
+          });
+  
+        if (saveError) throw saveError;
+      } else {
+        // For file-only analyses, we'll just display them without saving for now
+        // Or we could create a special mechanism to save analyses without periods
+        console.log('File-only analysis result:', analysis);
+        toast({
+          title: "File Analysis Complete",
+          description: "Analysis complete. Note: File-only analyses are not saved to the database.",
         });
-
-      if (saveError) throw saveError;
+        return;
+      }
 
       toast({
         title: "Analysis Complete",
@@ -504,7 +526,7 @@ const AdminAnalysis = () => {
 
                 <Button 
                   onClick={runAnalysis} 
-                  disabled={!selectedPeriod || isAnalyzing}
+                  disabled={(!selectedPeriod && selectedUploads.length === 0) || !selectedClient || isAnalyzing}
                   className="w-full"
                 >
                   {isAnalyzing ? (
