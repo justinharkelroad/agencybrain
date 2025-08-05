@@ -24,7 +24,9 @@ serve(async (req) => {
       uploads, 
       agencyName, 
       promptCategory, 
-      customPrompt 
+      customPrompt,
+      followUpPrompt,
+      originalAnalysis
     } = await req.json();
 
     // Build context from period data and uploads
@@ -161,7 +163,38 @@ Provide actionable insights to strengthen customer relationships.`,
 Focus on strategic positioning and competitive advantage.`
     };
 
-    const systemPrompt = customPrompt || defaultPrompts[promptCategory as keyof typeof defaultPrompts] || defaultPrompts.performance;
+    let messages;
+    
+    if (followUpPrompt && originalAnalysis) {
+      // This is a follow-up conversation
+      messages = [
+        { 
+          role: 'system', 
+          content: 'You are an expert insurance agency performance coach and analyst. Answer follow-up questions about the analysis you previously provided. Be specific and reference details from the original analysis when relevant.' 
+        },
+        { 
+          role: 'assistant', 
+          content: `Here is my previous analysis:\n\n${originalAnalysis}` 
+        },
+        { 
+          role: 'user', 
+          content: followUpPrompt 
+        }
+      ];
+    } else {
+      // This is a new analysis
+      const systemPrompt = customPrompt || defaultPrompts[promptCategory as keyof typeof defaultPrompts] || defaultPrompts.performance;
+      messages = [
+        { 
+          role: 'system', 
+          content: `You are an expert insurance agency performance coach and analyst. ${systemPrompt}` 
+        },
+        { 
+          role: 'user', 
+          content: `Please analyze the following agency data and provide insights:\n\n${context}` 
+        }
+      ];
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -171,16 +204,7 @@ Focus on strategic positioning and competitive advantage.`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: `You are an expert insurance agency performance coach and analyst. ${systemPrompt}` 
-          },
-          { 
-            role: 'user', 
-            content: `Please analyze the following agency data and provide insights:\n\n${context}` 
-          }
-        ],
+        messages,
         temperature: 0.7,
         max_tokens: 2000,
       }),

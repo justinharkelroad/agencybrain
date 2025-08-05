@@ -20,7 +20,9 @@ import {
   LogOut,
   AlertCircle,
   CheckCircle,
-  Share2
+  Share2,
+  MessageCircle,
+  Send
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
@@ -85,9 +87,13 @@ const AdminAnalysis = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('performance');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
-  const [shareWithClient, setShareWithClient] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // State for conversation
+  const [conversations, setConversations] = useState<{[analysisId: string]: Array<{role: 'user' | 'assistant', content: string}>}>({});
+  const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({});
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const { toast } = useToast();
 
   const promptCategories = [
@@ -278,7 +284,7 @@ const AdminAnalysis = () => {
           analysis_type: selectedCategory,
           analysis_result: analysis,
           prompt_used: promptToUse,
-          shared_with_client: shareWithClient,
+          shared_with_client: false, // Always start as not shared
           selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
         });
 
@@ -293,7 +299,6 @@ const AdminAnalysis = () => {
       fetchAnalyses();
       setCustomPrompt('');
       setSelectedUploads([]);
-      setShareWithClient(false);
 
     } catch (error) {
       console.error('Error running analysis:', error);
@@ -496,23 +501,6 @@ const AdminAnalysis = () => {
                   />
                 </div>
 
-                {/* Sharing Control */}
-                <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                  <Switch
-                    id="share-with-client"
-                    checked={shareWithClient}
-                    onCheckedChange={setShareWithClient}
-                  />
-                  <div className="flex-1">
-                    <label htmlFor="share-with-client" className="text-sm font-medium cursor-pointer">
-                      Share with Agency Owner
-                    </label>
-                    <p className="text-xs text-muted-foreground">
-                      Allow the agency owner to view this analysis in their portal
-                    </p>
-                  </div>
-                  <Share2 className="w-4 h-4 text-muted-foreground" />
-                </div>
 
                 <Button 
                   onClick={runAnalysis} 
@@ -612,6 +600,39 @@ const AdminAnalysis = () => {
                                </Badge>
                              )}
                            </div>
+                           <div className="flex items-center gap-2">
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={async () => {
+                                 const { error } = await supabase
+                                   .from('ai_analysis')
+                                   .update({ shared_with_client: !analysis.shared_with_client })
+                                   .eq('id', analysis.id);
+                                 
+                                 if (!error) {
+                                   fetchAnalyses();
+                                   toast({
+                                     title: analysis.shared_with_client ? "Analysis unshared" : "Analysis shared",
+                                     description: analysis.shared_with_client 
+                                       ? "The analysis is no longer visible to the client"
+                                       : "The analysis is now visible to the client"
+                                   });
+                                 }
+                               }}
+                             >
+                               <Share2 className="w-4 h-4 mr-2" />
+                               {analysis.shared_with_client ? 'Unshare' : 'Share'}
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
+                             >
+                               <MessageCircle className="w-4 h-4 mr-2" />
+                               Chat
+                             </Button>
+                           </div>
                          </div>
                          
                          {/* Show selected files if any */}
@@ -628,11 +649,89 @@ const AdminAnalysis = () => {
                            </div>
                          )}
                          
-                         <div className="prose prose-sm max-w-none">
+                         <div className="prose prose-sm max-w-none mb-4">
                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
                              {analysis.analysis_result}
                            </pre>
                          </div>
+
+                         {/* Conversation Section */}
+                         {expandedAnalysis === analysis.id && (
+                           <div className="border-t pt-4 mt-4">
+                             <h4 className="font-medium mb-3">Continue Discussion</h4>
+                             
+                             {/* Conversation History */}
+                             {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
+                               <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                                 {conversations[analysis.id].map((message, index) => (
+                                   <div key={index} className={`p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-gray-50 mr-8'}`}>
+                                     <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
+                                     <div className="text-sm">{message.content}</div>
+                                   </div>
+                                 ))}
+                               </div>
+                             )}
+
+                             {/* New Message Input */}
+                             <div className="flex gap-2">
+                               <Textarea
+                                 value={newMessages[analysis.id] || ''}
+                                 onChange={(e) => setNewMessages({...newMessages, [analysis.id]: e.target.value})}
+                                 placeholder="Ask a follow-up question about this analysis..."
+                                 rows={2}
+                                 className="flex-1"
+                               />
+                               <Button
+                                 onClick={async () => {
+                                   const message = newMessages[analysis.id]?.trim();
+                                   if (!message) return;
+
+                                   const currentConversation = conversations[analysis.id] || [];
+                                   const updatedConversation = [
+                                     ...currentConversation,
+                                     { role: 'user' as const, content: message }
+                                   ];
+
+                                   setConversations({
+                                     ...conversations,
+                                     [analysis.id]: updatedConversation
+                                   });
+                                   setNewMessages({...newMessages, [analysis.id]: ''});
+
+                                   try {
+                                     const result = await supabase.functions.invoke('analyze-performance', {
+                                       body: {
+                                         followUpPrompt: message,
+                                         originalAnalysis: analysis.analysis_result,
+                                         periodData: selectedPeriodData?.form_data,
+                                         agencyName: selectedClientData?.agency?.name
+                                       }
+                                     });
+
+                                     if (result.data?.analysis) {
+                                       setConversations({
+                                         ...conversations,
+                                         [analysis.id]: [
+                                           ...updatedConversation,
+                                           { role: 'assistant', content: result.data.analysis }
+                                         ]
+                                       });
+                                     }
+                                   } catch (error) {
+                                     toast({
+                                       title: "Error",
+                                       description: "Failed to get AI response",
+                                       variant: "destructive"
+                                     });
+                                   }
+                                 }}
+                                 disabled={!newMessages[analysis.id]?.trim()}
+                               >
+                                 <Send className="w-4 h-4" />
+                               </Button>
+                             </div>
+                           </div>
+                         )}
                       </div>
                     ))}
                   </div>
