@@ -54,29 +54,61 @@ serve(async (req) => {
 
     if (uploads && uploads.length > 0) {
       context += `\nUploaded Files:\n`;
+      console.log('Processing uploads:', uploads.map(u => ({ name: u.original_name, path: u.file_path })));
       
       // Fetch actual file contents from storage
       for (const upload of uploads) {
         try {
+          console.log(`Attempting to download file: ${upload.original_name} from path: ${upload.file_path}`);
+          
           const { data: fileData, error: fileError } = await supabase.storage
             .from('uploads')
             .download(upload.file_path);
             
           if (fileError) {
             console.error(`Error downloading file ${upload.original_name}:`, fileError);
-            context += `- ${upload.original_name} (${upload.category}) - Error reading file\n`;
+            context += `- ${upload.original_name} (${upload.category}) - Error: ${fileError.message}\n`;
             continue;
           }
           
-          // Convert blob to text for analysis
-          const fileText = await fileData.text();
-          context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
-          context += fileText;
-          context += `\n--- End of ${upload.original_name} ---\n\n`;
+          if (!fileData) {
+            console.error(`No data received for file ${upload.original_name}`);
+            context += `- ${upload.original_name} (${upload.category}) - No data received\n`;
+            continue;
+          }
+          
+          console.log(`Successfully downloaded file: ${upload.original_name}, size: ${fileData.size} bytes`);
+          
+          // Handle different file types
+          const fileName = upload.original_name.toLowerCase();
+          if (fileName.endsWith('.csv')) {
+            // Handle CSV files
+            const fileText = await fileData.text();
+            context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+            context += fileText;
+            context += `\n--- End of ${upload.original_name} ---\n\n`;
+          } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            // For Excel files, we need to inform the AI that it's binary data
+            context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+            context += `This is an Excel file containing structured data. The file has been uploaded and is available for analysis, but requires specialized parsing to extract the data content.\n`;
+            context += `File size: ${fileData.size} bytes\n`;
+            context += `\n--- End of ${upload.original_name} ---\n\n`;
+          } else {
+            // Try to read as text for other file types
+            try {
+              const fileText = await fileData.text();
+              context += `\n--- File: ${upload.original_name} (${upload.category}) ---\n`;
+              context += fileText;
+              context += `\n--- End of ${upload.original_name} ---\n\n`;
+            } catch (textError) {
+              console.error(`Error reading file as text: ${upload.original_name}`, textError);
+              context += `- ${upload.original_name} (${upload.category}) - Binary file, cannot read as text\n`;
+            }
+          }
           
         } catch (error) {
           console.error(`Error processing file ${upload.original_name}:`, error);
-          context += `- ${upload.original_name} (${upload.category}) - Error processing file\n`;
+          context += `- ${upload.original_name} (${upload.category}) - Processing error: ${error.message}\n`;
         }
       }
     }
