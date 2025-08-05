@@ -44,6 +44,8 @@ export type Database = {
           period_id: string
           prompt_id: string | null
           prompt_used: string
+          selected_uploads: Json | null
+          shared_with_client: boolean
           updated_at: string
         }
         Insert: {
@@ -54,6 +56,8 @@ export type Database = {
           period_id: string
           prompt_id?: string | null
           prompt_used: string
+          selected_uploads?: Json | null
+          shared_with_client?: boolean
           updated_at?: string
         }
         Update: {
@@ -64,6 +68,8 @@ export type Database = {
           period_id?: string
           prompt_id?: string | null
           prompt_used?: string
+          selected_uploads?: Json | null
+          shared_with_client?: boolean
           updated_at?: string
         }
         Relationships: [

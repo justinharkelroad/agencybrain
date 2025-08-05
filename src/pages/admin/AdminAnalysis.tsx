@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { 
   Brain, 
   Play, 
@@ -17,7 +19,8 @@ import {
   ArrowLeft,
   LogOut,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Share2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
@@ -53,8 +56,11 @@ interface Upload {
 interface Analysis {
   id: string;
   period_id: string;
-  prompt_category: string;
-  analysis_text: string;
+  analysis_type: string;
+  analysis_result: string;
+  prompt_used: string;
+  shared_with_client: boolean;
+  selected_uploads: any[];
   created_at: string;
   period: Period;
 }
@@ -62,7 +68,8 @@ interface Analysis {
 interface Prompt {
   id: string;
   category: string;
-  prompt_text: string;
+  title: string;
+  content: string;
   is_active: boolean;
 }
 
@@ -77,6 +84,8 @@ const AdminAnalysis = () => {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('performance');
   const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
+  const [shareWithClient, setShareWithClient] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -225,15 +234,20 @@ const AdminAnalysis = () => {
       if (!period || !client) throw new Error('Invalid selection');
 
       // Get custom prompt if provided, otherwise use category
-      const promptToUse = customPrompt || prompts.find(p => p.category === selectedCategory)?.prompt_text;
+      const promptToUse = customPrompt || prompts.find(p => p.category === selectedCategory)?.content;
+
+      // Get selected uploads or filter by period if none selected
+      const uploadsToAnalyze = selectedUploads.length > 0 
+        ? uploads.filter(u => selectedUploads.includes(u.id))
+        : uploads.filter(u => 
+            new Date(u.created_at) >= new Date(period.start_date) &&
+            new Date(u.created_at) <= new Date(period.end_date)
+          );
 
       const response = await supabase.functions.invoke('analyze-performance', {
         body: {
           periodData: period.form_data,
-          uploads: uploads.filter(u => 
-            new Date(u.created_at) >= new Date(period.start_date) &&
-            new Date(u.created_at) <= new Date(period.end_date)
-          ),
+          uploads: uploadsToAnalyze,
           agencyName: client.agency.name,
           promptCategory: selectedCategory,
           customPrompt: promptToUse
@@ -249,9 +263,11 @@ const AdminAnalysis = () => {
         .from('ai_analysis')
         .insert({
           period_id: selectedPeriod,
-          prompt_category: selectedCategory,
-          analysis_text: analysis,
-          custom_prompt: customPrompt || null
+          analysis_type: selectedCategory,
+          analysis_result: analysis,
+          prompt_used: promptToUse,
+          shared_with_client: shareWithClient,
+          selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
         });
 
       if (saveError) throw saveError;
@@ -264,6 +280,8 @@ const AdminAnalysis = () => {
       // Refresh analyses
       fetchAnalyses();
       setCustomPrompt('');
+      setSelectedUploads([]);
+      setShareWithClient(false);
 
     } catch (error) {
       console.error('Error running analysis:', error);
@@ -404,6 +422,58 @@ const AdminAnalysis = () => {
                   </p>
                 </div>
 
+                {/* File Selection */}
+                {uploads.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Select Files to Analyze</label>
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-md p-3">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="select-all"
+                          checked={selectedUploads.length === uploads.length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedUploads(uploads.map(u => u.id));
+                            } else {
+                              setSelectedUploads([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all" className="text-sm font-medium">
+                          Select All ({uploads.length} files)
+                        </label>
+                      </div>
+                      {uploads.map((upload) => (
+                        <div key={upload.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={upload.id}
+                            checked={selectedUploads.includes(upload.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedUploads([...selectedUploads, upload.id]);
+                              } else {
+                                setSelectedUploads(selectedUploads.filter(id => id !== upload.id));
+                              }
+                            }}
+                          />
+                          <label htmlFor={upload.id} className="text-sm flex-1 cursor-pointer">
+                            <span className="font-medium">{upload.original_name}</span>
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {upload.category}
+                            </Badge>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedUploads.length === 0 
+                        ? "All files in the period will be analyzed if none selected" 
+                        : `${selectedUploads.length} file(s) selected for analysis`
+                      }
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-medium mb-2 block">Custom Prompt (Optional)</label>
                   <Textarea
@@ -412,6 +482,24 @@ const AdminAnalysis = () => {
                     placeholder="Enter a custom analysis prompt or leave blank to use the default..."
                     rows={4}
                   />
+                </div>
+
+                {/* Sharing Control */}
+                <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                  <Switch
+                    id="share-with-client"
+                    checked={shareWithClient}
+                    onCheckedChange={setShareWithClient}
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="share-with-client" className="text-sm font-medium cursor-pointer">
+                      Share with Agency Owner
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Allow the agency owner to view this analysis in their portal
+                    </p>
+                  </div>
+                  <Share2 className="w-4 h-4 text-muted-foreground" />
                 </div>
 
                 <Button 
@@ -495,23 +583,44 @@ const AdminAnalysis = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {analyses.map((analysis) => (
-                      <div key={analysis.id} className="border rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="capitalize">
-                              {analysis.prompt_category}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {new Date(analysis.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="prose prose-sm max-w-none">
-                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                            {analysis.analysis_text}
-                          </pre>
-                        </div>
+                     {analyses.map((analysis) => (
+                       <div key={analysis.id} className="border rounded-lg p-6">
+                         <div className="flex items-center justify-between mb-4">
+                           <div className="flex items-center gap-3">
+                             <Badge variant="outline" className="capitalize">
+                               {analysis.analysis_type}
+                             </Badge>
+                             <span className="text-sm text-muted-foreground">
+                               {new Date(analysis.created_at).toLocaleDateString()}
+                             </span>
+                             {analysis.shared_with_client && (
+                               <Badge variant="secondary" className="flex items-center gap-1">
+                                 <Share2 className="w-3 h-3" />
+                                 Shared
+                               </Badge>
+                             )}
+                           </div>
+                         </div>
+                         
+                         {/* Show selected files if any */}
+                         {analysis.selected_uploads && analysis.selected_uploads.length > 0 && (
+                           <div className="mb-4">
+                             <p className="text-sm font-medium mb-2">Analyzed Files:</p>
+                             <div className="flex flex-wrap gap-2">
+                               {analysis.selected_uploads.map((upload: any, index: number) => (
+                                 <Badge key={index} variant="secondary" className="text-xs">
+                                   {upload.name}
+                                 </Badge>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+                         
+                         <div className="prose prose-sm max-w-none">
+                           <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                             {analysis.analysis_result}
+                           </pre>
+                         </div>
                       </div>
                     ))}
                   </div>
