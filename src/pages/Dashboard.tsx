@@ -310,43 +310,66 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Submit New Data Card */}
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-3">
-                        Submit New Data for Coaching Call
-                        {getStatusBadge()}
+              {/* Submit New Data and Welcome Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="flex items-center gap-3">
+                          Submit New Data for Coaching Call
+                          {getStatusBadge()}
+                        </CardTitle>
+                        <CardDescription>
+                          Prepare for your next coaching session
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-center">
+                      <Link to="/submit">
+                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col items-center text-center space-y-2">
+                              <FileText className="w-12 h-12 text-primary" />
+                              <h3 className="font-semibold">Meeting Form</h3>
+                              <p className="text-sm text-muted-foreground">Submit to update Dashboard</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
+                  <CardHeader>
+                    <div className="text-center">
+                      <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                        Welcome To Your New Standard
                       </CardTitle>
-                      <CardDescription>
-                        Prepare for your next coaching session
+                      <CardDescription className="text-lg font-medium mt-2">
+                        {user?.email?.split('@')[0] || 'Agency'} 🚀
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Button onClick={createNewPeriod} variant="outline" size="sm">
-                        <PlusCircle className="w-4 h-4 mr-2" />
-                        New Period
-                      </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex justify-center items-center">
+                      <div className="text-center space-y-3">
+                        <div className="text-6xl">⭐</div>
+                        <p className="text-sm text-muted-foreground font-medium">
+                          Ready to elevate your performance?
+                        </p>
+                        <Button onClick={createNewPeriod} variant="outline" size="sm" className="mt-4">
+                          <PlusCircle className="w-4 h-4 mr-2" />
+                          New Period
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-center">
-                    <Link to="/submit">
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="pt-6">
-                          <div className="flex flex-col items-center text-center space-y-2">
-                            <FileText className="w-12 h-12 text-primary" />
-                            <h3 className="font-semibold">Meeting Form</h3>
-                            <p className="text-sm text-muted-foreground">Submit to update Dashboard</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
 
               {/* Performance Metrics */}
               {Object.keys(currentPeriod.form_data || {}).length > 0 && (
@@ -488,9 +511,9 @@ export default function Dashboard() {
                        {currentPeriod.form_data.sales && (
                          <div className="text-center">
                            <p className={`text-2xl font-bold ${
-                             currentPeriod.form_data.sales.achieveVC ? 'text-green-600' : 'text-red-600'
+                             currentPeriod.form_data.sales.achieveVC === true || currentPeriod.form_data.sales.achieveVC === 'true' ? 'text-green-600' : 'text-red-600'
                            }`}>
-                             {currentPeriod.form_data.sales.achieveVC ? '✓' : '✗'}
+                             {currentPeriod.form_data.sales.achieveVC === true || currentPeriod.form_data.sales.achieveVC === 'true' ? '✓' : '✗'}
                            </p>
                            <p className="text-sm text-muted-foreground">VC Achieved</p>
                          </div>
