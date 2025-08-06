@@ -77,10 +77,13 @@ export default function Dashboard() {
 
       if (periods && periods.length > 0) {
         setAllPeriods(periods);
-        // Set current period to the most recently updated one
-        const mostRecentPeriod = periods[0];
-        setCurrentPeriod(mostRecentPeriod);
-        setSelectedPeriodId(mostRecentPeriod.id);
+        
+        // Find the most recent period WITH form_data, not just the most recently updated
+        const periodWithData = periods.find(p => p.form_data && Object.keys(p.form_data).length > 0);
+        const currentPeriodToUse = periodWithData || periods[0];
+        
+        setCurrentPeriod(currentPeriodToUse);
+        setSelectedPeriodId(currentPeriodToUse.id);
       }
 
       // Fetch uploads for current user (not by period_id since that column doesn't exist)
@@ -134,7 +137,19 @@ export default function Dashboard() {
     const current = periods[0];
     const previous = periods[1];
     
-    if (!current.form_data || !previous.form_data) return;
+    if (!current.form_data || !previous.form_data) {
+      // If we have current form_data but no previous, show absolute values
+      if (current.form_data) {
+        const comparison: any = {
+          premium: { value: current.form_data.sales?.premium || 0, change: 0, percent: 0 },
+          policies: { value: current.form_data.sales?.policies || 0, change: 0, percent: 0 },
+          marketingSpend: { value: current.form_data.marketing?.totalSpend || 0, change: 0, percent: 0 },
+          netProfit: { value: current.form_data.cashFlow?.netProfit || 0, change: 0, percent: 0 }
+        };
+        setComparisonData(comparison);
+      }
+      return;
+    }
 
     const comparison: any = {};
     
@@ -284,14 +299,39 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                My Account
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    My Account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Account Information</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Email</label>
+                      <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Agency</label>
+                      <p className="text-sm text-muted-foreground">{agencyName || 'Not set'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Role</label>
+                      <p className="text-sm text-muted-foreground">{isAdmin ? 'Administrator' : 'User'}</p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/uploads/select')}
+              >
+                Upload Files
               </Button>
-              <Link to="/uploads">
-                <Button variant="outline" size="sm">
-                  Upload Files
-                </Button>
-              </Link>
               {isAdmin && (
                 <Link to="/admin">
                   <Button variant="outline" size="sm">

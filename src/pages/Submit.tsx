@@ -174,6 +174,9 @@ export default function Submit() {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
         
+        // Apply selective data persistence BEFORE creating the period
+        const persistedFormData = await applySelectiveDataPersistence();
+        
         const { data: newPeriod, error: createError } = await supabase
           .from('periods')
           .insert({
@@ -181,7 +184,8 @@ export default function Submit() {
             title: `Period ${new Date().toLocaleDateString()}`,
             start_date: startDate.toISOString().split('T')[0],
             end_date: endDate.toISOString().split('T')[0],
-            status: 'active'
+            status: 'active',
+            form_data: persistedFormData
           })
           .select()
           .single();
@@ -200,9 +204,6 @@ export default function Submit() {
           setCurrentPeriod(newPeriod);
           setStartDate(startDate);
           setEndDate(endDate);
-          
-          // Apply selective data persistence for new periods
-          const persistedFormData = await applySelectiveDataPersistence();
           setFormData(persistedFormData);
           
           toast({
