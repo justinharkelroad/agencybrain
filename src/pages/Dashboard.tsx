@@ -418,7 +418,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center">
             <div className="flex items-center">
               <img 
-                src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
+                src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
                 alt="Standard" 
                 className="h-8 mr-3"
               />
