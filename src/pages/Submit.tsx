@@ -189,9 +189,8 @@ export default function Submit() {
           };
           setFormData(safeFormData);
         } else {
-          // Period exists but no form data - apply selective persistence
-          const persistedFormData = await applySelectiveDataPersistence();
-          setFormData(persistedFormData);
+          // Period exists but no form data - use fresh form data
+          setFormData(initialFormData);
         }
         setLoading(false);
         return;
@@ -270,9 +269,6 @@ export default function Submit() {
         startDate.setDate(startDate.getDate() - 30);
       }
       
-      // Apply selective data persistence BEFORE creating the period
-      const persistedFormData = await applySelectiveDataPersistence();
-      
       const { data: newPeriod, error: createError } = await supabase
         .from('periods')
         .insert({
@@ -281,7 +277,7 @@ export default function Submit() {
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
           status: 'draft',
-          form_data: persistedFormData
+          form_data: null
         })
         .select()
         .single();
@@ -302,6 +298,9 @@ export default function Submit() {
         setCurrentPeriod(newPeriod);
         setStartDate(startDate);
         setEndDate(endDate);
+        
+        // Apply selective data persistence after period creation
+        const persistedFormData = await applySelectiveDataPersistence();
         setFormData(persistedFormData);
         
         toast({
