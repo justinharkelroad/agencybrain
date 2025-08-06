@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [agencyName, setAgencyName] = useState<string>('');
+  const [userFirstName, setUserFirstName] = useState<string>('');
   const [editableAgencyName, setEditableAgencyName] = useState<string>('');
   const { toast } = useToast();
 
@@ -126,12 +127,16 @@ export default function Dashboard() {
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
 
-      // Fetch agency name
+      // Fetch agency name and user first name
       const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
         .single();
+
+      // Get user's first name from auth metadata
+      const firstName = user?.user_metadata?.first_name || user?.user_metadata?.firstName || '';
+      setUserFirstName(firstName);
 
       if (profile?.agency_id) {
         const { data: agency } = await supabase
@@ -504,7 +509,7 @@ export default function Dashboard() {
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
             <p className="text-muted-foreground">
-              Welcome back! Manage your agency performance reporting here.
+              Welcome back{userFirstName ? ` ${userFirstName}` : ""}! Manage your agency performance reporting here.
             </p>
           </div>
 
