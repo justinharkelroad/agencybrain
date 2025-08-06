@@ -134,14 +134,12 @@ export default function Dashboard() {
         .eq('id', user?.id)
         .single();
 
-      // Get user's first name from user metadata 
-      console.log('User object:', user);
-      console.log('User metadata:', user?.user_metadata);
-      // Check different possible locations for first name
+      // Get user's first name from user metadata, with fallback to email name
       const firstName = user?.user_metadata?.first_name || 
                        user?.user_metadata?.firstName ||
-                       (user as any)?.raw_user_meta_data?.first_name || '';
-      console.log('Extracted first name:', firstName);
+                       (user as any)?.raw_user_meta_data?.first_name || 
+                       (user?.email?.split('@')[0].split('.')[0].charAt(0).toUpperCase() + 
+                        user?.email?.split('@')[0].split('.')[0].slice(1)) || '';
       setUserFirstName(firstName);
 
       if (profile?.agency_id) {
