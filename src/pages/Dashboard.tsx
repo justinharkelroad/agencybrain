@@ -134,8 +134,11 @@ export default function Dashboard() {
         .eq('id', user?.id)
         .single();
 
-      // Get user's first name from auth metadata
+      // Get user's first name from auth metadata - debug what's available
+      console.log('User object:', user);
+      console.log('User metadata:', user?.user_metadata);
       const firstName = user?.user_metadata?.first_name || user?.user_metadata?.firstName || '';
+      console.log('Extracted first name:', firstName);
       setUserFirstName(firstName);
 
       if (profile?.agency_id) {
