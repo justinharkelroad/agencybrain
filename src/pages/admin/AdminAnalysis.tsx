@@ -57,14 +57,14 @@ interface Upload {
 
 interface Analysis {
   id: string;
-  period_id: string;
+  period_id: string | null;
   analysis_type: string;
   analysis_result: string;
   prompt_used: string;
   shared_with_client: boolean;
   selected_uploads: any[];
   created_at: string;
-  period: Period;
+  period?: Period;
 }
 
 interface Prompt {
@@ -302,14 +302,24 @@ const AdminAnalysis = () => {
   
         if (saveError) throw saveError;
       } else {
-        // For file-only analyses, we'll just display them without saving for now
-        // Or we could create a special mechanism to save analyses without periods
-        console.log('File-only analysis result:', analysis);
+        // For file-only analyses, create a temporary analysis object to display
+        setAnalyses([{
+          id: `temp-${Date.now()}`,
+          period_id: null,
+          analysis_type: selectedCategory,
+          analysis_result: analysis,
+          prompt_used: promptToUse,
+          shared_with_client: false,
+          created_at: new Date().toISOString(),
+          selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
+        }]);
+        
         toast({
           title: "File Analysis Complete",
           description: "Analysis complete. Note: File-only analyses are not saved to the database.",
         });
-        return;
+        
+        // Continue to show the analysis
       }
 
       toast({
