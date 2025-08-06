@@ -86,18 +86,28 @@ export default function Submit() {
   // Apply selective data persistence from previous period
   const applySelectiveDataPersistence = async () => {
     try {
-      // Fetch the previous period's data
-      const { data: previousPeriod } = await supabase
+      console.log('Applying selective data persistence...');
+      
+      // Fetch periods with actual form_data, excluding the current period if it exists
+      const query = supabase
         .from('periods')
-        .select('form_data')
+        .select('form_data, id, created_at')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .not('form_data', 'is', null)
+        .order('created_at', { ascending: false });
+      
+      // If we have a current period, exclude it from the query
+      if (currentPeriod?.id) {
+        query.neq('id', currentPeriod.id);
+      }
+      
+      const { data: periods } = await query.limit(1).maybeSingle();
 
-      if (previousPeriod?.form_data) {
-        const prevData = previousPeriod.form_data;
-        return {
+      if (periods?.form_data) {
+        console.log('Found previous period with data, applying persistence...');
+        const prevData = periods.form_data;
+        
+        const persistedData = {
           ...initialFormData,
           // Preserve team roster names and roles
           operations: {
@@ -113,7 +123,14 @@ export default function Submit() {
             }))
           }
         };
+        
+        console.log('Team roster persisted:', persistedData.operations.teamRoster);
+        console.log('Lead sources persisted:', persistedData.marketing.leadSources);
+        
+        return persistedData;
       }
+      
+      console.log('No previous period with data found');
     } catch (error) {
       console.error('Error fetching previous period data:', error);
     }

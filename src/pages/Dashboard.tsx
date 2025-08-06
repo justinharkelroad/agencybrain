@@ -399,14 +399,6 @@ export default function Dashboard() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              // Disable button temporarily to prevent double clicks
-                              const button = e.currentTarget;
-                              button.disabled = true;
-                              setTimeout(() => {
-                                if (button) {
-                                  button.disabled = false;
-                                }
-                              }, 1000);
                               navigate('/submit?mode=new');
                             }}
                           >
