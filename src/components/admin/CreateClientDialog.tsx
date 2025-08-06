@@ -38,42 +38,35 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
     setLoading(true);
 
     try {
-      // First create the agency
-      const { data: agencyData, error: agencyError } = await supabase
-        .from('agencies')
-        .insert([{
-          name: formData.agencyName,
-          description: formData.agencyDescription || null
-        }])
-        .select()
-        .single();
+      // Get the current session to send the auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No authentication token found');
+      }
 
-      if (agencyError) throw agencyError;
-
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          agency_name: formData.agencyName
-        }
+      // Call the edge function to create the user
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          agencyName: formData.agencyName,
+          agencyDescription: formData.agencyDescription
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      if (authError) throw authError;
+      if (error) {
+        throw error;
+      }
 
-      // Create/update the profile with the agency
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          agency_id: agencyData.id,
-          role: 'user'
-        });
-
-      if (profileError) throw profileError;
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast({
         title: "Success",
