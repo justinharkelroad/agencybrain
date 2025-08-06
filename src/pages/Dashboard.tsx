@@ -514,9 +514,9 @@ export default function Dashboard() {
                        {currentPeriod.form_data.sales && (
                          <div className="text-center">
                            <p className={`text-2xl font-bold ${
-                             currentPeriod.form_data.sales.achieveVC === true || currentPeriod.form_data.sales.achieveVC === 'true' ? 'text-green-600' : 'text-red-600'
+                             currentPeriod.form_data.sales.achievedVC === true || currentPeriod.form_data.sales.achievedVC === 'true' ? 'text-green-600' : 'text-red-600'
                            }`}>
-                             {currentPeriod.form_data.sales.achieveVC === true || currentPeriod.form_data.sales.achieveVC === 'true' ? '✓' : '✗'}
+                             {currentPeriod.form_data.sales.achievedVC === true || currentPeriod.form_data.sales.achievedVC === 'true' ? '✓' : '✗'}
                            </p>
                            <p className="text-sm text-muted-foreground">VC Achieved</p>
                          </div>
