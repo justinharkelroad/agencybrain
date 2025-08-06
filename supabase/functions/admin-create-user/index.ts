@@ -42,13 +42,22 @@ Deno.serve(async (req) => {
     })
 
     // Verify the requesting user is an admin
+    const { data: userAuth } = await supabaseUser.auth.getUser()
+    if (!userAuth.user?.id) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid user token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { data: profile, error: profileError } = await supabaseUser
       .from('profiles')
       .select('role')
-      .eq('id', (await supabaseUser.auth.getUser()).data.user?.id)
-      .single()
+      .eq('id', userAuth.user.id)
+      .maybeSingle()
 
     if (profileError || profile?.role !== 'admin') {
+      console.error('Profile error:', profileError)
       return new Response(
         JSON.stringify({ error: 'Only admin users can create accounts' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -76,6 +85,7 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (agencySearchError) {
+      console.error('Agency search error:', agencySearchError)
       throw agencySearchError
     }
 
@@ -93,6 +103,7 @@ Deno.serve(async (req) => {
         .single()
 
       if (createAgencyError) {
+        console.error('Create agency error:', createAgencyError)
         throw createAgencyError
       }
 
@@ -103,6 +114,7 @@ Deno.serve(async (req) => {
     const { data: existingUser, error: userCheckError } = await supabaseAdmin.auth.admin.listUsers()
     
     if (userCheckError) {
+      console.error('User check error:', userCheckError)
       throw userCheckError
     }
 
@@ -128,6 +140,7 @@ Deno.serve(async (req) => {
     })
 
     if (authError) {
+      console.error('Auth user creation error:', authError)
       throw authError
     }
 
@@ -143,10 +156,13 @@ Deno.serve(async (req) => {
       })
 
     if (profileCreateError) {
+      console.error('Profile creation error:', profileCreateError)
       // If profile creation fails, we should clean up the auth user
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       throw profileCreateError
     }
+
+    console.log('Successfully created user:', authData.user.id)
 
     return new Response(
       JSON.stringify({ 
