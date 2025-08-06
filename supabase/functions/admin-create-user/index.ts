@@ -110,33 +110,7 @@ Deno.serve(async (req) => {
       agencyId = newAgency.id
     }
 
-    // Check if user already exists by email using database query
-    console.log('Checking if user exists with email:', email)
-    const { data: existingUserProfile, error: profileCheckError } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', 'EXISTS(SELECT 1 FROM auth.users WHERE email = \'' + email + '\')')
-      .maybeSingle()
-
-    // Alternative approach: check via a more direct method
-    let userExists = false
-    try {
-      // Try to get user session with the email to check existence
-      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-        page: 1,
-        perPage: 1
-      })
-      
-      if (!listError && users?.users) {
-        // Since we can't efficiently filter by email in listUsers, 
-        // we'll proceed with creation and let the auth system handle duplicates
-        console.log('Proceeding with user creation - duplicate check will be handled by auth system')
-      }
-    } catch (error) {
-      console.log('Could not check user existence, proceeding with creation:', error)
-    }
-
-    // Create the user with admin privileges
+    // Create the user - Supabase auth will handle duplicate email detection
     console.log('Creating auth user for email:', email)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -153,7 +127,7 @@ Deno.serve(async (req) => {
       console.error('Auth user creation error:', authError)
       
       // Handle specific auth errors
-      if (authError.message?.includes('already registered')) {
+      if (authError.message?.includes('already registered') || authError.message?.includes('User already registered')) {
         return new Response(
           JSON.stringify({ error: 'A user with this email already exists' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
