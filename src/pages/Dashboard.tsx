@@ -134,17 +134,10 @@ export default function Dashboard() {
         .eq('id', user?.id)
         .single();
 
-      // Debug: Check what user we're dealing with
-      console.log('Current user email:', user?.email);
-      console.log('User metadata:', user?.user_metadata);
-      
-      // Get user's first name from user metadata or extract from email
+      // Get user's first name from user metadata (no fallback for better UX)
       const firstName = user?.user_metadata?.first_name || 
                        user?.user_metadata?.firstName ||
-                       (user as any)?.raw_user_meta_data?.first_name ||
-                       // Fallback: extract from email (justin@domain.com -> Justin)
-                       (user?.email ? user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1) : '');
-      console.log('Extracted first name:', firstName);
+                       (user as any)?.raw_user_meta_data?.first_name || '';
       setUserFirstName(firstName);
 
       if (profile?.agency_id) {
