@@ -490,7 +490,7 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               )}
-              <Button onClick={handleSignOut} variant="ghost" size="sm">
+              <Button onClick={handleSignOut} variant="outline" size="sm">
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
