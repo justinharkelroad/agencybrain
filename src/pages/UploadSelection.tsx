@@ -10,6 +10,7 @@ const uploadCategories = [
   { id: 'marketing', name: 'Marketing', description: 'Marketing campaigns, lead generation reports, analytics' },
   { id: 'current-biz-metrics', name: 'Current Biz Metrics', description: 'Business performance metrics, KPI reports' },
   { id: 'termination-report', name: 'Termination Report', description: 'Client termination reports, retention analysis' },
+  { id: 'miscellaneous', name: 'Miscellaneous', description: 'Upload any documents you\'d like to get feedback on that doesn\'t fit in other categories' },
 ];
 
 export default function UploadSelection() {
