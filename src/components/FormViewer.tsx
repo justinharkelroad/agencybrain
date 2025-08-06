@@ -76,26 +76,27 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Total Premium</label>
+                      <label className="text-sm font-medium text-muted-foreground">Premium</label>
                       <p className="text-lg font-semibold">{formatCurrency(formData.sales.premium)}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Number of Policies</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.sales.policies)}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Items</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.sales.items)}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Cross-sells</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.sales.crossSells)}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Policies</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.sales.policies)}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Average Premium per Policy</label>
+                      <label className="text-sm font-medium text-muted-foreground">VC Achieved</label>
                       <p className="text-lg font-semibold">
-                        {formData.sales.policies > 0 
-                          ? formatCurrency(formData.sales.premium / formData.sales.policies)
-                          : formatCurrency(0)
-                        }
+                        {formData.sales.achievedVC ? (
+                          <span className="text-green-600">✓ Yes</span>
+                        ) : (
+                          <span className="text-red-600">✗ No</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -113,6 +114,16 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Policies Quoted</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.marketing.policiesQuoted)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Total Marketing Spend</label>
+                      <p className="text-lg font-semibold">{formatCurrency(formData.marketing.totalSpend)}</p>
+                    </div>
+                  </div>
                   {formData.marketing.leadSources && formData.marketing.leadSources.length > 0 && (
                     <div>
                       <label className="text-sm font-medium text-muted-foreground mb-2 block">Lead Sources</label>
@@ -120,37 +131,20 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                         {formData.marketing.leadSources.map((source: any, index: number) => (
                           <div key={index} className="flex justify-between items-center p-3 bg-muted rounded-lg">
                             <div>
-                              <p className="font-medium">{source.source}</p>
-                              <p className="text-sm text-muted-foreground">{formatNumber(source.leads)} leads</p>
+                              <p className="font-medium">{source.name}</p>
                             </div>
                             <div className="text-right">
                               <p className="font-semibold">{formatCurrency(source.spend)}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {source.leads > 0 
-                                  ? `${formatCurrency(source.spend / source.leads)} per lead`
-                                  : 'N/A'
-                                }
-                              </p>
                             </div>
                           </div>
                         ))}
                       </div>
                       <div className="mt-4 pt-4 border-t">
                         <div className="flex justify-between text-lg font-semibold">
-                          <span>Total Marketing Spend:</span>
+                          <span>Total Lead Source Spend:</span>
                           <span>{formatCurrency(formData.marketing.leadSources.reduce((sum: number, source: any) => sum + (parseFloat(source.spend) || 0), 0))}</span>
                         </div>
-                        <div className="flex justify-between text-lg font-semibold">
-                          <span>Total Leads:</span>
-                          <span>{formatNumber(formData.marketing.leadSources.reduce((sum: number, source: any) => sum + (parseInt(source.leads) || 0), 0))}</span>
-                        </div>
                       </div>
-                    </div>
-                  )}
-                  {formData.marketing.goals && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Marketing Goals</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.marketing.goals}</p>
                     </div>
                   )}
                 </CardContent>
@@ -167,36 +161,33 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {formData.operations.teamMembers && formData.operations.teamMembers.length > 0 && (
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground mb-2 block">Team Members</label>
+                      <label className="text-sm font-medium text-muted-foreground">Current ALR Total YTD</label>
+                      <p className="text-lg font-semibold">{formatCurrency(formData.operations.currentAlrTotal)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Current AAP Projection</label>
+                      <p className="text-lg font-semibold">{formData.operations.currentAapProjection}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Current Bonus Trend #</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.operations.currentBonusTrend)}</p>
+                    </div>
+                  </div>
+                  {formData.operations.teamRoster && formData.operations.teamRoster.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">Team Roster</label>
                       <div className="space-y-2">
-                        {formData.operations.teamMembers.map((member: any, index: number) => (
+                        {formData.operations.teamRoster.map((member: any, index: number) => (
                           <div key={index} className="flex justify-between items-center p-3 bg-muted rounded-lg">
                             <div>
                               <p className="font-medium">{member.name}</p>
-                              <p className="text-sm text-muted-foreground">{member.role}</p>
                             </div>
-                            <Badge variant="outline">{member.status}</Badge>
+                            <Badge variant="outline">{member.role}</Badge>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">New Hires</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.operations.newHires)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Departures</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.operations.departures)}</p>
-                    </div>
-                  </div>
-                  {formData.operations.challenges && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Operational Challenges</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.operations.challenges}</p>
                     </div>
                   )}
                 </CardContent>
@@ -215,20 +206,14 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Retention Rate</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.retention.rate)}%</p>
+                      <label className="text-sm font-medium text-muted-foreground">Policies Terminated</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.retention.numberTerminated)}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Cancelled Policies</label>
-                      <p className="text-lg font-semibold">{formatNumber(formData.retention.cancellations)}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Current Retention %</label>
+                      <p className="text-lg font-semibold">{formatNumber(formData.retention.currentRetentionPercent)}%</p>
                     </div>
                   </div>
-                  {formData.retention.strategies && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">Retention Strategies</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.retention.strategies}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}
@@ -274,22 +259,53 @@ export const FormViewer: React.FC<FormViewerProps> = ({ period, triggerButton })
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {formData.qualitative.wins && (
+                  {formData.qualitative.biggestStress && (
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Key Wins</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.wins}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Biggest Stress</label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.biggestStress}</p>
                     </div>
                   )}
-                  {formData.qualitative.challenges && (
+                  {formData.qualitative.gutAction && (
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Challenges Faced</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.challenges}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Gut Action</label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.gutAction}</p>
                     </div>
                   )}
-                  {formData.qualitative.goals && (
+                  {formData.qualitative.biggestPersonalWin && (
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Next Period Goals</label>
-                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.goals}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Biggest Personal Win</label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.biggestPersonalWin}</p>
+                    </div>
+                  )}
+                  {formData.qualitative.biggestBusinessWin && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Biggest Business Win</label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{formData.qualitative.biggestBusinessWin}</p>
+                    </div>
+                  )}
+                  {formData.qualitative.attackItems && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">Attack Items</label>
+                      <div className="space-y-2">
+                        {formData.qualitative.attackItems.item1 && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="font-medium">Item 1:</p>
+                            <p className="text-sm">{formData.qualitative.attackItems.item1}</p>
+                          </div>
+                        )}
+                        {formData.qualitative.attackItems.item2 && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="font-medium">Item 2:</p>
+                            <p className="text-sm">{formData.qualitative.attackItems.item2}</p>
+                          </div>
+                        )}
+                        {formData.qualitative.attackItems.item3 && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="font-medium">Item 3:</p>
+                            <p className="text-sm">{formData.qualitative.attackItems.item3}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
