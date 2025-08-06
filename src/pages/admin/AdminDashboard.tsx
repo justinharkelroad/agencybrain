@@ -19,7 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
-import { deleteHeatherAccount } from '@/utils/deleteHeather';
 
 interface Agency {
   id: string;
@@ -160,23 +159,6 @@ const AdminDashboard = () => {
     client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDeleteHeather = async () => {
-    try {
-      await deleteHeatherAccount();
-      toast({
-        title: "Success",
-        description: "Heather's account has been deleted successfully",
-      });
-      fetchAdminData(); // Refresh the data
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete Heather's account",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleSignOut = async () => {
     await signOut();
   };
@@ -231,21 +213,10 @@ const AdminDashboard = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-              <p className="text-muted-foreground">
-                Monitor client submissions and manage the coaching platform
-              </p>
-            </div>
-            <Button 
-              onClick={handleDeleteHeather}
-              variant="destructive"
-              size="sm"
-            >
-              Delete Heather's Account
-            </Button>
-          </div>
+          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">
+            Monitor client submissions and manage the coaching platform
+          </p>
         </div>
 
         {/* Stats Overview */}
