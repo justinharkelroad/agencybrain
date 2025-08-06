@@ -115,25 +115,31 @@ const ClientDetail = () => {
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
 
-      // Fetch client's analyses - need to join with periods to filter by user
+      // Fetch client's analyses
       const { data: analysesData, error: analysesError } = await supabase
         .from('ai_analysis')
         .select(`
           *,
           period:periods(*)
         `)
-        .or(`period.user_id.eq.${profileData.id},period_id.is.null`)
         .order('created_at', { ascending: false });
 
       if (analysesError) throw analysesError;
       
-      // Filter analyses to only include those for this client (handles file-only analyses too)
-      const clientAnalyses = analysesData?.filter(analysis => 
-        analysis.period?.user_id === profileData.id || 
-        (analysis.period_id === null && analysis.selected_uploads?.some((upload: any) => 
-          uploadsData?.some(u => u.id === upload.id)
-        ))
-      ) || [];
+      // Filter analyses to only include those for this client
+      const clientAnalyses = analysesData?.filter(analysis => {
+        // Include if linked to a period owned by this client
+        if (analysis.period?.user_id === profileData.id) return true;
+        
+        // Include file-only analyses that contain files from this client
+        if (analysis.period_id === null && analysis.selected_uploads) {
+          return analysis.selected_uploads.some((upload: any) => 
+            uploadsData?.some(u => u.id === upload.id)
+          );
+        }
+        
+        return false;
+      }) || [];
       
       setAnalyses(clientAnalyses);
 
