@@ -99,6 +99,22 @@ Deno.serve(async (req) => {
       agencyId = newAgency.id
     }
 
+    // Check if user already exists by email
+    const { data: existingUser, error: userCheckError } = await supabaseAdmin.auth.admin.listUsers()
+    
+    if (userCheckError) {
+      throw userCheckError
+    }
+
+    const userExists = existingUser.users.find(user => user.email === email)
+    
+    if (userExists) {
+      return new Response(
+        JSON.stringify({ error: 'A user with this email already exists' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create the user with admin privileges
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -115,13 +131,15 @@ Deno.serve(async (req) => {
       throw authError
     }
 
-    // Create the profile
+    // Create the profile using upsert to handle any edge cases
     const { error: profileCreateError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         id: authData.user.id,
         agency_id: agencyId,
         role: 'user'
+      }, {
+        onConflict: 'id'
       })
 
     if (profileCreateError) {
