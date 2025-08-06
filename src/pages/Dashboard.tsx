@@ -351,16 +351,23 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-center">
-                      <Card 
-                        className="hover:shadow-md transition-shadow cursor-pointer" 
-                        onClick={() => navigate('/submit')}
-                      >
+                      <Card className="hover:shadow-md transition-shadow">
                         <CardContent className="pt-6">
-                          <div className="flex flex-col items-center text-center space-y-2">
-                            <FileText className="w-12 h-12 text-primary" />
-                            <h3 className="font-semibold">Meeting Form</h3>
-                            <p className="text-sm text-muted-foreground">Submit To Prepare For Your Call</p>
-                          </div>
+                          <Button 
+                            variant="ghost"
+                            className="h-auto p-4 w-full"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigate('/submit?mode=new');
+                            }}
+                          >
+                            <div className="flex flex-col items-center text-center space-y-2">
+                              <FileText className="w-12 h-12 text-primary" />
+                              <h3 className="font-semibold">Meeting Form</h3>
+                              <p className="text-sm text-muted-foreground">Submit To Prepare For Your Call</p>
+                            </div>
+                          </Button>
                         </CardContent>
                       </Card>
                     </div>

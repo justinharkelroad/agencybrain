@@ -74,7 +74,9 @@ export default function Submit() {
 
   useEffect(() => {
     if (user) {
-      fetchCurrentPeriod();
+      const urlParams = new URLSearchParams(window.location.search);
+      const mode = urlParams.get('mode');
+      fetchCurrentPeriod(mode === 'new');
     }
   }, [user]);
 
@@ -119,7 +121,7 @@ export default function Submit() {
     return initialFormData;
   };
 
-  const fetchCurrentPeriod = async () => {
+  const fetchCurrentPeriod = async (forceNewForm = false) => {
     try {
       // Fetch most recent period for current user (active or otherwise)
       const { data, error } = await supabase
@@ -140,7 +142,8 @@ export default function Submit() {
         return;
       }
 
-      if (data) {
+      if (data && !forceNewForm) {
+        // Existing period - load existing data
         setCurrentPeriod(data);
         setStartDate(new Date(data.start_date));
         setEndDate(new Date(data.end_date));
@@ -160,9 +163,13 @@ export default function Submit() {
             }
           };
           setFormData(safeFormData);
+        } else {
+          // Period exists but no form data - apply selective persistence
+          const persistedFormData = await applySelectiveDataPersistence();
+          setFormData(persistedFormData);
         }
       } else {
-        // No active period found, create one with 30-day lookback
+        // No period found OR forceNewForm is true - create new period
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - 30);
