@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [loading, setLoading] = useState(true);
   const [comparisonData, setComparisonData] = useState<any>(null);
+  const [agencyName, setAgencyName] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -62,41 +63,64 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch all periods for current user, ordered by most recently updated
-      const { data: periodsData, error: periodsError } = await supabase
+      setLoading(true);
+      
+      // Fetch periods - order by updated_at instead of end_date
+      const { data: periods, error: periodsError } = await supabase
         .from('periods')
         .select('*')
-        .eq('user_id', user?.id)
         .order('updated_at', { ascending: false });
 
-      if (periodsError) {
-        console.error('Periods error:', periodsError);
-        return;
+      if (periodsError) throw periodsError;
+
+      if (periods && periods.length > 0) {
+        setAllPeriods(periods);
+        // Set current period to the most recently updated one
+        const mostRecentPeriod = periods[0];
+        setCurrentPeriod(mostRecentPeriod);
+        setSelectedPeriodId(mostRecentPeriod.id);
+        
+        // Fetch uploads for the current period
+        const { data: uploadsData, error: uploadsError } = await supabase
+          .from('uploads')
+          .select('*')
+          .eq('period_id', mostRecentPeriod.id);
+
+        if (uploadsError) throw uploadsError;
+        setUploads(uploadsData || []);
       }
 
-      setAllPeriods(periodsData || []);
-      
-      // Set current period to the most recently updated one
-      const mostRecentPeriod = periodsData?.[0] || null;
-      setCurrentPeriod(mostRecentPeriod);
-      setSelectedPeriodId(mostRecentPeriod?.id || '');
+      // Fetch agency name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user?.id)
+        .single();
 
-      // Fetch uploads for current user
-      const { data: uploadsData, error: uploadsError } = await supabase
-        .from('uploads')
-        .select('id, category, original_name')
-        .eq('user_id', user?.id);
-
-      if (!uploadsError && uploadsData) {
-        setUploads(uploadsData);
+      if (profile?.agency_id) {
+        const { data: agency } = await supabase
+          .from('agencies')
+          .select('name')
+          .eq('id', profile.agency_id)
+          .single();
+        
+        if (agency?.name) {
+          setAgencyName(agency.name);
+        }
       }
 
       // Calculate comparison data if we have multiple periods
-      if (periodsData && periodsData.length >= 2) {
-        calculateComparisonData(periodsData);
+      if (periods && periods.length >= 2) {
+        calculateComparisonData(periods);
       }
+
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('Error fetching dashboard data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -248,38 +272,27 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <img 
-              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
-              alt="Standard" 
-              className="h-8 mr-3"
-            />
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2">
-              <Link to="/dashboard">
-                <Button variant="ghost" size="sm">Dashboard</Button>
-              </Link>
-              <Link to="/submit">
-                <Button variant="ghost" size="sm">Submit</Button>
-              </Link>
-              <Link to="/uploads">
-                <Button variant="ghost" size="sm">Uploads</Button>
-              </Link>
-              <Link to="/file-processor">
-                <Button variant="ghost" size="sm">File Processing</Button>
-              </Link>
-            </nav>
-            {isAdmin && (
-              <Link to="/admin">
-                <Button variant="outline">Admin Panel</Button>
-              </Link>
-            )}
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" size="sm">
+                My Account
+              </Button>
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="outline" size="sm">
+                    Admin Panel
+                  </Button>
+                </Link>
+              )}
+              <Button onClick={handleSignOut} variant="ghost" size="sm">
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -310,7 +323,7 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Submit New Data and Welcome Cards */}
+              {/* Submit New Data and Agency Name Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
@@ -321,7 +334,7 @@ export default function Dashboard() {
                           {getStatusBadge()}
                         </CardTitle>
                         <CardDescription>
-                          Prepare for your next coaching session
+                          Submit To Prepare For Your Call
                         </CardDescription>
                       </div>
                     </div>
@@ -334,7 +347,7 @@ export default function Dashboard() {
                             <div className="flex flex-col items-center text-center space-y-2">
                               <FileText className="w-12 h-12 text-primary" />
                               <h3 className="font-semibold">Meeting Form</h3>
-                              <p className="text-sm text-muted-foreground">Submit to update Dashboard</p>
+                              <p className="text-sm text-muted-foreground">Submit To Prepare For Your Call</p>
                             </div>
                           </CardContent>
                         </Card>
@@ -343,29 +356,14 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20">
-                  <CardHeader>
-                    <div className="text-center">
-                      <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                        Welcome To Your New Standard
-                      </CardTitle>
-                      <CardDescription className="text-lg font-medium mt-2">
-                        {user?.email?.split('@')[0] || 'Agency'} 🚀
-                      </CardDescription>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-center items-center">
-                      <div className="text-center space-y-3">
-                        <div className="text-6xl">⭐</div>
-                        <p className="text-sm text-muted-foreground font-medium">
-                          Ready to elevate your performance?
-                        </p>
-                        <Button onClick={createNewPeriod} variant="outline" size="sm" className="mt-4">
-                          <PlusCircle className="w-4 h-4 mr-2" />
-                          New Period
-                        </Button>
-                      </div>
+                <Card className="border-primary/20">
+                  <CardContent className="flex items-center justify-center h-full py-12">
+                    <div className="text-center w-full">
+                      <h1 className="font-bold text-primary leading-tight" style={{
+                        fontSize: `clamp(1.5rem, ${Math.max(1.5, Math.min(4, 20 / Math.max(1, (agencyName || 'HFI INC').length / 3)))}rem, 4rem)`
+                      }}>
+                        {agencyName || 'HFI INC'}
+                      </h1>
                     </div>
                   </CardContent>
                 </Card>
