@@ -332,7 +332,7 @@ export default function Dashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex justify-center">
                     <Link to="/submit">
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="pt-6">
@@ -340,17 +340,6 @@ export default function Dashboard() {
                             <FileText className="w-12 h-12 text-primary" />
                             <h3 className="font-semibold">Meeting Form</h3>
                             <p className="text-sm text-muted-foreground">Submit to update Dashboard</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                    <Link to="/uploads/history">
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="pt-6">
-                          <div className="flex flex-col items-center text-center space-y-2">
-                            <History className="w-12 h-12 text-primary" />
-                            <h3 className="font-semibold">History</h3>
-                            <p className="text-sm text-muted-foreground">View past periods</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -496,14 +485,16 @@ export default function Dashboard() {
                           <p className="text-sm text-muted-foreground"># of Policies Quoted</p>
                         </div>
                       )}
-                      {currentPeriod.form_data.sales && (
-                        <div className="text-center">
-                          <p className="text-2xl font-bold">
-                            {currentPeriod.form_data.sales.achieveVC ? '✓' : '✗'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">VC Achieved</p>
-                        </div>
-                      )}
+                       {currentPeriod.form_data.sales && (
+                         <div className="text-center">
+                           <p className={`text-2xl font-bold ${
+                             currentPeriod.form_data.sales.achieveVC ? 'text-green-600' : 'text-red-600'
+                           }`}>
+                             {currentPeriod.form_data.sales.achieveVC ? '✓' : '✗'}
+                           </p>
+                           <p className="text-sm text-muted-foreground">VC Achieved</p>
+                         </div>
+                       )}
                     </div>
 
                     {/* Second Row: Total Marketing Spend, Agency Compensation, Expenses, Net Profit */}
