@@ -86,9 +86,32 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
 
     } catch (error: any) {
       console.error('Error creating client:', error);
+      
+      // Extract specific error message from edge function response
+      let errorMessage = "Failed to create client account";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      }
+      
+      // Handle specific error cases
+      if (errorMessage.includes('already exists')) {
+        errorMessage = "A user with this email already exists";
+      } else if (errorMessage.includes('non-2xx status code')) {
+        errorMessage = "Server error occurred. Please try again or contact support.";
+      } else if (errorMessage.includes('Missing required fields')) {
+        errorMessage = "Please fill in all required fields";
+      } else if (errorMessage.includes('Only admin users')) {
+        errorMessage = "You don't have permission to create client accounts";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to create client account",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

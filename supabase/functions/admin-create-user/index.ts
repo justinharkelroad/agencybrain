@@ -110,29 +110,40 @@ Deno.serve(async (req) => {
       agencyId = newAgency.id
     }
 
-    // Check if user already exists by email
-    const { data: existingUser, error: userCheckError } = await supabaseAdmin.auth.admin.listUsers()
-    
-    if (userCheckError) {
-      console.error('User check error:', userCheckError)
-      throw userCheckError
-    }
-
-    const userExists = existingUser.users.find(user => user.email === email)
-    
-    if (userExists) {
-      return new Response(
-        JSON.stringify({ error: 'A user with this email already exists' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // Check if user already exists by email (efficient approach)
+    console.log('Checking if user exists with email:', email)
+    try {
+      const { data: existingUser, error: userCheckError } = await supabaseAdmin.auth.admin.getUserByEmail(email)
+      
+      if (existingUser && existingUser.user) {
+        console.log('User already exists:', existingUser.user.id)
+        return new Response(
+          JSON.stringify({ error: 'A user with this email already exists' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      if (userCheckError && userCheckError.message !== 'User not found') {
+        console.error('User check error:', userCheckError)
+        throw userCheckError
+      }
+      
+      console.log('User does not exist, proceeding with creation')
+    } catch (error) {
+      console.error('Error checking user existence:', error)
+      // If it's just "user not found", that's what we want
+      if (error.message !== 'User not found') {
+        throw error
+      }
     }
 
     // Create the user with admin privileges
+    console.log('Creating auth user for email:', email)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: {
+      raw_user_meta_data: {
         first_name: firstName,
         last_name: lastName,
         agency_name: agencyName
