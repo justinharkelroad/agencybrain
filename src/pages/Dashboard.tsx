@@ -69,6 +69,7 @@ export default function Dashboard() {
       const { data: periods, error: periodsError } = await supabase
         .from('periods')
         .select('*')
+        .eq('user_id', user?.id)
         .order('updated_at', { ascending: false });
 
       if (periodsError) throw periodsError;
@@ -79,16 +80,16 @@ export default function Dashboard() {
         const mostRecentPeriod = periods[0];
         setCurrentPeriod(mostRecentPeriod);
         setSelectedPeriodId(mostRecentPeriod.id);
-        
-        // Fetch uploads for the current period
-        const { data: uploadsData, error: uploadsError } = await supabase
-          .from('uploads')
-          .select('*')
-          .eq('period_id', mostRecentPeriod.id);
-
-        if (uploadsError) throw uploadsError;
-        setUploads(uploadsData || []);
       }
+
+      // Fetch uploads for current user (not by period_id since that column doesn't exist)
+      const { data: uploadsData, error: uploadsError } = await supabase
+        .from('uploads')
+        .select('id, category, original_name')
+        .eq('user_id', user?.id);
+
+      if (uploadsError) throw uploadsError;
+      setUploads(uploadsData || []);
 
       // Fetch agency name
       const { data: profile } = await supabase
@@ -281,6 +282,11 @@ export default function Dashboard() {
               <Button variant="outline" size="sm">
                 My Account
               </Button>
+              <Link to="/uploads">
+                <Button variant="outline" size="sm">
+                  Upload Files
+                </Button>
+              </Link>
               {isAdmin && (
                 <Link to="/admin">
                   <Button variant="outline" size="sm">
@@ -329,9 +335,8 @@ export default function Dashboard() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <CardTitle className="flex items-center gap-3">
+                        <CardTitle>
                           Submit New Data for Coaching Call
-                          {getStatusBadge()}
                         </CardTitle>
                         <CardDescription>
                           Submit To Prepare For Your Call
