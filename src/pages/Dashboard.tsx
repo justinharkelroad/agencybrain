@@ -306,11 +306,7 @@ export default function Dashboard() {
                           {getStatusBadge()}
                         </CardTitle>
                         <CardDescription>
-                          {currentPeriod && (
-                            <>
-                              {new Date(currentPeriod.start_date).toLocaleDateString()} - {new Date(currentPeriod.end_date).toLocaleDateString()}
-                            </>
-                          )}
+                          Prepare for your next coaching session
                         </CardDescription>
                       </div>
                     <div className="flex items-center gap-3">
@@ -336,7 +332,7 @@ export default function Dashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Link to="/submit">
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
                         <CardContent className="p-6 text-center">
@@ -344,23 +340,6 @@ export default function Dashboard() {
                           <h3 className="font-semibold">Meeting Form</h3>
                           <p className="text-sm text-muted-foreground">
                             Submit to update Dashboard
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </Link>
-
-                    <Link to="/uploads">
-                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6 text-center">
-                          <Upload className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <h3 className="font-semibold flex items-center justify-center gap-2">
-                            File Uploads
-                            <Badge variant="outline" className="text-xs">
-                              {uploads.length}
-                            </Badge>
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Upload supporting documents
                           </p>
                         </CardContent>
                       </Card>

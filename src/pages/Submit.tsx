@@ -119,6 +119,42 @@ export default function Submit() {
           };
           setFormData(safeFormData);
         }
+      } else {
+        // No active period found, create one with 30-day lookback
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        
+        const { data: newPeriod, error: createError } = await supabase
+          .from('periods')
+          .insert({
+            user_id: user?.id,
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0],
+            status: 'active'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating period:', createError);
+          toast({
+            title: "Error",
+            description: "Could not create a new period. Please try refreshing the page.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (newPeriod) {
+          setCurrentPeriod(newPeriod);
+          setStartDate(startDate);
+          setEndDate(endDate);
+          toast({
+            title: "New Period Created",
+            description: "Created a 30-day period for your coaching session.",
+          });
+        }
       }
     } catch (error) {
       console.error('Unexpected error:', error);
