@@ -140,17 +140,23 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async (forceNewForm = false) => {
     try {
-      // Fetch most recent period for current user (active or otherwise)
-      const { data, error } = await supabase
+      if (forceNewForm) {
+        // Force new form - create a new period with unique date range
+        await createNewPeriodForNewForm();
+        return;
+      }
+
+      // Look for existing active or draft periods first
+      const { data: activePeriods, error: activeError } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .in('status', ['active', 'draft'])
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
-      if (error) {
-        console.error('Periods error:', error);
+      if (activeError) {
+        console.error('Periods error:', activeError);
         toast({
           title: "Error",
           description: "Could not fetch active period. Please try refreshing the page.",
@@ -159,24 +165,25 @@ export default function Submit() {
         return;
       }
 
-      if (data && !forceNewForm) {
-        // Existing period - load existing data and DO NOT create a new one
-        console.log('Loading existing period:', data.id);
-        setCurrentPeriod(data);
-        setStartDate(new Date(data.start_date));
-        setEndDate(new Date(data.end_date));
-        if (data.form_data) {
+      // If we have an active/draft period, use it
+      if (activePeriods && activePeriods.length > 0) {
+        const period = activePeriods[0];
+        console.log('Loading existing active period:', period.id);
+        setCurrentPeriod(period);
+        setStartDate(new Date(period.start_date));
+        setEndDate(new Date(period.end_date));
+        
+        if (period.form_data && Object.keys(period.form_data).length > 0) {
           // Ensure all required nested fields exist
           const safeFormData = {
             ...initialFormData,
-            ...data.form_data,
-            // Specifically ensure qualitative.attackItems exists
+            ...period.form_data,
             qualitative: {
               ...initialFormData.qualitative,
-              ...data.form_data.qualitative,
+              ...period.form_data.qualitative,
               attackItems: {
                 ...initialFormData.qualitative.attackItems,
-                ...(data.form_data.qualitative?.attackItems || {})
+                ...(period.form_data.qualitative?.attackItems || {})
               }
             }
           };
@@ -187,56 +194,87 @@ export default function Submit() {
           setFormData(persistedFormData);
         }
         setLoading(false);
-        return; // IMPORTANT: Exit early to prevent creating a new period
-      } else {
-        // No period found OR forceNewForm is true - create new period
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-        
-        // Apply selective data persistence BEFORE creating the period
-        const persistedFormData = await applySelectiveDataPersistence();
-        
-        const { data: newPeriod, error: createError } = await supabase
-          .from('periods')
-          .insert({
-            user_id: user?.id,
-            title: `Period ${new Date().toLocaleDateString()}`,
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0],
-            status: 'active',
-            form_data: persistedFormData
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating period:', createError);
-          toast({
-            title: "Error",
-            description: "Could not create a new period. Please try refreshing the page.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (newPeriod) {
-          setCurrentPeriod(newPeriod);
-          setStartDate(startDate);
-          setEndDate(endDate);
-          setFormData(persistedFormData);
-          
-          toast({
-            title: "New Period Created",
-            description: "Created a 30-day period for your coaching session.",
-          });
-        }
+        return;
       }
+
+      // No active periods found - check if we should create one automatically
+      // First check for any complete periods to see if we're just starting out
+      const { data: allPeriods } = await supabase
+        .from('periods')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (!allPeriods || allPeriods.length === 0) {
+        // Brand new user - create first period
+        await createNewPeriodForNewForm();
+      } else {
+        // Existing user but no active period - set up for period selection on dashboard
+        setLoading(false);
+      }
+
     } catch (error) {
       console.error('Unexpected error:', error);
       toast({
         title: "Error", 
         description: "An unexpected error occurred. Please try refreshing the page.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const createNewPeriodForNewForm = async () => {
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      
+      // Apply selective data persistence BEFORE creating the period
+      const persistedFormData = await applySelectiveDataPersistence();
+      
+      const { data: newPeriod, error: createError } = await supabase
+        .from('periods')
+        .insert({
+          user_id: user?.id,
+          title: `Period ${new Date().toLocaleDateString()}`,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          status: 'draft',
+          form_data: persistedFormData
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating period:', createError);
+        toast({
+          title: "Error",
+          description: createError.message.includes('periods_user_date_range_unique') 
+            ? "A period with these dates already exists. Please use the existing period or select different dates."
+            : "Could not create a new period. Please try refreshing the page.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (newPeriod) {
+        setCurrentPeriod(newPeriod);
+        setStartDate(startDate);
+        setEndDate(endDate);
+        setFormData(persistedFormData);
+        
+        toast({
+          title: "New Period Created",
+          description: "Created a 30-day period for your coaching session.",
+        });
+      }
+    } catch (error) {
+      console.error('Error in createNewPeriodForNewForm:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new period. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -352,7 +390,7 @@ export default function Submit() {
       return;
     }
 
-    // Basic validation
+    // Enhanced validation
     if (!formData.sales.premium && !formData.sales.policies) {
       toast({
         title: "Validation Error",
@@ -362,14 +400,27 @@ export default function Submit() {
       return;
     }
 
+    // Check if this is a substantial form completion
+    const isSubstantialCompletion = formData.sales.premium > 0 || 
+                                   formData.sales.policies > 0 || 
+                                   formData.marketing.totalSpend > 0 ||
+                                   formData.cashFlow.compensation > 0;
+
     setSaving(true);
     try {
+      const updateData: any = {
+        form_data: formData,
+        updated_at: new Date().toISOString()
+      };
+
+      // Auto-update status based on form completion
+      if (isSubstantialCompletion) {
+        updateData.status = 'active';
+      }
+
       const { error } = await supabase
         .from('periods')
-        .update({ 
-          form_data: formData,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', currentPeriod.id);
 
       if (error) {
@@ -384,8 +435,15 @@ export default function Submit() {
           title: "Success",
           description: "Form data saved successfully",
         });
+        
         // Update current period to reflect the change
-        setCurrentPeriod(prev => ({ ...prev, form_data: formData, updated_at: new Date().toISOString() }));
+        setCurrentPeriod(prev => ({ 
+          ...prev, 
+          form_data: formData, 
+          updated_at: new Date().toISOString(),
+          status: isSubstantialCompletion ? 'active' : prev.status
+        }));
+        
         // Redirect to upload selection page
         navigate('/uploads/select');
       }

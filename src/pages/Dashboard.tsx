@@ -72,7 +72,7 @@ export default function Dashboard() {
     try {
       setLoading(true);
       
-      // Fetch periods - order by updated_at instead of end_date
+      // Fetch periods ordered by status priority then by updated_at
       const { data: periods, error: periodsError } = await supabase
         .from('periods')
         .select('*')
@@ -84,15 +84,38 @@ export default function Dashboard() {
       if (periods && periods.length > 0) {
         setAllPeriods(periods);
         
-        // Find the most recent period WITH form_data, not just the most recently updated
-        const periodWithData = periods.find(p => p.form_data && Object.keys(p.form_data).length > 0);
-        const currentPeriodToUse = periodWithData || periods[0];
+        // Prioritize periods with status and data:
+        // 1. Complete periods with form_data
+        // 2. Active periods with form_data  
+        // 3. Any period with form_data
+        // 4. Most recently updated period
+        let currentPeriodToUse = periods[0]; // fallback
+        
+        const completePeriods = periods.filter(p => 
+          p.status === 'complete' && p.form_data && Object.keys(p.form_data).length > 0
+        );
+        
+        const activePeriods = periods.filter(p => 
+          p.status === 'active' && p.form_data && Object.keys(p.form_data).length > 0
+        );
+        
+        const periodsWithData = periods.filter(p => 
+          p.form_data && Object.keys(p.form_data).length > 0
+        );
+
+        if (completePeriods.length > 0) {
+          currentPeriodToUse = completePeriods[0];
+        } else if (activePeriods.length > 0) {
+          currentPeriodToUse = activePeriods[0];
+        } else if (periodsWithData.length > 0) {
+          currentPeriodToUse = periodsWithData[0];
+        }
         
         setCurrentPeriod(currentPeriodToUse);
         setSelectedPeriodId(currentPeriodToUse.id);
       }
 
-      // Fetch uploads for current user (not by period_id since that column doesn't exist)
+      // Fetch uploads for current user
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('id, category, original_name')
@@ -120,7 +143,7 @@ export default function Dashboard() {
         }
       }
 
-      // Calculate comparison data if we have multiple periods
+      // Calculate comparison data with proper period ordering
       if (periods && periods.length >= 2) {
         calculateComparisonData(periods);
       }
@@ -140,23 +163,38 @@ export default function Dashboard() {
   const calculateComparisonData = (periods: Period[]) => {
     if (periods.length < 2) return;
     
-    const current = periods[0];
-    const previous = periods[1];
+    // Sort periods by completion date (end_date) to get proper chronological comparison
+    const sortedPeriods = [...periods]
+      .filter(p => p.form_data && Object.keys(p.form_data).length > 0)
+      .sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
     
-    if (!current.form_data || !previous.form_data) {
-      // If we have current form_data but no previous, show absolute values
-      if (current.form_data) {
+    if (sortedPeriods.length < 2) {
+      // If we only have one period with data, show absolute values
+      if (sortedPeriods.length === 1) {
+        const current = sortedPeriods[0];
         const comparison: any = {
-          premium: { value: current.form_data.sales?.premium || 0, change: 0, percent: 0 },
-          policies: { value: current.form_data.sales?.policies || 0, change: 0, percent: 0 },
-          marketingSpend: { value: current.form_data.marketing?.totalSpend || 0, change: 0, percent: 0 },
-          netProfit: { value: current.form_data.cashFlow?.netProfit || 0, change: 0, percent: 0 }
+          premium: { value: current.form_data.sales?.premium || 0, change: 0, percentage: 0, trend: 'neutral' },
+          policies: { value: current.form_data.sales?.policies || 0, change: 0, percentage: 0, trend: 'neutral' },
+          marketingSpend: { 
+            value: current.form_data.marketing?.leadSources?.reduce((sum, source) => sum + (parseFloat(source.spend) || 0), 0) || 0, 
+            change: 0, 
+            percentage: 0, 
+            trend: 'neutral' 
+          },
+          netProfit: { 
+            value: ((parseFloat(current.form_data.cashFlow?.compensation) || 0) - (parseFloat(current.form_data.cashFlow?.expenses) || 0)), 
+            change: 0, 
+            percentage: 0, 
+            trend: 'neutral' 
+          }
         };
         setComparisonData(comparison);
       }
       return;
     }
 
+    const current = sortedPeriods[0];
+    const previous = sortedPeriods[1];
     const comparison: any = {};
     
     // Sales comparison
@@ -189,9 +227,16 @@ export default function Dashboard() {
   };
 
   const calculateChange = (current: number, previous: number) => {
-    if (previous === 0) return { value: 0, percentage: 0, trend: 'neutral' };
-    
     const change = current - previous;
+    
+    if (previous === 0) {
+      return { 
+        value: current, 
+        percentage: current > 0 ? 100 : 0, 
+        trend: current > 0 ? 'up' : 'neutral' 
+      };
+    }
+    
     const percentage = (change / previous) * 100;
     const trend = change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
     
@@ -209,19 +254,31 @@ export default function Dashboard() {
         return;
       }
 
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      // Calculate non-overlapping date range
+      let startDate = new Date();
+      let endDate = new Date();
+      
+      // If we have existing periods, start after the most recent period
+      if (allPeriods.length > 0) {
+        const mostRecentEndDate = Math.max(...allPeriods.map(p => new Date(p.end_date).getTime()));
+        startDate = new Date(mostRecentEndDate);
+        startDate.setDate(startDate.getDate() + 1); // Start day after most recent period ends
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 30); // 30-day period
+      } else {
+        // First period - use standard 30-day range
+        startDate.setDate(startDate.getDate() - 30);
+      }
 
       const { data, error } = await supabase
         .from('periods')
         .insert({
           user_id: user.id,
-          title: `Period ${new Date().toISOString().split('T')[0]}`,
+          title: `Period ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
-          status: 'active',
-          form_data: {}
+          status: 'draft',
+          form_data: null
         })
         .select()
         .single();
@@ -229,7 +286,9 @@ export default function Dashboard() {
       if (error) {
         toast({
           title: "Error",
-          description: error.message,
+          description: error.message.includes('periods_user_date_range_unique') 
+            ? "A period with these dates already exists. Please use the existing period."
+            : error.message,
           variant: "destructive",
         });
       } else {
@@ -243,6 +302,11 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error creating period:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while creating the period.",
+        variant: "destructive",
+      });
     }
   };
 
