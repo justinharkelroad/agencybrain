@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Period {
   id: string;
@@ -29,6 +29,7 @@ interface Upload {
 
 export default function Dashboard() {
   const { user, signOut, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [allPeriods, setAllPeriods] = useState<Period[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
@@ -275,8 +276,12 @@ export default function Dashboard() {
       <header className="border-b bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+            <div className="flex items-center">
+              <img 
+                src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
+                alt="Standard" 
+                className="h-8 mr-3"
+              />
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="outline" size="sm">
@@ -346,17 +351,18 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex justify-center">
-                      <Link to="/submit">
-                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                          <CardContent className="pt-6">
-                            <div className="flex flex-col items-center text-center space-y-2">
-                              <FileText className="w-12 h-12 text-primary" />
-                              <h3 className="font-semibold">Meeting Form</h3>
-                              <p className="text-sm text-muted-foreground">Submit To Prepare For Your Call</p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
+                      <Card 
+                        className="hover:shadow-md transition-shadow cursor-pointer" 
+                        onClick={() => navigate('/submit')}
+                      >
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <FileText className="w-12 h-12 text-primary" />
+                            <h3 className="font-semibold">Meeting Form</h3>
+                            <p className="text-sm text-muted-foreground">Submit To Prepare For Your Call</p>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   </CardContent>
                 </Card>

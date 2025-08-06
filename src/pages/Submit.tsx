@@ -78,6 +78,47 @@ export default function Submit() {
     }
   }, [user]);
 
+  // Calculate total lead source spend
+  const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
+
+  // Apply selective data persistence from previous period
+  const applySelectiveDataPersistence = async () => {
+    try {
+      // Fetch the previous period's data
+      const { data: previousPeriod } = await supabase
+        .from('periods')
+        .select('form_data')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (previousPeriod?.form_data) {
+        const prevData = previousPeriod.form_data;
+        return {
+          ...initialFormData,
+          // Preserve team roster names and roles
+          operations: {
+            ...initialFormData.operations,
+            teamRoster: prevData.operations?.teamRoster || []
+          },
+          // Preserve lead source names but reset spend to 0
+          marketing: {
+            ...initialFormData.marketing,
+            leadSources: (prevData.marketing?.leadSources || []).map(source => ({
+              name: source.name,
+              spend: 0
+            }))
+          }
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching previous period data:', error);
+    }
+    
+    return initialFormData;
+  };
+
   const fetchCurrentPeriod = async () => {
     try {
       // Fetch most recent period for current user (active or otherwise)
@@ -151,6 +192,11 @@ export default function Submit() {
           setCurrentPeriod(newPeriod);
           setStartDate(startDate);
           setEndDate(endDate);
+          
+          // Apply selective data persistence for new periods
+          const persistedFormData = await applySelectiveDataPersistence();
+          setFormData(persistedFormData);
+          
           toast({
             title: "New Period Created",
             description: "Created a 30-day period for your coaching session.",
@@ -577,17 +623,31 @@ export default function Submit() {
                   ))}
                 </div>
                 
-                <div>
-                  <Label htmlFor="totalSpend">Total Spend ($)</Label>
-                  <Input
-                    id="totalSpend"
-                    type="number"
-                    step="0.01"
-                    value={formData.marketing.totalSpend || ''}
-                    className="bg-muted"
-                    readOnly
-                    placeholder=""
-                  />
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="leadSourceTotal">Lead Sources Total ($)</Label>
+                    <Input
+                      id="leadSourceTotal"
+                      type="number"
+                      step="0.01"
+                      value={totalLeadSourceSpend.toFixed(2)}
+                      className="bg-muted font-semibold"
+                      readOnly
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="totalSpend">Total Spend ($)</Label>
+                    <Input
+                      id="totalSpend"
+                      type="number"
+                      step="0.01"
+                      value={formData.marketing.totalSpend || ''}
+                      className="bg-muted"
+                      readOnly
+                      placeholder=""
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
