@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [agencyName, setAgencyName] = useState<string>('');
+  const [editableAgencyName, setEditableAgencyName] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,6 +46,10 @@ export default function Dashboard() {
       fetchDashboardData();
     }
   }, [user]);
+
+  useEffect(() => {
+    setEditableAgencyName(agencyName || '');
+  }, [agencyName]);
 
   // Refresh data when returning to dashboard (e.g., from form submission)
   useEffect(() => {
@@ -276,6 +282,33 @@ export default function Dashboard() {
 
   const handleSignOut = async () => {
     await signOut();
+    navigate('/auth');
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ agency_name: editableAgencyName })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setAgencyName(editableAgencyName);
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -312,15 +345,41 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium">Email</label>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      <Input 
+                        value={user?.email || ''} 
+                        disabled
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium">Agency</label>
-                      <p className="text-sm text-muted-foreground">{agencyName || 'Not set'}</p>
+                      <Input 
+                        value={editableAgencyName}
+                        onChange={(e) => setEditableAgencyName(e.target.value)}
+                        placeholder="Enter agency name"
+                        className="mt-1"
+                      />
                     </div>
                     <div>
                       <label className="text-sm font-medium">Role</label>
-                      <p className="text-sm text-muted-foreground">{isAdmin ? 'Administrator' : 'User'}</p>
+                      <Input 
+                        value={isAdmin ? 'Administrator' : 'User'}
+                        disabled
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Role is managed by administrators</p>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setEditableAgencyName(agencyName || '')}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleUpdateProfile}>
+                        Save Changes
+                      </Button>
                     </div>
                   </div>
                 </DialogContent>
