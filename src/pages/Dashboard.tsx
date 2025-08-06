@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
+import { FormViewer } from '@/components/FormViewer';
+import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -585,20 +587,54 @@ export default function Dashboard() {
                         <CardTitle>Performance Metrics</CardTitle>
                       </div>
                       <div className="flex items-center gap-3">
-                        {allPeriods.length > 1 && (
-                          <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
-                            <SelectTrigger className="w-48 bg-background">
-                              <SelectValue placeholder="Select period" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background border shadow-lg z-50">
-                              {allPeriods.map((period) => (
-                                <SelectItem key={period.id} value={period.id}>
-                                  {new Date(period.updated_at).toLocaleDateString()} - {period.form_data ? 'Complete' : 'Draft'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                         {allPeriods.length > 1 && (
+                           <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
+                             <SelectTrigger className="w-48 bg-background">
+                               <SelectValue placeholder="Select period" />
+                             </SelectTrigger>
+                             <SelectContent className="bg-background border shadow-lg z-50">
+                               {allPeriods.map((period) => (
+                                 <SelectItem key={period.id} value={period.id}>
+                                   {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()} ({period.form_data && Object.keys(period.form_data).length > 0 ? 'Complete' : 'Draft'})
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                         )}
+                         {currentPeriod && (
+                           <div className="flex items-center gap-2">
+                             <FormViewer 
+                               period={currentPeriod}
+                               triggerButton={
+                                 <Button variant="outline" size="sm">
+                                   <FileText className="w-4 h-4 mr-2" />
+                                   View Details
+                                 </Button>
+                               }
+                             />
+                             <PeriodDeleteDialog
+                               period={currentPeriod}
+                               onDelete={() => {
+                                 fetchDashboardData();
+                                 // Reset to first available period or null
+                                 const remainingPeriods = allPeriods.filter(p => p.id !== currentPeriod.id);
+                                 if (remainingPeriods.length > 0) {
+                                   setCurrentPeriod(remainingPeriods[0]);
+                                   setSelectedPeriodId(remainingPeriods[0].id);
+                                 } else {
+                                   setCurrentPeriod(null);
+                                   setSelectedPeriodId('');
+                                 }
+                               }}
+                               triggerButton={
+                                 <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                   <Trash2 className="w-4 h-4 mr-2" />
+                                   Delete Period
+                                 </Button>
+                               }
+                             />
+                           </div>
+                         )}
                         {currentPeriod?.form_data && (
                           <Link to="/submit">
                             <Button variant="outline" size="sm">

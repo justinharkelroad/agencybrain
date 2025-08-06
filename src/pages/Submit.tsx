@@ -227,19 +227,18 @@ export default function Submit() {
 
   const createNewPeriodForNewForm = async () => {
     try {
-      // Get all existing periods to find the latest end date
+      // Get all existing periods to check for duplicates and find date range
       const { data: existingPeriods } = await supabase
         .from('periods')
-        .select('end_date')
+        .select('start_date, end_date')
         .eq('user_id', user?.id)
-        .order('end_date', { ascending: false })
-        .limit(1);
+        .order('end_date', { ascending: false });
 
       let startDate: Date;
       let endDate: Date;
 
       if (existingPeriods && existingPeriods.length > 0) {
-        // Start new period the day after the latest period ends
+        // Start new period the day after the latest period ends to avoid overlap
         const latestEndDate = new Date(existingPeriods[0].end_date);
         startDate = new Date(latestEndDate);
         startDate.setDate(startDate.getDate() + 1);
@@ -247,6 +246,23 @@ export default function Submit() {
         // End date is 30 days from start date
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 30);
+
+        // Double-check for potential overlaps
+        const wouldOverlap = existingPeriods.some(period => {
+          const periodStart = new Date(period.start_date);
+          const periodEnd = new Date(period.end_date);
+          return (startDate <= periodEnd && endDate >= periodStart);
+        });
+
+        if (wouldOverlap) {
+          // If overlap detected, push start date further
+          const allEndDates = existingPeriods.map(p => new Date(p.end_date));
+          const maxEndDate = new Date(Math.max(...allEndDates.map(d => d.getTime())));
+          startDate = new Date(maxEndDate);
+          startDate.setDate(startDate.getDate() + 1);
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+        }
       } else {
         // First period - use last 30 days
         endDate = new Date();

@@ -14,8 +14,11 @@ import {
   Upload,
   Download,
   LogOut,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from 'lucide-react';
+import { FormViewer } from '@/components/FormViewer';
+import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { useToast } from '@/hooks/use-toast';
 
 interface Agency {
@@ -372,6 +375,26 @@ const ClientDetail = () => {
                         </div>
                         <div className="flex items-center space-x-3">
                           {getStatusBadge(period)}
+                          <FormViewer 
+                            period={period}
+                            triggerButton={
+                              <Button variant="outline" size="sm">
+                                <FileText className="w-4 h-4 mr-2" />
+                                View Form
+                              </Button>
+                            }
+                          />
+                          <PeriodDeleteDialog
+                            period={period}
+                            onDelete={fetchClientData}
+                            isAdmin={true}
+                            triggerButton={
+                              <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </Button>
+                            }
+                          />
                         </div>
                       </div>
                     ))}
