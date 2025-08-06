@@ -259,13 +259,13 @@ export default function Submit() {
   };
 
   const calculateNetProfit = () => {
-    const netProfit = (formData.sales.premium + formData.operations.currentAlrTotal) - formData.cashFlow.compensation - formData.cashFlow.expenses;
+    const netProfit = formData.cashFlow.compensation - formData.cashFlow.expenses;
     updateFormData('cashFlow', 'netProfit', Math.round(netProfit * 100) / 100);
   };
 
   useEffect(() => {
     calculateNetProfit();
-  }, [formData.sales.premium, formData.operations.currentAlrTotal, formData.cashFlow.compensation, formData.cashFlow.expenses]);
+  }, [formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
   const saveForm = async () => {
     if (!currentPeriod) {
