@@ -134,10 +134,13 @@ export default function Dashboard() {
         .eq('id', user?.id)
         .single();
 
-      // Get user's first name from auth metadata - debug what's available
+      // Get user's first name from user metadata 
       console.log('User object:', user);
       console.log('User metadata:', user?.user_metadata);
-      const firstName = user?.user_metadata?.first_name || user?.user_metadata?.firstName || '';
+      // Check different possible locations for first name
+      const firstName = user?.user_metadata?.first_name || 
+                       user?.user_metadata?.firstName ||
+                       (user as any)?.raw_user_meta_data?.first_name || '';
       console.log('Extracted first name:', firstName);
       setUserFirstName(firstName);
 
