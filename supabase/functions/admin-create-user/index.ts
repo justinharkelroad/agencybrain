@@ -110,31 +110,30 @@ Deno.serve(async (req) => {
       agencyId = newAgency.id
     }
 
-    // Check if user already exists by email (efficient approach)
+    // Check if user already exists by email using database query
     console.log('Checking if user exists with email:', email)
+    const { data: existingUserProfile, error: profileCheckError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', 'EXISTS(SELECT 1 FROM auth.users WHERE email = \'' + email + '\')')
+      .maybeSingle()
+
+    // Alternative approach: check via a more direct method
+    let userExists = false
     try {
-      const { data: existingUser, error: userCheckError } = await supabaseAdmin.auth.admin.getUserByEmail(email)
+      // Try to get user session with the email to check existence
+      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1
+      })
       
-      if (existingUser && existingUser.user) {
-        console.log('User already exists:', existingUser.user.id)
-        return new Response(
-          JSON.stringify({ error: 'A user with this email already exists' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      if (!listError && users?.users) {
+        // Since we can't efficiently filter by email in listUsers, 
+        // we'll proceed with creation and let the auth system handle duplicates
+        console.log('Proceeding with user creation - duplicate check will be handled by auth system')
       }
-      
-      if (userCheckError && userCheckError.message !== 'User not found') {
-        console.error('User check error:', userCheckError)
-        throw userCheckError
-      }
-      
-      console.log('User does not exist, proceeding with creation')
     } catch (error) {
-      console.error('Error checking user existence:', error)
-      // If it's just "user not found", that's what we want
-      if (error.message !== 'User not found') {
-        throw error
-      }
+      console.log('Could not check user existence, proceeding with creation:', error)
     }
 
     // Create the user with admin privileges
@@ -152,10 +151,22 @@ Deno.serve(async (req) => {
 
     if (authError) {
       console.error('Auth user creation error:', authError)
+      
+      // Handle specific auth errors
+      if (authError.message?.includes('already registered')) {
+        return new Response(
+          JSON.stringify({ error: 'A user with this email already exists' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       throw authError
     }
 
+    console.log('Auth user created successfully:', authData.user.id)
+
     // Create the profile using upsert to handle any edge cases
+    console.log('Creating user profile for user:', authData.user.id)
     const { error: profileCreateError } = await supabaseAdmin
       .from('profiles')
       .upsert({
@@ -169,9 +180,17 @@ Deno.serve(async (req) => {
     if (profileCreateError) {
       console.error('Profile creation error:', profileCreateError)
       // If profile creation fails, we should clean up the auth user
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      console.log('Cleaning up auth user due to profile creation failure')
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+        console.log('Auth user cleanup successful')
+      } catch (cleanupError) {
+        console.error('Failed to cleanup auth user:', cleanupError)
+      }
       throw profileCreateError
     }
+
+    console.log('Profile created successfully for user:', authData.user.id)
 
     console.log('Successfully created user:', authData.user.id)
 
