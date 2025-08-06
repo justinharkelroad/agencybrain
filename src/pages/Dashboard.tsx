@@ -17,6 +17,8 @@ interface Period {
   status: string;
   form_data: any;
   pdf_url: string | null;
+  updated_at: string;
+  created_at: string;
 }
 
 interface Upload {
@@ -41,14 +43,31 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // Refresh data when returning to dashboard (e.g., from form submission)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user && document.visibilityState === 'visible') {
+        fetchDashboardData();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
+
   const fetchDashboardData = async () => {
     try {
-      // Fetch all periods for current user
+      // Fetch all periods for current user, ordered by most recently updated
       const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
-        .order('end_date', { ascending: false });
+        .order('updated_at', { ascending: false });
 
       if (periodsError) {
         console.error('Periods error:', periodsError);
@@ -57,13 +76,10 @@ export default function Dashboard() {
 
       setAllPeriods(periodsData || []);
       
-      // Set current period (most recent active one)
-      const activePeriod = periodsData?.find(p => p.status === 'active');
+      // Set current period to the most recently updated one
       const mostRecentPeriod = periodsData?.[0] || null;
-      const current = activePeriod || mostRecentPeriod;
-      
-      setCurrentPeriod(current);
-      setSelectedPeriodId(current?.id || '');
+      setCurrentPeriod(mostRecentPeriod);
+      setSelectedPeriodId(mostRecentPeriod?.id || '');
 
       // Fetch uploads for current user
       const { data: uploadsData, error: uploadsError } = await supabase
@@ -310,6 +326,20 @@ export default function Dashboard() {
                         </CardDescription>
                       </div>
                     <div className="flex items-center gap-3">
+                      {allPeriods.length > 1 && (
+                        <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
+                          <SelectTrigger className="w-48 bg-background">
+                            <SelectValue placeholder="Select period" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border shadow-lg z-50">
+                            {allPeriods.map((period) => (
+                              <SelectItem key={period.id} value={period.id}>
+                                {new Date(period.updated_at).toLocaleDateString()} - {period.form_data ? 'Complete' : 'Draft'}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       {currentPeriod?.form_data && (
                         <Link to="/submit">
                           <Button variant="outline" size="sm">
