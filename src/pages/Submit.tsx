@@ -227,9 +227,32 @@ export default function Submit() {
 
   const createNewPeriodForNewForm = async () => {
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      // Get all existing periods to find the latest end date
+      const { data: existingPeriods } = await supabase
+        .from('periods')
+        .select('end_date')
+        .eq('user_id', user?.id)
+        .order('end_date', { ascending: false })
+        .limit(1);
+
+      let startDate: Date;
+      let endDate: Date;
+
+      if (existingPeriods && existingPeriods.length > 0) {
+        // Start new period the day after the latest period ends
+        const latestEndDate = new Date(existingPeriods[0].end_date);
+        startDate = new Date(latestEndDate);
+        startDate.setDate(startDate.getDate() + 1);
+        
+        // End date is 30 days from start date
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 30);
+      } else {
+        // First period - use last 30 days
+        endDate = new Date();
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+      }
       
       // Apply selective data persistence BEFORE creating the period
       const persistedFormData = await applySelectiveDataPersistence();
@@ -238,7 +261,7 @@ export default function Submit() {
         .from('periods')
         .insert({
           user_id: user?.id,
-          title: `Period ${new Date().toLocaleDateString()}`,
+          title: `Period ${endDate.toLocaleDateString()}`,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
           status: 'draft',
