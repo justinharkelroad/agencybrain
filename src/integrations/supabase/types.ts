@@ -17,18 +17,21 @@ export type Database = {
       agencies: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -264,7 +267,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_create_user: {
+        Args: {
+          p_email: string
+          p_password: string
+          p_agency_id: string
+          p_first_name?: string
+          p_last_name?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
