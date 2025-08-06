@@ -360,9 +360,12 @@ export default function Dashboard() {
                               e.preventDefault();
                               e.stopPropagation();
                               // Disable button temporarily to prevent double clicks
-                              e.currentTarget.disabled = true;
+                              const button = e.currentTarget;
+                              button.disabled = true;
                               setTimeout(() => {
-                                e.currentTarget.disabled = false;
+                                if (button) {
+                                  button.disabled = false;
+                                }
                               }, 1000);
                               navigate('/submit?mode=new');
                             }}
