@@ -80,12 +80,13 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      // Fetch active period for current user
+      // Fetch most recent period for current user (active or otherwise)
       const { data, error } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
-        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error) {

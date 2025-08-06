@@ -310,19 +310,12 @@ export default function Dashboard() {
                         </CardDescription>
                       </div>
                     <div className="flex items-center gap-3">
-                      {allPeriods.length > 1 && (
-                        <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Select period" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allPeriods.map((period) => (
-                              <SelectItem key={period.id} value={period.id}>
-                                {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      {currentPeriod?.form_data && (
+                        <Link to="/submit">
+                          <Button variant="outline" size="sm">
+                            Update This Period
+                          </Button>
+                        </Link>
                       )}
                       <Button onClick={createNewPeriod} variant="outline" size="sm">
                         <PlusCircle className="w-4 h-4 mr-2" />
