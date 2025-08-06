@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Submit from "./pages/Submit";
 import Uploads from "./pages/Uploads";
+import UploadSelection from "./pages/UploadSelection";
 import FileProcessor from "./pages/FileProcessor";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
@@ -44,6 +45,11 @@ const App = () => (
             <Route path="/uploads" element={
               <ProtectedRoute>
                 <Uploads />
+              </ProtectedRoute>
+            } />
+            <Route path="/uploads/select" element={
+              <ProtectedRoute>
+                <UploadSelection />
               </ProtectedRoute>
             } />
             <Route path="/file-processor" element={

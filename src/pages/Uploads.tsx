@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download, FileText, Trash2, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import FileUpload from '@/components/FileUpload';
@@ -23,21 +23,28 @@ interface Upload {
 const Uploads = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const categories = [
     { id: 'sales', label: 'Sales (New Business Details Reports Etc)' },
     { id: 'marketing', label: 'Marketing (Any Leads Purchased Reports Etc)' },
-    { id: 'operations', label: 'Current Biz Metrics' },
-    { id: 'retention', label: 'Termination Report' },
+    { id: 'current-biz-metrics', label: 'Current Biz Metrics' },
+    { id: 'termination-report', label: 'Termination Report' },
   ];
 
   useEffect(() => {
     if (user) {
       fetchUploads();
     }
-  }, [user]);
+    // Check if we came from upload selection
+    if (location.state?.selectedCategories) {
+      setSelectedCategories(location.state.selectedCategories);
+    }
+  }, [user, location.state]);
 
   const fetchUploads = async () => {
     try {
@@ -180,13 +187,36 @@ const Uploads = () => {
             <TabsTrigger value="upload">Upload Files</TabsTrigger>
             <TabsTrigger value="manage">Manage Files</TabsTrigger>
           </TabsList>
+          
+          {selectedCategories.length > 0 && (
+            <Card className="bg-accent/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Upload Progress</p>
+                    <p className="text-sm text-muted-foreground">
+                      Selected {selectedCategories.length} categories for upload
+                    </p>
+                  </div>
+                  <Button onClick={() => navigate('/dashboard')}>
+                    Complete & View Dashboard
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <TabsContent value="upload" className="space-y-6">
-            {categories.map((category) => (
-              <Card key={category.id}>
+            {categories
+              .filter(category => selectedCategories.length === 0 || selectedCategories.includes(category.id))
+              .map((category) => (
+              <Card key={category.id} className={selectedCategories.includes(category.id) ? 'ring-2 ring-primary/20' : ''}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     {category.label}
+                    {selectedCategories.includes(category.id) && (
+                      <Badge variant="default" className="mr-2">Selected</Badge>
+                    )}
                     <Badge variant="outline">
                       {getUploadsByCategory(category.id).length} files
                     </Badge>

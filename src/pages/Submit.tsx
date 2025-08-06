@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -63,6 +63,7 @@ const initialFormData: FormData = {
 
 export default function Submit() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -273,6 +274,8 @@ export default function Submit() {
         });
         // Update current period to reflect the change
         setCurrentPeriod(prev => ({ ...prev, form_data: formData, updated_at: new Date().toISOString() }));
+        // Redirect to upload selection page
+        navigate('/uploads/select');
       }
     } catch (error) {
       console.error('Unexpected error saving form:', error);
