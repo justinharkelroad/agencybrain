@@ -126,18 +126,16 @@ export default function Dashboard() {
 
     // Marketing comparison
     if (current.form_data.marketing && previous.form_data.marketing) {
-      comparison.marketingSpend = calculateChange(
-        current.form_data.marketing.totalSpend || 0,
-        previous.form_data.marketing.totalSpend || 0
-      );
+      const currentSpend = current.form_data.marketing.leadSources?.reduce((sum, source) => sum + (parseFloat(source.spend) || 0), 0) || 0;
+      const previousSpend = previous.form_data.marketing.leadSources?.reduce((sum, source) => sum + (parseFloat(source.spend) || 0), 0) || 0;
+      comparison.marketingSpend = calculateChange(currentSpend, previousSpend);
     }
 
     // Cash flow comparison
     if (current.form_data.cashFlow && previous.form_data.cashFlow) {
-      comparison.netProfit = calculateChange(
-        current.form_data.cashFlow.netProfit || 0,
-        previous.form_data.cashFlow.netProfit || 0
-      );
+      const currentNetProfit = (parseFloat(current.form_data.cashFlow.compensation) || 0) - (parseFloat(current.form_data.cashFlow.expenses) || 0);
+      const previousNetProfit = (parseFloat(previous.form_data.cashFlow.compensation) || 0) - (parseFloat(previous.form_data.cashFlow.expenses) || 0);
+      comparison.netProfit = calculateChange(currentNetProfit, previousNetProfit);
     }
 
     setComparisonData(comparison);
@@ -312,41 +310,20 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Period Selection and Status */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-3">
-                          Submit New Data for Coaching Call
-                          {getStatusBadge()}
-                        </CardTitle>
-                        <CardDescription>
-                          Prepare for your next coaching session
-                        </CardDescription>
-                      </div>
+              {/* Submit New Data Card */}
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="flex items-center gap-3">
+                        Submit New Data for Coaching Call
+                        {getStatusBadge()}
+                      </CardTitle>
+                      <CardDescription>
+                        Prepare for your next coaching session
+                      </CardDescription>
+                    </div>
                     <div className="flex items-center gap-3">
-                      {allPeriods.length > 1 && (
-                        <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
-                          <SelectTrigger className="w-48 bg-background">
-                            <SelectValue placeholder="Select period" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border shadow-lg z-50">
-                            {allPeriods.map((period) => (
-                              <SelectItem key={period.id} value={period.id}>
-                                {new Date(period.updated_at).toLocaleDateString()} - {period.form_data ? 'Complete' : 'Draft'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      {currentPeriod?.form_data && (
-                        <Link to="/submit">
-                          <Button variant="outline" size="sm">
-                            Update This Period
-                          </Button>
-                        </Link>
-                      )}
                       <Button onClick={createNewPeriod} variant="outline" size="sm">
                         <PlusCircle className="w-4 h-4 mr-2" />
                         New Period
@@ -358,41 +335,61 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Link to="/submit">
                       <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                        <CardContent className="p-6 text-center">
-                          <FileText className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <h3 className="font-semibold">Meeting Form</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Submit to update Dashboard
-                          </p>
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <FileText className="w-12 h-12 text-primary" />
+                            <h3 className="font-semibold">Meeting Form</h3>
+                            <p className="text-sm text-muted-foreground">Submit to update Dashboard</p>
+                          </div>
                         </CardContent>
                       </Card>
                     </Link>
-
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer opacity-50">
-                      <CardContent className="p-6 text-center">
-                        <History className="w-8 h-8 mx-auto mb-2 text-primary" />
-                        <h3 className="font-semibold">History</h3>
-                        <p className="text-sm text-muted-foreground">
-                          View past periods
-                        </p>
-                      </CardContent>
-                    </Card>
+                    <Link to="/uploads/history">
+                      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                        <CardContent className="pt-6">
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <History className="w-12 h-12 text-primary" />
+                            <h3 className="font-semibold">History</h3>
+                            <p className="text-sm text-muted-foreground">View past periods</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
 
+              {/* Performance Metrics */}
               {Object.keys(currentPeriod.form_data || {}).length > 0 && (
                 <Card>
                   <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Performance Metrics</CardTitle>
-                      <div className="flex gap-2">
-                        <Link to="/submit">
-                          <Button variant="outline" size="sm">
-                            Update This Period
-                          </Button>
-                        </Link>
-                         {comparisonData && (
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle>Performance Metrics</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {allPeriods.length > 1 && (
+                          <Select value={selectedPeriodId} onValueChange={handlePeriodChange}>
+                            <SelectTrigger className="w-48 bg-background">
+                              <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border shadow-lg z-50">
+                              {allPeriods.map((period) => (
+                                <SelectItem key={period.id} value={period.id}>
+                                  {new Date(period.updated_at).toLocaleDateString()} - {period.form_data ? 'Complete' : 'Draft'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {currentPeriod?.form_data && (
+                          <Link to="/submit">
+                            <Button variant="outline" size="sm">
+                              Update This Period
+                            </Button>
+                          </Link>
+                        )}
+                        {allPeriods.length >= 2 && (
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm">
@@ -400,80 +397,129 @@ export default function Dashboard() {
                                 View Comparison
                               </Button>
                             </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Month-over-Month Comparison</DialogTitle>
-                            </DialogHeader>
-                            <div className="grid grid-cols-2 gap-6 mt-4">
-                              {comparisonData.premium && (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Premium</span>
-                                    {getTrendIcon(comparisonData.premium.trend)}
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Month-over-Month Comparison</DialogTitle>
+                              </DialogHeader>
+                              <div className="grid grid-cols-2 gap-6 mt-4">
+                                {comparisonData?.premium && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium">Premium</span>
+                                      {getTrendIcon(comparisonData.premium.trend)}
+                                    </div>
+                                    <p className="text-2xl font-bold">
+                                      ${Math.abs(comparisonData.premium.value).toLocaleString()}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {comparisonData.premium.percentage > 0 ? '+' : ''}
+                                      {comparisonData.premium.percentage.toFixed(1)}% from last period
+                                    </p>
                                   </div>
-                                  <p className="text-2xl font-bold">
-                                    ${Math.abs(comparisonData.premium.value).toLocaleString()}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {comparisonData.premium.percentage > 0 ? '+' : ''}
-                                    {comparisonData.premium.percentage.toFixed(1)}% from last period
-                                  </p>
-                                </div>
-                              )}
-                              {comparisonData.policies && (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Policies</span>
-                                    {getTrendIcon(comparisonData.policies.trend)}
+                                )}
+                                {comparisonData?.policies && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium">Policies</span>
+                                      {getTrendIcon(comparisonData.policies.trend)}
+                                    </div>
+                                    <p className="text-2xl font-bold">
+                                      {Math.abs(comparisonData.policies.value)}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {comparisonData.policies.percentage > 0 ? '+' : ''}
+                                      {comparisonData.policies.percentage.toFixed(1)}% from last period
+                                    </p>
                                   </div>
-                                  <p className="text-2xl font-bold">
-                                    {Math.abs(comparisonData.policies.value)}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {comparisonData.policies.percentage > 0 ? '+' : ''}
-                                    {comparisonData.policies.percentage.toFixed(1)}% from last period
-                                  </p>
-                                </div>
-                              )}
-                              {comparisonData.marketingSpend && (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Marketing Spend</span>
-                                    {getTrendIcon(comparisonData.marketingSpend.trend)}
+                                )}
+                                {comparisonData?.marketingSpend && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium">Marketing Spend</span>
+                                      {getTrendIcon(comparisonData.marketingSpend.trend)}
+                                    </div>
+                                    <p className="text-2xl font-bold">
+                                      ${Math.abs(comparisonData.marketingSpend.value).toLocaleString()}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {comparisonData.marketingSpend.percentage > 0 ? '+' : ''}
+                                      {comparisonData.marketingSpend.percentage.toFixed(1)}% from last period
+                                    </p>
                                   </div>
-                                  <p className="text-2xl font-bold">
-                                    ${Math.abs(comparisonData.marketingSpend.value).toLocaleString()}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {comparisonData.marketingSpend.percentage > 0 ? '+' : ''}
-                                    {comparisonData.marketingSpend.percentage.toFixed(1)}% from last period
-                                  </p>
-                                </div>
-                              )}
-                              {comparisonData.netProfit && (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Net Profit</span>
-                                    {getTrendIcon(comparisonData.netProfit.trend)}
+                                )}
+                                {comparisonData?.netProfit && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium">Net Profit</span>
+                                      {getTrendIcon(comparisonData.netProfit.trend)}
+                                    </div>
+                                    <p className="text-2xl font-bold">
+                                      ${Math.abs(comparisonData.netProfit.value).toLocaleString()}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {comparisonData.netProfit.percentage > 0 ? '+' : ''}
+                                      {comparisonData.netProfit.percentage.toFixed(1)}% from last period
+                                    </p>
                                   </div>
-                                  <p className="text-2xl font-bold">
-                                    ${Math.abs(comparisonData.netProfit.value).toLocaleString()}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {comparisonData.netProfit.percentage > 0 ? '+' : ''}
-                                    {comparisonData.netProfit.percentage.toFixed(1)}% from last period
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                         )}
-                       </div>
-                     </div>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {/* First Row: Premium Sold, Policies Sold, # Of Policies Quoted, VC Achieved */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      {currentPeriod.form_data.sales && (
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-primary">
+                            ${currentPeriod.form_data.sales.premium || '0'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Premium Sold</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.sales && (
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-primary">
+                            {currentPeriod.form_data.sales.policies || '0'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Policies Sold</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.marketing && (
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-primary">
+                            {currentPeriod.form_data.marketing.policiesQuoted || '0'}
+                          </p>
+                          <p className="text-sm text-muted-foreground"># of Policies Quoted</p>
+                        </div>
+                      )}
+                      {currentPeriod.form_data.sales && (
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">
+                            {currentPeriod.form_data.sales.achieveVC ? '✓' : '✗'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">VC Achieved</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Second Row: Total Marketing Spend, Agency Compensation, Expenses, Net Profit */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t">
+                      {currentPeriod.form_data.marketing && (
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-primary">
+                            ${(() => {
+                              const leadSources = currentPeriod.form_data.marketing.leadSources || [];
+                              const totalSpend = leadSources.reduce((sum, source) => sum + (parseFloat(source.spend) || 0), 0);
+                              return totalSpend.toLocaleString();
+                            })()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Total Marketing Spend</p>
+                        </div>
+                      )}
                       {currentPeriod.form_data.cashFlow && (
                         <div className="text-center">
                           <p className="text-2xl font-bold text-primary">
@@ -507,90 +553,6 @@ export default function Dashboard() {
                             })()}
                           </p>
                           <p className="text-sm text-muted-foreground">Net Profit</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.marketing && (
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-primary">
-                            {currentPeriod.form_data.marketing.policiesQuoted || '0'}
-                          </p>
-                          <p className="text-sm text-muted-foreground"># of Policies Quoted</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Additional metrics from form data */}
-                    <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-6 border-t">
-                      {currentPeriod.form_data.sales && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            ${currentPeriod.form_data.sales.premium || '0'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Premium</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.sales && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.sales.policies || '0'}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Policies</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.bonusOps?.currentALR && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.bonusOps.currentALR}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Current ALR Total YTD</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.bonusOps?.aapProjection && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.bonusOps.aapProjection}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Current AAP Projection</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.bonusOps?.bonusTrend && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.bonusOps.bonusTrend}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Current Bonus Trend #</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.retention?.currentRetention && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.retention.currentRetention}%
-                          </p>
-                          <p className="text-sm text-muted-foreground">Current Retention %</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.retention?.terminated && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            {currentPeriod.form_data.retention.terminated}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Policies Terminated</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.cashFlow?.compensation && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            ${currentPeriod.form_data.cashFlow.compensation}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Compensation</p>
-                        </div>
-                      )}
-                      {currentPeriod.form_data.cashFlow?.expenses && (
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-primary">
-                            ${currentPeriod.form_data.cashFlow.expenses}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Expenses</p>
                         </div>
                       )}
                     </div>
