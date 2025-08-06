@@ -289,9 +289,35 @@ export default function Dashboard() {
     if (!user?.id) return;
 
     try {
+      // First, find or create the agency
+      const { data: existingAgency, error: searchError } = await supabase
+        .from('agencies')
+        .select('id')
+        .eq('name', editableAgencyName)
+        .maybeSingle();
+
+      if (searchError && searchError.code !== 'PGRST116') {
+        throw searchError;
+      }
+
+      let agencyId = existingAgency?.id;
+
+      if (!agencyId && editableAgencyName.trim()) {
+        // Create new agency if it doesn't exist
+        const { data: newAgency, error: createError } = await supabase
+          .from('agencies')
+          .insert({ name: editableAgencyName.trim() })
+          .select('id')
+          .single();
+
+        if (createError) throw createError;
+        agencyId = newAgency.id;
+      }
+
+      // Update the profile with the agency_id
       const { error } = await supabase
         .from('profiles')
-        .update({ agency_name: editableAgencyName })
+        .update({ agency_id: agencyId })
         .eq('id', user.id);
 
       if (error) throw error;

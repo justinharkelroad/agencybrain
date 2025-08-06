@@ -160,7 +160,8 @@ export default function Submit() {
       }
 
       if (data && !forceNewForm) {
-        // Existing period - load existing data
+        // Existing period - load existing data and DO NOT create a new one
+        console.log('Loading existing period:', data.id);
         setCurrentPeriod(data);
         setStartDate(new Date(data.start_date));
         setEndDate(new Date(data.end_date));
@@ -185,6 +186,8 @@ export default function Submit() {
           const persistedFormData = await applySelectiveDataPersistence();
           setFormData(persistedFormData);
         }
+        setLoading(false);
+        return; // IMPORTANT: Exit early to prevent creating a new period
       } else {
         // No period found OR forceNewForm is true - create new period
         const endDate = new Date();
