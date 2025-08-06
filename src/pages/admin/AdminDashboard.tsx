@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
 
 interface Agency {
   id: string;
@@ -197,6 +199,7 @@ const AdminDashboard = () => {
                 <Button variant="ghost" size="sm">Prompts</Button>
               </Link>
             </nav>
+            <ThemeToggle />
             <Link to="/dashboard">
               <Button variant="outline" size="sm">Back to App</Button>
             </Link>
@@ -218,7 +221,7 @@ const AdminDashboard = () => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -230,7 +233,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -242,7 +245,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -254,7 +257,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -268,7 +271,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Client List */}
-        <Card>
+        <Card className="shadow-elegant">
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
@@ -277,14 +280,17 @@ const AdminDashboard = () => {
                   Monitor client submission status and progress
                 </CardDescription>
               </div>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search clients..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex items-center gap-4">
+                <CreateClientDialog onClientCreated={fetchAdminData} />
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search clients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -298,7 +304,7 @@ const AdminDashboard = () => {
                 filteredClients.map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:shadow-sm transition-shadow"
+                    className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all duration-200 hover:scale-[1.02] animate-fade-in"
                   >
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -329,7 +335,7 @@ const AdminDashboard = () => {
 
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          <Card>
+          <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle>Recent Submissions</CardTitle>
             </CardHeader>
@@ -355,7 +361,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle>Recent Uploads</CardTitle>
             </CardHeader>
