@@ -287,45 +287,31 @@ const AdminAnalysis = () => {
 
       const { analysis } = response.data;
 
-      // Save analysis to database 
-      if (selectedPeriod) {
-        const { error: saveError } = await supabase
-          .from('ai_analysis')
-          .insert({
-            period_id: selectedPeriod,
-            analysis_type: selectedCategory,
-            analysis_result: analysis,
-            prompt_used: promptToUse,
-            shared_with_client: false, // Always start as not shared
-            selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
-          });
-  
-        if (saveError) throw saveError;
-      } else {
-        // For file-only analyses, create a temporary analysis object to display
-        setAnalyses([{
-          id: `temp-${Date.now()}`,
-          period_id: null,
+      // Save analysis to database - always save now, even for file-only analyses
+      const { error: saveError } = await supabase
+        .from('ai_analysis')
+        .insert({
+          period_id: selectedPeriod || null, // Allow null for file-only analyses
           analysis_type: selectedCategory,
           analysis_result: analysis,
           prompt_used: promptToUse,
           shared_with_client: false,
-          created_at: new Date().toISOString(),
           selected_uploads: uploadsToAnalyze.map(u => ({ id: u.id, name: u.original_name, category: u.category }))
-        }]);
-        
+        });
+
+      if (saveError) throw saveError;
+
+      if (!selectedPeriod) {
         toast({
           title: "File Analysis Complete",
-          description: "Analysis complete. Note: File-only analyses are not saved to the database.",
+          description: "Analysis complete and saved.",
         });
-        
-        // Continue to show the analysis
+      } else {
+        toast({
+          title: "Analysis Complete", 
+          description: "AI analysis has been generated and saved",
+        });
       }
-
-      toast({
-        title: "Analysis Complete",
-        description: "AI analysis has been generated and saved",
-      });
 
       // Refresh analyses
       fetchAnalyses();
