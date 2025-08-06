@@ -42,6 +42,18 @@ interface Period {
   created_at: string;
 }
 
+interface Analysis {
+  id: string;
+  period_id: string | null;
+  analysis_type: string;
+  analysis_result: string;
+  prompt_used: string;
+  shared_with_client: boolean;
+  selected_uploads: any[];
+  created_at: string;
+  period?: Period;
+}
+
 interface Upload {
   id: string;
   user_id: string;
@@ -58,6 +70,7 @@ const ClientDetail = () => {
   const [client, setClient] = useState<Profile | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -101,6 +114,28 @@ const ClientDetail = () => {
 
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
+
+      // Fetch client's analyses - need to join with periods to filter by user
+      const { data: analysesData, error: analysesError } = await supabase
+        .from('ai_analysis')
+        .select(`
+          *,
+          period:periods(*)
+        `)
+        .or(`period.user_id.eq.${profileData.id},period_id.is.null`)
+        .order('created_at', { ascending: false });
+
+      if (analysesError) throw analysesError;
+      
+      // Filter analyses to only include those for this client (handles file-only analyses too)
+      const clientAnalyses = analysesData?.filter(analysis => 
+        analysis.period?.user_id === profileData.id || 
+        (analysis.period_id === null && analysis.selected_uploads?.some((upload: any) => 
+          uploadsData?.some(u => u.id === upload.id)
+        ))
+      ) || [];
+      
+      setAnalyses(clientAnalyses);
 
     } catch (error) {
       console.error('Error fetching client data:', error);
@@ -295,7 +330,7 @@ const ClientDetail = () => {
           <TabsList>
             <TabsTrigger value="periods">Reporting Periods</TabsTrigger>
             <TabsTrigger value="uploads">File Uploads</TabsTrigger>
-            <TabsTrigger value="analysis" disabled>AI Analysis</TabsTrigger>
+            <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
           </TabsList>
 
           <TabsContent value="periods" className="space-y-4">
@@ -384,6 +419,73 @@ const ClientDetail = () => {
                             Download
                           </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Analysis</CardTitle>
+                <CardDescription>
+                  All AI-generated analyses for this client
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {analyses.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    No analyses generated yet
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {analyses.map((analysis) => (
+                      <div
+                        key={analysis.id}
+                        className="border rounded-lg p-4"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium capitalize">{analysis.analysis_type} Analysis</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(analysis.created_at)}
+                                {analysis.period_id ? " • Period Analysis" : " • File-only Analysis"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={analysis.shared_with_client ? "default" : "secondary"}>
+                              {analysis.shared_with_client ? "Shared" : "Private"}
+                            </Badge>
+                            <Badge variant="outline" className="capitalize">
+                              {analysis.analysis_type}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="prose prose-sm max-w-none">
+                          <div className="whitespace-pre-wrap text-sm">
+                            {analysis.analysis_result}
+                          </div>
+                        </div>
+                        
+                        {analysis.selected_uploads && analysis.selected_uploads.length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-muted-foreground mb-1">Files analyzed:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {analysis.selected_uploads.map((upload: any, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {upload.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -41,7 +41,7 @@ export type Database = {
           analysis_type: string
           created_at: string
           id: string
-          period_id: string
+          period_id: string | null
           prompt_id: string | null
           prompt_used: string
           selected_uploads: Json | null
@@ -53,7 +53,7 @@ export type Database = {
           analysis_type: string
           created_at?: string
           id?: string
-          period_id: string
+          period_id?: string | null
           prompt_id?: string | null
           prompt_used: string
           selected_uploads?: Json | null
@@ -65,7 +65,7 @@ export type Database = {
           analysis_type?: string
           created_at?: string
           id?: string
-          period_id?: string
+          period_id?: string | null
           prompt_id?: string | null
           prompt_used?: string
           selected_uploads?: Json | null
