@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft,
@@ -75,7 +77,20 @@ const ClientDetail = () => {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+const { toast } = useToast();
+
+  // Admin transcript upload/query state
+  const [transcriptUploading, setTranscriptUploading] = useState(false);
+  const [transcriptQueryPrompt, setTranscriptQueryPrompt] = useState('');
+  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
+  const [querying, setQuerying] = useState(false);
+  const [queryResult, setQueryResult] = useState<string>('');
+
+  // Auto-select all transcripts when uploads change
+  useEffect(() => {
+    const transcripts = uploads.filter(u => u.category === 'transcripts');
+    setSelectedTranscriptIds(transcripts.map(u => u.id));
+  }, [uploads]);
 
   useEffect(() => {
     if (user && isAdmin && clientId) {
@@ -215,6 +230,72 @@ const ClientDetail = () => {
       return <Badge variant="outline">In Progress</Badge>;
     } else {
       return <Badge variant="destructive">Not Started</Badge>;
+    }
+  };
+
+  // Admin: upload transcripts for this client
+  const handleTranscriptUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0 || !clientId) return;
+    setTranscriptUploading(true);
+    try {
+      const files = await Promise.all(Array.from(fileList).map(async (file) => {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        return { name: file.name, type: file.type, size: file.size, data: base64 };
+      }));
+
+      const { data, error } = await supabase.functions.invoke('admin-upload-transcripts', {
+        body: { clientId, files, category: 'transcripts' }
+      });
+
+      if (error) throw error;
+
+      // Refresh uploads
+      await fetchClientData();
+      toast({ title: 'Transcripts uploaded', description: 'Your files were uploaded for this client.' });
+    } catch (err: any) {
+      console.error('Transcript upload failed', err);
+      toast({ title: 'Upload failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setTranscriptUploading(false);
+    }
+  };
+
+  const toggleTranscriptSelection = (id: string) => {
+    setSelectedTranscriptIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const selectAllTranscripts = () => {
+    const all = uploads.filter(u => u.category === 'transcripts').map(u => u.id);
+    setSelectedTranscriptIds(all);
+  };
+
+  const clearTranscriptSelection = () => setSelectedTranscriptIds([]);
+
+  const runTranscriptQuery = async () => {
+    if (!clientId || !transcriptQueryPrompt.trim()) return;
+    setQuerying(true);
+    setQueryResult('');
+    try {
+      const filePaths = uploads
+        .filter(u => selectedTranscriptIds.includes(u.id))
+        .map(u => u.file_path);
+
+      const { data, error } = await supabase.functions.invoke('query-transcripts', {
+        body: { clientId, prompt: transcriptQueryPrompt, filePaths }
+      });
+      if (error) throw error;
+      if (data?.analysis) setQueryResult(data.analysis);
+      // Refresh analyses list
+      await fetchClientData();
+    } catch (err: any) {
+      console.error('Query transcripts failed', err);
+      toast({ title: 'Query failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setQuerying(false);
     }
   };
 
@@ -404,59 +485,149 @@ const ClientDetail = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="uploads" className="space-y-4">
+            <TabsContent value="uploads" className="space-y-4">
+              {/* Admin: Upload Transcripts for this client */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upload Transcripts (Admin)</CardTitle>
+                  <CardDescription>
+                    Add transcript files for this client. Supported: .txt, .md, .srt, .vtt, .pdf
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <Input
+                      type="file"
+                      multiple
+                      accept=".txt,.md,.srt,.vtt,.pdf"
+                      disabled={transcriptUploading}
+                      onChange={(e) => handleTranscriptUpload(e.target.files)}
+                      aria-label="Upload transcript files"
+                    />
+                    <Button onClick={() => {}} disabled className="hidden"></Button>
+                    <p className="text-xs text-muted-foreground">Files upload directly to this client's library.</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Existing uploads list */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>File Uploads</CardTitle>
+                  <CardDescription>
+                    All files uploaded by this client
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {uploads.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No files uploaded yet
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {uploads.map((upload) => (
+                        <div
+                          key={upload.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{upload.original_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatFileSize(upload.file_size)} • 
+                                <span className="capitalize ml-1">{upload.category}</span> • 
+                                {formatDate(upload.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Badge variant="outline" className="capitalize">
+                              {upload.category}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadFile(upload.file_path, upload.original_name)}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-4">
+            {/* Query transcripts */}
             <Card>
               <CardHeader>
-                <CardTitle>File Uploads</CardTitle>
+                <CardTitle>Query Transcripts</CardTitle>
                 <CardDescription>
-                  All files uploaded by this client
+                  Ask questions about this client's uploaded transcripts. Select files and enter your prompt.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {uploads.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No files uploaded yet
-                  </p>
+                {uploads.filter(u => u.category === 'transcripts').length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No transcripts yet. Upload some on the File Uploads tab.</p>
                 ) : (
                   <div className="space-y-4">
-                    {uploads.map((upload) => (
-                      <div
-                        key={upload.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{upload.original_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {formatFileSize(upload.file_size)} • 
-                              <span className="capitalize ml-1">{upload.category}</span> • 
-                              {formatDate(upload.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <Badge variant="outline" className="capitalize">
-                            {upload.category}
-                          </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => downloadFile(upload.file_path, upload.original_name)}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium">Select transcripts</h4>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={selectAllTranscripts}>Select all</Button>
+                          <Button variant="outline" size="sm" onClick={clearTranscriptSelection}>Clear</Button>
                         </div>
                       </div>
-                    ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-auto p-2 border rounded-md">
+                        {uploads.filter(u => u.category === 'transcripts').map((t) => (
+                          <label key={t.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedTranscriptIds.includes(t.id)}
+                              onChange={() => toggleTranscriptSelection(t.id)}
+                            />
+                            <span className="truncate">{t.original_name}</span>
+                            <span className="text-xs text-muted-foreground">• {formatDate(t.created_at)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Your prompt</label>
+                      <Textarea
+                        placeholder="Ask anything about the transcripts..."
+                        value={transcriptQueryPrompt}
+                        onChange={(e) => setTranscriptQueryPrompt(e.target.value)}
+                        rows={5}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Button onClick={runTranscriptQuery} disabled={querying || !transcriptQueryPrompt.trim() || selectedTranscriptIds.length === 0}>
+                        {querying ? 'Running...' : 'Run Query'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">Results are saved to AI Analysis below.</p>
+                    </div>
+
+                    {queryResult && (
+                      <div className="border rounded-md p-4 bg-muted/20">
+                        <h4 className="text-sm font-medium mb-2">Latest Result</h4>
+                        <div className="whitespace-pre-wrap text-sm">{queryResult}</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="analysis" className="space-y-4">
+            {/* Existing analyses */}
             <Card>
               <CardHeader>
                 <CardTitle>AI Analysis</CardTitle>
