@@ -355,7 +355,7 @@ const AdminAnalysis = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
+              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
               alt="Standard" 
               className="h-8 mr-3"
             />
@@ -517,6 +517,10 @@ const AdminAnalysis = () => {
                     placeholder="Enter a custom analysis prompt or leave blank to use the default..."
                     rows={4}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Want reusable prompts? Manage them in the Prompt Library.
+                    <Link to="/admin/prompts" className="underline ml-1">Open Prompt Library</Link>
+                  </p>
                 </div>
 
 

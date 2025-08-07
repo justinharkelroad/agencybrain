@@ -397,13 +397,24 @@ const { toast } = useToast();
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
+              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
               alt="Standard" 
               className="h-8 mr-3"
             />
             <span className="text-lg font-medium text-muted-foreground ml-2">Admin Panel</span>
           </div>
           <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-2">
+              <Link to="/admin">
+                <Button variant="ghost" size="sm">Dashboard</Button>
+              </Link>
+              <Link to="/admin/analysis">
+                <Button variant="ghost" size="sm">Analysis</Button>
+              </Link>
+              <Link to="/admin/prompts">
+                <Button variant="ghost" size="sm">Prompts</Button>
+              </Link>
+            </nav>
             <Link to="/admin">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -673,6 +684,10 @@ const { toast } = useToast();
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Manage reusable prompts in the Prompt Library.
+                        <Link to="/admin/prompts" className="underline ml-1">Open Prompt Library</Link>
+                      </p>
                     </div>
 
                     {selectedPromptId === 'manual' ? (
