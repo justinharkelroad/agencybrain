@@ -309,6 +309,8 @@ export default function Dashboard() {
           title: "Success",
           description: "New reporting period created",
         });
+        // Navigate to submit with new period mode
+        navigate(`/submit?mode=new&periodId=${data.id}`);
       }
     } catch (error) {
       console.error('Error creating period:', error);
@@ -553,14 +555,14 @@ export default function Dashboard() {
                     <div className="flex justify-center">
                       <Card className="hover:shadow-md transition-shadow">
                         <CardContent className="pt-6">
-                          <Button 
-                            variant="ghost"
-                            className="h-auto p-4 w-full"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigate('/submit');
-                            }}
+                           <Button 
+                             variant="ghost"
+                             className="h-auto p-4 w-full"
+                             onClick={(e) => {
+                               e.preventDefault();
+                               e.stopPropagation();
+                               navigate('/submit?mode=new');
+                             }}
                           >
                             <div className="flex flex-col items-center text-center space-y-2">
                               <FileText className="w-12 h-12 text-primary" />
@@ -644,10 +646,10 @@ export default function Dashboard() {
                              />
                            </div>
                          )}
-                        {currentPeriod?.form_data && (
-                          <Link to="/submit">
-                            <Button variant="outline" size="sm">
-                              Update This Period
+                         {currentPeriod?.form_data && (
+                           <Link to={`/submit?mode=update&periodId=${currentPeriod.id}`}>
+                             <Button variant="outline" size="sm">
+                               Update This Period
                             </Button>
                           </Link>
                         )}

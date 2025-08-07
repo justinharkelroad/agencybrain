@@ -65,6 +65,11 @@ const initialFormData: FormData = {
 export default function Submit() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Get URL parameters to determine mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get('mode'); // 'update' or 'new'
+  const periodIdParam = urlParams.get('periodId');
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -179,14 +184,90 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      console.log('Fetching current period for user:', user?.id);
+      console.log('Fetching current period for user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
       
-      // Look for existing active, draft, or complete periods first
+      // If mode is 'update' and we have a specific period ID, load that period
+      if (mode === 'update' && periodIdParam) {
+        const { data: specificPeriod, error: specificError } = await supabase
+          .from('periods')
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('id', periodIdParam)
+          .single();
+
+        if (specificError) {
+          console.error('Error fetching specific period:', specificError);
+          toast({
+            title: "Error",
+            description: "Could not find the specified period to update.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (specificPeriod) {
+          console.log('Loading specific period for update:', specificPeriod.id);
+          setCurrentPeriod(specificPeriod);
+          setStartDate(new Date(specificPeriod.start_date));
+          setEndDate(new Date(specificPeriod.end_date));
+          
+          if (specificPeriod.form_data && Object.keys(specificPeriod.form_data).length > 0) {
+            // Load full existing data for update mode
+            const safeFormData = {
+              ...initialFormData,
+              ...specificPeriod.form_data,
+              qualitative: {
+                ...initialFormData.qualitative,
+                ...specificPeriod.form_data.qualitative,
+                attackItems: {
+                  ...initialFormData.qualitative.attackItems,
+                  ...specificPeriod.form_data.qualitative?.attackItems,
+                },
+              },
+            };
+            setFormData(safeFormData);
+          } else {
+            // Apply selective persistence for new period
+            const persistedData = await applySelectiveDataPersistence();
+            setFormData(persistedData);
+          }
+          setLoading(false);
+          return;
+        }
+      }
+
+      // If mode is 'new', create fresh form with selective persistence
+      if (mode === 'new') {
+        console.log('New form mode - applying selective persistence');
+        
+        // If we have a specific period ID for new mode, use it
+        if (periodIdParam) {
+          const { data: newPeriod, error: newPeriodError } = await supabase
+            .from('periods')
+            .select('*')
+            .eq('user_id', user?.id)
+            .eq('id', periodIdParam)
+            .single();
+
+          if (!newPeriodError && newPeriod) {
+            setCurrentPeriod(newPeriod);
+            setStartDate(new Date(newPeriod.start_date));
+            setEndDate(new Date(newPeriod.end_date));
+          }
+        }
+        
+        const persistedData = await applySelectiveDataPersistence();
+        setFormData(persistedData);
+        setLoading(false);
+        return;
+      }
+
+      // Default behavior - look for existing active or draft periods only
       const { data: activePeriods, error: activeError } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
-        .in('status', ['active', 'draft', 'complete'])
+        .in('status', ['active', 'draft'])
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -200,9 +281,9 @@ export default function Submit() {
         return;
       }
 
-      console.log('Found periods:', activePeriods);
+      console.log('Found active/draft periods:', activePeriods);
 
-      // If we have a period, use it
+      // If we have an active/draft period, use it
       if (activePeriods && activePeriods.length > 0) {
         const period = activePeriods[0];
         console.log('Loading existing active period:', period.id);
