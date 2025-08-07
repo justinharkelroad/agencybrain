@@ -77,9 +77,7 @@ export default function Submit() {
 
   useEffect(() => {
     if (user) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const mode = urlParams.get('mode');
-      fetchCurrentPeriod(mode === 'new');
+      fetchCurrentPeriod();
     }
   }, [user]);
 
@@ -155,14 +153,8 @@ export default function Submit() {
     return initialFormData;
   };
 
-  const fetchCurrentPeriod = async (forceNewForm = false) => {
+  const fetchCurrentPeriod = async () => {
     try {
-      if (forceNewForm) {
-        // Force new form - create a new period with unique date range
-        await createNewPeriodForNewForm();
-        return;
-      }
-
       // Look for existing active or draft periods first
       const { data: activePeriods, error: activeError } = await supabase
         .from('periods')
@@ -213,16 +205,9 @@ export default function Submit() {
         return;
       }
 
-      // No active periods found - check if we should create one automatically
-      // First check for any complete periods to see if we're just starting out
-      const { data: allPeriods } = await supabase
-        .from('periods')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-
-      // Don't auto-create periods - let user explicitly save to create
+      // No active periods found - load fresh form data
+      const persistedFormData = await applySelectiveDataPersistence();
+      setFormData(persistedFormData);
       setLoading(false);
 
     } catch (error) {

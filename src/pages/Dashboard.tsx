@@ -557,7 +557,7 @@ export default function Dashboard() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              navigate('/submit?mode=new');
+                              navigate('/submit');
                             }}
                           >
                             <div className="flex flex-col items-center text-center space-y-2">
