@@ -95,6 +95,30 @@ export default function Submit() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // Block navigation if there are unsaved changes
+  useEffect(() => {
+    const handleNavigation = (e: PopStateEvent) => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm(
+          "You have unsaved changes. Are you sure you want to leave this page?"
+        );
+        if (!confirmLeave) {
+          e.preventDefault();
+          window.history.pushState(null, "", window.location.href);
+        }
+      }
+    };
+
+    if (hasUnsavedChanges) {
+      window.history.pushState(null, "", window.location.href);
+      window.addEventListener('popstate', handleNavigation);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handleNavigation);
+    };
+  }, [hasUnsavedChanges]);
+
   // Calculate total lead source spend
   const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
 
@@ -221,101 +245,6 @@ export default function Submit() {
     }
   };
 
-  const createNewPeriodForNewForm = async () => {
-    try {
-      // Get all existing periods to check for duplicates and find date range
-      const { data: existingPeriods } = await supabase
-        .from('periods')
-        .select('start_date, end_date')
-        .eq('user_id', user?.id)
-        .order('end_date', { ascending: false });
-
-      let startDate: Date;
-      let endDate: Date;
-
-      if (existingPeriods && existingPeriods.length > 0) {
-        // Start new period the day after the latest period ends to avoid overlap
-        const latestEndDate = new Date(existingPeriods[0].end_date);
-        startDate = new Date(latestEndDate);
-        startDate.setDate(startDate.getDate() + 1);
-        
-        // End date is 30 days from start date
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 30);
-
-        // Double-check for potential overlaps
-        const wouldOverlap = existingPeriods.some(period => {
-          const periodStart = new Date(period.start_date);
-          const periodEnd = new Date(period.end_date);
-          return (startDate <= periodEnd && endDate >= periodStart);
-        });
-
-        if (wouldOverlap) {
-          // If overlap detected, push start date further
-          const allEndDates = existingPeriods.map(p => new Date(p.end_date));
-          const maxEndDate = new Date(Math.max(...allEndDates.map(d => d.getTime())));
-          startDate = new Date(maxEndDate);
-          startDate.setDate(startDate.getDate() + 1);
-          endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + 30);
-        }
-      } else {
-        // First period - use last 30 days
-        endDate = new Date();
-        startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-      }
-      
-      const { data: newPeriod, error: createError } = await supabase
-        .from('periods')
-        .insert({
-          user_id: user?.id,
-          title: `Period ${endDate.toLocaleDateString()}`,
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          status: 'draft',
-          form_data: null
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Error creating period:', createError);
-        toast({
-          title: "Error",
-          description: createError.message.includes('periods_user_date_range_unique') 
-            ? "A period with these dates already exists. Please use the existing period or select different dates."
-            : "Could not create a new period. Please try refreshing the page.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (newPeriod) {
-        setCurrentPeriod(newPeriod);
-        setStartDate(startDate);
-        setEndDate(endDate);
-        
-        // Apply selective data persistence after period creation
-        const persistedFormData = await applySelectiveDataPersistence();
-        setFormData(persistedFormData);
-        
-        toast({
-          title: "New Period Created",
-          description: "Created a 30-day period for your coaching session.",
-        });
-      }
-    } catch (error) {
-      console.error('Error in createNewPeriodForNewForm:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create new period. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const updateFormData = (section: keyof FormData, field: string, value: any) => {
     setFormData(prev => ({
@@ -434,9 +363,43 @@ export default function Submit() {
     // Create period if it doesn't exist
     let periodToUse = currentPeriod;
     if (!periodToUse) {
-      await createNewPeriodForNewForm();
-      // createNewPeriodForNewForm updates currentPeriod, but we need to wait
-      if (!currentPeriod) {
+      // Create a new period inline since we're saving data
+      try {
+        const startDate = new Date();
+        startDate.setDate(1); // Start of current month
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + 1);
+        endDate.setDate(0); // Last day of start month
+
+        const { data: newPeriod, error: createError } = await supabase
+          .from('periods')
+          .insert({
+            user_id: user?.id,
+            title: `Period ${endDate.toLocaleDateString()}`,
+            start_date: startDate.toISOString().split('T')[0],
+            end_date: endDate.toISOString().split('T')[0],
+            status: 'draft',
+            form_data: null
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating period:', createError);
+          toast({
+            title: "Error",
+            description: "Failed to create period. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        periodToUse = newPeriod;
+        setCurrentPeriod(newPeriod);
+        setStartDate(startDate);
+        setEndDate(endDate);
+      } catch (error) {
+        console.error('Error creating period:', error);
         toast({
           title: "Error",
           description: "Failed to create period. Please try again.",
@@ -444,7 +407,6 @@ export default function Submit() {
         });
         return;
       }
-      periodToUse = currentPeriod;
     }
 
 
