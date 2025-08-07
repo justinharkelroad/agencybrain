@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,6 +68,44 @@ const [stats, setStats] = useState({
   recentUploads: 0
 });
 const [coachingRevenue, setCoachingRevenue] = useState<number>(0);
+const [isRevenueVisible, setIsRevenueVisible] = useState(false);
+const revealTimerRef = useRef<number | null>(null);
+
+const revealRevenue = () => {
+  if (revealTimerRef.current) {
+    window.clearTimeout(revealTimerRef.current);
+  }
+  setIsRevenueVisible(true);
+  revealTimerRef.current = window.setTimeout(() => {
+    setIsRevenueVisible(false);
+    revealTimerRef.current = null;
+  }, 5000);
+};
+
+const hideRevenue = () => {
+  if (revealTimerRef.current) {
+    window.clearTimeout(revealTimerRef.current);
+    revealTimerRef.current = null;
+  }
+  setIsRevenueVisible(false);
+};
+
+const toggleRevenue = () => {
+  if (isRevenueVisible) {
+    hideRevenue();
+  } else {
+    revealRevenue();
+  }
+};
+
+useEffect(() => {
+  return () => {
+    if (revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+    }
+  };
+}, []);
+
 const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 const { toast } = useToast();
 
@@ -224,14 +262,31 @@ setCoachingRevenue(totalMRR);
       Monitor client submissions and manage the coaching platform
     </p>
   </div>
-  <Card className="gradient-primary shadow-elegant md:w-auto">
+  <Card
+    className="gradient-primary shadow-elegant md:w-auto cursor-pointer hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+    role="button"
+    tabIndex={0}
+    aria-label="Reveal coaching revenue"
+    onClick={toggleRevenue}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleRevenue();
+      }
+    }}
+  >
     <CardContent className="p-4">
       <div className="flex items-center justify-between gap-6">
         <div>
           <p className="text-sm font-medium text-muted-foreground">Coaching Revenue</p>
-          <p className="text-2xl font-bold">{formatCurrency(coachingRevenue)}</p>
+          <p className="text-2xl font-bold select-none">
+            {isRevenueVisible ? formatCurrency(coachingRevenue) : '••••'}
+          </p>
+          {!isRevenueVisible && (
+            <p className="text-xs text-muted-foreground mt-1">Tap to reveal</p>
+          )}
         </div>
-        <TrendingUp className="h-8 w-8 text-primary" />
+        <TrendingUp className="h-8 w-8 text-primary" aria-hidden="true" />
       </div>
     </CardContent>
   </Card>
