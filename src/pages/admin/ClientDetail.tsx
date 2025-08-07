@@ -17,7 +17,8 @@ import {
   Download,
   LogOut,
   TrendingUp,
-  Trash2
+  Trash2,
+  Save
 } from 'lucide-react';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
@@ -36,6 +37,7 @@ interface Profile {
   role: string;
   created_at: string;
   agency: Agency;
+  mrr?: string | number;
 }
 
 interface Period {
@@ -95,12 +97,15 @@ const { toast } = useToast();
   const [querying, setQuerying] = useState(false);
   const [queryResult, setQueryResult] = useState<string>('');
 
-  // File query state
-  const [promptOptions, setPromptOptions] = useState<Prompt[]>([]);
-  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
-  const [selectedPromptId, setSelectedPromptId] = useState<string>('manual');
-  const [manualPrompt, setManualPrompt] = useState<string>('');
+// File query state
+const [promptOptions, setPromptOptions] = useState<Prompt[]>([]);
+const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+const [selectedPromptId, setSelectedPromptId] = useState<string>('manual');
+const [manualPrompt, setManualPrompt] = useState<string>('');
 
+// Client MRR state
+const [mrrValue, setMrrValue] = useState<string>('');
+const [savingMRR, setSavingMRR] = useState<boolean>(false);
   // Auto-select all transcripts when uploads change
   useEffect(() => {
     const transcripts = uploads.filter(u => u.category === 'transcripts');
@@ -125,15 +130,16 @@ const { toast } = useToast();
         .eq('id', clientId)
         .single();
 
-      if (profileError) throw profileError;
-      setClient(profileData);
+if (profileError) throw profileError;
+setClient(profileData);
+setMrrValue(profileData?.mrr != null ? String(profileData.mrr) : '');
 
-      // Fetch client's periods
-      const { data: periodsData, error: periodsError } = await supabase
-        .from('periods')
-        .select('*')
-        .eq('user_id', profileData.id)
-        .order('end_date', { ascending: false });
+// Fetch client's periods
+const { data: periodsData, error: periodsError } = await supabase
+  .from('periods')
+  .select('*')
+  .eq('user_id', profileData.id)
+  .order('end_date', { ascending: false });
 
       if (periodsError) throw periodsError;
       setPeriods(periodsData || []);
@@ -230,13 +236,37 @@ const { toast } = useToast();
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+const handleSaveMRR = async () => {
+  if (!clientId) return;
+  const value = parseFloat(mrrValue || '');
+  if (isNaN(value) || value < 0) {
+    toast({ title: 'Invalid amount', description: 'Please enter a valid MRR amount.', variant: 'destructive' });
+    return;
+  }
+  setSavingMRR(true);
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ mrr: value })
+      .eq('id', clientId);
+    if (error) throw error;
+    setClient((prev) => (prev ? { ...prev, mrr: value } as Profile : prev));
+    toast({ title: 'MRR saved', description: 'Monthly recurring revenue updated for this client.' });
+  } catch (err: any) {
+    console.error('Save MRR failed', err);
+    toast({ title: 'Save failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+  } finally {
+    setSavingMRR(false);
+  }
+};
 
   const getStatusBadge = (period: Period) => {
     const hasFormData = period.form_data && Object.keys(period.form_data).length > 0;
@@ -444,7 +474,7 @@ const { toast } = useToast();
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -479,6 +509,32 @@ const { toast } = useToast();
                     <p className="text-2xl font-bold">{uploads.length}</p>
                   </div>
                   <Upload className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">MRR</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={mrrValue}
+                      onChange={(e) => setMrrValue(e.target.value)}
+                    />
+                    <Button onClick={handleSaveMRR} disabled={savingMRR}>
+                      <Save className="w-4 h-4 mr-2" />
+                      {savingMRR ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                  {client?.mrr != null && (
+                    <p className="text-xs text-muted-foreground">
+                      Current: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(client.mrr))}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

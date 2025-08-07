@@ -33,6 +33,7 @@ interface Profile {
   role: string;
   created_at: string;
   agency: Agency;
+  mrr?: string | number;
 }
 
 interface Period {
@@ -60,13 +61,15 @@ const AdminDashboard = () => {
   const [recentUploads, setRecentUploads] = useState<Upload[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalClients: 0,
-    activeSubmissions: 0,
-    pendingReviews: 0,
-    recentUploads: 0
-  });
-  const { toast } = useToast();
+const [stats, setStats] = useState({
+  totalClients: 0,
+  activeSubmissions: 0,
+  pendingReviews: 0,
+  recentUploads: 0
+});
+const [coachingRevenue, setCoachingRevenue] = useState<number>(0);
+const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+const { toast } = useToast();
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -109,18 +112,20 @@ const AdminDashboard = () => {
       if (uploadsError) throw uploadsError;
       setRecentUploads(uploadsData || []);
 
-      // Calculate stats
-      const activeSubmissions = periodsData?.filter(p => p.status === 'active').length || 0;
-      const pendingReviews = periodsData?.filter(p => 
-        p.form_data && Object.keys(p.form_data).length > 0 && p.status === 'completed'
-      ).length || 0;
+// Calculate totals and stats
+const totalMRR = (profilesData || []).reduce((sum: number, p: any) => sum + (p?.mrr ? parseFloat(p.mrr as string) : 0), 0);
+const activeSubmissions = periodsData?.filter(p => p.status === 'active').length || 0;
+const pendingReviews = periodsData?.filter(p => 
+  p.form_data && Object.keys(p.form_data).length > 0 && p.status === 'completed'
+).length || 0;
 
-      setStats({
-        totalClients: profilesData?.length || 0,
-        activeSubmissions,
-        pendingReviews,
-        recentUploads: uploadsData?.length || 0
-      });
+setStats({
+  totalClients: profilesData?.length || 0,
+  activeSubmissions,
+  pendingReviews,
+  recentUploads: uploadsData?.length || 0
+});
+setCoachingRevenue(totalMRR);
 
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -212,12 +217,25 @@ const AdminDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Monitor client submissions and manage the coaching platform
-          </p>
+<div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <div>
+    <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+    <p className="text-muted-foreground">
+      Monitor client submissions and manage the coaching platform
+    </p>
+  </div>
+  <Card className="gradient-primary shadow-elegant md:w-auto">
+    <CardContent className="p-4">
+      <div className="flex items-center justify-between gap-6">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Coaching Revenue</p>
+          <p className="text-2xl font-bold">{formatCurrency(coachingRevenue)}</p>
         </div>
+        <TrendingUp className="h-8 w-8 text-primary" />
+      </div>
+    </CardContent>
+  </Card>
+</div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

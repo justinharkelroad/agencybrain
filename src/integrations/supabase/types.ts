@@ -172,6 +172,7 @@ export type Database = {
           agency_id: string | null
           created_at: string
           id: string
+          mrr: number | null
           role: string
           updated_at: string
         }
@@ -179,6 +180,7 @@ export type Database = {
           agency_id?: string | null
           created_at?: string
           id: string
+          mrr?: number | null
           role?: string
           updated_at?: string
         }
@@ -186,6 +188,7 @@ export type Database = {
           agency_id?: string | null
           created_at?: string
           id?: string
+          mrr?: number | null
           role?: string
           updated_at?: string
         }
