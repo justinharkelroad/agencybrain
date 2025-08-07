@@ -10,11 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useBlocker } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface FormData {
   sales: {
@@ -70,6 +71,8 @@ export default function Submit() {
   const [currentPeriod, setCurrentPeriod] = useState<any>(null);
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -79,6 +82,18 @@ export default function Submit() {
       fetchCurrentPeriod(mode === 'new');
     }
   }, [user]);
+
+  // Block navigation if there are unsaved changes
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setShowExitWarning(true);
+    }
+  }, [blocker.state]);
 
   // Calculate total lead source spend
   const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
@@ -205,13 +220,8 @@ export default function Submit() {
         .order('updated_at', { ascending: false })
         .limit(1);
 
-      if (!allPeriods || allPeriods.length === 0) {
-        // Brand new user - create first period
-        await createNewPeriodForNewForm();
-      } else {
-        // Existing user but no active period - set up for period selection on dashboard
-        setLoading(false);
-      }
+      // Don't auto-create periods - let user explicitly save to create
+      setLoading(false);
 
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -328,6 +338,7 @@ export default function Submit() {
         [field]: value
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const updatePeriodDates = async () => {
@@ -377,6 +388,7 @@ export default function Submit() {
         leadSources: [...prev.marketing.leadSources, { name: '', spend: 0 }]
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const removeLeadSource = (index: number) => {
@@ -387,6 +399,7 @@ export default function Submit() {
         leadSources: prev.marketing.leadSources.filter((_, i) => i !== index)
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const addTeamMember = () => {
@@ -397,6 +410,7 @@ export default function Submit() {
         teamRoster: [...prev.operations.teamRoster, { name: '', role: 'Sales' }]
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const removeTeamMember = (index: number) => {
@@ -407,6 +421,7 @@ export default function Submit() {
         teamRoster: prev.operations.teamRoster.filter((_, i) => i !== index)
       }
     }));
+    setHasUnsavedChanges(true);
   };
 
   const calculateNetProfit = () => {
@@ -419,15 +434,6 @@ export default function Submit() {
   }, [formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
   const saveForm = async () => {
-    if (!currentPeriod) {
-      toast({
-        title: "Error",
-        description: "No active period found. Please create a new period first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Enhanced validation
     if (!formData.sales.premium && !formData.sales.policies) {
       toast({
@@ -437,6 +443,23 @@ export default function Submit() {
       });
       return;
     }
+
+    // Create period if it doesn't exist
+    let periodToUse = currentPeriod;
+    if (!periodToUse) {
+      await createNewPeriodForNewForm();
+      // createNewPeriodForNewForm updates currentPeriod, but we need to wait
+      if (!currentPeriod) {
+        toast({
+          title: "Error",
+          description: "Failed to create period. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      periodToUse = currentPeriod;
+    }
+
 
     // Check if this is a substantial form completion
     const isSubstantialCompletion = formData.sales.premium > 0 || 
@@ -459,7 +482,7 @@ export default function Submit() {
       const { error } = await supabase
         .from('periods')
         .update(updateData)
-        .eq('id', currentPeriod.id);
+        .eq('id', periodToUse.id);
 
       if (error) {
         console.error('Save error:', error);
@@ -481,6 +504,9 @@ export default function Submit() {
           updated_at: new Date().toISOString(),
           status: isSubstantialCompletion ? 'active' : prev.status
         }));
+        
+        // Clear unsaved changes flag
+        setHasUnsavedChanges(false);
         
         // Redirect to upload selection page
         navigate('/uploads/select');
@@ -1054,6 +1080,35 @@ export default function Submit() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Exit Warning Dialog */}
+      <AlertDialog open={showExitWarning} onOpenChange={setShowExitWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes that will be lost if you leave. Remember to save your progress to keep your data!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowExitWarning(false)}>
+              Stay and Save
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setHasUnsavedChanges(false);
+                setShowExitWarning(false);
+                if (blocker.state === "blocked") {
+                  blocker.proceed();
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
