@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -431,6 +432,7 @@ export default function Dashboard() {
               />
             </div>
             <div className="flex items-center space-x-4">
+              <ThemeToggle />
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
