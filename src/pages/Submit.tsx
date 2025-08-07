@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Link, useNavigate, useBlocker } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -83,17 +83,19 @@ export default function Submit() {
     }
   }, [user]);
 
-  // Block navigation if there are unsaved changes
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
-  );
-
+  // Handle browser navigation warning
   useEffect(() => {
-    if (blocker.state === "blocked") {
-      setShowExitWarning(true);
-    }
-  }, [blocker.state]);
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return event.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Calculate total lead source spend
   const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
@@ -1098,9 +1100,7 @@ export default function Submit() {
               onClick={() => {
                 setHasUnsavedChanges(false);
                 setShowExitWarning(false);
-                if (blocker.state === "blocked") {
-                  blocker.proceed();
-                }
+                navigate('/dashboard');
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
