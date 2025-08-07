@@ -28,12 +28,14 @@ const Uploads = () => {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("upload");
 
   const categories = [
     { id: 'sales', label: 'Sales (New Business Details Reports Etc)' },
     { id: 'marketing', label: 'Marketing (Any Leads Purchased Reports Etc)' },
     { id: 'current-biz-metrics', label: 'Current Biz Metrics' },
     { id: 'termination-report', label: 'Termination Report' },
+    { id: 'miscellaneous', label: 'Miscellaneous' },
   ];
 
   useEffect(() => {
@@ -176,15 +178,15 @@ const Uploads = () => {
               </Button>
             </Link>
           </div>
-          <h1 className="text-3xl font-bold mb-2">File Management</h1>
+          <h1 className="text-3xl font-bold mb-2">Files</h1>
           <p className="text-muted-foreground">
             Upload and manage your files organized by performance domains
           </p>
         </div>
 
-        <Tabs defaultValue="upload" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
-            <TabsTrigger value="upload">Upload Files</TabsTrigger>
+            <TabsTrigger value="upload">Upload Documents</TabsTrigger>
             <TabsTrigger value="manage">Manage Files</TabsTrigger>
           </TabsList>
           
@@ -207,6 +209,22 @@ const Uploads = () => {
           )}
 
           <TabsContent value="upload" className="space-y-6">
+            <div className="mb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">Upload Documents</h2>
+                  <p className="text-muted-foreground">Choose a category and upload your files for analysis</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab("manage")}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Manage Files
+                </Button>
+              </div>
+            </div>
             {categories
               .filter(category => selectedCategories.length === 0 || selectedCategories.includes(category.id))
               .map((category) => (
