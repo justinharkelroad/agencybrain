@@ -23,7 +23,8 @@ import { Link, Navigate } from 'react-router-dom';
 interface Prompt {
   id: string;
   category: string;
-  prompt_text: string;
+  title: string;
+  content: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -33,11 +34,12 @@ const AdminPrompts = () => {
   const { user, isAdmin, signOut } = useAuth();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
-  const [newPrompt, setNewPrompt] = useState({
-    category: '',
-    prompt_text: '',
-    is_active: true
-  });
+const [newPrompt, setNewPrompt] = useState({
+  category: '',
+  title: '',
+  content: '',
+  is_active: true
+});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -85,7 +87,8 @@ const AdminPrompts = () => {
         const { error } = await supabase
           .from('prompts')
           .update({
-            prompt_text: prompt.prompt_text,
+            title: prompt.title,
+            content: prompt.content,
             is_active: prompt.is_active,
             updated_at: new Date().toISOString()
           })
@@ -103,7 +106,8 @@ const AdminPrompts = () => {
           .from('prompts')
           .insert({
             category: prompt.category,
-            prompt_text: prompt.prompt_text,
+            title: prompt.title,
+            content: prompt.content,
             is_active: prompt.is_active
           });
 
@@ -114,7 +118,7 @@ const AdminPrompts = () => {
           description: "Prompt created successfully",
         });
         
-        setNewPrompt({ category: '', prompt_text: '', is_active: true });
+        setNewPrompt({ category: '', title: '', content: '', is_active: true });
       }
 
       setEditingPrompt(null);
@@ -184,7 +188,7 @@ const AdminPrompts = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
+              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
               alt="Standard" 
               className="h-8 mr-3"
             />
@@ -270,8 +274,9 @@ const AdminPrompts = () => {
                             </Button>
                           </div>
                         </div>
+                        <p className="font-medium mt-1">{prompt.title}</p>
                         <p className="text-sm text-muted-foreground line-clamp-3">
-                          {prompt.prompt_text}
+                          {prompt.content}
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">
                           Updated: {new Date(prompt.updated_at).toLocaleDateString()}
@@ -323,22 +328,41 @@ const AdminPrompts = () => {
                   </div>
                 )}
 
-                <div>
-                  <Label htmlFor="prompt_text">Prompt Text</Label>
-                  <Textarea
-                    id="prompt_text"
-                    value={editingPrompt ? editingPrompt.prompt_text : newPrompt.prompt_text}
-                    onChange={(e) => {
-                      if (editingPrompt) {
-                        setEditingPrompt({ ...editingPrompt, prompt_text: e.target.value });
-                      } else {
-                        setNewPrompt({ ...newPrompt, prompt_text: e.target.value });
-                      }
-                    }}
-                    placeholder="Enter the analysis prompt..."
-                    rows={10}
-                    className="mt-1"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="prompt_title">Title</Label>
+                    <Input
+                      id="prompt_title"
+                      type="text"
+                      value={editingPrompt ? editingPrompt.title : newPrompt.title}
+                      onChange={(e) => {
+                        if (editingPrompt) {
+                          setEditingPrompt({ ...editingPrompt, title: e.target.value });
+                        } else {
+                          setNewPrompt({ ...newPrompt, title: e.target.value });
+                        }
+                      }}
+                      placeholder="Short title for this prompt"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="prompt_content">Prompt Text</Label>
+                    <Textarea
+                      id="prompt_content"
+                      value={editingPrompt ? editingPrompt.content : newPrompt.content}
+                      onChange={(e) => {
+                        if (editingPrompt) {
+                          setEditingPrompt({ ...editingPrompt, content: e.target.value });
+                        } else {
+                          setNewPrompt({ ...newPrompt, content: e.target.value });
+                        }
+                      }}
+                      placeholder="Enter the analysis prompt..."
+                      rows={10}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -359,7 +383,7 @@ const AdminPrompts = () => {
                 <div className="flex gap-3">
                   <Button
                     onClick={() => savePrompt(editingPrompt || newPrompt)}
-                    disabled={saving || (!editingPrompt && (!newPrompt.category || !newPrompt.prompt_text))}
+                    disabled={saving || (!editingPrompt && (!newPrompt.category || !newPrompt.title || !newPrompt.content))}
                     className="flex-1"
                   >
                     <Save className="w-4 h-4 mr-2" />

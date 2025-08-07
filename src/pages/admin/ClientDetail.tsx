@@ -22,6 +22,7 @@ import {
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Agency {
   id: string;
@@ -59,6 +60,14 @@ interface Analysis {
   period?: Period;
 }
 
+interface Prompt {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  is_active: boolean;
+}
+
 interface Upload {
   id: string;
   user_id: string;
@@ -85,6 +94,12 @@ const { toast } = useToast();
   const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
   const [querying, setQuerying] = useState(false);
   const [queryResult, setQueryResult] = useState<string>('');
+
+  // File query state
+  const [promptOptions, setPromptOptions] = useState<Prompt[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<string>('manual');
+  const [manualPrompt, setManualPrompt] = useState<string>('');
 
   // Auto-select all transcripts when uploads change
   useEffect(() => {
@@ -160,6 +175,14 @@ const { toast } = useToast();
       }) || [];
       
       setAnalyses(clientAnalyses);
+
+      // Fetch active prompts for dropdown
+      const { data: promptsData } = await supabase
+        .from('prompts')
+        .select('*')
+        .eq('is_active', true)
+        .order('category');
+      setPromptOptions(promptsData || []);
 
     } catch (error) {
       console.error('Error fetching client data:', error);
@@ -275,6 +298,42 @@ const { toast } = useToast();
 
   const clearTranscriptSelection = () => setSelectedTranscriptIds([]);
 
+  // File selection helpers
+  const toggleFileSelection = (id: string) => {
+    setSelectedFileIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const selectAllFiles = () => setSelectedFileIds(uploads.map(u => u.id));
+  const clearFileSelection = () => setSelectedFileIds([]);
+
+  // Run generic file query (any upload types)
+  const runFileQuery = async () => {
+    if (!clientId) return;
+    const promptText = selectedPromptId === 'manual'
+      ? manualPrompt.trim()
+      : (promptOptions.find(p => p.id === selectedPromptId)?.content || '').trim();
+    if (!promptText || selectedFileIds.length === 0) return;
+    setQuerying(true);
+    setQueryResult('');
+    try {
+      const filePaths = uploads
+        .filter(u => selectedFileIds.includes(u.id))
+        .map(u => u.file_path);
+
+      const { data, error } = await supabase.functions.invoke('query-transcripts', {
+        body: { clientId, prompt: promptText, filePaths }
+      });
+      if (error) throw error;
+      if (data?.analysis) setQueryResult(data.analysis);
+      await fetchClientData();
+      toast({ title: 'Analysis complete', description: 'Saved to AI Analysis.' });
+    } catch (err: any) {
+      console.error('Query files failed', err);
+      toast({ title: 'Query failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setQuerying(false);
+    }
+  };
+
   const runTranscriptQuery = async () => {
     if (!clientId || !transcriptQueryPrompt.trim()) return;
     setQuerying(true);
@@ -338,7 +397,7 @@ const { toast } = useToast();
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img 
-              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
+              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
               alt="Standard" 
               className="h-8 mr-3"
             />
@@ -566,51 +625,74 @@ const { toast } = useToast();
             {/* Query transcripts */}
             <Card>
               <CardHeader>
-                <CardTitle>Query Transcripts</CardTitle>
+                <CardTitle>Query Files</CardTitle>
                 <CardDescription>
-                  Ask questions about this client's uploaded transcripts. Select files and enter your prompt.
+                  Select files, choose a prompt, and run your query. Results are saved below.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {uploads.filter(u => u.category === 'transcripts').length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No transcripts yet. Upload some on the File Uploads tab.</p>
+                {uploads.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No files yet. Upload some on the File Uploads tab.</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium">Select transcripts</h4>
+                        <h4 className="text-sm font-medium">Select files</h4>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={selectAllTranscripts}>Select all</Button>
-                          <Button variant="outline" size="sm" onClick={clearTranscriptSelection}>Clear</Button>
+                          <Button variant="outline" size="sm" onClick={selectAllFiles}>Select all</Button>
+                          <Button variant="outline" size="sm" onClick={clearFileSelection}>Clear</Button>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-auto p-2 border rounded-md">
-                        {uploads.filter(u => u.category === 'transcripts').map((t) => (
-                          <label key={t.id} className="flex items-center gap-2 text-sm">
+                        {uploads.map((f) => (
+                          <label key={f.id} className="flex items-center gap-2 text-sm">
                             <input
                               type="checkbox"
-                              checked={selectedTranscriptIds.includes(t.id)}
-                              onChange={() => toggleTranscriptSelection(t.id)}
+                              checked={selectedFileIds.includes(f.id)}
+                              onChange={() => toggleFileSelection(f.id)}
                             />
-                            <span className="truncate">{t.original_name}</span>
-                            <span className="text-xs text-muted-foreground">• {formatDate(t.created_at)}</span>
+                            <span className="truncate">{f.original_name}</span>
+                            <span className="text-xs text-muted-foreground">• {f.category} • {formatDate(f.created_at)}</span>
                           </label>
                         ))}
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Your prompt</label>
-                      <Textarea
-                        placeholder="Ask anything about the transcripts..."
-                        value={transcriptQueryPrompt}
-                        onChange={(e) => setTranscriptQueryPrompt(e.target.value)}
-                        rows={5}
-                      />
+                      <label className="text-sm font-medium">Prompt</label>
+                      <Select value={selectedPromptId} onValueChange={setSelectedPromptId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a prompt" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual prompt</SelectItem>
+                          {promptOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.title} • {p.category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
+                    {selectedPromptId === 'manual' ? (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Your prompt</label>
+                        <Textarea
+                          placeholder="Type your prompt..."
+                          value={manualPrompt}
+                          onChange={(e) => setManualPrompt(e.target.value)}
+                          rows={5}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground border rounded-md p-3 bg-muted/20">
+                        {promptOptions.find(p => p.id === selectedPromptId)?.content}
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-3">
-                      <Button onClick={runTranscriptQuery} disabled={querying || !transcriptQueryPrompt.trim() || selectedTranscriptIds.length === 0}>
+                      <Button onClick={runFileQuery} disabled={querying || selectedFileIds.length === 0 || (selectedPromptId === 'manual' && !manualPrompt.trim())}>
                         {querying ? 'Running...' : 'Run Query'}
                       </Button>
                       <p className="text-xs text-muted-foreground">Results are saved to AI Analysis below.</p>

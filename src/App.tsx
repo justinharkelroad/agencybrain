@@ -7,7 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import Index from "./pages/Index";
+// Index page removed
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Submit from "./pages/Submit";
@@ -32,7 +32,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
             <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>

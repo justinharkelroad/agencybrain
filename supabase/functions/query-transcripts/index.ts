@@ -34,12 +34,12 @@ serve(async (req) => {
       const { data } = await adminClient.from('uploads').select('id, original_name, file_path, category').in('file_path', filePaths);
       uploads = data || [];
     } else {
-      const { data } = await adminClient.from('uploads').select('id, original_name, file_path, category').eq('user_id', clientId).eq('category', 'transcripts');
+      const { data } = await adminClient.from('uploads').select('id, original_name, file_path, category').eq('user_id', clientId);
       uploads = data || [];
     }
 
     if (!uploads.length) {
-      return new Response(JSON.stringify({ error: 'No transcripts found to query.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'No files found to query.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Build context by downloading files
@@ -59,7 +59,7 @@ serve(async (req) => {
     }
 
     const messages = [
-      { role: 'system', content: 'You are a precise assistant that answers questions about transcripts. Cite quotes verbatim when relevant.' },
+      { role: 'system', content: 'You are a precise assistant that answers questions about documents. Cite quotes verbatim when relevant.' },
       { role: 'user', content: `Context documents:\n${context}\n\nUser prompt: ${prompt}` }
     ];
 
@@ -75,11 +75,11 @@ serve(async (req) => {
     // Store to ai_analysis
     await adminClient.from('ai_analysis').insert({
       analysis_result: analysis,
-      selected_uploads: uploads.map(u => ({ id: u.id, name: u.original_name, file_path: u.file_path })),
+      selected_uploads: uploads.map(u => ({ id: u.id, name: u.original_name, file_path: u.file_path, category: u.category })),
       period_id: null,
       prompt_id: null,
       shared_with_client: false,
-      analysis_type: 'transcript_query',
+      analysis_type: 'file_query',
       prompt_used: prompt,
     });
 
