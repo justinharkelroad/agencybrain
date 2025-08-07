@@ -82,9 +82,10 @@ export default function Submit() {
 
   useEffect(() => {
     if (user) {
+      console.log('useEffect triggered - user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
       fetchCurrentPeriod();
     }
-  }, [user]);
+  }, [user, mode, periodIdParam]); // Added missing dependencies
 
   // Handle browser navigation warning
   useEffect(() => {
@@ -225,9 +226,11 @@ export default function Submit() {
                 },
               },
             };
+            console.log('🟡 MODE=UPDATE: Setting form data to existing period data:', JSON.stringify(safeFormData, null, 2));
             setFormData(safeFormData);
           } else {
             // Apply selective persistence for new period
+            console.log('🔵 MODE=UPDATE (no existing data): Applying selective persistence');
             const persistedData = await applySelectiveDataPersistence();
             setFormData(persistedData);
           }
@@ -257,6 +260,7 @@ export default function Submit() {
         }
         
         const persistedData = await applySelectiveDataPersistence();
+        console.log('🟢 MODE=NEW: Setting form data to selective persistence:', JSON.stringify(persistedData, null, 2));
         setFormData(persistedData);
         setLoading(false);
         return;
@@ -305,9 +309,11 @@ export default function Submit() {
               }
             }
           };
+          console.log('🟠 DEFAULT: Setting form data to existing period data');
           setFormData(safeFormData);
         } else {
           // Period exists but no form data - use fresh form data
+          console.log('🔴 DEFAULT: Period exists but no form data - using initial form data');
           setFormData(initialFormData);
         }
         setLoading(false);
@@ -315,6 +321,7 @@ export default function Submit() {
       }
 
       // No active periods found - load fresh form data
+      console.log('🟣 DEFAULT: No active periods found - applying selective persistence');
       const persistedFormData = await applySelectiveDataPersistence();
       setFormData(persistedFormData);
       setLoading(false);
