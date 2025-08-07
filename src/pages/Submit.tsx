@@ -572,7 +572,8 @@ export default function Submit() {
     );
   }
 
-  if (!currentPeriod) {
+  // Only show "No Active Period" error if we're NOT in new mode
+  if (!currentPeriod && mode !== 'new') {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="container mx-auto max-w-4xl">
