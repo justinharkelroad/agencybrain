@@ -490,7 +490,7 @@ export default function Dashboard() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => navigate('/uploads/select')}
+                onClick={() => navigate('/uploads')}
               >
                 Upload Files
               </Button>
