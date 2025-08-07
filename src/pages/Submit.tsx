@@ -179,12 +179,14 @@ export default function Submit() {
 
   const fetchCurrentPeriod = async () => {
     try {
-      // Look for existing active or draft periods first
+      console.log('Fetching current period for user:', user?.id);
+      
+      // Look for existing active, draft, or complete periods first
       const { data: activePeriods, error: activeError } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
-        .in('status', ['active', 'draft'])
+        .in('status', ['active', 'draft', 'complete'])
         .order('updated_at', { ascending: false })
         .limit(1);
 
@@ -192,13 +194,15 @@ export default function Submit() {
         console.error('Periods error:', activeError);
         toast({
           title: "Error",
-          description: "Could not fetch active period. Please try refreshing the page.",
+          description: "Could not fetch period. Please try refreshing the page.",
           variant: "destructive",
         });
         return;
       }
 
-      // If we have an active/draft period, use it
+      console.log('Found periods:', activePeriods);
+
+      // If we have a period, use it
       if (activePeriods && activePeriods.length > 0) {
         const period = activePeriods[0];
         console.log('Loading existing active period:', period.id);
