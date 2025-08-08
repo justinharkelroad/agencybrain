@@ -4,6 +4,8 @@ import { Navigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SharedInsights from '@/components/client/SharedInsights';
+import PerformanceMetrics from '@/components/client/PerformanceMetrics';
+import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
@@ -62,15 +64,15 @@ const Dashboard = () => {
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2">
               <Link to="/uploads">
-                <Button variant="ghost" size="sm">Files</Button>
+                <Button variant="secondary" size="sm">Files</Button>
               </Link>
-              {isAdmin && (
+              {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin">
-                  <Button variant="ghost" size="sm">Admin Portal</Button>
+                  <Button variant="secondary" size="sm">Admin Portal</Button>
                 </Link>
               )}
               <Link to="/account">
-                <Button variant="ghost" size="sm">My Account</Button>
+                <Button variant="secondary" size="sm">My Account</Button>
               </Link>
             </nav>
             <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
@@ -103,6 +105,8 @@ const Dashboard = () => {
           </Card>
         </section>
         <SharedInsights />
+        <PerformanceMetrics />
+        <ReportingPeriods />
 
       </main>
     </div>
