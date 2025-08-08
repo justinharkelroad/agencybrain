@@ -12,6 +12,7 @@ import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
+import type { Tables } from '@/integrations/supabase/types';
 
 interface Client {
   id: string;
@@ -23,19 +24,7 @@ interface Client {
   created_at: string;
 }
 
-interface Period {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date: string;
-  status: string;
-  sales?: any;
-  marketing?: any;
-  operations?: any;
-  retention?: any;
-  cash_flow?: any;
-  qualitative?: any;
-}
+type Period = Tables<'periods'>;
 
 interface Upload {
   id: string;
@@ -57,12 +46,7 @@ interface Analysis {
   period_id?: string;
 }
 
-interface Prompt {
-  id: string;
-  name: string;
-  content: string;
-  category: string;
-}
+type Prompt = Tables<'prompts'>;
 
 type ConversationMessage = { role: "user" | "assistant"; content: string; id?: string; shared?: boolean };
 
@@ -318,11 +302,12 @@ export default function ClientDetail() {
       // Fetch prompts
       const { data: promptsData, error: promptsError } = await supabase
         .from('prompts')
-        .select('*')
-        .order('name');
+        .select('id,title,content,category')
+        .eq('is_active', true)
+        .order('title', { ascending: true });
       
       if (promptsError) throw promptsError;
-      setPrompts(promptsData || []);
+      setPrompts((promptsData as Prompt[]) || []);
       
     } catch (error: any) {
       console.error('Error fetching client data:', error);
@@ -479,13 +464,14 @@ export default function ClientDetail() {
       if (selectedPeriod) {
         const period = periods.find(p => p.id === selectedPeriod);
         if (period) {
+          const d = (period as any).form_data || {};
           periodData = {
-            sales: period.sales,
-            marketing: period.marketing,
-            operations: period.operations,
-            retention: period.retention,
-            cashFlow: period.cash_flow,
-            qualitative: period.qualitative,
+            sales: d.sales,
+            marketing: d.marketing,
+            operations: d.operations,
+            retention: d.retention,
+            cashFlow: d.cashFlow,
+            qualitative: d.qualitative,
           };
         }
       }
@@ -565,13 +551,14 @@ export default function ClientDetail() {
       if (analysis.period_id) {
         const period = periods.find(p => p.id === analysis.period_id);
         if (period) {
+          const d = (period as any).form_data || {};
           periodData = {
-            sales: period.sales,
-            marketing: period.marketing,
-            operations: period.operations,
-            retention: period.retention,
-            cashFlow: period.cash_flow,
-            qualitative: period.qualitative,
+            sales: d.sales,
+            marketing: d.marketing,
+            operations: d.operations,
+            retention: d.retention,
+            cashFlow: d.cashFlow,
+            qualitative: d.qualitative,
           };
         }
       }
@@ -778,7 +765,7 @@ export default function ClientDetail() {
                   {periods.map((period) => (
                     <Card key={period.id} className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold">{period.name}</h3>
+                        <h3 className="font-semibold">{period.title}</h3>
                         <Badge variant={period.status === 'completed' ? 'default' : 'secondary'}>
                           {period.status}
                         </Badge>
@@ -787,39 +774,38 @@ export default function ClientDetail() {
                         {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
                       </p>
                       
-                      {/* Period Data Summary */}
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
-                        {period.sales && (
+                        {(period.form_data as any)?.sales && (
                           <div className="flex items-center space-x-2">
                             <DollarSign className="h-4 w-4 text-green-600" />
                             <span>Sales Data</span>
                           </div>
                         )}
-                        {period.marketing && (
+                        {(period.form_data as any)?.marketing && (
                           <div className="flex items-center space-x-2">
                             <TrendingUp className="h-4 w-4 text-blue-600" />
                             <span>Marketing</span>
                           </div>
                         )}
-                        {period.operations && (
+                        {(period.form_data as any)?.operations && (
                           <div className="flex items-center space-x-2">
                             <BarChart3 className="h-4 w-4 text-purple-600" />
                             <span>Operations</span>
                           </div>
                         )}
-                        {period.retention && (
+                        {(period.form_data as any)?.retention && (
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-orange-600" />
                             <span>Retention</span>
                           </div>
                         )}
-                        {period.cash_flow && (
+                        {(period.form_data as any)?.cashFlow && (
                           <div className="flex items-center space-x-2">
                             <Target className="h-4 w-4 text-red-600" />
                             <span>Cash Flow</span>
                           </div>
                         )}
-                        {period.qualitative && (
+                        {(period.form_data as any)?.qualitative && (
                           <div className="flex items-center space-x-2">
                             <MessageSquare className="h-4 w-4 text-gray-600" />
                             <span>Qualitative</span>
@@ -925,7 +911,7 @@ export default function ClientDetail() {
                   <SelectContent>
                     {periods.map((period) => (
                       <SelectItem key={period.id} value={period.id}>
-                        {period.name} ({new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()})
+                        {period.title} ({new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -971,7 +957,7 @@ export default function ClientDetail() {
                   <SelectContent>
                     {prompts.map((prompt) => (
                       <SelectItem key={prompt.id} value={prompt.id}>
-                        {prompt.name} ({prompt.category})
+                        {prompt.title} ({prompt.category})
                       </SelectItem>
                     ))}
                   </SelectContent>
