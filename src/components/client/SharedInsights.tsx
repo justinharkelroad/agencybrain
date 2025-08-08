@@ -187,8 +187,8 @@ const SharedInsights: React.FC = () => {
   };
 
   const loadMessages = async (analysisId: string) => {
-    if (messages[analysisId] || messagesLoading[analysisId]) return;
-    setMessagesLoading(prev => ({ ...prev, [analysisId]: true }));
+    if (messagesLoading[analysisId]) return;
+    setMessagesLoading(prev => ({ ...prev, [analysisId]: true })); console.log('[SharedInsights] loadMessages start', { analysisId });
     try {
       const { data, error } = await supabase
         .from('ai_chat_messages')
@@ -201,7 +201,7 @@ const SharedInsights: React.FC = () => {
         console.error('Error loading shared follow-ups:', error);
         setMessages(prev => ({ ...prev, [analysisId]: [] }));
       } else {
-        setMessages(prev => ({ ...prev, [analysisId]: (data as any[]) || [] }));
+        console.log('[SharedInsights] loaded messages', { analysisId, count: (data as any[])?.length ?? 0 }); setMessages(prev => ({ ...prev, [analysisId]: (data as any[]) || [] }));
       }
     } finally {
       setMessagesLoading(prev => ({ ...prev, [analysisId]: false }));
@@ -265,7 +265,7 @@ const SharedInsights: React.FC = () => {
                       <Dialog
                         open={activeAnalysis?.id === a.id}
                         onOpenChange={(open) => {
-                          if (open) {
+                          console.log('[SharedInsights] dialog open', { analysisId: a.id, open }); if (open) {
                             setActiveAnalysis(a);
                             recordView(a);
                             loadMessages(a.id);
@@ -285,7 +285,7 @@ const SharedInsights: React.FC = () => {
                             </DialogTitle>
                           </DialogHeader>
                           <div className="prose prose-sm max-w-none">
-                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{a.analysis_result}</pre>
+                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{a.analysis_result}</pre>
                           </div>
                           <div className="mt-6">
                             <div className="text-sm font-medium mb-2">Shared follow-ups</div>
@@ -296,7 +296,7 @@ const SharedInsights: React.FC = () => {
                                 {messages[a.id]!.map((m) => (
                                   <div key={m.id} className="rounded-md border p-3">
                                     <div className="text-xs text-muted-foreground mb-1">{new Date(m.created_at).toLocaleString()}</div>
-                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{m.content}</pre>
+                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{m.content}</pre>
                                   </div>
                                 ))}
                               </div>
@@ -355,7 +355,7 @@ const SharedInsights: React.FC = () => {
                       <Dialog
                         open={activeAnalysis?.id === a.id}
                         onOpenChange={(open) => {
-                          if (open) {
+                           console.log('[SharedInsights] dialog open', { analysisId: a.id, open }); if (open) {
                             setActiveAnalysis(a);
                             recordView(a);
                             loadMessages(a.id);
@@ -375,7 +375,7 @@ const SharedInsights: React.FC = () => {
                             </DialogTitle>
                           </DialogHeader>
                           <div className="prose prose-sm max-w-none">
-                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{a.analysis_result}</pre>
+                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{a.analysis_result}</pre>
                           </div>
                           <div className="mt-6">
                             <div className="text-sm font-medium mb-2">Shared follow-ups</div>
@@ -386,7 +386,7 @@ const SharedInsights: React.FC = () => {
                                 {messages[a.id]!.map((m) => (
                                   <div key={m.id} className="rounded-md border p-3">
                                     <div className="text-xs text-muted-foreground mb-1">{new Date(m.created_at).toLocaleString()}</div>
-                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{m.content}</pre>
+                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{m.content}</pre>
                                   </div>
                                 ))}
                               </div>
