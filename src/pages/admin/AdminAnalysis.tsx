@@ -22,7 +22,8 @@ import {
   CheckCircle,
   Share2,
   MessageCircle,
-  Send
+  Send,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
@@ -75,6 +76,32 @@ interface Prompt {
   is_active: boolean;
 }
 
+interface AnalysisView {
+  id: string;
+  analysis_id: string;
+  user_id: string;
+  view_count: number;
+  first_viewed_at: string;
+  last_viewed_at: string;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AnalysisRequest {
+  id: string;
+  analysis_id: string;
+  user_id: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'dismissed';
+  admin_note: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const AdminAnalysis = () => {
   const { user, isAdmin, signOut } = useAuth();
   const [clients, setClients] = useState<Profile[]>([]);
@@ -96,6 +123,10 @@ const AdminAnalysis = () => {
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // New engagement state
+  const [viewsByAnalysis, setViewsByAnalysis] = useState<Record<string, AnalysisView | null>>({});
+  const [requestsByAnalysis, setRequestsByAnalysis] = useState<Record<string, AnalysisRequest[]>>({});
+
   const promptCategories = [
     { id: 'performance', label: 'Performance Analysis', description: 'Overall performance review and insights' },
     { id: 'growth', label: 'Growth Opportunities', description: 'Market expansion and growth strategies' },
@@ -114,12 +145,20 @@ const AdminAnalysis = () => {
     if (selectedClient) {
       fetchClientPeriods();
       fetchClientUploads();
+      // Reset engagement when switching client
+      setViewsByAnalysis({});
+      setRequestsByAnalysis({});
     }
   }, [selectedClient]);
 
   useEffect(() => {
     if (selectedPeriod) {
       fetchAnalyses();
+    } else {
+      // If period unselected, clear analyses list to avoid stale engagement info
+      setAnalyses([]);
+      setViewsByAnalysis({});
+      setRequestsByAnalysis({});
     }
   }, [selectedPeriod]);
 
@@ -221,6 +260,15 @@ const AdminAnalysis = () => {
       
       console.log('Fetched analyses:', data);
       setAnalyses(data || []);
+
+      // Fetch engagement info for these analyses for the selected client
+      const analysisIds = (data || []).map(a => a.id);
+      if (analysisIds.length > 0 && selectedClient) {
+        await Promise.all([fetchViews(analysisIds), fetchRequests(analysisIds)]);
+      } else {
+        setViewsByAnalysis({});
+        setRequestsByAnalysis({});
+      }
     } catch (error) {
       console.error('Error fetching analyses:', error);
       toast({
@@ -229,6 +277,44 @@ const AdminAnalysis = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const fetchViews = async (analysisIds: string[]) => {
+    const { data, error } = await supabase
+      .from('ai_analysis_views')
+      .select('*')
+      .eq('user_id', selectedClient)
+      .in('analysis_id', analysisIds);
+
+    if (error) {
+      console.error('Error fetching analysis views:', error);
+      return;
+    }
+    const map: Record<string, AnalysisView | null> = {};
+    analysisIds.forEach(id => { map[id] = null; });
+    (data || []).forEach((v) => { map[v.analysis_id] = v as AnalysisView; });
+    setViewsByAnalysis(map);
+  };
+
+  const fetchRequests = async (analysisIds: string[]) => {
+    const { data, error } = await supabase
+      .from('ai_analysis_requests')
+      .select('*')
+      .eq('user_id', selectedClient)
+      .in('analysis_id', analysisIds)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching analysis requests:', error);
+      return;
+    }
+    const map: Record<string, AnalysisRequest[]> = {};
+    analysisIds.forEach(id => { map[id] = []; });
+    (data || []).forEach((r) => {
+      if (!map[r.analysis_id]) map[r.analysis_id] = [];
+      map[r.analysis_id].push(r as AnalysisRequest);
+    });
+    setRequestsByAnalysis(map);
   };
 
   const runAnalysis = async () => {
@@ -287,11 +373,12 @@ const AdminAnalysis = () => {
 
       const { analysis } = response.data;
 
-      // Save analysis to database - always save now, even for file-only analyses
+      // Save analysis to database - include user_id so file-only analyses appear for the client when shared
       const { error: saveError } = await supabase
         .from('ai_analysis')
         .insert({
-          period_id: selectedPeriod || null, // Allow null for file-only analyses
+          user_id: selectedClient,
+          period_id: selectedPeriod || null,
           analysis_type: selectedCategory,
           analysis_result: analysis,
           prompt_used: promptToUse,
@@ -301,24 +388,17 @@ const AdminAnalysis = () => {
 
       if (saveError) throw saveError;
 
-      if (!selectedPeriod) {
-        toast({
-          title: "File Analysis Complete",
-          description: "Analysis complete and saved.",
-        });
-      } else {
-        toast({
-          title: "Analysis Complete", 
-          description: "AI analysis has been generated and saved",
-        });
-      }
+      toast({
+        title: selectedPeriod ? "Analysis Complete" : "File Analysis Complete",
+        description: "Analysis has been generated and saved.",
+      });
 
-      // Refresh analyses
-      fetchAnalyses();
+      // Refresh analyses and engagement maps
+      await fetchAnalyses();
       setCustomPrompt('');
       setSelectedUploads([]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error running analysis:', error);
       toast({
         title: "Analysis Failed",
@@ -523,7 +603,6 @@ const AdminAnalysis = () => {
                   </p>
                 </div>
 
-
                 <Button 
                   onClick={runAnalysis} 
                   disabled={(!selectedPeriod && selectedUploads.length === 0) || !selectedClient || isAnalyzing}
@@ -605,157 +684,207 @@ const AdminAnalysis = () => {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                     {analyses.map((analysis) => (
-                       <div key={analysis.id} className="border rounded-lg p-6">
-                         <div className="flex items-center justify-between mb-4">
-                           <div className="flex items-center gap-3">
-                             <Badge variant="outline" className="capitalize">
-                               {analysis.analysis_type}
-                             </Badge>
-                             <span className="text-sm text-muted-foreground">
-                               {new Date(analysis.created_at).toLocaleDateString()}
-                             </span>
-                             {analysis.shared_with_client && (
-                               <Badge variant="secondary" className="flex items-center gap-1">
-                                 <Share2 className="w-3 h-3" />
-                                 Shared
-                               </Badge>
-                             )}
-                           </div>
-                           <div className="flex items-center gap-2">
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={async () => {
-                                 const { error } = await supabase
-                                   .from('ai_analysis')
-                                   .update({ shared_with_client: !analysis.shared_with_client })
-                                   .eq('id', analysis.id);
-                                 
-                                 if (!error) {
-                                   fetchAnalyses();
-                                   toast({
-                                     title: analysis.shared_with_client ? "Analysis unshared" : "Analysis shared",
-                                     description: analysis.shared_with_client 
-                                       ? "The analysis is no longer visible to the client"
-                                       : "The analysis is now visible to the client"
-                                   });
-                                 }
-                               }}
-                             >
-                               <Share2 className="w-4 h-4 mr-2" />
-                               {analysis.shared_with_client ? 'Unshare' : 'Share'}
-                             </Button>
-                             <Button
-                               variant="ghost"
-                               size="sm"
-                               onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
-                             >
-                               <MessageCircle className="w-4 h-4 mr-2" />
-                               Chat
-                             </Button>
-                           </div>
-                         </div>
-                         
-                         {/* Show selected files if any */}
-                         {analysis.selected_uploads && analysis.selected_uploads.length > 0 && (
-                           <div className="mb-4">
-                             <p className="text-sm font-medium mb-2">Analyzed Files:</p>
-                             <div className="flex flex-wrap gap-2">
-                               {analysis.selected_uploads.map((upload: any, index: number) => (
-                                 <Badge key={index} variant="secondary" className="text-xs">
-                                   {upload.name}
-                                 </Badge>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-                         
-                         <div className="prose prose-sm max-w-none mb-4">
-                           <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                             {analysis.analysis_result}
-                           </pre>
-                         </div>
+                    {analyses.map((analysis) => {
+                      const view = viewsByAnalysis[analysis.id];
+                      const requests = requestsByAnalysis[analysis.id] || [];
+                      const openRequests = requests.filter(r => r.status === 'open' || r.status === 'in_progress');
 
-                         {/* Conversation Section */}
-                         {expandedAnalysis === analysis.id && (
-                           <div className="border-t pt-4 mt-4">
-                             <h4 className="font-medium mb-3">Continue Discussion</h4>
-                             
-                             {/* Conversation History */}
-                             {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
-                               <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-                                 {conversations[analysis.id].map((message, index) => (
-                                   <div key={index} className={`p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-gray-50 mr-8'}`}>
-                                     <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
-                                     <div className="text-sm">{message.content}</div>
-                                   </div>
-                                 ))}
-                               </div>
-                             )}
+                      return (
+                        <div key={analysis.id} className="border rounded-lg p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="outline" className="capitalize">
+                                {analysis.analysis_type}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(analysis.created_at).toLocaleDateString()}
+                              </span>
+                              {analysis.shared_with_client && (
+                                <Badge variant="secondary" className="flex items-center gap-1">
+                                  <Share2 className="w-3 h-3" />
+                                  Shared
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from('ai_analysis')
+                                    .update({ shared_with_client: !analysis.shared_with_client })
+                                    .eq('id', analysis.id);
+                                  
+                                  if (!error) {
+                                    fetchAnalyses();
+                                    toast({
+                                      title: analysis.shared_with_client ? "Analysis unshared" : "Analysis shared",
+                                      description: analysis.shared_with_client 
+                                        ? "The analysis is no longer visible to the client"
+                                        : "The analysis is now visible to the client"
+                                    });
+                                  }
+                                }}
+                              >
+                                <Share2 className="w-4 h-4 mr-2" />
+                                {analysis.shared_with_client ? 'Unshare' : 'Share'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                Chat
+                              </Button>
+                            </div>
+                          </div>
 
-                             {/* New Message Input */}
-                             <div className="flex gap-2">
-                               <Textarea
-                                 value={newMessages[analysis.id] || ''}
-                                 onChange={(e) => setNewMessages({...newMessages, [analysis.id]: e.target.value})}
-                                 placeholder="Ask a follow-up question about this analysis..."
-                                 rows={2}
-                                 className="flex-1"
-                               />
-                               <Button
-                                 onClick={async () => {
-                                   const message = newMessages[analysis.id]?.trim();
-                                   if (!message) return;
+                          {/* Engagement Summary for Admin */}
+                          <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Eye className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Views: <span className="font-medium text-foreground">{view?.view_count ?? 0}</span>
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Last viewed: <span className="font-medium text-foreground">
+                                {view?.last_viewed_at ? new Date(view.last_viewed_at).toLocaleString() : '—'}
+                              </span>
+                            </div>
+                            <div className="text-sm">
+                              Status: {view?.acknowledged ? (
+                                <Badge variant="secondary">Acknowledged</Badge>
+                              ) : (
+                                <Badge variant="outline">Needs Review</Badge>
+                              )}
+                            </div>
+                          </div>
 
-                                   const currentConversation = conversations[analysis.id] || [];
-                                   const updatedConversation = [
-                                     ...currentConversation,
-                                     { role: 'user' as const, content: message }
-                                   ];
+                          {/* Requests Summary */}
+                          {requests.length > 0 && (
+                            <div className="mb-4 rounded-md border p-3 bg-muted/30">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium">Client Requests</p>
+                                <Badge variant={openRequests.length > 0 ? "secondary" : "outline"}>
+                                  {openRequests.length} open
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                {requests.slice(0, 3).map((r) => (
+                                  <div key={r.id} className="text-sm text-muted-foreground">
+                                    <span className="font-medium capitalize">{r.status}</span>
+                                    <span className="mx-2">•</span>
+                                    <span className="truncate">{r.message}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>{new Date(r.created_at).toLocaleString()}</span>
+                                  </div>
+                                ))}
+                                {requests.length > 3 && (
+                                  <div className="text-xs text-muted-foreground">+ {requests.length - 3} more</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                                   setConversations({
-                                     ...conversations,
-                                     [analysis.id]: updatedConversation
-                                   });
-                                   setNewMessages({...newMessages, [analysis.id]: ''});
+                          {/* Show selected files if any */}
+                          {analysis.selected_uploads && analysis.selected_uploads.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-sm font-medium mb-2">Analyzed Files:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.selected_uploads.map((upload: any, index: number) => (
+                                  <Badge key={index} variant="secondary" className="text-xs">
+                                    {upload.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="prose prose-sm max-w-none mb-4">
+                            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                              {analysis.analysis_result}
+                            </pre>
+                          </div>
 
-                                   try {
-                                     const result = await supabase.functions.invoke('analyze-performance', {
-                                       body: {
-                                         followUpPrompt: message,
-                                         originalAnalysis: analysis.analysis_result,
-                                         periodData: selectedPeriodData?.form_data,
-                                         agencyName: selectedClientData?.agency?.name
-                                       }
-                                     });
+                          {/* Conversation Section */}
+                          {expandedAnalysis === analysis.id && (
+                            <div className="border-t pt-4 mt-4">
+                              <h4 className="font-medium mb-3">Continue Discussion</h4>
+                              {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
+                                <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                                  {conversations[analysis.id].map((message, index) => (
+                                    <div key={index} className={`p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-gray-50 mr-8'}`}>
+                                      <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
+                                      <div className="text-sm">{message.content}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <Textarea
+                                  value={newMessages[analysis.id] || ''}
+                                  onChange={(e) => setNewMessages({...newMessages, [analysis.id]: e.target.value})}
+                                  placeholder="Ask a follow-up question about this analysis..."
+                                  rows={2}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  onClick={async () => {
+                                    const message = newMessages[analysis.id]?.trim();
+                                    if (!message) return;
 
-                                     if (result.data?.analysis) {
-                                       setConversations({
-                                         ...conversations,
-                                         [analysis.id]: [
-                                           ...updatedConversation,
-                                           { role: 'assistant', content: result.data.analysis }
-                                         ]
-                                       });
-                                     }
-                                   } catch (error) {
-                                     toast({
-                                       title: "Error",
-                                       description: "Failed to get AI response",
-                                       variant: "destructive"
-                                     });
-                                   }
-                                 }}
-                                 disabled={!newMessages[analysis.id]?.trim()}
-                               >
-                                 <Send className="w-4 h-4" />
-                               </Button>
-                             </div>
-                           </div>
-                         )}
-                      </div>
-                    ))}
+                                    const currentConversation = conversations[analysis.id] || [];
+                                    const updatedConversation = [
+                                      ...currentConversation,
+                                      { role: 'user' as const, content: message }
+                                    ];
+
+                                    setConversations({
+                                      ...conversations,
+                                      [analysis.id]: updatedConversation
+                                    });
+                                    setNewMessages({...newMessages, [analysis.id]: ''});
+
+                                    try {
+                                      const result = await supabase.functions.invoke('analyze-performance', {
+                                        body: {
+                                          followUpPrompt: message,
+                                          originalAnalysis: analysis.analysis_result,
+                                          periodData: selectedPeriodData?.form_data,
+                                          agencyName: selectedClientData?.agency?.name
+                                        }
+                                      });
+
+                                      if (result.data?.analysis) {
+                                        setConversations({
+                                          ...conversations,
+                                          [analysis.id]: [
+                                            ...updatedConversation,
+                                            { role: 'assistant', content: result.data.analysis }
+                                          ]
+                                        });
+                                      }
+                                    } catch (error) {
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to get AI response",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                  disabled={!newMessages[analysis.id]?.trim()}
+                                >
+                                  <Send className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

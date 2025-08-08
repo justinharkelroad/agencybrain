@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
@@ -72,8 +73,9 @@ serve(async (req) => {
     if (!aiRes.ok) throw new Error(aiJson?.error?.message || 'OpenAI error');
     const analysis = aiJson.choices?.[0]?.message?.content || '';
 
-    // Store to ai_analysis
+    // Store to ai_analysis (include user_id so the row is tied to the client even without a period)
     await adminClient.from('ai_analysis').insert({
+      user_id: clientId,
       analysis_result: analysis,
       selected_uploads: uploads.map(u => ({ id: u.id, name: u.original_name, file_path: u.file_path, category: u.category })),
       period_id: null,

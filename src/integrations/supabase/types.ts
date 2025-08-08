@@ -50,6 +50,7 @@ export type Database = {
           selected_uploads: Json | null
           shared_with_client: boolean
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           analysis_result: string
@@ -62,6 +63,7 @@ export type Database = {
           selected_uploads?: Json | null
           shared_with_client?: boolean
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           analysis_result?: string
@@ -74,6 +76,7 @@ export type Database = {
           selected_uploads?: Json | null
           shared_with_client?: boolean
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -88,6 +91,100 @@ export type Database = {
             columns: ["prompt_id"]
             isOneToOne: false
             referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_analysis_requests: {
+        Row: {
+          admin_note: string | null
+          analysis_id: string
+          created_at: string
+          id: string
+          message: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          analysis_id: string
+          created_at?: string
+          id?: string
+          message: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analysis_requests_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "ai_analysis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_analysis_views: {
+        Row: {
+          acknowledged: boolean
+          acknowledged_at: string | null
+          analysis_id: string
+          created_at: string
+          first_viewed_at: string
+          id: string
+          last_viewed_at: string
+          updated_at: string
+          user_id: string
+          view_count: number
+        }
+        Insert: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          analysis_id: string
+          created_at?: string
+          first_viewed_at?: string
+          id?: string
+          last_viewed_at?: string
+          updated_at?: string
+          user_id: string
+          view_count?: number
+        }
+        Update: {
+          acknowledged?: boolean
+          acknowledged_at?: string | null
+          analysis_id?: string
+          created_at?: string
+          first_viewed_at?: string
+          id?: string
+          last_viewed_at?: string
+          updated_at?: string
+          user_id?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analysis_views_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "ai_analysis"
             referencedColumns: ["id"]
           },
         ]
