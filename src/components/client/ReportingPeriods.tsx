@@ -61,9 +61,11 @@ export default function ReportingPeriods() {
                 <li key={p.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <div className="font-medium">{p.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatDateLocal(p.start_date)} – {formatDateLocal(p.end_date)}
-                    </div>
+                      {!/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/.test(p.title) && !/\b\d{4}-\d{2}-\d{2}\b/.test(p.title) && (
+                        <div className="text-sm text-muted-foreground">
+                          {formatDateLocal(p.start_date)} – {formatDateLocal(p.end_date)}
+                        </div>
+                      )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={p.status === 'complete' ? 'default' : p.status === 'active' ? 'secondary' : 'outline'}>

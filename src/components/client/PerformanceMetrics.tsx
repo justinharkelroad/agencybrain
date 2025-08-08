@@ -88,7 +88,10 @@ const kpis = useMemo(() => {
   <div>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="text-sm text-muted-foreground">
-        {latest.title} • {formatDateLocal(latest.start_date)} – {formatDateLocal(latest.end_date)}
+        {( /\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/.test(latest.title) || /\b\d{4}-\d{2}-\d{2}\b/.test(latest.title) )
+          ? latest.title
+          : `${latest.title} • ${formatDateLocal(latest.start_date)} – ${formatDateLocal(latest.end_date)}`}
+
       </div>
       <Badge variant={latest.status === 'complete' ? 'default' : latest.status === 'active' ? 'secondary' : 'outline'}>
         {latest.status}
