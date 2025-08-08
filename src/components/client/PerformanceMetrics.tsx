@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Link } from 'react-router-dom';
+import { FormViewer } from '@/components/FormViewer';
+import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 
 interface Period {
   id: string;
@@ -21,36 +23,50 @@ const formatNumber = (n: number | undefined | null) => {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(n));
 };
 
+const formatCurrency = (n: number | undefined | null) => {
+  if (n === null || n === undefined || isNaN(Number(n))) return '-';
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Number(n));
+};
+
 export default function PerformanceMetrics() {
   const { user } = useAuth();
   const [latest, setLatest] = useState<Period | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchLatest = async () => {
-      if (!user) return;
-      setLoading(true);
-      const { data } = await supabase
-        .from('periods')
-        .select('*')
-        .eq('user_id', user.id)
-        .not('form_data', 'is', null)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-      setLatest(data && data.length > 0 ? (data[0] as Period) : null);
-      setLoading(false);
-    };
-    fetchLatest();
-  }, [user?.id]);
+const fetchLatest = async () => {
+  if (!user) return;
+  setLoading(true);
+  const { data } = await supabase
+    .from('periods')
+    .select('*')
+    .eq('user_id', user.id)
+    .not('form_data', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  setLatest(data && data.length > 0 ? (data[0] as Period) : null);
+  setLoading(false);
+};
 
-  const kpis = useMemo(() => {
-    const fd = latest?.form_data || {};
-    return {
-      premium: fd?.sales?.premium as number | undefined,
-      policies: fd?.sales?.policies as number | undefined,
-      netProfit: fd?.cashFlow?.netProfit as number | undefined,
-    };
-  }, [latest]);
+useEffect(() => {
+  fetchLatest();
+}, [user?.id]);
+
+const kpis = useMemo(() => {
+  const fd = latest?.form_data || {};
+  const sales = fd?.sales || {};
+  const marketing = fd?.marketing || {};
+  const cashFlow = fd?.cashFlow || {};
+  return {
+    premium: sales.premium as number | undefined,
+    policies: sales.policies as number | undefined,
+    policiesQuoted: marketing.policiesQuoted as number | undefined,
+    achievedVC: Boolean(sales.achievedVC),
+    totalMarketingSpend: marketing.totalSpend as number | undefined,
+    compensation: cashFlow.compensation as number | undefined,
+    expenses: cashFlow.expenses as number | undefined,
+    netProfit: (cashFlow.netProfit as number | undefined) ?? (typeof cashFlow.compensation === 'number' && typeof cashFlow.expenses === 'number' ? (cashFlow.compensation - cashFlow.expenses) : undefined),
+  };
+}, [latest]);
 
   return (
     <section aria-labelledby="performance-metrics">
@@ -60,46 +76,69 @@ export default function PerformanceMetrics() {
           <CardDescription>Key stats from your most recent submission</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="h-16 rounded-md bg-muted animate-pulse" />
-              <div className="h-16 rounded-md bg-muted animate-pulse" />
-              <div className="h-16 rounded-md bg-muted animate-pulse" />
-            </div>
-          ) : latest ? (
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm text-muted-foreground">
-                  {latest.title} • {new Date(latest.start_date).toLocaleDateString()} – {new Date(latest.end_date).toLocaleDateString()}
-                </div>
-                <Badge variant={latest.status === 'complete' ? 'default' : latest.status === 'active' ? 'secondary' : 'outline'}>
-                  {latest.status}
-                </Badge>
-              </div>
-              <Separator className="my-4" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm text-muted-foreground">Sales Premium</div>
-                  <div className="text-2xl font-semibold">{formatNumber(kpis.premium)}</div>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm text-muted-foreground">Policies</div>
-                  <div className="text-2xl font-semibold">{formatNumber(kpis.policies)}</div>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <div className="text-sm text-muted-foreground">Net Profit</div>
-                  <div className="text-2xl font-semibold">{formatNumber(kpis.netProfit)}</div>
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <Button asChild size="sm">
-                  <Link to={`/submit?mode=update&periodId=${latest.id}`}>View Details</Link>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">No submissions found yet.</div>
-          )}
+{loading ? (
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="h-16 rounded-md bg-muted animate-pulse" />
+    <div className="h-16 rounded-md bg-muted animate-pulse" />
+    <div className="h-16 rounded-md bg-muted animate-pulse" />
+    <div className="h-16 rounded-md bg-muted animate-pulse" />
+  </div>
+) : latest ? (
+  <div>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="text-sm text-muted-foreground">
+        {latest.title} • {new Date(latest.start_date).toLocaleDateString()} – {new Date(latest.end_date).toLocaleDateString()}
+      </div>
+      <Badge variant={latest.status === 'complete' ? 'default' : latest.status === 'active' ? 'secondary' : 'outline'}>
+        {latest.status}
+      </Badge>
+    </div>
+    <Separator className="my-4" />
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Premium Sold</div>
+        <div className="text-2xl font-semibold">{formatCurrency(kpis.premium)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Policies Sold</div>
+        <div className="text-2xl font-semibold">{formatNumber(kpis.policies)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Policies Quoted</div>
+        <div className="text-2xl font-semibold">{formatNumber(kpis.policiesQuoted)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">VC Achieved</div>
+        <div className={`text-2xl font-semibold ${kpis.achievedVC ? 'text-green-600' : 'text-red-600'}`}>{kpis.achievedVC ? '✓ Yes' : '✗ No'}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Total Marketing Spend</div>
+        <div className="text-2xl font-semibold">{formatCurrency(kpis.totalMarketingSpend)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Agency Compensation</div>
+        <div className="text-2xl font-semibold">{formatCurrency(kpis.compensation)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Expenses</div>
+        <div className="text-2xl font-semibold">{formatCurrency(kpis.expenses)}</div>
+      </div>
+      <div className="rounded-lg border p-4">
+        <div className="text-sm text-muted-foreground">Net Profit</div>
+        <div className={`text-2xl font-bold ${typeof kpis.netProfit === 'number' && (kpis.netProfit ?? 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(kpis.netProfit as number | undefined)}</div>
+      </div>
+    </div>
+    <div className="mt-4 flex justify-end gap-2">
+      <FormViewer period={latest} triggerButton={<Button size="sm" variant="secondary">View Details</Button>} />
+      <Button asChild size="sm">
+        <Link to={`/submit?mode=update&periodId=${latest.id}`}>Update</Link>
+      </Button>
+      <PeriodDeleteDialog period={latest} onDelete={fetchLatest} />
+    </div>
+  </div>
+) : (
+  <div className="text-sm text-muted-foreground">No submissions found yet.</div>
+)}
         </CardContent>
       </Card>
     </section>
