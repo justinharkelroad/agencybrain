@@ -11,6 +11,7 @@ import { PlusCircle, FileText, Upload, History, LogOut, TrendingUp, TrendingDown
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
+import ExplainerVideoDialog from '@/components/ExplainerVideoDialog';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -517,6 +518,10 @@ export default function Dashboard() {
             <p className="text-muted-foreground">
               Welcome back{userFirstName ? ` ${userFirstName}` : ""}! Manage your agency performance reporting here.
             </p>
+            <div className="mt-4">
+              {/* TODO: Replace the videoUrl with your actual explainer video URL (YouTube/Vimeo embed link) */}
+              <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/VIDEO_ID" />
+            </div>
           </div>
 
           {!currentPeriod ? (
