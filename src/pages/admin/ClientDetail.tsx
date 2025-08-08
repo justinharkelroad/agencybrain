@@ -181,12 +181,14 @@ export default function ClientDetail() {
     for (const [analysisId, indices] of entries) {
       const prev = prevSharedRef.current[analysisId] || [];
       const newlyShared = indices.filter(i => !prev.includes(i));
+      const removed = prev.filter(i => !indices.includes(i));
 
-      if (newlyShared.length > 0 && Array.isArray(conversations[analysisId])) {
+      if (Array.isArray(conversations[analysisId])) {
         let assistantSeen = -1;
         conversations[analysisId].forEach((m, idx) => {
           if (m.role !== "assistant") return;
           assistantSeen += 1;
+
           if (newlyShared.includes(assistantSeen) && m.id) {
             // Mark in DB
             markMessageShared(m.id, true).catch(err => {
@@ -196,6 +198,19 @@ export default function ClientDetail() {
             setConversations(prev => {
               const list = prev[analysisId] ? [...prev[analysisId]] : [];
               if (list[idx]) list[idx] = { ...list[idx], shared: true };
+              return { ...prev, [analysisId]: list };
+            });
+          }
+
+          if (removed.includes(assistantSeen) && m.id) {
+            // Mark as unshared in DB
+            markMessageShared(m.id, false).catch(err => {
+              console.error("[ClientDetail] Failed to unshare message", err);
+            });
+            // Reflect in local state
+            setConversations(prev => {
+              const list = prev[analysisId] ? [...prev[analysisId]] : [];
+              if (list[idx]) list[idx] = { ...list[idx], shared: false };
               return { ...prev, [analysisId]: list };
             });
           }
@@ -311,15 +326,34 @@ export default function ClientDetail() {
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
       
-      // Fetch analyses
-      const { data: analysesData, error: analysesError } = await supabase
+      // Fetch analyses (by user_id and by client's periods), then de-duplicate
+      const periodIds = (periodsData || []).map(p => p.id);
+
+      const results: Array<{ data: Analysis[] | null; error: any | null }> = [];
+
+      const byUser = await supabase
         .from('ai_analysis')
         .select('*')
-        .eq('user_id', clientId)
-        .order('created_at', { ascending: false });
-      
-      if (analysesError) throw analysesError;
-      setAnalyses(analysesData || []);
+        .eq('user_id', clientId);
+      results.push({ data: byUser.data as Analysis[] | null, error: byUser.error });
+
+      if (periodIds.length > 0) {
+        const byPeriod = await supabase
+          .from('ai_analysis')
+          .select('*')
+          .in('period_id', periodIds);
+        results.push({ data: byPeriod.data as Analysis[] | null, error: byPeriod.error });
+      }
+
+      // Throw if any query errored
+      results.forEach(r => { if (r.error) throw r.error; });
+
+      const combined = results.flatMap(r => r.data || []) as Analysis[];
+      const dedupedMap = new Map(combined.map(a => [a.id, a] as const));
+      const deduped = Array.from(dedupedMap.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setAnalyses(deduped);
       
       // Fetch prompts
       const { data: promptsData, error: promptsError } = await supabase
