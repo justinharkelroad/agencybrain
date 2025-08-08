@@ -33,6 +33,13 @@ interface AnalysisView {
   acknowledged_at: string | null;
 }
 
+interface ChatMessage {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
 const SharedInsights: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -40,6 +47,8 @@ const SharedInsights: React.FC = () => {
   const [views, setViews] = useState<Record<string, AnalysisView | null>>({});
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisRow | null>(null);
   const [requestMsg, setRequestMsg] = useState('');
+  const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [messagesLoading, setMessagesLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -177,6 +186,28 @@ const SharedInsights: React.FC = () => {
     }
   };
 
+  const loadMessages = async (analysisId: string) => {
+    if (messages[analysisId] || messagesLoading[analysisId]) return;
+    setMessagesLoading(prev => ({ ...prev, [analysisId]: true }));
+    try {
+      const { data, error } = await supabase
+        .from('ai_chat_messages')
+        .select('id, role, content, created_at')
+        .eq('analysis_id', analysisId)
+        .eq('shared_with_client', true)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: true });
+      if (error) {
+        console.error('Error loading shared follow-ups:', error);
+        setMessages(prev => ({ ...prev, [analysisId]: [] }));
+      } else {
+        setMessages(prev => ({ ...prev, [analysisId]: (data as any[]) || [] }));
+      }
+    } finally {
+      setMessagesLoading(prev => ({ ...prev, [analysisId]: false }));
+    }
+  };
+
   const submitRequest = async (analysis: AnalysisRow) => {
     if (!user) return;
     const msg = requestMsg.trim();
@@ -237,6 +268,7 @@ const SharedInsights: React.FC = () => {
                           if (open) {
                             setActiveAnalysis(a);
                             recordView(a);
+                            loadMessages(a.id);
                           } else {
                             setActiveAnalysis(null);
                           }
@@ -254,6 +286,23 @@ const SharedInsights: React.FC = () => {
                           </DialogHeader>
                           <div className="prose prose-sm max-w-none">
                             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{a.analysis_result}</pre>
+                          </div>
+                          <div className="mt-6">
+                            <div className="text-sm font-medium mb-2">Shared follow-ups</div>
+                            {messagesLoading[a.id] ? (
+                              <p className="text-xs text-muted-foreground">Loading...</p>
+                            ) : messages[a.id]?.length ? (
+                              <div className="space-y-3">
+                                {messages[a.id]!.map((m) => (
+                                  <div key={m.id} className="rounded-md border p-3">
+                                    <div className="text-xs text-muted-foreground mb-1">{new Date(m.created_at).toLocaleString()}</div>
+                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{m.content}</pre>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">No shared follow-ups.</p>
+                            )}
                           </div>
                           <div className="mt-4 flex flex-col sm:flex-row gap-2">
                             <Button onClick={() => acknowledge(a)} className="flex-1">
@@ -309,6 +358,7 @@ const SharedInsights: React.FC = () => {
                           if (open) {
                             setActiveAnalysis(a);
                             recordView(a);
+                            loadMessages(a.id);
                           } else {
                             setActiveAnalysis(null);
                           }
@@ -326,6 +376,23 @@ const SharedInsights: React.FC = () => {
                           </DialogHeader>
                           <div className="prose prose-sm max-w-none">
                             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{a.analysis_result}</pre>
+                          </div>
+                          <div className="mt-6">
+                            <div className="text-sm font-medium mb-2">Shared follow-ups</div>
+                            {messagesLoading[a.id] ? (
+                              <p className="text-xs text-muted-foreground">Loading...</p>
+                            ) : messages[a.id]?.length ? (
+                              <div className="space-y-3">
+                                {messages[a.id]!.map((m) => (
+                                  <div key={m.id} className="rounded-md border p-3">
+                                    <div className="text-xs text-muted-foreground mb-1">{new Date(m.created_at).toLocaleString()}</div>
+                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{m.content}</pre>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">No shared follow-ups.</p>
+                            )}
                           </div>
                         </DialogContent>
                       </Dialog>
