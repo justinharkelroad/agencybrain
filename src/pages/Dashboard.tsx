@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import SharedInsights from '@/components/client/SharedInsights';
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
+import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -106,6 +107,7 @@ const Dashboard = () => {
         </section>
         <SharedInsights />
         <PerformanceMetrics />
+        <MonthOverMonthTrends />
         <ReportingPeriods />
 
       </main>
