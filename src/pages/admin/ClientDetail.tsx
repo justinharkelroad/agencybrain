@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +63,7 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [agencyName, setAgencyName] = useState<string>('Client');
   
   // Form states
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
@@ -268,6 +269,27 @@ export default function ClientDetail() {
       
       if (clientError) throw clientError;
       setClient(clientData);
+      // Resolve agency name for header
+      try {
+        if (clientData?.agency_id) {
+          const { data: agency, error: agencyError } = await supabase
+            .from('agencies')
+            .select('name')
+            .eq('id', clientData.agency_id)
+            .maybeSingle();
+          if (agencyError) {
+            console.warn('[ClientDetail] Failed to fetch agency name', agencyError);
+            setAgencyName('Client');
+          } else {
+            setAgencyName(agency?.name || 'Client');
+          }
+        } else {
+          setAgencyName('Client');
+        }
+      } catch (e) {
+        console.warn('[ClientDetail] Agency name lookup failed', e);
+        setAgencyName('Client');
+      }
       
       // Fetch periods
       const { data: periodsData, error: periodsError } = await supabase
@@ -491,7 +513,7 @@ export default function ClientDetail() {
         body: {
           periodData,
           uploads: selectedUploadData,
-          agencyName: client?.company || client?.name || 'Agency',
+          agencyName: agencyName,
           promptCategory: prompts.find(p => p.id === selectedPrompt)?.category || 'performance',
           customPrompt: customPrompt.trim() || undefined,
         },
@@ -704,41 +726,12 @@ export default function ClientDetail() {
             Back to Admin
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{client.name}</h1>
-            <p className="text-muted-foreground">{client.email}</p>
+            <h1 className="text-3xl font-bold">{agencyName}</h1>
           </div>
         </div>
-        <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
-          {client.status}
-        </Badge>
       </div>
 
-      {/* Client Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Client Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Name</label>
-              <p className="text-sm">{client.name}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Email</label>
-              <p className="text-sm">{client.email}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Phone</label>
-              <p className="text-sm">{client.phone || 'Not provided'}</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">Company</label>
-              <p className="text-sm">{client.company || 'Not provided'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Client info card removed per request; displaying agency name in header only */}
 
       <Tabs defaultValue="periods" className="space-y-6">
         <TabsList>
@@ -949,7 +942,12 @@ export default function ClientDetail() {
 
               {/* Prompt Selection */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Analysis Prompt</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Analysis Prompt</label>
+                  <Button variant="link" asChild>
+                    <Link to="/admin/prompts">Manage prompt library</Link>
+                  </Button>
+                </div>
                 <Select value={selectedPrompt} onValueChange={setSelectedPrompt}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a prompt template" />
@@ -1025,10 +1023,9 @@ export default function ClientDetail() {
                         </div>
                       </div>
 
-                      {/* Analysis Result */}
                       <div className="prose prose-sm max-w-none mb-4">
-                        <div className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-lg">
-                          {analysis.analysis_result}
+                        <div className="whitespace-pre-wrap text-sm bg-gray-50 text-gray-900 p-3 rounded-lg">
+                          {analysis.analysis_result && analysis.analysis_result.trim().length > 0 ? analysis.analysis_result : 'No analysis content available.'}
                         </div>
                       </div>
 
