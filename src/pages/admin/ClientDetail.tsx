@@ -21,7 +21,8 @@ import {
   Save,
   Share2,
   MessageCircle,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
@@ -114,6 +115,7 @@ const [savingMRR, setSavingMRR] = useState<boolean>(false);
 const [conversations, setConversations] = useState<{[analysisId: string]: Array<{role: 'user' | 'assistant', content: string}>}>({});
 const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({});
 const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
+const [isSending, setIsSending] = useState<Record<string, boolean>>({});
   // Auto-select all transcripts when uploads change
   useEffect(() => {
     const transcripts = uploads.filter(u => u.category === 'transcripts');
@@ -884,9 +886,9 @@ const handleSaveMRR = async () => {
                             {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
                               <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
                                 {conversations[analysis.id].map((message, index) => (
-                                  <div key={index} className={`p-3 rounded-lg ${message.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-gray-50 mr-8'}`}>
+                                  <div key={index} className={`p-3 rounded-lg border ${message.role === 'user' ? 'bg-secondary ml-8' : 'bg-muted mr-8'} text-foreground`}>
                                     <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
-                                    <div className="text-sm">{message.content}</div>
+                                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                                   </div>
                                 ))}
                               </div>
@@ -911,14 +913,21 @@ const handleSaveMRR = async () => {
                                   ];
                                   setConversations({ ...conversations, [analysis.id]: updatedConversation });
                                   setNewMessages({ ...newMessages, [analysis.id]: '' });
+                                  setIsSending({ ...isSending, [analysis.id]: true });
 
                                   try {
+                                    // Map selected_uploads (ids) to full upload records with file_path
+                                    const uploadsForAnalysis = analysis.selected_uploads?.length
+                                      ? uploads.filter(u => analysis.selected_uploads.some((s: any) => s.id === u.id))
+                                      : [];
+
                                     const result = await supabase.functions.invoke('analyze-performance', {
                                       body: {
                                         followUpPrompt: message,
                                         originalAnalysis: analysis.analysis_result,
                                         periodData: analysis.period?.form_data || null,
-                                        agencyName: client.agency?.name
+                                        agencyName: client.agency?.name,
+                                        uploads: uploadsForAnalysis,
                                       }
                                     });
 
@@ -930,18 +939,27 @@ const handleSaveMRR = async () => {
                                           { role: 'assistant' as const, content: result.data.analysis }
                                         ]
                                       });
+                                    } else if (result.error) {
+                                      throw result.error;
                                     }
-                                  } catch (error) {
+                                  } catch (error: any) {
+                                    console.error('Follow-up chat failed', error);
                                     toast({
                                       title: 'Error',
-                                      description: 'Failed to get AI response',
+                                      description: error?.message || 'Failed to get AI response',
                                       variant: 'destructive'
                                     });
+                                  } finally {
+                                    setIsSending(prev => ({ ...prev, [analysis.id]: false }));
                                   }
                                 }}
-                                disabled={!newMessages[analysis.id]?.trim()}
+                                disabled={!newMessages[analysis.id]?.trim() || !!isSending[analysis.id]}
                               >
-                                <Send className="w-4 h-4" />
+                                {isSending[analysis.id] ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
                               </Button>
                             </div>
                           </div>

@@ -194,7 +194,7 @@ Focus on strategic positioning and competitive advantage.`
       messages = [
         { 
           role: 'system', 
-          content: 'You are an expert insurance agency performance coach and analyst. Answer follow-up questions about the analysis you previously provided. Be specific and reference details from the original analysis when relevant.' 
+          content: 'You are an expert insurance agency performance coach and analyst. Answer follow-up questions about the analysis you previously provided. Use the provided data context to perform calculations and give specific, actionable answers.' 
         },
         { 
           role: 'assistant', 
@@ -202,7 +202,7 @@ Focus on strategic positioning and competitive advantage.`
         },
         { 
           role: 'user', 
-          content: followUpPrompt 
+          content: `Data context (period metrics and any uploaded files converted to text):\n\n${context}\n\nFollow-up question: ${followUpPrompt}` 
         }
       ];
     } else {
