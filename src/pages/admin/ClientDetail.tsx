@@ -67,7 +67,7 @@ interface Prompt {
 type ConversationMessage = { role: "user" | "assistant"; content: string; id?: string; shared?: boolean };
 
 export default function ClientDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -99,10 +99,13 @@ export default function ClientDetail() {
   const lastSyncCountsRef = React.useRef<Record<string, number>>({});
 
   useEffect(() => {
-    if (id) {
-      fetchClientData();
+    if (!clientId) {
+      toast({ title: "Invalid URL", description: "Missing client ID", variant: "destructive" });
+      navigate("/admin");
+      return;
     }
-  }, [id]);
+    fetchClientData();
+  }, [clientId]);
 
   // Load chat history from DB whenever a thread is expanded
   useEffect(() => {
@@ -276,7 +279,7 @@ export default function ClientDetail() {
       const { data: clientData, error: clientError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', id)
+        .eq('id', clientId)
         .single();
       
       if (clientError) throw clientError;
@@ -286,7 +289,7 @@ export default function ClientDetail() {
       const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
         .select('*')
-        .eq('user_id', id)
+        .eq('user_id', clientId)
         .order('created_at', { ascending: false });
       
       if (periodsError) throw periodsError;
@@ -296,7 +299,7 @@ export default function ClientDetail() {
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
-        .eq('user_id', id)
+        .eq('user_id', clientId)
         .order('created_at', { ascending: false });
       
       if (uploadsError) throw uploadsError;
@@ -306,7 +309,7 @@ export default function ClientDetail() {
       const { data: analysesData, error: analysesError } = await supabase
         .from('ai_analysis')
         .select('*')
-        .eq('user_id', id)
+        .eq('user_id', clientId)
         .order('created_at', { ascending: false });
       
       if (analysesError) throw analysesError;
@@ -343,7 +346,7 @@ export default function ClientDetail() {
       for (const file of Array.from(files)) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${id}/${fileName}`;
+        const filePath = `${clientId}/${fileName}`;
         
         // Upload file to storage
         const { error: uploadError } = await supabase.storage
@@ -356,7 +359,7 @@ export default function ClientDetail() {
         const { error: dbError } = await supabase
           .from('uploads')
           .insert({
-            user_id: id,
+            user_id: clientId,
             original_name: file.name,
             file_path: filePath,
             file_size: file.size,
