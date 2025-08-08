@@ -77,6 +77,7 @@ export default function ClientDetail() {
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [isSending, setIsSending] = useState<Record<string, boolean>>({});
   const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
+  const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -550,6 +551,9 @@ export default function ClientDetail() {
           agencyName: agencyName,
           promptCategory: prompts.find(p => p.id === selectedPrompt)?.category || 'performance',
           customPrompt: customPrompt.trim() || undefined,
+          userId: clientId,
+          periodId: selectedPeriod || null,
+          promptId: selectedPrompt || null,
         },
       });
       
@@ -1046,7 +1050,13 @@ export default function ClientDetail() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
+                            onClick={() => {
+                              const next = expandedAnalysis === analysis.id ? null : analysis.id;
+                              setExpandedAnalysis(next);
+                              if (next) {
+                                setTimeout(() => inputRefs.current[analysis.id]?.focus(), 0);
+                              }
+                            }}
                           >
                             {expandedAnalysis === analysis.id ? (
                               <ChevronUp className="h-4 w-4" />
@@ -1062,6 +1072,15 @@ export default function ClientDetail() {
                           {analysis.analysis_result && analysis.analysis_result.trim().length > 0 ? analysis.analysis_result : 'No analysis content available.'}
                         </div>
                       </div>
+
+                      {/* Collapsed CTA */}
+                      {expandedAnalysis !== analysis.id && (
+                        <div className="flex justify-end">
+                          <Button variant="secondary" size="sm" onClick={() => { setExpandedAnalysis(analysis.id); setTimeout(() => inputRefs.current[analysis.id]?.focus(), 0); }}>
+                            <MessageSquare className="h-3 w-3 mr-1" /> Continue Discussion
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Expanded Section - Chat */}
                       {expandedAnalysis === analysis.id && (
@@ -1140,13 +1159,14 @@ export default function ClientDetail() {
                           {/* Message Input */}
                           <div className="flex space-x-2">
                             <Input
+                              ref={(el) => { inputRefs.current[analysis.id] = el; }}
                               value={newMessages[analysis.id] || ''}
                               onChange={(e) => setNewMessages(prev => ({
                                 ...prev,
                                 [analysis.id]: e.target.value
                               }))}
                               placeholder="Ask a follow-up question..."
-                              onKeyPress={(e) => {
+                              onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault();
                                   handleSendFollowUp(analysis.id);

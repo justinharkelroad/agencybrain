@@ -27,7 +27,10 @@ serve(async (req) => {
       promptCategory, 
       customPrompt,
       followUpPrompt,
-      originalAnalysis
+      originalAnalysis,
+      userId,
+      periodId,
+      promptId
     } = await req.json();
 
     // Build context from period data and uploads
@@ -188,8 +191,10 @@ Focus on strategic positioning and competitive advantage.`
     };
 
     let messages;
+    let systemPrompt = '';
+    const isFollowUp = Boolean(followUpPrompt && originalAnalysis);
     
-    if (followUpPrompt && originalAnalysis) {
+    if (isFollowUp) {
       // This is a follow-up conversation
       messages = [
         { 
@@ -207,7 +212,7 @@ Focus on strategic positioning and competitive advantage.`
       ];
     } else {
       // This is a new analysis
-      const systemPrompt = customPrompt || defaultPrompts[promptCategory as keyof typeof defaultPrompts] || defaultPrompts.performance;
+      systemPrompt = customPrompt || defaultPrompts[promptCategory as keyof typeof defaultPrompts] || defaultPrompts.performance;
       messages = [
         { 
           role: 'system', 
@@ -242,6 +247,53 @@ Focus on strategic positioning and competitive advantage.`
 
     const analysis = data.choices[0].message.content;
 
+    // If this is a new analysis (not a follow-up), persist it
+    if (!isFollowUp) {
+      try {
+        const selectedUploadsMeta = Array.isArray(uploads)
+          ? uploads.map((u: any) => ({ id: u.id, original_name: u.original_name, category: u.category }))
+          : null;
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('ai_analysis')
+          .insert([
+            {
+              analysis_result: analysis,
+              analysis_type: promptCategory || 'performance',
+              prompt_used: systemPrompt || '',
+              selected_uploads: selectedUploadsMeta,
+              user_id: userId ?? null,
+              period_id: periodId ?? null,
+              prompt_id: promptId ?? null,
+              shared_with_client: false,
+            },
+          ])
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Failed to insert ai_analysis:', insertError);
+          // Continue to return analysis even if DB insert fails
+          return new Response(
+            JSON.stringify({ analysis, error: 'persist_failed' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ analysis, analysisId: inserted.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (e) {
+        console.error('Unexpected error inserting ai_analysis:', e);
+        return new Response(
+          JSON.stringify({ analysis, error: 'persist_exception' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Follow-up: just return generated content
     return new Response(JSON.stringify({ analysis }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
