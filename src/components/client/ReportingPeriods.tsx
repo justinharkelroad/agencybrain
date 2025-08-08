@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { Link } from 'react-router-dom';
+import { formatDateLocal } from '@/lib/utils';
 
 interface PeriodRow {
   id: string;
@@ -61,7 +62,7 @@ export default function ReportingPeriods() {
                   <div>
                     <div className="font-medium">{p.title}</div>
                     <div className="text-sm text-muted-foreground">
-                      {new Date(p.start_date).toLocaleDateString()} – {new Date(p.end_date).toLocaleDateString()}
+                      {formatDateLocal(p.start_date)} – {formatDateLocal(p.end_date)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Link } from 'react-router-dom';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
+import { formatDateLocal } from '@/lib/utils';
 
 interface Period {
   id: string;
@@ -87,7 +88,7 @@ const kpis = useMemo(() => {
   <div>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="text-sm text-muted-foreground">
-        {latest.title} • {new Date(latest.start_date).toLocaleDateString()} – {new Date(latest.end_date).toLocaleDateString()}
+        {latest.title} • {formatDateLocal(latest.start_date)} – {formatDateLocal(latest.end_date)}
       </div>
       <Badge variant={latest.status === 'complete' ? 'default' : latest.status === 'active' ? 'secondary' : 'outline'}>
         {latest.status}
