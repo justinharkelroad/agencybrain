@@ -78,6 +78,7 @@ export default function ClientDetail() {
   const [isSending, setIsSending] = useState<Record<string, boolean>>({});
   const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
+  const scrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -132,6 +133,25 @@ export default function ClientDetail() {
     };
     load();
   }, [expandedAnalysis]);
+
+  // Auto-scroll to bottom on expand
+  useEffect(() => {
+    if (!expandedAnalysis) return;
+    const id = expandedAnalysis;
+    console.log("[ClientDetail] auto-scroll on expand", { analysisId: id });
+    setTimeout(() => {
+      const el = scrollRefs.current[id];
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 0);
+  }, [expandedAnalysis]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (!expandedAnalysis) return;
+    console.log("[ClientDetail] auto-scroll on new message", { analysisId: expandedAnalysis });
+    const el = scrollRefs.current[expandedAnalysis];
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [conversations, expandedAnalysis]);
 
   // Auto-sync newly added local messages to DB (append-only assumption)
   useEffect(() => {
@@ -1036,6 +1056,9 @@ export default function ClientDetail() {
                           {analysis.shared_with_client && (
                             <Badge variant="default">Shared</Badge>
                           )}
+                          {(sharedReplies[analysis.id]?.length ?? 0) > 0 && (
+                            <Badge variant="secondary">Shared replies: {sharedReplies[analysis.id]!.length}</Badge>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-muted-foreground">
@@ -1046,10 +1069,10 @@ export default function ClientDetail() {
                             size="sm"
                             onClick={() => {
                               const next = expandedAnalysis === analysis.id ? null : analysis.id;
-                              setExpandedAnalysis(next);
-                              if (next) {
-                                setTimeout(() => inputRefs.current[analysis.id]?.focus(), 0);
-                              }
+                               setExpandedAnalysis(next);
+                               if (next) {
+                                 setTimeout(() => inputRefs.current[analysis.id]?.focus(), 0);
+                               }
                             }}
                           >
                             {expandedAnalysis === analysis.id ? (
@@ -1095,7 +1118,7 @@ export default function ClientDetail() {
 
                           {/* Chat Messages */}
                           {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
-                            <div className="space-y-3 max-h-60 overflow-y-auto">
+                            <div className="space-y-3 max-h-60 overflow-y-auto" ref={(el) => { scrollRefs.current[analysis.id] = el; }}>
                               {conversations[analysis.id].map((message, index) => {
                                 const isAssistant = message.role === 'assistant';
                                 let assistantIndex = -1;
