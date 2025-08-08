@@ -27,7 +27,7 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img
-              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png"
+              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png"
               alt="Standard Analytics logo"
               className="h-8 mr-3"
               loading="lazy"
@@ -37,16 +37,16 @@ const Dashboard = () => {
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2">
               <Link to="/uploads">
-                <Button variant="ghost" size="sm">Files</Button>
+                <Button variant="ghost" size="sm">My Files</Button>
               </Link>
-              <Link to="/submit">
+              <Link to="/submit?mode=new">
                 <Button variant="ghost" size="sm">Meeting Form</Button>
               </Link>
               <a href="#account">
                 <Button variant="ghost" size="sm">My Account</Button>
               </a>
             </nav>
-            <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/your-video-id" triggerText="Explainer Video" />
+            <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/Ehn88SeJSAg" triggerText="Explainer Video" />
             <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
           </div>
         </div>
@@ -64,7 +64,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full" asChild>
-                <Link to="/submit">
+                <Link to="/submit?mode=new">
                   <Play className="w-4 h-4 mr-2" />
                   Open Meeting Form
                 </Link>

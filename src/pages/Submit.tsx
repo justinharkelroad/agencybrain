@@ -586,12 +586,19 @@ export default function Submit() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link to="/dashboard">
-                <Button>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </Link>
+              <div className="flex gap-3">
+                <Link to="/dashboard">
+                  <Button>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Dashboard
+                  </Button>
+                </Link>
+                <Link to="/submit?mode=new">
+                  <Button variant="secondary">
+                    Start New Period
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>
