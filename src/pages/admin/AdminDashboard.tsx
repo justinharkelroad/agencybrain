@@ -71,6 +71,11 @@ const [coachingRevenue, setCoachingRevenue] = useState<number>(0);
 const [isRevenueVisible, setIsRevenueVisible] = useState(false);
 const revealTimerRef = useRef<number | null>(null);
 
+// Sets of user IDs for accurate status calculation
+const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set());
+const [completedUserIds, setCompletedUserIds] = useState<Set<string>>(new Set());
+const [uploadUserIds, setUploadUserIds] = useState<Set<string>>(new Set());
+
 const revealRevenue = () => {
   if (revealTimerRef.current) {
     window.clearTimeout(revealTimerRef.current);
@@ -150,6 +155,26 @@ const { toast } = useToast();
       if (uploadsError) throw uploadsError;
       setRecentUploads(uploadsData || []);
 
+// Build status sets (no limit)
+const { data: periodsAllData, error: periodsAllError } = await supabase
+  .from('periods')
+  .select('user_id, status, form_data');
+if (periodsAllError) throw periodsAllError;
+
+const activeSet = new Set<string>((periodsAllData || []).filter((p: any) => p.status === 'active').map((p: any) => p.user_id));
+const completedSet = new Set<string>((periodsAllData || []).filter((p: any) => p.form_data && Object.keys(p.form_data).length > 0).map((p: any) => p.user_id));
+
+const { data: uploadsAllData, error: uploadsAllError } = await supabase
+  .from('uploads')
+  .select('user_id');
+if (uploadsAllError) throw uploadsAllError;
+
+const uploadSet = new Set<string>((uploadsAllData || []).map((u: any) => u.user_id));
+
+setActiveUserIds(activeSet);
+setCompletedUserIds(completedSet);
+setUploadUserIds(uploadSet);
+
 // Calculate totals and stats
 const totalMRR = (profilesData || []).reduce((sum: number, p: any) => sum + (p?.mrr ? parseFloat(p.mrr as string) : 0), 0);
 const activeSubmissions = periodsData?.filter(p => p.status === 'active').length || 0;
@@ -177,26 +202,21 @@ setCoachingRevenue(totalMRR);
     }
   };
 
-  const getSubmissionStatus = (profile: Profile) => {
-    const hasActivePeriod = recentSubmissions.some(
-      p => p.user_id === profile.id && p.status === 'active'
-    );
-    const hasCompletedSubmission = recentSubmissions.some(
-      p => p.user_id === profile.id && 
-      p.form_data && Object.keys(p.form_data).length > 0
-    );
-    const hasUploads = recentUploads.some(u => u.user_id === profile.id);
+const getSubmissionStatus = (profile: Profile) => {
+  const hasActivePeriod = activeUserIds.has(profile.id);
+  const hasCompletedSubmission = completedUserIds.has(profile.id);
+  const hasUploads = uploadUserIds.has(profile.id);
 
-    if (hasCompletedSubmission && hasUploads) {
-      return <Badge variant="default">Complete</Badge>;
-    } else if (hasCompletedSubmission || hasUploads) {
-      return <Badge variant="secondary">Partial</Badge>;
-    } else if (hasActivePeriod) {
-      return <Badge variant="outline">In Progress</Badge>;
-    } else {
-      return <Badge variant="destructive">Not Started</Badge>;
-    }
-  };
+  if (hasCompletedSubmission && hasUploads) {
+    return <Badge variant="default" title="Complete: Form submitted + at least one upload">Complete</Badge>;
+  } else if (hasCompletedSubmission || hasUploads) {
+    return <Badge variant="secondary" title="Partial: Form submitted OR upload, but not both">Partial</Badge>;
+  } else if (hasActivePeriod) {
+    return <Badge variant="outline" title="In Progress: Active period started, no submission/upload yet">In Progress</Badge>;
+  } else {
+    return <Badge variant="destructive" title="Not Started: No activity yet">Not Started</Badge>;
+  }
+};
 
   const filteredClients = clients.filter(client =>
     client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -365,6 +385,13 @@ setCoachingRevenue(totalMRR);
                   />
                 </div>
               </div>
+            </div>
+            <div className="mt-4 text-xs text-muted-foreground flex flex-wrap items-center gap-2" aria-label="Status legend">
+              <span className="mr-1">Legend:</span>
+              <Badge variant="default" title="Form submitted + at least one upload">Complete</Badge>
+              <Badge variant="secondary" title="Form submitted OR upload, but not both">Partial</Badge>
+              <Badge variant="outline" title="Active period started, no submission/upload yet">In Progress</Badge>
+              <Badge variant="destructive" title="No activity yet">Not Started</Badge>
             </div>
           </CardHeader>
           <CardContent>
