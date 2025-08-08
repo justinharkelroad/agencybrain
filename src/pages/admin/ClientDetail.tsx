@@ -116,6 +116,7 @@ const [conversations, setConversations] = useState<{[analysisId: string]: Array<
 const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({});
 const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
 const [isSending, setIsSending] = useState<Record<string, boolean>>({});
+const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
   // Auto-select all transcripts when uploads change
   useEffect(() => {
     const transcripts = uploads.filter(u => u.category === 'transcripts');
@@ -884,14 +885,58 @@ const handleSaveMRR = async () => {
                           <div className="border-t pt-4 mt-4">
                             <h4 className="font-medium mb-3">Continue Discussion</h4>
                             {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
-                              <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-                                {conversations[analysis.id].map((message, index) => (
-                                  <div key={index} className={`p-3 rounded-lg border ${message.role === 'user' ? 'bg-secondary ml-8' : 'bg-muted mr-8'} text-foreground`}>
-                                    <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
-                                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                                  </div>
-                                ))}
-                              </div>
+<div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+  {conversations[analysis.id].map((message, index) => {
+    const isAssistant = message.role === 'assistant';
+    const alreadyShared = (sharedReplies[analysis.id] || []).includes(index);
+    return (
+      <div key={index} className={`p-3 rounded-lg border ${isAssistant ? 'bg-muted mr-8' : 'bg-secondary ml-8'} text-foreground`}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
+            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+          </div>
+          {isAssistant && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={alreadyShared}
+              onClick={async () => {
+                try {
+                  const { error } = await supabase
+                    .from('ai_analysis')
+                    .insert({
+                      user_id: client.id,
+                      analysis_result: message.content,
+                      selected_uploads: analysis.selected_uploads || [],
+                      period_id: analysis.period_id,
+                      prompt_id: null,
+                      shared_with_client: true,
+                      analysis_type: 'follow_up',
+                      prompt_used: 'Follow-up share',
+                    });
+                  if (error) throw error;
+                  setSharedReplies(prev => ({
+                    ...prev,
+                    [analysis.id]: [...(prev[analysis.id] || []), index],
+                  }));
+                  await fetchClientData();
+                  toast({ title: 'Shared', description: 'Reply shared with client.' });
+                } catch (err: any) {
+                  console.error('Share reply failed', err);
+                  toast({ title: 'Share failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+                }
+              }}
+            >
+              <Share2 className="w-4 h-4 mr-1" />
+              {alreadyShared ? 'Shared' : 'Share'}
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  })}
+</div>
                             )}
                             <div className="flex gap-2">
                               <Textarea
