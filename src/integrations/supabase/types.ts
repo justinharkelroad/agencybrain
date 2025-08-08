@@ -189,6 +189,51 @@ export type Database = {
           },
         ]
       }
+      ai_chat_messages: {
+        Row: {
+          analysis_id: string
+          content: string
+          created_at: string
+          id: string
+          role: string
+          shared_with_client: boolean
+          user_id: string | null
+        }
+        Insert: {
+          analysis_id: string
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          shared_with_client?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          shared_with_client?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_chat_messages_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "ai_analysis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       column_mappings: {
         Row: {
           category: string

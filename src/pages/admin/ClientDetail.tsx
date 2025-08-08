@@ -1,260 +1,331 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  ArrowLeft,
-  Building2,
-  Calendar,
-  FileText,
-  Upload,
-  Download,
-  LogOut,
-  TrendingUp,
-  Trash2,
-  Save,
-  Share2,
-  MessageCircle,
-  Send,
-  Loader2
-} from 'lucide-react';
-import { FormViewer } from '@/components/FormViewer';
-import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
-import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
 
-interface Agency {
+interface Client {
   id: string;
   name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  status: string;
   created_at: string;
-}
-
-interface Profile {
-  id: string;
-  agency_id: string;
-  role: string;
-  created_at: string;
-  agency: Agency;
-  mrr?: string | number;
 }
 
 interface Period {
   id: string;
-  user_id: string;
+  name: string;
   start_date: string;
   end_date: string;
   status: string;
-  form_data: any;
+  sales?: any;
+  marketing?: any;
+  operations?: any;
+  retention?: any;
+  cash_flow?: any;
+  qualitative?: any;
+}
+
+interface Upload {
+  id: string;
+  original_name: string;
+  file_path: string;
+  file_size: number;
+  category: string;
   created_at: string;
 }
 
 interface Analysis {
   id: string;
-  period_id: string | null;
-  analysis_type: string;
   analysis_result: string;
-  prompt_used: string;
+  analysis_type: string;
+  prompt_used?: string;
+  selected_uploads?: any[];
   shared_with_client: boolean;
-  selected_uploads: any[];
   created_at: string;
-  period?: Period;
+  period_id?: string;
 }
 
 interface Prompt {
   id: string;
-  title: string;
+  name: string;
   content: string;
   category: string;
-  is_active: boolean;
 }
 
-interface Upload {
-  id: string;
-  user_id: string;
-  category: string;
-  original_name: string;
-  file_path: string;
-  file_size: number;
-  created_at: string;
-}
+type ConversationMessage = { role: "user" | "assistant"; content: string; id?: string; shared?: boolean };
 
-const ClientDetail = () => {
-  const { clientId } = useParams<{ clientId: string }>();
-  const { user, isAdmin, signOut } = useAuth();
-  const [client, setClient] = useState<Profile | null>(null);
+export default function ClientDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [client, setClient] = useState<Client | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [loading, setLoading] = useState(true);
-const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  
+  // Form states
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectedPrompt, setSelectedPrompt] = useState<string>('');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
+  
+  // Chat states
+  const [conversations, setConversations] = useState<Record<string, Array<ConversationMessage>>>({});
+  const [newMessages, setNewMessages] = useState<Record<string, string>>({});
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState<Record<string, boolean>>({});
+  const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
 
-  // Admin transcript upload/query state
-  const [transcriptUploading, setTranscriptUploading] = useState(false);
-  const [transcriptQueryPrompt, setTranscriptQueryPrompt] = useState('');
-  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
-  const [querying, setQuerying] = useState(false);
-  const [queryResult, setQueryResult] = useState<string>('');
-
-// File query state
-const [promptOptions, setPromptOptions] = useState<Prompt[]>([]);
-const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
-const [selectedPromptId, setSelectedPromptId] = useState<string>('manual');
-const [manualPrompt, setManualPrompt] = useState<string>('');
-
-// Client MRR state
-const [mrrValue, setMrrValue] = useState<string>('');
-const [savingMRR, setSavingMRR] = useState<boolean>(false);
-
-// Conversation state per analysis
-const [conversations, setConversations] = useState<{[analysisId: string]: Array<{role: 'user' | 'assistant', content: string}>}>({});
-const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({});
-const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
-const [isSending, setIsSending] = useState<Record<string, boolean>>({});
-const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
-  // Local persistence for AI chat (per client)
-  useEffect(() => {
-    if (!client) return;
-    try {
-      const conv = localStorage.getItem(`aiChat:conversations:${client.id}`);
-      if (conv) setConversations(JSON.parse(conv));
-      const drafts = localStorage.getItem(`aiChat:drafts:${client.id}`);
-      if (drafts) setNewMessages(JSON.parse(drafts));
-      const shared = localStorage.getItem(`aiChat:shared:${client.id}`);
-      if (shared) setSharedReplies(JSON.parse(shared));
-      const expanded = localStorage.getItem(`aiChat:expanded:${client.id}`);
-      if (expanded) setExpandedAnalysis(expanded);
-    } catch (e) {
-      console.warn('Failed to restore AI chat from localStorage', e);
-    }
-  }, [client]);
+  // Guard to avoid syncing while hydrating from DB
+  const isHydratingChatRef = React.useRef(false);
+  // Track how many messages per analysis have been synced to DB to avoid double-inserts
+  const lastSyncCountsRef = React.useRef<Record<string, number>>({});
 
   useEffect(() => {
-    if (!client) return;
-    try {
-      localStorage.setItem(`aiChat:conversations:${client.id}`, JSON.stringify(conversations));
-    } catch {}
-  }, [client, conversations]);
-
-  useEffect(() => {
-    if (!client) return;
-    try {
-      localStorage.setItem(`aiChat:drafts:${client.id}`, JSON.stringify(newMessages));
-    } catch {}
-  }, [client, newMessages]);
-
-  useEffect(() => {
-    if (!client) return;
-    try {
-      localStorage.setItem(`aiChat:shared:${client.id}`, JSON.stringify(sharedReplies));
-    } catch {}
-  }, [client, sharedReplies]);
-
-  useEffect(() => {
-    if (!client) return;
-    try {
-      if (expandedAnalysis) {
-        localStorage.setItem(`aiChat:expanded:${client.id}`, expandedAnalysis);
-      } else {
-        localStorage.removeItem(`aiChat:expanded:${client.id}`);
-      }
-    } catch {}
-  }, [client, expandedAnalysis]);
-
-  // Auto-select all transcripts when uploads change
-  useEffect(() => {
-    const transcripts = uploads.filter(u => u.category === 'transcripts');
-    setSelectedTranscriptIds(transcripts.map(u => u.id));
-  }, [uploads]);
-
-  useEffect(() => {
-    if (user && isAdmin && clientId) {
+    if (id) {
       fetchClientData();
     }
-  }, [user, isAdmin, clientId]);
+  }, [id]);
+
+  // Load chat history from DB whenever a thread is expanded
+  useEffect(() => {
+    const load = async () => {
+      if (!expandedAnalysis) return;
+      try {
+        isHydratingChatRef.current = true;
+        console.log("[ClientDetail] Hydrating chat from DB for analysis", expandedAnalysis);
+        const rows = await fetchChatMessages(expandedAnalysis);
+        const msgs: ConversationMessage[] = rows.map(r => ({
+          id: r.id,
+          role: r.role,
+          content: r.content,
+          shared: r.shared_with_client,
+        }));
+
+        setConversations(prev => ({ ...prev, [expandedAnalysis]: msgs }));
+
+        // Build shared indices for UI badges if you use them
+        const assistantSharedIdx: number[] = [];
+        let assistantIndex = -1;
+        msgs.forEach(m => {
+          if (m.role === "assistant") {
+            assistantIndex += 1;
+            if (m.shared) assistantSharedIdx.push(assistantIndex);
+          }
+        });
+        setSharedReplies(prev => ({ ...prev, [expandedAnalysis]: assistantSharedIdx }));
+
+        // Mark that these many messages are already in DB
+        lastSyncCountsRef.current[expandedAnalysis] = msgs.length;
+      } catch (e) {
+        console.error("[ClientDetail] Failed to hydrate chat from DB", e);
+        // Don't block UI; user can still chat and we'll insert as they type
+      } finally {
+        isHydratingChatRef.current = false;
+      }
+    };
+    load();
+  }, [expandedAnalysis]);
+
+  // Auto-sync newly added local messages to DB (append-only assumption)
+  useEffect(() => {
+    if (isHydratingChatRef.current) return;
+
+    const sync = async () => {
+      const entries = Object.entries(conversations);
+      for (const [analysisId, msgs] of entries) {
+        const last = lastSyncCountsRef.current[analysisId] ?? 0;
+
+        // Nothing new
+        if (!Array.isArray(msgs) || msgs.length <= last) continue;
+
+        // Insert new messages starting from 'last'
+        for (let i = last; i < msgs.length; i++) {
+          const m = msgs[i] as ConversationMessage;
+          // If already has an id, skip
+          if (m.id) {
+            lastSyncCountsRef.current[analysisId] = i + 1;
+            continue;
+          }
+          try {
+            const inserted = await insertChatMessage(analysisId, m.role, m.content);
+            // Attach id to the message in local state
+            setConversations(prev => {
+              const list = prev[analysisId] ? [...prev[analysisId]] : [];
+              if (list[i]) {
+                list[i] = { ...list[i], id: inserted.id };
+              }
+              return { ...prev, [analysisId]: list };
+            });
+            lastSyncCountsRef.current[analysisId] = i + 1;
+          } catch (e) {
+            console.error("[ClientDetail] Failed syncing chat message to DB", e);
+            // We don't throw here; user can retry by re-sending or continuing
+          }
+        }
+      }
+    };
+
+    sync();
+  }, [conversations]);
+
+  // Persist shared flags to DB when they change (for assistant messages only)
+  const prevSharedRef = React.useRef<Record<string, number[]>>({});
+  useEffect(() => {
+    const entries = Object.entries(sharedReplies);
+    for (const [analysisId, indices] of entries) {
+      const prev = prevSharedRef.current[analysisId] || [];
+      const newlyShared = indices.filter(i => !prev.includes(i));
+
+      if (newlyShared.length > 0 && Array.isArray(conversations[analysisId])) {
+        let assistantSeen = -1;
+        conversations[analysisId].forEach((m, idx) => {
+          if (m.role !== "assistant") return;
+          assistantSeen += 1;
+          if (newlyShared.includes(assistantSeen) && m.id) {
+            // Mark in DB
+            markMessageShared(m.id, true).catch(err => {
+              console.error("[ClientDetail] Failed to mark message shared", err);
+            });
+            // Also reflect in local state for consistency
+            setConversations(prev => {
+              const list = prev[analysisId] ? [...prev[analysisId]] : [];
+              if (list[idx]) list[idx] = { ...list[idx], shared: true };
+              return { ...prev, [analysisId]: list };
+            });
+          }
+        });
+      }
+    }
+    prevSharedRef.current = sharedReplies;
+  }, [sharedReplies, conversations]);
+
+  // Load conversations from localStorage on mount
+  useEffect(() => {
+    if (!client?.id) return;
+    
+    const savedConversations = localStorage.getItem(`conversations_${client.id}`);
+    const savedMessages = localStorage.getItem(`newMessages_${client.id}`);
+    const savedShared = localStorage.getItem(`sharedReplies_${client.id}`);
+    
+    if (savedConversations) {
+      try {
+        setConversations(JSON.parse(savedConversations));
+      } catch (e) {
+        console.error('Failed to parse saved conversations:', e);
+      }
+    }
+    
+    if (savedMessages) {
+      try {
+        setNewMessages(JSON.parse(savedMessages));
+      } catch (e) {
+        console.error('Failed to parse saved messages:', e);
+      }
+    }
+    
+    if (savedShared) {
+      try {
+        setSharedReplies(JSON.parse(savedShared));
+      } catch (e) {
+        console.error('Failed to parse saved shared replies:', e);
+      }
+    }
+  }, [client?.id]);
+
+  // Save conversations to localStorage when they change
+  useEffect(() => {
+    if (!client?.id) return;
+    localStorage.setItem(`conversations_${client.id}`, JSON.stringify(conversations));
+  }, [conversations, client?.id]);
+
+  // Save new messages to localStorage when they change
+  useEffect(() => {
+    if (!client?.id) return;
+    localStorage.setItem(`newMessages_${client.id}`, JSON.stringify(newMessages));
+  }, [newMessages, client?.id]);
+
+  // Save shared replies to localStorage when they change
+  useEffect(() => {
+    if (!client?.id) return;
+    localStorage.setItem(`sharedReplies_${client.id}`, JSON.stringify(sharedReplies));
+  }, [sharedReplies, client?.id]);
 
   const fetchClientData = async () => {
     try {
-      // Fetch client profile
-      const { data: profileData, error: profileError } = await supabase
+      setLoading(true);
+      
+      // Fetch client details
+      const { data: clientData, error: clientError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          agency:agencies(*)
-        `)
-        .eq('id', clientId)
+        .select('*')
+        .eq('id', id)
         .single();
-
-if (profileError) throw profileError;
-setClient(profileData);
-setMrrValue(profileData?.mrr != null ? String(profileData.mrr) : '');
-
-// Fetch client's periods
-const { data: periodsData, error: periodsError } = await supabase
-  .from('periods')
-  .select('*')
-  .eq('user_id', profileData.id)
-  .order('end_date', { ascending: false });
-
+      
+      if (clientError) throw clientError;
+      setClient(clientData);
+      
+      // Fetch periods
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('periods')
+        .select('*')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false });
+      
       if (periodsError) throw periodsError;
       setPeriods(periodsData || []);
-
-      // Fetch client's uploads
+      
+      // Fetch uploads
       const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
-        .eq('user_id', profileData.id)
+        .eq('user_id', id)
         .order('created_at', { ascending: false });
-
+      
       if (uploadsError) throw uploadsError;
       setUploads(uploadsData || []);
-
-      // Fetch client's analyses
+      
+      // Fetch analyses
       const { data: analysesData, error: analysesError } = await supabase
         .from('ai_analysis')
-        .select(`
-          *,
-          period:periods(*)
-        `)
+        .select('*')
+        .eq('user_id', id)
         .order('created_at', { ascending: false });
-
+      
       if (analysesError) throw analysesError;
+      setAnalyses(analysesData || []);
       
-      // Filter analyses to only include those for this client
-      const clientAnalyses = analysesData?.filter(analysis => {
-        // Include if linked to a period owned by this client
-        if (analysis.period?.user_id === profileData.id) return true;
-        
-        // Include file-only analyses that contain files from this client
-        if (analysis.period_id === null && analysis.selected_uploads) {
-          return analysis.selected_uploads.some((upload: any) => 
-            uploadsData?.some(u => u.id === upload.id)
-          );
-        }
-        
-        return false;
-      }) || [];
-      
-      setAnalyses(clientAnalyses);
-
-      // Fetch active prompts for dropdown
-      const { data: promptsData } = await supabase
+      // Fetch prompts
+      const { data: promptsData, error: promptsError } = await supabase
         .from('prompts')
         .select('*')
-        .eq('is_active', true)
-        .order('category');
-      setPromptOptions(promptsData || []);
-
-    } catch (error) {
+        .order('name');
+      
+      if (promptsError) throw promptsError;
+      setPrompts(promptsData || []);
+      
+    } catch (error: any) {
       console.error('Error fetching client data:', error);
       toast({
         title: "Error",
-        description: "Failed to load client data",
+        description: error.message || "Failed to fetch client data",
         variant: "destructive",
       });
     } finally {
@@ -262,29 +333,332 @@ const { data: periodsData, error: periodsError } = await supabase
     }
   };
 
-  const downloadFile = async (filePath: string, originalName: string) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, category: string) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    
+    try {
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${id}/${fileName}`;
+        
+        // Upload file to storage
+        const { error: uploadError } = await supabase.storage
+          .from('uploads')
+          .upload(filePath, file);
+        
+        if (uploadError) throw uploadError;
+        
+        // Save file metadata to database
+        const { error: dbError } = await supabase
+          .from('uploads')
+          .insert({
+            user_id: id,
+            original_name: file.name,
+            file_path: filePath,
+            file_size: file.size,
+            category: category,
+          });
+        
+        if (dbError) throw dbError;
+      }
+      
+      toast({
+        title: "Success",
+        description: `${files.length} file(s) uploaded successfully`,
+      });
+      
+      // Refresh uploads
+      fetchClientData();
+      
+    } catch (error: any) {
+      console.error('Error uploading files:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload files",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteUpload = async (upload: Upload) => {
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('uploads')
+        .remove([upload.file_path]);
+      
+      if (storageError) throw storageError;
+      
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('uploads')
+        .delete()
+        .eq('id', upload.id);
+      
+      if (dbError) throw dbError;
+      
+      toast({
+        title: "Success",
+        description: "File deleted successfully",
+      });
+      
+      // Refresh uploads
+      fetchClientData();
+      
+    } catch (error: any) {
+      console.error('Error deleting file:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadUpload = async (upload: Upload) => {
     try {
       const { data, error } = await supabase.storage
         .from('uploads')
-        .download(filePath);
-
+        .download(upload.file_path);
+      
       if (error) throw error;
-
+      
+      // Create download link
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = originalName;
+      a.download = upload.original_name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download error:', error);
+      
+    } catch (error: any) {
+      console.error('Error downloading file:', error);
       toast({
         title: "Error",
-        description: "Failed to download file",
+        description: error.message || "Failed to download file",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedPeriod && selectedUploads.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select a period or files to analyze",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!selectedPrompt && !customPrompt.trim()) {
+      toast({
+        title: "Error",
+        description: "Please select a prompt or enter a custom prompt",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setAnalyzing(true);
+    
+    try {
+      // Get period data if selected
+      let periodData = null;
+      if (selectedPeriod) {
+        const period = periods.find(p => p.id === selectedPeriod);
+        if (period) {
+          periodData = {
+            sales: period.sales,
+            marketing: period.marketing,
+            operations: period.operations,
+            retention: period.retention,
+            cashFlow: period.cash_flow,
+            qualitative: period.qualitative,
+          };
+        }
+      }
+      
+      // Get selected uploads
+      const selectedUploadData = uploads.filter(u => selectedUploads.includes(u.id));
+      
+      // Get prompt content
+      let promptContent = customPrompt.trim();
+      if (selectedPrompt && !promptContent) {
+        const prompt = prompts.find(p => p.id === selectedPrompt);
+        promptContent = prompt?.content || '';
+      }
+      
+      // Call analysis function
+      const { data, error } = await supabase.functions.invoke('analyze-performance', {
+        body: {
+          periodData,
+          uploads: selectedUploadData,
+          agencyName: client?.company || client?.name || 'Agency',
+          promptCategory: prompts.find(p => p.id === selectedPrompt)?.category || 'performance',
+          customPrompt: customPrompt.trim() || undefined,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Analysis completed successfully",
+      });
+      
+      // Refresh analyses
+      fetchClientData();
+      
+      // Reset form
+      setSelectedPeriod('');
+      setSelectedPrompt('');
+      setCustomPrompt('');
+      setSelectedUploads([]);
+      
+    } catch (error: any) {
+      console.error('Error analyzing:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to analyze data",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleSendFollowUp = async (analysisId: string) => {
+    const message = newMessages[analysisId]?.trim();
+    if (!message) return;
+    
+    setIsSending(prev => ({ ...prev, [analysisId]: true }));
+    
+    try {
+      // Add user message to conversation
+      const userMessage = { role: 'user' as const, content: message };
+      setConversations(prev => ({
+        ...prev,
+        [analysisId]: [...(prev[analysisId] || []), userMessage]
+      }));
+      
+      // Clear input
+      setNewMessages(prev => ({ ...prev, [analysisId]: '' }));
+      
+      // Get analysis data for context
+      const analysis = analyses.find(a => a.id === analysisId);
+      if (!analysis) throw new Error('Analysis not found');
+      
+      // Get period data if analysis has period_id
+      let periodData = null;
+      if (analysis.period_id) {
+        const period = periods.find(p => p.id === analysis.period_id);
+        if (period) {
+          periodData = {
+            sales: period.sales,
+            marketing: period.marketing,
+            operations: period.operations,
+            retention: period.retention,
+            cashFlow: period.cash_flow,
+            qualitative: period.qualitative,
+          };
+        }
+      }
+      
+      // Get uploads data if analysis has selected_uploads
+      let uploadsData = [];
+      if (analysis.selected_uploads && Array.isArray(analysis.selected_uploads)) {
+        uploadsData = uploads.filter(u => 
+          analysis.selected_uploads.some((su: any) => su.id === u.id)
+        );
+      }
+      
+      // Call analysis function with follow-up
+      const { data, error } = await supabase.functions.invoke('analyze-performance', {
+        body: {
+          periodData,
+          uploads: uploadsData,
+          agencyName: client?.company || client?.name || 'Agency',
+          followUpPrompt: message,
+          originalAnalysis: analysis.analysis_result,
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Add assistant response to conversation
+      const assistantMessage = { role: 'assistant' as const, content: data.analysis };
+      setConversations(prev => ({
+        ...prev,
+        [analysisId]: [...(prev[analysisId] || []), assistantMessage]
+      }));
+      
+    } catch (error: any) {
+      console.error('Error sending follow-up:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send follow-up",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(prev => ({ ...prev, [analysisId]: false }));
+    }
+  };
+
+  const handleShareReply = (analysisId: string, replyIndex: number) => {
+    setSharedReplies(prev => {
+      const current = prev[analysisId] || [];
+      const isShared = current.includes(replyIndex);
+      
+      if (isShared) {
+        return {
+          ...prev,
+          [analysisId]: current.filter(i => i !== replyIndex)
+        };
+      } else {
+        return {
+          ...prev,
+          [analysisId]: [...current, replyIndex]
+        };
+      }
+    });
+  };
+
+  const handleClearChat = async (analysisId: string) => {
+    try {
+      await clearChatMessages(analysisId);
+      // Clear local state
+      setConversations(prev => {
+        const next = { ...prev };
+        delete next[analysisId];
+        return next;
+      });
+      setNewMessages(prev => {
+        const next = { ...prev };
+        delete next[analysisId];
+        return next;
+      });
+      setSharedReplies(prev => {
+        const next = { ...prev };
+        delete next[analysisId];
+        return next;
+      });
+      delete lastSyncCountsRef.current[analysisId];
+      // Also clear any localStorage cache already implemented
+      // Note: existing effects keep using these keys
+      // localStorage keys are built with client.id in your previous change
+      toast({ title: "Chat cleared", description: "Conversation removed from the server and locally." });
+    } catch (e: any) {
+      console.error("[ClientDetail] Clear chat failed", e);
+      toast({ title: "Failed to clear chat", description: e?.message || "Please try again." });
     }
   };
 
@@ -296,805 +670,492 @@ const { data: periodsData, error: periodsError } = await supabase
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
-
-const handleSaveMRR = async () => {
-  if (!clientId) return;
-  const value = parseFloat(mrrValue || '');
-  if (isNaN(value) || value < 0) {
-    toast({ title: 'Invalid amount', description: 'Please enter a valid MRR amount.', variant: 'destructive' });
-    return;
-  }
-  setSavingMRR(true);
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ mrr: value })
-      .eq('id', clientId);
-    if (error) throw error;
-    setClient((prev) => (prev ? { ...prev, mrr: value } as Profile : prev));
-    toast({ title: 'MRR saved', description: 'Monthly recurring revenue updated for this client.' });
-  } catch (err: any) {
-    console.error('Save MRR failed', err);
-    toast({ title: 'Save failed', description: err?.message || 'Please try again.', variant: 'destructive' });
-  } finally {
-    setSavingMRR(false);
-  }
-};
-
-  const getStatusBadge = (period: Period) => {
-    const hasFormData = period.form_data && Object.keys(period.form_data).length > 0;
-    const periodUploads = uploads.filter(u => 
-      new Date(u.created_at) >= new Date(period.start_date) &&
-      new Date(u.created_at) <= new Date(period.end_date)
-    );
-    
-    if (hasFormData && periodUploads.length > 0) {
-      return <Badge variant="default">Complete</Badge>;
-    } else if (hasFormData || periodUploads.length > 0) {
-      return <Badge variant="secondary">Partial</Badge>;
-    } else if (period.status === 'active') {
-      return <Badge variant="outline">In Progress</Badge>;
-    } else {
-      return <Badge variant="destructive">Not Started</Badge>;
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
-
-  // Admin: upload transcripts for this client
-  const handleTranscriptUpload = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0 || !clientId) return;
-    setTranscriptUploading(true);
-    try {
-      const files = await Promise.all(Array.from(fileList).map(async (file) => {
-        const buf = await file.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        const base64 = btoa(binary);
-        return { name: file.name, type: file.type, size: file.size, data: base64 };
-      }));
-
-      const { data, error } = await supabase.functions.invoke('admin-upload-transcripts', {
-        body: { clientId, files, category: 'transcripts' }
-      });
-
-      if (error) throw error;
-
-      // Refresh uploads
-      await fetchClientData();
-      toast({ title: 'Transcripts uploaded', description: 'Your files were uploaded for this client.' });
-    } catch (err: any) {
-      console.error('Transcript upload failed', err);
-      toast({ title: 'Upload failed', description: err?.message || 'Please try again.', variant: 'destructive' });
-    } finally {
-      setTranscriptUploading(false);
-    }
-  };
-
-  const toggleTranscriptSelection = (id: string) => {
-    setSelectedTranscriptIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const selectAllTranscripts = () => {
-    const all = uploads.filter(u => u.category === 'transcripts').map(u => u.id);
-    setSelectedTranscriptIds(all);
-  };
-
-  const clearTranscriptSelection = () => setSelectedTranscriptIds([]);
-
-  // File selection helpers
-  const toggleFileSelection = (id: string) => {
-    setSelectedFileIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-  const selectAllFiles = () => setSelectedFileIds(uploads.map(u => u.id));
-  const clearFileSelection = () => setSelectedFileIds([]);
-
-  // Run generic file query (any upload types)
-  const runFileQuery = async () => {
-    if (!clientId) return;
-    const promptText = selectedPromptId === 'manual'
-      ? manualPrompt.trim()
-      : (promptOptions.find(p => p.id === selectedPromptId)?.content || '').trim();
-    if (!promptText || selectedFileIds.length === 0) return;
-    setQuerying(true);
-    setQueryResult('');
-    try {
-      const filePaths = uploads
-        .filter(u => selectedFileIds.includes(u.id))
-        .map(u => u.file_path);
-
-      const { data, error } = await supabase.functions.invoke('query-transcripts', {
-        body: { clientId, prompt: promptText, filePaths }
-      });
-      if (error) throw error;
-      if (data?.analysis) setQueryResult(data.analysis);
-      await fetchClientData();
-      toast({ title: 'Analysis complete', description: 'Saved to AI Analysis.' });
-    } catch (err: any) {
-      console.error('Query files failed', err);
-      toast({ title: 'Query failed', description: err?.message || 'Please try again.', variant: 'destructive' });
-    } finally {
-      setQuerying(false);
-    }
-  };
-
-  const runTranscriptQuery = async () => {
-    if (!clientId || !transcriptQueryPrompt.trim()) return;
-    setQuerying(true);
-    setQueryResult('');
-    try {
-      const filePaths = uploads
-        .filter(u => selectedTranscriptIds.includes(u.id))
-        .map(u => u.file_path);
-
-      const { data, error } = await supabase.functions.invoke('query-transcripts', {
-        body: { clientId, prompt: transcriptQueryPrompt, filePaths }
-      });
-      if (error) throw error;
-      if (data?.analysis) setQueryResult(data.analysis);
-      // Refresh analyses list
-      await fetchClientData();
-    } catch (err: any) {
-      console.error('Query transcripts failed', err);
-      toast({ title: 'Query failed', description: err?.message || 'Please try again.', variant: 'destructive' });
-    } finally {
-      setQuerying(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  if (!user || !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading client data...</div>
+        </div>
       </div>
     );
   }
 
   if (!client) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Client Not Found</h2>
-          <p className="text-muted-foreground mb-4">The requested client could not be found.</p>
-          <Link to="/admin">
-            <Button>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Admin
-            </Button>
-          </Link>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg text-red-600">Client not found</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <img 
-              src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
-              alt="Standard" 
-              className="h-8 mr-3"
-            />
-            <span className="text-lg font-medium text-muted-foreground ml-2">Admin Panel</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2">
-              <Link to="/admin">
-                <Button variant="ghost" size="sm">Dashboard</Button>
-              </Link>
-              <Link to="/admin/analysis">
-                <Button variant="ghost" size="sm">Analysis</Button>
-              </Link>
-              <Link to="/admin/prompts">
-                <Button variant="ghost" size="sm">Prompts</Button>
-              </Link>
-            </nav>
-            <Link to="/admin">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Admin
-              </Button>
-            </Link>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/admin')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Admin
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{client.name}</h1>
+            <p className="text-muted-foreground">{client.email}</p>
           </div>
         </div>
-      </header>
+        <Badge variant={client.status === 'active' ? 'default' : 'secondary'}>
+          {client.status}
+        </Badge>
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        {/* Client Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Building2 className="w-8 h-8 text-primary" />
+      {/* Client Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Client Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Name</label>
+              <p className="text-sm">{client.name}</p>
             </div>
             <div>
-              <h1 className="text-3xl font-bold">{client.agency?.name}</h1>
-              <p className="text-muted-foreground">
-                Client since {formatDate(client.created_at)}
-              </p>
+              <label className="text-sm font-medium text-muted-foreground">Email</label>
+              <p className="text-sm">{client.email}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Phone</label>
+              <p className="text-sm">{client.phone || 'Not provided'}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Company</label>
+              <p className="text-sm">{client.company || 'Not provided'}</p>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Periods</p>
-                    <p className="text-2xl font-bold">{periods.length}</p>
-                  </div>
-                  <Calendar className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
+        </CardContent>
+      </Card>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Completed Forms</p>
-                    <p className="text-2xl font-bold">
-                      {periods.filter(p => p.form_data && Object.keys(p.form_data).length > 0).length}
-                    </p>
-                  </div>
-                  <FileText className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
+      <Tabs defaultValue="periods" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="periods">Periods</TabsTrigger>
+          <TabsTrigger value="uploads">Files</TabsTrigger>
+          <TabsTrigger value="analyze">Analyze</TabsTrigger>
+          <TabsTrigger value="analyses">Results</TabsTrigger>
+        </TabsList>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Uploads</p>
-                    <p className="text-2xl font-bold">{uploads.length}</p>
-                  </div>
-                  <Upload className="h-8 w-8 text-primary" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-muted-foreground">MRR</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={mrrValue}
-                      onChange={(e) => setMrrValue(e.target.value)}
-                    />
-                    <Button onClick={handleSaveMRR} disabled={savingMRR}>
-                      <Save className="w-4 h-4 mr-2" />
-                      {savingMRR ? 'Saving...' : 'Save'}
-                    </Button>
-                  </div>
-                  {client?.mrr != null && (
-                    <p className="text-xs text-muted-foreground">
-                      Current: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(client.mrr))}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Detailed Information */}
-        <Tabs defaultValue="periods" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="periods">Reporting Periods</TabsTrigger>
-            <TabsTrigger value="uploads">File Uploads</TabsTrigger>
-            <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="periods" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Reporting Periods</CardTitle>
-                <CardDescription>
-                  View all reporting periods and submission status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {periods.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No reporting periods found
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {periods.map((period) => (
-                      <div
-                        key={period.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div>
-                          <h3 className="font-semibold">
-                            {formatDate(period.start_date)} - {formatDate(period.end_date)}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Created {formatDate(period.created_at)}
-                            {period.form_data && Object.keys(period.form_data).length > 0 && (
-                              <span className="ml-2">• Form submitted</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          {getStatusBadge(period)}
-                          <FormViewer 
-                            period={period}
-                            triggerButton={
-                              <Button variant="outline" size="sm">
-                                <FileText className="w-4 h-4 mr-2" />
-                                View Form
-                              </Button>
-                            }
-                          />
-                          <PeriodDeleteDialog
-                            period={period}
-                            onDelete={fetchClientData}
-                            isAdmin={true}
-                            triggerButton={
-                              <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete
-                              </Button>
-                            }
-                          />
-                        </div>
+        {/* Periods Tab */}
+        <TabsContent value="periods">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calendar className="h-5 w-5 mr-2" />
+                Performance Periods
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {periods.length === 0 ? (
+                <p className="text-muted-foreground">No periods found for this client.</p>
+              ) : (
+                <div className="space-y-4">
+                  {periods.map((period) => (
+                    <Card key={period.id} className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold">{period.name}</h3>
+                        <Badge variant={period.status === 'completed' ? 'default' : 'secondary'}>
+                          {period.status}
+                        </Badge>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
+                      </p>
+                      
+                      {/* Period Data Summary */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
+                        {period.sales && (
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                            <span>Sales Data</span>
+                          </div>
+                        )}
+                        {period.marketing && (
+                          <div className="flex items-center space-x-2">
+                            <TrendingUp className="h-4 w-4 text-blue-600" />
+                            <span>Marketing</span>
+                          </div>
+                        )}
+                        {period.operations && (
+                          <div className="flex items-center space-x-2">
+                            <BarChart3 className="h-4 w-4 text-purple-600" />
+                            <span>Operations</span>
+                          </div>
+                        )}
+                        {period.retention && (
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-orange-600" />
+                            <span>Retention</span>
+                          </div>
+                        )}
+                        {period.cash_flow && (
+                          <div className="flex items-center space-x-2">
+                            <Target className="h-4 w-4 text-red-600" />
+                            <span>Cash Flow</span>
+                          </div>
+                        )}
+                        {period.qualitative && (
+                          <div className="flex items-center space-x-2">
+                            <MessageSquare className="h-4 w-4 text-gray-600" />
+                            <span>Qualitative</span>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <TabsContent value="uploads" className="space-y-4">
-              {/* Admin: Upload Transcripts for this client */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upload Transcripts (Admin)</CardTitle>
-                  <CardDescription>
-                    Add transcript files for this client. Supported: .txt, .md, .srt, .vtt, .pdf
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <Input
+        {/* Files Tab */}
+        <TabsContent value="uploads">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="h-5 w-5 mr-2" />
+                Uploaded Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Upload Section */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['transcripts', 'reports', 'other'].map((category) => (
+                  <div key={category} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <h3 className="font-medium mb-2 capitalize">{category}</h3>
+                    <input
                       type="file"
                       multiple
-                      accept=".txt,.md,.srt,.vtt,.pdf"
-                      disabled={transcriptUploading}
-                      onChange={(e) => handleTranscriptUpload(e.target.files)}
-                      aria-label="Upload transcript files"
+                      onChange={(e) => handleFileUpload(e, category)}
+                      className="hidden"
+                      id={`upload-${category}`}
+                      disabled={uploading}
                     />
-                    <Button onClick={() => {}} disabled className="hidden"></Button>
-                    <p className="text-xs text-muted-foreground">Files upload directly to this client's library.</p>
+                    <label
+                      htmlFor={`upload-${category}`}
+                      className="cursor-pointer text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      {uploading ? 'Uploading...' : 'Choose files'}
+                    </label>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
 
-              {/* Existing uploads list */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>File Uploads</CardTitle>
-                  <CardDescription>
-                    All files uploaded by this client
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {uploads.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      No files uploaded yet
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {uploads.map((upload) => (
-                        <div
-                          key={upload.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
+              {/* Files List */}
+              {uploads.length === 0 ? (
+                <p className="text-muted-foreground">No files uploaded yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {uploads.map((upload) => (
+                    <div key={upload.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{upload.original_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {upload.category} • {formatFileSize(upload.file_size)} • {formatDate(upload.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadUpload(upload)}
                         >
-                          <div className="flex items-center space-x-3">
-                            <FileText className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium">{upload.original_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatFileSize(upload.file_size)} • 
-                                <span className="capitalize ml-1">{upload.category}</span> • 
-                                {formatDate(upload.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <Badge variant="outline" className="capitalize">
-                              {upload.category}
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => downloadFile(upload.file_path, upload.original_name)}
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-          <TabsContent value="analysis" className="space-y-4">
-            {/* Query transcripts */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Query Files</CardTitle>
-                <CardDescription>
-                  Select files, choose a prompt, and run your query. Results are saved below.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {uploads.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No files yet. Upload some on the File Uploads tab.</p>
-                ) : (
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium">Select files</h4>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={selectAllFiles}>Select all</Button>
-                          <Button variant="outline" size="sm" onClick={clearFileSelection}>Clear</Button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-auto p-2 border rounded-md">
-                        {uploads.map((f) => (
-                          <label key={f.id} className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={selectedFileIds.includes(f.id)}
-                              onChange={() => toggleFileSelection(f.id)}
-                            />
-                            <span className="truncate">{f.original_name}</span>
-                            <span className="text-xs text-muted-foreground">• {f.category} • {formatDate(f.created_at)}</span>
-                          </label>
-                        ))}
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteUpload(upload)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Prompt</label>
-                      <Select value={selectedPromptId} onValueChange={setSelectedPromptId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a prompt" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="manual">Manual prompt</SelectItem>
-                          {promptOptions.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.title} • {p.category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Manage reusable prompts in the Prompt Library.
-                        <Link to="/admin/prompts" className="underline ml-1">Open Prompt Library</Link>
-                      </p>
-                    </div>
+        {/* Analyze Tab */}
+        <TabsContent value="analyze">
+          <Card>
+            <CardHeader>
+              <CardTitle>Run Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Period Selection */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Select Period (Optional)</label>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a period to analyze" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((period) => (
+                      <SelectItem key={period.id} value={period.id}>
+                        {period.name} ({new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                    {selectedPromptId === 'manual' ? (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Your prompt</label>
-                        <Textarea
-                          placeholder="Type your prompt..."
-                          value={manualPrompt}
-                          onChange={(e) => setManualPrompt(e.target.value)}
-                          rows={5}
+              {/* File Selection */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Select Files (Optional)</label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                  {uploads.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No files available</p>
+                  ) : (
+                    uploads.map((upload) => (
+                      <div key={upload.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={upload.id}
+                          checked={selectedUploads.includes(upload.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedUploads(prev => [...prev, upload.id]);
+                            } else {
+                              setSelectedUploads(prev => prev.filter(id => id !== upload.id));
+                            }
+                          }}
                         />
+                        <label htmlFor={upload.id} className="text-sm cursor-pointer">
+                          {upload.original_name} ({upload.category})
+                        </label>
                       </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground border rounded-md p-3 bg-muted/20">
-                        {promptOptions.find(p => p.id === selectedPromptId)?.content}
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Prompt Selection */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Analysis Prompt</label>
+                <Select value={selectedPrompt} onValueChange={setSelectedPrompt}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a prompt template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prompts.map((prompt) => (
+                      <SelectItem key={prompt.id} value={prompt.id}>
+                        {prompt.name} ({prompt.category})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Custom Prompt */}
+              <div>
+                <label className="text-sm font-medium mb-2 block">Custom Prompt (Optional)</label>
+                <Textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Enter a custom analysis prompt..."
+                  rows={4}
+                />
+              </div>
+
+              {/* Analyze Button */}
+              <Button
+                onClick={handleAnalyze}
+                disabled={analyzing || (!selectedPeriod && selectedUploads.length === 0) || (!selectedPrompt && !customPrompt.trim())}
+                className="w-full"
+              >
+                {analyzing ? 'Analyzing...' : 'Run Analysis'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Results Tab */}
+        <TabsContent value="analyses">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analysis Results</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {analyses.length === 0 ? (
+                <p className="text-muted-foreground">No analyses found for this client.</p>
+              ) : (
+                <div className="space-y-4">
+                  {analyses.map((analysis) => (
+                    <Card key={analysis.id} className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline">{analysis.analysis_type}</Badge>
+                          {analysis.shared_with_client && (
+                            <Badge variant="default">Shared</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-muted-foreground">
+                            {formatDate(analysis.created_at)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
+                          >
+                            {expandedAnalysis === analysis.id ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    )}
 
-                    <div className="flex items-center gap-3">
-                      <Button onClick={runFileQuery} disabled={querying || selectedFileIds.length === 0 || (selectedPromptId === 'manual' && !manualPrompt.trim())}>
-                        {querying ? 'Running...' : 'Run Query'}
-                      </Button>
-                      <p className="text-xs text-muted-foreground">Results are saved to AI Analysis below.</p>
-                    </div>
-
-                    {queryResult && (
-                      <div className="border rounded-md p-4 bg-muted/20">
-                        <h4 className="text-sm font-medium mb-2">Latest Result</h4>
-                        <div className="whitespace-pre-wrap text-sm">{queryResult}</div>
+                      {/* Analysis Result */}
+                      <div className="prose prose-sm max-w-none mb-4">
+                        <div className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded-lg">
+                          {analysis.analysis_result}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Existing analyses */}
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Analysis</CardTitle>
-                <CardDescription>
-                  All AI-generated analyses for this client
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {analyses.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No analyses generated yet
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {analyses.map((analysis) => (
-                      <div
-                        key={analysis.id}
-                        className="border rounded-lg p-4"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-3">
-                            <TrendingUp className="h-5 w-5 text-primary" />
-                            <div>
-                              <p className="font-medium capitalize">{analysis.analysis_type} Analysis</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatDate(analysis.created_at)}
-                                {analysis.period_id ? " • Period Analysis" : " • File-only Analysis"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={analysis.shared_with_client ? "default" : "secondary"}>
-                              {analysis.shared_with_client ? "Shared" : "Private"}
-                            </Badge>
-                            <Badge variant="outline" className="capitalize">
-                              {analysis.analysis_type}
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={async () => {
-                                const { error } = await supabase
-                                  .from('ai_analysis')
-                                  .update({ shared_with_client: !analysis.shared_with_client })
-                                  .eq('id', analysis.id);
-                                if (!error) {
-                                  await fetchClientData();
-                                  toast({
-                                    title: analysis.shared_with_client ? "Analysis unshared" : "Analysis shared",
-                                    description: analysis.shared_with_client
-                                      ? "The analysis is no longer visible to the client"
-                                      : "The analysis is now visible to the client"
-                                  });
-                                }
-                              }}
-                            >
-                              <Share2 className="w-4 h-4 mr-2" />
-                              {analysis.shared_with_client ? 'Unshare' : 'Share'}
-                            </Button>
+                      {/* Expanded Section - Chat */}
+                      {expandedAnalysis === analysis.id && (
+                        <div className="border-t pt-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium flex items-center">
+                              <MessageSquare className="h-4 w-4 mr-2" />
+                              Continue Discussion
+                            </h4>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setExpandedAnalysis(expandedAnalysis === analysis.id ? null : analysis.id)}
+                              onClick={() => handleClearChat(analysis.id)}
                             >
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Chat
+                              Clear chat
+                            </Button>
+                          </div>
+
+                          {/* Chat Messages */}
+                          {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
+                            <div className="space-y-3 max-h-60 overflow-y-auto">
+                              {conversations[analysis.id].map((message, index) => {
+                                const isAssistant = message.role === 'assistant';
+                                let assistantIndex = -1;
+                                if (isAssistant) {
+                                  // Calculate which assistant message this is
+                                  for (let i = 0; i <= index; i++) {
+                                    if (conversations[analysis.id][i].role === 'assistant') {
+                                      assistantIndex++;
+                                    }
+                                  }
+                                }
+                                
+                                return (
+                                  <div
+                                    key={index}
+                                    className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
+                                  >
+                                    <div
+                                      className={`max-w-[80%] p-3 rounded-lg ${
+                                        isAssistant
+                                          ? 'bg-gray-100 text-gray-900'
+                                          : 'bg-blue-600 text-white'
+                                      }`}
+                                    >
+                                      <div className="whitespace-pre-wrap text-sm">
+                                        {message.content}
+                                      </div>
+                                      {isAssistant && (
+                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+                                          <div className="flex items-center space-x-2">
+                                            {sharedReplies[analysis.id]?.includes(assistantIndex) && (
+                                              <Badge variant="secondary" className="text-xs">
+                                                Shared
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleShareReply(analysis.id, assistantIndex)}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Share2 className="h-3 w-3 mr-1" />
+                                            {sharedReplies[analysis.id]?.includes(assistantIndex) ? 'Unshare' : 'Share'}
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Message Input */}
+                          <div className="flex space-x-2">
+                            <Input
+                              value={newMessages[analysis.id] || ''}
+                              onChange={(e) => setNewMessages(prev => ({
+                                ...prev,
+                                [analysis.id]: e.target.value
+                              }))}
+                              placeholder="Ask a follow-up question..."
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendFollowUp(analysis.id);
+                                }
+                              }}
+                              disabled={isSending[analysis.id]}
+                            />
+                            <Button
+                              onClick={() => handleSendFollowUp(analysis.id)}
+                              disabled={!newMessages[analysis.id]?.trim() || isSending[analysis.id]}
+                              size="sm"
+                            >
+                              {isSending[analysis.id] ? (
+                                <Clock className="h-4 w-4" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </div>
-                        
-                        <div className="prose prose-sm max-w-none">
-                          <div className="whitespace-pre-wrap text-sm">
-                            {analysis.analysis_result}
-                          </div>
-                        </div>
-                        
-                        {analysis.selected_uploads && analysis.selected_uploads.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-xs text-muted-foreground mb-1">Files analyzed:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {analysis.selected_uploads.map((upload: any, idx: number) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {upload.name}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {expandedAnalysis === analysis.id && (
-                          <div className="border-t pt-4 mt-4">
-<div className="flex items-center justify-between mb-3">
-  <h4 className="font-medium">Continue Discussion</h4>
-  <Button
-    variant="ghost"
-    size="sm"
-    onClick={() => {
-      setConversations(prev => {
-        const next = { ...prev };
-        delete next[analysis.id];
-        return next;
-      });
-      setNewMessages(prev => {
-        const next = { ...prev };
-        delete next[analysis.id];
-        return next;
-      });
-      setSharedReplies(prev => {
-        const next = { ...prev };
-        delete next[analysis.id];
-        return next;
-      });
-      toast({ title: 'Chat cleared', description: 'Conversation removed locally.' });
-    }}
-  >
-    Clear chat
-  </Button>
-</div>
-                            {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
-<div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-  {conversations[analysis.id].map((message, index) => {
-    const isAssistant = message.role === 'assistant';
-    const alreadyShared = (sharedReplies[analysis.id] || []).includes(index);
-    return (
-      <div key={index} className={`p-3 rounded-lg border ${isAssistant ? 'bg-muted mr-8' : 'bg-secondary ml-8'} text-foreground`}>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="text-xs font-medium mb-1 capitalize">{message.role}</div>
-            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-          </div>
-          {isAssistant && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={alreadyShared}
-              onClick={async () => {
-                try {
-                  const { error } = await supabase
-                    .from('ai_analysis')
-                    .insert({
-                      user_id: client.id,
-                      analysis_result: message.content,
-                      selected_uploads: analysis.selected_uploads || [],
-                      period_id: analysis.period_id,
-                      prompt_id: null,
-                      shared_with_client: true,
-                      analysis_type: 'follow_up',
-                      prompt_used: 'Follow-up share',
-                    });
-                  if (error) throw error;
-                  setSharedReplies(prev => ({
-                    ...prev,
-                    [analysis.id]: [...(prev[analysis.id] || []), index],
-                  }));
-                  await fetchClientData();
-                  toast({ title: 'Shared', description: 'Reply shared with client.' });
-                } catch (err: any) {
-                  console.error('Share reply failed', err);
-                  toast({ title: 'Share failed', description: err?.message || 'Please try again.', variant: 'destructive' });
-                }
-              }}
-            >
-              <Share2 className="w-4 h-4 mr-1" />
-              {alreadyShared ? 'Shared' : 'Share'}
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  })}
-</div>
-                            )}
-                            <div className="flex gap-2">
-                              <Textarea
-                                value={newMessages[analysis.id] || ''}
-                                onChange={(e) => setNewMessages({ ...newMessages, [analysis.id]: e.target.value })}
-                                placeholder="Ask a follow-up question about this analysis..."
-                                rows={2}
-                                className="flex-1"
-                              />
-                              <Button
-                                onClick={async () => {
-                                  const message = newMessages[analysis.id]?.trim();
-                                  if (!message || !client) return;
-
-                                  const currentConversation = conversations[analysis.id] || [];
-                                  const updatedConversation = [
-                                    ...currentConversation,
-                                    { role: 'user' as const, content: message }
-                                  ];
-                                  setConversations({ ...conversations, [analysis.id]: updatedConversation });
-                                  setNewMessages({ ...newMessages, [analysis.id]: '' });
-                                  setIsSending({ ...isSending, [analysis.id]: true });
-
-                                  try {
-                                    // Map selected_uploads (ids) to full upload records with file_path
-                                    const uploadsForAnalysis = analysis.selected_uploads?.length
-                                      ? uploads.filter(u => analysis.selected_uploads.some((s: any) => s.id === u.id))
-                                      : [];
-
-                                    const result = await supabase.functions.invoke('analyze-performance', {
-                                      body: {
-                                        followUpPrompt: message,
-                                        originalAnalysis: analysis.analysis_result,
-                                        periodData: analysis.period?.form_data || null,
-                                        agencyName: client.agency?.name,
-                                        uploads: uploadsForAnalysis,
-                                      }
-                                    });
-
-                                    if (result.data?.analysis) {
-                                      setConversations({
-                                        ...conversations,
-                                        [analysis.id]: [
-                                          ...updatedConversation,
-                                          { role: 'assistant' as const, content: result.data.analysis }
-                                        ]
-                                      });
-                                    } else if (result.error) {
-                                      throw result.error;
-                                    }
-                                  } catch (error: any) {
-                                    console.error('Follow-up chat failed', error);
-                                    toast({
-                                      title: 'Error',
-                                      description: error?.message || 'Failed to get AI response',
-                                      variant: 'destructive'
-                                    });
-                                  } finally {
-                                    setIsSending(prev => ({ ...prev, [analysis.id]: false }));
-                                  }
-                                }}
-                                disabled={!newMessages[analysis.id]?.trim() || !!isSending[analysis.id]}
-                              >
-                                {isSending[analysis.id] ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Send className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
-};
-
-export default ClientDetail;
+}
