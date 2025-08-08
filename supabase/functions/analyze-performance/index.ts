@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -225,6 +226,8 @@ Focus on strategic positioning and competitive advantage.`
       ];
     }
 
+    console.log('Using OpenAI model:', openAIModel, 'isFollowUp:', isFollowUp);
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -232,7 +235,7 @@ Focus on strategic positioning and competitive advantage.`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: openAIModel,
         messages,
         temperature: 0.7,
         max_tokens: 2000,
