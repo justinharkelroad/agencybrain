@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Navigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +8,11 @@ import SharedInsights from '@/components/client/SharedInsights';
 import ExplainerVideoDialog from '@/components/ExplainerVideoDialog';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { PeriodDeleteDialog } from "@/components/PeriodDeleteDialog";
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   
 
   if (!user) {
@@ -20,6 +22,25 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     await signOut();
   };
+
+  const [periods, setPeriods] = useState<any[]>([]);
+  const [loadingPeriods, setLoadingPeriods] = useState(true);
+
+  const fetchPeriods = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('periods')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('start_date', { ascending: false });
+    if (!error) setPeriods(data || []);
+    setLoadingPeriods(false);
+  };
+
+  useEffect(() => {
+    fetchPeriods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return (
     <div className="min-h-screen">
@@ -42,9 +63,14 @@ const Dashboard = () => {
               <Link to="/submit?mode=new">
                 <Button variant="ghost" size="sm">Meeting Form</Button>
               </Link>
-              <a href="#account">
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="ghost" size="sm">Admin</Button>
+                </Link>
+              )}
+              <Link to="/account">
                 <Button variant="ghost" size="sm">My Account</Button>
-              </a>
+              </Link>
             </nav>
             <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/Ehn88SeJSAg" triggerText="Explainer Video" />
             <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
@@ -75,6 +101,51 @@ const Dashboard = () => {
                   Upload new files
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reporting Periods</CardTitle>
+              <CardDescription>Review and manage your past periods</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPeriods ? (
+                <div className="text-muted-foreground">Loading periods...</div>
+              ) : periods.length === 0 ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground">No periods yet.</p>
+                  <Button asChild>
+                    <Link to="/submit?mode=new">Start New Period</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button asChild>
+                      <Link to="/submit?mode=new">Start New Period</Link>
+                    </Button>
+                  </div>
+                  <ul className="divide-y">
+                    {periods.map((p) => (
+                      <li key={p.id} className="py-3 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{p.title || `${new Date(p.start_date).toLocaleDateString()} - ${new Date(p.end_date).toLocaleDateString()}`}</p>
+                          <p className="text-sm text-muted-foreground capitalize">Status: {p.status}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" asChild>
+                            <Link to={`/submit?mode=update&periodId=${p.id}`}>Open</Link>
+                          </Button>
+                          <PeriodDeleteDialog period={p} onDelete={fetchPeriods} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         </section>

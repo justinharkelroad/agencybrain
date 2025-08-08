@@ -18,6 +18,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
 import ClientDetail from "./pages/admin/ClientDetail";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,26 +61,31 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <AdminDashboard />
               </ProtectedRoute>
             } />
             <Route path="/admin/client/:clientId" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <ClientDetail />
               </ProtectedRoute>
             } />
             <Route path="/admin/analysis" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <AdminAnalysis />
               </ProtectedRoute>
             } />
             <Route path="/admin/prompts" element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <AdminPrompts />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/account" element={
+              <ProtectedRoute>
+                <Account />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
