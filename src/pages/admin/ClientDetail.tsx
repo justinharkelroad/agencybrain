@@ -117,6 +117,55 @@ const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({
 const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
 const [isSending, setIsSending] = useState<Record<string, boolean>>({});
 const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
+  // Local persistence for AI chat (per client)
+  useEffect(() => {
+    if (!client) return;
+    try {
+      const conv = localStorage.getItem(`aiChat:conversations:${client.id}`);
+      if (conv) setConversations(JSON.parse(conv));
+      const drafts = localStorage.getItem(`aiChat:drafts:${client.id}`);
+      if (drafts) setNewMessages(JSON.parse(drafts));
+      const shared = localStorage.getItem(`aiChat:shared:${client.id}`);
+      if (shared) setSharedReplies(JSON.parse(shared));
+      const expanded = localStorage.getItem(`aiChat:expanded:${client.id}`);
+      if (expanded) setExpandedAnalysis(expanded);
+    } catch (e) {
+      console.warn('Failed to restore AI chat from localStorage', e);
+    }
+  }, [client]);
+
+  useEffect(() => {
+    if (!client) return;
+    try {
+      localStorage.setItem(`aiChat:conversations:${client.id}`, JSON.stringify(conversations));
+    } catch {}
+  }, [client, conversations]);
+
+  useEffect(() => {
+    if (!client) return;
+    try {
+      localStorage.setItem(`aiChat:drafts:${client.id}`, JSON.stringify(newMessages));
+    } catch {}
+  }, [client, newMessages]);
+
+  useEffect(() => {
+    if (!client) return;
+    try {
+      localStorage.setItem(`aiChat:shared:${client.id}`, JSON.stringify(sharedReplies));
+    } catch {}
+  }, [client, sharedReplies]);
+
+  useEffect(() => {
+    if (!client) return;
+    try {
+      if (expandedAnalysis) {
+        localStorage.setItem(`aiChat:expanded:${client.id}`, expandedAnalysis);
+      } else {
+        localStorage.removeItem(`aiChat:expanded:${client.id}`);
+      }
+    } catch {}
+  }, [client, expandedAnalysis]);
+
   // Auto-select all transcripts when uploads change
   useEffect(() => {
     const transcripts = uploads.filter(u => u.category === 'transcripts');
@@ -883,7 +932,33 @@ const handleSaveMRR = async () => {
 
                         {expandedAnalysis === analysis.id && (
                           <div className="border-t pt-4 mt-4">
-                            <h4 className="font-medium mb-3">Continue Discussion</h4>
+<div className="flex items-center justify-between mb-3">
+  <h4 className="font-medium">Continue Discussion</h4>
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => {
+      setConversations(prev => {
+        const next = { ...prev };
+        delete next[analysis.id];
+        return next;
+      });
+      setNewMessages(prev => {
+        const next = { ...prev };
+        delete next[analysis.id];
+        return next;
+      });
+      setSharedReplies(prev => {
+        const next = { ...prev };
+        delete next[analysis.id];
+        return next;
+      });
+      toast({ title: 'Chat cleared', description: 'Conversation removed locally.' });
+    }}
+  >
+    Clear chat
+  </Button>
+</div>
                             {conversations[analysis.id] && conversations[analysis.id].length > 0 && (
 <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
   {conversations[analysis.id].map((message, index) => {
