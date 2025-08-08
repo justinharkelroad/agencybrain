@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Play, Upload } from 'lucide-react';
 import SharedInsights from '@/components/client/SharedInsights';
+import ExplainerVideoDialog from '@/components/ExplainerVideoDialog';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -34,10 +37,16 @@ const Dashboard = () => {
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-2">
               <Link to="/uploads">
-                <Button variant="ghost" size="sm">Uploads</Button>
+                <Button variant="ghost" size="sm">Files</Button>
               </Link>
-              <Button variant="ghost" size="sm">Insights</Button>
+              <Link to="/submit">
+                <Button variant="ghost" size="sm">Meeting Form</Button>
+              </Link>
+              <a href="#account">
+                <Button variant="ghost" size="sm">My Account</Button>
+              </a>
             </nav>
+            <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/your-video-id" triggerText="Explainer Video" />
             <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
           </div>
         </div>
@@ -66,6 +75,29 @@ const Dashboard = () => {
                   Upload new files
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section id="account" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Details</CardTitle>
+              <CardDescription>Manage your profile information</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input type="text" id="name" value={user.user_metadata?.full_name || 'N/A'} className="col-span-3" readOnly />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input type="email" id="email" value={user.email || 'N/A'} className="col-span-3" readOnly />
+              </div>
             </CardContent>
           </Card>
         </section>
