@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { PlayCircle } from 'lucide-react';
 import { 
   Dialog, 
   DialogContent, 
@@ -24,7 +25,10 @@ const ExplainerVideoDialog: React.FC<ExplainerVideoDialogProps> = ({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm">{triggerText}</Button>
+        <Button size="sm" className="hover-scale pulse">
+          {triggerText}
+          <PlayCircle className="ml-2" aria-hidden="true" />
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>

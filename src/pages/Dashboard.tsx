@@ -520,7 +520,7 @@ export default function Dashboard() {
             </p>
             <div className="mt-4">
               {/* TODO: Replace the videoUrl with your actual explainer video URL (YouTube/Vimeo embed link) */}
-              <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/VIDEO_ID" />
+              <ExplainerVideoDialog videoUrl="https://www.youtube.com/embed/Ehn88SeJSAg" />
             </div>
           </div>
 
