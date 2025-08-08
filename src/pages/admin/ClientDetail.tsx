@@ -664,27 +664,21 @@ export default function ClientDetail() {
   };
 
   const handleShareReply = (analysisId: string, replyIndex: number) => {
+    console.log("[ClientDetail] toggle share reply", { analysisId, replyIndex });
     setSharedReplies(prev => {
       const current = prev[analysisId] || [];
       const isShared = current.includes(replyIndex);
-      
-      if (isShared) {
-        return {
-          ...prev,
-          [analysisId]: current.filter(i => i !== replyIndex)
-        };
-      } else {
-        return {
-          ...prev,
-          [analysisId]: [...current, replyIndex]
-        };
-      }
+      const next = isShared ? current.filter(i => i !== replyIndex) : [...current, replyIndex];
+      console.log("[ClientDetail] sharedReplies next", { analysisId, next });
+      return { ...prev, [analysisId]: next };
     });
   };
 
   const handleClearChat = async (analysisId: string) => {
+    console.log("[ClientDetail] clear chat requested", { analysisId });
     try {
       await clearChatMessages(analysisId);
+      console.log("[ClientDetail] clear chat success", { analysisId });
       // Clear local state
       setConversations(prev => {
         const next = { ...prev };
@@ -1068,9 +1062,9 @@ export default function ClientDetail() {
                       </div>
 
                       <div className="prose prose-sm max-w-none mb-4">
-                        <div className="whitespace-pre-wrap text-sm bg-gray-50 text-gray-900 p-3 rounded-lg">
-                          {analysis.analysis_result && analysis.analysis_result.trim().length > 0 ? analysis.analysis_result : 'No analysis content available.'}
-                        </div>
+                      <div className="whitespace-pre-wrap text-sm bg-muted/50 text-foreground border border-border p-3 rounded-lg">
+                        {analysis.analysis_result && analysis.analysis_result.trim().length > 0 ? analysis.analysis_result : 'No analysis content available.'}
+                      </div>
                       </div>
 
                       {/* Collapsed CTA */}
@@ -1122,15 +1116,15 @@ export default function ClientDetail() {
                                     <div
                                       className={`max-w-[80%] p-3 rounded-lg ${
                                         isAssistant
-                                          ? 'bg-gray-100 text-gray-900'
-                                          : 'bg-blue-600 text-white'
+                                          ? 'bg-muted text-foreground'
+                                          : 'bg-primary text-primary-foreground'
                                       }`}
                                     >
                                       <div className="whitespace-pre-wrap text-sm">
                                         {message.content}
                                       </div>
                                       {isAssistant && (
-                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+                                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                                           <div className="flex items-center space-x-2">
                                             {sharedReplies[analysis.id]?.includes(assistantIndex) && (
                                               <Badge variant="secondary" className="text-xs">
