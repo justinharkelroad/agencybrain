@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/lib/auth';
@@ -77,12 +77,26 @@ export default function MonthOverMonthTrends() {
     const cPolicies = numberOrUndefined(cSales.policies);
     const pPolicies = numberOrUndefined(pSales.policies);
 
-    const cNet = typeof cCash.netProfit === 'number' ? cCash.netProfit : (typeof cCash.compensation === 'number' && typeof cCash.expenses === 'number' ? cCash.compensation - cCash.expenses : undefined);
-    const pNet = typeof pCash.netProfit === 'number' ? pCash.netProfit : (typeof pCash.compensation === 'number' && typeof pCash.expenses === 'number' ? pCash.compensation - pCash.expenses : undefined);
+    const cQuoted = numberOrUndefined(cMarketing.policiesQuoted);
+    const pQuoted = numberOrUndefined(pMarketing.policiesQuoted);
+    const cSpend = numberOrUndefined(cMarketing.totalSpend);
+    const pSpend = numberOrUndefined(pMarketing.totalSpend);
+
+    const cComp = numberOrUndefined(cCash.compensation);
+    const pComp = numberOrUndefined(pCash.compensation);
+    const cExp = numberOrUndefined(cCash.expenses);
+    const pExp = numberOrUndefined(pCash.expenses);
+
+    const cNet = typeof cCash.netProfit === 'number' ? cCash.netProfit : (typeof cComp === 'number' && typeof cExp === 'number' ? cComp - cExp : undefined);
+    const pNet = typeof pCash.netProfit === 'number' ? pCash.netProfit : (typeof pComp === 'number' && typeof pExp === 'number' ? pComp - pExp : undefined);
 
     return {
       premium: { curr: cPremium, prev: pPremium },
       policies: { curr: cPolicies, prev: pPolicies },
+      quoted: { curr: cQuoted, prev: pQuoted },
+      marketingSpend: { curr: cSpend, prev: pSpend },
+      compensation: { curr: cComp, prev: pComp },
+      expenses: { curr: cExp, prev: pExp },
       netProfit: { curr: cNet, prev: pNet },
     };
   }, [current, previous]);
@@ -96,6 +110,10 @@ export default function MonthOverMonthTrends() {
 
   const dPremium = delta(kpis.premium.curr, kpis.premium.prev);
   const dPolicies = delta(kpis.policies.curr, kpis.policies.prev);
+  const dQuoted = delta(kpis.quoted.curr, kpis.quoted.prev);
+  const dSpend = delta(kpis.marketingSpend.curr, kpis.marketingSpend.prev);
+  const dComp = delta(kpis.compensation.curr, kpis.compensation.prev);
+  const dExp = delta(kpis.expenses.curr, kpis.expenses.prev);
   const dNet = delta(kpis.netProfit.curr, kpis.netProfit.prev);
 
   const Trend = ({ label, curr, del, isCurrency }: { label: string; curr?: number; del: { abs?: number; pct?: number }; isCurrency?: boolean }) => {
@@ -132,7 +150,11 @@ export default function MonthOverMonthTrends() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="h-16 rounded-md bg-muted animate-pulse" />
+              <div className="h-16 rounded-md bg-muted animate-pulse" />
+              <div className="h-16 rounded-md bg-muted animate-pulse" />
+              <div className="h-16 rounded-md bg-muted animate-pulse" />
               <div className="h-16 rounded-md bg-muted animate-pulse" />
               <div className="h-16 rounded-md bg-muted animate-pulse" />
               <div className="h-16 rounded-md bg-muted animate-pulse" />
@@ -156,45 +178,64 @@ export default function MonthOverMonthTrends() {
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline">View comparisons</Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-3xl">
+                    <DialogContent className="max-w-5xl">
                       <DialogHeader>
                         <DialogTitle>Comparisons</DialogTitle>
                       </DialogHeader>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Period</TableHead>
-                            <TableHead className="text-right">Premium Sold</TableHead>
-                            <TableHead className="text-right">Policies Sold</TableHead>
-                            <TableHead className="text-right">Net Profit</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {periods.map((p) => {
-                            const fd = (p.form_data || {}) as any;
-                            const sales = fd.sales || {};
-                            const cash = fd.cashFlow || {};
-                            const premium = numberOrUndefined(sales.premium);
-                            const policies = numberOrUndefined(sales.policies);
-                            const net = typeof cash.netProfit === 'number' ? cash.netProfit : (typeof cash.compensation === 'number' && typeof cash.expenses === 'number' ? cash.compensation - cash.expenses : undefined);
-                            return (
-                              <TableRow key={p.id}>
-                                <TableCell className="max-w-[240px] truncate">{labelForPeriod(p)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(premium)}</TableCell>
-                                <TableCell className="text-right">{formatNumber(policies)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(net)}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Period</TableHead>
+                              <TableHead className="text-right">Premium Sold</TableHead>
+                              <TableHead className="text-right">Policies Sold</TableHead>
+                              <TableHead className="text-right">Policies Quoted</TableHead>
+                              <TableHead className="text-right">Total Marketing Spend</TableHead>
+                              <TableHead className="text-right">Agency Compensation</TableHead>
+                              <TableHead className="text-right">Expenses</TableHead>
+                              <TableHead className="text-right">Net Profit</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {periods.map((p) => {
+                              const fd = (p.form_data || {}) as any;
+                              const sales = fd.sales || {};
+                              const marketing = fd.marketing || {};
+                              const cash = fd.cashFlow || {};
+                              const premium = numberOrUndefined(sales.premium);
+                              const policies = numberOrUndefined(sales.policies);
+                              const quoted = numberOrUndefined(marketing.policiesQuoted);
+                              const spend = numberOrUndefined(marketing.totalSpend);
+                              const comp = numberOrUndefined(cash.compensation);
+                              const exp = numberOrUndefined(cash.expenses);
+                              const net = typeof cash.netProfit === 'number' ? cash.netProfit : (typeof comp === 'number' && typeof exp === 'number' ? comp - exp : undefined);
+                              return (
+                                <TableRow key={p.id}>
+                                  <TableCell className="max-w-[280px] truncate">{labelForPeriod(p)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(premium)}</TableCell>
+                                  <TableCell className="text-right">{formatNumber(policies)}</TableCell>
+                                  <TableCell className="text-right">{formatNumber(quoted)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(spend)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(comp)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(exp)}</TableCell>
+                                  <TableCell className="text-right">{formatCurrency(net)}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 )}
               </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Trend label="Premium Sold" curr={kpis.premium.curr} del={dPremium} isCurrency />
                 <Trend label="Policies Sold" curr={kpis.policies.curr} del={dPolicies} />
+                <Trend label="Policies Quoted" curr={kpis.quoted.curr} del={dQuoted} />
+                <Trend label="Total Marketing Spend" curr={kpis.marketingSpend.curr} del={dSpend} isCurrency />
+                <Trend label="Agency Compensation" curr={kpis.compensation.curr} del={dComp} isCurrency />
+                <Trend label="Expenses" curr={kpis.expenses.curr} del={dExp} isCurrency />
                 <Trend label="Net Profit" curr={kpis.netProfit.curr} del={dNet} isCurrency />
               </div>
             </div>
