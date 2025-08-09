@@ -110,3 +110,125 @@ export const DEFAULT_INPUTS: MarketingInputs = {
   avgItemsPerHH: 2.1,
   commissionPct: 22,
 };
+
+// Mailer Forecaster types
+export type MailerInputs = {
+  mailSource?: string;
+  spend: number; // currency
+  costPerPiece: number; // cost per mail piece
+  responseRatePct: number; // 0-100
+  quotedPctOfInboundPct: number; // 0-100
+  closeRatePct: number; // 0-100
+  avgItemsPerHH: number; // can be decimal
+  avgItemValue: number; // currency
+  commissionPct: number; // 0-100
+};
+
+export type MailerDerived = {
+  totalMailersSent: number; // rounded count
+  inboundCalls: number; // rounded count
+  quotedHH: number; // rounded count
+  closedHH: number; // rounded count
+  soldItems: number; // rounded count
+  soldPremium: number; // currency number
+  totalComp: number; // currency number
+};
+
+export function computeMailerMetrics(raw: MailerInputs): MailerDerived {
+  const spend = nonNegative(raw.spend);
+  const cpp = nonNegative(raw.costPerPiece);
+  const responseRate = clampPercent(raw.responseRatePct) / 100;
+  const quotedPct = clampPercent(raw.quotedPctOfInboundPct) / 100;
+  const closeRate = clampPercent(raw.closeRatePct) / 100;
+  const avgItems = nonNegative(raw.avgItemsPerHH);
+  const avgItemValue = nonNegative(raw.avgItemValue);
+  const commissionRate = clampPercent(raw.commissionPct) / 100;
+
+  const totalMailersSent = cpp > 0 ? roundCount(spend / cpp) : 0;
+  const inboundCalls = roundCount(totalMailersSent * responseRate);
+  const quotedHH = roundCount(inboundCalls * quotedPct);
+  const closedHH = roundCount(quotedHH * closeRate);
+  const soldItems = roundCount(closedHH * avgItems);
+  const soldPremium = soldItems * avgItemValue;
+  const totalComp = soldPremium * commissionRate;
+
+  return {
+    totalMailersSent,
+    inboundCalls,
+    quotedHH,
+    closedHH,
+    soldItems,
+    soldPremium,
+    totalComp,
+  };
+}
+
+export const DEFAULT_MAILER_INPUTS: MailerInputs = {
+  mailSource: "Postcard Campaign",
+  spend: 5000,
+  costPerPiece: 0.75,
+  responseRatePct: 1.5,
+  quotedPctOfInboundPct: 65,
+  closeRatePct: 25,
+  avgItemsPerHH: 2,
+  avgItemValue: 900,
+  commissionPct: 22,
+};
+
+// Live Transfer Forecaster types
+export type TransferInputs = {
+  liveTransferSource?: string;
+  spend: number; // currency
+  costPerTransfer: number; // cost per live transfer
+  quotedPctOfInboundPct: number; // 0-100
+  closeRatePct: number; // 0-100
+  avgItemsPerHH: number; // can be decimal
+  avgItemValue: number; // currency
+  commissionPct: number; // 0-100
+};
+
+export type TransferDerived = {
+  totalTransfers: number; // rounded count
+  quotedHH: number; // rounded count
+  closedHH: number; // rounded count
+  soldItems: number; // rounded count
+  soldPremium: number; // currency number
+  totalComp: number; // currency number
+};
+
+export function computeTransferMetrics(raw: TransferInputs): TransferDerived {
+  const spend = nonNegative(raw.spend);
+  const cpt = nonNegative(raw.costPerTransfer);
+  const quotedPct = clampPercent(raw.quotedPctOfInboundPct) / 100;
+  const closeRate = clampPercent(raw.closeRatePct) / 100;
+  const avgItems = nonNegative(raw.avgItemsPerHH);
+  const avgItemValue = nonNegative(raw.avgItemValue);
+  const commissionRate = clampPercent(raw.commissionPct) / 100;
+
+  const totalTransfers = cpt > 0 ? roundCount(spend / cpt) : 0;
+  const quotedHH = roundCount(totalTransfers * quotedPct);
+  const closedHH = roundCount(quotedHH * closeRate);
+  const soldItems = roundCount(closedHH * avgItems);
+  const soldPremium = soldItems * avgItemValue;
+  const totalComp = soldPremium * commissionRate;
+
+  return {
+    totalTransfers,
+    quotedHH,
+    closedHH,
+    soldItems,
+    soldPremium,
+    totalComp,
+  };
+}
+
+export const DEFAULT_TRANSFER_INPUTS: TransferInputs = {
+  liveTransferSource: "Call Vendor",
+  spend: 4000,
+  costPerTransfer: 45,
+  quotedPctOfInboundPct: 80,
+  closeRatePct: 30,
+  avgItemsPerHH: 1.8,
+  avgItemValue: 950,
+  commissionPct: 22,
+};

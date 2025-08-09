@@ -9,7 +9,7 @@ import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 import { versionLabel } from "@/version";
-import { MarketingCalculatorModal } from "@/components/MarketingCalculatorModal";
+import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
 
@@ -76,7 +76,7 @@ const Dashboard = () => {
                 </Link>
               )}
               <MyAccountDialogTriggerButton />
-              <Button variant="glass" size="sm" className="rounded-full" onClick={() => setRoiOpen(true)}>ROI Forecaster</Button>
+              <Button variant="glass" size="sm" className="rounded-full" onClick={() => setRoiOpen(true)}>ROI Forecasters</Button>
             </nav>
             <Button variant="glass" className="rounded-full" onClick={handleSignOut}>Sign Out</Button>
           </div>
@@ -115,7 +115,7 @@ const Dashboard = () => {
           Version: {versionLabel}
         </div>
       </main>
-      <MarketingCalculatorModal open={roiOpen} onOpenChange={setRoiOpen} />
+      <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
     </div>
   );
 };
