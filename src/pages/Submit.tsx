@@ -80,6 +80,8 @@ export default function Submit() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const { toast } = useToast();
+  
+  const enableSoldAndCommission = true;
 
   useEffect(() => {
     if (user) {
@@ -853,6 +855,35 @@ export default function Submit() {
                       placeholder=""
                     />
                   </div>
+
+                  {enableSoldAndCommission && (
+                    <>
+                      <div>
+                        <Label htmlFor="totalRevenueFromLeadSources">Total Revenue From Lead Sources ($)</Label>
+                        <Input
+                          id="totalRevenueFromLeadSources"
+                          type="number"
+                          step="0.01"
+                          value={(totalRevenueFromLeadSources || 0).toFixed(2)}
+                          className="bg-muted font-semibold"
+                          readOnly
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="totalEstimatedCommission">Total Estimated Commission ($)</Label>
+                        <Input
+                          id="totalEstimatedCommission"
+                          type="number"
+                          step="0.01"
+                          value={(totalEstimatedCommission || 0).toFixed(2)}
+                          className="bg-muted font-semibold"
+                          readOnly
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
