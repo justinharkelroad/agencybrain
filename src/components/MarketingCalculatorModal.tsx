@@ -18,7 +18,7 @@ import {
   computeMetrics,
   formatCurrency,
   formatInteger,
-  DEFAULT_INPUTS,
+  
   clampPercent,
 } from "@/utils/marketingCalculator";
 
@@ -168,14 +168,14 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Lead Source */}
           <div>
             <Label htmlFor="leadSource">Lead Source</Label>
-            <Input id="leadSource" placeholder="EverQuote" {...register("leadSource")} />
+            <Input id="leadSource" {...register("leadSource")} />
             <p className="text-xs text-muted-foreground mt-1">Optional label to identify the source</p>
           </div>
 
           {/* Spend */}
           <div>
             <Label htmlFor="spend">Spend</Label>
-            <Input id="spend" type="number" step="any" min={0} placeholder="10000"
+            <Input id="spend" type="number" step="any" min={0}
               aria-invalid={!!errors.spend}
               {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
             />
@@ -186,7 +186,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* CPL */}
           <div>
             <Label htmlFor="cpl">Cost Per Lead</Label>
-            <Input id="cpl" type="number" step="any" min={0} placeholder="9"
+            <Input id="cpl" type="number" step="any" min={0}
               aria-invalid={!!errors.cpl}
               {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
             />
@@ -199,7 +199,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Quote Rate % */}
           <div>
             <Label htmlFor="quoteRatePct">Quote Rate</Label>
-            <Input id="quoteRatePct" type="number" step="any" min={0} max={100} placeholder="4"
+            <Input id="quoteRatePct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.quoteRatePct}
               {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
             />
@@ -209,7 +209,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Close Rate % */}
           <div>
             <Label htmlFor="closeRatePct">Close Rate</Label>
-            <Input id="closeRatePct" type="number" step="any" min={0} max={100} placeholder="15"
+            <Input id="closeRatePct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.closeRatePct}
               {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
             />
@@ -219,7 +219,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Avg Item Value */}
           <div>
             <Label htmlFor="avgItemValue">Average Item Value</Label>
-            <Input id="avgItemValue" type="number" step="any" min={0} placeholder="987"
+            <Input id="avgItemValue" type="number" step="any" min={0}
               aria-invalid={!!errors.avgItemValue}
               {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
             />
@@ -229,7 +229,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Avg Items per HH */}
           <div>
             <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
-            <Input id="avgItemsPerHH" type="number" step="any" min={0} placeholder="2.1"
+            <Input id="avgItemsPerHH" type="number" step="any" min={0}
               aria-invalid={!!errors.avgItemsPerHH}
               {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
             />
@@ -239,7 +239,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
           {/* Commission % */}
           <div>
             <Label htmlFor="commissionPct">Average Commission</Label>
-            <Input id="commissionPct" type="number" step="any" min={0} max={100} placeholder="22"
+            <Input id="commissionPct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.commissionPct}
               {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
             />
