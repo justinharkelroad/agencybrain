@@ -10,8 +10,7 @@ import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
-import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
+import { TopNav } from "@/components/TopNav";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 
@@ -59,32 +58,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="frosted-header" role="banner">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <AgencyBrainBadge size="md" />
-            <span className="text-lg font-medium text-muted-foreground ml-2">Dashboard</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
-              <Link to="/uploads">
-                <Button variant="glass" size="sm" className="rounded-full">Files</Button>
-              </Link>
-              <Link to="/process-vault">
-                <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
-              </Link>
-              {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
-                <Link to="/admin">
-                  <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
-                </Link>
-              )}
-              <MyAccountDialogTriggerButton />
-              <Button variant="glass" size="sm" className="rounded-full" onClick={() => setRoiOpen(true)}>ROI Forecasters</Button>
-            </nav>
-            <Button variant="glass" className="rounded-full" onClick={handleSignOut}>Sign Out</Button>
-          </div>
-        </div>
-      </header>
+      <TopNav title="Dashboard" onOpenROI={() => setRoiOpen(true)} />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
