@@ -37,6 +37,8 @@ describe("roi forecasters - acceptance", () => {
     expect(d.inboundCalls).toBe(200);
     // quoted = 120
     expect(d.quotedHH).toBe(120);
+    // cost per quoted hh = 5000 / 120 = 41.666...
+    expect(d.costPerQuotedHH).toBeCloseTo(41.6667, 4);
     // closed = 30
     expect(d.closedHH).toBe(30);
     // sold items = 60
@@ -61,6 +63,7 @@ describe("roi forecasters - acceptance", () => {
     const d = computeTransferMetrics(inputs);
     expect(d.totalTransfers).toBe(90);
     expect(d.quotedHH).toBe(72);
+    expect(d.costPerQuotedHH).toBeCloseTo(62.5, 2);
     expect(d.closedHH).toBe(18);
     expect(d.soldItems).toBe(27);
     expect(d.soldPremium).toBe(24300);

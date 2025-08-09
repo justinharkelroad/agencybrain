@@ -128,6 +128,7 @@ export type MailerDerived = {
   totalMailersSent: number; // rounded count
   inboundCalls: number; // rounded count
   quotedHH: number; // rounded count
+  costPerQuotedHH: number | null; // null when not computable
   closedHH: number; // rounded count
   soldItems: number; // rounded count
   soldPremium: number; // currency number
@@ -147,6 +148,7 @@ export function computeMailerMetrics(raw: MailerInputs): MailerDerived {
   const totalMailersSent = cpp > 0 ? roundCount(spend / cpp) : 0;
   const inboundCalls = roundCount(totalMailersSent * responseRate);
   const quotedHH = roundCount(inboundCalls * quotedPct);
+  const costPerQuotedHH = quotedHH > 0 ? spend / quotedHH : null;
   const closedHH = roundCount(quotedHH * closeRate);
   const soldItems = roundCount(closedHH * avgItems);
   const soldPremium = soldItems * avgItemValue;
@@ -156,6 +158,7 @@ export function computeMailerMetrics(raw: MailerInputs): MailerDerived {
     totalMailersSent,
     inboundCalls,
     quotedHH,
+    costPerQuotedHH,
     closedHH,
     soldItems,
     soldPremium,
@@ -190,6 +193,7 @@ export type TransferInputs = {
 export type TransferDerived = {
   totalTransfers: number; // rounded count
   quotedHH: number; // rounded count
+  costPerQuotedHH: number | null; // null when not computable
   closedHH: number; // rounded count
   soldItems: number; // rounded count
   soldPremium: number; // currency number
@@ -207,6 +211,7 @@ export function computeTransferMetrics(raw: TransferInputs): TransferDerived {
 
   const totalTransfers = cpt > 0 ? roundCount(spend / cpt) : 0;
   const quotedHH = roundCount(totalTransfers * quotedPct);
+  const costPerQuotedHH = quotedHH > 0 ? spend / quotedHH : null;
   const closedHH = roundCount(quotedHH * closeRate);
   const soldItems = roundCount(closedHH * avgItems);
   const soldPremium = soldItems * avgItemValue;
@@ -215,6 +220,7 @@ export function computeTransferMetrics(raw: TransferInputs): TransferDerived {
   return {
     totalTransfers,
     quotedHH,
+    costPerQuotedHH,
     closedHH,
     soldItems,
     soldPremium,

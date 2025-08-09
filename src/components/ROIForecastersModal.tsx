@@ -400,6 +400,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
       `Total Mailers Sent: ${formatInteger(derived.totalMailersSent)}`,
       `Inbound Calls: ${formatInteger(derived.inboundCalls)}`,
       `Quoted HH: ${formatInteger(derived.quotedHH)}`,
+      `Cost Per Quoted HH: ${derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)}`,
       `Closed HH: ${formatInteger(derived.closedHH)}`,
       `Sold Items: ${formatInteger(derived.soldItems)}`,
       `Sold Premium: ${formatCurrency(derived.soldPremium)}`,
@@ -481,6 +482,10 @@ function MailerForm({ onBack }: { onBack: () => void }) {
           <div>
             <Label>Quoted HH</Label>
             <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
+          </div>
+          <div>
+            <Label>Cost Per Quoted HH</Label>
+            <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
           </div>
           <div>
             <Label>Closed HH</Label>
@@ -576,6 +581,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
       `Average Commission: ${clampPercent(Number(values.commissionPct) || 0)}%`,
       `Total Transfers: ${formatInteger(derived.totalTransfers)}`,
       `Quoted HH: ${formatInteger(derived.quotedHH)}`,
+      `Cost Per Quoted HH: ${derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)}`,
       `Closed HH: ${formatInteger(derived.closedHH)}`,
       `Sold Items: ${formatInteger(derived.soldItems)}`,
       `Sold Premium: ${formatCurrency(derived.soldPremium)}`,
@@ -647,6 +653,10 @@ function TransferForm({ onBack }: { onBack: () => void }) {
           <div>
             <Label>Quoted HH</Label>
             <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
+          </div>
+          <div>
+            <Label>Cost Per Quoted HH</Label>
+            <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
           </div>
           <div>
             <Label>Closed HH</Label>
