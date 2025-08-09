@@ -71,17 +71,17 @@ export default function Auth() {
   };
 
   return (
-    <div className="dark min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-6 font-inter">
+      <Card className="w-full max-w-md glass-surface elevate rounded-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">Standard Coaching HQ</CardTitle>
+          <CardTitle className="text-2xl font-normal tracking-tighter font-inter text-primary">Standard Coaching HQ</CardTitle>
           <CardDescription>Insurance Agency Performance Platform</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Enter HQ</TabsTrigger>
-              <TabsTrigger value="signup">Create Account</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 glass-surface rounded-full p-1">
+              <TabsTrigger value="signin" className="rounded-full">Enter HQ</TabsTrigger>
+              <TabsTrigger value="signup" className="rounded-full">Create Account</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">

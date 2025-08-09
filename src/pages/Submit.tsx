@@ -578,7 +578,7 @@ export default function Submit() {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="container mx-auto max-w-4xl">
-          <Card>
+          <Card className="glass-surface elevate rounded-2xl">
             <CardHeader>
               <CardTitle>No Active Period</CardTitle>
               <CardDescription>
@@ -588,13 +588,13 @@ export default function Submit() {
             <CardContent>
               <div className="flex gap-3">
                 <Link to="/dashboard">
-                  <Button>
+                  <Button variant="glass" className="rounded-full">
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Dashboard
                   </Button>
                 </Link>
                 <Link to="/submit?mode=new">
-                  <Button variant="secondary">
+                  <Button variant="glass" className="rounded-full">
                     Start New Period
                   </Button>
                 </Link>
@@ -607,12 +607,12 @@ export default function Submit() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen bg-background p-4 font-inter">
       <div className="container mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <Link to="/dashboard">
-              <Button variant="outline" size="sm">
+              <Button variant="glass" size="sm" className="rounded-full">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -627,7 +627,7 @@ export default function Submit() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
-                      variant="outline"
+                      variant="glass"
                       className={cn(
                         "w-[200px] justify-start text-left font-normal",
                         !startDate && "text-muted-foreground"
@@ -654,7 +654,7 @@ export default function Submit() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
-                      variant="outline"
+                      variant="glass"
                       className={cn(
                         "w-[200px] justify-start text-left font-normal",
                         !endDate && "text-muted-foreground"
@@ -677,21 +677,22 @@ export default function Submit() {
               </div>
               
               <Button 
+                variant="glass"
                 onClick={updatePeriodDates} 
                 disabled={!startDate || !endDate}
-                className="mt-6"
+                className="mt-6 rounded-full"
               >
                 Update Dates
               </Button>
             </div>
           </div>
-          <Button onClick={saveForm} disabled={saving}>
+          <Button variant="glass" className="rounded-full" onClick={saveForm} disabled={saving}>
             {saving ? 'Saving...' : 'Save Form'}
           </Button>
         </div>
 
         <Tabs defaultValue="sales" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-6 glass-surface rounded-full p-1">
             <TabsTrigger value="sales">Sales</TabsTrigger>
             <TabsTrigger value="marketing">Marketing</TabsTrigger>
             <TabsTrigger value="operations">Bonus/Ops</TabsTrigger>
@@ -701,7 +702,7 @@ export default function Submit() {
           </TabsList>
 
           <TabsContent value="sales">
-            <Card>
+            <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
                 <CardTitle>Sales Metrics</CardTitle>
               </CardHeader>
@@ -756,7 +757,7 @@ export default function Submit() {
           </TabsContent>
 
           <TabsContent value="marketing">
-            <Card>
+            <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
                 <CardTitle>Marketing Metrics</CardTitle>
               </CardHeader>
@@ -775,7 +776,7 @@ export default function Submit() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <Label>Lead Sources</Label>
-                    <Button type="button" size="sm" onClick={addLeadSource}>
+                    <Button type="button" variant="glass" size="sm" onClick={addLeadSource} className="rounded-full">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Source
                     </Button>
@@ -855,7 +856,7 @@ export default function Submit() {
           </TabsContent>
 
           <TabsContent value="operations">
-            <Card>
+            <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
                 <CardTitle>Bonus/Ops Metrics</CardTitle>
               </CardHeader>
@@ -903,7 +904,7 @@ export default function Submit() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <Label>Team Roster</Label>
-                    <Button type="button" size="sm" onClick={addTeamMember}>
+                    <Button type="button" variant="glass" size="sm" onClick={addTeamMember} className="rounded-full">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Member
                     </Button>
@@ -989,7 +990,7 @@ export default function Submit() {
           </TabsContent>
 
           <TabsContent value="cashflow">
-            <Card>
+            <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
                 <CardTitle>Cash Flow Metrics</CardTitle>
               </CardHeader>
@@ -1035,7 +1036,7 @@ export default function Submit() {
           </TabsContent>
 
           <TabsContent value="qualitative">
-            <Card>
+            <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
                 <CardTitle>Current Reality</CardTitle>
               </CardHeader>
