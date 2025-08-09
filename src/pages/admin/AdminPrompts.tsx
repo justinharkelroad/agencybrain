@@ -23,7 +23,8 @@ import { Link, Navigate } from 'react-router-dom';
 interface Prompt {
   id: string;
   category: string;
-  title: string;
+  title: string; // Headline
+  subheadline: string | null; // Optional subheadline
   content: string;
   is_active: boolean;
   created_at: string;
@@ -37,6 +38,7 @@ const AdminPrompts = () => {
 const [newPrompt, setNewPrompt] = useState({
   category: '',
   title: '',
+  subheadline: '',
   content: '',
   is_active: true
 });
@@ -88,11 +90,12 @@ const [newPrompt, setNewPrompt] = useState({
           .from('prompts')
           .update({
             title: prompt.title,
+            subheadline: (prompt as any).subheadline ?? null,
             content: prompt.content,
             is_active: prompt.is_active,
             updated_at: new Date().toISOString()
           })
-          .eq('id', prompt.id);
+          .eq('id', prompt.id as string);
 
         if (error) throw error;
         
@@ -107,6 +110,7 @@ const [newPrompt, setNewPrompt] = useState({
           .insert({
             category: prompt.category,
             title: prompt.title,
+            subheadline: (prompt as any).subheadline ?? null,
             content: prompt.content,
             is_active: prompt.is_active
           });
@@ -118,7 +122,7 @@ const [newPrompt, setNewPrompt] = useState({
           description: "Prompt created successfully",
         });
         
-        setNewPrompt({ category: '', title: '', content: '', is_active: true });
+        setNewPrompt({ category: '', title: '', subheadline: '', content: '', is_active: true });
       }
 
       setEditingPrompt(null);
@@ -277,6 +281,9 @@ const [newPrompt, setNewPrompt] = useState({
                           </div>
                         </div>
                         <p className="font-medium mt-1">{prompt.title}</p>
+                        {prompt.subheadline && (
+                          <p className="text-sm text-muted-foreground">{prompt.subheadline}</p>
+                        )}
                         <p className="text-sm text-muted-foreground line-clamp-3">
                           {prompt.content}
                         </p>
@@ -332,11 +339,11 @@ const [newPrompt, setNewPrompt] = useState({
 
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="prompt_title">Title</Label>
+                    <Label htmlFor="prompt_title">Headline</Label>
                     <Input
                       id="prompt_title"
                       type="text"
-                      value={editingPrompt ? editingPrompt.title : newPrompt.title}
+                      value={editingPrompt ? editingPrompt.title : (newPrompt as any).title}
                       onChange={(e) => {
                         if (editingPrompt) {
                           setEditingPrompt({ ...editingPrompt, title: e.target.value });
@@ -344,7 +351,24 @@ const [newPrompt, setNewPrompt] = useState({
                           setNewPrompt({ ...newPrompt, title: e.target.value });
                         }
                       }}
-                      placeholder="Short title for this prompt"
+                      placeholder="Short headline for this prompt"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="prompt_subheadline">Subheadline (optional)</Label>
+                    <Input
+                      id="prompt_subheadline"
+                      type="text"
+                      value={editingPrompt ? (editingPrompt.subheadline ?? '') : ((newPrompt as any).subheadline ?? '')}
+                      onChange={(e) => {
+                        if (editingPrompt) {
+                          setEditingPrompt({ ...editingPrompt, subheadline: e.target.value });
+                        } else {
+                          setNewPrompt({ ...newPrompt, subheadline: e.target.value });
+                        }
+                      }}
+                      placeholder="Optional supporting subheadline"
                       className="mt-1"
                     />
                   </div>
@@ -352,7 +376,7 @@ const [newPrompt, setNewPrompt] = useState({
                     <Label htmlFor="prompt_content">Prompt Text</Label>
                     <Textarea
                       id="prompt_content"
-                      value={editingPrompt ? editingPrompt.content : newPrompt.content}
+                      value={editingPrompt ? editingPrompt.content : (newPrompt as any).content}
                       onChange={(e) => {
                         if (editingPrompt) {
                           setEditingPrompt({ ...editingPrompt, content: e.target.value });
