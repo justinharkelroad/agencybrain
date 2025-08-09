@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
-import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
+import { AdminTopNav } from '@/components/AdminTopNav';
 
 interface Agency {
   id: string;
@@ -432,35 +432,7 @@ const AdminAnalysis = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="frosted-header">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <AgencyBrainBadge size="md" />
-            <span className="text-lg font-medium text-muted-foreground ml-2">AI Analysis</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2">
-              <Link to="/admin">
-                <Button variant="ghost" size="sm">Dashboard</Button>
-              </Link>
-              <Button variant="ghost" size="sm">Analysis</Button>
-              <Link to="/admin/prompts">
-                <Button variant="ghost" size="sm">Prompts</Button>
-              </Link>
-            </nav>
-            <Link to="/admin">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AdminTopNav title="AI Analysis" />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { LogOut, Shield, Trash2, Plus } from "lucide-react";
+import { AdminTopNav } from "@/components/AdminTopNav";
 
 interface ProcessVaultType {
   id: string;
@@ -83,25 +84,7 @@ const AdminProcessVaultTypes: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="text-lg font-medium text-muted-foreground">Process Vault Types</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/admin">
-              <Button variant="outline" size="sm">Admin Home</Button>
-            </Link>
-            <Link to="/dashboard">
-              <Button variant="secondary" size="sm">Back to App</Button>
-            </Link>
-            <Button variant="outline" onClick={signOut}>
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AdminTopNav title="Process Vault Types" />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <section>

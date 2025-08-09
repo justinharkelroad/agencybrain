@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
-import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
+import { AdminTopNav } from '@/components/AdminTopNav';
 
 interface Agency {
   id: string;
@@ -241,38 +241,7 @@ const getSubmissionStatus = (profile: Profile) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="frosted-header">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-              <AgencyBrainBadge size="md" />
-            <span className="text-lg font-medium text-muted-foreground ml-2">Admin Panel</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2">
-              <Link to="/admin">
-                <Button variant="ghost" size="sm">Dashboard</Button>
-              </Link>
-              <Link to="/admin/analysis">
-                <Button variant="ghost" size="sm">Analysis</Button>
-              </Link>
-              <Link to="/admin/prompts">
-                <Button variant="ghost" size="sm">Prompts</Button>
-              </Link>
-              <Link to="/admin/process-vault-types">
-                <Button variant="ghost" size="sm">Process Vault</Button>
-              </Link>
-            </nav>
-            <ThemeToggle />
-            <Link to="/dashboard">
-              <Button variant="outline" size="sm">Back to App</Button>
-            </Link>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AdminTopNav title="Admin Dashboard" />
 
       <main className="container mx-auto px-4 py-8">
 <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -366,16 +335,16 @@ const getSubmissionStatus = (profile: Profile) => {
         {/* Client List */}
         <Card className="shadow-elegant">
           <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <CardTitle>Client Management</CardTitle>
                 <CardDescription>
                   Monitor client submission status and progress
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 w-full md:w-auto">
                 <CreateClientDialog onClientCreated={fetchAdminData} />
-                <div className="relative w-64">
+                <div className="relative w-full md:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Search clients..."
