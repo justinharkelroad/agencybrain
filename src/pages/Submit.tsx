@@ -787,45 +787,97 @@ export default function Submit() {
                     </Button>
                   </div>
                   {formData.marketing.leadSources.map((source, index) => (
-                    <div key={index} className="flex gap-2 items-end mb-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Source name"
-                          value={source.name}
-                          onChange={(e) => {
-                            const newSources = [...formData.marketing.leadSources];
-                            newSources[index].name = e.target.value;
-                            updateFormData('marketing', 'leadSources', newSources);
-                            // Update total spend when lead sources change
-                            const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
-                            updateFormData('marketing', 'totalSpend', totalSpend);
-                          }}
-                        />
+                    <div key={index} className="mb-3 rounded-xl border p-3">
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <Input
+                            placeholder="Source name"
+                            value={source.name}
+                            onChange={(e) => {
+                              const newSources = [...formData.marketing.leadSources];
+                              newSources[index].name = e.target.value;
+                              updateFormData('marketing', 'leadSources', newSources);
+                              // Update total spend when lead sources change
+                              const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                              updateFormData('marketing', 'totalSpend', totalSpend);
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Spend ($)"
+                            value={source.spend || ''}
+                            onChange={(e) => {
+                              const newSources = [...formData.marketing.leadSources];
+                              newSources[index].spend = parseFloat(e.target.value) || 0;
+                              updateFormData('marketing', 'leadSources', newSources);
+                              // Update total spend when lead sources change
+                              const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                              updateFormData('marketing', 'totalSpend', totalSpend);
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => removeLeadSource(index)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder=""
-                          value={source.spend || ''}
-                          onChange={(e) => {
-                            const newSources = [...formData.marketing.leadSources];
-                            newSources[index].spend = parseFloat(e.target.value) || 0;
-                            updateFormData('marketing', 'leadSources', newSources);
-                            // Update total spend when lead sources change
-                            const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
-                            updateFormData('marketing', 'totalSpend', totalSpend);
-                          }}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeLeadSource(index)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                      {enableSoldAndCommission && (
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <Label className="text-xs">Sold from {source.name || 'source'} ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={typeof source.soldPremium === 'number' ? source.soldPremium : ''}
+                              onChange={(e) => {
+                                const newSources = [...formData.marketing.leadSources];
+                                newSources[index].soldPremium = parseFloat(e.target.value) || 0;
+                                updateFormData('marketing', 'leadSources', newSources);
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Commission Avg (%)</Label>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="e.g., 12% or 0.12"
+                              value={
+                                typeof source.commissionRate === 'number'
+                                  ? (() => {
+                                      const pct = source.commissionRate * 100;
+                                      return Number.isInteger(pct) ? String(pct) : pct.toFixed(2);
+                                    })()
+                                  : ''
+                              }
+                              onChange={(e) => {
+                                const newSources = [...formData.marketing.leadSources];
+                                const normalized = normalizeCommissionRate(e.target.value);
+                                newSources[index].commissionRate = normalized;
+                                updateFormData('marketing', 'leadSources', newSources);
+                              }}
+                            />
+                            <p className="mt-1 text-xs text-muted-foreground">Enter percent or decimal. 12% = 0.12</p>
+                          </div>
+                          <div className="flex flex-col justify-end">
+                            <Label className="text-xs">Est. Commission ($)</Label>
+                            <Input
+                              readOnly
+                              className="bg-muted font-semibold"
+                              value={computeEstimatedCommissionPerRow(source as any).toFixed(2)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
