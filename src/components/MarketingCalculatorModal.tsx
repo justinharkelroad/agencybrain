@@ -32,7 +32,7 @@ export type MarketingCalculatorModalProps = {
 export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalculatorModalProps) {
   const { register, watch, setValue, reset, formState: { errors } } = useForm<MarketingInputs>({
     mode: "onChange",
-    defaultValues: DEFAULT_INPUTS,
+    defaultValues: {} as any,
   });
 
   // Load persisted values once on mount
@@ -41,7 +41,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<MarketingInputs>;
-        reset({ ...DEFAULT_INPUTS, ...parsed });
+        reset(parsed as any);
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,13 +63,23 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   // Watch all fields
   const values = watch();
 
-  // Clamp percents live
+  // Clamp percents live (only when numeric)
   useEffect(() => {
-    const { quoteRatePct, closeRatePct, commissionPct } = values;
-    if (quoteRatePct !== undefined) setValue("quoteRatePct", clampPercent(Number(quoteRatePct) || 0), { shouldValidate: true });
-    if (closeRatePct !== undefined) setValue("closeRatePct", clampPercent(Number(closeRatePct) || 0), { shouldValidate: true });
-    if (commissionPct !== undefined) setValue("commissionPct", clampPercent(Number(commissionPct) || 0), { shouldValidate: true });
-    // we only want to react to those values
+    const q = values.quoteRatePct;
+    if (typeof q === "number" && isFinite(q)) {
+      const c = clampPercent(q);
+      if (c !== q) setValue("quoteRatePct", c, { shouldValidate: true });
+    }
+    const cl = values.closeRatePct;
+    if (typeof cl === "number" && isFinite(cl)) {
+      const c2 = clampPercent(cl);
+      if (c2 !== cl) setValue("closeRatePct", c2, { shouldValidate: true });
+    }
+    const cm = values.commissionPct;
+    if (typeof cm === "number" && isFinite(cm)) {
+      const c3 = clampPercent(cm);
+      if (c3 !== cm) setValue("commissionPct", c3, { shouldValidate: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.quoteRatePct, values.closeRatePct, values.commissionPct]);
 
@@ -83,10 +93,23 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
     avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
     commissionPct: Number(values.commissionPct) || 0,
   }), [values]);
+  const hasSpend = Number(values.spend) > 0;
+  const hasCpl = Number(values.cpl) > 0;
+  const hasQuoteRate = typeof values.quoteRatePct === 'number' && isFinite(values.quoteRatePct);
+  const hasCloseRate = typeof values.closeRatePct === 'number' && isFinite(values.closeRatePct);
+  const hasAvgItems = typeof values.avgItemsPerHH === 'number' && isFinite(values.avgItemsPerHH);
+  const hasAvgItemValue = typeof values.avgItemValue === 'number' && isFinite(values.avgItemValue);
+  const hasCommission = typeof values.commissionPct === 'number' && isFinite(values.commissionPct);
 
-  const quotedHHZero = derived.quotedHH === 0;
-  const cplZero = (Number(values.cpl) || 0) === 0;
+  const canTotalLeads = hasSpend && hasCpl;
+  const canQuotedHH = canTotalLeads && hasQuoteRate;
+  const canClosedHH = canQuotedHH && hasCloseRate;
+  const canSoldItems = canClosedHH && hasAvgItems;
+  const canSoldPremium = canSoldItems && hasAvgItemValue;
+  const canTotalComp = canSoldPremium && hasCommission;
 
+  const quotedHHZero = canQuotedHH && derived.quotedHH === 0;
+  const cplZeroExplicit = typeof values.cpl === 'number' && isFinite(values.cpl) && values.cpl === 0;
   const handleReset = () => {
     reset(DEFAULT_INPUTS);
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
@@ -120,18 +143,19 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl glass-surface backdrop-blur-md rounded-2xl border border-border/60">
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto glass-surface backdrop-blur-md rounded-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle>Calculate Your Potential ROI</DialogTitle>
+          <DialogTitle>You Fill Out This</DialogTitle>
           <DialogDescription>
             Enter your numbers to estimate ROI from marketing spend
           </DialogDescription>
         </DialogHeader>
 
-        {/* aria-live summary for assistive tech */}
-        <div aria-live="polite" className="sr-only" id="roi-live">
-          Total Leads {derived.totalLeads}, Quoted Households {derived.quotedHH}, Closed Households {derived.closedHH}, Sold Items {derived.soldItems}, Sold Premium {formatCurrency(derived.soldPremium)}, Total Compensation {formatCurrency(derived.totalComp)}.
-        </div>
+        {canTotalLeads && (
+          <div aria-live="polite" className="sr-only" id="roi-live">
+            Total Leads {derived.totalLeads}, Quoted Households {derived.quotedHH}, Closed Households {derived.closedHH}, Sold Items {derived.soldItems}, Sold Premium {formatCurrency(derived.soldPremium)}, Total Compensation {formatCurrency(derived.totalComp)}.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           {/* Lead Source */}
@@ -160,7 +184,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
               {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
             />
             <p className="text-xs text-muted-foreground mt-1">Average cost per lead (USD)</p>
-            {(errors.cpl || cplZero) && (
+            {(errors.cpl || cplZeroExplicit) && (
               <p className="text-xs text-destructive mt-1">{errors.cpl?.message as string || "CPL cannot be 0"}</p>
             )}
           </div>
@@ -218,21 +242,21 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
 
         {/* Derived metrics */}
         <section className="mt-6">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Derived metrics</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">And We Got This Part</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Total Leads</Label>
-              <Input readOnly value={formatInteger(derived.totalLeads)} />
+              <Input disabled value={canTotalLeads ? formatInteger(derived.totalLeads) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Rounded: spend ÷ CPL</p>
             </div>
             <div>
               <Label>Quoted HH</Label>
-              <Input readOnly value={formatInteger(derived.quotedHH)} />
+              <Input disabled value={canQuotedHH ? formatInteger(derived.quotedHH) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Rounded: leads × quote rate</p>
             </div>
             <div>
               <Label>Cost Per Quoted HH</Label>
-              <Input readOnly value={derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH!)} />
+              <Input disabled value={canQuotedHH ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH!)) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Spend ÷ quoted HH</p>
               {quotedHHZero && (
                 <p className="text-xs text-destructive mt-1">No quoted households yet</p>
@@ -240,22 +264,22 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             </div>
             <div>
               <Label>Closed HH</Label>
-              <Input readOnly value={formatInteger(derived.closedHH)} />
+              <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Rounded: quoted × close rate</p>
             </div>
             <div>
               <Label>Sold Items</Label>
-              <Input readOnly value={formatInteger(derived.soldItems)} />
+              <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Rounded: closed × avg items/HH</p>
             </div>
             <div>
               <Label>Sold Premium</Label>
-              <Input readOnly value={formatCurrency(derived.soldPremium)} />
+              <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Sold items × avg item value</p>
             </div>
             <div>
               <Label>Total Compensation</Label>
-              <Input readOnly value={formatCurrency(derived.totalComp)} />
+              <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
               <p className="text-xs text-muted-foreground mt-1">Sold premium × commission</p>
             </div>
           </div>
