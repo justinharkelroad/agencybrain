@@ -399,6 +399,9 @@ export default function ClientDetail() {
       
       if (promptsError) throw promptsError;
       setPrompts((promptsData as Prompt[]) || []);
+
+      // Load Process Vault data after core client data is ready
+      await loadProcessVaultData();
       
     } catch (error: any) {
       console.error('Error fetching client data:', error);
@@ -737,6 +740,126 @@ export default function ClientDetail() {
     } catch (e: any) {
       console.error("[ClientDetail] Clear chat failed", e);
       toast({ title: "Failed to clear chat", description: e?.message || "Please try again." });
+    }
+  };
+
+  // Process Vault helpers
+  const loadProcessVaultData = async () => {
+    if (!clientId) return;
+    try {
+      const [{ data: typesData, error: typesError }, { data: vaultsData, error: vaultsError }] = await Promise.all([
+        supabase.from('process_vault_types').select('id,title,is_active').eq('is_active', true).order('title', { ascending: true }),
+        supabase.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true }),
+      ]);
+      if (typesError) throw typesError;
+      if (vaultsError) throw vaultsError;
+      const types = (typesData || []) as ProcessVaultType[];
+      let vaults = (vaultsData || []) as UserVault[];
+      const existingTypeIds = new Set(vaults.filter(v => v.vault_type_id).map(v => v.vault_type_id as string));
+      const missing = types.filter(t => !existingTypeIds.has(t.id));
+      if (missing.length > 0) {
+        const { error: insertErr } = await supabase.from('user_process_vaults').insert(
+          missing.map(m => ({ user_id: clientId, title: m.title, vault_type_id: m.id }))
+        );
+        if (insertErr) throw insertErr;
+        const { data: v2, error: v2Err } = await supabase
+          .from('user_process_vaults')
+          .select('id,user_id,title,vault_type_id,created_at')
+          .eq('user_id', clientId)
+          .order('created_at', { ascending: true });
+        if (v2Err) throw v2Err;
+        vaults = (v2 || []) as UserVault[];
+      }
+      setPvTypes(types);
+      setPvVaults(vaults);
+      if (vaults.length > 0) {
+        const ids = vaults.map(v => v.id);
+        const { data: files, error: filesErr } = await supabase
+          .from('process_vault_files')
+          .select('id,user_vault_id,upload_file_path,created_at')
+          .in('user_vault_id', ids);
+        if (filesErr) throw filesErr;
+        const counts: Record<string, number> = {};
+        (files || []).forEach((row: any) => {
+          counts[row.user_vault_id] = (counts[row.user_vault_id] || 0) + 1;
+        });
+        setPvFileCounts(counts);
+      } else {
+        setPvFileCounts({});
+      }
+    } catch (e) {
+      console.error('[ClientDetail] loadProcessVaultData error', e);
+    }
+  };
+
+  const openVault = async (vault: UserVault) => {
+    setActiveVault(vault);
+    setVaultDialogOpen(true);
+    setSelectedUploadId('');
+    try {
+      const { data, error } = await supabase
+        .from('process_vault_files')
+        .select('id,user_vault_id,upload_file_path,created_at')
+        .eq('user_vault_id', vault.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setActiveVaultFiles((data || []) as VaultFileRow[]);
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Failed to open vault', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const downloadVaultFile = async (row: VaultFileRow) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('uploads')
+        .createSignedUrl(row.upload_file_path, 60);
+      if (error) throw error;
+      const url = data?.signedUrl;
+      if (url) window.open(url, '_blank');
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Download failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const unlinkFile = async (row: VaultFileRow) => {
+    try {
+      const { error } = await supabase
+        .from('process_vault_files')
+        .delete()
+        .eq('id', row.id);
+      if (error) throw error;
+      setActiveVaultFiles(prev => prev.filter(r => r.id !== row.id));
+      if (activeVault) {
+        setPvFileCounts(prev => ({ ...prev, [activeVault.id]: Math.max(0, (prev[activeVault.id] || 1) - 1) }));
+      }
+      toast({ title: 'File unlinked' });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Failed to unlink file', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const addFromUploads = async () => {
+    if (!selectedUploadId || !activeVault) return;
+    try {
+      const upload = uploads.find(u => u.id === selectedUploadId);
+      if (!upload) return;
+      const { data, error } = await supabase
+        .from('process_vault_files')
+        .insert({ user_vault_id: activeVault.id, upload_file_path: upload.file_path })
+        .select('*')
+        .single();
+      if (error) throw error;
+      setActiveVaultFiles(prev => [data as VaultFileRow, ...prev]);
+      setPvFileCounts(prev => ({ ...prev, [activeVault.id]: (prev[activeVault.id] || 0) + 1 }));
+      setSelectedUploadId('');
+      toast({ title: 'File linked' });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Failed to link file', description: e.message, variant: 'destructive' });
     }
   };
 
