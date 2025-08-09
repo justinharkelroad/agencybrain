@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { versionLabel } from "@/version";
+import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
+import { getEnvironmentOverride, setEnvironmentOverride, clearEnvironmentOverride, getEffectiveEnvironmentStatus, type EnvOverride } from "@/lib/environment";
 
 const Health: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -12,6 +14,7 @@ const Health: React.FC = () => {
   const [dbOk, setDbOk] = useState<boolean | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [override, setOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
 
   const runChecks = async () => {
     setRunning(true);
@@ -61,6 +64,19 @@ const Health: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleMarkSafe = () => {
+    const ov = setEnvironmentOverride("safe", "Manually marked safe", user?.id);
+    setOverride(ov);
+  };
+  const handleMarkUnstable = () => {
+    const ov = setEnvironmentOverride("unstable", "Manually marked unstable", user?.id);
+    setOverride(ov);
+  };
+  const handleClearOverride = () => {
+    clearEnvironmentOverride();
+    setOverride(null);
+  };
+
   const Status = ({ label, status, note }: { label: string; status: boolean | null; note?: string | null }) => (
     <div className="flex items-start justify-between py-2">
       <div className="text-sm text-muted-foreground">{label}</div>
@@ -82,6 +98,28 @@ const Health: React.FC = () => {
           <CardHeader>
             <CardTitle>Runtime Diagnostics</CardTitle>
             <CardDescription>Quick connectivity and auth checks</CardDescription>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm text-muted-foreground">Environment Status</div>
+                <div className="mt-1">
+                  <EnvironmentStatusBadge
+                    status={getEffectiveEnvironmentStatus({ sessionOk, authOk, dbOk }).status}
+                    note={getEffectiveEnvironmentStatus({ sessionOk, authOk, dbOk }).note}
+                    updatedAt={getEffectiveEnvironmentStatus({ sessionOk, authOk, dbOk }).updatedAt}
+                    source={getEffectiveEnvironmentStatus({ sessionOk, authOk, dbOk }).source}
+                  />
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={handleMarkSafe} disabled={running}>Mark Safe</Button>
+                  <Button size="sm" variant="outline" onClick={handleMarkUnstable} disabled={running}>Mark Unstable</Button>
+                  {override && (
+                    <Button size="sm" variant="outline" onClick={handleClearOverride}>Clear Override</Button>
+                  )}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Status label="Supabase SDK reachable" status={sessionOk} />

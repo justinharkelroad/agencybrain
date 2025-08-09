@@ -12,6 +12,8 @@ import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
+import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
+import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -27,6 +29,7 @@ const Dashboard = () => {
 
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [roiOpen, setRoiOpen] = useState(false);
+  const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
 
   const fetchAgencyName = async () => {
     if (!user) return;
