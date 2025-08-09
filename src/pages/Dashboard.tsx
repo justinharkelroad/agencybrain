@@ -62,28 +62,26 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="glass-surface elevate rounded-2xl">
-            <CardHeader>
-              <CardTitle>Submit New Data for Coaching Call</CardTitle>
-              <CardDescription>Start a new submission</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" asChild>
-                <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
-              </Button>
-            </CardContent>
-          </Card>
-          <Card className="glass-surface elevate rounded-2xl">
-            <CardHeader>
-              <CardTitle>Agency</CardTitle>
-              <CardDescription>Your organization</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-medium">{agencyName ?? 'N/A'}</div>
-            </CardContent>
-          </Card>
-        </section>
+        <div className="space-y-3">
+          {agencyName && (
+            <h2 className="text-2xl font-semibold leading-none tracking-tight">
+              {agencyName}
+            </h2>
+          )}
+          <section>
+            <Card className="glass-surface elevate rounded-2xl">
+              <CardHeader>
+                <CardTitle>Submit New Data for Coaching Call</CardTitle>
+                <CardDescription>Start a new submission</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" asChild>
+                  <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </section>
+        </div>
         <SharedInsights />
         <PerformanceMetrics />
         <MonthOverMonthTrends />
