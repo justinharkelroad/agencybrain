@@ -99,7 +99,11 @@ const App = () => (
                 <Account />
               </ProtectedRoute>
             } />
-            <Route path="/health" element={<Health />} />
+            <Route path="/health" element={
+              <ProtectedRoute requireAdmin>
+                <Health />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
