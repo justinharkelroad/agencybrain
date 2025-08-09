@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -569,6 +570,459 @@ export default function Submit() {
     }
   };
 
+  // Shared section components for Tabs (desktop) and Accordion (mobile)
+  const SalesSection = () => (
+    <Card className="glass-surface elevate rounded-2xl">
+      <CardHeader>
+        <CardTitle>Sales Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="premium">Premium ($)</Label>
+            <Input
+              id="premium"
+              type="number"
+              step="0.01"
+              value={formData.sales.premium || ''}
+              onChange={(e) => updateFormData('sales', 'premium', parseFloat(e.target.value) || 0)}
+              placeholder=""
+            />
+          </div>
+          <div>
+            <Label htmlFor="items">Items</Label>
+            <Input
+              id="items"
+              type="number"
+              value={formData.sales.items || ''}
+              onChange={(e) => updateFormData('sales', 'items', parseInt(e.target.value) || 0)}
+              placeholder=""
+            />
+          </div>
+          <div>
+            <Label htmlFor="policies">Policies</Label>
+            <Input
+              id="policies"
+              type="number"
+              value={formData.sales.policies || ''}
+              onChange={(e) => updateFormData('sales', 'policies', parseInt(e.target.value) || 0)}
+              placeholder=""
+            />
+          </div>
+        </div>
+        <div className="mt-6">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="achievedVC"
+              checked={formData.sales.achievedVC || false}
+              onChange={(e) => updateFormData('sales', 'achievedVC', e.target.checked)}
+              className="rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="achievedVC">Did you achieve VC this past month?</Label>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const MarketingSection = () => (
+    <Card className="glass-surface elevate rounded-2xl">
+      <CardHeader>
+        <CardTitle>Marketing Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="policiesQuoted"># of Policies Quoted</Label>
+          <Input
+            id="policiesQuoted"
+            type="number"
+            value={formData.marketing.policiesQuoted || ''}
+            onChange={(e) => updateFormData('marketing', 'policiesQuoted', parseInt(e.target.value) || 0)}
+            placeholder=""
+          />
+        </div>
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <Label>Lead Sources</Label>
+            <Button type="button" variant="glass" size="sm" onClick={addLeadSource} className="rounded-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Source
+            </Button>
+          </div>
+          {formData.marketing.leadSources.map((source, index) => (
+            <div key={index} className="mb-3 rounded-xl border p-3">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Source name"
+                    value={source.name}
+                    onChange={(e) => {
+                      const newSources = [...formData.marketing.leadSources];
+                      newSources[index].name = e.target.value;
+                      updateFormData('marketing', 'leadSources', newSources);
+                      const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                      updateFormData('marketing', 'totalSpend', totalSpend);
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Spend ($)"
+                    value={source.spend || ''}
+                    onChange={(e) => {
+                      const newSources = [...formData.marketing.leadSources];
+                      newSources[index].spend = parseFloat(e.target.value) || 0;
+                      updateFormData('marketing', 'leadSources', newSources);
+                      const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
+                      updateFormData('marketing', 'totalSpend', totalSpend);
+                    }}
+                  />
+                </div>
+                <Button type="button" variant="destructive" size="sm" onClick={() => removeLeadSource(index)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {enableSoldAndCommission && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs">Sold from {source.name || 'source'} ($)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={typeof source.soldPremium === 'number' ? source.soldPremium : ''}
+                      onChange={(e) => {
+                        const newSources = [...formData.marketing.leadSources];
+                        newSources[index].soldPremium = parseFloat(e.target.value) || 0;
+                        updateFormData('marketing', 'leadSources', newSources);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Commission Avg (%)</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g., 12% or 0.12"
+                      value={
+                        typeof source.commissionRate === 'number'
+                          ? (() => {
+                              const pct = source.commissionRate * 100;
+                              return Number.isInteger(pct) ? String(pct) : pct.toFixed(2);
+                            })()
+                          : ''
+                      }
+                      onChange={(e) => {
+                        const newSources = [...formData.marketing.leadSources];
+                        const normalized = normalizeCommissionRate(e.target.value);
+                        newSources[index].commissionRate = normalized;
+                        updateFormData('marketing', 'leadSources', newSources);
+                      }}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Enter percent or decimal. 12% = 0.12</p>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <Label className="text-xs">Est. Commission ($)</Label>
+                    <Input readOnly className="bg-muted font-semibold" value={computeEstimatedCommissionPerRow(source as any).toFixed(2)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <div>
+            <Label htmlFor="leadSourceTotal">Lead Sources Total ($)</Label>
+            <Input id="leadSourceTotal" type="number" step="0.01" value={totalLeadSourceSpend.toFixed(2)} className="bg-muted font-semibold" readOnly placeholder="0.00" />
+          </div>
+          <div>
+            <Label htmlFor="totalSpend">Total Spend ($)</Label>
+            <Input id="totalSpend" type="number" step="0.01" value={formData.marketing.totalSpend || ''} className="bg-muted" readOnly placeholder="" />
+          </div>
+          {enableSoldAndCommission && (
+            <>
+              <div>
+                <Label htmlFor="totalRevenueFromLeadSources">Total Revenue From Lead Sources ($)</Label>
+                <Input id="totalRevenueFromLeadSources" type="number" step="0.01" value={(totalRevenueFromLeadSources || 0).toFixed(2)} className="bg-muted font-semibold" readOnly placeholder="0.00" />
+              </div>
+              <div>
+                <Label htmlFor="totalEstimatedCommission">Total Estimated Commission ($)</Label>
+                <Input id="totalEstimatedCommission" type="number" step="0.01" value={(totalEstimatedCommission || 0).toFixed(2)} className="bg-muted font-semibold" readOnly placeholder="0.00" />
+              </div>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const OperationsSection = () => (
+    <Card className="glass-surface elevate rounded-2xl">
+      <CardHeader>
+        <CardTitle>Bonus/Ops Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="currentAlrTotal">Current ALR Total YTD ($)</Label>
+          <Input
+            id="currentAlrTotal"
+            type="number"
+            step="0.01"
+            value={formData.operations.currentAlrTotal || ''}
+            onChange={(e) => updateFormData('operations', 'currentAlrTotal', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <Label htmlFor="currentAapProjection">Current AAP Projection</Label>
+          <Select value={formData.operations.currentAapProjection} onValueChange={(value) => updateFormData('operations', 'currentAapProjection', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select AAP level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Emerging">Emerging</SelectItem>
+              <SelectItem value="Pro">Pro</SelectItem>
+              <SelectItem value="Elite">Elite</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="currentBonusTrend">Current Bonus Trend #</Label>
+          <Input
+            id="currentBonusTrend"
+            type="number"
+            value={formData.operations.currentBonusTrend || ''}
+            onChange={(e) => updateFormData('operations', 'currentBonusTrend', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <Label>Team Roster</Label>
+            <Button type="button" variant="glass" size="sm" onClick={addTeamMember} className="rounded-full">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Member
+            </Button>
+          </div>
+          {formData.operations.teamRoster.map((member, index) => (
+            <div key={index} className="flex gap-2 items-end mb-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Name"
+                  value={member.name}
+                  onChange={(e) => {
+                    const newRoster = [...formData.operations.teamRoster];
+                    newRoster[index].name = e.target.value;
+                    updateFormData('operations', 'teamRoster', newRoster);
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <Select
+                  value={member.role}
+                  onValueChange={(value) => {
+                    const newRoster = [...formData.operations.teamRoster];
+                    newRoster[index].role = value;
+                    updateFormData('operations', 'teamRoster', newRoster);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="Service">Service</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" variant="destructive" size="sm" onClick={() => removeTeamMember(index)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const RetentionSection = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Retention Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="numberTerminated">Number of Policies Terminated</Label>
+          <Input
+            id="numberTerminated"
+            type="number"
+            value={formData.retention.numberTerminated || ''}
+            onChange={(e) => updateFormData('retention', 'numberTerminated', parseInt(e.target.value) || 0)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <Label htmlFor="currentRetentionPercent">Current Retention %</Label>
+          <Input
+            id="currentRetentionPercent"
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={formData.retention.currentRetentionPercent || ''}
+            onChange={(e) => updateFormData('retention', 'currentRetentionPercent', parseFloat(e.target.value) || 0)}
+            placeholder="0"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const CashFlowSection = () => (
+    <Card className="glass-surface elevate rounded-2xl">
+      <CardHeader>
+        <CardTitle>Cash Flow Metrics</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="compensation">Compensation ($)</Label>
+            <Input
+              id="compensation"
+              type="number"
+              step="0.01"
+              value={formData.cashFlow.compensation || ''}
+              onChange={(e) => updateFormData('cashFlow', 'compensation', parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <Label htmlFor="expenses">Expenses ($)</Label>
+            <Input
+              id="expenses"
+              type="number"
+              step="0.01"
+              value={formData.cashFlow.expenses || ''}
+              onChange={(e) => updateFormData('cashFlow', 'expenses', parseFloat(e.target.value) || 0)}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <Label htmlFor="netProfit">Net Profit ($)</Label>
+            <Input
+              id="netProfit"
+              type="number"
+              step="0.01"
+              value={formData.cashFlow.netProfit || ''}
+              onChange={(e) => updateFormData('cashFlow', 'netProfit', parseFloat(e.target.value) || 0)}
+              className="bg-muted"
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const QualitativeSection = () => (
+    <Card className="glass-surface elevate rounded-2xl">
+      <CardHeader>
+        <CardTitle>Current Reality</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="biggestStress">Biggest Stress</Label>
+          <Textarea
+            id="biggestStress"
+            value={formData.qualitative.biggestStress}
+            onChange={(e) => updateFormData('qualitative', 'biggestStress', e.target.value)}
+            rows={3}
+            placeholder="Describe your biggest stress..."
+          />
+        </div>
+        <div>
+          <Label htmlFor="gutAction">Gut Action You Feel You Should Take On That Stress</Label>
+          <Textarea
+            id="gutAction"
+            value={formData.qualitative.gutAction}
+            onChange={(e) => updateFormData('qualitative', 'gutAction', e.target.value)}
+            rows={3}
+            placeholder="What action do you feel you should take..."
+          />
+        </div>
+        <div>
+          <Label htmlFor="biggestPersonalWin">Biggest Personal Win</Label>
+          <Textarea
+            id="biggestPersonalWin"
+            value={formData.qualitative.biggestPersonalWin}
+            onChange={(e) => updateFormData('qualitative', 'biggestPersonalWin', e.target.value)}
+            rows={3}
+            placeholder="Describe your biggest personal win..."
+          />
+        </div>
+        <div>
+          <Label htmlFor="biggestBusinessWin">Biggest Business Win</Label>
+          <Textarea
+            id="biggestBusinessWin"
+            value={formData.qualitative.biggestBusinessWin}
+            onChange={(e) => updateFormData('qualitative', 'biggestBusinessWin', e.target.value)}
+            rows={3}
+            placeholder="Describe your biggest business win..."
+          />
+        </div>
+        <div className="mt-6">
+          <Label className="text-lg font-semibold">Here are 3 things I want to attack on this months call:</Label>
+          <div className="space-y-3 mt-3">
+            <div>
+              <Label htmlFor="attackItem1">1.</Label>
+              <Textarea
+                id="attackItem1"
+                value={formData.qualitative.attackItems.item1}
+                onChange={(e) => {
+                  const newAttackItems = { ...formData.qualitative.attackItems, item1: e.target.value };
+                  updateFormData('qualitative', 'attackItems', newAttackItems);
+                }}
+                rows={2}
+                placeholder="First thing to attack..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="attackItem2">2.</Label>
+              <Textarea
+                id="attackItem2"
+                value={formData.qualitative.attackItems.item2}
+                onChange={(e) => {
+                  const newAttackItems = { ...formData.qualitative.attackItems, item2: e.target.value };
+                  updateFormData('qualitative', 'attackItems', newAttackItems);
+                }}
+                rows={2}
+                placeholder="Second thing to attack..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="attackItem3">3.</Label>
+              <Textarea
+                id="attackItem3"
+                value={formData.qualitative.attackItems.item3}
+                onChange={(e) => {
+                  const newAttackItems = { ...formData.qualitative.attackItems, item3: e.target.value };
+                  updateFormData('qualitative', 'attackItems', newAttackItems);
+                }}
+                rows={2}
+                placeholder="Third thing to attack..."
+              />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   // ✅ CHECKPOINT: WORKING STATE - Forms & Dashboard Perfect - Data persistence fixed
   if (loading) {
     return (
@@ -626,7 +1080,7 @@ export default function Submit() {
             <p className="text-muted-foreground mb-4">Submit to update Dashboard</p>
             
             {/* Editable Period Dates */}
-            <div className="flex gap-4 items-center">
+            <div className="flex flex-col md:flex-row gap-4 md:items-center">
               <div className="flex flex-col">
                 <Label className="mb-2">Start Date</Label>
                 <Popover>
@@ -691,12 +1145,55 @@ export default function Submit() {
               </Button>
             </div>
           </div>
-          <Button variant="glass" className="rounded-full" onClick={saveForm} disabled={saving}>
+          <Button variant="glass" className="rounded-full hidden md:inline-flex" onClick={saveForm} disabled={saving}>
             {saving ? 'Saving...' : 'Save Form'}
           </Button>
         </div>
 
-        <Tabs defaultValue="sales" className="space-y-6">
+        {/* Mobile Accordion */}
+        <div className="md:hidden">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="sales">
+              <AccordionTrigger>Sales</AccordionTrigger>
+              <AccordionContent>
+                <SalesSection />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="marketing">
+              <AccordionTrigger>Marketing</AccordionTrigger>
+              <AccordionContent>
+                <MarketingSection />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="operations">
+              <AccordionTrigger>Bonus/Ops</AccordionTrigger>
+              <AccordionContent>
+                <OperationsSection />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="retention">
+              <AccordionTrigger>Retention</AccordionTrigger>
+              <AccordionContent>
+                <RetentionSection />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="cashflow">
+              <AccordionTrigger>Cash Flow</AccordionTrigger>
+              <AccordionContent>
+                <CashFlowSection />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="qualitative">
+              <AccordionTrigger>Current Reality</AccordionTrigger>
+              <AccordionContent>
+                <QualitativeSection />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        <div className="hidden md:block">
+          <Tabs defaultValue="sales" className="space-y-6">
           <TabsList className="w-full glass-surface rounded-full p-1 overflow-x-auto whitespace-nowrap flex md:grid md:grid-cols-6 gap-1">
             <TabsTrigger className="text-sm md:text-base shrink-0" value="sales">Sales</TabsTrigger>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="marketing">Marketing</TabsTrigger>
@@ -707,515 +1204,42 @@ export default function Submit() {
           </TabsList>
 
           <TabsContent value="sales">
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Sales Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="premium">Premium ($)</Label>
-                    <Input
-                      id="premium"
-                      type="number"
-                      step="0.01"
-                      value={formData.sales.premium || ''}
-                      onChange={(e) => updateFormData('sales', 'premium', parseFloat(e.target.value) || 0)}
-                      placeholder=""
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="items">Items</Label>
-                    <Input
-                      id="items"
-                      type="number"
-                      value={formData.sales.items || ''}
-                      onChange={(e) => updateFormData('sales', 'items', parseInt(e.target.value) || 0)}
-                      placeholder=""
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="policies">Policies</Label>
-                    <Input
-                      id="policies"
-                      type="number"
-                      value={formData.sales.policies || ''}
-                      onChange={(e) => updateFormData('sales', 'policies', parseInt(e.target.value) || 0)}
-                      placeholder=""
-                    />
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="achievedVC"
-                      checked={formData.sales.achievedVC || false}
-                      onChange={(e) => updateFormData('sales', 'achievedVC', e.target.checked)}
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <Label htmlFor="achievedVC">Did you achieve VC this past month?</Label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <SalesSection />
           </TabsContent>
 
           <TabsContent value="marketing">
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Marketing Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="policiesQuoted"># of Policies Quoted</Label>
-                  <Input
-                    id="policiesQuoted"
-                    type="number"
-                    value={formData.marketing.policiesQuoted || ''}
-                    onChange={(e) => updateFormData('marketing', 'policiesQuoted', parseInt(e.target.value) || 0)}
-                    placeholder=""
-                  />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <Label>Lead Sources</Label>
-                    <Button type="button" variant="glass" size="sm" onClick={addLeadSource} className="rounded-full">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Source
-                    </Button>
-                  </div>
-                  {formData.marketing.leadSources.map((source, index) => (
-                    <div key={index} className="mb-3 rounded-xl border p-3">
-                      <div className="flex gap-2 items-end">
-                        <div className="flex-1">
-                          <Input
-                            placeholder="Source name"
-                            value={source.name}
-                            onChange={(e) => {
-                              const newSources = [...formData.marketing.leadSources];
-                              newSources[index].name = e.target.value;
-                              updateFormData('marketing', 'leadSources', newSources);
-                              // Update total spend when lead sources change
-                              const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
-                              updateFormData('marketing', 'totalSpend', totalSpend);
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Spend ($)"
-                            value={source.spend || ''}
-                            onChange={(e) => {
-                              const newSources = [...formData.marketing.leadSources];
-                              newSources[index].spend = parseFloat(e.target.value) || 0;
-                              updateFormData('marketing', 'leadSources', newSources);
-                              // Update total spend when lead sources change
-                              const totalSpend = newSources.reduce((sum, source) => sum + (source.spend || 0), 0);
-                              updateFormData('marketing', 'totalSpend', totalSpend);
-                            }}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removeLeadSource(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      {enableSoldAndCommission && (
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <div>
-                            <Label className="text-xs">Sold from {source.name || 'source'} ($)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={typeof source.soldPremium === 'number' ? source.soldPremium : ''}
-                              onChange={(e) => {
-                                const newSources = [...formData.marketing.leadSources];
-                                newSources[index].soldPremium = parseFloat(e.target.value) || 0;
-                                updateFormData('marketing', 'leadSources', newSources);
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Commission Avg (%)</Label>
-                            <Input
-                              type="text"
-                              inputMode="decimal"
-                              placeholder="e.g., 12% or 0.12"
-                              value={
-                                typeof source.commissionRate === 'number'
-                                  ? (() => {
-                                      const pct = source.commissionRate * 100;
-                                      return Number.isInteger(pct) ? String(pct) : pct.toFixed(2);
-                                    })()
-                                  : ''
-                              }
-                              onChange={(e) => {
-                                const newSources = [...formData.marketing.leadSources];
-                                const normalized = normalizeCommissionRate(e.target.value);
-                                newSources[index].commissionRate = normalized;
-                                updateFormData('marketing', 'leadSources', newSources);
-                              }}
-                            />
-                            <p className="mt-1 text-xs text-muted-foreground">Enter percent or decimal. 12% = 0.12</p>
-                          </div>
-                          <div className="flex flex-col justify-end">
-                            <Label className="text-xs">Est. Commission ($)</Label>
-                            <Input
-                              readOnly
-                              className="bg-muted font-semibold"
-                              value={computeEstimatedCommissionPerRow(source as any).toFixed(2)}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="space-y-2">
-                  <div>
-                    <Label htmlFor="leadSourceTotal">Lead Sources Total ($)</Label>
-                    <Input
-                      id="leadSourceTotal"
-                      type="number"
-                      step="0.01"
-                      value={totalLeadSourceSpend.toFixed(2)}
-                      className="bg-muted font-semibold"
-                      readOnly
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="totalSpend">Total Spend ($)</Label>
-                    <Input
-                      id="totalSpend"
-                      type="number"
-                      step="0.01"
-                      value={formData.marketing.totalSpend || ''}
-                      className="bg-muted"
-                      readOnly
-                      placeholder=""
-                    />
-                  </div>
-
-                  {enableSoldAndCommission && (
-                    <>
-                      <div>
-                        <Label htmlFor="totalRevenueFromLeadSources">Total Revenue From Lead Sources ($)</Label>
-                        <Input
-                          id="totalRevenueFromLeadSources"
-                          type="number"
-                          step="0.01"
-                          value={(totalRevenueFromLeadSources || 0).toFixed(2)}
-                          className="bg-muted font-semibold"
-                          readOnly
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="totalEstimatedCommission">Total Estimated Commission ($)</Label>
-                        <Input
-                          id="totalEstimatedCommission"
-                          type="number"
-                          step="0.01"
-                          value={(totalEstimatedCommission || 0).toFixed(2)}
-                          className="bg-muted font-semibold"
-                          readOnly
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <MarketingSection />
           </TabsContent>
 
           <TabsContent value="operations">
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Bonus/Ops Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="currentAlrTotal">Current ALR Total YTD ($)</Label>
-                  <Input
-                    id="currentAlrTotal"
-                    type="number"
-                    step="0.01"
-                    value={formData.operations.currentAlrTotal || ''}
-                    onChange={(e) => updateFormData('operations', 'currentAlrTotal', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="currentAapProjection">Current AAP Projection</Label>
-                  <Select
-                    value={formData.operations.currentAapProjection}
-                    onValueChange={(value) => updateFormData('operations', 'currentAapProjection', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select AAP level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Emerging">Emerging</SelectItem>
-                      <SelectItem value="Pro">Pro</SelectItem>
-                      <SelectItem value="Elite">Elite</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="currentBonusTrend">Current Bonus Trend #</Label>
-                  <Input
-                    id="currentBonusTrend"
-                    type="number"
-                    value={formData.operations.currentBonusTrend || ''}
-                    onChange={(e) => updateFormData('operations', 'currentBonusTrend', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <Label>Team Roster</Label>
-                    <Button type="button" variant="glass" size="sm" onClick={addTeamMember} className="rounded-full">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Member
-                    </Button>
-                  </div>
-                  {formData.operations.teamRoster.map((member, index) => (
-                    <div key={index} className="flex gap-2 items-end mb-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Name"
-                          value={member.name}
-                          onChange={(e) => {
-                            const newRoster = [...formData.operations.teamRoster];
-                            newRoster[index].name = e.target.value;
-                            updateFormData('operations', 'teamRoster', newRoster);
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Select
-                          value={member.role}
-                          onValueChange={(value) => {
-                            const newRoster = [...formData.operations.teamRoster];
-                            newRoster[index].role = value;
-                            updateFormData('operations', 'teamRoster', newRoster);
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Sales">Sales</SelectItem>
-                            <SelectItem value="Service">Service</SelectItem>
-                            <SelectItem value="Hybrid">Hybrid</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeTeamMember(index)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <OperationsSection />
           </TabsContent>
 
           <TabsContent value="retention">
-            <Card>
-              <CardHeader>
-                <CardTitle>Retention Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="numberTerminated">Number of Policies Terminated</Label>
-                  <Input
-                    id="numberTerminated"
-                    type="number"
-                    value={formData.retention.numberTerminated || ''}
-                    onChange={(e) => updateFormData('retention', 'numberTerminated', parseInt(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="currentRetentionPercent">Current Retention %</Label>
-                  <Input
-                    id="currentRetentionPercent"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.retention.currentRetentionPercent || ''}
-                    onChange={(e) => updateFormData('retention', 'currentRetentionPercent', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <RetentionSection />
           </TabsContent>
 
           <TabsContent value="cashflow">
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Cash Flow Metrics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="compensation">Compensation ($)</Label>
-                    <Input
-                      id="compensation"
-                      type="number"
-                      step="0.01"
-                      value={formData.cashFlow.compensation || ''}
-                      onChange={(e) => updateFormData('cashFlow', 'compensation', parseFloat(e.target.value) || 0)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="expenses">Expenses ($)</Label>
-                    <Input
-                      id="expenses"
-                      type="number"
-                      step="0.01"
-                      value={formData.cashFlow.expenses || ''}
-                      onChange={(e) => updateFormData('cashFlow', 'expenses', parseFloat(e.target.value) || 0)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="netProfit">Net Profit ($)</Label>
-                    <Input
-                      id="netProfit"
-                      type="number"
-                      step="0.01"
-                      value={formData.cashFlow.netProfit || ''}
-                      onChange={(e) => updateFormData('cashFlow', 'netProfit', parseFloat(e.target.value) || 0)}
-                      className="bg-muted"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <CashFlowSection />
           </TabsContent>
 
           <TabsContent value="qualitative">
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Current Reality</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="biggestStress">Biggest Stress</Label>
-                  <Textarea
-                    id="biggestStress"
-                    value={formData.qualitative.biggestStress}
-                    onChange={(e) => updateFormData('qualitative', 'biggestStress', e.target.value)}
-                    rows={3}
-                    placeholder="Describe your biggest stress..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="gutAction">Gut Action You Feel You Should Take On That Stress</Label>
-                  <Textarea
-                    id="gutAction"
-                    value={formData.qualitative.gutAction}
-                    onChange={(e) => updateFormData('qualitative', 'gutAction', e.target.value)}
-                    rows={3}
-                    placeholder="What action do you feel you should take..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="biggestPersonalWin">Biggest Personal Win</Label>
-                  <Textarea
-                    id="biggestPersonalWin"
-                    value={formData.qualitative.biggestPersonalWin}
-                    onChange={(e) => updateFormData('qualitative', 'biggestPersonalWin', e.target.value)}
-                    rows={3}
-                    placeholder="Describe your biggest personal win..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="biggestBusinessWin">Biggest Business Win</Label>
-                  <Textarea
-                    id="biggestBusinessWin"
-                    value={formData.qualitative.biggestBusinessWin}
-                    onChange={(e) => updateFormData('qualitative', 'biggestBusinessWin', e.target.value)}
-                    rows={3}
-                    placeholder="Describe your biggest business win..."
-                  />
-                </div>
-                
-                <div className="mt-6">
-                  <Label className="text-lg font-semibold">Here are 3 things I want to attack on this months call:</Label>
-                  <div className="space-y-3 mt-3">
-                    <div>
-                      <Label htmlFor="attackItem1">1.</Label>
-                      <Textarea
-                        id="attackItem1"
-                        value={formData.qualitative.attackItems.item1}
-                        onChange={(e) => {
-                          const newAttackItems = { ...formData.qualitative.attackItems, item1: e.target.value };
-                          updateFormData('qualitative', 'attackItems', newAttackItems);
-                        }}
-                        rows={2}
-                        placeholder="First thing to attack..."
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="attackItem2">2.</Label>
-                      <Textarea
-                        id="attackItem2"
-                        value={formData.qualitative.attackItems.item2}
-                        onChange={(e) => {
-                          const newAttackItems = { ...formData.qualitative.attackItems, item2: e.target.value };
-                          updateFormData('qualitative', 'attackItems', newAttackItems);
-                        }}
-                        rows={2}
-                        placeholder="Second thing to attack..."
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="attackItem3">3.</Label>
-                      <Textarea
-                        id="attackItem3"
-                        value={formData.qualitative.attackItems.item3}
-                        onChange={(e) => {
-                          const newAttackItems = { ...formData.qualitative.attackItems, item3: e.target.value };
-                          updateFormData('qualitative', 'attackItems', newAttackItems);
-                        }}
-                        rows={2}
-                        placeholder="Third thing to attack..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <QualitativeSection />
           </TabsContent>
         </Tabs>
+        </div>
+      </div>
+
+      {/* Sticky Save Bar (mobile) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+        <div className="container mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            {hasUnsavedChanges ? "You have unsaved changes" : "All changes saved"}
+          </span>
+          <Button onClick={saveForm} disabled={saving} className="rounded-full">
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </div>
       </div>
 
       {/* Exit Warning Dialog */}
