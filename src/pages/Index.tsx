@@ -98,9 +98,7 @@ const Index = () => {
 
       <footer className="border-t bg-muted/30 py-8 mt-16">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-muted-foreground">
-            © 2024 The Standard App. Built for insurance agencies.
-          </p>
+          <AgencyBrainBadge size="sm" asLink to="/auth" />
         </div>
       </footer>
     </div>
