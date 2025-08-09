@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +75,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-6 font-inter">
       <Card className="w-full max-w-md glass-surface elevate rounded-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-normal tracking-tighter font-inter text-primary">Standard Coaching HQ</CardTitle>
+          <div className="flex justify-center"><AgencyBrainBadge size="lg" /></div>
           <CardDescription>Insurance Agency Performance Platform</CardDescription>
         </CardHeader>
         <CardContent>
