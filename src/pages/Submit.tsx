@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { normalizeCommissionRate, computeEstimatedCommissionPerRow, computeTotals } from '@/utils/leadSourceCommission';
 
 interface FormData {
   sales: {
@@ -27,7 +28,7 @@ interface FormData {
   marketing: {
     totalSpend: number;
     policiesQuoted: number;
-    leadSources: { name: string; spend: number }[];
+    leadSources: { name: string; spend: number; soldPremium?: number; commissionRate?: number }[];
   };
   operations: {
     currentAlrTotal: number;
@@ -127,6 +128,8 @@ export default function Submit() {
 
   // Calculate total lead source spend
   const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
+  // Compute new revenue/commission totals (computed only, not stored)
+  const { totalRevenueFromLeadSources, totalEstimatedCommission } = computeTotals(formData.marketing.leadSources as any);
 
   // Apply selective data persistence from previous period
   const applySelectiveDataPersistence = async () => {
