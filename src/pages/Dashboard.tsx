@@ -9,6 +9,7 @@ import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 import { versionLabel } from "@/version";
+import { MarketingCalculatorModal } from "@/components/MarketingCalculatorModal";
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -23,6 +24,7 @@ const Dashboard = () => {
   };
 
   const [agencyName, setAgencyName] = useState<string | null>(null);
+  const [roiOpen, setRoiOpen] = useState(false);
 
   const fetchAgencyName = async () => {
     if (!user) return;
@@ -79,6 +81,7 @@ const Dashboard = () => {
               <Link to="/account">
                 <Button variant="glass" size="sm" className="rounded-full">My Account</Button>
               </Link>
+              <Button variant="glass" size="sm" className="rounded-full" onClick={() => setRoiOpen(true)}>ROI Forecaster</Button>
             </nav>
             <Button variant="glass" className="rounded-full" onClick={handleSignOut}>Sign Out</Button>
           </div>
@@ -117,6 +120,7 @@ const Dashboard = () => {
           Version: {versionLabel}
         </div>
       </main>
+      <MarketingCalculatorModal open={roiOpen} onOpenChange={setRoiOpen} />
     </div>
   );
 };
