@@ -41,6 +41,20 @@ function GridTwoCols({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">{children}</div>;
 }
 
+function InputAffix({ children, prefix, suffix }: { children: React.ReactNode; prefix?: string; suffix?: string }) {
+  return (
+    <div className="relative">
+      {prefix ? (
+        <span className="absolute inset-y-0 left-3 flex items-center text-muted-foreground pointer-events-none">{prefix}</span>
+      ) : null}
+      {suffix ? (
+        <span className="absolute inset-y-0 right-3 flex items-center text-muted-foreground pointer-events-none">{suffix}</span>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
 function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
   const [last, setLast] = useState<CalcKey | null>(null);
   useEffect(() => {
@@ -171,6 +185,12 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.quoteRatePct, values.closeRatePct, values.commissionPct]);
 
+  const normalizePercent = (v: number) => {
+    if (!isFinite(v)) return 0;
+    const val = v > 0 && v < 1 ? v * 100 : v;
+    return clampPercent(val);
+  };
+
   const derived: MarketingDerived = useMemo(() => computeMetrics({
     leadSource: values.leadSource || "",
     spend: Number(values.spend) || 0,
@@ -243,33 +263,63 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="spend">Spend</Label>
-          <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
-            {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
+              className="pl-7"
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="cpl">Cost Per Lead</Label>
-          <Input id="cpl" type="number" step="any" min={0} aria-invalid={!!errors.cpl}
-            {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="cpl" type="number" step="any" min={0} aria-invalid={!!errors.cpl}
+              className="pl-7"
+              {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="quoteRatePct">Quote Rate</Label>
-          <Input id="quoteRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quoteRatePct}
-            {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="quoteRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quoteRatePct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("quoteRatePct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="closeRatePct">Close Rate</Label>
-          <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
-            {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="avgItemValue">Average Item Value</Label>
-          <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
-            {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
+              className="pl-7"
+              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
@@ -279,9 +329,18 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="commissionPct">Average Commission</Label>
-          <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
-            {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
       </GridTwoCols>
 
@@ -354,6 +413,12 @@ function MailerForm({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.responseRatePct, values.quotedPctOfInboundPct, values.closeRatePct, values.commissionPct]);
 
+  const normalizePercent = (v: number) => {
+    if (!isFinite(v)) return 0;
+    const val = v > 0 && v < 1 ? v * 100 : v;
+    return clampPercent(val);
+  };
+
   const derived: MailerDerived = useMemo(() => computeMailerMetrics({
     mailSource: values.mailSource || "",
     spend: Number(values.spend) || 0,
@@ -420,33 +485,68 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="spend">Spend</Label>
-          <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
-            {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
+              className="pl-7"
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="costPerPiece">Cost Per Piece</Label>
-          <Input id="costPerPiece" type="number" step="any" min={0} aria-invalid={!!errors.costPerPiece}
-            {...register("costPerPiece", { required: "Cost per piece is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="costPerPiece" type="number" step="any" min={0} aria-invalid={!!errors.costPerPiece}
+              className="pl-7"
+              {...register("costPerPiece", { required: "Cost per piece is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="responseRatePct">Response Rate</Label>
-          <Input id="responseRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.responseRatePct}
-            {...register("responseRatePct", { required: "Response rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="responseRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.responseRatePct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("responseRatePct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("responseRatePct", { required: "Response rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="quotedPctOfInboundPct">Quoted % of Inbound Calls</Label>
-          <Input id="quotedPctOfInboundPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quotedPctOfInboundPct}
-            {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="quotedPctOfInboundPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quotedPctOfInboundPct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("quotedPctOfInboundPct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="closeRatePct">Close Rate</Label>
-          <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
-            {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
@@ -456,15 +556,28 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="avgItemValue">Average Item Value</Label>
-          <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
-            {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
+              className="pl-7"
+              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="commissionPct">Average Commission</Label>
-          <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
-            {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
       </GridTwoCols>
 
@@ -540,6 +653,12 @@ function TransferForm({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.quotedPctOfInboundPct, values.closeRatePct, values.commissionPct]);
 
+  const normalizePercent = (v: number) => {
+    if (!isFinite(v)) return 0;
+    const val = v > 0 && v < 1 ? v * 100 : v;
+    return clampPercent(val);
+  };
+
   const derived: TransferDerived = useMemo(() => computeTransferMetrics({
     liveTransferSource: values.liveTransferSource || "",
     spend: Number(values.spend) || 0,
@@ -601,27 +720,53 @@ function TransferForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="spend">Spend</Label>
-          <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
-            {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
+              className="pl-7"
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="costPerTransfer">Cost Per Transfer</Label>
-          <Input id="costPerTransfer" type="number" step="any" min={0} aria-invalid={!!errors.costPerTransfer}
-            {...register("costPerTransfer", { required: "Cost per transfer is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="costPerTransfer" type="number" step="any" min={0} aria-invalid={!!errors.costPerTransfer}
+              className="pl-7"
+              {...register("costPerTransfer", { required: "Cost per transfer is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="quotedPctOfInboundPct">Quoted % of Inbound Calls</Label>
-          <Input id="quotedPctOfInboundPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quotedPctOfInboundPct}
-            {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="quotedPctOfInboundPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.quotedPctOfInboundPct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("quotedPctOfInboundPct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="closeRatePct">Close Rate</Label>
-          <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
-            {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="closeRatePct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.closeRatePct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
@@ -631,15 +776,28 @@ function TransferForm({ onBack }: { onBack: () => void }) {
         </div>
         <div>
           <Label htmlFor="avgItemValue">Average Item Value</Label>
-          <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
-            {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
-          />
+          <InputAffix prefix="$">
+            <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
+              className="pl-7"
+              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
         </div>
         <div>
           <Label htmlFor="commissionPct">Average Commission</Label>
-          <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
-            {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-          />
+          <InputAffix suffix="%">
+            <Input id="commissionPct" type="number" step="any" min={0} max={100} aria-invalid={!!errors.commissionPct}
+              className="pr-7"
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+            />
+          </InputAffix>
+          <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
       </GridTwoCols>
 
