@@ -35,17 +35,15 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
     defaultValues: {} as any,
   });
 
-  // Load persisted values once on mount
-  useEffect(() => {
+  // Manual loader for last inputs (no auto-fill on open)
+  const loadLast = () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<MarketingInputs>;
-        reset(parsed as any);
-      }
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<MarketingInputs>;
+      reset(parsed as any);
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   // Persist with debounce
   useEffect(() => {
@@ -111,7 +109,16 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   const quotedHHZero = canQuotedHH && derived.quotedHH === 0;
   const cplZeroExplicit = typeof values.cpl === 'number' && isFinite(values.cpl) && values.cpl === 0;
   const handleReset = () => {
-    reset(DEFAULT_INPUTS);
+    reset({
+      leadSource: "",
+      spend: undefined as any,
+      cpl: undefined as any,
+      quoteRatePct: undefined as any,
+      closeRatePct: undefined as any,
+      avgItemValue: undefined as any,
+      avgItemsPerHH: undefined as any,
+      commissionPct: undefined as any,
+    });
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
   };
 
@@ -288,6 +295,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
         <div className="mt-6 flex items-center justify-between">
           <Button variant="secondary" onClick={handleReset}>Reset</Button>
           <div className="flex gap-2">
+            <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
             <Button variant="outline" onClick={handleCopy}>Copy results</Button>
           </div>
         </div>
