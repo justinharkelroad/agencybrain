@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,6 +16,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
 
@@ -51,24 +53,55 @@ export default function Auth() {
       return;
     }
 
-    setIsLoading(true);
-
-    const { error } = await signUp(email, password, agencyName);
-    
-    if (error) {
+    if (!inviteCode.trim()) {
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Access code required",
+        description: "Please enter your access code to continue.",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Account created successfully! Please check your email to verify your account.",
-      });
+      return;
     }
-    
-    setIsLoading(false);
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('validate-invite', {
+        body: { code: inviteCode.trim() },
+      });
+
+      if (error || !data?.valid) {
+        toast({
+          title: "Invalid access code",
+          description: "Please check your code and try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const { error: signUpError } = await signUp(email, password, agencyName);
+      
+      if (signUpError) {
+        toast({
+          title: "Error",
+          description: signUpError.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Account created successfully! Please check your email to verify your account.",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || 'Something went wrong',
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -138,6 +171,18 @@ export default function Auth() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="access-code">Access Code</Label>
+                  <Input
+                    id="access-code"
+                    type="text"
+                    placeholder="Enter your access code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    required
+                  />
+                  <p className="text-sm text-muted-foreground">Don't Have A Code? Contact Us Directly</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password">Password</Label>
