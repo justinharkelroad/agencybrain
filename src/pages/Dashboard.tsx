@@ -64,8 +64,9 @@ const Dashboard = () => {
         <h1 className="sr-only">Client Dashboard</h1>
         <div className="space-y-3">
           {agencyName && (
-            <h2 className="text-2xl font-semibold leading-none tracking-tight">
-              {agencyName}
+            <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
+              <span>{`${agencyName}${agencyName.trim().endsWith("'") ? "S" : "'S"}`}</span>
+              <span role="img" aria-label="brain">🧠</span>
             </h2>
           )}
           <section>
