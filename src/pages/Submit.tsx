@@ -697,13 +697,13 @@ export default function Submit() {
         </div>
 
         <Tabs defaultValue="sales" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 glass-surface rounded-full p-1">
-            <TabsTrigger value="sales">Sales</TabsTrigger>
-            <TabsTrigger value="marketing">Marketing</TabsTrigger>
-            <TabsTrigger value="operations">Bonus/Ops</TabsTrigger>
-            <TabsTrigger value="retention">Retention</TabsTrigger>
-            <TabsTrigger value="cashflow">Cash Flow</TabsTrigger>
-            <TabsTrigger value="qualitative">Current Reality</TabsTrigger>
+          <TabsList className="w-full glass-surface rounded-full p-1 overflow-x-auto whitespace-nowrap flex md:grid md:grid-cols-6 gap-1">
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="sales">Sales</TabsTrigger>
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="marketing">Marketing</TabsTrigger>
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="operations">Bonus/Ops</TabsTrigger>
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="retention">Retention</TabsTrigger>
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="cashflow">Cash Flow</TabsTrigger>
+            <TabsTrigger className="text-sm md:text-base shrink-0" value="qualitative">Current Reality</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sales">
@@ -712,7 +712,7 @@ export default function Submit() {
                 <CardTitle>Sales Metrics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="premium">Premium ($)</Label>
                     <Input

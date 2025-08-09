@@ -70,7 +70,7 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
         aria-label="Open Data Lead Forecaster">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Data Lead Forecaster</CardTitle>
-          <CardDescription>Estimate ROI from inbound lead sources (CPL-based)</CardDescription>
+          <CardDescription>Estimate your return for Internet/Data Leads</CardDescription>
         </CardHeader>
         <CardContent>
           {last === "data" && <span className="text-xs text-muted-foreground">Last used</span>}
@@ -79,7 +79,7 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
       <Card className={cardBase} role="button" onClick={() => onPick("mailer")} aria-label="Open Mailer Forecaster">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Mailer Forecaster</CardTitle>
-          <CardDescription>Model direct mail performance to quotes and revenue</CardDescription>
+          <CardDescription>Estimate your Direct Mail potential returns</CardDescription>
         </CardHeader>
         <CardContent>
           {last === "mailer" && <span className="text-xs text-muted-foreground">Last used</span>}
