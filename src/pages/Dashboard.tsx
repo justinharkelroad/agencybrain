@@ -8,6 +8,7 @@ import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
+import { versionLabel } from "@/version";
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -112,7 +113,9 @@ const Dashboard = () => {
         <PerformanceMetrics />
         <MonthOverMonthTrends />
         <ReportingPeriods />
-
+        <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
+          Version: {versionLabel}
+        </div>
       </main>
     </div>
   );

@@ -22,6 +22,7 @@ import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import ClientDetail from "./pages/admin/ClientDetail";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
+import Health from "./pages/Health";
 
 const queryClient = new QueryClient();
 
@@ -98,6 +99,7 @@ const App = () => (
                 <Account />
               </ProtectedRoute>
             } />
+            <Route path="/health" element={<Health />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

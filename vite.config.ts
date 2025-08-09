@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __APP_VERSION__: JSON.stringify("stable-1"),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

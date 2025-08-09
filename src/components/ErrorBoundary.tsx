@@ -52,13 +52,18 @@ export class ErrorBoundary extends Component<Props, State> {
                   </p>
                 </div>
               )}
-              <Button 
-                onClick={() => window.location.reload()} 
-                className="w-full"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh Page
-              </Button>
+              <div className="grid gap-2">
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="w-full"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Page
+                </Button>
+                <Button variant="secondary" asChild className="w-full">
+                  <a href="/health">Open Health Check</a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
