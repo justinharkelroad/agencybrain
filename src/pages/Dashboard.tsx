@@ -52,7 +52,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white shadow-sm">
+      <header className="frosted-header">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
             <img
@@ -64,23 +64,23 @@ const Dashboard = () => {
             <span className="text-lg font-medium text-muted-foreground ml-2">Dashboard</span>
           </div>
           <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2">
+            <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
               <Link to="/uploads">
-                <Button variant="secondary" size="sm">Files</Button>
+                <Button variant="glass" size="sm" className="rounded-full">Files</Button>
               </Link>
               <Link to="/process-vault">
-                <Button variant="secondary" size="sm">Process Vault</Button>
+                <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
               </Link>
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin">
-                  <Button variant="secondary" size="sm">Admin Portal</Button>
+                  <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
                 </Link>
               )}
               <Link to="/account">
-                <Button variant="secondary" size="sm">My Account</Button>
+                <Button variant="glass" size="sm" className="rounded-full">My Account</Button>
               </Link>
             </nav>
-            <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
+            <Button variant="glass" className="rounded-full" onClick={handleSignOut}>Sign Out</Button>
           </div>
         </div>
       </header>
@@ -88,7 +88,7 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+          <Card className="glass-surface elevate rounded-2xl">
             <CardHeader>
               <CardTitle>Submit New Data for Coaching Call</CardTitle>
               <CardDescription>Start a new submission</CardDescription>
@@ -99,7 +99,7 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-surface elevate rounded-2xl">
             <CardHeader>
               <CardTitle>Agency</CardTitle>
               <CardDescription>Your organization</CardDescription>

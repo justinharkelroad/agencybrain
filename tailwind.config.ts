@@ -20,6 +20,7 @@ export default {
 		extend: {
 			fontFamily: {
 				'sans': ['Roboto', 'sans-serif'],
+				'inter': ['Inter', '-apple-system', 'SF Pro Text', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
