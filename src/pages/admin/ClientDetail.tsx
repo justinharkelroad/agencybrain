@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info, Folder, Plus, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
@@ -48,8 +49,11 @@ interface Analysis {
 
 type Prompt = Tables<'prompts'>;
 
-type ConversationMessage = { role: "user" | "assistant"; content: string; id?: string; shared?: boolean };
+interface ProcessVaultType { id: string; title: string; is_active: boolean }
+interface UserVault { id: string; user_id: string; title: string; vault_type_id?: string | null; created_at: string }
+interface VaultFileRow { id: string; user_vault_id: string; upload_file_path: string; created_at: string }
 
+type ConversationMessage = { role: "user" | "assistant"; content: string; id?: string; shared?: boolean };
 export default function ClientDetail() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
@@ -79,6 +83,16 @@ export default function ClientDetail() {
   const [sharedReplies, setSharedReplies] = useState<Record<string, number[]>>({});
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const scrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Process Vault state
+  const [pvTypes, setPvTypes] = useState<ProcessVaultType[]>([]);
+  const [pvVaults, setPvVaults] = useState<UserVault[]>([]);
+  const [pvFileCounts, setPvFileCounts] = useState<Record<string, number>>({});
+  const [vaultDialogOpen, setVaultDialogOpen] = useState(false);
+  const [activeVault, setActiveVault] = useState<UserVault | null>(null);
+  const [activeVaultFiles, setActiveVaultFiles] = useState<VaultFileRow[]>([]);
+  const [selectedUploadId, setSelectedUploadId] = useState<string>('');
+  const [newVaultTitle, setNewVaultTitle] = useState<string>('');
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -789,6 +803,7 @@ export default function ClientDetail() {
         <TabsList>
           <TabsTrigger value="periods">Periods</TabsTrigger>
           <TabsTrigger value="uploads">Files</TabsTrigger>
+          <TabsTrigger value="process-vault">Process Vault</TabsTrigger>
           <TabsTrigger value="analyze">Analyze</TabsTrigger>
           <TabsTrigger value="analyses">Results</TabsTrigger>
         </TabsList>
@@ -935,6 +950,137 @@ export default function ClientDetail() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Process Vault Tab */}
+        <TabsContent value="process-vault">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Folder className="h-5 w-5 mr-2" />
+                Process Vault
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Add custom vault */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Add custom vault title"
+                  value={newVaultTitle}
+                  onChange={(e) => setNewVaultTitle(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!newVaultTitle.trim()) return;
+                    try {
+                      const { error } = await supabase
+                        .from('user_process_vaults')
+                        .insert({ user_id: clientId, title: newVaultTitle.trim().toUpperCase() });
+                      if (error) throw error;
+                      setNewVaultTitle('');
+                      await loadProcessVaultData();
+                      toast({ title: 'Vault created' });
+                    } catch (e: any) {
+                      console.error(e);
+                      toast({ title: 'Failed to create vault', description: e.message, variant: 'destructive' });
+                    }
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add
+                </Button>
+              </div>
+
+              {/* Vaults grid */}
+              {pvVaults.length === 0 ? (
+                <p className="text-muted-foreground">No vaults yet for this client.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {pvVaults.map((v) => (
+                    <Card key={v.id} className="p-4 cursor-pointer hover:shadow-md transition" onClick={() => openVault(v)}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Folder className="h-5 w-5 mr-2" />
+                          <h3 className="font-medium">{v.title}</h3>
+                        </div>
+                        {pvFileCounts[v.id] > 0 && (
+                          <Badge variant="secondary">{pvFileCounts[v.id]} Secured</Badge>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Vault dialog */}
+              <Dialog open={vaultDialogOpen} onOpenChange={setVaultDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{activeVault?.title}</DialogTitle>
+                    <DialogDescription>Manage secured files for this vault.</DialogDescription>
+                  </DialogHeader>
+
+                  {/* Files list */}
+                  {activeVaultFiles.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No files linked yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {activeVaultFiles.map((row) => {
+                        const u = uploads.find(u => u.file_path === row.upload_file_path);
+                        return (
+                          <div key={row.id} className="flex items-center justify-between p-2 border rounded">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm font-medium">{u?.original_name || row.upload_file_path.split('/').pop()}</p>
+                                <p className="text-xs text-muted-foreground">{row.upload_file_path}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => downloadVaultFile(row)}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => unlinkFile(row)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Add from uploads */}
+                  <div className="mt-4 space-y-2">
+                    <label className="text-sm font-medium">Add file from client uploads</label>
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Choose a file" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uploads.map(u => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.original_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" onClick={addFromUploads}>
+                        <LinkIcon className="h-4 w-4 mr-1" /> Link
+                      </Button>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="secondary">Close</Button>
+                    </DialogClose>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </TabsContent>
