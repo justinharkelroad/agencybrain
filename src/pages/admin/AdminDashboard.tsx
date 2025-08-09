@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
+import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 
 interface Agency {
   id: string;
@@ -240,14 +241,10 @@ const getSubmissionStatus = (profile: Profile) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-white shadow-sm">
+      <header className="frosted-header">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
-              <img 
-                src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png" 
-                alt="Standard" 
-              className="h-8 mr-3"
-            />
+              <AgencyBrainBadge size="md" />
             <span className="text-lg font-medium text-muted-foreground ml-2">Admin Panel</span>
           </div>
           <div className="flex items-center gap-4">

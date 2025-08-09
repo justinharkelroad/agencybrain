@@ -10,6 +10,8 @@ import ReportingPeriods from '@/components/client/ReportingPeriods';
 import { supabase } from "@/integrations/supabase/client";
 import { versionLabel } from "@/version";
 import { MarketingCalculatorModal } from "@/components/MarketingCalculatorModal";
+import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
+import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -54,15 +56,10 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="frosted-header">
+      <header className="frosted-header" role="banner">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <img
-              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png"
-              alt="Standard Analytics logo"
-              className="h-8 mr-3"
-              loading="lazy"
-            />
+            <AgencyBrainBadge size="md" />
             <span className="text-lg font-medium text-muted-foreground ml-2">Dashboard</span>
           </div>
           <div className="flex items-center gap-4">
@@ -78,9 +75,7 @@ const Dashboard = () => {
                   <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
                 </Link>
               )}
-              <Link to="/account">
-                <Button variant="glass" size="sm" className="rounded-full">My Account</Button>
-              </Link>
+              <MyAccountDialogTriggerButton />
               <Button variant="glass" size="sm" className="rounded-full" onClick={() => setRoiOpen(true)}>ROI Forecaster</Button>
             </nav>
             <Button variant="glass" className="rounded-full" onClick={handleSignOut}>Sign Out</Button>

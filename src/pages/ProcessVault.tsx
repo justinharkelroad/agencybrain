@@ -9,6 +9,7 @@ import { Folder, FolderOpen, ShieldCheck, UploadCloud } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
+import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 
 interface ProcessVaultType {
   id: string;
@@ -194,10 +195,10 @@ const ProcessVault: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white shadow-sm">
+      <header className="frosted-header">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <img src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" alt="Standard Analytics logo" className="h-8 mr-3" loading="lazy" />
+            <AgencyBrainBadge size="md" />
             <span className="text-lg font-medium text-muted-foreground ml-2">Process Vault</span>
           </div>
           <div className="flex items-center gap-2">

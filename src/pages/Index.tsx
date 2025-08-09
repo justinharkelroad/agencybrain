@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BarChart3, FileText, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -23,14 +24,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-white shadow-sm">
+      <header className="frosted-header">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center">
-            <img 
-              src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png" 
-              alt="Standard" 
-              className="h-8 mr-3"
-            />
+            <AgencyBrainBadge size="md" asLink to="/auth" />
           </div>
           <Link to="/auth">
             <Button>Sign In</Button>
