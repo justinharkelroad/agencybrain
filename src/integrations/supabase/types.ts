@@ -309,6 +309,72 @@ export type Database = {
         }
         Relationships: []
       }
+      process_vault_files: {
+        Row: {
+          created_at: string
+          id: string
+          upload_file_path: string
+          user_vault_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          upload_file_path: string
+          user_vault_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          upload_file_path?: string
+          user_vault_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_vault_files_upload_file_path_fkey"
+            columns: ["upload_file_path"]
+            isOneToOne: false
+            referencedRelation: "uploads"
+            referencedColumns: ["file_path"]
+          },
+          {
+            foreignKeyName: "process_vault_files_user_vault_id_fkey"
+            columns: ["user_vault_id"]
+            isOneToOne: false
+            referencedRelation: "user_process_vaults"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_vault_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           agency_id: string | null
@@ -409,6 +475,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_process_vaults: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+          user_id: string
+          vault_type_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+          user_id: string
+          vault_type_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
+          vault_type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_process_vaults_vault_type_id_fkey"
+            columns: ["vault_type_id"]
+            isOneToOne: false
+            referencedRelation: "process_vault_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

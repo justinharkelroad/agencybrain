@@ -67,6 +67,9 @@ const Dashboard = () => {
               <Link to="/uploads">
                 <Button variant="secondary" size="sm">Files</Button>
               </Link>
+              <Link to="/process-vault">
+                <Button variant="secondary" size="sm">Process Vault</Button>
+              </Link>
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin">
                   <Button variant="secondary" size="sm">Admin Portal</Button>

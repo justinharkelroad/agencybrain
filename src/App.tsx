@@ -14,9 +14,11 @@ import Submit from "./pages/Submit";
 import Uploads from "./pages/Uploads";
 import UploadSelection from "./pages/UploadSelection";
 import FileProcessor from "./pages/FileProcessor";
+import ProcessVault from "./pages/ProcessVault";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
+import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import ClientDetail from "./pages/admin/ClientDetail";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
@@ -60,6 +62,11 @@ const App = () => (
                 <FileProcessor />
               </ProtectedRoute>
             } />
+            <Route path="/process-vault" element={
+              <ProtectedRoute>
+                <ProcessVault />
+              </ProtectedRoute>
+            } />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />
@@ -78,6 +85,11 @@ const App = () => (
             <Route path="/admin/prompts" element={
               <ProtectedRoute requireAdmin>
                 <AdminPrompts />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/process-vault-types" element={
+              <ProtectedRoute requireAdmin>
+                <AdminProcessVaultTypes />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

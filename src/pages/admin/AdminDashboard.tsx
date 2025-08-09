@@ -261,6 +261,9 @@ const getSubmissionStatus = (profile: Profile) => {
               <Link to="/admin/prompts">
                 <Button variant="ghost" size="sm">Prompts</Button>
               </Link>
+              <Link to="/admin/process-vault-types">
+                <Button variant="ghost" size="sm">Process Vault</Button>
+              </Link>
             </nav>
             <ThemeToggle />
             <Link to="/dashboard">
