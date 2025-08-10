@@ -5,7 +5,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
+
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +50,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                 <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
               </Link>
             )}
-            <MyAccountDialogTriggerButton />
+            <Link to="/agency" aria-label="Go to My Agency">
+              <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
+            </Link>
             <Button
               variant="glass"
               size="sm"
@@ -91,8 +93,8 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                   <Button variant="secondary" className="w-full justify-start">Admin Portal</Button>
                 </Link>
               )}
-              <Link to="/account" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">My Account</Button>
+              <Link to="/agency" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">My Agency</Button>
               </Link>
               <Button
                 variant="secondary"

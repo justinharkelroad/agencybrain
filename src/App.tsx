@@ -23,7 +23,7 @@ import AdminTeam from "./pages/admin/AdminTeam";
 import AdminMember from "./pages/admin/AdminMember";
 import AdminChecklists from "./pages/admin/AdminChecklists";
 import ClientDetail from "./pages/admin/ClientDetail";
-import Account from "./pages/Account";
+import Agency from "./pages/Agency";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
@@ -112,10 +112,9 @@ const App = () => (
                 <AdminMember />
               </ProtectedRoute>
             } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="/account" element={
+            <Route path="/agency" element={
               <ProtectedRoute>
-                <Account />
+                <Agency />
               </ProtectedRoute>
             } />
             <Route path="/health" element={

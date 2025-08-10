@@ -5,7 +5,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { MyAccountDialogTriggerButton } from "@/components/MyAccountDialog";
+
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -51,13 +51,9 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
             <Link to="/admin/process-vault-types" aria-label="Process Vault Types">
               <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
             </Link>
-            <Link to="/admin/team" aria-label="Team Members">
-              <Button variant="glass" size="sm" className="rounded-full">Team</Button>
+            <Link to="/agency" aria-label="My Agency">
+              <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
             </Link>
-            <Link to="/admin/checklists" aria-label="Onboarding Checklists">
-              <Button variant="glass" size="sm" className="rounded-full">Checklists</Button>
-            </Link>
-            <MyAccountDialogTriggerButton />
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -96,14 +92,8 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
               <Link to="/admin/process-vault-types" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
               </Link>
-              <Link to="/admin/team" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Team</Button>
-              </Link>
-              <Link to="/admin/checklists" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Checklists</Button>
-              </Link>
-              <Link to="/account" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">My Account</Button>
+              <Link to="/agency" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">My Agency</Button>
               </Link>
               <Link to="/dashboard" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Back to App</Button>

@@ -1,0 +1,332 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { TopNav } from "@/components/TopNav";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Edit, Plus, Trash2 } from "lucide-react";
+
+// Reuse enums consistent with AdminTeam
+const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
+const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
+const MEMBER_STATUS = ["active", "inactive"] as const;
+
+type Role = (typeof MEMBER_ROLES)[number];
+type Employment = (typeof EMPLOYMENT_TYPES)[number];
+type MemberStatus = (typeof MEMBER_STATUS)[number];
+
+export default function Agency() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Agency form state
+  const [agencyName, setAgencyName] = useState("");
+  const [agencyEmail, setAgencyEmail] = useState("");
+  const [agencyPhone, setAgencyPhone] = useState("");
+
+  // Team state
+  const [members, setMembers] = useState<any[]>([]);
+  const [memberDialogOpen, setMemberDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [memberForm, setMemberForm] = useState({
+    name: "",
+    email: "",
+    role: MEMBER_ROLES[0] as Role,
+    employment: EMPLOYMENT_TYPES[0] as Employment,
+    status: MEMBER_STATUS[0] as MemberStatus,
+    notes: "",
+  });
+
+  useEffect(() => {
+    document.title = "My Agency | AgencyBrain";
+    const meta = document.querySelector('meta[name="description"]');
+    const content = "Manage your agency info and team from one workspace.";
+    if (meta) meta.setAttribute("content", content);
+    else {
+      const m = document.createElement("meta");
+      m.name = "description";
+      m.content = content;
+      document.head.appendChild(m);
+    }
+  }, []);
+
+  // Load profile -> agency -> members
+  useEffect(() => {
+    const load = async () => {
+      if (!user?.id) return;
+      setLoading(true);
+      try {
+        const { data: profile, error: pErr } = await supabase
+          .from("profiles")
+          .select("agency_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (pErr) throw pErr;
+        const aId = profile?.agency_id as string | null;
+        setAgencyId(aId || null);
+
+        if (aId) {
+          const { data: agency, error: aErr } = await supabase
+            .from("agencies")
+            .select("id,name,agency_email,phone")
+            .eq("id", aId)
+            .maybeSingle();
+          if (aErr) throw aErr;
+          setAgencyName(agency?.name || "");
+          setAgencyEmail(agency?.agency_email || "");
+          setAgencyPhone(agency?.phone || "");
+
+          const { data: team, error: tErr } = await supabase
+            .from("team_members")
+            .select("id,name,email,role,employment,status,notes,created_at")
+            .eq("agency_id", aId)
+            .order("created_at", { ascending: false });
+          if (tErr) throw tErr;
+          setMembers(team || []);
+        }
+      } catch (e: any) {
+        console.error(e);
+        toast({ title: "Failed to load", description: e?.message || "Unable to load agency", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, [user?.id]);
+
+  const upsertAgency = async () => {
+    try {
+      if (!user?.id) return;
+      if (!agencyName.trim()) {
+        toast({ title: "Name required", description: "Enter your agency name.", variant: "destructive" });
+        return;
+      }
+      if (agencyId) {
+        const { error } = await supabase
+          .from("agencies")
+          .update({ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null })
+          .eq("id", agencyId);
+        if (error) throw error;
+        toast({ title: "Saved", description: "Agency updated" });
+      } else {
+        const { data, error } = await supabase
+          .from("agencies")
+          .insert([{ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null }])
+          .select("id")
+          .single();
+        if (error) throw error;
+        const newId = data.id as string;
+        const { error: upErr } = await supabase.from("profiles").update({ agency_id: newId }).eq("id", user.id);
+        if (upErr) throw upErr;
+        setAgencyId(newId);
+        toast({ title: "Created", description: "Agency created and linked" });
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Save failed", description: e?.message || "Unable to save agency", variant: "destructive" });
+    }
+  };
+
+  const refreshMembers = async (aId: string) => {
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("id,name,email,role,employment,status,notes,created_at")
+      .eq("agency_id", aId)
+      .order("created_at", { ascending: false });
+    if (!error) setMembers(data || []);
+  };
+
+  const startCreate = () => {
+    setEditingId(null);
+    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "" });
+    setMemberDialogOpen(true);
+  };
+
+  const startEdit = (m: any) => {
+    setEditingId(m.id);
+    setMemberForm({ name: m.name, email: m.email, role: m.role, employment: m.employment, status: m.status, notes: m.notes || "" });
+    setMemberDialogOpen(true);
+  };
+
+  const saveMember = async () => {
+    try {
+      if (!agencyId) throw new Error("No agency configured");
+      if (!memberForm.name.trim() || !memberForm.email.trim()) throw new Error("Name and email are required");
+      if (editingId) {
+        const { error } = await supabase.from("team_members").update({ ...memberForm }).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...memberForm }]);
+        if (error) throw error;
+      }
+      await refreshMembers(agencyId);
+      setMemberDialogOpen(false);
+      toast({ title: "Saved", description: "Team member saved" });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Save failed", description: e?.message || "Unable to save member", variant: "destructive" });
+    }
+  };
+
+  const deleteMember = async (id: string) => {
+    try {
+      const { error } = await supabase.from("team_members").delete().eq("id", id);
+      if (error) throw error;
+      if (agencyId) await refreshMembers(agencyId);
+      toast({ title: "Deleted", description: "Team member removed" });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: "Delete failed", description: e?.message || "Unable to delete member", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <TopNav title="My Agency" />
+      <main className="container mx-auto px-4 py-6 space-y-6">
+        <h1 className="sr-only">My Agency</h1>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Agency Information</CardTitle>
+            <CardDescription>Update your agency profile</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-name" className="text-right">Name</Label>
+              <Input id="agency-name" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-email" className="text-right">Email</Label>
+              <Input id="agency-email" type="email" value={agencyEmail} onChange={(e) => setAgencyEmail(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-phone" className="text-right">Phone</Label>
+              <Input id="agency-phone" value={agencyPhone} onChange={(e) => setAgencyPhone(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={upsertAgency}>{agencyId ? "Save" : "Create Agency"}</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Team</CardTitle>
+              <CardDescription>Manage your roster</CardDescription>
+            </div>
+            <Dialog open={memberDialogOpen} onOpenChange={(o) => { setMemberDialogOpen(o); if (!o) setEditingId(null); }}>
+              <DialogTrigger asChild>
+                <Button className="rounded-full" onClick={startCreate} disabled={!agencyId}>
+                  <Plus className="h-4 w-4 mr-2" /> Add Member
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-surface">
+                <DialogHeader>
+                  <DialogTitle>{editingId ? "Edit Member" : "Add Member"}</DialogTitle>
+                  <DialogDescription>Manage team member details</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-2">
+                  <div className="grid grid-cols-4 items-center gap-3">
+                    <Label className="text-right" htmlFor="name">Name</Label>
+                    <Input id="name" value={memberForm.name} onChange={(e) => setMemberForm((f) => ({ ...f, name: e.target.value }))} className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-3">
+                    <Label className="text-right" htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-3">
+                    <Label className="text-right">Role</Label>
+                    <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
+                      <SelectContent>
+                        {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-3">
+                    <Label className="text-right">Employment</Label>
+                    <Select value={memberForm.employment} onValueChange={(v) => setMemberForm((f) => ({ ...f, employment: v as Employment }))}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        {EMPLOYMENT_TYPES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-3">
+                    <Label className="text-right">Status</Label>
+                    <Select value={memberForm.status} onValueChange={(v) => setMemberForm((f) => ({ ...f, status: v as MemberStatus }))}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select status" /></SelectTrigger>
+                      <SelectContent>
+                        {MEMBER_STATUS.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-start gap-3">
+                    <Label className="text-right" htmlFor="notes">Notes</Label>
+                    <Textarea id="notes" value={memberForm.notes} onChange={(e) => setMemberForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-3 min-h-[84px]" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setMemberDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={saveMember}>{editingId ? "Save" : "Add"}</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Employment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>{m.name}</TableCell>
+                    <TableCell>{m.email}</TableCell>
+                    <TableCell>{m.role}</TableCell>
+                    <TableCell>{m.employment}</TableCell>
+                    <TableCell>{m.status}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="destructive" size="icon" className="rounded-full" aria-label="Delete" onClick={() => deleteMember(m.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!loading && members.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">No team members yet</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
