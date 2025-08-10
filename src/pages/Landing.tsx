@@ -72,7 +72,7 @@ export default function Landing() {
                 }}
               />
               <div className="mt-6">
-                <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg shadow-elegant">
+                <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg shadow-elegant text-accent-foreground">
                   <Link to="/auth" aria-label="Enter AgencyBrain">
                     ENTER YOUR 🧠 →
                   </Link>

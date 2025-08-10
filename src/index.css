@@ -231,13 +231,15 @@
 
 /* Animated background keyframes */
 @keyframes floatDrift {
-  0% {
-    transform: translateY(0) translateX(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-16px) translateX(8px) rotate(2deg);
-  }
-  100% {
-    transform: translateY(0) translateX(0) rotate(0deg);
-  }
+  0% { transform: translateY(0) translateX(0) rotate(0deg); }
+  50% { transform: translateY(-16px) translateX(8px) rotate(2deg); }
+  100% { transform: translateY(0) translateX(0) rotate(0deg); }
+}
+
+@keyframes lightSweep {
+  0% { transform: translateX(-40%) translateY(-20%) rotate(-35deg); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translateX(40%) translateY(20%) rotate(-35deg); opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(80%) translateY(40%) rotate(-35deg); opacity: 0; }
 }

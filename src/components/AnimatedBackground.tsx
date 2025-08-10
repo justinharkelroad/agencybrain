@@ -25,32 +25,27 @@ export function AnimatedBackground() {
         }}
       />
 
-      {/* Floating brain elements - reduced on prefers-reduced-motion */}
+      {/* Floating brain elements and flare - reduced on prefers-reduced-motion */}
       <div className="absolute inset-0 motion-reduce:hidden">
-        <span
-          role="img"
-          aria-hidden="true"
-          className="absolute top-[18%] left-[12%] text-5xl sm:text-6xl opacity-40 drop-shadow"
-          style={{ animation: "floatDrift 12s ease-in-out infinite" }}
-        >
-          🧠
-        </span>
-        <span
-          role="img"
-          aria-hidden="true"
-          className="absolute top-[50%] right-[18%] text-6xl sm:text-7xl opacity-35 drop-shadow"
-          style={{ animation: "floatDrift 14s ease-in-out infinite", animationDelay: "-3s" }}
-        >
-          🧠
-        </span>
-        <span
-          role="img"
-          aria-hidden="true"
-          className="absolute bottom-[14%] left-[35%] text-4xl sm:text-5xl opacity-30 drop-shadow"
-          style={{ animation: "floatDrift 16s ease-in-out infinite", animationDelay: "-6s" }}
-        >
-          🧠
-        </span>
+        {/* Floating brains */}
+        <span role="img" aria-hidden="true" className="absolute top-[12%] left-[10%] text-5xl sm:text-6xl opacity-45 drop-shadow" style={{ animation: "floatDrift 12s ease-in-out infinite" }}>🧠</span>
+        <span role="img" aria-hidden="true" className="absolute top-[22%] right-[8%] text-4xl sm:text-5xl opacity-35 drop-shadow" style={{ animation: "floatDrift 11s ease-in-out infinite", animationDelay: "-2s" }}>🧠</span>
+        <span role="img" aria-hidden="true" className="absolute top-[48%] right-[18%] text-6xl sm:text-7xl opacity-35 drop-shadow" style={{ animation: "floatDrift 14s ease-in-out infinite", animationDelay: "-3s" }}>🧠</span>
+        <span role="img" aria-hidden="true" className="absolute bottom-[18%] left-[35%] text-4xl sm:text-5xl opacity-30 drop-shadow" style={{ animation: "floatDrift 16s ease-in-out infinite", animationDelay: "-6s" }}>🧠</span>
+        <span role="img" aria-hidden="true" className="absolute bottom-[10%] right-[28%] text-5xl opacity-25 drop-shadow" style={{ animation: "floatDrift 17s ease-in-out infinite", animationDelay: "-1s" }}>🧠</span>
+        <span role="img" aria-hidden="true" className="absolute top-[36%] left-[22%] text-3xl opacity-30 drop-shadow" style={{ animation: "floatDrift 13s ease-in-out infinite", animationDelay: "-4s" }}>🧠</span>
+
+        {/* Light sweep flare */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient( -35deg, hsl(var(--primary)/0) 20%, hsl(var(--primary)/0.14) 50%, hsl(var(--primary)/0) 80% )",
+            maskImage: "radial-gradient(70% 50% at 50% 40%, black 40%, transparent 100%)",
+            WebkitMaskImage: "radial-gradient(70% 50% at 50% 40%, black 40%, transparent 100%)",
+            animation: "lightSweep 12s linear infinite",
+          }}
+        />
       </div>
 
       {/* Very subtle grid for depth */}
