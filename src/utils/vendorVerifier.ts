@@ -1,11 +1,13 @@
 export type VendorVerifierFormInputs = {
   vendorName?: string
+  vendorType?: "general" | "mailers_transfers"
   dateStart?: string // YYYY-MM-DD
   dateEnd?: string // YYYY-MM-DD
   amountSpent?: number
   quotedHH?: number
   closedHH?: number
   policiesSold?: number
+  itemsSold?: number
   premiumSold?: number
   commissionPct?: number
 }
@@ -15,6 +17,7 @@ export type VendorVerifierDerived = {
   policyCloseRate: number | null // fraction 0–1
   cpa: number | null
   projectedCommissionAmount: number | null
+  costPerItem: number | null
 }
 
 export function computeVendorVerifierDerived(input: VendorVerifierFormInputs): VendorVerifierDerived {
@@ -23,6 +26,7 @@ export function computeVendorVerifierDerived(input: VendorVerifierFormInputs): V
   const closed = toNum(input.closedHH)
   const premium = toNum(input.premiumSold)
   const commissionPct = toNum(input.commissionPct)
+  const items = toNum(input.itemsSold)
 
   const costPerQuotedHH = quoted > 0 ? spend / quoted : null
   const policyCloseRate = quoted > 0 ? (closed / quoted) : null
@@ -30,14 +34,16 @@ export function computeVendorVerifierDerived(input: VendorVerifierFormInputs): V
   const projectedCommissionAmount = (premium > 0 && commissionPct > 0)
     ? premium * (normalizePercent(commissionPct) / 100)
     : null
+  const costPerItem = items > 0 ? spend / items : null
 
-  return { costPerQuotedHH, policyCloseRate, cpa, projectedCommissionAmount }
+  return { costPerQuotedHH, policyCloseRate, cpa, projectedCommissionAmount, costPerItem }
 }
 
 export function buildVendorVerifierJson(input: VendorVerifierFormInputs, derived: VendorVerifierDerived) {
   return {
     meta: pickDefined({
       vendorName: input.vendorName,
+      vendorType: input.vendorType,
       dateStart: input.dateStart,
       dateEnd: input.dateEnd,
     }),
@@ -46,6 +52,7 @@ export function buildVendorVerifierJson(input: VendorVerifierFormInputs, derived
       quotedHH: input.quotedHH,
       closedHH: input.closedHH,
       policiesSold: input.policiesSold,
+      itemsSold: input.itemsSold,
       premiumSold: input.premiumSold,
     }),
     derived: pickDefined({
@@ -53,6 +60,7 @@ export function buildVendorVerifierJson(input: VendorVerifierFormInputs, derived
       costPerQuotedHH: derived.costPerQuotedHH,
       policyCloseRate: derived.policyCloseRate,
       projectedCommissionAmount: derived.projectedCommissionAmount,
+      costPerItem: derived.costPerItem,
     }),
     commission: pickDefined({ commissionPct: input.commissionPct }),
   }

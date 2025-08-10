@@ -4,9 +4,15 @@ import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { VendorVerifierFormInputs, VendorVerifierDerived, computeVendorVerifierDerived, buildVendorVerifierJson } from "@/utils/vendorVerifier"
 import { clampPercent, formatCurrency, formatInteger } from "@/utils/marketingCalculator"
 import SaveVendorReportButton from "@/components/SaveVendorReportButton"
+import { cn } from "@/lib/utils"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
 
 function InputAffix({ children, prefix, suffix }: { children: React.ReactNode; prefix?: string; suffix?: string }) {
   return (
@@ -45,7 +51,12 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
     try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)) } catch {}
   }
 
-  const values = watch()
+const values = watch()
+
+  const toYmd = (d?: Date) => (d ? format(d, "yyyy-MM-dd") : undefined)
+  const fromYmd = (s?: string) => (s ? new Date(`${s}T00:00:00`) : undefined)
+  const startDate = fromYmd(values.dateStart)
+  const endDate = fromYmd(values.dateEnd)
 
   // clamp percent to 0-100; also accept 0-1 input
   useEffect(() => {
@@ -66,6 +77,7 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
     quotedHH: num(values.quotedHH),
     closedHH: num(values.closedHH),
     policiesSold: num(values.policiesSold),
+    itemsSold: num(values.itemsSold),
     premiumSold: num(values.premiumSold),
     commissionPct: num(values.commissionPct),
   }), [values])
@@ -73,12 +85,14 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
   const handleReset = () => {
     reset({
       vendorName: "",
+      vendorType: undefined as any,
       dateStart: undefined as any,
       dateEnd: undefined as any,
       amountSpent: undefined as any,
       quotedHH: undefined as any,
       closedHH: undefined as any,
       policiesSold: undefined as any,
+      itemsSold: undefined as any,
       premiumSold: undefined as any,
       commissionPct: undefined as any,
     })
@@ -93,11 +107,13 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
       `Quoted HH: ${fmtInt(values.quotedHH)}`,
       `Closed HH: ${fmtInt(values.closedHH)}`,
       `Policies Sold: ${fmtInt(values.policiesSold)}`,
+      `Items: ${fmtInt(values.itemsSold)}`,
       `Premium Sold: ${formatCurrency(num(values.premiumSold))}`,
       `Commission %: ${isNum(values.commissionPct) ? clampPercent(num(values.commissionPct)) : 0}%`,
       `Cost per Quoted HH: ${derived.costPerQuotedHH == null ? "—" : formatCurrency(derived.costPerQuotedHH)}`,
       `Policy Close Rate: ${derived.policyCloseRate == null ? "—" : `${(derived.policyCloseRate * 100).toFixed(2)}%`}`,
       `CPA: ${derived.cpa == null ? "—" : formatCurrency(derived.cpa)}`,
+      `Cost per Item: ${derived.costPerItem == null ? "—" : formatCurrency(derived.costPerItem)}`,
       `Projected Commission: ${derived.projectedCommissionAmount == null ? "—" : formatCurrency(derived.projectedCommissionAmount)}`,
     ]
     try { await navigator.clipboard.writeText(lines.join("\n")) } catch {}
@@ -136,22 +152,92 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
             <Label htmlFor="vendorName">Vendor Name</Label>
             <Input id="vendorName" {...register("vendorName", { required: false })} />
           </div>
+
+          <div>
+            <Label htmlFor="vendorType">Vendor Type</Label>
+            <Select value={values.vendorType || "general"} onValueChange={(v) => setValue("vendorType", v as any, { shouldDirty: true })}>
+              <SelectTrigger id="vendorType">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="mailers_transfers">Mailers/Transfers</SelectItem>
+              </SelectContent>
+            </Select>
+            {values.vendorType === "mailers_transfers" ? (
+              <p className="text-xs text-muted-foreground mt-1">(If Vendor is Mailers/Transfers)</p>
+            ) : null}
+          </div>
+
           <div>
             <Label htmlFor="amountSpent">Amount Spent</Label>
             <InputAffix prefix="$">
-              <Input id="amountSpent" type="number" step="any" min={0} className="pl-7"
+              <Input id="amountSpent" type="number" step="0.01" min={0} className="pl-7"
                 aria-invalid={!!errors.amountSpent}
                 {...register("amountSpent", { min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
               />
             </InputAffix>
           </div>
+
           <div>
             <Label htmlFor="dateStart">Period Start</Label>
-            <Input id="dateStart" type="date" {...register("dateStart")} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start font-normal", !startDate && "text-muted-foreground")}> 
+                  {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(d) => {
+                    if (!d) return
+                    const ymd = toYmd(d)
+                    setValue("dateStart", ymd as any, { shouldDirty: true })
+                    if (values.dateEnd && fromYmd(values.dateEnd)! < d) {
+                      setValue("dateEnd", ymd as any, { shouldDirty: true })
+                    }
+                  }}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
+
           <div>
             <Label htmlFor="dateEnd">Period End</Label>
-            <Input id="dateEnd" type="date" {...register("dateEnd")} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start font-normal", !endDate && "text-muted-foreground")}> 
+                  {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={(d) => {
+                    if (!d) return
+                    const ymd = toYmd(d)
+                    // ensure end >= start
+                    const s = startDate
+                    if (s && d < s) {
+                      setValue("dateEnd", toYmd(s) as any, { shouldDirty: true })
+                    } else {
+                      setValue("dateEnd", ymd as any, { shouldDirty: true })
+                    }
+                  }}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </section>
@@ -172,15 +258,19 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
             <Input id="policiesSold" type="number" step="1" min={0} {...register("policiesSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
+            <Label htmlFor="itemsSold">Items</Label>
+            <Input id="itemsSold" type="number" step="1" min={0} {...register("itemsSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+          </div>
+          <div>
             <Label htmlFor="premiumSold">Premium Sold</Label>
             <InputAffix prefix="$">
-              <Input id="premiumSold" type="number" step="any" min={0} className="pl-7" {...register("premiumSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+              <Input id="premiumSold" type="number" step="0.01" min={0} className="pl-7" {...register("premiumSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
             </InputAffix>
           </div>
           <div>
             <Label htmlFor="commissionPct">Commission %</Label>
             <InputAffix suffix="%">
-              <Input id="commissionPct" type="number" step="any" min={0} max={100} className="pr-7"
+              <Input id="commissionPct" type="number" step="0.01" min={0} max={100} className="pr-7"
                 onBlur={(e) => {
                   const v = Number(e.currentTarget.value)
                   const normalized = v > 0 && v <= 1 ? v * 100 : v
@@ -212,6 +302,10 @@ export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
           <div>
             <Label>Projected Commission</Label>
             <Input disabled value={derived.projectedCommissionAmount == null ? "" : formatCurrency(derived.projectedCommissionAmount)} />
+          </div>
+          <div>
+            <Label>Cost per Item</Label>
+            <Input disabled value={derived.costPerItem == null ? "" : formatCurrency(derived.costPerItem)} />
           </div>
         </div>
       </section>
