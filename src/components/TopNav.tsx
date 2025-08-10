@@ -39,6 +39,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-4">
           <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
+            <Link to="/dashboard" aria-label="Go to Dashboard">
+              <Button variant="glass" size="sm" className="rounded-full">Dashboard</Button>
+            </Link>
             <Link to="/uploads" aria-label="Go to Files">
               <Button variant="glass" size="sm" className="rounded-full">Files</Button>
             </Link>
@@ -82,6 +85,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
+              <Link to="/dashboard" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">Dashboard</Button>
+              </Link>
               <Link to="/uploads" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Files</Button>
               </Link>

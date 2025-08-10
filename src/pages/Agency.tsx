@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
 import AgencyTemplatesManager from "@/components/checklists/AgencyTemplatesManager";
-
+import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -31,6 +31,7 @@ export default function Agency() {
 
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roiOpen, setRoiOpen] = useState(false);
 
   // Agency form state
   const [agencyName, setAgencyName] = useState("");
@@ -195,7 +196,7 @@ export default function Agency() {
 
   return (
     <div className="min-h-screen">
-      <TopNav title="My Agency" />
+      <TopNav title="My Agency" onOpenROI={() => setRoiOpen(true)} />
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">My Agency</h1>
 
@@ -339,6 +340,7 @@ export default function Agency() {
           </CardContent>
         </Card>
       </main>
+      <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
     </div>
   );
 }
