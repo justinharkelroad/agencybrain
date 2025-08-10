@@ -36,7 +36,7 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
       )}
     >
       <img
-        src="/lovable-uploads/58ab6d02-1a05-474c-b0c9-58e420b4a692.png"
+        src="/lovable-uploads/brand-logo.png"
         alt="AgencyBrain logo"
         className={cn(imageHeight, "w-auto")}
         height={32}

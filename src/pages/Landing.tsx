@@ -61,7 +61,7 @@ export default function Landing() {
         aria-label="Background intro video, muted and looping"
       >
         <source
-          src="https://drive.google.com/uc?export=download&id=1VqVkz6e2pr803viXWZGUVsYSK0TuREXw"
+          src="https://drive.google.com/uc?export=download&id=1guArSd3uWLEIp9VbU5lfZk1pcyi3c3JB"
           type="video/mp4"
         />
       </video>
