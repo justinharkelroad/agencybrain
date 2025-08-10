@@ -1,22 +1,31 @@
 export type VendorVerifierFormInputs = {
   vendorName?: string
-  vendorType?: "general" | "mailers_transfers"
   dateStart?: string // YYYY-MM-DD
   dateEnd?: string // YYYY-MM-DD
   amountSpent?: number
   quotedHH?: number
   closedHH?: number
   policiesSold?: number
+  policiesQuoted?: number
+  itemsQuoted?: number
   itemsSold?: number
   premiumSold?: number
   commissionPct?: number
+  inboundCalls?: number
 }
 
 export type VendorVerifierDerived = {
   costPerQuotedHH: number | null
-  policyCloseRate: number | null // fraction 0–1
-  cpa: number | null
+  policyCloseRate: number | null // fraction 0–1 (policiesSold / policiesQuoted)
+  averageItemValue: number | null
+  averagePolicyValue: number | null
+  avgCostPerCall: number | null
+  costPerQuotedPolicy: number | null
+  costPerQuotedItem: number | null
+  costPerSoldItem: number | null
+  costPerSoldPolicy: number | null
   projectedCommissionAmount: number | null
+  cpa: number | null
   costPerItem: number | null
 }
 
@@ -26,24 +35,34 @@ export function computeVendorVerifierDerived(input: VendorVerifierFormInputs): V
   const closed = toNum(input.closedHH)
   const premium = toNum(input.premiumSold)
   const commissionPct = toNum(input.commissionPct)
-  const items = toNum(input.itemsSold)
+  const itemsSold = toNum(input.itemsSold)
+  const policiesSold = toNum(input.policiesSold)
+  const inboundCalls = toNum(input.inboundCalls)
+  const policiesQuoted = toNum(input.policiesQuoted)
+  const itemsQuoted = toNum(input.itemsQuoted)
 
   const costPerQuotedHH = quoted > 0 ? spend / quoted : null
-  const policyCloseRate = quoted > 0 ? (closed / quoted) : null
+  const policyCloseRate = policiesQuoted > 0 ? (policiesSold / policiesQuoted) : null
   const cpa = closed > 0 ? spend / closed : null
   const projectedCommissionAmount = (premium > 0 && commissionPct > 0)
     ? premium * (normalizePercent(commissionPct) / 100)
     : null
-  const costPerItem = items > 0 ? spend / items : null
+  const averageItemValue = itemsSold > 0 ? premium / itemsSold : null
+  const averagePolicyValue = policiesSold > 0 ? premium / policiesSold : null
+  const avgCostPerCall = inboundCalls > 0 ? spend / inboundCalls : null
+  const costPerQuotedPolicy = policiesQuoted > 0 ? spend / policiesQuoted : null
+  const costPerQuotedItem = itemsQuoted > 0 ? spend / itemsQuoted : null
+  const costPerSoldItem = itemsSold > 0 ? spend / itemsSold : null
+  const costPerSoldPolicy = policiesSold > 0 ? spend / policiesSold : null
+  const costPerItem = itemsSold > 0 ? spend / itemsSold : null
 
-  return { costPerQuotedHH, policyCloseRate, cpa, projectedCommissionAmount, costPerItem }
+  return { costPerQuotedHH, policyCloseRate, averageItemValue, averagePolicyValue, avgCostPerCall, costPerQuotedPolicy, costPerQuotedItem, costPerSoldItem, costPerSoldPolicy, projectedCommissionAmount, cpa, costPerItem }
 }
 
 export function buildVendorVerifierJson(input: VendorVerifierFormInputs, derived: VendorVerifierDerived) {
   return {
     meta: pickDefined({
       vendorName: input.vendorName,
-      vendorType: input.vendorType,
       dateStart: input.dateStart,
       dateEnd: input.dateEnd,
     }),
@@ -52,14 +71,24 @@ export function buildVendorVerifierJson(input: VendorVerifierFormInputs, derived
       quotedHH: input.quotedHH,
       closedHH: input.closedHH,
       policiesSold: input.policiesSold,
+      policiesQuoted: input.policiesQuoted,
+      itemsQuoted: input.itemsQuoted,
       itemsSold: input.itemsSold,
       premiumSold: input.premiumSold,
+      inboundCalls: input.inboundCalls,
     }),
     derived: pickDefined({
-      cpa: derived.cpa,
       costPerQuotedHH: derived.costPerQuotedHH,
       policyCloseRate: derived.policyCloseRate,
+      averageItemValue: derived.averageItemValue,
+      averagePolicyValue: derived.averagePolicyValue,
+      avgCostPerCall: derived.avgCostPerCall,
+      costPerQuotedPolicy: derived.costPerQuotedPolicy,
+      costPerQuotedItem: derived.costPerQuotedItem,
+      costPerSoldItem: derived.costPerSoldItem,
+      costPerSoldPolicy: derived.costPerSoldPolicy,
       projectedCommissionAmount: derived.projectedCommissionAmount,
+      cpa: derived.cpa,
       costPerItem: derived.costPerItem,
     }),
     commission: pickDefined({ commissionPct: input.commissionPct }),

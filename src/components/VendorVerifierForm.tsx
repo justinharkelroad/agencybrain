@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import { VendorVerifierFormInputs, VendorVerifierDerived, computeVendorVerifierDerived, buildVendorVerifierJson } from "@/utils/vendorVerifier"
 import { clampPercent, formatCurrency, formatInteger } from "@/utils/marketingCalculator"
 import SaveVendorReportButton from "@/components/SaveVendorReportButton"
@@ -77,24 +77,29 @@ const values = watch()
     quotedHH: num(values.quotedHH),
     closedHH: num(values.closedHH),
     policiesSold: num(values.policiesSold),
+    policiesQuoted: num(values.policiesQuoted),
+    itemsQuoted: num(values.itemsQuoted),
     itemsSold: num(values.itemsSold),
     premiumSold: num(values.premiumSold),
     commissionPct: num(values.commissionPct),
+    inboundCalls: num(values.inboundCalls),
   }), [values])
 
   const handleReset = () => {
     reset({
       vendorName: "",
-      vendorType: undefined as any,
       dateStart: undefined as any,
       dateEnd: undefined as any,
       amountSpent: undefined as any,
       quotedHH: undefined as any,
       closedHH: undefined as any,
       policiesSold: undefined as any,
+      policiesQuoted: undefined as any,
+      itemsQuoted: undefined as any,
       itemsSold: undefined as any,
       premiumSold: undefined as any,
       commissionPct: undefined as any,
+      inboundCalls: undefined as any,
     })
     try { localStorage.removeItem(STORAGE_KEY) } catch {}
   }
@@ -107,13 +112,21 @@ const values = watch()
       `Quoted HH: ${fmtInt(values.quotedHH)}`,
       `Closed HH: ${fmtInt(values.closedHH)}`,
       `Policies Sold: ${fmtInt(values.policiesSold)}`,
+      `Policies Quoted: ${fmtInt(values.policiesQuoted)}`,
+      `Items Quoted: ${fmtInt(values.itemsQuoted)}`,
       `Items: ${fmtInt(values.itemsSold)}`,
+      `Inbound Calls: ${fmtInt(values.inboundCalls)}`,
       `Premium Sold: ${formatCurrency(num(values.premiumSold))}`,
       `Commission %: ${isNum(values.commissionPct) ? clampPercent(num(values.commissionPct)) : 0}%`,
       `Cost per Quoted HH: ${derived.costPerQuotedHH == null ? "—" : formatCurrency(derived.costPerQuotedHH)}`,
       `Policy Close Rate: ${derived.policyCloseRate == null ? "—" : `${(derived.policyCloseRate * 100).toFixed(2)}%`}`,
-      `CPA: ${derived.cpa == null ? "—" : formatCurrency(derived.cpa)}`,
-      `Cost per Item: ${derived.costPerItem == null ? "—" : formatCurrency(derived.costPerItem)}`,
+      `Average Item Value: ${derived.averageItemValue == null ? "—" : formatCurrency(derived.averageItemValue)}`,
+      `Average Policy Value: ${derived.averagePolicyValue == null ? "—" : formatCurrency(derived.averagePolicyValue)}`,
+      `Average Cost Per Transfer/Call: ${derived.avgCostPerCall == null ? "—" : formatCurrency(derived.avgCostPerCall)}`,
+      `Cost Per Quoted Policy: ${derived.costPerQuotedPolicy == null ? "—" : formatCurrency(derived.costPerQuotedPolicy)}`,
+      `Cost Per Quoted Item: ${derived.costPerQuotedItem == null ? "—" : formatCurrency(derived.costPerQuotedItem)}`,
+      `Cost Per Sold Item: ${derived.costPerSoldItem == null ? "—" : formatCurrency(derived.costPerSoldItem)}`,
+      `Cost Per Sold Policy: ${derived.costPerSoldPolicy == null ? "—" : formatCurrency(derived.costPerSoldPolicy)}`,
       `Projected Commission: ${derived.projectedCommissionAmount == null ? "—" : formatCurrency(derived.projectedCommissionAmount)}`,
     ]
     try { await navigator.clipboard.writeText(lines.join("\n")) } catch {}
@@ -154,19 +167,9 @@ const values = watch()
           </div>
 
           <div>
-            <Label htmlFor="vendorType">Vendor Type</Label>
-            <Select value={values.vendorType || "general"} onValueChange={(v) => setValue("vendorType", v as any, { shouldDirty: true })}>
-              <SelectTrigger id="vendorType">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="mailers_transfers">Mailers/Transfers</SelectItem>
-              </SelectContent>
-            </Select>
-            {values.vendorType === "mailers_transfers" ? (
-              <p className="text-xs text-muted-foreground mt-1">(If Vendor is Mailers/Transfers)</p>
-            ) : null}
+            <Label htmlFor="inboundCalls"># of Inbound Calls</Label>
+            <Input id="inboundCalls" type="number" step="1" min={0} {...register("inboundCalls", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <p className="text-xs text-muted-foreground mt-1">(If Vendor is Mailers/Transfers)</p>
           </div>
 
           <div>
@@ -281,6 +284,14 @@ const values = watch()
               />
             </InputAffix>
           </div>
+          <div>
+            <Label htmlFor="policiesQuoted">Policies Quoted</Label>
+            <Input id="policiesQuoted" type="number" step="1" min={0} {...register("policiesQuoted", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+          </div>
+          <div>
+            <Label htmlFor="itemsQuoted">Items Quoted</Label>
+            <Input id="itemsQuoted" type="number" step="1" min={0} {...register("itemsQuoted", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+          </div>
         </div>
       </section>
 
@@ -296,16 +307,36 @@ const values = watch()
             <Input disabled value={derived.policyCloseRate == null ? "" : `${(derived.policyCloseRate * 100).toFixed(2)}%`} />
           </div>
           <div>
-            <Label>CPA</Label>
-            <Input disabled value={derived.cpa == null ? "" : formatCurrency(derived.cpa)} />
+            <Label>Average Item Value</Label>
+            <Input disabled value={derived.averageItemValue == null ? "" : formatCurrency(derived.averageItemValue)} />
+          </div>
+          <div>
+            <Label>Average Policy Value</Label>
+            <Input disabled value={derived.averagePolicyValue == null ? "" : formatCurrency(derived.averagePolicyValue)} />
+          </div>
+          <div>
+            <Label>Average Cost Per Transfer/Call</Label>
+            <Input disabled value={derived.avgCostPerCall == null ? "" : formatCurrency(derived.avgCostPerCall)} />
+          </div>
+          <div>
+            <Label>Cost Per Quoted Policy</Label>
+            <Input disabled value={derived.costPerQuotedPolicy == null ? "" : formatCurrency(derived.costPerQuotedPolicy)} />
+          </div>
+          <div>
+            <Label>Cost Per Quoted Item</Label>
+            <Input disabled value={derived.costPerQuotedItem == null ? "" : formatCurrency(derived.costPerQuotedItem)} />
+          </div>
+          <div>
+            <Label>Cost Per Sold Item</Label>
+            <Input disabled value={derived.costPerSoldItem == null ? "" : formatCurrency(derived.costPerSoldItem)} />
+          </div>
+          <div>
+            <Label>Cost Per Sold Policy</Label>
+            <Input disabled value={derived.costPerSoldPolicy == null ? "" : formatCurrency(derived.costPerSoldPolicy)} />
           </div>
           <div>
             <Label>Projected Commission</Label>
             <Input disabled value={derived.projectedCommissionAmount == null ? "" : formatCurrency(derived.projectedCommissionAmount)} />
-          </div>
-          <div>
-            <Label>Cost per Item</Label>
-            <Input disabled value={derived.costPerItem == null ? "" : formatCurrency(derived.costPerItem)} />
           </div>
         </div>
       </section>
