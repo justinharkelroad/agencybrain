@@ -19,7 +19,7 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
   const imageHeight = {
     sm: "h-6",
     md: "h-7",
-    lg: "h-8",
+    lg: "h-10",
   }[size];
 
   const Comp: any = asLink ? Link : "div";

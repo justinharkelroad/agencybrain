@@ -58,14 +58,15 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <TopNav title="Dashboard" onOpenROI={() => setRoiOpen(true)} />
+      <TopNav onOpenROI={() => setRoiOpen(true)} />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
         <div className="space-y-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
           {agencyName && (
             <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
-              <span>{`${agencyName}${agencyName.trim().endsWith("'") ? "S" : "'S"}`}</span>
+              <span>{`${agencyName}${/[sS]$/.test(agencyName.trim()) ? "'" : "'s"}`}</span>
               <span role="img" aria-label="brain">🧠</span>
             </h2>
           )}

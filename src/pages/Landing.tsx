@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 
 export default function Landing() {
   const { user, loading } = useAuth();
+  const previewMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
 
   // Basic SEO setup for this page
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function Landing() {
     );
   }
 
-  if (user) {
+  if (user && !previewMode) {
     return <Navigate to="/dashboard" />;
   }
 
@@ -91,7 +92,7 @@ export default function Landing() {
       </picture>
 
       {/* Overlay for contrast */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/60 to-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/80 to-background/95" />
 
       {/* Centered content */}
       <div className="relative z-10 flex min-h-svh items-center justify-center p-6">
@@ -104,15 +105,15 @@ export default function Landing() {
             <img
               src="/lovable-uploads/brand-logo.png"
               alt="AgencyBrain logo"
-              className="mx-auto h-16 w-auto sm:h-20"
-              height={80}
+              className="mx-auto h-20 w-auto sm:h-24"
+              height={96}
               onError={(e) => {
                 // Hide broken image; text below remains the entry point
                 (e.currentTarget as HTMLImageElement).style.display = 'none';
               }}
             />
             <div className="mt-6">
-              <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg">
+              <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg shadow-elegant">
                 <Link to="/auth" aria-label="Enter AgencyBrain">
                   ENTER YOUR 🧠 →
                 </Link>

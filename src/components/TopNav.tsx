@@ -28,7 +28,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
     <header className={cn("frosted-header", className)} role="banner">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center min-w-0">
-          <AgencyBrainBadge size="md" asLink to="/dashboard" />
+          <AgencyBrainBadge size="lg" asLink to="/dashboard" />
           {title ? (
             <span className="text-lg font-medium text-muted-foreground ml-2 truncate" aria-current="page">
               {title}
