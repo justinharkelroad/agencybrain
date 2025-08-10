@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { Link } from "react-router-dom";
@@ -13,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
+import AgencyTemplatesManager from "@/components/checklists/AgencyTemplatesManager";
 
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -220,6 +222,8 @@ export default function Agency() {
             </div>
           </CardContent>
         </Card>
+
+        <AgencyTemplatesManager agencyId={agencyId} />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

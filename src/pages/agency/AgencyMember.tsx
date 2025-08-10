@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -107,55 +108,71 @@ export default function AgencyMember() {
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [memberId, qc]);
 
-  const syncMutation = useMutation({
-    mutationFn: async () => {
+  // Add/remove single checklist item for this member
+  const addItemMutation = useMutation({
+    mutationFn: async (templateId: string) => {
       if (!memberId) throw new Error("Missing member");
-      const existing = mciQuery.data || [];
-      const existingSet = new Set(existing.map((r: any) => r.template_item_id));
-      const payload = (templatesQuery.data || [])
-        .filter((t: any) => !existingSet.has(t.id))
-        .map((t: any) => ({ member_id: memberId, template_item_id: t.id }));
-      if (payload.length === 0) return;
-      const { error } = await supabase.from('member_checklist_items').insert(payload);
+      const { error } = await supabase
+        .from('member_checklist_items')
+        .insert({ member_id: memberId, template_item_id: templateId });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mci", memberId] });
-      toast({ title: "Checklist synced", description: "Templates synced to member" });
+      toast({ title: "Added", description: "Checklist item added for this member" });
     },
-    onError: (e: any) => toast({ title: "Sync failed", description: e?.message || "Unable to sync", variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Add failed", description: e?.message || "Unable to add item", variant: "destructive" }),
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async ({ file, templateId }: { file: File; templateId: string }) => {
-      const agencyId = memberQuery.data?.agency_id;
-      if (!agencyId) throw new Error("No agency id");
-      const ext = file.name.split('.').pop();
-      const path = `agencies/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
-      if (upErr) throw upErr;
-      const { error: dbErr } = await supabase.from('agency_files').insert({
-        agency_id: agencyId,
-        member_id: memberId,
-        template_item_id: templateId,
-        original_name: file.name,
-        file_path: path,
-        mime_type: file.type,
-        size: file.size,
-        visibility: 'owner_admin',
-      });
-      if (dbErr) throw dbErr;
+  const removeItemMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      if (!memberId) throw new Error("Missing member");
+      const { error } = await supabase
+        .from('member_checklist_items')
+        .delete()
+        .eq('member_id', memberId as string)
+        .eq('template_item_id', templateId);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["mci", memberId] });
-      toast({ title: "Uploaded", description: "File attached" });
+      toast({ title: "Removed", description: "Checklist item removed for this member" });
     },
-    onError: (e: any) => toast({ title: "Upload failed", description: e?.message || "Unable to upload", variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Remove failed", description: e?.message || "Unable to remove item", variant: "destructive" }),
   });
 
   const onFileChange = (templateId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    // Uploads
+    const uploadMutation = useMutation({
+      mutationFn: async ({ file, templateId }: { file: File; templateId: string }) => {
+        const agencyId = memberQuery.data?.agency_id;
+        if (!agencyId) throw new Error("No agency id");
+        const ext = file.name.split('.').pop();
+        const path = `agencies/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
+        if (upErr) throw upErr;
+        const { error: dbErr } = await supabase.from('agency_files').insert({
+          agency_id: agencyId,
+          member_id: memberId,
+          template_item_id: templateId,
+          original_name: file.name,
+          file_path: path,
+          mime_type: file.type,
+          size: file.size,
+          visibility: 'owner_admin',
+        });
+        if (dbErr) throw dbErr;
+      },
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["mci", memberId] });
+        toast({ title: "Uploaded", description: "File attached" });
+      },
+      onError: (e: any) => toast({ title: "Upload failed", description: e?.message || "Unable to upload", variant: "destructive" }),
+    });
+
     Array.from(files).forEach((file) => uploadMutation.mutate({ file, templateId }));
     e.currentTarget.value = "";
   };
@@ -187,17 +204,14 @@ export default function AgencyMember() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">{missingCount > 0 ? `${missingCount} items not initialized` : `All items initialized`}</div>
-            <Button onClick={() => syncMutation.mutate()} disabled={syncMutation.isPending} className="rounded-full">
-              {syncMutation.isPending ? "Syncing..." : "Sync Templates"}
-            </Button>
+          <div className="text-sm text-muted-foreground">
+            {missingCount > 0 ? `${missingCount} templates available to add` : `All templates are in use`}
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Checklist Items</CardTitle>
-              <CardDescription>Attach documents to secure each item</CardDescription>
+              <CardDescription>Attach documents to secure each item or remove items not needed for this member</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -209,6 +223,7 @@ export default function AgencyMember() {
                     <TableHead>Secured</TableHead>
                     <TableHead>Attachments</TableHead>
                     <TableHead>Upload</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -221,15 +236,37 @@ export default function AgencyMember() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`file-${template.id}`} className="sr-only">Upload file</Label>
-                          <Input id={`file-${template.id}`} type="file" className="max-w-xs" onChange={(e) => onFileChange(template.id, e)} />
+                          <Input id={`file-${template.id}`} type="file" className="max-w-xs" onChange={(e) => onFileChange(template.id, e)} disabled={!mci} />
                           <Upload className="h-4 w-4 text-muted-foreground" />
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {mci ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => removeItemMutation.mutate(template.id)}
+                            disabled={removeItemMutation.isPending}
+                          >
+                            {removeItemMutation.isPending ? "Removing..." : "Remove"}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => addItemMutation.mutate(template.id)}
+                            disabled={addItemMutation.isPending}
+                          >
+                            {addItemMutation.isPending ? "Adding..." : "Add"}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                   {checklist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">No checklist items</TableCell>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">No checklist items</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
