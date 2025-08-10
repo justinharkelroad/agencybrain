@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck } from "lucide-react";
 import {
   clampPercent,
   formatCurrency,
@@ -65,36 +65,52 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
   }, []);
   const cardBase = "glass-surface elevate rounded-2xl hover-scale transition-shadow shadow-md hover:shadow-lg";
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
-      <Card className={cardBase} role="button" onClick={() => onPick("data")}
-        aria-label="Open Data Lead Forecaster">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Data Lead Forecaster</CardTitle>
-          <CardDescription>Estimate your return for Internet/Data Leads</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {last === "data" && <span className="text-xs text-muted-foreground">Last used</span>}
-        </CardContent>
-      </Card>
-      <Card className={cardBase} role="button" onClick={() => onPick("mailer")} aria-label="Open Mailer Forecaster">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Mailer Forecaster</CardTitle>
-          <CardDescription>Estimate your Direct Mail potential returns</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {last === "mailer" && <span className="text-xs text-muted-foreground">Last used</span>}
-        </CardContent>
-      </Card>
-      <Card className={cardBase} role="button" onClick={() => onPick("transfer")} aria-label="Open Live Transfer Forecaster">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Live Transfer Forecaster</CardTitle>
-          <CardDescription>Forecast live transfer call outcomes and ROI</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {last === "transfer" && <span className="text-xs text-muted-foreground">Last used</span>}
-        </CardContent>
-      </Card>
-    </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+        <Card
+          className={cardBase}
+          role="button"
+          onClick={() => toast({ title: "Coming soon", description: "Vendor Verifier will launch shortly." })}
+          aria-label="Open Vendor Verifier"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" /> Vendor Verifier
+            </CardTitle>
+            <CardDescription>Verify vendor performance and ROI</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <span className="text-xs text-muted-foreground">New</span>
+          </CardContent>
+        </Card>
+        <Card className={cardBase} role="button" onClick={() => onPick("data")}
+          aria-label="Open Data Lead Forecaster">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" /> Data Lead Forecaster</CardTitle>
+            <CardDescription>Estimate your return for Internet/Data Leads</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "data" && <span className="text-xs text-muted-foreground">Last used</span>}
+          </CardContent>
+        </Card>
+        <Card className={cardBase} role="button" onClick={() => onPick("mailer")} aria-label="Open Mailer Forecaster">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Mailer Forecaster</CardTitle>
+            <CardDescription>Estimate your Direct Mail potential returns</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "mailer" && <span className="text-xs text-muted-foreground">Last used</span>}
+          </CardContent>
+        </Card>
+        <Card className={cardBase} role="button" onClick={() => onPick("transfer")} aria-label="Open Live Transfer Forecaster">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Live Transfer Forecaster</CardTitle>
+            <CardDescription>Forecast live transfer call outcomes and ROI</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "transfer" && <span className="text-xs text-muted-foreground">Last used</span>}
+          </CardContent>
+        </Card>
+      </div>
   );
 }
 
@@ -116,10 +132,8 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto glass-surface backdrop-blur-md rounded-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle>ROI Forecasters</DialogTitle>
-          <DialogDescription>
-            Choose a calculator to estimate performance and compensation
-          </DialogDescription>
+          <DialogTitle>ROI Tools</DialogTitle>
+          <DialogDescription>Choose Your Weapon</DialogDescription>
         </DialogHeader>
 
         {!mode && <SelectorView onPick={handlePick} />}
