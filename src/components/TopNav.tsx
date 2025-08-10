@@ -56,9 +56,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               size="sm"
               className="rounded-full"
               onClick={() => onOpenROI?.()}
-              aria-label="Open ROI Forecasters"
+              aria-label="Open ROI Tools"
             >
-              ROI Forecasters
+              ROI Tools
             </Button>
           </nav>
           <Button
@@ -99,7 +99,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                 className="w-full justify-start"
                 onClick={() => closeAnd(onOpenROI)}
               >
-                ROI Forecasters
+                ROI Tools
               </Button>
               <Button
                 variant="destructive"
