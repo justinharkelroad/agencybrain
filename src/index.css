@@ -228,3 +228,16 @@
     @apply text-2xl;
   }
 }
+
+/* Animated background keyframes */
+@keyframes floatDrift {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) translateX(8px) rotate(2deg);
+  }
+  100% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+  }
+}
