@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -235,11 +235,10 @@ const SharedInsights: React.FC = () => {
     <Card>
         <CardHeader>
           <CardTitle>Shared Insights</CardTitle>
-          <CardDescription>Insights shared with you from your Coach</CardDescription>
         </CardHeader>
       <CardContent>
         {analyses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No insights have been shared with you yet.</p>
+          <p className="text-sm text-muted-foreground">No insights have been shared with you yet from your Coach.</p>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
