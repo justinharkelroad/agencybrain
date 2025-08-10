@@ -19,6 +19,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
 import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
+import AdminTeam from "./pages/admin/AdminTeam";
+import AdminChecklists from "./pages/admin/AdminChecklists";
 import ClientDetail from "./pages/admin/ClientDetail";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
@@ -92,6 +94,16 @@ const App = () => (
             <Route path="/admin/process-vault-types" element={
               <ProtectedRoute requireAdmin>
                 <AdminProcessVaultTypes />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/team" element={
+              <ProtectedRoute requireAdmin>
+                <AdminTeam />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/checklists" element={
+              <ProtectedRoute requireAdmin>
+                <AdminChecklists />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

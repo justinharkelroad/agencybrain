@@ -51,6 +51,12 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
             <Link to="/admin/process-vault-types" aria-label="Process Vault Types">
               <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
             </Link>
+            <Link to="/admin/team" aria-label="Team Members">
+              <Button variant="glass" size="sm" className="rounded-full">Team</Button>
+            </Link>
+            <Link to="/admin/checklists" aria-label="Onboarding Checklists">
+              <Button variant="glass" size="sm" className="rounded-full">Checklists</Button>
+            </Link>
             <MyAccountDialogTriggerButton />
           </nav>
           <div className="flex items-center gap-2">
@@ -89,6 +95,12 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
               </Link>
               <Link to="/admin/process-vault-types" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
+              </Link>
+              <Link to="/admin/team" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">Team</Button>
+              </Link>
+              <Link to="/admin/checklists" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">Checklists</Button>
               </Link>
               <Link to="/account" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">My Account</Button>
