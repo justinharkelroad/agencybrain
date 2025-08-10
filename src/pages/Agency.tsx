@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
 
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -300,13 +301,20 @@ export default function Agency() {
               <TableBody>
                 {members.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell>{m.name}</TableCell>
+                    <TableCell>
+                      <Link to={`/agency/team/${m.id}`} className="text-primary hover:underline">{m.name}</Link>
+                    </TableCell>
                     <TableCell>{m.email}</TableCell>
                     <TableCell>{m.role}</TableCell>
                     <TableCell>{m.employment}</TableCell>
                     <TableCell>{m.status}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Link to={`/agency/team/${m.id}`} aria-label="View">
+                          <Button variant="glass" size="icon" className="rounded-full">
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </Link>
                         <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                           <Edit className="h-4 w-4" />
                         </Button>

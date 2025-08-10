@@ -24,6 +24,7 @@ import AdminMember from "./pages/admin/AdminMember";
 import AdminChecklists from "./pages/admin/AdminChecklists";
 import ClientDetail from "./pages/admin/ClientDetail";
 import Agency from "./pages/Agency";
+import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
@@ -115,6 +116,11 @@ const App = () => (
             <Route path="/agency" element={
               <ProtectedRoute>
                 <Agency />
+              </ProtectedRoute>
+            } />
+            <Route path="/agency/team/:memberId" element={
+              <ProtectedRoute>
+                <AgencyMember />
               </ProtectedRoute>
             } />
             <Route path="/health" element={
