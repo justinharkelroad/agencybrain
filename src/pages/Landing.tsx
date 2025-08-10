@@ -95,20 +95,31 @@ export default function Landing() {
 
       {/* Centered content */}
       <div className="relative z-10 flex min-h-svh items-center justify-center p-6">
-        <section className="text-center text-foreground animate-fade-in">
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-            AgencyBrain
-          </h1>
-          <p className="mt-4 text-base text-foreground/90 sm:text-lg lg:text-xl">
-            Unlock Clarity. Move Faster.
-          </p>
-          <div className="mt-8">
-            <Button asChild size="lg" variant="secondary" className="rounded-full">
-              <Link to="/auth" aria-label="Enter AgencyBrain">
-                Enter
-              </Link>
-            </Button>
+        <section className="w-full max-w-2xl text-center text-foreground animate-fade-in">
+          {/* SEO: keep a single H1 for the page intent */}
+          <h1 className="sr-only">AgencyBrain – Unlock Clarity. Move Faster.</h1>
+
+          {/* Center glass logo card */}
+          <div className="mx-auto max-w-md rounded-2xl border border-border/60 bg-card/60 p-6 shadow-elegant backdrop-blur-sm sm:p-8">
+            <img
+              src="/lovable-uploads/brand-logo.png"
+              alt="AgencyBrain logo"
+              className="mx-auto h-16 w-auto sm:h-20"
+              height={80}
+              onError={(e) => {
+                // Hide broken image; text below remains the entry point
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <div className="mt-6">
+              <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg">
+                <Link to="/auth" aria-label="Enter AgencyBrain">
+                  ENTER YOUR 🧠 →
+                </Link>
+              </Button>
+            </div>
           </div>
+
           <span className="sr-only">Background video is muted and loops.</span>
         </section>
       </div>
