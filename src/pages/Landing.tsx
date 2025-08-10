@@ -66,6 +66,18 @@ export default function Landing() {
         />
       </video>
 
+      {/* Desktop poster fallback for reduced-motion users */}
+      <picture className="absolute inset-0 hidden sm:block motion-reduce:block">
+        <source srcSet="/assets/hero-poster-1920.webp" type="image/webp" />
+        <img
+          src="/assets/hero-poster-1920.jpg"
+          alt="AgencyBrain intro"
+          className="h-full w-full object-cover"
+          loading="eager"
+          fetchPriority="high"
+        />
+      </picture>
+
       {/* Mobile poster fallback */}
       <picture className="absolute inset-0 block sm:hidden">
         <source srcSet="/assets/hero-poster-1920.webp" type="image/webp" />
@@ -79,7 +91,7 @@ export default function Landing() {
       </picture>
 
       {/* Overlay for contrast */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background/80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 to-background/90" />
 
       {/* Centered content */}
       <div className="relative z-10 flex min-h-svh items-center justify-center p-6">
@@ -91,7 +103,7 @@ export default function Landing() {
             Unlock Clarity. Move Faster.
           </p>
           <div className="mt-8">
-            <Button asChild size="lg" variant="default">
+            <Button asChild size="lg" variant="secondary" className="rounded-full">
               <Link to="/auth" aria-label="Enter AgencyBrain">
                 Enter
               </Link>

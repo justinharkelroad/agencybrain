@@ -41,7 +41,7 @@ const Health: React.FC = () => {
   };
 
   useEffect(() => {
-    document.title = "App Health Check | Standard Analytics";
+    document.title = "App Health Check | AgencyBrain";
     const ensureMeta = (name: string, content: string) => {
       let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
       if (!el) {
