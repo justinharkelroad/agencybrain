@@ -28,6 +28,7 @@ import {
   TransferDerived,
   computeTransferMetrics,
 } from "@/utils/marketingCalculator";
+import { VendorVerifierForm } from "@/components/VendorVerifierForm";
 
 export type ROIForecastersModalProps = {
   open: boolean;
@@ -69,7 +70,7 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
         <Card
           className={cardBase}
           role="button"
-          onClick={() => toast({ title: "Coming soon", description: "Vendor Verifier will launch shortly." })}
+          onClick={() => onPick("vendor")}
           aria-label="Open Vendor Verifier"
         >
           <CardHeader>
@@ -79,7 +80,11 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             <CardDescription>Verify vendor performance and ROI</CardDescription>
           </CardHeader>
           <CardContent>
-            <span className="text-xs text-muted-foreground">New</span>
+            {last === "vendor" ? (
+              <span className="text-xs text-muted-foreground">Last used</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">New</span>
+            )}
           </CardContent>
         </Card>
         <Card className={cardBase} role="button" onClick={() => onPick("data")}
@@ -114,7 +119,7 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
   );
 }
 
-type CalcKey = "data" | "mailer" | "transfer";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -137,6 +142,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         </DialogHeader>
 
         {!mode && <SelectorView onPick={handlePick} />}
+        {mode === "vendor" && (
+          <div className="animate-enter">
+            <VendorVerifierForm onBack={() => setMode(null)} />
+          </div>
+        )}
         {mode === "data" && (
           <div className="animate-enter">
             <DataLeadForm onBack={() => setMode(null)} />
