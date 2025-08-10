@@ -16,6 +16,12 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
     lg: "text-lg px-5 py-2",
   }[size];
 
+  const imageHeight = {
+    sm: "h-6",
+    md: "h-7",
+    lg: "h-8",
+  }[size];
+
   const Comp: any = asLink ? Link : "div";
 
   return (
@@ -29,10 +35,12 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
         className
       )}
     >
-      <span className="font-semibold tracking-wide text-foreground/90">Agency</span>
-      <span className="font-semibold tracking-wide text-foreground/90">Br</span>
-      <span role="img" aria-label="brain" className="mx-0.5">🧠</span>
-      <span className="font-semibold tracking-wide text-foreground/90">in</span>
+      <img
+        src="/lovable-uploads/a2a07245-ffb4-4abf-acb8-03c996ab79a1.png"
+        alt="AgencyBrain logo"
+        className={cn(imageHeight, "w-auto")}
+        height={32}
+      />
     </Comp>
   );
 }

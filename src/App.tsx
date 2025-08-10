@@ -23,6 +23,7 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
+import Landing from "./pages/Landing";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +37,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
             <Routes>
-            <Route path="/" element={<Auth />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
