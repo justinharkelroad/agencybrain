@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminTopNav } from "@/components/AdminTopNav";
@@ -250,6 +251,9 @@ const [form, setForm] = useState<FormState>({
                       <TableCell>{m.status}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Link to={`/admin/team/${m.id}`}>
+                            <Button variant="outline" size="sm" className="rounded-full">View</Button>
+                          </Link>
                           <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                             <Edit className="h-4 w-4" />
                           </Button>

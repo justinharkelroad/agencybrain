@@ -20,6 +20,7 @@ import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
 import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import AdminTeam from "./pages/admin/AdminTeam";
+import AdminMember from "./pages/admin/AdminMember";
 import AdminChecklists from "./pages/admin/AdminChecklists";
 import ClientDetail from "./pages/admin/ClientDetail";
 import Account from "./pages/Account";
@@ -104,6 +105,11 @@ const App = () => (
             <Route path="/admin/checklists" element={
               <ProtectedRoute requireAdmin>
                 <AdminChecklists />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/team/:memberId" element={
+              <ProtectedRoute requireAdmin>
+                <AdminMember />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
