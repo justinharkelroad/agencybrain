@@ -219,7 +219,6 @@ export default function AgencyMember() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
-                    <TableHead>Required</TableHead>
                     <TableHead>Secured</TableHead>
                     <TableHead>Attachments</TableHead>
                     <TableHead>Upload</TableHead>
@@ -230,7 +229,7 @@ export default function AgencyMember() {
                   {checklist.map(({ template, mci }) => (
                     <TableRow key={template.id}>
                       <TableCell>{template.label}</TableCell>
-                      <TableCell>{template.required ? 'Yes' : 'No'}</TableCell>
+                      
                       <TableCell>{mci?.secured ? 'Yes' : 'No'}</TableCell>
                       <TableCell>{mci?.attachments_count ?? 0}</TableCell>
                       <TableCell>
@@ -266,7 +265,7 @@ export default function AgencyMember() {
                   ))}
                   {checklist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">No checklist items</TableCell>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">No checklist items</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

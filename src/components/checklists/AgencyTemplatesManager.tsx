@@ -28,10 +28,8 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ label: string; required: boolean; order_index: number; active: boolean }>({
+  const [form, setForm] = useState<{ label: string; active: boolean }>({
     label: "",
-    required: true,
-    order_index: 0,
     active: true,
   });
 
@@ -68,12 +66,13 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
     }
     setLoading(true);
     try {
+      const nextOrder = templates.length > 0 ? Math.max(...templates.map((t) => t.order_index)) + 1 : 0;
       const { error } = await supabase
         .from("checklist_template_items")
-        .insert([{ agency_id: agencyId, label: form.label.trim(), required: form.required, order_index: form.order_index, active: form.active }]);
+        .insert([{ agency_id: agencyId, label: form.label.trim(), order_index: nextOrder, active: form.active }]);
       if (error) throw error;
       setOpen(false);
-      setForm({ label: "", required: true, order_index: 0, active: true });
+      setForm({ label: "", active: true });
       await loadTemplates();
       toast({ title: "Created", description: "Template added for your agency" });
     } catch (e: any) {
@@ -116,7 +115,7 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Checklist Templates</CardTitle>
+          <CardTitle>Create Employee Checklist Item</CardTitle>
           <CardDescription>Templates here apply to all members in your agency; each member can remove items they don't need.</CardDescription>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -132,22 +131,6 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
               <div className="grid grid-cols-4 items-center gap-3">
                 <Label className="text-right" htmlFor="tmpl-label">Label</Label>
                 <Input id="tmpl-label" className="col-span-3" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right" htmlFor="tmpl-required">Required</Label>
-                <div className="col-span-3">
-                  <Switch id="tmpl-required" checked={form.required} onCheckedChange={(v) => setForm((f) => ({ ...f, required: v }))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right" htmlFor="tmpl-order">Order</Label>
-                <Input
-                  id="tmpl-order"
-                  className="col-span-3"
-                  type="number"
-                  value={form.order_index}
-                  onChange={(e) => setForm((f) => ({ ...f, order_index: Number(e.target.value) }))}
-                />
               </div>
               <div className="grid grid-cols-4 items-center gap-3">
                 <Label className="text-right" htmlFor="tmpl-active">Active</Label>
@@ -172,8 +155,6 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Required</TableHead>
-                <TableHead>Order</TableHead>
                 <TableHead>Active</TableHead>
               </TableRow>
             </TableHeader>
@@ -181,16 +162,6 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
               {templates.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell>{t.label}</TableCell>
-                  <TableCell>{t.required ? "Yes" : "No"}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      className="max-w-[96px]"
-                      value={t.order_index}
-                      onChange={(e) => updateOrder(t, Number(e.target.value))}
-                      disabled={loading}
-                    />
-                  </TableCell>
                   <TableCell>
                     <Switch checked={t.active} onCheckedChange={() => toggleActive(t)} disabled={loading} />
                   </TableCell>
@@ -198,7 +169,7 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
               ))}
               {templates.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={2} className="text-center text-muted-foreground">
                     {loading ? "Loading..." : "No templates yet. Create your first one."}
                   </TableCell>
                 </TableRow>
