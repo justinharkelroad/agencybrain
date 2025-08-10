@@ -76,6 +76,7 @@ const revealTimerRef = useRef<number | null>(null);
 const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set());
 const [completedUserIds, setCompletedUserIds] = useState<Set<string>>(new Set());
 const [uploadUserIds, setUploadUserIds] = useState<Set<string>>(new Set());
+const [isPurging, setIsPurging] = useState(false);
 
 const revealRevenue = () => {
   if (revealTimerRef.current) {
@@ -200,6 +201,25 @@ setCoachingRevenue(totalMRR);
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePurgeNonAdminUsers = async () => {
+    if (!window.confirm('This will permanently delete ALL non-admin users. Continue?')) return;
+    try {
+      setIsPurging(true);
+      const { data, error } = await supabase.functions.invoke('admin-delete-non-admins', {
+        body: { keepEmails: ['justin@hfiagencies.com'] },
+      });
+      if (error) throw error as any;
+      const deleted = (data as any)?.deletedCount ?? 0;
+      toast({ title: 'Purge complete', description: `${deleted} user(s) deleted.` });
+      await fetchAdminData();
+    } catch (e: any) {
+      console.error('Purge failed', e);
+      toast({ title: 'Purge failed', description: e?.message || 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setIsPurging(false);
     }
   };
 
@@ -343,6 +363,9 @@ const getSubmissionStatus = (profile: Profile) => {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4 w-full md:w-auto">
+                <Button variant="destructive" onClick={handlePurgeNonAdminUsers} disabled={isPurging} title="Delete all non-admin users and their profiles">
+                  {isPurging ? 'Purging…' : 'Delete non-admin users'}
+                </Button>
                 <CreateClientDialog onClientCreated={fetchAdminData} />
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
