@@ -16,27 +16,127 @@ export type Database = {
     Tables: {
       agencies: {
         Row: {
+          address_city: string | null
+          address_line1: string | null
+          address_line2: string | null
+          address_state: string | null
+          address_zip: string | null
+          agency_email: string | null
+          agent_cell: string | null
+          agent_name: string | null
           created_at: string
           description: string | null
           id: string
+          logo_url: string | null
           name: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
+          address_city?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          agency_email?: string | null
+          agent_cell?: string | null
+          agent_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          logo_url?: string | null
           name: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
+          address_city?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          address_state?: string | null
+          address_zip?: string | null
+          agency_email?: string | null
+          agent_cell?: string | null
+          agent_name?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      agency_files: {
+        Row: {
+          agency_id: string
+          created_at: string
+          file_path: string
+          id: string
+          member_id: string | null
+          mime_type: string | null
+          original_name: string
+          size: number | null
+          template_item_id: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by_user_id: string
+          visibility: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          file_path: string
+          id?: string
+          member_id?: string | null
+          mime_type?: string | null
+          original_name: string
+          size?: number | null
+          template_item_id?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by_user_id: string
+          visibility?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          member_id?: string | null
+          mime_type?: string | null
+          original_name?: string
+          size?: number | null
+          template_item_id?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by_user_id?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_files_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_files_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_files_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_analysis: {
         Row: {
@@ -234,6 +334,47 @@ export type Database = {
           },
         ]
       }
+      checklist_template_items: {
+        Row: {
+          active: boolean
+          agency_id: string | null
+          created_at: string
+          id: string
+          label: string
+          order_index: number
+          required: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          label: string
+          order_index?: number
+          required?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          order_index?: number
+          required?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       column_mappings: {
         Row: {
           category: string
@@ -272,6 +413,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      member_checklist_items: {
+        Row: {
+          attachments_count: number
+          created_at: string
+          id: string
+          member_id: string
+          secured: boolean
+          template_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachments_count?: number
+          created_at?: string
+          id?: string
+          member_id: string
+          secured?: boolean
+          template_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachments_count?: number
+          created_at?: string
+          id?: string
+          member_id?: string
+          secured?: boolean
+          template_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_checklist_items_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_checklist_items_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       periods: {
         Row: {
@@ -443,6 +629,53 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          agency_id: string
+          created_at: string
+          email: string
+          employment: Database["public"]["Enums"]["app_employment_type"]
+          id: string
+          name: string
+          notes: string | null
+          role: Database["public"]["Enums"]["app_member_role"]
+          status: Database["public"]["Enums"]["app_member_status"]
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          email: string
+          employment: Database["public"]["Enums"]["app_employment_type"]
+          id?: string
+          name: string
+          notes?: string | null
+          role: Database["public"]["Enums"]["app_member_role"]
+          status?: Database["public"]["Enums"]["app_member_status"]
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          email?: string
+          employment?: Database["public"]["Enums"]["app_employment_type"]
+          id?: string
+          name?: string
+          notes?: string | null
+          role?: Database["public"]["Enums"]["app_member_role"]
+          status?: Database["public"]["Enums"]["app_member_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uploads: {
         Row: {
           category: string
@@ -529,9 +762,15 @@ export type Database = {
         }
         Returns: string
       }
+      has_agency_access: {
+        Args: { _user_id: string; _agency_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_employment_type: "Full-time" | "Part-time"
+      app_member_role: "Sales" | "Service" | "Hybrid" | "Manager"
+      app_member_status: "active" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -658,6 +897,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_employment_type: ["Full-time", "Part-time"],
+      app_member_role: ["Sales", "Service", "Hybrid", "Manager"],
+      app_member_status: ["active", "inactive"],
+    },
   },
 } as const
