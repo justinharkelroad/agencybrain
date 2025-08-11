@@ -5,21 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Users, 
-  FileText, 
-  Upload, 
-  TrendingUp, 
+import {
+  Users,
+  FileText,
+  Upload,
+  TrendingUp,
   Search,
   Bell,
   Eye,
-  LogOut 
+  Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
 import { AdminTopNav } from '@/components/AdminTopNav';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface Agency {
   id: string;
@@ -76,7 +79,14 @@ const revealTimerRef = useRef<number | null>(null);
 const [activeUserIds, setActiveUserIds] = useState<Set<string>>(new Set());
 const [completedUserIds, setCompletedUserIds] = useState<Set<string>>(new Set());
 const [uploadUserIds, setUploadUserIds] = useState<Set<string>>(new Set());
-const [isPurging, setIsPurging] = useState(false);
+
+// Admin actions state
+const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+const [isDeleting, setIsDeleting] = useState(false);
+
+// Pagination
+const [currentPage, setCurrentPage] = useState(1);
+const pageSize = 10;
 
 const revealRevenue = () => {
   if (revealTimerRef.current) {
@@ -204,22 +214,22 @@ setCoachingRevenue(totalMRR);
     }
   };
 
-  const handlePurgeNonAdminUsers = async () => {
-    if (!window.confirm('This will permanently delete ALL non-admin users. Continue?')) return;
+  const handleDeleteSelectedUser = async () => {
+    if (!selectedUserId) return;
     try {
-      setIsPurging(true);
-      const { data, error } = await supabase.functions.invoke('admin-delete-non-admins', {
-        body: { keepEmails: ['justin@hfiagencies.com'] },
+      setIsDeleting(true);
+      const { error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId: selectedUserId },
       });
       if (error) throw error as any;
-      const deleted = (data as any)?.deletedCount ?? 0;
-      toast({ title: 'Purge complete', description: `${deleted} user(s) deleted.` });
+      toast({ title: 'Account deleted', description: 'The selected account was permanently removed.' });
+      setSelectedUserId(null);
       await fetchAdminData();
     } catch (e: any) {
-      console.error('Purge failed', e);
-      toast({ title: 'Purge failed', description: e?.message || 'Unexpected error', variant: 'destructive' });
+      console.error('Delete failed', e);
+      toast({ title: 'Delete failed', description: e?.message || 'Unexpected error', variant: 'destructive' });
     } finally {
-      setIsPurging(false);
+      setIsDeleting(false);
     }
   };
 
@@ -241,6 +251,17 @@ const getSubmissionStatus = (profile: Profile) => {
 
   const filteredClients = clients.filter(client =>
     client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Reset to first page when searching
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
+  const paginatedClients = filteredClients.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
 
   const handleSignOut = async () => {
@@ -363,9 +384,44 @@ const getSubmissionStatus = (profile: Profile) => {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4 w-full md:w-auto">
-                <Button variant="destructive" onClick={handlePurgeNonAdminUsers} disabled={isPurging} title="Delete all non-admin users and their profiles">
-                  {isPurging ? 'Purging…' : 'Delete non-admin users'}
-                </Button>
+                <div className="w-full md:w-64">
+                  <Select value={selectedUserId ?? ''} onValueChange={(v) => setSelectedUserId(v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose account to delete" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.agency?.name || c.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={!selectedUserId || isDeleting} title="Permanently delete the selected account">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {isDeleting ? 'Deleting…' : 'Delete account'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this account?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the selected user's profile and authentication account.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteSelectedUser}>
+                        Confirm Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
                 <CreateClientDialog onClientCreated={fetchAdminData} />
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -393,33 +449,57 @@ const getSubmissionStatus = (profile: Profile) => {
                   {searchTerm ? 'No clients found matching your search.' : 'No clients yet.'}
                 </p>
               ) : (
-                filteredClients.map((client) => (
-                  <div
-                    key={client.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all duration-200 hover:scale-[1.02] animate-fade-in"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Users className="w-5 h-5 text-primary" />
+                <>
+                  {paginatedClients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all duration-200 hover:scale-[1.02] animate-fade-in"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Users className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold">{client.agency?.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Joined {new Date(client.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold">{client.agency?.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Joined {new Date(client.created_at).toLocaleDateString()}
-                        </p>
+                      <div className="flex items-center space-x-3">
+                        {getSubmissionStatus(client)}
+                        <Link to={`/admin/client/${client.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Button>
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      {getSubmissionStatus(client)}
-                      <Link to={`/admin/client/${client.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </Button>
-                      </Link>
+                  ))}
+
+                  {totalPages > 1 && (
+                    <div className="pt-4">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious href="#" onClick={(e: React.MouseEvent) => { e.preventDefault(); setCurrentPage(Math.max(1, currentPage - 1)); }} />
+                          </PaginationItem>
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <PaginationItem key={page}>
+                              <PaginationLink href="#" isActive={page === currentPage} onClick={(e: React.MouseEvent) => { e.preventDefault(); setCurrentPage(page); }}>
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          <PaginationItem>
+                            <PaginationNext href="#" onClick={(e: React.MouseEvent) => { e.preventDefault(); setCurrentPage(Math.min(totalPages, currentPage + 1)); }} />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
                     </div>
-                  </div>
-                ))
+                  )}
+                </>
               )}
             </div>
           </CardContent>
