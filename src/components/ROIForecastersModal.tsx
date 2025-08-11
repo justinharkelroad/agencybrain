@@ -202,6 +202,8 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
 
   
 
+  const values = watch() as any;
+
   const normalizePercent = (v: number) => {
     if (!isFinite(v)) return 0;
     const val = v > 0 && v < 1 ? v * 100 : v;
@@ -421,7 +423,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
 
   const loadLast = () => { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)); } catch {} };
 
-  const values = watch();
+  const values = watch() as any;
   
 
   const normalizePercent = (v: number) => {
@@ -656,7 +658,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
 
   const loadLast = () => { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)); } catch {} };
 
-  const values = watch();
+  const values = watch() as any;
   
 
   const normalizePercent = (v: number) => {
@@ -768,24 +770,24 @@ function TransferForm({ onBack }: { onBack: () => void }) {
                 const v = Number(e.currentTarget.value);
                 const n = normalizePercent(v);
                 if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
-              }}
-              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-            />
+               }}
+               {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
+             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
-          <Input id="avgItemsPerHH" type="number" step="any" min={0} aria-invalid={!!errors.avgItemsPerHH}
-            {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
-          />
+           <Input id="avgItemsPerHH" type="number" step="any" min={0} aria-invalid={!!errors.avgItemsPerHH}
+             {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" } })}
+           />
         </div>
         <div>
           <Label htmlFor="avgItemValue">Average Item Value</Label>
           <InputAffix prefix="$">
             <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
               className="pl-7"
-              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -799,9 +801,9 @@ function TransferForm({ onBack }: { onBack: () => void }) {
                 const v = Number(e.currentTarget.value);
                 const n = normalizePercent(v);
                 if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
-              }}
-              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
-            />
+               }}
+               {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
+             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
         </div>

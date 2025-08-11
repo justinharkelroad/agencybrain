@@ -59,7 +59,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   }, [watch]);
 
   // Watch all fields
-  const values = watch();
+  const values = watch() as any;
 
   // Normalize percent helper for onBlur only
   const normalizePercent = (v: number) => {
