@@ -29,7 +29,8 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
     firstName: '',
     lastName: '',
     agencyName: '',
-    agencyDescription: ''
+    agencyDescription: '',
+    mrr: ''
   });
   const { toast } = useToast();
 
@@ -73,13 +74,26 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
         description: "Client account created successfully",
       });
 
+      // Optionally set initial Coaching MRR
+      try {
+        if (formData.mrr && !Number.isNaN(Number(formData.mrr))) {
+          await supabase
+            .from('profiles')
+            .update({ mrr: Number(formData.mrr) })
+            .eq('id', data?.user?.id);
+        }
+      } catch (mrrError) {
+        console.error('Failed to set initial MRR:', mrrError);
+      }
+
       setFormData({
         email: '',
         password: '',
         firstName: '',
         lastName: '',
         agencyName: '',
-        agencyDescription: ''
+        agencyDescription: '',
+        mrr: ''
       });
       setOpen(false);
       onClientCreated();
@@ -197,6 +211,19 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
               onChange={(e) => setFormData(prev => ({ ...prev, agencyDescription: e.target.value }))}
               placeholder="Brief description of the agency..."
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mrr">Coaching MRR (Optional)</Label>
+            <Input
+              id="mrr"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              placeholder="0.00"
+              value={formData.mrr}
+              onChange={(e) => setFormData(prev => ({ ...prev, mrr: e.target.value }))}
             />
           </div>
 

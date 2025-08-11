@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ interface Client {
   company?: string;
   status: string;
   created_at: string;
+  mrr?: number | null;
 }
 
 type Period = Tables<'periods'>;
@@ -73,7 +75,11 @@ export default function ClientDetail() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [selectedPrompt, setSelectedPrompt] = useState<string>('');
   const [customPrompt, setCustomPrompt] = useState('');
-  const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
+const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
+
+  // Coaching MRR state
+  const [mrrInput, setMrrInput] = useState<string>('');
+  const [savingMRR, setSavingMRR] = useState<boolean>(false);
   
   // Chat states
   const [conversations, setConversations] = useState<Record<string, Array<ConversationMessage>>>({});
@@ -318,7 +324,8 @@ export default function ClientDetail() {
         .single();
       
       if (clientError) throw clientError;
-      setClient(clientData);
+setClient(clientData);
+      setMrrInput(clientData?.mrr != null ? String(clientData.mrr) : '');
       // Resolve agency name for header
       try {
         if (clientData?.agency_id) {
@@ -881,6 +888,26 @@ export default function ClientDetail() {
     });
   };
 
+  const handleSaveMRR = async () => {
+    const value = Number(mrrInput);
+    if (Number.isNaN(value)) {
+      toast({ title: 'Invalid amount', description: 'Please enter a valid number', variant: 'destructive' });
+      return;
+    }
+    try {
+      setSavingMRR(true);
+      const { error } = await supabase.from('profiles').update({ mrr: value }).eq('id', clientId);
+      if (error) throw error;
+      setClient(prev => prev ? { ...(prev as any), mrr: value } : prev);
+      toast({ title: 'Coaching MRR updated' });
+    } catch (e: any) {
+      console.error(e);
+      toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingMRR(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -920,7 +947,35 @@ export default function ClientDetail() {
         </div>
       </div>
 
-      {/* Client info card removed per request; displaying agency name in header only */}
+      {/* Coaching MRR */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <DollarSign className="h-5 w-5 mr-2" />
+            Coaching MRR
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3 max-w-md">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="coaching-mrr">Monthly Recurring Revenue</Label>
+              <Input
+                id="coaching-mrr"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                placeholder="0.00"
+                value={mrrInput}
+                onChange={(e) => setMrrInput(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
+            </div>
+            <Button onClick={handleSaveMRR} disabled={savingMRR}>
+              {savingMRR ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="periods" className="space-y-6">
         <TabsList>
