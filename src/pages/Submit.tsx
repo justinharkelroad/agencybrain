@@ -1156,37 +1156,37 @@ export default function Submit() {
             <AccordionItem value="sales">
               <AccordionTrigger>Sales</AccordionTrigger>
               <AccordionContent>
-                <SalesSection />
+                {SalesSection()}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="marketing">
               <AccordionTrigger>Marketing</AccordionTrigger>
               <AccordionContent>
-                <MarketingSection />
+                {MarketingSection()}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="operations">
               <AccordionTrigger>Bonus/Ops</AccordionTrigger>
               <AccordionContent>
-                <OperationsSection />
+                {OperationsSection()}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="retention">
               <AccordionTrigger>Retention</AccordionTrigger>
               <AccordionContent>
-                <RetentionSection />
+                {RetentionSection()}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="cashflow">
               <AccordionTrigger>Cash Flow</AccordionTrigger>
               <AccordionContent>
-                <CashFlowSection />
+                {CashFlowSection()}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="qualitative">
               <AccordionTrigger>Current Reality</AccordionTrigger>
               <AccordionContent>
-                <QualitativeSection />
+                {QualitativeSection()}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -1204,27 +1204,27 @@ export default function Submit() {
           </TabsList>
 
           <TabsContent value="sales">
-            <SalesSection />
+            {SalesSection()}
           </TabsContent>
 
           <TabsContent value="marketing">
-            <MarketingSection />
+            {MarketingSection()}
           </TabsContent>
 
           <TabsContent value="operations">
-            <OperationsSection />
+            {OperationsSection()}
           </TabsContent>
 
           <TabsContent value="retention">
-            <RetentionSection />
+            {RetentionSection()}
           </TabsContent>
 
           <TabsContent value="cashflow">
-            <CashFlowSection />
+            {CashFlowSection()}
           </TabsContent>
 
           <TabsContent value="qualitative">
-            <QualitativeSection />
+            {QualitativeSection()}
           </TabsContent>
         </Tabs>
         </div>
