@@ -200,14 +200,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
     try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)); } catch {}
   };
 
-  // clamp
-  const values = watch();
-  useEffect(() => {
-    const q = values.quoteRatePct; if (typeof q === "number" && isFinite(q)) { const c = clampPercent(q); if (c !== q) setValue("quoteRatePct", c, { shouldValidate: true }); }
-    const cl = values.closeRatePct; if (typeof cl === "number" && isFinite(cl)) { const c2 = clampPercent(cl); if (c2 !== cl) setValue("closeRatePct", c2, { shouldValidate: true }); }
-    const cm = values.commissionPct; if (typeof cm === "number" && isFinite(cm)) { const c3 = clampPercent(cm); if (c3 !== cm) setValue("commissionPct", c3, { shouldValidate: true }); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.quoteRatePct, values.closeRatePct, values.commissionPct]);
+  
 
   const normalizePercent = (v: number) => {
     if (!isFinite(v)) return 0;
@@ -228,11 +221,11 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
 
   const hasSpend = Number(values.spend) > 0;
   const hasCpl = Number(values.cpl) > 0;
-  const hasQuoteRate = typeof values.quoteRatePct === 'number' && isFinite(values.quoteRatePct);
-  const hasCloseRate = typeof values.closeRatePct === 'number' && isFinite(values.closeRatePct);
-  const hasAvgItems = typeof values.avgItemsPerHH === 'number' && isFinite(values.avgItemsPerHH);
-  const hasAvgItemValue = typeof values.avgItemValue === 'number' && isFinite(values.avgItemValue);
-  const hasCommission = typeof values.commissionPct === 'number' && isFinite(values.commissionPct);
+  const hasQuoteRate = values.quoteRatePct !== undefined && values.quoteRatePct !== '' && isFinite(Number(values.quoteRatePct));
+  const hasCloseRate = values.closeRatePct !== undefined && values.closeRatePct !== '' && isFinite(Number(values.closeRatePct));
+  const hasAvgItems = values.avgItemsPerHH !== undefined && values.avgItemsPerHH !== '' && isFinite(Number(values.avgItemsPerHH));
+  const hasAvgItemValue = values.avgItemValue !== undefined && values.avgItemValue !== '' && isFinite(Number(values.avgItemValue));
+  const hasCommission = values.commissionPct !== undefined && values.commissionPct !== '' && isFinite(Number(values.commissionPct));
 
   const canTotalLeads = hasSpend && hasCpl;
   const canQuotedHH = canTotalLeads && hasQuoteRate;
@@ -290,7 +283,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
               className="pl-7"
-              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -300,7 +293,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="cpl" type="number" step="any" min={0} aria-invalid={!!errors.cpl}
               className="pl-7"
-              {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -315,7 +308,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("quoteRatePct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -330,7 +323,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -340,7 +333,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
               className="pl-7"
-              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+               {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -348,7 +341,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
           <Input id="avgItemsPerHH" type="number" step="any" min={0} aria-invalid={!!errors.avgItemsPerHH}
-            {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+             {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" } })}
           />
         </div>
         <div>
@@ -361,7 +354,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -429,13 +422,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
   const loadLast = () => { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)); } catch {} };
 
   const values = watch();
-  useEffect(() => {
-    const r = values.responseRatePct; if (typeof r === "number" && isFinite(r)) { const c = clampPercent(r); if (c !== r) setValue("responseRatePct", c, { shouldValidate: true }); }
-    const q = values.quotedPctOfInboundPct; if (typeof q === "number" && isFinite(q)) { const c2 = clampPercent(q); if (c2 !== q) setValue("quotedPctOfInboundPct", c2, { shouldValidate: true }); }
-    const cl = values.closeRatePct; if (typeof cl === "number" && isFinite(cl)) { const c3 = clampPercent(cl); if (c3 !== cl) setValue("closeRatePct", c3, { shouldValidate: true }); }
-    const cm = values.commissionPct; if (typeof cm === "number" && isFinite(cm)) { const c4 = clampPercent(cm); if (c4 !== cm) setValue("commissionPct", c4, { shouldValidate: true }); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.responseRatePct, values.quotedPctOfInboundPct, values.closeRatePct, values.commissionPct]);
+  
 
   const normalizePercent = (v: number) => {
     if (!isFinite(v)) return 0;
@@ -456,12 +443,12 @@ function MailerForm({ onBack }: { onBack: () => void }) {
   }), [values]);
 
   const canMailers = Number(values.spend) > 0 && Number(values.costPerPiece) > 0;
-  const canCalls = canMailers && typeof values.responseRatePct === 'number';
-  const canQuoted = canCalls && typeof values.quotedPctOfInboundPct === 'number';
-  const canClosedHH = canQuoted && typeof values.closeRatePct === 'number';
-  const canSoldItems = canClosedHH && typeof values.avgItemsPerHH === 'number';
-  const canSoldPremium = canSoldItems && typeof values.avgItemValue === 'number';
-  const canTotalComp = canSoldPremium && typeof values.commissionPct === 'number';
+  const canCalls = canMailers && values.responseRatePct !== undefined && values.responseRatePct !== '' && isFinite(Number(values.responseRatePct));
+  const canQuoted = canCalls && values.quotedPctOfInboundPct !== undefined && values.quotedPctOfInboundPct !== '' && isFinite(Number(values.quotedPctOfInboundPct));
+  const canClosedHH = canQuoted && values.closeRatePct !== undefined && values.closeRatePct !== '' && isFinite(Number(values.closeRatePct));
+  const canSoldItems = canClosedHH && values.avgItemsPerHH !== undefined && values.avgItemsPerHH !== '' && isFinite(Number(values.avgItemsPerHH));
+  const canSoldPremium = canSoldItems && values.avgItemValue !== undefined && values.avgItemValue !== '' && isFinite(Number(values.avgItemValue));
+  const canTotalComp = canSoldPremium && values.commissionPct !== undefined && values.commissionPct !== '' && isFinite(Number(values.commissionPct));
 
   const handleReset = () => { reset({
     mailSource: "",
@@ -512,7 +499,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
               className="pl-7"
-              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -522,7 +509,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="costPerPiece" type="number" step="any" min={0} aria-invalid={!!errors.costPerPiece}
               className="pl-7"
-              {...register("costPerPiece", { required: "Cost per piece is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("costPerPiece", { required: "Cost per piece is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -537,7 +524,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("responseRatePct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("responseRatePct", { required: "Response rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("responseRatePct", { required: "Response rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -552,7 +539,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("quotedPctOfInboundPct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -567,7 +554,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("closeRatePct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -575,7 +562,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         <div>
           <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
           <Input id="avgItemsPerHH" type="number" step="any" min={0} aria-invalid={!!errors.avgItemsPerHH}
-            {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+             {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" } })}
           />
         </div>
         <div>
@@ -583,7 +570,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="avgItemValue" type="number" step="any" min={0} aria-invalid={!!errors.avgItemValue}
               className="pl-7"
-              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+               {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -598,7 +585,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("commissionPct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>
@@ -670,12 +657,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
   const loadLast = () => { try { const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; reset(JSON.parse(raw)); } catch {} };
 
   const values = watch();
-  useEffect(() => {
-    const q = values.quotedPctOfInboundPct; if (typeof q === "number" && isFinite(q)) { const c2 = clampPercent(q); if (c2 !== q) setValue("quotedPctOfInboundPct", c2, { shouldValidate: true }); }
-    const cl = values.closeRatePct; if (typeof cl === "number" && isFinite(cl)) { const c3 = clampPercent(cl); if (c3 !== cl) setValue("closeRatePct", c3, { shouldValidate: true }); }
-    const cm = values.commissionPct; if (typeof cm === "number" && isFinite(cm)) { const c4 = clampPercent(cm); if (c4 !== cm) setValue("commissionPct", c4, { shouldValidate: true }); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.quotedPctOfInboundPct, values.closeRatePct, values.commissionPct]);
+  
 
   const normalizePercent = (v: number) => {
     if (!isFinite(v)) return 0;
@@ -695,11 +677,11 @@ function TransferForm({ onBack }: { onBack: () => void }) {
   }), [values]);
 
   const canTransfers = Number(values.spend) > 0 && Number(values.costPerTransfer) > 0;
-  const canQuoted = canTransfers && typeof values.quotedPctOfInboundPct === 'number';
-  const canClosedHH = canQuoted && typeof values.closeRatePct === 'number';
-  const canSoldItems = canClosedHH && typeof values.avgItemsPerHH === 'number';
-  const canSoldPremium = canSoldItems && typeof values.avgItemValue === 'number';
-  const canTotalComp = canSoldPremium && typeof values.commissionPct === 'number';
+  const canQuoted = canTransfers && values.quotedPctOfInboundPct !== undefined && values.quotedPctOfInboundPct !== '' && isFinite(Number(values.quotedPctOfInboundPct));
+  const canClosedHH = canQuoted && values.closeRatePct !== undefined && values.closeRatePct !== '' && isFinite(Number(values.closeRatePct));
+  const canSoldItems = canClosedHH && values.avgItemsPerHH !== undefined && values.avgItemsPerHH !== '' && isFinite(Number(values.avgItemsPerHH));
+  const canSoldPremium = canSoldItems && values.avgItemValue !== undefined && values.avgItemValue !== '' && isFinite(Number(values.avgItemValue));
+  const canTotalComp = canSoldPremium && values.commissionPct !== undefined && values.commissionPct !== '' && isFinite(Number(values.commissionPct));
 
   const handleReset = () => { reset({
     liveTransferSource: "",
@@ -747,7 +729,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="spend" type="number" step="any" min={0} aria-invalid={!!errors.spend}
               className="pl-7"
-              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -757,7 +739,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
           <InputAffix prefix="$">
             <Input id="costPerTransfer" type="number" step="any" min={0} aria-invalid={!!errors.costPerTransfer}
               className="pl-7"
-              {...register("costPerTransfer", { required: "Cost per transfer is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("costPerTransfer", { required: "Cost per transfer is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Values shown in USD.</p>
@@ -772,7 +754,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
                 const n = normalizePercent(v);
                 if (n !== v) setValue("quotedPctOfInboundPct", n, { shouldValidate: true, shouldDirty: true });
               }}
-              {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+               {...register("quotedPctOfInboundPct", { required: "Quoted % is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
           </InputAffix>
           <p className="text-xs text-muted-foreground mt-1">Enter as percent. 5 = 5%. 0.05 will convert to 5%.</p>

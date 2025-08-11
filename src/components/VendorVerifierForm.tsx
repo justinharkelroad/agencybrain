@@ -58,16 +58,7 @@ const values = watch()
   const startDate = fromYmd(values.dateStart)
   const endDate = fromYmd(values.dateEnd)
 
-  // clamp percent to 0-100; also accept 0-1 input
-  useEffect(() => {
-    const cm = values.commissionPct
-    if (typeof cm === "number" && isFinite(cm)) {
-      const normalized = cm > 0 && cm <= 1 ? cm * 100 : cm
-      const c = clampPercent(normalized)
-      if (c !== cm) setValue("commissionPct", c, { shouldValidate: true })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.commissionPct])
+  
 
   const derived: VendorVerifierDerived = useMemo(() => computeVendorVerifierDerived({
     vendorName: values.vendorName,
@@ -168,7 +159,7 @@ const values = watch()
 
           <div>
             <Label htmlFor="inboundCalls"># of Inbound Calls</Label>
-            <Input id="inboundCalls" type="number" step="1" min={0} {...register("inboundCalls", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="inboundCalls" type="number" step="1" min={0} {...register("inboundCalls", { min: { value: 0, message: "Must be non-negative" } })} />
             <p className="text-xs text-muted-foreground mt-1">(If Vendor is Mailers/Transfers)</p>
           </div>
 
@@ -177,7 +168,7 @@ const values = watch()
             <InputAffix prefix="$">
               <Input id="amountSpent" type="number" step="0.01" min={0} className="pl-7"
                 aria-invalid={!!errors.amountSpent}
-                {...register("amountSpent", { min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+                {...register("amountSpent", { min: { value: 0, message: "Must be non-negative" } })}
               />
             </InputAffix>
           </div>
@@ -250,24 +241,24 @@ const values = watch()
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
           <div>
             <Label htmlFor="quotedHH">Quoted HH</Label>
-            <Input id="quotedHH" type="number" step="1" min={0} {...register("quotedHH", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="quotedHH" type="number" step="1" min={0} {...register("quotedHH", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
             <Label htmlFor="closedHH">Closed HH</Label>
-            <Input id="closedHH" type="number" step="1" min={0} {...register("closedHH", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="closedHH" type="number" step="1" min={0} {...register("closedHH", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
             <Label htmlFor="policiesSold">Policies Sold</Label>
-            <Input id="policiesSold" type="number" step="1" min={0} {...register("policiesSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="policiesSold" type="number" step="1" min={0} {...register("policiesSold", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
             <Label htmlFor="itemsSold">Items</Label>
-            <Input id="itemsSold" type="number" step="1" min={0} {...register("itemsSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="itemsSold" type="number" step="1" min={0} {...register("itemsSold", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
             <Label htmlFor="premiumSold">Premium Sold</Label>
             <InputAffix prefix="$">
-              <Input id="premiumSold" type="number" step="0.01" min={0} className="pl-7" {...register("premiumSold", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+              <Input id="premiumSold" type="number" step="0.01" min={0} className="pl-7" {...register("premiumSold", { min: { value: 0, message: "Must be non-negative" } })} />
             </InputAffix>
           </div>
           <div>
@@ -280,17 +271,17 @@ const values = watch()
                   const c = clampPercent(normalized)
                   if (c !== v) setValue("commissionPct", c, { shouldValidate: true, shouldDirty: true })
                 }}
-                {...register("commissionPct", { valueAsNumber: true, min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
+                {...register("commissionPct", { min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
               />
             </InputAffix>
           </div>
           <div>
             <Label htmlFor="policiesQuoted">Policies Quoted</Label>
-            <Input id="policiesQuoted" type="number" step="1" min={0} {...register("policiesQuoted", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="policiesQuoted" type="number" step="1" min={0} {...register("policiesQuoted", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
           <div>
             <Label htmlFor="itemsQuoted">Items Quoted</Label>
-            <Input id="itemsQuoted" type="number" step="1" min={0} {...register("itemsQuoted", { valueAsNumber: true, min: { value: 0, message: "Must be non-negative" } })} />
+            <Input id="itemsQuoted" type="number" step="1" min={0} {...register("itemsQuoted", { min: { value: 0, message: "Must be non-negative" } })} />
           </div>
         </div>
       </section>

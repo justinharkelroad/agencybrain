@@ -61,25 +61,12 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   // Watch all fields
   const values = watch();
 
-  // Clamp percents live (only when numeric)
-  useEffect(() => {
-    const q = values.quoteRatePct;
-    if (typeof q === "number" && isFinite(q)) {
-      const c = clampPercent(q);
-      if (c !== q) setValue("quoteRatePct", c, { shouldValidate: true });
-    }
-    const cl = values.closeRatePct;
-    if (typeof cl === "number" && isFinite(cl)) {
-      const c2 = clampPercent(cl);
-      if (c2 !== cl) setValue("closeRatePct", c2, { shouldValidate: true });
-    }
-    const cm = values.commissionPct;
-    if (typeof cm === "number" && isFinite(cm)) {
-      const c3 = clampPercent(cm);
-      if (c3 !== cm) setValue("commissionPct", c3, { shouldValidate: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.quoteRatePct, values.closeRatePct, values.commissionPct]);
+  // Normalize percent helper for onBlur only
+  const normalizePercent = (v: number) => {
+    if (!isFinite(v)) return 0;
+    const val = v > 0 && v < 1 ? v * 100 : v;
+    return clampPercent(val);
+  };
 
   const derived: MarketingDerived = useMemo(() => computeMetrics({
     leadSource: values.leadSource || "",
@@ -93,11 +80,11 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   }), [values]);
   const hasSpend = Number(values.spend) > 0;
   const hasCpl = Number(values.cpl) > 0;
-  const hasQuoteRate = typeof values.quoteRatePct === 'number' && isFinite(values.quoteRatePct);
-  const hasCloseRate = typeof values.closeRatePct === 'number' && isFinite(values.closeRatePct);
-  const hasAvgItems = typeof values.avgItemsPerHH === 'number' && isFinite(values.avgItemsPerHH);
-  const hasAvgItemValue = typeof values.avgItemValue === 'number' && isFinite(values.avgItemValue);
-  const hasCommission = typeof values.commissionPct === 'number' && isFinite(values.commissionPct);
+  const hasQuoteRate = values.quoteRatePct !== undefined && values.quoteRatePct !== '' && isFinite(Number(values.quoteRatePct));
+  const hasCloseRate = values.closeRatePct !== undefined && values.closeRatePct !== '' && isFinite(Number(values.closeRatePct));
+  const hasAvgItems = values.avgItemsPerHH !== undefined && values.avgItemsPerHH !== '' && isFinite(Number(values.avgItemsPerHH));
+  const hasAvgItemValue = values.avgItemValue !== undefined && values.avgItemValue !== '' && isFinite(Number(values.avgItemValue));
+  const hasCommission = values.commissionPct !== undefined && values.commissionPct !== '' && isFinite(Number(values.commissionPct));
 
   const canTotalLeads = hasSpend && hasCpl;
   const canQuotedHH = canTotalLeads && hasQuoteRate;
@@ -107,7 +94,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
   const canTotalComp = canSoldPremium && hasCommission;
 
   const quotedHHZero = canQuotedHH && derived.quotedHH === 0;
-  const cplZeroExplicit = typeof values.cpl === 'number' && isFinite(values.cpl) && values.cpl === 0;
+  const cplZeroExplicit = values.cpl !== undefined && values.cpl !== '' && isFinite(Number(values.cpl)) && Number(values.cpl) === 0;
   const handleReset = () => {
     reset({
       leadSource: "",
@@ -177,7 +164,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="spend">Spend</Label>
             <Input id="spend" type="number" step="any" min={0}
               aria-invalid={!!errors.spend}
-              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("spend", { required: "Spend is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Total marketing spend (USD)</p>
             {errors.spend && <p className="text-xs text-destructive mt-1">{errors.spend.message as string}</p>}
@@ -188,7 +175,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="cpl">Cost Per Lead</Label>
             <Input id="cpl" type="number" step="any" min={0}
               aria-invalid={!!errors.cpl}
-              {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" }, valueAsNumber: true })}
+              {...register("cpl", { required: "Cost per lead is required", min: { value: 0.01, message: "Must be greater than 0" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Average cost per lead (USD)</p>
             {(errors.cpl || cplZeroExplicit) && (
@@ -201,7 +188,12 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="quoteRatePct">Quote Rate</Label>
             <Input id="quoteRatePct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.quoteRatePct}
-              {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("quoteRatePct", n as any, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("quoteRatePct", { required: "Quote rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Percent of leads you quote</p>
           </div>
@@ -211,7 +203,12 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="closeRatePct">Close Rate</Label>
             <Input id="closeRatePct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.closeRatePct}
-              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("closeRatePct", n as any, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("closeRatePct", { required: "Close rate is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Percent of quoted households you close</p>
           </div>
@@ -221,7 +218,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="avgItemValue">Average Item Value</Label>
             <Input id="avgItemValue" type="number" step="any" min={0}
               aria-invalid={!!errors.avgItemValue}
-              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+              {...register("avgItemValue", { required: "Average item value is required", min: { value: 0, message: "Must be non-negative" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Average policy/item premium (USD)</p>
           </div>
@@ -231,7 +228,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="avgItemsPerHH">Average Items Per HH</Label>
             <Input id="avgItemsPerHH" type="number" step="any" min={0}
               aria-invalid={!!errors.avgItemsPerHH}
-              {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" }, valueAsNumber: true })}
+              {...register("avgItemsPerHH", { required: "Average items per HH is required", min: { value: 0, message: "Must be non-negative" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Average number of items sold per closed HH</p>
           </div>
@@ -241,7 +238,12 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
             <Label htmlFor="commissionPct">Average Commission</Label>
             <Input id="commissionPct" type="number" step="any" min={0} max={100}
               aria-invalid={!!errors.commissionPct}
-              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" }, valueAsNumber: true })}
+              onBlur={(e) => {
+                const v = Number(e.currentTarget.value);
+                const n = normalizePercent(v);
+                if (n !== v) setValue("commissionPct", n as any, { shouldValidate: true, shouldDirty: true });
+              }}
+              {...register("commissionPct", { required: "Commission is required", min: { value: 0, message: "Must be 0-100" }, max: { value: 100, message: "Must be 0-100" } })}
             />
             <p className="text-xs text-muted-foreground mt-1">Percent of sold premium paid as commission</p>
           </div>
