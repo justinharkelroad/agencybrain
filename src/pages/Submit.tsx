@@ -746,7 +746,7 @@ export default function Submit() {
           {enableSoldAndCommission && (
             <>
               <div>
-                <Label htmlFor="totalRevenueFromLeadSources">Total Revenue From Lead Sources ($)</Label>
+                <Label htmlFor="totalRevenueFromLeadSources">Total Written Premium From Lead Sources ($)</Label>
                 <Input id="totalRevenueFromLeadSources" type="number" step="0.01" value={(totalRevenueFromLeadSources || 0).toFixed(2)} className="bg-muted font-semibold" readOnly placeholder="0.00" />
               </div>
               <div>
