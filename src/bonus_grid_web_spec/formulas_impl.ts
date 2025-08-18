@@ -90,10 +90,30 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
   "Sheet1!G24": (ctx)=> XL.SUM(...R("Sheet1","G9","G23",ctx)),
   "Sheet1!E25": (ctx)=> ctx.get("Sheet1!E24")/ctx.get("Sheet1!C24"),
   
+  // New Business calculations (rows 9-23)
+  "Sheet1!M9": (ctx)=> ctx.get("Sheet1!K9")*ctx.get("Sheet1!L9"),
+  "Sheet1!M10": (ctx)=> ctx.get("Sheet1!K10")*ctx.get("Sheet1!L10"),
+  "Sheet1!M11": (ctx)=> ctx.get("Sheet1!K11")*ctx.get("Sheet1!L11"),
+  "Sheet1!M12": (ctx)=> ctx.get("Sheet1!K12")*ctx.get("Sheet1!L12"),
+  "Sheet1!M13": (ctx)=> ctx.get("Sheet1!K13")*ctx.get("Sheet1!L13"),
+  "Sheet1!M14": (ctx)=> ctx.get("Sheet1!K14")*ctx.get("Sheet1!L14"),
+  "Sheet1!M15": (ctx)=> ctx.get("Sheet1!K15")*ctx.get("Sheet1!L15"),
+  "Sheet1!M16": (ctx)=> ctx.get("Sheet1!K16")*ctx.get("Sheet1!L16"),
+  "Sheet1!M17": (ctx)=> ctx.get("Sheet1!K17")*ctx.get("Sheet1!L17"),
+  "Sheet1!M18": (ctx)=> ctx.get("Sheet1!K18")*ctx.get("Sheet1!L18"),
+  "Sheet1!M19": (ctx)=> ctx.get("Sheet1!K19")*ctx.get("Sheet1!L19"),
+  "Sheet1!M20": (ctx)=> ctx.get("Sheet1!K20")*ctx.get("Sheet1!L20"),
+  "Sheet1!M21": (ctx)=> ctx.get("Sheet1!K21")*ctx.get("Sheet1!L21"),
+  "Sheet1!M22": (ctx)=> ctx.get("Sheet1!K22")*ctx.get("Sheet1!L22"),
+  "Sheet1!M23": (ctx)=> ctx.get("Sheet1!K23")*ctx.get("Sheet1!L23"),
+  
   // New Business totals
   "Sheet1!K24": (ctx)=> XL.SUM(...R("Sheet1","K9","K23",ctx)),
   "Sheet1!M24": (ctx)=> XL.SUM(...R("Sheet1","M9","M23",ctx)),
-  "Sheet1!M25": (ctx)=> ctx.get("Sheet1!M24")/ctx.get("Sheet1!K24"),
+  "Sheet1!M25": (ctx)=> {
+    const k24 = ctx.get("Sheet1!K24");
+    return k24 > 0 ? ctx.get("Sheet1!M24") / k24 : 0;
+  },
   
   // Growth Grid rows (38-44)
   "Sheet1!D38": (ctx)=> ctx.get("Sheet1!C38")*ctx.get("Sheet1!D32"),

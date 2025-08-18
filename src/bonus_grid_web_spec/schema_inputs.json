@@ -20,13 +20,49 @@
     { "id": "baseline_retention_life", "label": "Baseline — Life Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F11", "default": 95, "format": "0.00%" },
 
     { "id": "new_business_items_auto", "label": "New Business — Auto Items", "type": "number", "sheet": "Sheet1", "cell": "K9", "default": 0, "format": "0" },
-    { "id": "new_business_points_per_item_auto", "label": "New Business — Auto Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M9", "default": 0, "format": "0.00" },
+    { "id": "new_business_points_per_item_auto", "label": "New Business — Auto Points per Item", "type": "number", "sheet": "Sheet1", "cell": "L9", "default": 0, "format": "0.00" },
 
     { "id": "new_business_items_home", "label": "New Business — Home Items", "type": "number", "sheet": "Sheet1", "cell": "K10", "default": 0, "format": "0" },
-    { "id": "new_business_points_per_item_home", "label": "New Business — Home Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M10", "default": 0, "format": "0.00" },
+    { "id": "new_business_points_per_item_home", "label": "New Business — Home Points per Item", "type": "number", "sheet": "Sheet1", "cell": "L10", "default": 0, "format": "0.00" },
 
     { "id": "new_business_items_life", "label": "New Business — Life Items", "type": "number", "sheet": "Sheet1", "cell": "K11", "default": 0, "format": "0" },
-    { "id": "new_business_points_per_item_life", "label": "New Business — Life Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M11", "default": 0, "format": "0.00" },
+    { "id": "new_business_points_per_item_life", "label": "New Business — Life Points per Item", "type": "number", "sheet": "Sheet1", "cell": "L11", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_12", "label": "New Business — Items Row 12", "type": "number", "sheet": "Sheet1", "cell": "K12", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_12", "label": "New Business — Points per Item Row 12", "type": "number", "sheet": "Sheet1", "cell": "L12", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_13", "label": "New Business — Items Row 13", "type": "number", "sheet": "Sheet1", "cell": "K13", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_13", "label": "New Business — Points per Item Row 13", "type": "number", "sheet": "Sheet1", "cell": "L13", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_14", "label": "New Business — Items Row 14", "type": "number", "sheet": "Sheet1", "cell": "K14", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_14", "label": "New Business — Points per Item Row 14", "type": "number", "sheet": "Sheet1", "cell": "L14", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_15", "label": "New Business — Items Row 15", "type": "number", "sheet": "Sheet1", "cell": "K15", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_15", "label": "New Business — Points per Item Row 15", "type": "number", "sheet": "Sheet1", "cell": "L15", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_16", "label": "New Business — Items Row 16", "type": "number", "sheet": "Sheet1", "cell": "K16", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_16", "label": "New Business — Points per Item Row 16", "type": "number", "sheet": "Sheet1", "cell": "L16", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_17", "label": "New Business — Items Row 17", "type": "number", "sheet": "Sheet1", "cell": "K17", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_17", "label": "New Business — Points per Item Row 17", "type": "number", "sheet": "Sheet1", "cell": "L17", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_18", "label": "New Business — Items Row 18", "type": "number", "sheet": "Sheet1", "cell": "K18", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_18", "label": "New Business — Points per Item Row 18", "type": "number", "sheet": "Sheet1", "cell": "L18", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_19", "label": "New Business — Items Row 19", "type": "number", "sheet": "Sheet1", "cell": "K19", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_19", "label": "New Business — Points per Item Row 19", "type": "number", "sheet": "Sheet1", "cell": "L19", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_20", "label": "New Business — Items Row 20", "type": "number", "sheet": "Sheet1", "cell": "K20", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_20", "label": "New Business — Points per Item Row 20", "type": "number", "sheet": "Sheet1", "cell": "L20", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_21", "label": "New Business — Items Row 21", "type": "number", "sheet": "Sheet1", "cell": "K21", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_21", "label": "New Business — Points per Item Row 21", "type": "number", "sheet": "Sheet1", "cell": "L21", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_22", "label": "New Business — Items Row 22", "type": "number", "sheet": "Sheet1", "cell": "K22", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_22", "label": "New Business — Points per Item Row 22", "type": "number", "sheet": "Sheet1", "cell": "L22", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_23", "label": "New Business — Items Row 23", "type": "number", "sheet": "Sheet1", "cell": "K23", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_23", "label": "New Business — Points per Item Row 23", "type": "number", "sheet": "Sheet1", "cell": "L23", "default": 0, "format": "0.00" },
 
     { "id": "growth_total_baseline_premium", "label": "Total Baseline Premium", "type": "money", "sheet": "Sheet1", "cell": "D31", "default": 0, "format": "$0.00" },
     { "id": "growth_total_new_business_premium", "label": "Total New Business Premium", "type": "money", "sheet": "Sheet1", "cell": "D32", "default": 0, "format": "$0.00" },
