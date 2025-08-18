@@ -1,33 +1,33 @@
-import outputsMap from "./outputs_addresses.json";
 import { formatValue } from "./format";
 export type CellAddr = `${string}!${string}`;
 
+const rows = [38,39,40,41,42,43,44] as const;
+const A = (s:string)=>s as CellAddr;
+
 export function buildCopyPayload(inputState: Record<CellAddr, any>, outputs: Record<CellAddr, number>) {
-  const rows = [38,39,40,41,42,43,44];
   const dashboard = rows.map(r=>({
     row: r,
-    bonusPercent: outputs[`Sheet1!H${r}` as CellAddr] ?? 0,
-    bonusDollars: outputs[`Sheet1!D${r}` as CellAddr] ?? 0,
-    dailyPoints:  outputs[`Sheet1!K${r}` as CellAddr] ?? 0,
-    dailyItems:   outputs[`Sheet1!L${r}` as CellAddr] ?? 0
+    bonusPercent: outputs[A(`Sheet1!H${r}`)] ?? 0,
+    bonusDollars: outputs[A(`Sheet1!D${r}`)] ?? 0,
+    dailyPoints:  outputs[A(`Sheet1!K${r}`)] ?? 0,
+    dailyItems:   outputs[A(`Sheet1!L${r}`)] ?? 0
   }));
   return { calculator: "allstate_bonus_grid", inputs: inputState, dashboard };
 }
 
 export function buildCopyText(inputState: Record<CellAddr, any>, outputs: Record<CellAddr, number>) {
-  const rows = [38,39,40,41,42,43,44];
   const lines: string[] = [];
   lines.push("Allstate Bonus Grid — Summary");
   lines.push("");
   lines.push("INPUTS");
-  for (const [k,v] of Object.entries(inputState)) lines.push(`• ${k}: ${v}`);
+  Object.entries(inputState).forEach(([k,v])=> lines.push(`• ${k}: ${v}`));
   lines.push("");
-  lines.push("DASHBOARD");
+  lines.push("DASHBOARD (Rows 38–44)");
   for (const r of rows) {
-    const bp = formatValue(`Sheet1!H${r}` as CellAddr, outputs[`Sheet1!H${r}` as CellAddr] ?? 0);
-    const bd = formatValue(`Sheet1!D${r}` as CellAddr, outputs[`Sheet1!D${r}` as CellAddr] ?? 0);
-    const dp = formatValue(`Sheet1!K${r}` as CellAddr, outputs[`Sheet1!K${r}` as CellAddr] ?? 0);
-    const di = formatValue(`Sheet1!L${r}` as CellAddr, outputs[`Sheet1!L${r}` as CellAddr] ?? 0);
+    const bp = formatValue(A(`Sheet1!H${r}`), outputs[A(`Sheet1!H${r}`)] ?? 0);
+    const bd = formatValue(A(`Sheet1!D${r}`), outputs[A(`Sheet1!D${r}`)] ?? 0);
+    const dp = formatValue(A(`Sheet1!K${r}`), outputs[A(`Sheet1!K${r}`)] ?? 0);
+    const di = formatValue(A(`Sheet1!L${r}`), outputs[A(`Sheet1!L${r}`)] ?? 0);
     lines.push(`• Row ${r}: Bonus % ${bp} | Bonus $ ${bd} | Daily Points ${dp} | Daily Items ${di}`);
   }
   return lines.join("\n");
