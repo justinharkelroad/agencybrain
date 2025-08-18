@@ -1,0 +1,6 @@
+{
+  "bonus_dollars": ["Sheet1!D38","Sheet1!D39","Sheet1!D40","Sheet1!D41","Sheet1!D42","Sheet1!D43","Sheet1!D44"],
+  "daily_points_needed": ["Sheet1!K38","Sheet1!K39","Sheet1!K40","Sheet1!K41","Sheet1!K42","Sheet1!K43","Sheet1!K44"],
+  "daily_items_needed": ["Sheet1!L38","Sheet1!L39","Sheet1!L40","Sheet1!L41","Sheet1!L42","Sheet1!L43","Sheet1!L44"],
+  "bonus_percent_preset": ["Sheet1!H38","Sheet1!H39","Sheet1!H40","Sheet1!H41","Sheet1!H42","Sheet1!H43","Sheet1!H44"]
+}
