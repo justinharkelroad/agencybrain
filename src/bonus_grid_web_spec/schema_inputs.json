@@ -13,6 +13,23 @@
 
     { "id": "baseline_items_home", "label": "Baseline — Home Items", "type": "number", "sheet": "Sheet1", "cell": "C10", "default": 0, "format": "0" },
     { "id": "baseline_points_per_item_home", "label": "Baseline — Home Points per Item", "type": "number", "sheet": "Sheet1", "cell": "D10", "default": 0, "format": "0.00" },
-    { "id": "baseline_retention_home", "label": "Baseline — Home Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F10", "default": 66, "format": "0.00%" }
+    { "id": "baseline_retention_home", "label": "Baseline — Home Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F10", "default": 66, "format": "0.00%" },
+
+    { "id": "baseline_items_life", "label": "Baseline — Life Items", "type": "number", "sheet": "Sheet1", "cell": "C11", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_life", "label": "Baseline — Life Points per Item", "type": "number", "sheet": "Sheet1", "cell": "D11", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_life", "label": "Baseline — Life Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F11", "default": 95, "format": "0.00%" },
+
+    { "id": "new_business_items_auto", "label": "New Business — Auto Items", "type": "number", "sheet": "Sheet1", "cell": "K9", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_auto", "label": "New Business — Auto Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M9", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_home", "label": "New Business — Home Items", "type": "number", "sheet": "Sheet1", "cell": "K10", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_home", "label": "New Business — Home Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M10", "default": 0, "format": "0.00" },
+
+    { "id": "new_business_items_life", "label": "New Business — Life Items", "type": "number", "sheet": "Sheet1", "cell": "K11", "default": 0, "format": "0" },
+    { "id": "new_business_points_per_item_life", "label": "New Business — Life Points per Item", "type": "number", "sheet": "Sheet1", "cell": "M11", "default": 0, "format": "0.00" },
+
+    { "id": "growth_total_baseline_premium", "label": "Total Baseline Premium", "type": "money", "sheet": "Sheet1", "cell": "D31", "default": 0, "format": "$0.00" },
+    { "id": "growth_total_new_business_premium", "label": "Total New Business Premium", "type": "money", "sheet": "Sheet1", "cell": "D32", "default": 0, "format": "$0.00" },
+    { "id": "growth_growth_percentage", "label": "Growth Percentage", "type": "percent", "sheet": "Sheet1", "cell": "D34", "default": 0, "format": "0.00%" }
   ]
 }

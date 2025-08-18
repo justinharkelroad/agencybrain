@@ -14,9 +14,9 @@ export function InputsForm({ state, setState }:{
         const val = state[addr] ?? f.default ?? "";
         return (
           <div key={f.id} className="grid gap-1">
-            <label className="text-sm">{f.label}</label>
+            <label className="text-sm text-white/90">{f.label}</label>
             <input
-              className="border rounded-lg p-2 bg-[#D3DFCC]"
+              className="border border-white/10 rounded-lg p-2 bg-white/5 text-white placeholder-white/40 focus:border-white/30"
               inputMode="decimal"
               value={val}
               onChange={e=>setState(addr, e.target.value)}
