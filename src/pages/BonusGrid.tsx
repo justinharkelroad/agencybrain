@@ -17,7 +17,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
-const STORAGE_KEY = "bonusGrid:inputs";
+const STORAGE_KEY = "bonusGrid:inputs-v1";
 const PPI_DEFAULTS: Record<CellAddr, number> = {
   "Sheet1!D9":10,"Sheet1!D10":0,"Sheet1!D11":0,"Sheet1!D12":5,"Sheet1!D13":20,"Sheet1!D14":20,
   "Sheet1!D15":5,"Sheet1!D16":5,"Sheet1!D17":5,"Sheet1!D18":5,"Sheet1!D19":5,"Sheet1!D20":0,
@@ -27,52 +27,53 @@ const PPI_DEFAULTS: Record<CellAddr, number> = {
   "Sheet1!L21":0,"Sheet1!L22":0,"Sheet1!L23":10,
 };
 
-function hydrate(): Record<CellAddr, any> {
-  let saved: Record<string, any> = {};
-  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
-  // schema defaults
-  const withSchema = Object.fromEntries(
-    (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
-  );
-  // backfill PPI if missing/empty
-  for (const [k,v] of Object.entries(PPI_DEFAULTS)) {
-    if (saved[k] === undefined || saved[k] === null || saved[k] === "") saved[k] = v;
-  }
-  return { ...withSchema, ...saved };
-}
 
 export default function BonusGridPage(){
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  const [state, setState] = useState<Record<CellAddr, any>>(() => hydrate());
+  const [state, setState] = useState<Record<CellAddr, any>>({});
   
-  const setField = (addr: CellAddr, val: any) => {
-    setState(p=>({ ...p, [addr]: val }));
-    setHasUnsavedChanges(true);
-  };
-
-  // Auto-save with visual feedback
+  // hydrate once
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    
-    setIsAutoSaving(true);
-    const id = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setIsAutoSaving(false);
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-    }, 500);
-    return () => clearTimeout(id);
-  }, [state, hasUnsavedChanges]);
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { setState(JSON.parse(raw)); return; }
+      // fallback to schema defaults plus PPI defaults
+      const base = Object.fromEntries(
+        (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
+      );
+      const filled = { ...base, ...PPI_DEFAULTS };
+      setState(filled);
+    } catch {}
+  }, []);
+
+  // debounced save
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    }, 250);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  // dirty indicator
+  const [savedSig, setSavedSig] = useState<string>("");
+  useEffect(() => { setSavedSig(JSON.stringify(state)); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setSavedSig(JSON.stringify(state)), 260);
+    return () => clearTimeout(t);
+  }, [state]);
+  const isDirty = JSON.stringify(state) !== savedSig;
+
+  const setField = (addr: CellAddr, val: any) =>
+    setState(p => ({ ...p, [addr]: val }));
 
   // Handle browser beforeunload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      if (isDirty) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -80,12 +81,12 @@ export default function BonusGridPage(){
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
+  }, [isDirty]);
 
   // Block navigation if there are unsaved changes
   useEffect(() => {
     const handleNavigation = (e: PopStateEvent) => {
-      if (hasUnsavedChanges) {
+      if (isDirty) {
         const confirmLeave = window.confirm(
           "You have unsaved changes. Are you sure you want to leave this page?"
         );
@@ -96,7 +97,7 @@ export default function BonusGridPage(){
       }
     };
 
-    if (hasUnsavedChanges) {
+    if (isDirty) {
       window.history.pushState(null, "", window.location.href);
       window.addEventListener('popstate', handleNavigation);
     }
@@ -104,7 +105,7 @@ export default function BonusGridPage(){
     return () => {
       window.removeEventListener('popstate', handleNavigation);
     };
-  }, [hasUnsavedChanges]);
+  }, [isDirty]);
 
   const outputAddrs = useMemo(()=>(
     [
@@ -155,7 +156,7 @@ export default function BonusGridPage(){
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setLastSaved(new Date());
-    setHasUnsavedChanges(false);
+    setSavedSig(JSON.stringify(state));
     toast({
       title: "Data saved!",
       description: "Your bonus grid data has been saved successfully.",
@@ -165,12 +166,12 @@ export default function BonusGridPage(){
   const handleReset = () => { 
     setState({}); 
     localStorage.removeItem(STORAGE_KEY); 
-    setHasUnsavedChanges(false);
+    setSavedSig("{}");
     setLastSaved(null);
   };
 
   const handleReturnToDashboard = () => {
-    if (hasUnsavedChanges) {
+    if (isDirty) {
       const confirmLeave = window.confirm(
         "You have unsaved changes. Are you sure you want to leave this page?"
       );
@@ -205,12 +206,7 @@ export default function BonusGridPage(){
         
         {/* Save Status */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {isAutoSaving ? (
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 animate-spin" />
-              Saving...
-            </div>
-          ) : hasUnsavedChanges ? (
+          {isDirty ? (
             <div className="flex items-center gap-2 text-amber-600">
               <Clock className="h-4 w-4" />
               Unsaved changes
@@ -268,7 +264,7 @@ export default function BonusGridPage(){
           <Button 
             variant="outline" 
             onClick={handleSave}
-            disabled={!hasUnsavedChanges}
+            disabled={!isDirty}
             className="gap-2"
           >
             <Save className="h-4 w-4" />
@@ -320,7 +316,7 @@ export default function BonusGridPage(){
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
-          <Card title="Growth Grid Summary"><SummaryGrid state={state} setState={setField} computed={allOutputs} /></Card>
+          <Card title="Growth Grid Summary"><SummaryGrid state={state} computed={allOutputs} /></Card>
         </section>
       </div>
     </main>

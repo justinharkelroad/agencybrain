@@ -1,5 +1,6 @@
 import { type CellAddr } from "./rows";
 import { formatValue } from "./format";
+import { normalizeRate } from "./normalize";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -73,7 +74,7 @@ export function GrowthBonusFactorsCard({
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
             value={firstYearRetention}
-            onChange={e => setState("Sheet1!D34" as CellAddr, e.target.value)}
+            onChange={e => setState("Sheet1!D34" as CellAddr, normalizeRate(e.target.value))}
             placeholder="0–100"
           />
         </div>

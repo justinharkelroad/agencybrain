@@ -6,12 +6,10 @@ import { type CellAddr } from "./computeWithRounding";
 
 export function SummaryGrid({ 
   state, 
-  setState,
   computed, 
   className 
 }: { 
   state: Record<CellAddr, any>; 
-  setState?: (addr: CellAddr, val: any) => void;
   computed: Record<CellAddr, number>;
   className?: string;
 }) {
@@ -48,7 +46,7 @@ export function SummaryGrid({
 
       {/* Header */}
       <div className="grid grid-cols-[80px,80px,100px,120px,120px,140px,130px,130px,130px,70px,70px] gap-2 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
-        <div>Goal Points</div>
+        <div>Row</div>
         <div>Bonus %</div>
         <div>Bonus $</div>
         <div>Point Loss Retention</div>
@@ -65,17 +63,9 @@ export function SummaryGrid({
       <div className="divide-y divide-border">
         {rowData.map(data => (
           <div key={data.row} className="grid grid-cols-[80px,80px,100px,120px,120px,140px,130px,130px,130px,70px,70px] gap-2 px-4 py-2 text-sm">
-            <div>
-              <input
-                className="w-full border border-input rounded px-2 py-1 bg-background text-foreground text-xs"
-                inputMode="decimal"
-                value={data.goalVal}
-                onChange={e => setState?.(`Sheet1!C${data.row}` as CellAddr, e.target.value)}
-              />
-            </div>
+            <div className="text-foreground">{data.row}</div>
             <div className="text-foreground bg-muted/20 px-2 py-1 rounded">{formatValue(`Sheet1!H${data.row}` as CellAddr, data.bonusPct)}</div>
             <div className="text-foreground">{formatValue(`Sheet1!D${data.row}` as CellAddr, data.bonusDollars)}</div>
-            <div className="text-foreground">{formatValue("Sheet1!G24" as CellAddr, data.pointLossRetention)}</div>
             <div className="text-foreground">{formatValue(`Sheet1!E${data.row}` as CellAddr, data.netPointsNeeded)}</div>
             <div className="text-foreground">{formatValue(`Sheet1!F${data.row}` as CellAddr, data.firstYearRetentionLoss)}</div>
             <div className="text-foreground">{formatValue(`Sheet1!G${data.row}` as CellAddr, data.totalPointsNeeded)}</div>
