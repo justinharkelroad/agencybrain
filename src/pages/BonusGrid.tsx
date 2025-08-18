@@ -221,11 +221,39 @@ export default function BonusGridPage(){
         </div>
       </div>
 
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Allstate Bonus Grid</h1>
-          <p className="text-sm text-muted-foreground">Inputs on the left. Results on the right.</p>
+      {/* Prominent Dashboard Header */}
+      <div className="relative rounded-2xl border border-border bg-gradient-to-br from-card via-card to-card/80 p-6 shadow-2xl backdrop-blur-sm">
+        {/* Glow effect */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
+        
+        {/* Trophy Badge */}
+        <div className="absolute -top-3 -right-3 bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+          🏆🏆🏆🏆
         </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+              Allstate Bonus Grid
+            </h1>
+            <p className="text-muted-foreground">Track your path to maximum earnings</p>
+          </div>
+          
+          {/* Highest Bonus Display */}
+          <div className="text-right space-y-1">
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">Maximum Bonus Potential</p>
+            <div className="text-4xl font-bold text-primary">
+              {(() => {
+                const highestBonus = outputs["Sheet1!D44"] ?? 0;
+                return highestBonus.toLocaleString(undefined, { style: "currency", currency: "USD" });
+              })()}
+            </div>
+            <p className="text-xs text-muted-foreground">Top tier achievement</p>
+          </div>
+        </div>
+      </div>
+
+      <header className="flex items-end justify-between">
         <div className="flex gap-2 items-center">
           <Button 
             variant="outline" 
