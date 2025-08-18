@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
-import { InputsForm } from "../bonus_grid_web_spec/InputsForm";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
 import outputsMap from "../bonus_grid_web_spec/outputs_addresses.json";
 import { buildCopyPayload, buildCopyText } from "../bonus_grid_web_spec/copyResults";
 import { buildNormalizedState } from "../bonus_grid_web_spec/normalize";
+import { BaselineTable } from "../bonus_grid_web_spec/BaselineTable";
+import { NewBusinessTable } from "../bonus_grid_web_spec/NewBusinessTable";
+import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactorsCard";
+import { GrowthGridGoalsTable } from "../bonus_grid_web_spec/GrowthGridGoalsTable";
+import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
 export default function BonusGridPage(){
   const [state, setState] = useState<Record<CellAddr, any>>(()=>{
@@ -27,10 +31,23 @@ export default function BonusGridPage(){
     ] as CellAddr[]
   ), []);
 
+  // All computed addresses for tables
+  const allComputedAddrs = useMemo(()=> {
+    const baseline = BASELINE_ROWS.flatMap(r => [r.ppi, r.total, r.loss]);
+    const newBiz = NEW_BIZ_ROWS.map(r => r.total);
+    const gbf = ["Sheet1!D29", "Sheet1!D30", "Sheet1!D31", "Sheet1!D32"] as CellAddr[];
+    return [...outputAddrs, ...baseline, ...newBiz, ...gbf];
+  }, [outputAddrs]);
+
   const outputs = useMemo(()=>{
     const normalized = buildNormalizedState(state, inputsSchema as any);
     return computeRounded({ inputs: normalized } as WorkbookState, outputAddrs);
   }, [state]);
+
+  const allOutputs = useMemo(()=>{
+    const normalized = buildNormalizedState(state, inputsSchema as any);
+    return computeRounded({ inputs: normalized } as WorkbookState, allComputedAddrs);
+  }, [state, allComputedAddrs]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);
@@ -62,10 +79,18 @@ export default function BonusGridPage(){
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
-          <Card title="Baseline"><InputsForm state={state} setState={setField} sectionId="baseline" /></Card>
-          <Card title="New Business"><InputsForm state={state} setState={setField} sectionId="new_business" /></Card>
-          <Card title="Growth Bonus Factors"><InputsForm state={state} setState={setField} sectionId="growth_bonus_factors" /></Card>
-          <Card title="Growth Grid Goals"><InputsForm state={state} setState={setField} sectionId="growth_grid" /></Card>
+          <Card title="Baseline">
+            <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
+          </Card>
+          <Card title="New Business">
+            <NewBusinessTable state={state} setState={setField} computedValues={allOutputs} />
+          </Card>
+          <Card title="Growth Bonus Factors">
+            <GrowthBonusFactorsCard state={state} setState={setField} computedValues={allOutputs} />
+          </Card>
+          <Card title="Growth Grid Goals">
+            <GrowthGridGoalsTable state={state} setState={setField} />
+          </Card>
         </section>
 
         <section className="space-y-4">
