@@ -8,7 +8,7 @@ import { buildNormalizedState } from "../bonus_grid_web_spec/normalize";
 import { BaselineTable } from "../bonus_grid_web_spec/BaselineTable";
 import { NewBusinessTable } from "../bonus_grid_web_spec/NewBusinessTable";
 import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactorsCard";
-import { GrowthGridGoalsTable } from "../bonus_grid_web_spec/GrowthGridGoalsTable";
+
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
 const STORAGE_KEY = "bonusGrid:inputs";
@@ -23,12 +23,22 @@ export default function BonusGridPage(){
       } catch {}
     }
     
-    // Fallback to schema defaults
+    // Fallback to schema defaults with PPI defaults
     const s: Record<CellAddr, any> = {};
     for (const f of (inputsSchema as any).all_fields) {
       const addr = `${f.sheet}!${f.cell}` as CellAddr;
       if (f.default != null) s[addr] = f.default;
     }
+    
+    // Add PPI defaults: 10,0,0,5,20,20,5,5,5,5,5,0,0,0,10
+    const ppiDefaults = [10,0,0,5,20,20,5,5,5,5,5,0,0,0,10];
+    BASELINE_ROWS.forEach((row, i) => {
+      s[row.ppi] = ppiDefaults[i];
+    });
+    NEW_BIZ_ROWS.forEach((row, i) => {
+      s[row.ppi] = ppiDefaults[i];
+    });
+    
     return s;
   });
   const setField = (addr: CellAddr, val: any) => setState(p=>({ ...p, [addr]: val }));
@@ -103,14 +113,11 @@ export default function BonusGridPage(){
           <Card title="Growth Bonus Factors">
             <GrowthBonusFactorsCard state={state} setState={setField} computedValues={allOutputs} />
           </Card>
-          <Card title="Growth Grid Goals">
-            <GrowthGridGoalsTable state={state} setState={setField} />
-          </Card>
         </section>
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
-          <Card title="Growth Grid Summary"><SummaryGrid state={state} /></Card>
+          <Card title="Growth Grid Summary"><SummaryGrid state={state} setState={setField} /></Card>
         </section>
       </div>
     </main>
