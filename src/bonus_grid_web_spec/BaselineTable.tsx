@@ -24,7 +24,7 @@ export function BaselineTable({
         {BASELINE_ROWS.map(row => {
           const itemsVal = state[row.items] ?? "";
           const retentionVal = state[row.retention] ?? "";
-          const ppiVal = computedValues[row.ppi] ?? 0;
+          // PPI is now editable, not computed
           const totalVal = computedValues[row.total] ?? 0;
           const lossVal = computedValues[row.loss] ?? 0;
 
@@ -42,9 +42,14 @@ export function BaselineTable({
                 />
               </div>
               
-              {/* Read-only PPI */}
-              <div className="text-center text-muted-foreground bg-muted/50 rounded px-2 py-1">
-                {formatValue(row.ppi, ppiVal)}
+              {/* Editable PPI */}
+              <div>
+                <input
+                  className="w-full border border-input rounded px-2 py-1 bg-background text-foreground text-right tabular-nums"
+                  inputMode="decimal"
+                  value={state[row.ppi] ?? ""}
+                  onChange={e => setState(row.ppi, e.target.value)}
+                />
               </div>
               
               {/* Editable Retention % */}

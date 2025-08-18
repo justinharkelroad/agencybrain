@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
@@ -11,8 +11,19 @@ import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactor
 import { GrowthGridGoalsTable } from "../bonus_grid_web_spec/GrowthGridGoalsTable";
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
+const STORAGE_KEY = "bonusGrid:inputs";
+
 export default function BonusGridPage(){
   const [state, setState] = useState<Record<CellAddr, any>>(()=>{
+    // Try to load from localStorage first
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {}
+    }
+    
+    // Fallback to schema defaults
     const s: Record<CellAddr, any> = {};
     for (const f of (inputsSchema as any).all_fields) {
       const addr = `${f.sheet}!${f.cell}` as CellAddr;
@@ -21,6 +32,14 @@ export default function BonusGridPage(){
     return s;
   });
   const setField = (addr: CellAddr, val: any) => setState(p=>({ ...p, [addr]: val }));
+
+  // Save to localStorage with debounce
+  useEffect(() => {
+    const id = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }, 200);
+    return () => clearTimeout(id);
+  }, [state]);
 
   const outputAddrs = useMemo(()=>(
     [
@@ -33,9 +52,9 @@ export default function BonusGridPage(){
 
   // All computed addresses for tables
   const allComputedAddrs = useMemo(()=> {
-    const baseline = BASELINE_ROWS.flatMap(r => [r.ppi, r.total, r.loss]);
-    const newBiz = NEW_BIZ_ROWS.map(r => r.total);
-    const gbf = ["Sheet1!D29", "Sheet1!D30", "Sheet1!D31", "Sheet1!D32"] as CellAddr[];
+    const baseline = BASELINE_ROWS.flatMap(r => [r.total, r.loss]); // E, G only
+    const newBiz = NEW_BIZ_ROWS.map(r => r.total);                  // M9–M23
+    const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; // no D29
     return [...outputAddrs, ...baseline, ...newBiz, ...gbf];
   }, [outputAddrs]);
 
@@ -56,12 +75,8 @@ export default function BonusGridPage(){
     navigator.clipboard.writeText(JSON.stringify(payload) + "\n\n" + text);
   };
   const reset = () => {
-    const s: Record<CellAddr, any> = {};
-    for (const f of (inputsSchema as any).all_fields) {
-      const addr = `${f.sheet}!${f.cell}` as CellAddr;
-      if (f.default != null) s[addr] = f.default;
-    }
-    setState(s);
+    setState({});
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   return (
