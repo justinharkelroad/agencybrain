@@ -185,6 +185,25 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
   "Sheet1!J44": (ctx)=> ctx.get("Sheet1!I44")/ctx.get("Sheet1!D31"),
   "Sheet1!K44": (ctx)=> ctx.get("Sheet1!I44")/21,
   "Sheet1!L44": (ctx)=> ctx.get("Sheet1!K44")/ctx.get("Sheet1!D31"),
+
+  // === Phase 7: Growth Bonus Factors ===
+  // Overall Retention = SUM(F_r * E_r) / E24
+  "Sheet1!D29": (ctx) => {
+    const ROWS_9_23 = Array.from({ length: 15 }, (_, i) => 9 + i);
+    let num = 0;
+    for (const r of ROWS_9_23) {
+      const Fr = ctx.get(`Sheet1!F${r}` as CellAddr); // decimal 0..1
+      const Er = ctx.get(`Sheet1!E${r}` as CellAddr); // points
+      num += Fr * Er;
+    }
+    const denom = ctx.get("Sheet1!E24" as CellAddr);
+    return denom > 0 ? num / denom : 0;
+  },
+
+  // Pass-throughs so UI can bind GBF directly if desired:
+  "Sheet1!D30": (ctx) => ctx.get("Sheet1!C24" as CellAddr), // Baseline Items
+  "Sheet1!D31": (ctx) => ctx.get("Sheet1!E24" as CellAddr), // Baseline Points
+  "Sheet1!D32": (ctx) => ctx.get("Sheet1!M25" as CellAddr), // New Points/Items Mix
 };
 
 export function computeSelected(state: WorkbookState, addrs: CellAddr[]): Record<CellAddr, number> {

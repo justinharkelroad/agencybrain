@@ -64,6 +64,56 @@
     { "id": "new_business_items_23", "label": "New Business — Items Row 23", "type": "number", "sheet": "Sheet1", "cell": "K23", "default": 0, "format": "0" },
     { "id": "new_business_points_per_item_23", "label": "New Business — Points per Item Row 23", "type": "number", "sheet": "Sheet1", "cell": "L23", "default": 0, "format": "0.00" },
 
+    { "id": "baseline_items_12", "label": "Baseline — Items Row 12", "type": "number", "sheet": "Sheet1", "cell": "C12", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_12", "label": "Baseline — Points per Item Row 12", "type": "number", "sheet": "Sheet1", "cell": "D12", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_12", "label": "Baseline — Retention Row 12 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F12", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_13", "label": "Baseline — Items Row 13", "type": "number", "sheet": "Sheet1", "cell": "C13", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_13", "label": "Baseline — Points per Item Row 13", "type": "number", "sheet": "Sheet1", "cell": "D13", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_13", "label": "Baseline — Retention Row 13 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F13", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_14", "label": "Baseline — Items Row 14", "type": "number", "sheet": "Sheet1", "cell": "C14", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_14", "label": "Baseline — Points per Item Row 14", "type": "number", "sheet": "Sheet1", "cell": "D14", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_14", "label": "Baseline — Retention Row 14 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F14", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_15", "label": "Baseline — Items Row 15", "type": "number", "sheet": "Sheet1", "cell": "C15", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_15", "label": "Baseline — Points per Item Row 15", "type": "number", "sheet": "Sheet1", "cell": "D15", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_15", "label": "Baseline — Retention Row 15 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F15", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_16", "label": "Baseline — Items Row 16", "type": "number", "sheet": "Sheet1", "cell": "C16", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_16", "label": "Baseline — Points per Item Row 16", "type": "number", "sheet": "Sheet1", "cell": "D16", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_16", "label": "Baseline — Retention Row 16 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F16", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_17", "label": "Baseline — Items Row 17", "type": "number", "sheet": "Sheet1", "cell": "C17", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_17", "label": "Baseline — Points per Item Row 17", "type": "number", "sheet": "Sheet1", "cell": "D17", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_17", "label": "Baseline — Retention Row 17 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F17", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_18", "label": "Baseline — Items Row 18", "type": "number", "sheet": "Sheet1", "cell": "C18", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_18", "label": "Baseline — Points per Item Row 18", "type": "number", "sheet": "Sheet1", "cell": "D18", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_18", "label": "Baseline — Retention Row 18 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F18", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_19", "label": "Baseline — Items Row 19", "type": "number", "sheet": "Sheet1", "cell": "C19", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_19", "label": "Baseline — Points per Item Row 19", "type": "number", "sheet": "Sheet1", "cell": "D19", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_19", "label": "Baseline — Retention Row 19 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F19", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_20", "label": "Baseline — Items Row 20", "type": "number", "sheet": "Sheet1", "cell": "C20", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_20", "label": "Baseline — Points per Item Row 20", "type": "number", "sheet": "Sheet1", "cell": "D20", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_20", "label": "Baseline — Retention Row 20 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F20", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_21", "label": "Baseline — Items Row 21", "type": "number", "sheet": "Sheet1", "cell": "C21", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_21", "label": "Baseline — Points per Item Row 21", "type": "number", "sheet": "Sheet1", "cell": "D21", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_21", "label": "Baseline — Retention Row 21 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F21", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_22", "label": "Baseline — Items Row 22", "type": "number", "sheet": "Sheet1", "cell": "C22", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_22", "label": "Baseline — Points per Item Row 22", "type": "number", "sheet": "Sheet1", "cell": "D22", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_22", "label": "Baseline — Retention Row 22 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F22", "default": 90, "format": "0.00%" },
+
+    { "id": "baseline_items_23", "label": "Baseline — Items Row 23", "type": "number", "sheet": "Sheet1", "cell": "C23", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_23", "label": "Baseline — Points per Item Row 23", "type": "number", "sheet": "Sheet1", "cell": "D23", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_23", "label": "Baseline — Retention Row 23 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F23", "default": 90, "format": "0.00%" },
+
+    { "id": "gbf_annualized_written_premium", "label": "Annualized Written Premium ($)", "type": "money", "sheet": "Sheet1", "cell": "D33", "default": 0, "format": "$#,##0.00" },
+
     { "id": "growth_total_baseline_premium", "label": "Total Baseline Premium", "type": "money", "sheet": "Sheet1", "cell": "D31", "default": 0, "format": "$0.00" },
     { "id": "growth_total_new_business_premium", "label": "Total New Business Premium", "type": "money", "sheet": "Sheet1", "cell": "D32", "default": 0, "format": "$0.00" },
     { "id": "growth_growth_percentage", "label": "Growth Percentage", "type": "percent", "sheet": "Sheet1", "cell": "D34", "default": 0, "format": "0.00%" }

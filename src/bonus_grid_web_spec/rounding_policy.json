@@ -78,5 +78,11 @@
   "Sheet1!D44": { "type": "money", "digits": 2 },
   "Sheet1!H44": { "type": "money", "digits": 2 },
   "Sheet1!K44": { "type": "integer", "digits": 0 },
-  "Sheet1!L44": { "type": "integer", "digits": 0 }
+  "Sheet1!L44": { "type": "integer", "digits": 0 },
+  "Sheet1!D29": { "type": "percent", "digits": 2 },
+  "Sheet1!D30": { "type": "integer", "digits": 0 },
+  "Sheet1!D31": { "type": "integer", "digits": 0 },
+  "Sheet1!D32": { "type": "two_decimals", "digits": 2 },
+  "Sheet1!D33": { "type": "money", "digits": 2 },
+  "Sheet1!D34": { "type": "percent", "digits": 2 }
 }
