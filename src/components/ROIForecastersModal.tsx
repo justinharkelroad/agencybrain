@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator } from "lucide-react";
 import {
   clampPercent,
   formatCurrency,
@@ -29,6 +29,7 @@ import {
   computeTransferMetrics,
 } from "@/utils/marketingCalculator";
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
+import { BonusGridForm } from "@/components/BonusGridForm";
 
 export type ROIForecastersModalProps = {
   open: boolean;
@@ -115,11 +116,20 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             {last === "transfer" && <span className="text-xs text-muted-foreground">Last used</span>}
           </CardContent>
         </Card>
+        <Card className={cardBase} role="button" onClick={() => onPick("allstate_bonus_grid")} aria-label="Open Allstate Bonus Grid">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Allstate Bonus Grid</CardTitle>
+            <CardDescription>Enter your baseline and production to see bonus, daily points, and items</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
+          </CardContent>
+        </Card>
       </div>
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -160,6 +170,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "transfer" && (
           <div className="animate-enter">
             <TransferForm onBack={() => setMode(null)} />
+          </div>
+        )}
+        {mode === "allstate_bonus_grid" && (
+          <div className="animate-enter">
+            <BonusGridForm onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>
