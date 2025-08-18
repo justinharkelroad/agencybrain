@@ -1,5 +1,6 @@
 // formulas_impl.ts – Generated Excel-to-TS evaluator
 // Supports cell references, ranges, SUM, arithmetic, and safe defaults.
+import bonusPerc from "./bonus_percent_presets.json";
 
 export type CellAddr = `${string}!${string}`;
 export interface WorkbookState { inputs: Record<CellAddr, number | string | null>; }
@@ -115,76 +116,42 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
     return k24 > 0 ? ctx.get("Sheet1!M24") / k24 : 0;
   },
   
-  // Growth Grid rows (38-44)
-  "Sheet1!D38": (ctx)=> ctx.get("Sheet1!C38")*ctx.get("Sheet1!D32"),
-  "Sheet1!E38": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F38": (ctx)=> ctx.get("Sheet1!E38")+ctx.get("Sheet1!B38"),
-  "Sheet1!G38": (ctx)=> ctx.get("Sheet1!F38")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H38": (ctx)=> ctx.get("Sheet1!F38")+ctx.get("Sheet1!G38"),
-  "Sheet1!I38": (ctx)=> ctx.get("Sheet1!H38")/12,
-  "Sheet1!J38": (ctx)=> ctx.get("Sheet1!I38")/ctx.get("Sheet1!D31"),
-  "Sheet1!K38": (ctx)=> ctx.get("Sheet1!I38")/21,
-  "Sheet1!L38": (ctx)=> ctx.get("Sheet1!K38")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D39": (ctx)=> ctx.get("Sheet1!C39")*ctx.get("Sheet1!D32"),
-  "Sheet1!E39": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F39": (ctx)=> ctx.get("Sheet1!E39")+ctx.get("Sheet1!B39"),
-  "Sheet1!G39": (ctx)=> ctx.get("Sheet1!F39")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H39": (ctx)=> ctx.get("Sheet1!F39")+ctx.get("Sheet1!G39"),
-  "Sheet1!I39": (ctx)=> ctx.get("Sheet1!H39")/12,
-  "Sheet1!J39": (ctx)=> ctx.get("Sheet1!I39")/ctx.get("Sheet1!D31"),
-  "Sheet1!K39": (ctx)=> ctx.get("Sheet1!I39")/21,
-  "Sheet1!L39": (ctx)=> ctx.get("Sheet1!K39")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D40": (ctx)=> ctx.get("Sheet1!C40")*ctx.get("Sheet1!D32"),
-  "Sheet1!E40": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F40": (ctx)=> ctx.get("Sheet1!E40")+ctx.get("Sheet1!B40"),
-  "Sheet1!G40": (ctx)=> ctx.get("Sheet1!F40")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H40": (ctx)=> ctx.get("Sheet1!F40")+ctx.get("Sheet1!G40"),
-  "Sheet1!I40": (ctx)=> ctx.get("Sheet1!H40")/12,
-  "Sheet1!J40": (ctx)=> ctx.get("Sheet1!I40")/ctx.get("Sheet1!D31"),
-  "Sheet1!K40": (ctx)=> ctx.get("Sheet1!I40")/21,
-  "Sheet1!L40": (ctx)=> ctx.get("Sheet1!K40")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D41": (ctx)=> ctx.get("Sheet1!C41")*ctx.get("Sheet1!D32"),
-  "Sheet1!E41": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F41": (ctx)=> ctx.get("Sheet1!E41")+ctx.get("Sheet1!B41"),
-  "Sheet1!G41": (ctx)=> ctx.get("Sheet1!F41")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H41": (ctx)=> ctx.get("Sheet1!F41")+ctx.get("Sheet1!G41"),
-  "Sheet1!I41": (ctx)=> ctx.get("Sheet1!H41")/12,
-  "Sheet1!J41": (ctx)=> ctx.get("Sheet1!I41")/ctx.get("Sheet1!D31"),
-  "Sheet1!K41": (ctx)=> ctx.get("Sheet1!I41")/21,
-  "Sheet1!L41": (ctx)=> ctx.get("Sheet1!K41")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D42": (ctx)=> ctx.get("Sheet1!C42")*ctx.get("Sheet1!D32"),
-  "Sheet1!E42": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F42": (ctx)=> ctx.get("Sheet1!E42")+ctx.get("Sheet1!B42"),
-  "Sheet1!G42": (ctx)=> ctx.get("Sheet1!F42")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H42": (ctx)=> ctx.get("Sheet1!F42")+ctx.get("Sheet1!G42"),
-  "Sheet1!I42": (ctx)=> ctx.get("Sheet1!H42")/12,
-  "Sheet1!J42": (ctx)=> ctx.get("Sheet1!I42")/ctx.get("Sheet1!D31"),
-  "Sheet1!K42": (ctx)=> ctx.get("Sheet1!I42")/21,
-  "Sheet1!L42": (ctx)=> ctx.get("Sheet1!K42")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D43": (ctx)=> ctx.get("Sheet1!C43")*ctx.get("Sheet1!D32"),
-  "Sheet1!E43": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F43": (ctx)=> ctx.get("Sheet1!E43")+ctx.get("Sheet1!B43"),
-  "Sheet1!G43": (ctx)=> ctx.get("Sheet1!F43")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H43": (ctx)=> ctx.get("Sheet1!F43")+ctx.get("Sheet1!G43"),
-  "Sheet1!I43": (ctx)=> ctx.get("Sheet1!H43")/12,
-  "Sheet1!J43": (ctx)=> ctx.get("Sheet1!I43")/ctx.get("Sheet1!D31"),
-  "Sheet1!K43": (ctx)=> ctx.get("Sheet1!I43")/21,
-  "Sheet1!L43": (ctx)=> ctx.get("Sheet1!K43")/ctx.get("Sheet1!D31"),
-  
-  "Sheet1!D44": (ctx)=> ctx.get("Sheet1!C44")*ctx.get("Sheet1!D32"),
-  "Sheet1!E44": (ctx)=> ctx.get("Sheet1!G24"),
-  "Sheet1!F44": (ctx)=> ctx.get("Sheet1!E44")+ctx.get("Sheet1!B44"),
-  "Sheet1!G44": (ctx)=> ctx.get("Sheet1!F44")*(1-ctx.get("Sheet1!D34")),
-  "Sheet1!H44": (ctx)=> ctx.get("Sheet1!F44")+ctx.get("Sheet1!G44"),
-  "Sheet1!I44": (ctx)=> ctx.get("Sheet1!H44")/12,
-  "Sheet1!J44": (ctx)=> ctx.get("Sheet1!I44")/ctx.get("Sheet1!D31"),
-  "Sheet1!K44": (ctx)=> ctx.get("Sheet1!I44")/21,
-  "Sheet1!L44": (ctx)=> ctx.get("Sheet1!K44")/ctx.get("Sheet1!D31"),
+  // lock H38..H44 as read-only presets
+  ...Object.fromEntries([38,39,40,41,42,43,44].map(r => 
+    [`Sheet1!H${r}` as CellAddr, () => Number((bonusPerc as any)[`H${r}`]) || 0]
+  )),
+
+  // REPLACE the wrong Growth Grid block with:
+  ...Object.fromEntries([38,39,40,41,42,43,44].flatMap(r => [
+    // Bonus $ = Annualized Premium × Bonus %
+    [`Sheet1!D${r}` as CellAddr, (ctx: CalcContext) =>
+      ctx.get("Sheet1!D33" as CellAddr) * ctx.get(`Sheet1!H${r}` as CellAddr)],
+
+    // Net Points = Growth Point Goal
+    [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!C${r}` as CellAddr)],
+
+    // Point Loss = Net Points × (1 − 1st-Year Retention)
+    [`Sheet1!G${r}` as CellAddr, (ctx: CalcContext) =>
+      ctx.get(`Sheet1!E${r}` as CellAddr) * (1 - ctx.get("Sheet1!D34" as CellAddr))],
+
+    // Monthly Points = (Net + Loss) / 12
+    [`Sheet1!I${r}` as CellAddr, (ctx: CalcContext) =>
+      (ctx.get(`Sheet1!E${r}` as CellAddr) + ctx.get(`Sheet1!G${r}` as CellAddr)) / 12],
+
+    // Daily Points = Monthly / 21
+    [`Sheet1!K${r}` as CellAddr, (ctx: CalcContext) =>
+      ctx.get(`Sheet1!I${r}` as CellAddr) / 21],
+
+    // Daily Items = Daily Points / Mix (safe)
+    [`Sheet1!L${r}` as CellAddr, (ctx: CalcContext) => {
+      const mix = ctx.get("Sheet1!M25" as CellAddr);
+      return mix > 0 ? ctx.get(`Sheet1!K${r}` as CellAddr) / mix : 0;
+    }],
+  ])),
+
+  // pass-throughs
+  "Sheet1!D31": (ctx) => ctx.get("Sheet1!E24" as CellAddr),
+  "Sheet1!D32": (ctx) => ctx.get("Sheet1!M25" as CellAddr),
 
   // === Phase 7: Growth Bonus Factors ===
   // Overall Retention = SUM(F_r * E_r) / E24
@@ -202,8 +169,6 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
 
   // Pass-throughs so UI can bind GBF directly if desired:
   "Sheet1!D30": (ctx) => ctx.get("Sheet1!C24" as CellAddr), // Baseline Items
-  "Sheet1!D31": (ctx) => ctx.get("Sheet1!E24" as CellAddr), // Baseline Points
-  "Sheet1!D32": (ctx) => ctx.get("Sheet1!M25" as CellAddr), // New Points/Items Mix
 };
 
 export function computeSelected(state: WorkbookState, addrs: CellAddr[]): Record<CellAddr, number> {

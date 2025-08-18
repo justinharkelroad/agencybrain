@@ -113,9 +113,14 @@
     { "id": "baseline_retention_23", "label": "Baseline — Retention Row 23 (%)", "type": "percent", "sheet": "Sheet1", "cell": "F23", "default": 90, "format": "0.00%" },
 
     { "id": "gbf_annualized_written_premium", "label": "Annualized Written Premium ($)", "type": "money", "sheet": "Sheet1", "cell": "D33", "default": 0, "format": "$#,##0.00" },
+    { "id": "growth_growth_percentage", "label": "1st Year Retention (%)", "type": "percent", "sheet": "Sheet1", "cell": "D34", "default": 0, "format": "0.00%" },
 
-    { "id": "growth_total_baseline_premium", "label": "Total Baseline Premium", "type": "money", "sheet": "Sheet1", "cell": "D31", "default": 0, "format": "$0.00" },
-    { "id": "growth_total_new_business_premium", "label": "Total New Business Premium", "type": "money", "sheet": "Sheet1", "cell": "D32", "default": 0, "format": "$0.00" },
-    { "id": "growth_growth_percentage", "label": "Growth Percentage", "type": "percent", "sheet": "Sheet1", "cell": "D34", "default": 0, "format": "0.00%" }
+    { "id":"grid_goal_points_row_38","label":"Growth Point Goal — Row 38","type":"number","sheet":"Sheet1","cell":"C38","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_39","label":"Growth Point Goal — Row 39","type":"number","sheet":"Sheet1","cell":"C39","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_40","label":"Growth Point Goal — Row 40","type":"number","sheet":"Sheet1","cell":"C40","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_41","label":"Growth Point Goal — Row 41","type":"number","sheet":"Sheet1","cell":"C41","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_42","label":"Growth Point Goal — Row 42","type":"number","sheet":"Sheet1","cell":"C42","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_43","label":"Growth Point Goal — Row 43","type":"number","sheet":"Sheet1","cell":"C43","default":0,"format":"0" },
+    { "id":"grid_goal_points_row_44","label":"Growth Point Goal — Row 44","type":"number","sheet":"Sheet1","cell":"C44","default":0,"format":"0" }
   ]
 }
