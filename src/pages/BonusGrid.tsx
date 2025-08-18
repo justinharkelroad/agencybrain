@@ -1,4 +1,6 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { Link, useNavigate, useBlocker } from "react-router-dom";
+import { ArrowLeft, Save, Clock } from "lucide-react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
@@ -10,6 +12,8 @@ import { NewBusinessTable } from "../bonus_grid_web_spec/NewBusinessTable";
 import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactorsCard";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
@@ -39,16 +43,60 @@ function hydrate(): Record<CellAddr, any> {
 
 export default function BonusGridPage(){
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [nextLocation, setNextLocation] = useState<string | null>(null);
   
   const [state, setState] = useState<Record<CellAddr, any>>(() => hydrate());
   
-  const setField = (addr: CellAddr, val: any) => setState(p=>({ ...p, [addr]: val }));
+  const setField = (addr: CellAddr, val: any) => {
+    setState(p=>({ ...p, [addr]: val }));
+    setHasUnsavedChanges(true);
+  };
 
+  // Auto-save with visual feedback
   useEffect(() => {
-    const id = setTimeout(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), 200);
+    if (!hasUnsavedChanges) return;
+    
+    setIsAutoSaving(true);
+    const id = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setIsAutoSaving(false);
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+    }, 500);
     return () => clearTimeout(id);
-  }, [state]);
+  }, [state, hasUnsavedChanges]);
+
+  // Block navigation when there are unsaved changes
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Handle browser beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Handle blocked navigation
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      setNextLocation(blocker.location.pathname);
+      setShowNavigationDialog(true);
+    }
+  }, [blocker]);
 
   const outputAddrs = useMemo(()=>(
     [
@@ -90,42 +138,118 @@ export default function BonusGridPage(){
 
   const handleSave = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setLastSaved(new Date());
+    setHasUnsavedChanges(false);
     toast({
       title: "Data saved!",
       description: "Your bonus grid data has been saved successfully.",
     });
   };
   
-  const handleReset = () => { setState({}); localStorage.removeItem(STORAGE_KEY); };
+  const handleReset = () => { 
+    setState({}); 
+    localStorage.removeItem(STORAGE_KEY); 
+    setHasUnsavedChanges(false);
+    setLastSaved(new Date());
+  };
+
+  const handleSaveAndNavigate = useCallback(() => {
+    handleSave();
+    setShowNavigationDialog(false);
+    if (nextLocation) {
+      navigate(nextLocation);
+    }
+  }, [nextLocation, navigate]);
+
+  const handleNavigateWithoutSaving = useCallback(() => {
+    setHasUnsavedChanges(false);
+    setShowNavigationDialog(false);
+    if (nextLocation) {
+      navigate(nextLocation);
+    }
+  }, [nextLocation, navigate]);
+
+  const handleStay = useCallback(() => {
+    setShowNavigationDialog(false);
+    setNextLocation(null);
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Navigation Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Link to="/dashboard">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Return to Dashboard
+            </Button>
+          </Link>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/dashboard">Dashboard</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Bonus Grid</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+        
+        {/* Save Status */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {isAutoSaving ? (
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 animate-spin" />
+              Saving...
+            </div>
+          ) : hasUnsavedChanges ? (
+            <div className="flex items-center gap-2 text-amber-600">
+              <Clock className="h-4 w-4" />
+              Unsaved changes
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-green-600">
+              <Save className="h-4 w-4" />
+              Saved at {lastSaved.toLocaleTimeString()}
+            </div>
+          )}
+        </div>
+      </div>
+
       <header className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Allstate Bonus Grid</h1>
           <p className="text-sm text-muted-foreground">Inputs on the left. Results on the right.</p>
         </div>
         <div className="flex gap-2 items-center">
-          {isAutoSaving && (
-            <span className="text-xs text-muted-foreground">Auto-saving...</span>
-          )}
-          <button 
-            className="px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80" 
+          <Button 
+            variant="outline" 
             onClick={handleSave}
+            disabled={!hasUnsavedChanges}
+            className="gap-2"
           >
+            <Save className="h-4 w-4" />
             Save Data
-          </button>
-          <button 
-            className="px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80" 
+          </Button>
+          <Button 
+            variant="outline" 
             onClick={copy}
           >
             Copy Results
-          </button>
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <button className="px-3 py-2 rounded-lg border border-border hover:bg-destructive/10 hover:text-destructive">
+              <Button variant="outline" className="hover:bg-destructive/10 hover:text-destructive">
                 Reset
-              </button>
+              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -144,6 +268,27 @@ export default function BonusGridPage(){
           </AlertDialog>
         </div>
       </header>
+
+      {/* Navigation Dialog */}
+      <AlertDialog open={showNavigationDialog} onOpenChange={setShowNavigationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes that will be lost if you leave this page. What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleStay}>Stay on Page</AlertDialogCancel>
+            <Button variant="outline" onClick={handleNavigateWithoutSaving}>
+              Leave Without Saving
+            </Button>
+            <AlertDialogAction onClick={handleSaveAndNavigate}>
+              Save & Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
