@@ -121,28 +121,38 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
     [`Sheet1!H${r}` as CellAddr, () => Number((bonusPerc as any)[`H${r}`]) || 0]
   )),
 
-  // REPLACE the wrong Growth Grid block with:
+  // Growth Grid formulas (rows 38-44) with correct address mapping
   ...Object.fromEntries([38,39,40,41,42,43,44].flatMap(r => [
-    // Bonus $ = Annualized Premium × Bonus %
+    // D[r] = D33 * H[r] // Bonus $
     [`Sheet1!D${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get("Sheet1!D33" as CellAddr) * ctx.get(`Sheet1!H${r}` as CellAddr)],
 
-    // Net Points = Growth Point Goal
+    // E[r] = C[r] // Net Points Needed
     [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!C${r}` as CellAddr)],
 
-    // Point Loss = Net Points × (1 − 1st-Year Retention)
-    [`Sheet1!G${r}` as CellAddr, (ctx: CalcContext) =>
+    // F[r] = E[r] * (1 - D34) // 1st Yr Retention Loss Factor
+    [`Sheet1!F${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get(`Sheet1!E${r}` as CellAddr) * (1 - ctx.get("Sheet1!D34" as CellAddr))],
 
-    // Monthly Points = (Net + Loss) / 12
-    [`Sheet1!I${r}` as CellAddr, (ctx: CalcContext) =>
-      (ctx.get(`Sheet1!E${r}` as CellAddr) + ctx.get(`Sheet1!G${r}` as CellAddr)) / 12],
+    // G[r] = E[r] + F[r] // TOTAL Points Needed
+    [`Sheet1!G${r}` as CellAddr, (ctx: CalcContext) =>
+      ctx.get(`Sheet1!E${r}` as CellAddr) + ctx.get(`Sheet1!F${r}` as CellAddr)],
 
-    // Daily Points = Monthly / 21
+    // I[r] = G[r] / 12 // Monthly Points Needed
+    [`Sheet1!I${r}` as CellAddr, (ctx: CalcContext) =>
+      ctx.get(`Sheet1!G${r}` as CellAddr) / 12],
+
+    // J[r] = M25 > 0 ? I[r] / M25 : 0 // Monthly Items Needed
+    [`Sheet1!J${r}` as CellAddr, (ctx: CalcContext) => {
+      const mix = ctx.get("Sheet1!M25" as CellAddr);
+      return mix > 0 ? ctx.get(`Sheet1!I${r}` as CellAddr) / mix : 0;
+    }],
+
+    // K[r] = I[r] / 21 // Daily Points Needed
     [`Sheet1!K${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get(`Sheet1!I${r}` as CellAddr) / 21],
 
-    // Daily Items = Daily Points / Mix (safe)
+    // L[r] = M25 > 0 ? K[r] / M25 : 0 // Daily Items Needed
     [`Sheet1!L${r}` as CellAddr, (ctx: CalcContext) => {
       const mix = ctx.get("Sheet1!M25" as CellAddr);
       return mix > 0 ? ctx.get(`Sheet1!K${r}` as CellAddr) / mix : 0;

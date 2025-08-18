@@ -120,7 +120,15 @@ export default function BonusGridPage(){
     const baseline = BASELINE_ROWS.flatMap(r => [r.total, r.loss]); // no r.ppi
     const newBiz = NEW_BIZ_ROWS.map(r => r.total);                  // M9–M23
     const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; // exclude D29
-    return [...outputAddrs, ...baseline, ...newBiz, ...gbf];
+    const growthGrid: CellAddr[] = [
+      ...Array.from({ length: 7 }, (_, i) => 38 + i).flatMap(r => ([
+        `Sheet1!C${r}`, `Sheet1!D${r}`, `Sheet1!E${r}`, `Sheet1!F${r}`,
+        `Sheet1!G${r}`, `Sheet1!H${r}`, `Sheet1!I${r}`, `Sheet1!J${r}`,
+        `Sheet1!K${r}`, `Sheet1!L${r}`,
+      ] as CellAddr[])),
+      "Sheet1!G24" as CellAddr,
+    ];
+    return [...outputAddrs, ...baseline, ...newBiz, ...gbf, ...growthGrid];
   }, [outputAddrs]);
 
   const outputs = useMemo(()=>{
@@ -299,10 +307,10 @@ export default function BonusGridPage(){
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
-          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here. (This data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)">
+          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)">
             <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
-          <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here. (This data is best found in the P&C New Business Summary Report)">
+          <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here.\n(this data is best found in the P&C New Business Summary Report)">
             <NewBusinessTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
           <Card title="Growth Bonus Factors">
