@@ -28,6 +28,7 @@ import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
+import BonusGrid from "./pages/BonusGrid";
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,11 @@ const App = () => (
             <Route path="/health" element={
               <ProtectedRoute requireAdmin>
                 <Health />
+              </ProtectedRoute>
+            } />
+            <Route path="/bonus-grid" element={
+              <ProtectedRoute>
+                <BonusGrid />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

@@ -29,7 +29,7 @@ import {
   computeTransferMetrics,
 } from "@/utils/marketingCalculator";
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
-import { BonusGridForm } from "@/components/BonusGridForm";
+import { useNavigate } from "react-router-dom";
 
 export type ROIForecastersModalProps = {
   open: boolean;
@@ -133,12 +133,18 @@ type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid"
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) setMode(null);
   }, [open]);
 
   const handlePick = (k: CalcKey) => {
+    if (k === "allstate_bonus_grid") {
+      onOpenChange(false);
+      navigate("/bonus-grid");
+      return;
+    }
     setMode(k);
     try { localStorage.setItem(LAST_USED_KEY, k); } catch {}
   };
@@ -170,11 +176,6 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "transfer" && (
           <div className="animate-enter">
             <TransferForm onBack={() => setMode(null)} />
-          </div>
-        )}
-        {mode === "allstate_bonus_grid" && (
-          <div className="animate-enter">
-            <BonusGridForm onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>

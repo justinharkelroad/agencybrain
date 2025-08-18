@@ -8,8 +8,7 @@ import { buildCopyPayload, buildCopyText } from "../bonus_grid_web_spec/copyResu
 import { buildNormalizedState } from "../bonus_grid_web_spec/normalize";
 
 export default function BonusGridPage(){
-  const [state, setState] = useState<Record<CellAddr, any>>(()=> {
-    // seed defaults from schema
+  const [state, setState] = useState<Record<CellAddr, any>>(()=>{
     const s: Record<CellAddr, any> = {};
     for (const f of (inputsSchema as any).all_fields) {
       const addr = `${f.sheet}!${f.cell}` as CellAddr;
@@ -17,8 +16,7 @@ export default function BonusGridPage(){
     }
     return s;
   });
-
-  const setField = (addr: CellAddr, val: any) => setState(prev => ({ ...prev, [addr]: val }));
+  const setField = (addr: CellAddr, val: any) => setState(p=>({ ...p, [addr]: val }));
 
   const outputAddrs = useMemo(()=>(
     [
@@ -38,14 +36,8 @@ export default function BonusGridPage(){
     const normalized = buildNormalizedState(state, inputsSchema as any);
     const payload = buildCopyPayload(normalized, outputs);
     const text = buildCopyText(normalized, outputs);
-    const blob = new Blob([JSON.stringify(payload, null, 2) + "\n\n" + text], { type: "text/plain" });
     navigator.clipboard.writeText(JSON.stringify(payload) + "\n\n" + text);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "bonus_grid_results.txt";
-    a.click();
   };
-
   const reset = () => {
     const s: Record<CellAddr, any> = {};
     for (const f of (inputsSchema as any).all_fields) {
@@ -56,26 +48,66 @@ export default function BonusGridPage(){
   };
 
   return (
-    <main className="p-6 max-w-6xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Allstate Bonus Grid</h1>
-        <p className="text-sm text-gray-600">Enter your baseline and production to see bonus, daily points, and items.</p>
+    <main className="p-6 max-w-7xl mx-auto space-y-6">
+      <header className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Allstate Bonus Grid</h1>
+          <p className="text-sm text-muted-foreground">Inputs on the left. Results on the right.</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="px-3 py-2 rounded-lg border border-border bg-background/50 hover:bg-background/80" onClick={copy}>Copy Results</button>
+          <button className="px-3 py-2 rounded-lg border border-border" onClick={reset}>Reset</button>
+        </div>
       </header>
 
-      <section className="space-y-3">
-        <div className="flex gap-2">
-          <button className="px-3 py-2 border rounded-lg" onClick={copy}>Copy Results</button>
-          <button className="px-3 py-2 border rounded-lg" onClick={reset}>Reset</button>
-        </div>
-      </section>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="space-y-4">
+          <Card title="Baseline"><InputsForm state={state} setState={setField} sectionId="baseline" /></Card>
+          <Card title="New Business"><InputsForm state={state} setState={setField} sectionId="new_business" /></Card>
+          <Card title="Growth Bonus Factors"><InputsForm state={state} setState={setField} sectionId="growth_bonus_factors" /></Card>
+          <Card title="Growth Grid Goals"><InputsForm state={state} setState={setField} sectionId="growth_grid" /></Card>
+        </section>
 
-      <section>
-        <InputsForm state={state} setState={setField} />
-      </section>
-
-      <section>
-        <SummaryGrid state={state} />
-      </section>
+        <section className="space-y-4">
+          <KPIStrip outputs={outputs as any} />
+          <Card title="Growth Grid Summary"><SummaryGrid state={state} /></Card>
+        </section>
+      </div>
     </main>
+  );
+}
+
+function Card({ title, children }:{ title:string; children:any }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card">
+      <div className="px-4 py-3 border-b border-border text-sm font-medium text-card-foreground">{title}</div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function KPIStrip({ outputs }:{ outputs: Record<string, number> }) {
+  const fmtMoney = (n:number)=> n.toLocaleString(undefined,{ style:"currency", currency:"USD" });
+  const fmtPct = (n:number)=> `${(n*100).toFixed(2)}%`;
+  const fmt2 = (n:number)=> (Number.isFinite(n)? n:0).toFixed(2);
+  const h = outputs["Sheet1!H38"] ?? 0;
+  const d = outputs["Sheet1!D38"] ?? 0;
+  const k = outputs["Sheet1!K38"] ?? 0;
+  const l = outputs["Sheet1!L38"] ?? 0;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <KPI label="Bonus %" value={fmtPct(h)} />
+      <KPI label="Bonus $" value={fmtMoney(d)} />
+      <KPI label="Daily Points" value={fmt2(k)} />
+      <KPI label="Daily Items" value={fmt2(l)} />
+    </div>
+  );
+}
+function KPI({ label, value }:{ label:string; value:string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="text-xl font-semibold text-card-foreground">{value}</div>
+    </div>
   );
 }

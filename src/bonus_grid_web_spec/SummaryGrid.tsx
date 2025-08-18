@@ -3,7 +3,7 @@ import { computeRounded, type WorkbookState, type CellAddr } from "./computeWith
 import { formatValue } from "./format";
 
 export function SummaryGrid({ state }:{ state: Record<CellAddr, any> }) {
-  const rows = [38,39,40,41,42,43,44];
+  const rows = [38,39,40,41,42,43,44] as const;
   const addrs = [
     ...outputsMap.bonus_percent_preset,
     ...outputsMap.bonus_dollars,
@@ -14,18 +14,18 @@ export function SummaryGrid({ state }:{ state: Record<CellAddr, any> }) {
   const vals = computeRounded({ inputs: state } as WorkbookState, addrs);
 
   return (
-    <div className="rounded-2xl border border-white/10 overflow-hidden">
-      <div className="grid grid-cols-5 text-sm p-3 border-b border-white/10 text-white/70 bg-white/5">
+    <div className="rounded-xl overflow-hidden border border-border">
+      <div className="grid grid-cols-[80px,1fr,1fr,1fr,1fr] text-xs px-4 py-2 bg-muted border-b border-border text-muted-foreground">
         <div>Row</div><div>Bonus %</div><div>Bonus $</div><div>Daily Points</div><div>Daily Items</div>
       </div>
-      <div className="divide-y divide-white/10">
+      <div className="divide-y divide-border">
         {rows.map(r=>(
-          <div key={r} className="grid grid-cols-5 p-3">
-            <div className="text-white/80">{r}</div>
-            <div className="text-white/90">{formatValue(`Sheet1!H${r}` as CellAddr, vals[`Sheet1!H${r}` as CellAddr])}</div>
-            <div className="text-white/90">{formatValue(`Sheet1!D${r}` as CellAddr, vals[`Sheet1!D${r}` as CellAddr])}</div>
-            <div className="text-white/90">{formatValue(`Sheet1!K${r}` as CellAddr, vals[`Sheet1!K${r}` as CellAddr])}</div>
-            <div className="text-white/90">{formatValue(`Sheet1!L${r}` as CellAddr, vals[`Sheet1!L${r}` as CellAddr])}</div>
+          <div key={r} className="grid grid-cols-[80px,1fr,1fr,1fr,1fr] px-4 py-2 text-sm">
+            <div className="text-muted-foreground">{r}</div>
+            <div className="text-foreground">{formatValue(`Sheet1!H${r}` as CellAddr, vals[`Sheet1!H${r}` as CellAddr])}</div>
+            <div className="text-foreground">{formatValue(`Sheet1!D${r}` as CellAddr, vals[`Sheet1!D${r}` as CellAddr])}</div>
+            <div className="text-foreground">{formatValue(`Sheet1!K${r}` as CellAddr, vals[`Sheet1!K${r}` as CellAddr])}</div>
+            <div className="text-foreground">{formatValue(`Sheet1!L${r}` as CellAddr, vals[`Sheet1!L${r}` as CellAddr])}</div>
           </div>
         ))}
       </div>
