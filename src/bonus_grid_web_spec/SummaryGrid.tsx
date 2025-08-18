@@ -14,18 +14,18 @@ export function SummaryGrid({ state, setState }:{ state: Record<CellAddr, any>; 
 
   const vals = computeRounded({ inputs: state } as WorkbookState, addrs);
 
-  // Custom formatting for bonus percentages - exact values without rounding
-  const formatBonusPercent = (value: number): string => {
+  // Custom formatting for bonus percentages - use row-based lookup to avoid floating point issues
+  const formatBonusPercent = (row: number): string => {
     const exactPercentages: Record<number, string> = {
-      0.04: "4.000%",
-      0.035: "3.500%", 
-      0.029: "2.900%",
-      0.02: "2.000%",
-      0.011: "1.100%",
-      0.0055: "0.550%",
-      0.0005: "0.050%"
+      38: "4.000%",
+      39: "3.500%", 
+      40: "2.900%",
+      41: "2.000%",
+      42: "1.100%",
+      43: "0.550%",
+      44: "0.050%"
     };
-    return exactPercentages[value] || `${(value * 100).toFixed(3)}%`;
+    return exactPercentages[row] || "0.000%";
   };
 
   return (
@@ -48,7 +48,7 @@ export function SummaryGrid({ state, setState }:{ state: Record<CellAddr, any>; 
                   onChange={e => setState(goalAddr, e.target.value)}
                 />
               </div>
-              <div className="text-foreground">{formatBonusPercent(vals[`Sheet1!H${r}` as CellAddr])}</div>
+              <div className="text-foreground">{formatBonusPercent(r)}</div>
               <div className="text-foreground">{formatValue(`Sheet1!D${r}` as CellAddr, vals[`Sheet1!D${r}` as CellAddr])}</div>
               <div className="text-foreground">{formatValue(`Sheet1!K${r}` as CellAddr, vals[`Sheet1!K${r}` as CellAddr])}</div>
               <div className="text-foreground">{formatValue(`Sheet1!L${r}` as CellAddr, vals[`Sheet1!L${r}` as CellAddr])}</div>
