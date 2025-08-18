@@ -45,7 +45,7 @@ export default function BonusGridPage(){
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isAutoSaving, setIsAutoSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [state, setState] = useState<Record<CellAddr, any>>(() => hydrate());
@@ -158,7 +158,7 @@ export default function BonusGridPage(){
     setState({}); 
     localStorage.removeItem(STORAGE_KEY); 
     setHasUnsavedChanges(false);
-    setLastSaved(new Date());
+    setLastSaved(null);
   };
 
   const handleReturnToDashboard = () => {
@@ -207,10 +207,15 @@ export default function BonusGridPage(){
               <Clock className="h-4 w-4" />
               Unsaved changes
             </div>
-          ) : (
+          ) : lastSaved ? (
             <div className="flex items-center gap-2 text-green-600">
               <Save className="h-4 w-4" />
               Saved at {lastSaved.toLocaleTimeString()}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Save className="h-4 w-4" />
+              Ready
             </div>
           )}
         </div>
