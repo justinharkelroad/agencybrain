@@ -4,7 +4,7 @@ import { formatValue } from "./format";
 import { GRID_GOAL_ROWS } from "./rows";
 
 export function SummaryGrid({ state, setState }:{ state: Record<CellAddr, any>; setState: (addr: CellAddr, val: any) => void }) {
-  const rows = [38,39,40,41,42,43,44] as const;
+  const rows = GRID_GOAL_ROWS;
   const addrs = [
     ...outputsMap.bonus_percent_preset,
     ...outputsMap.bonus_dollars,

@@ -33,10 +33,21 @@ export default function BonusGridPage(){
     // Add PPI defaults: 10,0,0,5,20,20,5,5,5,5,5,0,0,0,10
     const ppiDefaults = [10,0,0,5,20,20,5,5,5,5,5,0,0,0,10];
     BASELINE_ROWS.forEach((row, i) => {
-      s[row.ppi] = ppiDefaults[i];
+      if (i < ppiDefaults.length) {
+        s[row.ppi] = ppiDefaults[i];
+      }
     });
     NEW_BIZ_ROWS.forEach((row, i) => {
-      s[row.ppi] = ppiDefaults[i];
+      if (i < ppiDefaults.length) {
+        s[row.ppi] = ppiDefaults[i];
+      }
+    });
+    
+    // Add Goal Points defaults for growth grid
+    const goalDefaults = [1000, 2000, 3000, 4000, 5000, 6000, 7000];
+    goalDefaults.forEach((goal, i) => {
+      const row = 38 + i;
+      s[`Sheet1!C${row}` as CellAddr] = goal;
     });
     
     return s;
