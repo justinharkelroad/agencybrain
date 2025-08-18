@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
   formatCurrency,
@@ -155,6 +156,9 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         <DialogHeader>
           <DialogTitle>ROI Tools</DialogTitle>
           <DialogDescription>Choose Your Weapon</DialogDescription>
+          <Badge variant="outline" className="w-fit mt-2 px-3 py-1 text-xs font-medium bg-muted/50 text-muted-foreground border-muted-foreground/20">
+            EXPERIENCE BUILT FOR DESKTOP
+          </Badge>
         </DialogHeader>
 
         {!mode && <SelectorView onPick={handlePick} />}
