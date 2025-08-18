@@ -299,10 +299,10 @@ export default function BonusGridPage(){
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
-          <Card title="Baseline">
+          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here. (This data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)">
             <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
-          <Card title="New Business">
+          <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here. (This data is best found in the P&C New Business Summary Report)">
             <NewBusinessTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
           <Card title="Growth Bonus Factors">
@@ -312,17 +312,24 @@ export default function BonusGridPage(){
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
-          <Card title="Growth Grid Summary"><SummaryGrid state={state} setState={setField} /></Card>
+          <Card title="Growth Grid Summary"><SummaryGrid state={state} setState={setField} computed={allOutputs} /></Card>
         </section>
       </div>
     </main>
   );
 }
 
-function Card({ title, children }:{ title:string; children:any }) {
+function Card({ title, subtitle, children }:{ title:string; subtitle?: string; children:any }) {
   return (
     <div className="rounded-2xl border border-border bg-card">
-      <div className="px-4 py-3 border-b border-border text-sm font-medium text-card-foreground">{title}</div>
+      <div className="px-4 py-3 border-b border-border">
+        <div className="text-sm font-medium text-card-foreground">{title}</div>
+        {subtitle && (
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {subtitle}
+          </p>
+        )}
+      </div>
       <div className="p-4">{children}</div>
     </div>
   );
@@ -340,8 +347,8 @@ function KPIStrip({ outputs }:{ outputs: Record<string, number> }) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <KPI label="Bonus %" value={fmtPct(h)} />
       <KPI label="Bonus $" value={fmtMoney(d)} />
-      <KPI label="Daily Points" value={fmt2(k)} />
-      <KPI label="Daily Items" value={fmt2(l)} />
+      <KPI label="Daily Points Needed" value={fmt2(k)} />
+      <KPI label="Daily Items Needed" value={fmt2(l)} />
     </div>
   );
 }

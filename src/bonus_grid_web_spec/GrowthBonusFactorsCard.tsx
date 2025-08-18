@@ -1,5 +1,7 @@
 import { type CellAddr } from "./rows";
 import { formatValue } from "./format";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function GrowthBonusFactorsCard({ 
   state, 
@@ -33,7 +35,19 @@ export function GrowthBonusFactorsCard({
           />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">Overall Retention (%)</label>
+          <label className="text-xs text-muted-foreground flex items-center gap-2">
+            Overall Retention (%)
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Net Retention on Business Metrics</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </label>
           <input
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
@@ -42,7 +56,19 @@ export function GrowthBonusFactorsCard({
           />
         </div>
         <div className="grid gap-1">
-          <label className="text-xs text-muted-foreground">1st Year Retention %</label>
+          <label className="text-xs text-muted-foreground flex items-center gap-2">
+            1st Year Retention %
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>0-2 Year Retention on Business Metrics</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </label>
           <input
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
