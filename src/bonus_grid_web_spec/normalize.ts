@@ -1,0 +1,20 @@
+// Percent normalization: UI 0–100, internal 0–1 for fields with type === "percent"
+export type CellAddr = `${string}!${string}`;
+type Field = { id:string; type:"number"|"percent"|"money"|"text"; sheet:string; cell:string };
+type Schema = { all_fields: Field[] };
+
+export function buildNormalizedState(rawState: Record<CellAddr, any>, schema: Schema) {
+  const percentSet = new Set<string>(
+    schema.all_fields.filter(f=>f.type==="percent").map(f=>`${f.sheet}!${f.cell}`)
+  );
+  const out: Record<CellAddr, any> = {};
+  for (const [k,v] of Object.entries(rawState)) {
+    if (percentSet.has(k)) {
+      const n = Number(String(v).replace(/[%,$]/g,""));
+      out[k as CellAddr] = Number.isFinite(n) ? n/100 : 0;
+    } else {
+      out[k as CellAddr] = v;
+    }
+  }
+  return out;
+}

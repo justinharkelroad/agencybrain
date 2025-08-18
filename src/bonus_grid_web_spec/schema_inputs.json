@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "sections": [
+    { "id": "baseline", "title": "Baseline" },
+    { "id": "new_business", "title": "New Business" },
+    { "id": "growth_bonus_factors", "title": "Growth Bonus Factors" },
+    { "id": "growth_grid", "title": "Growth Grid" }
+  ],
+  "all_fields": [
+    { "id": "baseline_items_auto", "label": "Baseline — Auto Items", "type": "number", "sheet": "Sheet1", "cell": "C9", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_auto", "label": "Baseline — Auto Points per Item", "type": "number", "sheet": "Sheet1", "cell": "D9", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_auto", "label": "Baseline — Auto Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F9", "default": 87.01, "format": "0.00%" },
+
+    { "id": "baseline_items_home", "label": "Baseline — Home Items", "type": "number", "sheet": "Sheet1", "cell": "C10", "default": 0, "format": "0" },
+    { "id": "baseline_points_per_item_home", "label": "Baseline — Home Points per Item", "type": "number", "sheet": "Sheet1", "cell": "D10", "default": 0, "format": "0.00" },
+    { "id": "baseline_retention_home", "label": "Baseline — Home Retention %", "type": "percent", "sheet": "Sheet1", "cell": "F10", "default": 66, "format": "0.00%" }
+  ]
+}
