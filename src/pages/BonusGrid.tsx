@@ -14,92 +14,40 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
 const STORAGE_KEY = "bonusGrid:inputs";
+const PPI_DEFAULTS: Record<CellAddr, number> = {
+  "Sheet1!D9":10,"Sheet1!D10":0,"Sheet1!D11":0,"Sheet1!D12":5,"Sheet1!D13":20,"Sheet1!D14":20,
+  "Sheet1!D15":5,"Sheet1!D16":5,"Sheet1!D17":5,"Sheet1!D18":5,"Sheet1!D19":5,"Sheet1!D20":0,
+  "Sheet1!D21":0,"Sheet1!D22":0,"Sheet1!D23":10,
+  "Sheet1!L9":10,"Sheet1!L10":0,"Sheet1!L11":0,"Sheet1!L12":5,"Sheet1!L13":20,"Sheet1!L14":20,
+  "Sheet1!L15":5,"Sheet1!L16":5,"Sheet1!L17":5,"Sheet1!L18":5,"Sheet1!L19":5,"Sheet1!L20":0,
+  "Sheet1!L21":0,"Sheet1!L22":0,"Sheet1!L23":10,
+};
 
-// Helper function to apply all defaults
-function applyDefaults(): Record<CellAddr, any> {
-  const s: Record<CellAddr, any> = {};
-  
-  // Apply schema defaults
-  for (const f of (inputsSchema as any).all_fields) {
-    const addr = `${f.sheet}!${f.cell}` as CellAddr;
-    if (f.default != null) s[addr] = f.default;
+function hydrate(): Record<CellAddr, any> {
+  let saved: Record<string, any> = {};
+  try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+  // schema defaults
+  const withSchema = Object.fromEntries(
+    (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
+  );
+  // backfill PPI if missing/empty
+  for (const [k,v] of Object.entries(PPI_DEFAULTS)) {
+    if (saved[k] === undefined || saved[k] === null || saved[k] === "") saved[k] = v;
   }
-  
-  // Add PPI defaults: 10,0,0,5,20,20,5,5,5,5,5,0,0,0,10
-  const ppiDefaults = [10,0,0,5,20,20,5,5,5,5,5,0,0,0,10];
-  BASELINE_ROWS.forEach((row, i) => {
-    if (i < ppiDefaults.length) {
-      s[row.ppi] = ppiDefaults[i];
-    }
-  });
-  NEW_BIZ_ROWS.forEach((row, i) => {
-    if (i < ppiDefaults.length) {
-      s[row.ppi] = ppiDefaults[i];
-    }
-  });
-  
-  // Add Goal Points defaults for growth grid
-  const goalDefaults = [1000, 2000, 3000, 4000, 5000, 6000, 7000];
-  goalDefaults.forEach((goal, i) => {
-    const row = 38 + i;
-    s[`Sheet1!C${row}` as CellAddr] = goal;
-  });
-  
-  return s;
+  return { ...withSchema, ...saved };
 }
 
 export default function BonusGridPage(){
   const { toast } = useToast();
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   
-  const [state, setState] = useState<Record<CellAddr, any>>(()=>{
-    // Try to load from localStorage first
-    const raw = localStorage.getItem(STORAGE_KEY);
-    let loadedState: Record<CellAddr, any> = {};
-    
-    if (raw) {
-      try {
-        loadedState = JSON.parse(raw);
-      } catch {}
-    }
-    
-    // Always ensure defaults are applied, especially PPI values
-    const defaults = applyDefaults();
-    const finalState = { ...defaults, ...loadedState };
-    
-    // Check if any PPI values are missing or empty and fill them in
-    const ppiDefaults = [10,0,0,5,20,20,5,5,5,5,5,0,0,0,10];
-    let needsPPIDefaults = false;
-    
-    BASELINE_ROWS.forEach((row, i) => {
-      if (i < ppiDefaults.length && (finalState[row.ppi] === undefined || finalState[row.ppi] === "" || finalState[row.ppi] === null)) {
-        finalState[row.ppi] = ppiDefaults[i];
-        needsPPIDefaults = true;
-      }
-    });
-    NEW_BIZ_ROWS.forEach((row, i) => {
-      if (i < ppiDefaults.length && (finalState[row.ppi] === undefined || finalState[row.ppi] === "" || finalState[row.ppi] === null)) {
-        finalState[row.ppi] = ppiDefaults[i];
-        needsPPIDefaults = true;
-      }
-    });
-    
-    return finalState;
-  });
+  const [state, setState] = useState<Record<CellAddr, any>>(() => hydrate());
   
   const setField = (addr: CellAddr, val: any) => setState(p=>({ ...p, [addr]: val }));
 
-  // Save to localStorage with debounce
   useEffect(() => {
-    setIsAutoSaving(true);
-    const id = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setIsAutoSaving(false);
-    }, 200);
-    return () => {
-      clearTimeout(id);
-      setIsAutoSaving(false);
-    };
+    const id = setTimeout(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), 200);
+    return () => clearTimeout(id);
   }, [state]);
 
   const outputAddrs = useMemo(()=>(
@@ -113,9 +61,9 @@ export default function BonusGridPage(){
 
   // All computed addresses for tables
   const allComputedAddrs = useMemo(()=> {
-    const baseline = BASELINE_ROWS.flatMap(r => [r.total, r.loss]); // E, G only
+    const baseline = BASELINE_ROWS.flatMap(r => [r.total, r.loss]); // no r.ppi
     const newBiz = NEW_BIZ_ROWS.map(r => r.total);                  // M9–M23
-    const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; // no D29
+    const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; // exclude D29
     return [...outputAddrs, ...baseline, ...newBiz, ...gbf];
   }, [outputAddrs]);
 
@@ -148,15 +96,7 @@ export default function BonusGridPage(){
     });
   };
   
-  const handleReset = () => {
-    const newState = applyDefaults();
-    setState(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-    toast({
-      title: "Reset complete!",
-      description: "All data has been reset to default values.",
-    });
-  };
+  const handleReset = () => { setState({}); localStorage.removeItem(STORAGE_KEY); };
 
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">

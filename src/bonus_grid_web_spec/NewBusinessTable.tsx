@@ -1,6 +1,15 @@
 import { NEW_BIZ_ROWS, type CellAddr } from "./rows";
 import { formatValue } from "./format";
 
+const PPI_DEFAULTS: Record<CellAddr, number> = {
+  "Sheet1!D9":10,"Sheet1!D10":0,"Sheet1!D11":0,"Sheet1!D12":5,"Sheet1!D13":20,"Sheet1!D14":20,
+  "Sheet1!D15":5,"Sheet1!D16":5,"Sheet1!D17":5,"Sheet1!D18":5,"Sheet1!D19":5,"Sheet1!D20":0,
+  "Sheet1!D21":0,"Sheet1!D22":0,"Sheet1!D23":10,
+  "Sheet1!L9":10,"Sheet1!L10":0,"Sheet1!L11":0,"Sheet1!L12":5,"Sheet1!L13":20,"Sheet1!L14":20,
+  "Sheet1!L15":5,"Sheet1!L16":5,"Sheet1!L17":5,"Sheet1!L18":5,"Sheet1!L19":5,"Sheet1!L20":0,
+  "Sheet1!L21":0,"Sheet1!L22":0,"Sheet1!L23":10,
+};
+
 export function NewBusinessTable({ 
   state, 
   setState, 
@@ -21,7 +30,7 @@ export function NewBusinessTable({
       <div className="divide-y divide-border">
         {NEW_BIZ_ROWS.map(row => {
           const itemsVal = state[row.items] ?? "";
-          const ppiVal = state[row.ppi] ?? "";
+          const ppiVal = state[row.ppi] ?? PPI_DEFAULTS[row.ppi] ?? "";
           const totalVal = computedValues[row.total] ?? 0;
 
           return (
