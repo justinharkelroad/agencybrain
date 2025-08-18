@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { Link, useNavigate, useBlocker } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Clock } from "lucide-react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
@@ -47,8 +47,6 @@ export default function BonusGridPage(){
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
-  const [nextLocation, setNextLocation] = useState<string | null>(null);
   
   const [state, setState] = useState<Record<CellAddr, any>>(() => hydrate());
   
@@ -71,12 +69,6 @@ export default function BonusGridPage(){
     return () => clearTimeout(id);
   }, [state, hasUnsavedChanges]);
 
-  // Block navigation when there are unsaved changes
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
-  );
-
   // Handle browser beforeunload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -90,13 +82,29 @@ export default function BonusGridPage(){
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Handle blocked navigation
+  // Block navigation if there are unsaved changes
   useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setNextLocation(blocker.location.pathname);
-      setShowNavigationDialog(true);
+    const handleNavigation = (e: PopStateEvent) => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm(
+          "You have unsaved changes. Are you sure you want to leave this page?"
+        );
+        if (!confirmLeave) {
+          e.preventDefault();
+          window.history.pushState(null, "", window.location.href);
+        }
+      }
+    };
+
+    if (hasUnsavedChanges) {
+      window.history.pushState(null, "", window.location.href);
+      window.addEventListener('popstate', handleNavigation);
     }
-  }, [blocker]);
+
+    return () => {
+      window.removeEventListener('popstate', handleNavigation);
+    };
+  }, [hasUnsavedChanges]);
 
   const outputAddrs = useMemo(()=>(
     [
@@ -153,41 +161,25 @@ export default function BonusGridPage(){
     setLastSaved(new Date());
   };
 
-  const handleSaveAndNavigate = useCallback(() => {
-    handleSave();
-    setShowNavigationDialog(false);
-    if (nextLocation) {
-      navigate(nextLocation);
+  const handleReturnToDashboard = () => {
+    if (hasUnsavedChanges) {
+      const confirmLeave = window.confirm(
+        "You have unsaved changes. Are you sure you want to leave this page?"
+      );
+      if (!confirmLeave) return;
     }
-  }, [nextLocation, navigate]);
-
-  const handleNavigateWithoutSaving = useCallback(() => {
-    setHasUnsavedChanges(false);
-    setShowNavigationDialog(false);
-    if (nextLocation) {
-      navigate(nextLocation);
-    }
-  }, [nextLocation, navigate]);
-
-  const handleStay = useCallback(() => {
-    setShowNavigationDialog(false);
-    setNextLocation(null);
-    if (blocker.state === 'blocked') {
-      blocker.reset();
-    }
-  }, [blocker]);
+    navigate('/dashboard');
+  };
 
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Navigation Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link to="/dashboard">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Return to Dashboard
-            </Button>
-          </Link>
+          <Button variant="ghost" size="sm" className="gap-2" onClick={handleReturnToDashboard}>
+            <ArrowLeft className="h-4 w-4" />
+            Return to Dashboard
+          </Button>
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -269,26 +261,6 @@ export default function BonusGridPage(){
         </div>
       </header>
 
-      {/* Navigation Dialog */}
-      <AlertDialog open={showNavigationDialog} onOpenChange={setShowNavigationDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes that will be lost if you leave this page. What would you like to do?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleStay}>Stay on Page</AlertDialogCancel>
-            <Button variant="outline" onClick={handleNavigateWithoutSaving}>
-              Leave Without Saving
-            </Button>
-            <AlertDialogAction onClick={handleSaveAndNavigate}>
-              Save & Leave
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
