@@ -244,8 +244,10 @@ export default function BonusGridPage(){
             <p className="text-sm text-muted-foreground uppercase tracking-wide">Maximum Bonus Potential</p>
             <div className="text-4xl font-bold text-primary">
               {(() => {
-                const highestBonus = outputs["Sheet1!D44"] ?? 0;
-                return highestBonus.toLocaleString(undefined, { style: "currency", currency: "USD" });
+                // Find the maximum bonus dollar amount across all rows
+                const bonusAmounts = outputsMap.bonus_dollars.map(addr => outputs[addr] ?? 0);
+                const maxBonus = Math.max(...bonusAmounts);
+                return maxBonus.toLocaleString(undefined, { style: "currency", currency: "USD" });
               })()}
             </div>
             <p className="text-xs text-muted-foreground">Top tier achievement</p>
