@@ -45,8 +45,7 @@ export function SummaryGrid({
       </div>
 
       {/* Header */}
-      <div className="grid grid-cols-[80px,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
-        <div>Row</div>
+      <div className="grid grid-cols-[1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
         <div>Bonus %</div>
         <div>Bonus $</div>
         <div>Point Loss Retention</div>
@@ -62,8 +61,7 @@ export function SummaryGrid({
       {/* Data Rows */}
       <div className="divide-y divide-border">
         {rowData.map(data => (
-          <div key={data.row} className="grid grid-cols-[80px,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 py-2 border-b border-border">
-            <div className="text-muted-foreground">{data.row}</div>
+          <div key={data.row} className="grid grid-cols-[1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 py-2 border-b border-border">
             {/* Bonus % (read-only preset) */}
             <div className="bg-muted/60 rounded px-2 text-right">{formatValue(`Sheet1!H${data.row}` as CellAddr, computed[`Sheet1!H${data.row}` as CellAddr])}</div>
             {/* Bonus $ */}
