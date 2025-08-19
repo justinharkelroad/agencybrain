@@ -57,7 +57,7 @@ export function GrowthBonusFactorsCard({
           <input
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
-            value={isFocusedD29 ? overallRetention : formatValue("Sheet1!D29" as CellAddr, overallRetention || 0)}
+            value={isFocusedD29 ? (Number(overallRetention || 0) * 100).toString() : formatValue("Sheet1!D29" as CellAddr, overallRetention || 0)}
             onChange={e => setState("Sheet1!D29" as CellAddr, normalizeRate(e.target.value))}
             onFocus={() => setIsFocusedD29(true)}
             onBlur={() => setIsFocusedD29(false)}
@@ -81,7 +81,7 @@ export function GrowthBonusFactorsCard({
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
             placeholder="86.67%"
-            value={isFocusedD34 ? firstYearRetention : formatValue("Sheet1!D34" as CellAddr, firstYearRetention || 0)}
+            value={isFocusedD34 ? (Number(firstYearRetention || 0) * 100).toString() : formatValue("Sheet1!D34" as CellAddr, firstYearRetention || 0)}
             onChange={e => setState("Sheet1!D34" as CellAddr, normalizeRate(e.target.value))}
             onFocus={() => setIsFocusedD34(true)}
             onBlur={() => setIsFocusedD34(false)}
