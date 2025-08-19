@@ -166,7 +166,7 @@ export default function BonusGridPage(){
         });
       }
     }
-  }, [allOutputs, isHydrated]);
+  }, [allOutputs]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);
