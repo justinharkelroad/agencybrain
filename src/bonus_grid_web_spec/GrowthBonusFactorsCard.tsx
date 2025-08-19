@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { type CellAddr } from "./rows";
 import { formatValue } from "./format";
-import { normalizeRate } from "./normalize";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PercentInput } from "./PercentInput";
 
 export function GrowthBonusFactorsCard({ 
   state, 
@@ -14,14 +14,8 @@ export function GrowthBonusFactorsCard({
   setState: (addr: CellAddr, val: any) => void;
   computedValues: Record<CellAddr, number>;
 }) {
-  const [isFocusedD29, setIsFocusedD29] = useState(false);
-  const [isFocusedD34, setIsFocusedD34] = useState(false);
-  
   const premium = state["Sheet1!D33" as CellAddr] ?? "";
-  const firstYearRetention = state["Sheet1!D34" as CellAddr] ?? "";
-  const overallRetention = state["Sheet1!D29" as CellAddr] ?? "";
   
-  const overallRetentionComputed = computedValues["Sheet1!D29" as CellAddr] ?? 0;
   const baselineItems = computedValues["Sheet1!D30" as CellAddr] ?? 0;
   const baselinePoints = computedValues["Sheet1!D31" as CellAddr] ?? 0;
   const newPointsItemsMix = computedValues["Sheet1!D32" as CellAddr] ?? 0;
@@ -54,13 +48,11 @@ export function GrowthBonusFactorsCard({
               </Tooltip>
             </TooltipProvider>
           </label>
-          <input
-            className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
-            inputMode="decimal"
-            value={isFocusedD29 ? (Number(overallRetention || 0) * 100).toString() : formatValue("Sheet1!D29" as CellAddr, overallRetention || 0)}
-            onChange={e => setState("Sheet1!D29" as CellAddr, normalizeRate(e.target.value))}
-            onFocus={() => setIsFocusedD29(true)}
-            onBlur={() => setIsFocusedD29(false)}
+          <PercentInput
+            addr={"Sheet1!D29" as CellAddr}
+            state={state}
+            setState={setState}
+            placeholder="86.71"
           />
         </div>
         <div className="grid gap-1">
@@ -77,14 +69,11 @@ export function GrowthBonusFactorsCard({
               </Tooltip>
             </TooltipProvider>
           </label>
-          <input
-            className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
-            inputMode="decimal"
-            placeholder="86.67%"
-            value={isFocusedD34 ? (Number(firstYearRetention || 0) * 100).toString() : formatValue("Sheet1!D34" as CellAddr, firstYearRetention || 0)}
-            onChange={e => setState("Sheet1!D34" as CellAddr, normalizeRate(e.target.value))}
-            onFocus={() => setIsFocusedD34(true)}
-            onBlur={() => setIsFocusedD34(false)}
+          <PercentInput
+            addr={"Sheet1!D34" as CellAddr}
+            state={state}
+            setState={setState}
+            placeholder="86.67"
           />
         </div>
       </div>
