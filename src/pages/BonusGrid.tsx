@@ -39,6 +39,7 @@ export default function BonusGridPage(){
   
   // dirty indicator - fixed autosave race
   const [savedSig, setSavedSig] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   
   // hydrate once
   useEffect(() => {
@@ -146,6 +147,13 @@ export default function BonusGridPage(){
     const normalized = buildNormalizedState(state, inputsSchema as any);
     return computeRounded({ inputs: normalized } as WorkbookState, allComputedAddrs);
   }, [state, allComputedAddrs]);
+
+  useEffect(() => {
+    const ready = [38,39,40,41,42,43,44].every(
+      r => (allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0) > 0
+    );
+    if (ready && !isHydrated) setIsHydrated(true);
+  }, [allOutputs, isHydrated]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);
@@ -321,7 +329,15 @@ export default function BonusGridPage(){
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
-          <Card title="Growth Grid Summary"><SummaryGrid state={state} computed={allOutputs} setField={setField} /></Card>
+          {isHydrated ? (
+            <Card title="Growth Grid Summary">
+              <SummaryGrid state={state} computed={allOutputs} setField={setField} />
+            </Card>
+          ) : (
+            <Card title="Growth Grid Summary">
+              <div className="p-4 text-sm text-muted-foreground">Loading…</div>
+            </Card>
+          )}
         </section>
       </div>
     </main>
