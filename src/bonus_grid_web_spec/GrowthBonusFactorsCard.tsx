@@ -30,7 +30,8 @@ export function GrowthBonusFactorsCard({
           <label className="text-xs text-muted-foreground">Annualized Written Premium $</label>
           <input
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
-            inputMode="decimal"
+            inputMode="numeric"
+            placeholder="3,000,000"
             value={premium}
             onChange={e => setState("Sheet1!D33" as CellAddr, e.target.value)}
           />
@@ -73,9 +74,9 @@ export function GrowthBonusFactorsCard({
           <input
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
+            placeholder="86.67%"
             value={firstYearRetention}
             onChange={e => setState("Sheet1!D34" as CellAddr, normalizeRate(e.target.value))}
-            placeholder="0–100"
           />
         </div>
       </div>

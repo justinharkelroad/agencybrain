@@ -36,6 +36,9 @@ export default function BonusGridPage(){
   
   const [state, setState] = useState<Record<CellAddr, any>>({});
   
+  // dirty indicator - fixed autosave race
+  const [savedSig, setSavedSig] = useState<string | null>(null);
+  
   // hydrate once
   useEffect(() => {
     try {
@@ -50,22 +53,24 @@ export default function BonusGridPage(){
     } catch {}
   }, []);
 
-  // debounced save
+  // debounced save - only after baseline exists
   useEffect(() => {
+    if (savedSig === null) return; // not ready yet
     const t = setTimeout(() => {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
     }, 250);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, savedSig]);
 
-  // dirty indicator
-  const [savedSig, setSavedSig] = useState<string>("");
-  useEffect(() => { setSavedSig(JSON.stringify(state)); }, []);
+  // set baseline AFTER first hydration settles
   useEffect(() => {
-    const t = setTimeout(() => setSavedSig(JSON.stringify(state)), 260);
-    return () => clearTimeout(t);
-  }, [state]);
-  const isDirty = JSON.stringify(state) !== savedSig;
+    if (savedSig === null) {
+      const t = setTimeout(() => setSavedSig(JSON.stringify(state)), 100);
+      return () => clearTimeout(t);
+    }
+  }, [state, savedSig]);
+
+  const isDirty = savedSig !== null && JSON.stringify(state) !== savedSig;
 
   const setField = (addr: CellAddr, val: any) =>
     setState(p => ({ ...p, [addr]: val }));

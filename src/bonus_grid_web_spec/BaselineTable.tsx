@@ -84,6 +84,21 @@ export function BaselineTable({
             </div>
           );
         })}
+        
+        {/* totals row */}
+        <div className="grid grid-cols-[1fr,100px,100px,120px,100px,100px] gap-3 px-4 py-3 border-t border-border font-medium bg-muted/20">
+          <div className="text-right pr-2">Total</div>
+          {/* Items total (C24) */}
+          <div className="text-right">{formatValue("Sheet1!C24" as CellAddr, computedValues["Sheet1!C24" as CellAddr])}</div>
+          {/* PPI column has no total */}
+          <div className="text-center text-muted-foreground">—</div>
+          {/* Retention column has no total */}
+          <div className="text-center text-muted-foreground">—</div>
+          {/* Total Points (E24) */}
+          <div className="text-right">{formatValue("Sheet1!E24" as CellAddr, computedValues["Sheet1!E24" as CellAddr])}</div>
+          {/* Point Loss (G24) */}
+          <div className="text-right">{formatValue("Sheet1!G24" as CellAddr, computedValues["Sheet1!G24" as CellAddr])}</div>
+        </div>
       </div>
     </div>
   );

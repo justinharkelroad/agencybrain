@@ -45,7 +45,7 @@ export function SummaryGrid({
       </div>
 
       {/* Header */}
-      <div className="grid grid-cols-[80px,80px,100px,120px,120px,140px,130px,130px,130px,70px,70px] gap-2 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
+      <div className="grid grid-cols-[80px,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
         <div>Row</div>
         <div>Bonus %</div>
         <div>Bonus $</div>
@@ -62,17 +62,28 @@ export function SummaryGrid({
       {/* Data Rows */}
       <div className="divide-y divide-border">
         {rowData.map(data => (
-          <div key={data.row} className="grid grid-cols-[80px,80px,100px,120px,120px,140px,130px,130px,130px,70px,70px] gap-2 px-4 py-2 text-sm">
-            <div className="text-foreground">{data.row}</div>
-            <div className="text-foreground bg-muted/20 px-2 py-1 rounded">{formatValue(`Sheet1!H${data.row}` as CellAddr, data.bonusPct)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!D${data.row}` as CellAddr, data.bonusDollars)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!E${data.row}` as CellAddr, data.netPointsNeeded)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!F${data.row}` as CellAddr, data.firstYearRetentionLoss)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!G${data.row}` as CellAddr, data.totalPointsNeeded)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!I${data.row}` as CellAddr, data.monthlyPointsNeeded)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!J${data.row}` as CellAddr, data.monthlyItemsNeeded)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!K${data.row}` as CellAddr, data.dailyPointsNeeded)}</div>
-            <div className="text-foreground">{formatValue(`Sheet1!L${data.row}` as CellAddr, data.dailyItemsNeeded)}</div>
+          <div key={data.row} className="grid grid-cols-[80px,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr,1fr] gap-2 py-2 border-b border-border">
+            <div className="text-muted-foreground">{data.row}</div>
+            {/* Bonus % (read-only preset) */}
+            <div className="bg-muted/60 rounded px-2 text-right">{formatValue(`Sheet1!H${data.row}` as CellAddr, computed[`Sheet1!H${data.row}` as CellAddr])}</div>
+            {/* Bonus $ */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!D${data.row}` as CellAddr, computed[`Sheet1!D${data.row}` as CellAddr])}</div>
+            {/* Point Loss Retention (same value for all rows) */}
+            <div className="rounded px-2 text-right">{formatValue("Sheet1!G24" as CellAddr, computed["Sheet1!G24" as CellAddr])}</div>
+            {/* Net Points Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!E${data.row}` as CellAddr, computed[`Sheet1!E${data.row}` as CellAddr])}</div>
+            {/* 1st Yr Retention Loss */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!F${data.row}` as CellAddr, computed[`Sheet1!F${data.row}` as CellAddr])}</div>
+            {/* TOTAL Points Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!G${data.row}` as CellAddr, computed[`Sheet1!G${data.row}` as CellAddr])}</div>
+            {/* Monthly Points Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!I${data.row}` as CellAddr, computed[`Sheet1!I${data.row}` as CellAddr])}</div>
+            {/* Monthly Items Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!J${data.row}` as CellAddr, computed[`Sheet1!J${data.row}` as CellAddr])}</div>
+            {/* Daily Points Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!K${data.row}` as CellAddr, computed[`Sheet1!K${data.row}` as CellAddr])}</div>
+            {/* Daily Items Needed */}
+            <div className="rounded px-2 text-right">{formatValue(`Sheet1!L${data.row}` as CellAddr, computed[`Sheet1!L${data.row}` as CellAddr])}</div>
           </div>
         ))}
       </div>
