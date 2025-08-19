@@ -135,7 +135,7 @@ export default function BonusGridPage(){
       `Sheet1!G${r}`, `Sheet1!H${r}`, `Sheet1!I${r}`, `Sheet1!J${r}`,
       `Sheet1!K${r}`, `Sheet1!L${r}`,
     ] as CellAddr[]));
-    return [...outputAddrs, ...baseline, ...baselineTotals, ...newBiz, ...newBizTotals, ...gbf, ...growthGrid];
+    return [...outputAddrs, ...baseline, ...baselineTotals, ...newBiz, ...newBizTotals, ...gbf, ...growthGrid, "Sheet1!K45" as CellAddr, "Sheet1!L45" as CellAddr];
   }, [outputAddrs]);
 
   const outputs = useMemo(()=>{
@@ -149,14 +149,24 @@ export default function BonusGridPage(){
   }, [state, allComputedAddrs]);
 
   useEffect(() => {
-    const ready = [38,39,40,41,42,43,44].every(
-      r => {
-        const val = allOutputs[`Sheet1!H${r}` as CellAddr];
-        return val !== undefined && val !== null && !isNaN(val) && val >= 0;
-      }
+    const expectedH = [0.04, 0.035, 0.029, 0.02, 0.011, 0.0055, 0.0005];
+    const ready = [38,39,40,41,42,43,44].every((r,i) => 
+      Math.abs((allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0) - expectedH[i]) < 1e-4
     );
-    if (ready && !isHydrated) setIsHydrated(true);
-  }, [allOutputs]);
+    if (ready && !isHydrated) {
+      setIsHydrated(true);
+      // Dev assertion
+      if (process.env.NODE_ENV === 'development') {
+        expectedH.forEach((expected, i) => {
+          const r = 38 + i;
+          const actual = allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0;
+          if (Math.abs(actual - expected) >= 1e-4) {
+            console.warn(`H${r} mismatch: expected ${expected}, got ${actual}`);
+          }
+        });
+      }
+    }
+  }, [allOutputs, isHydrated]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);

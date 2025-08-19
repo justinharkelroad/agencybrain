@@ -102,6 +102,14 @@ export function SummaryGrid({
           );
         })}
       </div>
+
+      {/* Totals Row */}
+      <div className="grid grid-cols-[140px,100px,120px,140px,140px,160px,160px,160px,160px,160px,160px] gap-2 px-2 py-2 border-t mt-2 font-medium bg-muted/20">
+        <div>Totals</div>
+        <div className="col-span-9"></div>
+        <div className="text-right">{formatValue("Sheet1!K45" as CellAddr, computed["Sheet1!K45" as CellAddr] ?? 0)}</div>
+        <div className="text-right">{formatValue("Sheet1!L45" as CellAddr, computed["Sheet1!L45" as CellAddr] ?? 0)}</div>
+      </div>
     </div>
   );
 }

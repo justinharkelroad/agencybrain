@@ -179,6 +179,16 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
 
   // Pass-throughs so UI can bind GBF directly if desired:
   "Sheet1!D30": (ctx) => ctx.get("Sheet1!C24" as CellAddr), // Baseline Items
+
+  // Totals for SummaryGrid
+  "Sheet1!K45": (ctx) => {
+    const rows = [38,39,40,41,42,43,44];
+    return rows.reduce((s,r)=> s + ctx.get(`Sheet1!K${r}` as CellAddr), 0);
+  },
+  "Sheet1!L45": (ctx) => {
+    const rows = [38,39,40,41,42,43,44];
+    return rows.reduce((s,r)=> s + ctx.get(`Sheet1!L${r}` as CellAddr), 0);
+  },
 };
 
 export function computeSelected(state: WorkbookState, addrs: CellAddr[]): Record<CellAddr, number> {

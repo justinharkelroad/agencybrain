@@ -119,5 +119,7 @@
   "Sheet1!J41": { "type": "two_decimals", "digits": 2 },
   "Sheet1!J42": { "type": "two_decimals", "digits": 2 },
   "Sheet1!J43": { "type": "two_decimals", "digits": 2 },
-  "Sheet1!J44": { "type": "two_decimals", "digits": 2 }
+  "Sheet1!J44": { "type": "two_decimals", "digits": 2 },
+  "Sheet1!K45": { "type": "two_decimals", "digits": 2 },
+  "Sheet1!L45": { "type": "two_decimals", "digits": 2 }
 }
