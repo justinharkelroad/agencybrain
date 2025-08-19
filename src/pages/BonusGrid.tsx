@@ -314,9 +314,6 @@ export default function BonusGridPage(){
           <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here.\n(this data is best found in the P&C New Business Summary Report)">
             <NewBusinessTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
-          <Card title="Growth Grid Goals" subtitle="Enter your target growth points for each bonus level">
-            <InputsForm state={state} setState={setField} sectionId="growth_grid" />
-          </Card>
           <Card title="Growth Bonus Factors">
             <GrowthBonusFactorsCard state={state} setState={setField} computedValues={allOutputs} />
           </Card>
@@ -324,7 +321,7 @@ export default function BonusGridPage(){
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
-          <Card title="Growth Grid Summary"><SummaryGrid state={state} computed={allOutputs} /></Card>
+          <Card title="Growth Grid Summary"><SummaryGrid state={state} computed={allOutputs} setField={setField} /></Card>
         </section>
       </div>
     </main>
