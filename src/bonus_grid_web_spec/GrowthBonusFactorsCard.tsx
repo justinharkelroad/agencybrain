@@ -3,7 +3,7 @@ import { type CellAddr } from "./rows";
 import { formatValue } from "./format";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { PercentInput } from "./PercentInput";
+import PercentInput from "./PercentInput";
 
 export function GrowthBonusFactorsCard({ 
   state, 

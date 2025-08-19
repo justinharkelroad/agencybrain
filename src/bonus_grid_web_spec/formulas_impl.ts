@@ -117,9 +117,17 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
   },
   
   // lock H38..H44 as read-only presets
-  ...Object.fromEntries([38,39,40,41,42,43,44].map(r => 
-    [`Sheet1!H${r}` as CellAddr, () => Number((bonusPerc as any)[`H${r}`]) || 0]
-  )),
+  ...Object.fromEntries([38,39,40,41,42,43,44].map(r => [
+    `Sheet1!H${r}` as CellAddr, 
+    () => {
+      const raw = (bonusPerc as any)[`H${r}`];
+      const val = Number(raw);
+      if (!Number.isFinite(val)) {
+        throw new Error(`Missing or invalid bonus preset H${r}`);
+      }
+      return val;
+    }
+  ])),
 
   // Growth Grid formulas (rows 38-44) with correct address mapping
   ...Object.fromEntries([38,39,40,41,42,43,44].flatMap(r => [

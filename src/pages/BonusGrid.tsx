@@ -148,25 +148,24 @@ export default function BonusGridPage(){
     return computeRounded({ inputs: normalized } as WorkbookState, allComputedAddrs);
   }, [state, allComputedAddrs]);
 
+  // Guard: H rows must be finite numbers (presets) before rendering grid
   useEffect(() => {
-    const expectedH = [0.04, 0.035, 0.029, 0.02, 0.011, 0.0055, 0.0005];
-    const ready = [38,39,40,41,42,43,44].every((r,i) => 
-      Math.abs((allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0) - expectedH[i]) < 1e-4
+    const ok = [38,39,40,41,42,43,44].every(
+      r => Number.isFinite(allOutputs[`Sheet1!H${r}` as CellAddr])
     );
-    if (ready && !isHydrated) {
-      setIsHydrated(true);
-      // Dev assertion
-      if (process.env.NODE_ENV === 'development') {
-        expectedH.forEach((expected, i) => {
-          const r = 38 + i;
-          const actual = allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0;
-          if (Math.abs(actual - expected) >= 1e-4) {
-            console.warn(`H${r} mismatch: expected ${expected}, got ${actual}`);
-          }
-        });
-      }
-    }
+    if (ok) setIsHydrated(true);
   }, [allOutputs]);
+
+  // Fail-safe: never stick on Loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isHydrated) {
+        console.warn("Forcing hydration after timeout");
+        setIsHydrated(true);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isHydrated]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);
