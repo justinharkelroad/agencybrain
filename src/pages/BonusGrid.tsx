@@ -10,6 +10,7 @@ import { buildNormalizedState } from "../bonus_grid_web_spec/normalize";
 import { BaselineTable } from "../bonus_grid_web_spec/BaselineTable";
 import { NewBusinessTable } from "../bonus_grid_web_spec/NewBusinessTable";
 import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactorsCard";
+import { InputsForm } from "../bonus_grid_web_spec/InputsForm";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -123,18 +124,17 @@ export default function BonusGridPage(){
 
   // All computed addresses for tables
   const allComputedAddrs = useMemo(()=> {
-    const baseline = BASELINE_ROWS.flatMap(r => [r.total, r.loss]); // no r.ppi
-    const newBiz = NEW_BIZ_ROWS.map(r => r.total);                  // M9–M23
-    const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; // exclude D29
-    const growthGrid: CellAddr[] = [
-      ...Array.from({ length: 7 }, (_, i) => 38 + i).flatMap(r => ([
-        `Sheet1!C${r}`, `Sheet1!D${r}`, `Sheet1!E${r}`, `Sheet1!F${r}`,
-        `Sheet1!G${r}`, `Sheet1!H${r}`, `Sheet1!I${r}`, `Sheet1!J${r}`,
-        `Sheet1!K${r}`, `Sheet1!L${r}`,
-      ] as CellAddr[])),
-      "Sheet1!G24" as CellAddr,
-    ];
-    return [...outputAddrs, ...baseline, ...newBiz, ...gbf, ...growthGrid];
+    const baseline = BASELINE_ROWS.flatMap(r => [r.items, r.total, r.loss]); // ADD r.items
+    const baselineTotals: CellAddr[] = ["Sheet1!C24","Sheet1!E24","Sheet1!G24"]; // ADD C24, E24
+    const newBiz = NEW_BIZ_ROWS.map(r => r.total);                  
+    const newBizTotals: CellAddr[] = ["Sheet1!K24","Sheet1!M24","Sheet1!M25"]; // ADD totals
+    const gbf: CellAddr[] = ["Sheet1!D30","Sheet1!D31","Sheet1!D32"]; 
+    const growthGrid: CellAddr[] = Array.from({ length: 7 }, (_, i) => 38 + i).flatMap(r => ([
+      `Sheet1!C${r}`, `Sheet1!D${r}`, `Sheet1!E${r}`, `Sheet1!F${r}`,
+      `Sheet1!G${r}`, `Sheet1!H${r}`, `Sheet1!I${r}`, `Sheet1!J${r}`,
+      `Sheet1!K${r}`, `Sheet1!L${r}`,
+    ] as CellAddr[]));
+    return [...outputAddrs, ...baseline, ...baselineTotals, ...newBiz, ...newBizTotals, ...gbf, ...growthGrid];
   }, [outputAddrs]);
 
   const outputs = useMemo(()=>{
@@ -171,7 +171,7 @@ export default function BonusGridPage(){
   const handleReset = () => { 
     setState({}); 
     localStorage.removeItem(STORAGE_KEY); 
-    setSavedSig("{}");
+    setSavedSig(null);
     setLastSaved(null);
   };
 
@@ -316,6 +316,9 @@ export default function BonusGridPage(){
           </Card>
           <Card title="Growth Bonus Factors">
             <GrowthBonusFactorsCard state={state} setState={setField} computedValues={allOutputs} />
+          </Card>
+          <Card title="Growth Grid Goals" subtitle="Enter your target growth points for each bonus level">
+            <InputsForm state={state} setState={setField} sectionId="growth_grid" />
           </Card>
         </section>
 
