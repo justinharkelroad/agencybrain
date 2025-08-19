@@ -150,10 +150,13 @@ export default function BonusGridPage(){
 
   useEffect(() => {
     const ready = [38,39,40,41,42,43,44].every(
-      r => (allOutputs[`Sheet1!H${r}` as CellAddr] ?? 0) > 0
+      r => {
+        const val = allOutputs[`Sheet1!H${r}` as CellAddr];
+        return val !== undefined && val !== null && !isNaN(val) && val >= 0;
+      }
     );
     if (ready && !isHydrated) setIsHydrated(true);
-  }, [allOutputs, isHydrated]);
+  }, [allOutputs]);
 
   const copy = () => {
     const normalized = buildNormalizedState(state, inputsSchema as any);
