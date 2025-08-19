@@ -75,7 +75,7 @@ export function GrowthBonusFactorsCard({
             className="border border-input rounded-lg px-3 py-2 bg-background text-foreground placeholder-muted-foreground focus:border-ring"
             inputMode="decimal"
             placeholder="86.67%"
-            value={firstYearRetention}
+            value={formatValue("Sheet1!D34" as CellAddr, firstYearRetention || 0)}
             onChange={e => setState("Sheet1!D34" as CellAddr, normalizeRate(e.target.value))}
           />
         </div>
