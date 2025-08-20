@@ -762,6 +762,10 @@ export type Database = {
         }
         Returns: string
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
