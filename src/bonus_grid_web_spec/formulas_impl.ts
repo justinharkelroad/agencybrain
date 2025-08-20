@@ -135,8 +135,8 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
     [`Sheet1!D${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get("Sheet1!D33" as CellAddr) * ctx.get(`Sheet1!H${r}` as CellAddr)],
 
-    // E[r] = C[r] // Net Points Needed
-    [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!C${r}` as CellAddr)],
+    // E[r] = C[r] + G24 // Net Points Needed
+    [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!C${r}` as CellAddr) + ctx.get("Sheet1!G24" as CellAddr)],
 
     // F[r] = E[r] * (1 - D34) // 1st Yr Retention Loss Factor
     [`Sheet1!F${r}` as CellAddr, (ctx: CalcContext) =>
@@ -160,11 +160,8 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
     [`Sheet1!K${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get(`Sheet1!I${r}` as CellAddr) / 21],
 
-    // L[r] = M25 > 0 ? K[r] / M25 : 0 // Daily Items Needed
-    [`Sheet1!L${r}` as CellAddr, (ctx: CalcContext) => {
-      const mix = ctx.get("Sheet1!M25" as CellAddr);
-      return mix > 0 ? ctx.get(`Sheet1!K${r}` as CellAddr) / mix : 0;
-    }],
+    // L[r] = J[r] / 21 // Daily Items Needed
+    [`Sheet1!L${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!J${r}` as CellAddr) / 21],
   ])),
 
   // pass-throughs

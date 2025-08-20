@@ -56,10 +56,14 @@ export function SummaryGrid({
         <div>TOTAL Points Needed</div>
         <div>Monthly Points Needed</div>
         <div>Monthly Items Needed</div>
-        <div>Daily Points Needed</div>
-        <div>Daily Items Needed</div>
+        <div className="relative">
+          Daily Points Needed
+        </div>
+        <div className="relative">
+          Daily Items Needed
+          <div className="absolute -bottom-5 right-0 text-[11px] text-muted-foreground">*21 Days / Month Avg</div>
+        </div>
       </div>
-      <div className="px-2 pb-2 text-[11px] text-muted-foreground text-right">*21 Days / Month Avg</div>
 
       {/* Data Rows */}
       <div className="divide-y divide-border">

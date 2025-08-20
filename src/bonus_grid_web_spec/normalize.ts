@@ -18,8 +18,11 @@ export function buildNormalizedState(rawState: Record<CellAddr, any>, schema: Sc
   const out: Record<CellAddr, any> = {};
   for (const [k,v] of Object.entries(rawState)) {
     if (percentSet.has(k)) {
-      const n = Number(String(v).replace(/[%,$]/g,""));
-      out[k as CellAddr] = Number.isFinite(n) ? n/100 : 0;
+      if (v == null || v === "") { out[k as CellAddr] = v; continue; }
+      const n = typeof v === "string" ? parseFloat(v.replace("%","")) : Number(v);
+      if (!Number.isFinite(n)) { out[k as CellAddr] = v; continue; }
+      // If value already a decimal 0..1, keep it. If value looks like whole percent, convert.
+      out[k as CellAddr] = n <= 1 ? n : (n / 100);
     } else {
       out[k as CellAddr] = v;
     }
