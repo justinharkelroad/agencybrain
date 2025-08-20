@@ -18,6 +18,9 @@ export function roundByType(value: number, type: string, digits: number): Decima
       return decimal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     case "two_decimals":
       return decimal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    case "percent":
+      // Don't round percent values - preserve exact preset percentages
+      return decimal;
     default:
       return decimal.toDecimalPlaces(digits, Decimal.ROUND_HALF_UP);
   }
