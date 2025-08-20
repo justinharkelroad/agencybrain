@@ -20,7 +20,7 @@ export function formatValue(addr: CellAddr, vIn: number): string {
     case "percent": { 
       const pct = d.toNumber() * 100; 
       const k = p.digits ?? 2; 
-      return `${pct.toLocaleString(undefined,{minimumFractionDigits:k,maximumFractionDigits:k})}%`; 
+      return `${pct.toFixed(k)}%`; 
     }
     case "integer": return comma(d.toDecimalPlaces(0).toFixed(0));
     case "two_decimals": return comma(d.toDecimalPlaces(2).toFixed(2));
