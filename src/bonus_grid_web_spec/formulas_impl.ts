@@ -135,16 +135,17 @@ export const formulaImpls: Record<CellAddr, FormulaImpl> = {
     [`Sheet1!D${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get("Sheet1!D33" as CellAddr) * ctx.get(`Sheet1!H${r}` as CellAddr)],
 
-    // E[r] = C[r] // Net Points Needed
-    [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => ctx.get(`Sheet1!C${r}` as CellAddr)],
+    // E[r] = C[r] + G24 // Net Points Needed = Growth Goal + Point Loss Retention
+    [`Sheet1!E${r}` as CellAddr, (ctx: CalcContext) => 
+      ctx.get(`Sheet1!C${r}` as CellAddr) + ctx.get("Sheet1!G24" as CellAddr)],
 
-    // F[r] = E[r] * (1 - D34) // 1st Yr Retention Loss Factor
+    // F[r] = E[r] * (1 - D34) // 1st Yr Retention Loss = Net Points × (1 - Retention Rate)
     [`Sheet1!F${r}` as CellAddr, (ctx: CalcContext) =>
       ctx.get(`Sheet1!E${r}` as CellAddr) * (1 - ctx.get("Sheet1!D34" as CellAddr))],
 
-    // G[r] = E[r] + F[r] // TOTAL Points Needed
+    // G[r] = C[r] + G24 + F[r] // TOTAL Points = Growth Goal + Point Loss + Retention Loss
     [`Sheet1!G${r}` as CellAddr, (ctx: CalcContext) =>
-      ctx.get(`Sheet1!E${r}` as CellAddr) + ctx.get(`Sheet1!F${r}` as CellAddr)],
+      ctx.get(`Sheet1!C${r}` as CellAddr) + ctx.get("Sheet1!G24" as CellAddr) + ctx.get(`Sheet1!F${r}` as CellAddr)],
 
     // I[r] = G[r] / 12 // Monthly Points Needed
     [`Sheet1!I${r}` as CellAddr, (ctx: CalcContext) =>

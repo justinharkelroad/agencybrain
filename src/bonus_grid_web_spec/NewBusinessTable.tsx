@@ -65,6 +65,14 @@ export function NewBusinessTable({
           );
         })}
       </div>
+      
+      {/* Totals Row */}
+      <div className="grid grid-cols-[1fr,100px,100px,100px] px-4 py-3 border-t bg-muted/20 font-medium">
+        <div>Totals</div>
+        <div className="text-center">{formatValue("Sheet1!K24", computedValues["Sheet1!K24"] ?? 0)}</div>
+        <div className="text-center text-muted-foreground">—</div>
+        <div className="text-center">{formatValue("Sheet1!M24", computedValues["Sheet1!M24"] ?? 0)}</div>
+      </div>
     </div>
   );
 }
