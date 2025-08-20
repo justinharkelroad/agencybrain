@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -67,11 +67,11 @@ const initialFormData: FormData = {
 export default function Submit() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
-  // Get URL parameters to determine mode
-  const urlParams = new URLSearchParams(window.location.search);
-  const mode = urlParams.get('mode'); // 'update' or 'new'
-  const periodIdParam = urlParams.get('periodId');
+  // Get URL parameters with stable references to prevent infinite useEffect loops
+  const mode = useMemo(() => searchParams.get('mode'), [searchParams]); // 'update' or 'new'
+  const periodIdParam = useMemo(() => searchParams.get('periodId'), [searchParams]);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
