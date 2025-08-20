@@ -19,7 +19,7 @@ export function buildNormalizedState(rawState: Record<CellAddr, any>, schema: Sc
   for (const [k,v] of Object.entries(rawState)) {
     if (percentSet.has(k)) {
       const n = Number(String(v).replace(/[%,$]/g,""));
-      out[k as CellAddr] = Number.isFinite(n) ? n : 0;
+      out[k as CellAddr] = Number.isFinite(n) ? n/100 : 0;
     } else {
       out[k as CellAddr] = v;
     }
