@@ -229,18 +229,18 @@ const ProcessVault: React.FC = () => {
                       <button
                         key={v.id}
                         onClick={() => openVault(v)}
-                        className={`group border rounded-lg p-4 text-left transition-smooth hover-scale ${secured ? 'gradient-success' : ''}`}
+                        className={`group border rounded-lg p-4 text-left transition-smooth hover-scale ${secured ? 'gradient-success text-white' : ''}`}
                         aria-label={`Open ${v.title} vault`}
                       >
                         <div className="flex items-center gap-3">
                           {secured ? (
-                            <FolderOpen className="w-8 h-8 text-primary" />
+                            <FolderOpen className="w-8 h-8 text-white" />
                           ) : (
                             <Folder className="w-8 h-8 text-muted-foreground" />
                           )}
                           <div>
                             <div className="font-semibold">{secureLabel(v)}</div>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1"><UploadCloud className="w-3 h-3" /> {fileCounts[v.id] || 0} file(s)</div>
+                            <div className={`text-xs flex items-center gap-1 ${secured ? 'text-white/80' : 'text-muted-foreground'}`}><UploadCloud className="w-3 h-3" /> {fileCounts[v.id] || 0} file(s)</div>
                           </div>
                         </div>
                       </button>
