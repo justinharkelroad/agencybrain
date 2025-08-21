@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,13 +12,16 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Upload } from "lucide-react";
+import { ArrowLeft, Upload, Save } from "lucide-react";
 
 export default function AgencyMember() {
   const { memberId } = useParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
+  
+  // State for staged file uploads
+  const [stagedFiles, setStagedFiles] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
     document.title = "Team Member | My Agency";
@@ -47,11 +50,13 @@ export default function AgencyMember() {
     },
   });
 
+  // Separate useMemo for agency ID to prevent circular dependencies
+  const agencyId = useMemo(() => memberQuery.data?.agency_id, [memberQuery.data?.agency_id]);
+
   const templatesQuery = useQuery({
-    queryKey: ["templates", memberQuery.data?.agency_id],
-    enabled: !!memberQuery.data?.agency_id || memberQuery.isSuccess,
+    queryKey: ["templates", agencyId],
+    enabled: !!agencyId,
     queryFn: async () => {
-      const agencyId = memberQuery.data?.agency_id;
       const or = agencyId ? `agency_id.is.null,agency_id.eq.${agencyId}` : "agency_id.is.null";
       const { data, error } = await supabase
         .from("checklist_template_items")
@@ -78,13 +83,24 @@ export default function AgencyMember() {
     },
   });
 
-  // Combine templates with member checklist rows
+  // Combine templates with member checklist rows (simplified dependencies)
   const checklist = useMemo(() => {
+    if (!templatesQuery.data || !Array.isArray(templatesQuery.data)) return [];
+    if (!mciQuery.data || !Array.isArray(mciQuery.data)) {
+      return templatesQuery.data.map((t: any) => ({
+        template: t,
+        mci: null,
+      }));
+    }
+    
     const map: Record<string, any> = {};
-    mciQuery.data?.forEach((r: any) => { map[r.template_item_id] = r; });
-    return (templatesQuery.data || []).map((t: any) => ({
+    mciQuery.data.forEach((r: any) => { 
+      if (r?.template_item_id) map[r.template_item_id] = r; 
+    });
+    
+    return templatesQuery.data.map((t: any) => ({
       template: t,
-      mci: map[t.id] || null,
+      mci: t?.id ? map[t.id] || null : null,
     }));
   }, [templatesQuery.data, mciQuery.data]);
 
@@ -141,19 +157,29 @@ export default function AgencyMember() {
     onError: (e: any) => toast({ title: "Remove failed", description: e?.message || "Unable to remove item", variant: "destructive" }),
   });
 
+  // Handle file selection (staging)
   const onFileChange = (templateId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Uploads
-    const uploadMutation = useMutation({
-      mutationFn: async ({ file, templateId }: { file: File; templateId: string }) => {
-        const agencyId = memberQuery.data?.agency_id;
-        if (!agencyId) throw new Error("No agency id");
+    setStagedFiles(prev => ({
+      ...prev,
+      [templateId]: Array.from(files)
+    }));
+    e.currentTarget.value = "";
+  };
+
+  // Save staged files mutation
+  const saveFilesMutation = useMutation({
+    mutationFn: async ({ files, templateId }: { files: File[]; templateId: string }) => {
+      if (!agencyId) throw new Error("No agency id");
+      
+      for (const file of files) {
         const ext = file.name.split('.').pop();
         const path = `agencies/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
         if (upErr) throw upErr;
+        
         const { error: dbErr } = await supabase.from('agency_files').insert({
           agency_id: agencyId,
           member_id: memberId,
@@ -165,17 +191,19 @@ export default function AgencyMember() {
           visibility: 'owner_admin',
         });
         if (dbErr) throw dbErr;
-      },
-      onSuccess: () => {
-        qc.invalidateQueries({ queryKey: ["mci", memberId] });
-        toast({ title: "Uploaded", description: "File attached" });
-      },
-      onError: (e: any) => toast({ title: "Upload failed", description: e?.message || "Unable to upload", variant: "destructive" }),
-    });
-
-    Array.from(files).forEach((file) => uploadMutation.mutate({ file, templateId }));
-    e.currentTarget.value = "";
-  };
+      }
+    },
+    onSuccess: (_, { templateId }) => {
+      setStagedFiles(prev => {
+        const newStaged = { ...prev };
+        delete newStaged[templateId];
+        return newStaged;
+      });
+      qc.invalidateQueries({ queryKey: ["mci", memberId] });
+      toast({ title: "Saved", description: "Files uploaded successfully" });
+    },
+    onError: (e: any) => toast({ title: "Save failed", description: e?.message || "Unable to save files", variant: "destructive" }),
+  });
 
   const missingCount = useMemo(() => checklist.filter((it) => !it.mci).length, [checklist]);
 
@@ -220,7 +248,7 @@ export default function AgencyMember() {
                   <TableRow>
                     <TableHead>Item</TableHead>
                     <TableHead>Secured</TableHead>
-                    <TableHead>Attachments</TableHead>
+                    <TableHead>Files</TableHead>
                     <TableHead>Upload</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
@@ -235,31 +263,59 @@ export default function AgencyMember() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`file-${template.id}`} className="sr-only">Upload file</Label>
-                          <Input id={`file-${template.id}`} type="file" className="max-w-xs" onChange={(e) => onFileChange(template.id, e)} disabled={!mci} />
+                          <Input 
+                            id={`file-${template.id}`} 
+                            type="file" 
+                            multiple
+                            className="max-w-xs" 
+                            onChange={(e) => onFileChange(template.id, e)} 
+                            disabled={!mci} 
+                          />
                           <Upload className="h-4 w-4 text-muted-foreground" />
+                          {stagedFiles[template.id] && (
+                            <span className="text-xs text-muted-foreground">
+                              {stagedFiles[template.id].length} staged
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {mci ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="rounded-full"
-                            onClick={() => removeItemMutation.mutate(template.id)}
-                            disabled={removeItemMutation.isPending}
-                          >
-                            {removeItemMutation.isPending ? "Removing..." : "Remove"}
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            className="rounded-full"
-                            onClick={() => addItemMutation.mutate(template.id)}
-                            disabled={addItemMutation.isPending}
-                          >
-                            {addItemMutation.isPending ? "Adding..." : "Add"}
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {mci ? (
+                            <>
+                              {stagedFiles[template.id] && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  className="rounded-full"
+                                  onClick={() => saveFilesMutation.mutate({ files: stagedFiles[template.id], templateId: template.id })}
+                                  disabled={saveFilesMutation.isPending}
+                                >
+                                  <Save className="h-4 w-4 mr-1" />
+                                  {saveFilesMutation.isPending ? "Saving..." : "Save"}
+                                </Button>
+                              )}
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() => removeItemMutation.mutate(template.id)}
+                                disabled={removeItemMutation.isPending}
+                              >
+                                {removeItemMutation.isPending ? "Removing..." : "Remove"}
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="rounded-full"
+                              onClick={() => addItemMutation.mutate(template.id)}
+                              disabled={addItemMutation.isPending}
+                            >
+                              {addItemMutation.isPending ? "Adding..." : "Add"}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
