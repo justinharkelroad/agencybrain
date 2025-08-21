@@ -34,6 +34,13 @@ serve(async (req) => {
       promptId
     } = await req.json();
 
+    // Token estimation function
+    const estimateTokenCount = (text: string): number => {
+      return Math.ceil(text.length / 4); // Rough estimate: 1 token ≈ 4 characters
+    };
+
+    const TOKEN_LIMIT = 120000; // Conservative limit
+
     // Build context from period data and uploads
     let context = `Agency: ${agencyName}\n\n`;
     
@@ -143,6 +150,23 @@ serve(async (req) => {
       }
     }
 
+    // Check token count before sending to OpenAI
+    let totalTokens = estimateTokenCount(context);
+    console.log(`Estimated token count: ${totalTokens}`);
+    
+    if (totalTokens > TOKEN_LIMIT) {
+      console.error(`Token limit exceeded: ${totalTokens} > ${TOKEN_LIMIT}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Content too large for analysis (${Math.round(totalTokens / 1000)}k tokens). Please use fewer or smaller files.` 
+        }), 
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Default prompts by category
     const defaultPrompts = {
       performance: `Analyze the insurance agency's performance data and provide specific insights on:
@@ -245,7 +269,9 @@ Focus on strategic positioning and competitive advantage.`
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error?.message || 'OpenAI API error');
+      console.error('OpenAI API error:', data);
+      const errorMsg = data.error?.message || `OpenAI API error (${response.status})`;
+      throw new Error(errorMsg);
     }
 
     const analysis = data.choices[0].message.content;

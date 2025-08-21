@@ -318,6 +318,33 @@ const AdminAnalysis = () => {
     setRequestsByAnalysis(map);
   };
 
+  // Token estimation function (rough estimate: 1 token ≈ 4 characters)
+  const estimateTokenCount = (periodData: any, uploads: Upload[]): number => {
+    let tokenCount = 0;
+    
+    // Base context overhead
+    tokenCount += 500; // System prompt, headers, etc.
+    
+    // Period data
+    if (periodData) {
+      tokenCount += JSON.stringify(periodData).length / 4;
+    }
+    
+    // Estimate file content tokens (conservative estimate)
+    uploads.forEach(upload => {
+      // Rough file size estimation based on typical file sizes
+      if (upload.original_name.toLowerCase().endsWith('.csv')) {
+        tokenCount += 100000; // Conservative estimate for CSV files
+      } else if (upload.original_name.toLowerCase().endsWith('.xlsx') || upload.original_name.toLowerCase().endsWith('.xls')) {
+        tokenCount += 150000; // Conservative estimate for Excel files
+      } else {
+        tokenCount += 25000; // Other text files
+      }
+    });
+    
+    return Math.round(tokenCount);
+  };
+
   const runAnalysis = async () => {
     if (!selectedClient || !selectedCategory) {
       toast({
@@ -337,26 +364,47 @@ const AdminAnalysis = () => {
       return;
     }
 
+    const period = selectedPeriod ? periods.find(p => p.id === selectedPeriod) : null;
+    const client = clients.find(c => c.id === selectedClient);
+    
+    if (!client) {
+      toast({
+        title: "Error",
+        description: "Invalid client selection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // FIXED: Only include explicitly selected files - no auto-selection by period
+    const uploadsToAnalyze = uploads.filter(u => selectedUploads.includes(u.id));
+
+    // Check token limits before proceeding
+    const estimatedTokens = estimateTokenCount(period?.form_data, uploadsToAnalyze);
+    const TOKEN_LIMIT = 120000; // Conservative limit (OpenAI's is 128k)
+
+    if (estimatedTokens > TOKEN_LIMIT) {
+      toast({
+        title: "File Size Warning",
+        description: `The selected files are too large for AI analysis (${Math.round(estimatedTokens / 1000)}k tokens). Please select fewer files or export data for external analysis.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Show warning for large files
+    if (estimatedTokens > 80000) {
+      const confirmed = window.confirm(
+        `Warning: Large file selection detected (${Math.round(estimatedTokens / 1000)}k tokens). This may take longer or fail. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
     setIsAnalyzing(true);
 
     try {
-      const period = selectedPeriod ? periods.find(p => p.id === selectedPeriod) : null;
-      const client = clients.find(c => c.id === selectedClient);
-      
-      if (!client) throw new Error('Invalid client selection');
-
       // Get custom prompt if provided, otherwise use category
       const promptToUse = customPrompt || prompts.find(p => p.category === selectedCategory)?.content;
-
-      // Get selected uploads or filter by period if none selected
-      const uploadsToAnalyze = selectedUploads.length > 0 
-        ? uploads.filter(u => selectedUploads.includes(u.id))
-        : period 
-          ? uploads.filter(u => 
-              new Date(u.created_at) >= new Date(period.start_date) &&
-              new Date(u.created_at) <= new Date(period.end_date)
-            )
-          : [];
 
       console.log('Uploads to analyze:', uploadsToAnalyze);
 
@@ -551,7 +599,7 @@ const AdminAnalysis = () => {
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {selectedUploads.length === 0 
-                        ? "All files in the period will be analyzed if none selected" 
+                        ? "Select files to include in analysis (optional - period data will still be analyzed)" 
                         : `${selectedUploads.length} file(s) selected for analysis`
                       }
                     </p>
