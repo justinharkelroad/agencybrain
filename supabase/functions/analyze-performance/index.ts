@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini';
+const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini-2025-08-07';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 

@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 import { corsHeaders } from "../_shared/cors.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini';
+const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini-2025-08-07';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -69,7 +69,7 @@ serve(async (req) => {
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: openAIModel, messages, temperature: 0.3, max_tokens: 1200 })
+      body: JSON.stringify({ model: openAIModel, messages, max_completion_tokens: 1200 })
     });
     const aiJson = await aiRes.json();
     if (!aiRes.ok) throw new Error(aiJson?.error?.message || 'OpenAI error');
