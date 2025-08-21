@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, CheckCircle2, Clock, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, CheckCircle2, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCategoryGradient } from '@/utils/categoryStyles';
 
 interface AnalysisRow {
@@ -47,7 +46,6 @@ const SharedInsights: React.FC = () => {
   const [analyses, setAnalyses] = useState<AnalysisRow[]>([]);
   const [views, setViews] = useState<Record<string, AnalysisView | null>>({});
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisRow | null>(null);
-  const [requestMsg, setRequestMsg] = useState('');
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [messagesLoading, setMessagesLoading] = useState<Record<string, boolean>>({});
   
@@ -228,28 +226,6 @@ const SharedInsights: React.FC = () => {
     }
   };
 
-  const submitRequest = async (analysis: AnalysisRow) => {
-    if (!user) return;
-    const msg = requestMsg.trim();
-    if (!msg) return;
-
-    const { error } = await supabase
-      .from('ai_analysis_requests')
-      .insert({
-        analysis_id: analysis.id,
-        user_id: user.id,
-        message: msg,
-        status: 'open'
-      });
-
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to submit request', variant: 'destructive' });
-      return;
-    }
-
-    setRequestMsg('');
-    toast({ title: 'Request sent', description: 'We will follow up shortly.' });
-  };
 
   return (
     <Card>
@@ -326,26 +302,11 @@ const SharedInsights: React.FC = () => {
                               <p className="text-xs text-muted-foreground">No shared follow-ups.</p>
                             )}
                           </div>
-                          <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                            <Button onClick={() => acknowledge(a)} className="flex-1">
+                          <div className="mt-4">
+                            <Button onClick={() => acknowledge(a)} className="w-full">
                               <CheckCircle2 className="w-4 h-4 mr-2" />
                               Acknowledge
                             </Button>
-                            <div className="flex-1">
-                              <div className="text-xs text-muted-foreground mb-1">Request deeper dive</div>
-                              <div className="flex gap-2">
-                                <Textarea
-                                  rows={2}
-                                  className="flex-1"
-                                  value={requestMsg}
-                                  onChange={(e) => setRequestMsg(e.target.value)}
-                                  placeholder="What would you like us to explore further?"
-                                />
-                                <Button onClick={() => submitRequest(a)} disabled={!requestMsg.trim()}>
-                                  <Send className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
                           </div>
                         </DialogContent>
                       </Dialog>
