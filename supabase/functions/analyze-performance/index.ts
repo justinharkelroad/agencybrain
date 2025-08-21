@@ -304,11 +304,23 @@ Focus on strategic positioning and competitive advantage.`
       body: JSON.stringify({
         model: openAIModel,
         messages,
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
       }),
     });
 
     const data = await response.json();
+    
+    // Check for content filtering or token limit issues
+    if (Array.isArray(data?.choices) && data.choices[0]?.finish_reason === "content_filter") {
+      return new Response(JSON.stringify({ error: "Blocked by model content filter" }), { 
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (Array.isArray(data?.choices) && data.choices[0]?.finish_reason === "length") {
+      console.warn("[openai] response truncated due to token limit");
+    }
     
     if (!response.ok) {
       console.error('OpenAI API error:', data);

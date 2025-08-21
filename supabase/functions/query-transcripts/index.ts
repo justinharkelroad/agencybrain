@@ -108,9 +108,22 @@ serve(async (req) => {
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${openAIApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: openAIModel, messages, max_completion_tokens: 1200 })
+      body: JSON.stringify({ model: openAIModel, messages, max_completion_tokens: 4000 })
     });
     const aiJson = await aiRes.json();
+    
+    // Check for content filtering or token limit issues
+    if (Array.isArray(aiJson?.choices) && aiJson.choices[0]?.finish_reason === "content_filter") {
+      return new Response(JSON.stringify({ error: "Blocked by model content filter" }), { 
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
+    if (Array.isArray(aiJson?.choices) && aiJson.choices[0]?.finish_reason === "length") {
+      console.warn("[openai] response truncated due to token limit");
+    }
+    
     if (!aiRes.ok) throw new Error(aiJson?.error?.message || 'OpenAI error');
     
     console.log("[openai:raw]", JSON.stringify(aiJson).slice(0, 5000));
