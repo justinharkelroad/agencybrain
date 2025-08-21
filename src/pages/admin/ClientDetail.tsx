@@ -14,6 +14,7 @@ import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
+import { FormViewer } from '@/components/FormViewer';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface Client {
@@ -1012,43 +1013,16 @@ setClient(clientData);
                         {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
                       </p>
                       
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
-                        {(period.form_data as any)?.sales && (
-                          <div className="flex items-center space-x-2">
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                            <span>Sales Data</span>
-                          </div>
-                        )}
-                        {(period.form_data as any)?.marketing && (
-                          <div className="flex items-center space-x-2">
-                            <TrendingUp className="h-4 w-4 text-blue-600" />
-                            <span>Marketing</span>
-                          </div>
-                        )}
-                        {(period.form_data as any)?.operations && (
-                          <div className="flex items-center space-x-2">
-                            <BarChart3 className="h-4 w-4 text-purple-600" />
-                            <span>Operations</span>
-                          </div>
-                        )}
-                        {(period.form_data as any)?.retention && (
-                          <div className="flex items-center space-x-2">
-                            <Users className="h-4 w-4 text-orange-600" />
-                            <span>Retention</span>
-                          </div>
-                        )}
-                        {(period.form_data as any)?.cashFlow && (
-                          <div className="flex items-center space-x-2">
-                            <Target className="h-4 w-4 text-red-600" />
-                            <span>Cash Flow</span>
-                          </div>
-                        )}
-                        {(period.form_data as any)?.qualitative && (
-                          <div className="flex items-center space-x-2">
-                            <MessageSquare className="h-4 w-4 text-gray-600" />
-                            <span>Qualitative</span>
-                          </div>
-                        )}
+                      <div className="flex justify-start">
+                        <FormViewer 
+                          period={period} 
+                          triggerButton={
+                            <Button size="sm" variant="outline">
+                              <FileText className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                          } 
+                        />
                       </div>
                     </Card>
                   ))}
