@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Settings, 
   Save, 
@@ -20,6 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { AdminTopNav } from '@/components/AdminTopNav';
+import { getCategoryGradient, getCategoryLabel } from '@/utils/categoryStyles';
 
 interface Prompt {
   id: string;
@@ -183,7 +185,7 @@ const [newPrompt, setNewPrompt] = useState({
     );
   }
 
-  const getCategoryLabel = (category: string) => {
+  const getPromptCategoryLabel = (category: string) => {
     return promptCategories.find(c => c.id === category)?.label || category;
   };
 
@@ -221,15 +223,15 @@ const [newPrompt, setNewPrompt] = useState({
                   <div className="space-y-4">
                     {prompts.map((prompt) => (
                       <div key={prompt.id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="capitalize">
-                              {getCategoryLabel(prompt.category)}
-                            </Badge>
-                            <Badge variant={prompt.is_active ? 'default' : 'secondary'}>
-                              {prompt.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </div>
+                         <div className="flex items-center justify-between mb-3">
+                           <div className="flex items-center gap-3">
+                             <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(prompt.category)}`}>
+                               {getPromptCategoryLabel(prompt.category)}
+                             </Badge>
+                             <Badge variant={prompt.is_active ? 'default' : 'secondary'}>
+                               {prompt.is_active ? 'Active' : 'Inactive'}
+                             </Badge>
+                           </div>
                           <div className="flex items-center gap-2">
                             <Button
                               variant="outline"
@@ -278,31 +280,30 @@ const [newPrompt, setNewPrompt] = useState({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!editingPrompt ? (
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <select
-                      id="category"
-                      value={newPrompt.category}
-                      onChange={(e) => setNewPrompt({ ...newPrompt, category: e.target.value })}
-                      className="w-full mt-1 px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="">Select a category...</option>
-                      {promptCategories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <Label>Category</Label>
-                    <Badge variant="outline" className="mt-1">
-                      {getCategoryLabel(editingPrompt.category)}
-                    </Badge>
-                  </div>
-                )}
+                 {!editingPrompt ? (
+                   <div>
+                     <Label htmlFor="category">Category</Label>
+                     <Select value={newPrompt.category} onValueChange={(value) => setNewPrompt({ ...newPrompt, category: value })}>
+                       <SelectTrigger className="w-full mt-1">
+                         <SelectValue placeholder="Select a category..." />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {promptCategories.map((category) => (
+                           <SelectItem key={category.id} value={category.id}>
+                             {category.label}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 ) : (
+                   <div>
+                     <Label>Category</Label>
+                     <Badge variant="outline" className={`mt-1 text-white border-none ${getCategoryGradient(editingPrompt.category)}`}>
+                       {getPromptCategoryLabel(editingPrompt.category)}
+                     </Badge>
+                   </div>
+                 )}
 
                 <div className="space-y-3">
                   <div>

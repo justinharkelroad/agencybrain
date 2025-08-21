@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, CheckCircle2, Clock, Send } from 'lucide-react';
+import { Eye, CheckCircle2, Clock, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getCategoryGradient } from '@/utils/categoryStyles';
 
 interface AnalysisRow {
   id: string;
@@ -49,6 +50,11 @@ const SharedInsights: React.FC = () => {
   const [requestMsg, setRequestMsg] = useState('');
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [messagesLoading, setMessagesLoading] = useState<Record<string, boolean>>({});
+  
+  // Pagination state
+  const [needsReviewPage, setNeedsReviewPage] = useState(0);
+  const [completedPage, setCompletedPage] = useState(0);
+  const itemsPerPage = 2;
 
   useEffect(() => {
     if (!user) return;
@@ -99,6 +105,20 @@ const SharedInsights: React.FC = () => {
   const completed = useMemo(() => {
     return analyses.filter(a => views[a.id]?.acknowledged);
   }, [analyses, views]);
+
+  // Paginated data
+  const paginatedNeedsReview = useMemo(() => {
+    const start = needsReviewPage * itemsPerPage;
+    return needsReview.slice(start, start + itemsPerPage);
+  }, [needsReview, needsReviewPage]);
+
+  const paginatedCompleted = useMemo(() => {
+    const start = completedPage * itemsPerPage;
+    return completed.slice(start, start + itemsPerPage);
+  }, [completed, completedPage]);
+
+  const needsReviewTotalPages = Math.ceil(needsReview.length / itemsPerPage);
+  const completedTotalPages = Math.ceil(completed.length / itemsPerPage);
 
   const recordView = async (analysis: AnalysisRow) => {
     if (!user) return;
@@ -244,14 +264,16 @@ const SharedInsights: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium mb-3">Needs Your Review</h4>
               <div className="space-y-3">
-                {needsReview.length === 0 && (
+                {paginatedNeedsReview.length === 0 && (
                   <p className="text-xs text-muted-foreground">You're all caught up.</p>
                 )}
-                {needsReview.map(a => (
+                {paginatedNeedsReview.map(a => (
                   <div key={a.id} className="border rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="capitalize">{a.analysis_type}</Badge>
+                        <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(a.analysis_type)}`}>
+                          {a.analysis_type}
+                        </Badge>
                         <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -331,19 +353,48 @@ const SharedInsights: React.FC = () => {
                   </div>
                 ))}
               </div>
+              
+              {/* Needs Review Pagination */}
+              {needsReview.length > itemsPerPage && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNeedsReviewPage(Math.max(0, needsReviewPage - 1))}
+                    disabled={needsReviewPage === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {needsReviewPage + 1} of {needsReviewTotalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNeedsReviewPage(Math.min(needsReviewTotalPages - 1, needsReviewPage + 1))}
+                    disabled={needsReviewPage >= needsReviewTotalPages - 1}
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div>
               <h4 className="text-sm font-medium mb-3">Completed</h4>
               <div className="space-y-3">
-                {completed.length === 0 && (
+                {paginatedCompleted.length === 0 && (
                   <p className="text-xs text-muted-foreground">No completed items yet.</p>
                 )}
-                {completed.map(a => (
+                {paginatedCompleted.map(a => (
                   <div key={a.id} className="border rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="capitalize">{a.analysis_type}</Badge>
+                        <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(a.analysis_type)}`}>
+                          {a.analysis_type}
+                        </Badge>
                         <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</span>
                       </div>
                       <Badge variant="secondary" className="flex items-center gap-1">
@@ -400,6 +451,33 @@ const SharedInsights: React.FC = () => {
                   </div>
                 ))}
               </div>
+              
+              {/* Completed Pagination */}
+              {completed.length > itemsPerPage && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCompletedPage(Math.max(0, completedPage - 1))}
+                    disabled={completedPage === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {completedPage + 1} of {completedTotalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCompletedPage(Math.min(completedTotalPages - 1, completedPage + 1))}
+                    disabled={completedPage >= completedTotalPages - 1}
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
 import { FormViewer } from '@/components/FormViewer';
+import { getCategoryGradient } from '@/utils/categoryStyles';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface Client {
@@ -1349,15 +1350,17 @@ setClient(clientData);
                   {analyses.map((analysis) => (
                     <Card key={analysis.id} className="p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <Badge variant="outline">{analysis.analysis_type}</Badge>
-                          {analysis.shared_with_client && (
-                            <Badge variant="default">Shared</Badge>
-                          )}
-                          {(sharedReplies[analysis.id]?.length ?? 0) > 0 && (
-                            <Badge variant="secondary">Shared replies: {sharedReplies[analysis.id]!.length}</Badge>
-                          )}
-                        </div>
+                         <div className="flex items-center space-x-2">
+                           <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(analysis.analysis_type)}`}>
+                             {analysis.analysis_type}
+                           </Badge>
+                           {analysis.shared_with_client && (
+                             <Badge variant="default">Shared</Badge>
+                           )}
+                           {(sharedReplies[analysis.id]?.length ?? 0) > 0 && (
+                             <Badge variant="secondary">Shared replies: {sharedReplies[analysis.id]!.length}</Badge>
+                           )}
+                         </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-muted-foreground">
                             {formatDate(analysis.created_at)}
