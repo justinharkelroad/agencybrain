@@ -1363,6 +1363,29 @@ setClient(clientData);
                             {formatDate(analysis.created_at)}
                           </span>
                           <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const { error } = await supabase
+                                .from('ai_analysis')
+                                .update({ shared_with_client: !analysis.shared_with_client })
+                                .eq('id', analysis.id);
+                              
+                              if (!error) {
+                                await fetchClientData();
+                                toast({
+                                  title: analysis.shared_with_client ? "Analysis unshared" : "Analysis shared",
+                                  description: analysis.shared_with_client 
+                                    ? "The analysis is no longer visible to the client"
+                                    : "The analysis is now visible to the client"
+                                });
+                              }
+                            }}
+                          >
+                            <Share2 className="w-4 h-4 mr-2" />
+                            {analysis.shared_with_client ? 'Unshare' : 'Share'}
+                          </Button>
+                          <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => {
