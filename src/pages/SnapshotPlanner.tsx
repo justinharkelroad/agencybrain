@@ -51,14 +51,19 @@ export default function SnapshotPlannerPage() {
       setParsedPdf(result);
       setYtdOverride(""); // Clear override when new PDF uploaded
       
-      toast({
-        title: "PDF uploaded successfully",
-        description: `Detected report month: ${getMonthName(result.uploadedMonth)}`
-      });
-      
-      // Automatically compute ROY targets if we have YTD data
       if (result.ytdItemsTotal) {
+        toast({
+          title: "PDF processed successfully",
+          description: `YTD Items: ${result.ytdItemsTotal} • Month: ${getMonthName(result.uploadedMonth)}`
+        });
+        // Automatically compute ROY targets
         computeTargets(result.ytdItemsTotal, result.uploadedMonth);
+      } else {
+        toast({
+          title: "PDF uploaded - manual input needed",
+          description: `Detected month: ${getMonthName(result.uploadedMonth)} • Please enter YTD total manually`,
+          variant: "default"
+        });
       }
       
     } catch (error) {
@@ -335,6 +340,9 @@ export default function SnapshotPlannerPage() {
           <Card className="p-6">
             <div className="space-y-4">
               <Label className="text-base font-medium">Daily View</Label>
+              <p className="text-sm text-muted-foreground">
+                Show additional breakdown columns for daily items and points targets based on your Points/Items Mix from the Bonus Grid.
+              </p>
               <ToggleGroup type="single" value={dailyMode} onValueChange={(value) => value && setDailyMode(value as any)}>
                 <ToggleGroupItem value="21-day">21-Day Convention</ToggleGroupItem>
                 <ToggleGroupItem value="business" disabled>Business Days (Coming Soon)</ToggleGroupItem>
@@ -375,45 +383,79 @@ export default function SnapshotPlannerPage() {
           {royResult && (
             <Card className="p-6">
               <div className="space-y-4">
-                <h3 className="font-medium">Rest-of-Year Targets ({royResult.monthsRemaining} months remaining)</h3>
+                <div>
+                  <h3 className="font-medium">Rest-of-Year Targets ({royResult.monthsRemaining} months remaining)</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Compare old targets with new rest-of-year targets needed to reach annual goals
+                  </p>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-xs text-muted-foreground">
-                        <th className="text-left py-2">Tier</th>
-                        <th className="text-right py-2">Old Monthly</th>
-                        <th className="text-right py-2">New Monthly</th>
-                        <th className="text-right py-2">Δ Items/Month</th>
-                        <th className="text-right py-2">Pace to Date</th>
+                        <th className="text-left py-2">Bonus Tier</th>
+                        <th className="text-right py-2">
+                          <div>Old Target</div>
+                          <div className="font-normal">(Monthly Items)</div>
+                        </th>
+                        <th className="text-right py-2">
+                          <div>New Target</div>
+                          <div className="font-normal">(Monthly Items)</div>
+                        </th>
+                        <th className="text-right py-2">
+                          <div>Δ Change</div>
+                          <div className="font-normal">(Items/Month)</div>
+                        </th>
                         {dailyMode === '21-day' && royResult.tiers[0].newDailyItems21 !== undefined && (
-                          <th className="text-right py-2">Daily Items</th>
+                          <>
+                            <th className="text-right py-2">
+                              <div>New Monthly</div>
+                              <div className="font-normal">(Points)</div>
+                            </th>
+                            <th className="text-right py-2">
+                              <div>New Daily</div>
+                              <div className="font-normal">(Items)</div>
+                            </th>
+                            <th className="text-right py-2">
+                              <div>New Daily</div>
+                              <div className="font-normal">(Points)</div>
+                            </th>
+                          </>
                         )}
                       </tr>
                     </thead>
                     <tbody>
                       {royResult.tiers.map((tier, index) => (
-                        <tr key={index} className="border-b">
-                          <td className="py-2 font-medium">{tier.tierLabel}</td>
-                          <td className="py-2 text-right text-red-600">{tier.oldMonthlyItems}</td>
-                          <td className="py-2 text-right text-green-600">
-                            <div>{tier.newMonthlyItemsCeiling}</div>
-                            <div className="text-xs text-muted-foreground">({tier.newMonthlyItemsExact.toFixed(2)})</div>
+                        <tr key={index} className="border-b hover:bg-muted/50">
+                          <td className="py-3 font-medium">{tier.tierLabel}</td>
+                          <td className="py-3 text-right">
+                            <span className="text-red-600 font-medium">{tier.oldMonthlyItems}</span>
                           </td>
-                          <td className="py-2 text-right">
+                          <td className="py-3 text-right">
+                            <div className="text-green-600 font-medium">{tier.newMonthlyItemsCeiling}</div>
+                            <div className="text-xs text-muted-foreground">({tier.newMonthlyItemsExact.toFixed(1)} exact)</div>
+                          </td>
+                          <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
                               {tier.deltaItemsPerMonth > 0 ? (
                                 <ArrowUp className="h-3 w-3 text-red-500" />
                               ) : tier.deltaItemsPerMonth < 0 ? (
                                 <ArrowDown className="h-3 w-3 text-green-500" />
                               ) : null}
-                              <span className={tier.deltaItemsPerMonth > 0 ? "text-red-600" : tier.deltaItemsPerMonth < 0 ? "text-green-600" : ""}>
-                                {tier.deltaItemsPerMonth.toFixed(1)}
+                              <span className={
+                                tier.deltaItemsPerMonth > 0 ? "text-red-600 font-medium" : 
+                                tier.deltaItemsPerMonth < 0 ? "text-green-600 font-medium" : "text-muted-foreground"
+                              }>
+                                {tier.deltaItemsPerMonth > 0 ? '+' : ''}{tier.deltaItemsPerMonth.toFixed(1)}
                               </span>
                             </div>
                           </td>
-                          <td className="py-2 text-right text-muted-foreground">{Math.round(royResult.paceItemsPerMonth)}</td>
-                          {dailyMode === '21-day' && tier.newDailyItems21 !== undefined && (
-                            <td className="py-2 text-right">{tier.newDailyItems21.toFixed(1)}</td>
+                          {dailyMode === '21-day' && tier.newMonthlyPoints !== undefined && (
+                            <>
+                              <td className="py-3 text-right font-medium">{tier.newMonthlyPoints.toFixed(0)}</td>
+                              <td className="py-3 text-right">{tier.newDailyItems21?.toFixed(1) || '—'}</td>
+                              <td className="py-3 text-right">{tier.newDailyPoints21?.toFixed(1) || '—'}</td>
+                            </>
                           )}
                         </tr>
                       ))}
