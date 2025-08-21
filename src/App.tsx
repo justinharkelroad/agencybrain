@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
+import SnapshotPlanner from "./pages/SnapshotPlanner";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +133,11 @@ const App = () => (
             <Route path="/bonus-grid" element={
               <ProtectedRoute>
                 <BonusGrid />
+              </ProtectedRoute>
+            } />
+            <Route path="/snapshot-planner" element={
+              <ProtectedRoute>
+                <SnapshotPlanner />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

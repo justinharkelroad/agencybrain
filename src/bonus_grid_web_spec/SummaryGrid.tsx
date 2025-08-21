@@ -47,6 +47,20 @@ export function SummaryGrid({
 
       {/* Header */}
       <div className="grid grid-cols-[140px,100px,120px,140px,140px,160px,160px,160px,160px,160px,160px] gap-2 px-2 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div className="col-span-2 text-right">
+          <div className="text-[11px] text-muted-foreground">*21 Days / Month Avg</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-[140px,100px,120px,140px,140px,160px,160px,160px,160px,160px,160px] gap-2 px-2 py-2 text-xs text-muted-foreground bg-muted/30 border-b">
         <div>Growth Goal</div>
         <div>Bonus %</div>
         <div>Bonus $</div>
@@ -56,12 +70,11 @@ export function SummaryGrid({
         <div>TOTAL Points Needed</div>
         <div>Monthly Points Needed</div>
         <div>Monthly Items Needed</div>
-        <div className="relative">
+        <div>
           Daily Points Needed
         </div>
-        <div className="relative">
+        <div>
           Daily Items Needed
-          <div className="absolute -bottom-5 right-0 text-[11px] text-muted-foreground">*21 Days / Month Avg</div>
         </div>
       </div>
 

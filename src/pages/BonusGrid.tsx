@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Clock } from "lucide-react";
+import { ArrowLeft, Save, Clock, Target } from "lucide-react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
@@ -205,6 +205,18 @@ export default function BonusGridPage(){
     navigate('/dashboard');
   };
 
+  // Grid validation for Snapshot Planner
+  const isGridValid = useMemo(() => {
+    // Check if required Growth Goal values (C38-C44) exist and are valid
+    const requiredAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!C${r}` as CellAddr);
+    return requiredAddrs.every(addr => {
+      const val = state[addr];
+      return val !== undefined && val !== null && val !== "" && !isNaN(Number(val));
+    });
+  }, [state]);
+
+  const isGridSaved = !isDirty;
+
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Navigation Header */}
@@ -300,6 +312,15 @@ export default function BonusGridPage(){
             onClick={copy}
           >
             Copy Results
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => navigate('/snapshot-planner')}
+            disabled={!isGridValid || !isGridSaved}
+            className="gap-2"
+          >
+            <Target className="h-4 w-4" />
+            Snapshot Planner
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>

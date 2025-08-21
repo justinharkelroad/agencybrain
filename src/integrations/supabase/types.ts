@@ -629,6 +629,45 @@ export type Database = {
         }
         Relationships: []
       }
+      snapshot_planner: {
+        Row: {
+          created_at: string | null
+          current_month_items_total: number | null
+          grid_version: string | null
+          id: string
+          raw_pdf_meta: Json | null
+          snapshot_date: string
+          tiers: Json
+          uploaded_month: number
+          user_id: string
+          ytd_items_total: number
+        }
+        Insert: {
+          created_at?: string | null
+          current_month_items_total?: number | null
+          grid_version?: string | null
+          id?: string
+          raw_pdf_meta?: Json | null
+          snapshot_date: string
+          tiers: Json
+          uploaded_month: number
+          user_id: string
+          ytd_items_total: number
+        }
+        Update: {
+          created_at?: string | null
+          current_month_items_total?: number | null
+          grid_version?: string | null
+          id?: string
+          raw_pdf_meta?: Json | null
+          snapshot_date?: string
+          tiers?: Json
+          uploaded_month?: number
+          user_id?: string
+          ytd_items_total?: number
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           agency_id: string
