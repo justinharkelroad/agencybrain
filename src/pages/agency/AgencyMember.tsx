@@ -173,12 +173,18 @@ export default function AgencyMember() {
   const saveFilesMutation = useMutation({
     mutationFn: async ({ files, templateId }: { files: File[]; templateId: string }) => {
       if (!agencyId) throw new Error("No agency id");
+      if (!user?.id) throw new Error("User not authenticated");
       
       for (const file of files) {
         const ext = file.name.split('.').pop();
-        const path = `agencies/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        // Use user ID at the start of path to match RLS policies
+        const path = `${user.id}/agency-files/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        
         const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
-        if (upErr) throw upErr;
+        if (upErr) {
+          console.error('Storage upload error:', upErr);
+          throw new Error(`Upload failed: ${upErr.message}`);
+        }
         
         const { error: dbErr } = await supabase.from('agency_files').insert({
           agency_id: agencyId,
@@ -189,8 +195,12 @@ export default function AgencyMember() {
           mime_type: file.type,
           size: file.size,
           visibility: 'owner_admin',
+          uploaded_by_user_id: user.id, // Explicitly set the uploader
         });
-        if (dbErr) throw dbErr;
+        if (dbErr) {
+          console.error('Database insert error:', dbErr);
+          throw new Error(`Database error: ${dbErr.message}`);
+        }
       }
     },
     onSuccess: (_, { templateId }) => {
