@@ -4,6 +4,45 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 import { corsHeaders } from "../_shared/cors.ts";
 
+function extractTextFromOpenAI(resp: any): string {
+  try {
+    // OpenAI Responses API
+    if (resp?.output_text) return String(resp.output_text);
+
+    // Responses API structured content
+    if (Array.isArray(resp?.output)) {
+      const text = resp.output
+        .map((p: any) => {
+          if (p?.content) {
+            // JSON schema: { type: "output_text", content: [{ type:"output_text", text: "..." }] }
+            const c = Array.isArray(p.content) ? p.content : [];
+            const t = c.map((x: any) => x?.text).filter(Boolean).join("\n");
+            if (t) return t;
+          }
+          return p?.text || "";
+        })
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+      if (text) return text;
+    }
+
+    // Chat Completions fallback
+    if (Array.isArray(resp?.choices) && resp.choices.length) {
+      const ch = resp.choices[0];
+      if (ch?.message?.content) return String(ch.message.content);
+      if (ch?.text) return String(ch.text);
+    }
+
+    // Direct text content fallback
+    if (typeof resp?.content === "string") return resp.content;
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const openAIModel = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini-2025-08-07';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -73,7 +112,16 @@ serve(async (req) => {
     });
     const aiJson = await aiRes.json();
     if (!aiRes.ok) throw new Error(aiJson?.error?.message || 'OpenAI error');
-    const analysis = aiJson.choices?.[0]?.message?.content || '';
+    
+    console.log("[openai:raw]", JSON.stringify(aiJson).slice(0, 5000));
+    const analysis = extractTextFromOpenAI(aiJson);
+    if (!analysis) {
+      console.warn("[openai] empty content extracted");
+      return new Response(JSON.stringify({ error: "Empty analysis from model" }), { 
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Store to ai_analysis (include user_id so the row is tied to the client even without a period)
     await adminClient.from('ai_analysis').insert({

@@ -13,6 +13,49 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function extractTextFromOpenAI(resp: any): string {
+  try {
+    // OpenAI Responses API
+    if (resp?.output_text) return String(resp.output_text);
+
+    // Responses API structured content
+    if (Array.isArray(resp?.output)) {
+      const text = resp.output
+        .map((p: any) => {
+          if (p?.content) {
+            // JSON schema: { type: "output_text", content: [{ type:"output_text", text: "..." }] }
+            const c = Array.isArray(p.content) ? p.content : [];
+            const t = c.map((x: any) => x?.text).filter(Boolean).join("\n");
+            if (t) return t;
+          }
+          return p?.text || "";
+        })
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+      if (text) return text;
+    }
+
+    // Chat Completions fallback
+    if (Array.isArray(resp?.choices) && resp.choices.length) {
+      const ch = resp.choices[0];
+      if (ch?.message?.content) return String(ch.message.content);
+      if (ch?.text) return String(ch.text);
+    }
+
+    // Direct text content fallback
+    if (typeof resp?.content === "string") return resp.content;
+
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+function hardLimit(str: string, max = 12000) {
+  return str.length > max ? str.slice(0, max) + "\n...[truncated]" : str;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -232,7 +275,7 @@ Focus on strategic positioning and competitive advantage.`
         },
         { 
           role: 'user', 
-          content: `Data context (period metrics and any uploaded files converted to text):\n\n${context}\n\nFollow-up question: ${followUpPrompt}` 
+          content: `Data context (period metrics and any uploaded files converted to text):\n\n${hardLimit(context)}\n\nFollow-up question: ${followUpPrompt}` 
         }
       ];
     } else {
@@ -245,7 +288,7 @@ Focus on strategic positioning and competitive advantage.`
         },
         { 
           role: 'user', 
-          content: `Please analyze the following agency data and provide insights:\n\n${context}` 
+          content: `Please analyze the following agency data and provide insights:\n\n${hardLimit(context)}` 
         }
       ];
     }
@@ -273,7 +316,23 @@ Focus on strategic positioning and competitive advantage.`
       throw new Error(errorMsg);
     }
 
-    const analysis = data.choices[0].message.content;
+    // Handle completion failures
+    if (Array.isArray(data?.choices) && data.choices[0]?.finish_reason === "content_filter") {
+      return new Response(JSON.stringify({ error: "Blocked by model content filter" }), { 
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log("[openai:raw]", JSON.stringify(data).slice(0, 5000));
+    const analysis = extractTextFromOpenAI(data);
+    if (!analysis) {
+      console.warn("[openai] empty content extracted");
+      return new Response(JSON.stringify({ error: "Empty analysis from model" }), { 
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // If this is a new analysis (not a follow-up), persist it
     if (!isFollowUp) {
