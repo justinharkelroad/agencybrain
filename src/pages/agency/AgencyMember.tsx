@@ -175,16 +175,22 @@ export default function AgencyMember() {
       if (!agencyId) throw new Error("No agency id");
       if (!user?.id) throw new Error("User not authenticated");
       
+      const uploadedFiles: string[] = [];
+      
       for (const file of files) {
         const ext = file.name.split('.').pop();
         // Use user ID at the start of path to match RLS policies
         const path = `${user.id}/agency-files/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        
+        console.log('Uploading file:', file.name, 'to path:', path);
         
         const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
         if (upErr) {
           console.error('Storage upload error:', upErr);
           throw new Error(`Upload failed: ${upErr.message}`);
         }
+        
+        console.log('File uploaded to storage, inserting into database...');
         
         const { error: dbErr } = await supabase.from('agency_files').insert({
           agency_id: agencyId,
@@ -201,18 +207,55 @@ export default function AgencyMember() {
           console.error('Database insert error:', dbErr);
           throw new Error(`Database error: ${dbErr.message}`);
         }
+        
+        uploadedFiles.push(file.name);
+        console.log('File successfully saved to database:', file.name);
       }
+      
+      return { uploadedFiles, templateId };
     },
-    onSuccess: (_, { templateId }) => {
+    onSuccess: ({ uploadedFiles, templateId }) => {
+      console.log('Upload success callback triggered for template:', templateId);
+      
+      // Clear staged files for this template
       setStagedFiles(prev => {
         const newStaged = { ...prev };
         delete newStaged[templateId];
         return newStaged;
       });
+      
+      // Force refresh of queries
       qc.invalidateQueries({ queryKey: ["mci", memberId] });
-      toast({ title: "Saved", description: "Files uploaded successfully" });
+      qc.invalidateQueries({ queryKey: ["agency_files"] });
+      
+      // Manually update the checklist state as immediate feedback
+      qc.setQueryData(["mci", memberId], (old: any) => {
+        if (!old) return old;
+        return old.map((item: any) => {
+          if (item.template_item_id === templateId) {
+            return {
+              ...item,
+              attachments_count: (item.attachments_count || 0) + uploadedFiles.length,
+              secured: true
+            };
+          }
+          return item;
+        });
+      });
+      
+      toast({ 
+        title: "Success", 
+        description: `${uploadedFiles.length} file(s) uploaded successfully!` 
+      });
     },
-    onError: (e: any) => toast({ title: "Save failed", description: e?.message || "Unable to save files", variant: "destructive" }),
+    onError: (e: any) => {
+      console.error('Upload error:', e);
+      toast({ 
+        title: "Upload Failed", 
+        description: e?.message || "Unable to save files", 
+        variant: "destructive" 
+      });
+    },
   });
 
   const missingCount = useMemo(() => checklist.filter((it) => !it.mci).length, [checklist]);
@@ -302,7 +345,7 @@ export default function AgencyMember() {
                                   disabled={saveFilesMutation.isPending}
                                 >
                                   <Save className="h-4 w-4 mr-1" />
-                                  {saveFilesMutation.isPending ? "Saving..." : "Save"}
+                                  {saveFilesMutation.isPending ? "Uploading..." : `Save (${stagedFiles[template.id].length})`}
                                 </Button>
                               )}
                               <Button
