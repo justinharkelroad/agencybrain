@@ -10,6 +10,8 @@ export const categoryGradients = {
   financial: "bg-gradient-to-r from-emerald-500 to-cyan-600",
   marketing: "bg-gradient-to-r from-rose-500 to-orange-600",
   operational: "bg-gradient-to-r from-violet-500 to-purple-600",
+  operations: "bg-gradient-to-r from-slate-500 to-gray-600",
+  sales: "bg-gradient-to-r from-amber-500 to-yellow-600",
   default: "bg-gradient-to-r from-red-500 to-yellow-600"
 } as const;
 

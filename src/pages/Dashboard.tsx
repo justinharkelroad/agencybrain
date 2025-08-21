@@ -70,23 +70,23 @@ const Dashboard = () => {
               <span role="img" aria-label="brain">🧠</span>
             </h2>
           )}
-          <section>
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Submit New Data for Coaching Call</CardTitle>
-                <CardDescription>Start a new submission</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full" asChild>
-                  <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </section>
         </div>
-        <SharedInsights />
         <PerformanceMetrics />
         <MonthOverMonthTrends />
+        <section>
+          <Card className="glass-surface elevate rounded-2xl">
+            <CardHeader>
+              <CardTitle>Submit New Data for Coaching Call</CardTitle>
+              <CardDescription>Start a new submission</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button className="w-full" asChild>
+                <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+        <SharedInsights />
         <ReportingPeriods />
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
           Version: {versionLabel}
