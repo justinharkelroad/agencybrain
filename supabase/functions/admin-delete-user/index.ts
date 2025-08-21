@@ -42,13 +42,33 @@ Deno.serve(async (req) => {
     })
 
     // Verify the requesting user is an admin
-    const { data: userAuth } = await supabaseUser.auth.getUser()
-    if (!userAuth.user?.id) {
+    console.log('Verifying user authentication...')
+    const { data: userAuth, error: userError } = await supabaseUser.auth.getUser()
+    
+    if (userError) {
+      console.error('User authentication error:', userError)
       return new Response(
-        JSON.stringify({ error: 'Invalid user token' }),
+        JSON.stringify({ 
+          error: 'Authentication failed', 
+          details: userError.message,
+          hint: 'Please refresh your session and try again'
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    if (!userAuth.user?.id) {
+      console.error('No user ID found in auth token')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid or expired session', 
+          hint: 'Please refresh your session and try again'
+        }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    console.log('User authenticated successfully:', userAuth.user.id)
 
     const { data: profile, error: profileError } = await supabaseUser
       .from('profiles')
@@ -56,13 +76,34 @@ Deno.serve(async (req) => {
       .eq('id', userAuth.user.id)
       .maybeSingle()
 
-    if (profileError || profile?.role !== 'admin') {
-      console.error('Profile error:', profileError)
+    if (profileError) {
+      console.error('Profile fetch error:', profileError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to verify admin status', 
+          details: profileError.message 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!profile) {
+      console.error('No profile found for user:', userAuth.user.id)
+      return new Response(
+        JSON.stringify({ error: 'User profile not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (profile.role !== 'admin') {
+      console.error('User is not admin. Role:', profile.role)
       return new Response(
         JSON.stringify({ error: 'Only admin users can delete accounts' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('Admin status verified for user:', userAuth.user.id)
 
     // Parse the request body
     const { userId } = await req.json()

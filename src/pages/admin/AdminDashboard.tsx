@@ -218,16 +218,58 @@ setCoachingRevenue(totalMRR);
     if (!selectedUserId) return;
     try {
       setIsDeleting(true);
-      const { error } = await supabase.functions.invoke('admin-delete-user', {
+      
+      // Ensure we have a fresh session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Authentication session expired. Please refresh the page and try again.');
+      }
+      
+      // Attempt deletion with explicit authorization header
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: { userId: selectedUserId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
-      if (error) throw error as any;
+      
+      if (error) {
+        console.error('Edge function error:', error);
+        
+        // Handle specific error cases
+        if (error.message?.includes('session') || error.message?.includes('expired')) {
+          throw new Error('Session expired. Please refresh the page and try again.');
+        }
+        if (error.message?.includes('admin')) {
+          throw new Error('Admin privileges required. Please check your account permissions.');
+        }
+        
+        throw error;
+      }
+      
       toast({ title: 'Account deleted', description: 'The selected account was permanently removed.' });
       setSelectedUserId(null);
       await fetchAdminData();
     } catch (e: any) {
       console.error('Delete failed', e);
-      toast({ title: 'Delete failed', description: e?.message || 'Unexpected error', variant: 'destructive' });
+      
+      let errorMessage = e?.message || 'Unexpected error occurred';
+      let errorDescription = '';
+      
+      // Provide helpful error descriptions
+      if (errorMessage.includes('session') || errorMessage.includes('Authentication')) {
+        errorDescription = 'Try refreshing the page and logging in again.';
+      } else if (errorMessage.includes('admin')) {
+        errorDescription = 'Contact your system administrator.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        errorDescription = 'Check your internet connection and try again.';
+      }
+      
+      toast({ 
+        title: 'Delete failed', 
+        description: errorDescription || errorMessage, 
+        variant: 'destructive' 
+      });
     } finally {
       setIsDeleting(false);
     }
