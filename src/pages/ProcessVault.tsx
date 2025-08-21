@@ -229,7 +229,7 @@ const ProcessVault: React.FC = () => {
                       <button
                         key={v.id}
                         onClick={() => openVault(v)}
-                        className={`group border rounded-lg p-4 text-left transition-smooth hover-scale ${secured ? 'gradient-primary' : ''}`}
+                        className={`group border rounded-lg p-4 text-left transition-smooth hover-scale ${secured ? 'gradient-success' : ''}`}
                         aria-label={`Open ${v.title} vault`}
                       >
                         <div className="flex items-center gap-3">
