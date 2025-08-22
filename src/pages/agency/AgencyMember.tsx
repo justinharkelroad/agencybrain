@@ -34,6 +34,12 @@ export default function AgencyMember() {
       m.content = content;
       document.head.appendChild(m);
     }
+
+    // Clean up any existing custom elements to prevent conflicts
+    return () => {
+      const existingElements = document.querySelectorAll('mce-autosize-textarea');
+      existingElements.forEach(el => el.remove());
+    };
   }, []);
 
   const memberQuery = useQuery({
@@ -160,13 +166,27 @@ export default function AgencyMember() {
   // Handle file selection (staging)
   const onFileChange = (templateId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    console.log('File selection for template:', templateId, 'files:', files?.length);
+    
+    if (!files || files.length === 0) {
+      // Clear staged files if no files selected
+      setStagedFiles(prev => {
+        const newStaged = { ...prev };
+        delete newStaged[templateId];
+        return newStaged;
+      });
+      return;
+    }
 
+    const fileArray = Array.from(files);
+    console.log('Staging files:', fileArray.map(f => f.name));
+    
     setStagedFiles(prev => ({
       ...prev,
-      [templateId]: Array.from(files)
+      [templateId]: fileArray
     }));
-    e.currentTarget.value = "";
+    
+    // Don't clear the input value immediately - let user see their selection
   };
 
   // Save staged files mutation
@@ -216,6 +236,12 @@ export default function AgencyMember() {
     },
     onSuccess: ({ uploadedFiles, templateId }) => {
       console.log('Upload success callback triggered for template:', templateId);
+      
+      // Clear the file input
+      const fileInput = document.getElementById(`file-${templateId}`) as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
       
       // Clear staged files for this template
       setStagedFiles(prev => {
