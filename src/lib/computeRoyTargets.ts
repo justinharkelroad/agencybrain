@@ -34,21 +34,21 @@ export function computeRoyTargets(params: RoyParams): RoyResult {
   const paceItemsPerMonth = ytdItemsTotal / monthsElapsed;
   
   const tiers: RoyTierResult[] = oldMonthlyItemsByTier.map((oldTarget, index) => {
-    // Old Target: Monthly Items Needed from grid (J38-J44)
-    const oldMonthlyItems = oldTarget;
+    // Old Target: Monthly Items Needed from grid (J38-J44) - rounded to whole number
+    const oldMonthlyItems = Math.round(oldTarget);
     
-    // Calculate annual goal based on old target
-    const annualGoalItems = oldTarget * 12;
+    // Calculate annual goal based on rounded old target
+    const annualGoalItems = oldMonthlyItems * 12;
     
     // Calculate remaining items needed to reach annual goal
     const itemsStillNeeded = Math.max(0, annualGoalItems - ytdItemsTotal);
     
-    // New Target: Rest-of-year adjusted target
+    // New Target: Rest-of-year adjusted target - rounded to whole number
     const newMonthlyItemsExact = itemsStillNeeded / monthsRemaining;
-    const newMonthlyItemsCeiling = Math.ceil(newMonthlyItemsExact);
+    const newMonthlyItemsCeiling = Math.round(newMonthlyItemsExact);
     
-    // Change: Simple difference between new and old targets
-    const deltaItemsPerMonth = newMonthlyItemsExact - oldTarget;
+    // Change: Simple difference between rounded new and old targets
+    const deltaItemsPerMonth = newMonthlyItemsCeiling - oldMonthlyItems;
     
     // Optional calculations for points view
     let newMonthlyPoints: number | undefined;

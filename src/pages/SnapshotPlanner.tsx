@@ -402,12 +402,12 @@ export default function SnapshotPlannerPage() {
                               {tier.deltaItemsPerMonth > 0 ? (
                                 <>
                                   <ArrowUp className="h-3 w-3 text-red-500" />
-                                  <span className="text-red-600 font-medium">+{tier.deltaItemsPerMonth.toFixed(1)}</span>
+                                  <span className="text-red-600 font-medium">+{tier.deltaItemsPerMonth}</span>
                                 </>
                               ) : tier.deltaItemsPerMonth < 0 ? (
                                 <>
                                   <ArrowDown className="h-3 w-3 text-green-500" />
-                                  <span className="text-green-600 font-medium">{tier.deltaItemsPerMonth.toFixed(1)}</span>
+                                  <span className="text-green-600 font-medium">{tier.deltaItemsPerMonth}</span>
                                 </>
                               ) : (
                                 <span className="text-muted-foreground">0</span>
