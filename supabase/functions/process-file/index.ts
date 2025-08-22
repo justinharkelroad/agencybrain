@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { readPdf } from "https://deno.land/x/pdf_reader@0.0.9/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,9 +69,33 @@ serve(async (req) => {
       let uploadedMonth = new Date().getMonth() + 1; // Default to current month
       
       try {
-        // Try to extract text using proper PDF parsing
-        const pdfText = await readPdf(uint8Array);
-        extractedText = pdfText;
+        // Enhanced binary text extraction from PDF
+        const binaryString = Array.from(uint8Array)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        
+        // Look for text content between stream/endstream markers and other text patterns
+        const textMatches = binaryString.match(/(?:stream\s*(.*?)\s*endstream|BT\s*(.*?)\s*ET)/gs);
+        if (textMatches) {
+          extractedText = textMatches.map(match => 
+            match.replace(/(?:stream\s*|BT\s*)/, '').replace(/\s*(?:endstream|ET)/, '')
+          ).join(' ');
+        }
+        
+        // Also try to find text objects and strings
+        const textObjects = binaryString.match(/\((.*?)\)/g);
+        if (textObjects && extractedText.length < 100) {
+          extractedText += ' ' + textObjects
+            .map(obj => obj.replace(/[()]/g, ''))
+            .filter(text => text.length > 2)
+            .join(' ');
+        }
+        
+        // Clean up extracted text
+        extractedText = extractedText
+          .replace(/[^\x20-\x7E\n]/g, ' ') // Remove non-printable characters
+          .replace(/\s+/g, ' ')
+          .trim();
         
         console.log('PDF text extracted successfully:', extractedText.substring(0, 500));
         
