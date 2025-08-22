@@ -73,12 +73,31 @@ export default function SnapshotPlannerPage() {
     const bonusPercentAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!H${r}` as CellAddr);
     const allAddrs = [...monthlyItemsAddrs, ...bonusPercentAddrs];
     
+    // DEBUG: Log the grid state structure
+    console.log("DEBUG: gridState keys:", Object.keys(gridState));
+    console.log("DEBUG: gridState sample values:", Object.fromEntries(
+      Object.entries(gridState).slice(0, 5)
+    ));
+    
     // Wrap the grid state in the expected WorkbookState format
     const workbookState = { inputs: gridState };
+    console.log("DEBUG: workbookState structure:", {
+      hasInputs: 'inputs' in workbookState,
+      inputsKeys: Object.keys(workbookState.inputs).slice(0, 10)
+    });
+    
     const computedValues = computeRounded(workbookState, allAddrs);
+    
+    // DEBUG: Log computed values for J38-J44 (monthly items)
+    console.log("DEBUG: Monthly Items (J38-J44) computed values:");
+    monthlyItemsAddrs.forEach(addr => {
+      console.log(`  ${addr}: ${computedValues[addr]}`);
+    });
     
     const monthlyItems = monthlyItemsAddrs.map(addr => computedValues[addr] || 0);
     const bonusPercentages = bonusPercentAddrs.map(addr => computedValues[addr] || 0);
+    
+    console.log("DEBUG: Final monthlyItems array:", monthlyItems);
     const m25 = getPointsItemsMix();
     
     if (monthlyItems.length !== 7 || bonusPercentages.length !== 7) {
