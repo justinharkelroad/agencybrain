@@ -259,7 +259,7 @@ const ProcessVault: React.FC = () => {
             </CardHeader>
             <CardContent className="flex items-center gap-3">
               <Input placeholder="e.g., SOP ARCHIVE" value={newVaultName} onChange={(e) => setNewVaultName(e.target.value)} />
-              <Button onClick={() => { addVault(newVaultName); setNewVaultName(""); }}>Add</Button>
+              <Button variant="gradient-glow" onClick={() => { addVault(newVaultName); setNewVaultName(""); }}>Add</Button>
             </CardContent>
           </Card>
         </section>

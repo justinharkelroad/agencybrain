@@ -80,7 +80,7 @@ const Dashboard = () => {
               <CardDescription>Start a new submission</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" asChild>
+              <Button variant="gradient-glow" className="w-full" asChild>
                 <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
               </Button>
             </CardContent>

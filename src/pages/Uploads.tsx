@@ -200,7 +200,7 @@ const Uploads = () => {
                       Selected {selectedCategories.length} categories for upload
                     </p>
                   </div>
-                  <Button onClick={() => navigate('/dashboard')}>
+                   <Button variant="gradient-glow" onClick={() => navigate('/dashboard')}>
                     Complete & View Dashboard
                   </Button>
                 </div>
