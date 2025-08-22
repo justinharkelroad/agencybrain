@@ -69,3 +69,16 @@ export function getPointsItemsMix(): number | undefined {
   const m25 = state["Sheet1!M25" as CellAddr];
   return typeof m25 === 'number' ? m25 : undefined;
 }
+
+export function getBonusPercentages(): number[] {
+  const state = getBonusGridState();
+  if (!state) return [];
+  
+  // Extract H38-H44 values (Bonus Percentages)
+  const bonusPercentages = [38, 39, 40, 41, 42, 43, 44].map(r => {
+    const addr = `Sheet1!H${r}` as CellAddr;
+    return state[addr] || 0;
+  });
+  
+  return bonusPercentages;
+}

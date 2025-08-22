@@ -2,6 +2,7 @@ export interface RoyParams {
   ytdItemsTotal: number;
   reportMonth: number; // 1..12
   oldMonthlyItemsByTier: number[]; // J38-J44 values from grid
+  bonusPercentages: number[]; // H38-H44 values from grid
   m25?: number; // Points/Items Mix for optional points calculations
   dailyMode: '21-day' | 'business';
 }
@@ -25,11 +26,8 @@ export interface RoyResult {
   tiers: RoyTierResult[];
 }
 
-// Tier labels corresponding to H38-H44 bonus percentages
-const TIER_LABELS = ['4.0%', '3.5%', '3.0%', '2.5%', '2.0%', '1.0%', '0.05%'];
-
 export function computeRoyTargets(params: RoyParams): RoyResult {
-  const { ytdItemsTotal, reportMonth, oldMonthlyItemsByTier, m25, dailyMode } = params;
+  const { ytdItemsTotal, reportMonth, oldMonthlyItemsByTier, bonusPercentages, m25, dailyMode } = params;
   
   const monthsElapsed = reportMonth;
   const monthsRemaining = Math.max(1, 12 - monthsElapsed);
@@ -63,8 +61,12 @@ export function computeRoyTargets(params: RoyParams): RoyResult {
       // Business day mode not implemented yet - leave as undefined
     }
     
+    // Format bonus percentage as tier label
+    const percentage = bonusPercentages[index] || 0;
+    const tierLabel = `${(percentage * 100).toFixed(percentage >= 0.01 ? 1 : 2)}%`;
+    
     return {
-      tierLabel: TIER_LABELS[index] || `Tier ${index + 1}`,
+      tierLabel,
       oldMonthlyItems: oldItems,
       newMonthlyItemsExact,
       newMonthlyItemsCeiling,
