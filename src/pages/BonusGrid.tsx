@@ -45,6 +45,7 @@ export default function BonusGridPage(){
   
   // dirty indicator - fixed autosave race
   const [savedSig, setSavedSig] = useState<string | null>(null);
+  const [autoSavedSig, setAutoSavedSig] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   
 
@@ -86,7 +87,7 @@ export default function BonusGridPage(){
 
   // Auto-save to database when state changes
   useEffect(() => {
-    if (savedSig === null || isLoading) return; // not ready yet
+    if (autoSavedSig === null || isLoading) return; // not ready yet
     
     const saveData = async () => {
       setIsAutoSaving(true);
@@ -95,7 +96,7 @@ export default function BonusGridPage(){
         const result: SaveResult = await saveBonusGridState(state);
         if (result.success) {
           setLastSaved(new Date());
-          setSavedSig(JSON.stringify(state));
+          setAutoSavedSig(JSON.stringify(state)); // Use autoSavedSig instead of savedSig
         } else {
           setSaveError(result.error || 'Unknown save error');
           toast({
@@ -120,15 +121,18 @@ export default function BonusGridPage(){
     
     const t = setTimeout(saveData, 1000); // Increased debounce for database saves
     return () => clearTimeout(t);
-  }, [state, savedSig, isLoading, toast]);
+  }, [state, autoSavedSig, isLoading, toast]);
 
   // set baseline AFTER first hydration settles
   useEffect(() => {
-    if (savedSig === null) {
-      const t = setTimeout(() => setSavedSig(JSON.stringify(state)), 100);
+    if (savedSig === null && autoSavedSig === null) {
+      const t = setTimeout(() => {
+        setSavedSig(JSON.stringify(state));
+        setAutoSavedSig(JSON.stringify(state));
+      }, 100);
       return () => clearTimeout(t);
     }
-  }, [state, savedSig]);
+  }, [state, savedSig, autoSavedSig]);
 
   const isDirty = savedSig !== null && JSON.stringify(state) !== savedSig;
 
@@ -278,6 +282,7 @@ export default function BonusGridPage(){
       console.error('Failed to clear database:', error);
     }
     setSavedSig(null);
+    setAutoSavedSig(null);
     setLastSaved(null);
     setSaveError(null);
   };
@@ -285,6 +290,7 @@ export default function BonusGridPage(){
   const handleDataImported = (importedData: Record<CellAddr, any>) => {
     setState(importedData);
     setSavedSig(null); // Mark as dirty so it gets saved
+    setAutoSavedSig(null); // Reset auto-save state
     toast({
       title: "Data imported successfully",
       description: "Your bonus grid has been updated with the imported data.",
