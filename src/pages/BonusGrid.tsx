@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Clock, Target } from "lucide-react";
+import { ArrowLeft, Save, Clock, Target, RefreshCw } from "lucide-react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { getBonusGridState, saveBonusGridState, recoverFromSnapshot } from "@/lib/bonusGridState";
+import { supabase } from "@/integrations/supabase/client";
 import React from "react";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
@@ -35,6 +37,8 @@ export default function BonusGridPage(){
   const navigate = useNavigate();
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [availableSnapshots, setAvailableSnapshots] = useState<any[]>([]);
   
   const [state, setState] = useState<Record<CellAddr, any>>({});
   
@@ -42,28 +46,82 @@ export default function BonusGridPage(){
   const [savedSig, setSavedSig] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   
-  // hydrate once
-  useEffect(() => {
+  // Load available snapshots for recovery
+  const loadAvailableSnapshots = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) { setState(JSON.parse(raw)); return; }
-      // fallback to schema defaults plus PPI defaults
-      const base = Object.fromEntries(
-        (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
-      );
-      const filled = { ...base, ...PPI_DEFAULTS };
-      setState(filled);
-    } catch {}
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('snapshot_planner')
+          .select('id, snapshot_date, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        if (!error && data) {
+          setAvailableSnapshots(data);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load snapshots:', error);
+    }
   }, []);
 
-  // debounced save - only after baseline exists
+  
+  // hydrate once with database support
   useEffect(() => {
-    if (savedSig === null) return; // not ready yet
-    const t = setTimeout(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-    }, 250);
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Try to get from database first
+        const dbState = await getBonusGridState();
+        if (dbState && Object.keys(dbState).length > 0) {
+          setState(dbState);
+          setLastSaved(new Date());
+        } else {
+          // fallback to schema defaults plus PPI defaults
+          const base = Object.fromEntries(
+            (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
+          );
+          const filled = { ...base, ...PPI_DEFAULTS };
+          setState(filled);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        // fallback to schema defaults
+        const base = Object.fromEntries(
+          (inputsSchema as any).all_fields.map((f: any) => [`${f.sheet}!${f.cell}` as CellAddr, f.default ?? ""])
+        );
+        const filled = { ...base, ...PPI_DEFAULTS };
+        setState(filled);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+    loadAvailableSnapshots();
+  }, [loadAvailableSnapshots]);
+
+  // Auto-save to database when state changes
+  useEffect(() => {
+    if (savedSig === null || isLoading) return; // not ready yet
+    
+    const saveData = async () => {
+      setIsAutoSaving(true);
+      try {
+        await saveBonusGridState(state);
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    };
+    
+    const t = setTimeout(saveData, 1000); // Increased debounce for database saves
     return () => clearTimeout(t);
-  }, [state, savedSig]);
+  }, [state, savedSig, isLoading]);
 
   // set baseline AFTER first hydration settles
   useEffect(() => {
@@ -179,21 +237,59 @@ export default function BonusGridPage(){
     });
   };
 
-  const handleSave = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    setLastSaved(new Date());
-    setSavedSig(JSON.stringify(state));
-    toast({
-      title: "Data saved!",
-      description: "Your bonus grid data has been saved successfully.",
-    });
+  const handleSave = async () => {
+    try {
+      await saveBonusGridState(state);
+      setLastSaved(new Date());
+      setSavedSig(JSON.stringify(state));
+      toast({
+        title: "Data saved!",
+        description: "Your bonus grid data has been saved to your account.",
+      });
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: "Failed to save data. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
-  const handleReset = () => { 
+  const handleReset = async () => { 
     setState({}); 
-    localStorage.removeItem(STORAGE_KEY); 
+    try {
+      await saveBonusGridState({});
+    } catch (error) {
+      console.error('Failed to clear database:', error);
+    }
     setSavedSig(null);
     setLastSaved(null);
+  };
+
+  const handleRecoverFromSnapshot = async (snapshotId: string) => {
+    try {
+      const recoveredData = await recoverFromSnapshot(snapshotId);
+      if (recoveredData) {
+        setState(prevState => ({ ...prevState, ...recoveredData }));
+        setSavedSig(JSON.stringify({ ...state, ...recoveredData }));
+        toast({
+          title: "Data recovered!",
+          description: "Your bonus grid data has been recovered from the selected snapshot.",
+        });
+      } else {
+        toast({
+          title: "Recovery failed",
+          description: "Could not recover data from the selected snapshot.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Recovery failed",
+        description: "An error occurred while recovering data.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleReturnToDashboard = () => {
@@ -221,48 +317,65 @@ export default function BonusGridPage(){
 
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={handleReturnToDashboard}>
-            <ArrowLeft className="h-4 w-4" />
-            Return to Dashboard
-          </Button>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/dashboard">Dashboard</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Bonus Grid</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Loading your bonus grid data...</p>
+          </div>
         </div>
-        
-        {/* Save Status */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {isDirty ? (
-            <div className="flex items-center gap-2 text-amber-600">
-              <Clock className="h-4 w-4" />
-              Unsaved changes
+      )}
+      
+      {!isLoading && (
+        <>
+          {/* Navigation Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" className="gap-2" onClick={handleReturnToDashboard}>
+                <ArrowLeft className="h-4 w-4" />
+                Return to Dashboard
+              </Button>
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to="/dashboard">Dashboard</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Bonus Grid</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
-          ) : lastSaved ? (
-            <div className="flex items-center gap-2 text-green-600">
-              <Save className="h-4 w-4" />
-              Saved at {lastSaved.toLocaleTimeString()}
+            
+            {/* Save Status */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {isAutoSaving ? (
+                <div className="flex items-center gap-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  Auto-saving...
+                </div>
+              ) : isDirty ? (
+                <div className="flex items-center gap-2 text-amber-600">
+                  <Clock className="h-4 w-4" />
+                  Unsaved changes
+                </div>
+              ) : lastSaved ? (
+                <div className="flex items-center gap-2 text-green-600">
+                  <Save className="h-4 w-4" />
+                  Saved to account at {lastSaved.toLocaleTimeString()}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Save className="h-4 w-4" />
+                  Ready
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Save className="h-4 w-4" />
-              Ready
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
 
       {/* Prominent Dashboard Header */}
       <div className="relative rounded-2xl border border-border bg-gradient-to-br from-card via-card to-card/80 p-6 shadow-2xl backdrop-blur-sm">
@@ -333,6 +446,32 @@ export default function BonusGridPage(){
         </div>
       </header>
 
+      {/* Data Recovery Section */}
+      {availableSnapshots.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <RefreshCw className="h-5 w-5 text-blue-600" />
+            <h3 className="font-medium text-blue-900 dark:text-blue-100">Recover Lost Data</h3>
+          </div>
+          <p className="text-sm text-blue-700 dark:text-blue-200 mb-3">
+            We found saved snapshots that contain your previous Bonus Grid data. Select one to recover:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {availableSnapshots.map((snapshot) => (
+              <Button
+                key={snapshot.id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleRecoverFromSnapshot(snapshot.id)}
+                className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-200 dark:border-blue-700 dark:hover:bg-blue-900"
+              >
+                {new Date(snapshot.snapshot_date).toLocaleDateString()}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
@@ -370,7 +509,9 @@ export default function BonusGridPage(){
             </Card>
           )}
         </section>
-      </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

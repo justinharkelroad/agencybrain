@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, Target, Save, TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
@@ -13,7 +13,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { computeRoyTargets, type RoyResult, type RoyParams } from "@/lib/computeRoyTargets";
-import { getBonusGridState, getGridValidation, getPointsItemsMix } from "@/lib/bonusGridState";
+import { getBonusGridState, getGridValidation, getPointsItemsMix, type GridValidation } from "@/lib/bonusGridState";
 import { computeRounded, type CellAddr } from "@/bonus_grid_web_spec/computeWithRounding";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,10 +43,23 @@ export default function SnapshotPlannerPage() {
   const [royResult, setRoyResult] = useState<RoyResult | null>(null);
   const [isSaving, setSaving] = useState(false);
   
-  // Check grid validation
-  const gridValidation = getGridValidation();
-  
-  const computeTargets = useCallback(() => {
+  // Check grid validation with async handling
+  const [gridValidation, setGridValidation] = useState<GridValidation>({
+    isValid: false,
+    isSaved: false,
+    hasRequiredValues: false
+  });
+
+  // Load grid validation on mount
+  useEffect(() => {
+    const loadValidation = async () => {
+      const validation = await getGridValidation();
+      setGridValidation(validation);
+    };
+    loadValidation();
+  }, []);
+
+  const computeTargets = useCallback(async () => {
     const ytdItems = parseInt(ytdItemsInput);
     if (!ytdItems || ytdItems <= 0) {
       toast({
@@ -58,7 +71,7 @@ export default function SnapshotPlannerPage() {
     }
     
     // Get stored bonus grid inputs
-    const gridState = getBonusGridState();
+    const gridState = await getBonusGridState();
     if (!gridState) {
       toast({
         title: "Grid data missing",
@@ -162,7 +175,7 @@ export default function SnapshotPlannerPage() {
         uploaded_month: reportMonth,
         ytd_items_total: ytdItems,
         current_month_items_total: ytdItems,
-        grid_version: JSON.stringify(getBonusGridState()),
+        grid_version: JSON.stringify(await getBonusGridState()),
         tiers: royResult.tiers,
         raw_pdf_meta: {
           months_elapsed: royResult.monthsElapsed,

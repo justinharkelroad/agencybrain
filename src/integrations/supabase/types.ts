@@ -334,6 +334,30 @@ export type Database = {
           },
         ]
       }
+      bonus_grid_saves: {
+        Row: {
+          created_at: string
+          grid_data: Json
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          grid_data: Json
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          grid_data?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checklist_template_items: {
         Row: {
           active: boolean
