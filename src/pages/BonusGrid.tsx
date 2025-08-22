@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { getBonusGridState, saveBonusGridState, recoverFromSnapshot } from "@/lib/bonusGridState";
+import { getBonusGridState, saveBonusGridState, recoverFromSnapshot, getLatestSnapshotForRecovery } from "@/lib/bonusGridState";
 import { supabase } from "@/integrations/supabase/client";
 import React from "react";
 
@@ -39,6 +39,8 @@ export default function BonusGridPage(){
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableSnapshots, setAvailableSnapshots] = useState<any[]>([]);
+  const [canRecover, setCanRecover] = useState(false);
+  const [latestSnapshot, setLatestSnapshot] = useState<{id: string, snapshot_date: string} | null>(null);
   
   const [state, setState] = useState<Record<CellAddr, any>>({});
   
@@ -75,9 +77,24 @@ export default function BonusGridPage(){
       try {
         // Try to get from database first
         const dbState = await getBonusGridState();
+        
+        // Check if we can recover from snapshot
+        const snapshot = await getLatestSnapshotForRecovery();
+        setLatestSnapshot(snapshot);
+        
         if (dbState && Object.keys(dbState).length > 0) {
           setState(dbState);
           setLastSaved(new Date());
+          
+          // Check if Growth Goals are missing but we have a snapshot
+          const hasGrowthGoals = [38, 39, 40, 41, 42, 43, 44].some(r => {
+            const val = dbState[`Sheet1!C${r}` as CellAddr];
+            return val && val !== 0 && val !== "";
+          });
+          
+          if (!hasGrowthGoals && snapshot) {
+            setCanRecover(true);
+          }
         } else {
           // fallback to schema defaults plus PPI defaults
           const base = Object.fromEntries(
@@ -85,6 +102,11 @@ export default function BonusGridPage(){
           );
           const filled = { ...base, ...PPI_DEFAULTS };
           setState(filled);
+          
+          // Check if we have a snapshot to recover from
+          if (snapshot) {
+            setCanRecover(true);
+          }
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -447,14 +469,48 @@ export default function BonusGridPage(){
       </header>
 
       {/* Data Recovery Section */}
-      {availableSnapshots.length > 0 && (
+      {canRecover && latestSnapshot && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-600 rounded-xl p-6 shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center">
+              <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900 dark:text-amber-100 text-lg mb-2">
+                🚨 Missing Bonus Grid Data Detected
+              </h3>
+              <p className="text-amber-800 dark:text-amber-200 mb-4">
+                Your Growth Goal values are missing but we found your saved data from {new Date(latestSnapshot.snapshot_date).toLocaleDateString()}. 
+                Click below to restore your Bonus Grid with values: <strong>222, 205, 201, 183, 150, 129, 95</strong>
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleRecoverFromSnapshot(latestSnapshot.id)}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-6"
+                >
+                  🔄 Recover My Data Now
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCanRecover(false)}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {availableSnapshots.length > 0 && !canRecover && (
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <RefreshCw className="h-5 w-5 text-blue-600" />
-            <h3 className="font-medium text-blue-900 dark:text-blue-100">Recover Lost Data</h3>
+            <h3 className="font-medium text-blue-900 dark:text-blue-100">Recover Previous Data</h3>
           </div>
           <p className="text-sm text-blue-700 dark:text-blue-200 mb-3">
-            We found saved snapshots that contain your previous Bonus Grid data. Select one to recover:
+            Previous snapshots available for recovery:
           </p>
           <div className="flex flex-wrap gap-2">
             {availableSnapshots.map((snapshot) => (

@@ -111,17 +111,36 @@ export async function recoverFromSnapshot(snapshotId: string): Promise<Record<Ce
     const gridData: Record<CellAddr, any> = {};
     const tiers = data.tiers as any[];
     
-    // Map snapshot data back to grid format
+    // Map snapshot data back to grid format - use oldMonthlyItems as the growth goal
     tiers.forEach((tier, index) => {
       const row = 38 + index;
-      gridData[`Sheet1!C${row}` as CellAddr] = tier.growthGoal || 0;
-      gridData[`Sheet1!H${row}` as CellAddr] = tier.bonusPercent || 0;
-      gridData[`Sheet1!J${row}` as CellAddr] = tier.monthlyItemsNeeded || 0;
+      gridData[`Sheet1!C${row}` as CellAddr] = tier.oldMonthlyItems || 0; // Growth Goal
+      gridData[`Sheet1!J${row}` as CellAddr] = tier.oldMonthlyItems || 0; // Monthly Items Needed
     });
     
     return gridData;
   } catch (error) {
     console.error('Failed to recover from snapshot:', error);
+    return null;
+  }
+}
+
+export async function getLatestSnapshotForRecovery(): Promise<{id: string, snapshot_date: string} | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    
+    const { data, error } = await supabase
+      .from('snapshot_planner')
+      .select('id, snapshot_date')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    return data || null;
+  } catch (error) {
+    console.error('Failed to get latest snapshot:', error);
     return null;
   }
 }
