@@ -13,7 +13,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { computeRoyTargets, type RoyResult, type RoyParams } from "@/lib/computeRoyTargets";
-import { getBonusGridState, getGridValidation, getMonthlyItemsNeeded, getPointsItemsMix, getBonusPercentages } from "@/lib/bonusGridState";
+import { getBonusGridState, getGridValidation, getPointsItemsMix } from "@/lib/bonusGridState";
+import { computeRounded, type CellAddr } from "@/bonus_grid_web_spec/computeWithRounding";
 import { supabase } from "@/integrations/supabase/client";
 
 const MONTHS = [
@@ -37,7 +38,7 @@ export default function SnapshotPlannerPage() {
   
   // Form state
   const [snapshotDate, setSnapshotDate] = useState<Date>(new Date());
-  const [currentMonthItems, setCurrentMonthItems] = useState("");
+  const [ytdItemsInput, setYtdItemsInput] = useState("");
   const [reportMonth, setReportMonth] = useState<number>(new Date().getMonth() + 1);
   const [royResult, setRoyResult] = useState<RoyResult | null>(null);
   const [isSaving, setSaving] = useState(false);
@@ -46,31 +47,51 @@ export default function SnapshotPlannerPage() {
   const gridValidation = getGridValidation();
   
   const computeTargets = useCallback(() => {
-    const currentItems = parseInt(currentMonthItems);
-    if (!currentItems || currentItems <= 0) {
+    const ytdItems = parseInt(ytdItemsInput);
+    if (!ytdItems || ytdItems <= 0) {
       toast({
         title: "Invalid input",
-        description: "Please enter a valid positive number for Current Month New items.",
+        description: "Please enter a valid positive number for YTD items total.",
         variant: "destructive"
       });
       return;
     }
     
-    const monthlyItems = getMonthlyItemsNeeded();
-    const bonusPercentages = getBonusPercentages();
+    // Get stored bonus grid inputs
+    const gridState = getBonusGridState();
+    if (!gridState) {
+      toast({
+        title: "Grid data missing",
+        description: "Could not read bonus grid data. Please complete the Bonus Grid first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Compute the output values from the stored inputs
+    const monthlyItemsAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!J${r}` as CellAddr);
+    const bonusPercentAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!H${r}` as CellAddr);
+    const allAddrs = [...monthlyItemsAddrs, ...bonusPercentAddrs];
+    
+    // Wrap the grid state in the expected WorkbookState format
+    const workbookState = { inputs: gridState };
+    const computedValues = computeRounded(workbookState, allAddrs);
+    
+    const monthlyItems = monthlyItemsAddrs.map(addr => computedValues[addr] || 0);
+    const bonusPercentages = bonusPercentAddrs.map(addr => computedValues[addr] || 0);
     const m25 = getPointsItemsMix();
     
     if (monthlyItems.length !== 7 || bonusPercentages.length !== 7) {
       toast({
-        title: "Grid data missing",
-        description: "Could not read required values from Bonus Grid. Please ensure the grid is properly filled.",
+        title: "Grid computation failed",
+        description: "Could not compute required values from Bonus Grid. Please check your grid inputs.",
         variant: "destructive"
       });
       return;
     }
     
-    // Calculate YTD from current month items and report month
-    const ytdItemsTotal = currentItems * reportMonth;
+    // Use the ytd items as the YTD total (this is what the user input represents)
+    const ytdItemsTotal = ytdItems;
     
     const params: RoyParams = {
       ytdItemsTotal,
@@ -88,7 +109,7 @@ export default function SnapshotPlannerPage() {
       title: "Targets calculated",
       description: `ROY targets computed for ${reportMonth} months elapsed, ${result.monthsRemaining} months remaining.`,
     });
-  }, [currentMonthItems, reportMonth, toast]);
+  }, [ytdItemsInput, reportMonth, toast]);
   
   const handleSaveSnapshot = async () => {
     if (!royResult) {
@@ -100,11 +121,11 @@ export default function SnapshotPlannerPage() {
       return;
     }
     
-    const currentItems = parseInt(currentMonthItems);
-    if (!currentItems) {
+    const ytdItems = parseInt(ytdItemsInput);
+    if (!ytdItems) {
       toast({
         title: "Missing data",
-        description: "Current Month Items is required to save snapshot.",
+        description: "YTD Items Total is required to save snapshot.",
         variant: "destructive"
       });
       return;
@@ -116,8 +137,8 @@ export default function SnapshotPlannerPage() {
       const { error } = await supabase.from('snapshot_planner').insert({
         snapshot_date: format(snapshotDate, 'yyyy-MM-dd'),
         uploaded_month: reportMonth,
-        ytd_items_total: royResult.paceItemsPerMonth * reportMonth,
-        current_month_items_total: currentItems,
+        ytd_items_total: ytdItems,
+        current_month_items_total: ytdItems,
         grid_version: JSON.stringify(getBonusGridState()),
         tiers: royResult.tiers,
         raw_pdf_meta: {
@@ -146,8 +167,8 @@ export default function SnapshotPlannerPage() {
     }
   };
   
-  const canCompute = gridValidation.isValid && currentMonthItems && reportMonth;
-  const ytdTotal = royResult ? Math.round(royResult.paceItemsPerMonth * reportMonth) : null;
+  const canCompute = gridValidation.isValid && ytdItemsInput && reportMonth;
+  const ytdTotal = royResult ? parseInt(ytdItemsInput) : null;
   
   return (
     <main className="p-6 max-w-7xl mx-auto space-y-6">
@@ -246,13 +267,13 @@ export default function SnapshotPlannerPage() {
           <Card className="p-6">
             <div className="space-y-4">
               <Label className="text-base font-medium">
-                Insert Your "Current Month New" Item # From The Latest Business Metrics Report
+                YTD Items Total (Cumulative items from start of year through current month)
               </Label>
               <Input
                 type="number"
-                placeholder="Enter current month new items"
-                value={currentMonthItems}
-                onChange={(e) => setCurrentMonthItems(e.target.value)}
+                placeholder="Enter YTD items total"
+                value={ytdItemsInput}
+                onChange={(e) => setYtdItemsInput(e.target.value)}
                 disabled={!gridValidation.isValid}
               />
               
