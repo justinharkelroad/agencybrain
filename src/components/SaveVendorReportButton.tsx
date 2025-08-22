@@ -40,7 +40,7 @@ export function SaveVendorReportButton({ input, derived, data, className }: Save
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="gradient-glow"
       className={className}
       disabled={disabled}
       aria-disabled={disabled}

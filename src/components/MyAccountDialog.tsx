@@ -71,7 +71,7 @@ export function MyAccountDialogTriggerButton() {
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-          <Button onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+          <Button variant="gradient-glow" onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
         </div>
       </DialogContent>
     </Dialog>

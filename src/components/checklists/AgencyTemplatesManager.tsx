@@ -141,7 +141,7 @@ export default function AgencyTemplatesManager({ agencyId }: Props) {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={createTemplate} disabled={loading}>{loading ? "Saving..." : "Create"}</Button>
+              <Button variant="gradient-glow" onClick={createTemplate} disabled={loading}>{loading ? "Saving..." : "Create"}</Button>
             </div>
           </DialogContent>
         </Dialog>

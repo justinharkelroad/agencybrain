@@ -231,7 +231,7 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" variant="gradient-glow" disabled={loading}>
               {loading ? 'Creating...' : 'Create Client'}
             </Button>
           </DialogFooter>

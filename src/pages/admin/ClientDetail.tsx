@@ -972,7 +972,7 @@ setClient(clientData);
               />
               <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
             </div>
-            <Button onClick={handleSaveMRR} disabled={savingMRR}>
+            <Button variant="gradient-glow" onClick={handleSaveMRR} disabled={savingMRR}>
               {savingMRR ? 'Saving...' : 'Save'}
             </Button>
           </div>

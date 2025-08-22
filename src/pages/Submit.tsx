@@ -1145,7 +1145,7 @@ export default function Submit() {
               </Button>
             </div>
           </div>
-          <Button variant="glass" className="rounded-full hidden md:inline-flex" onClick={saveForm} disabled={saving}>
+          <Button variant="gradient-glow" className="rounded-full hidden md:inline-flex" onClick={saveForm} disabled={saving}>
             {saving ? 'Saving...' : 'Save Form'}
           </Button>
         </div>
@@ -1236,7 +1236,7 @@ export default function Submit() {
           <span className="text-sm text-muted-foreground">
             {hasUnsavedChanges ? "You have unsaved changes" : "All changes saved"}
           </span>
-          <Button onClick={saveForm} disabled={saving} className="rounded-full">
+          <Button variant="gradient-glow" onClick={saveForm} disabled={saving} className="rounded-full">
             {saving ? "Saving..." : "Save"}
           </Button>
         </div>
