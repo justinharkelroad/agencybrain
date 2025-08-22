@@ -23,11 +23,18 @@ export function getGridValidation(): GridValidation {
     return { isValid: false, isSaved: false, hasRequiredValues: false };
   }
   
-  // Check if required Growth Goal values (C38-C44) exist and are valid
+  // Check if state has any meaningful data at all
+  const hasAnyData = Object.keys(state).length > 0;
+  if (!hasAnyData) {
+    return { isValid: false, isSaved: false, hasRequiredValues: false };
+  }
+  
+  // Check if required Growth Goal values (C38-C44) exist and are valid numbers > 0
   const requiredAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!C${r}` as CellAddr);
   const hasRequiredValues = requiredAddrs.every(addr => {
     const val = state[addr];
-    return val !== undefined && val !== null && val !== "" && !isNaN(Number(val));
+    const numVal = Number(val);
+    return val !== undefined && val !== null && val !== "" && !isNaN(numVal) && numVal > 0;
   });
   
   // For now, assume saved status based on the presence of data

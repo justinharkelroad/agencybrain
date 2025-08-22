@@ -285,7 +285,7 @@ export default function SnapshotPlannerPage() {
           {/* PDF Upload */}
           <Card className="p-6">
             <div className="space-y-4">
-              <Label className="text-base font-medium">Upload Business Metrics PDF</Label>
+              <Label className="text-base font-medium">Upload Your Latest Business Metrics PDF</Label>
               <div
                 {...getRootProps()}
                 className={cn(

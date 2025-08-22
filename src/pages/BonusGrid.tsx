@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import React from "react";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
 
@@ -207,11 +208,12 @@ export default function BonusGridPage(){
 
   // Grid validation for Snapshot Planner
   const isGridValid = useMemo(() => {
-    // Check if required Growth Goal values (C38-C44) exist and are valid
+    // Check if required Growth Goal values (C38-C44) exist and are valid numbers > 0
     const requiredAddrs = [38, 39, 40, 41, 42, 43, 44].map(r => `Sheet1!C${r}` as CellAddr);
     return requiredAddrs.every(addr => {
       const val = state[addr];
-      return val !== undefined && val !== null && val !== "" && !isNaN(Number(val));
+      const numVal = Number(val);
+      return val !== undefined && val !== null && val !== "" && !isNaN(numVal) && numVal > 0;
     });
   }, [state]);
 
@@ -307,21 +309,6 @@ export default function BonusGridPage(){
             <Save className="h-4 w-4" />
             Save Data
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={copy}
-          >
-            Copy Results
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => navigate('/snapshot-planner')}
-            disabled={!isGridValid || !isGridSaved}
-            className="gap-2"
-          >
-            <Target className="h-4 w-4" />
-            Snapshot Planner
-          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="hover:bg-destructive/10 hover:text-destructive">
@@ -349,7 +336,18 @@ export default function BonusGridPage(){
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
-          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)">
+          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)" 
+            headerAction={
+              <Button 
+                onClick={() => navigate('/snapshot-planner')}
+                disabled={!isGridValid || !isGridSaved}
+                className="gap-2 bg-gradient-to-r from-red-500 to-yellow-600 text-white hover:from-red-600 hover:to-yellow-700"
+              >
+                <Target className="h-4 w-4" />
+                Snapshot Planner
+              </Button>
+            }
+          >
             <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
           </Card>
           <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here.\n(this data is best found in the P&C New Business Summary Report)">
@@ -377,16 +375,21 @@ export default function BonusGridPage(){
   );
 }
 
-function Card({ title, subtitle, children }:{ title:string; subtitle?: string; children:any }) {
+function Card({ title, subtitle, children, headerAction }:{ title:string; subtitle?: string; children:any; headerAction?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border bg-card">
       <div className="px-4 py-3 border-b border-border">
-        <div className="text-sm font-medium text-card-foreground">{title}</div>
-        {subtitle && (
-          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            {subtitle}
-          </p>
-        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-card-foreground">{title}</div>
+            {subtitle && (
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {headerAction}
+        </div>
       </div>
       <div className="p-4">{children}</div>
     </div>
