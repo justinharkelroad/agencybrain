@@ -39,9 +39,6 @@ export default function BonusGridPage(){
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [availableSnapshots, setAvailableSnapshots] = useState<any[]>([]);
-  const [canRecover, setCanRecover] = useState(false);
-  const [latestSnapshot, setLatestSnapshot] = useState<{id: string, snapshot_date: string} | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   
   const [state, setState] = useState<Record<CellAddr, any>>({});
@@ -50,26 +47,6 @@ export default function BonusGridPage(){
   const [savedSig, setSavedSig] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   
-  // Load available snapshots for recovery
-  const loadAvailableSnapshots = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data, error } = await supabase
-          .from('snapshot_planner')
-          .select('id, snapshot_date, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (!error && data) {
-          setAvailableSnapshots(data);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load snapshots:', error);
-    }
-  }, []);
 
   
   // hydrate once with database support
@@ -80,23 +57,9 @@ export default function BonusGridPage(){
         // Try to get from database first
         const dbState = await getBonusGridState();
         
-        // Check if we can recover from snapshot
-        const snapshot = await getLatestSnapshotForRecovery();
-        setLatestSnapshot(snapshot);
-        
         if (dbState && Object.keys(dbState).length > 0) {
           setState(dbState);
           setLastSaved(new Date());
-          
-          // Check if Growth Goals are missing but we have a snapshot
-          const hasGrowthGoals = [38, 39, 40, 41, 42, 43, 44].some(r => {
-            const val = dbState[`Sheet1!C${r}` as CellAddr];
-            return val && val !== 0 && val !== "";
-          });
-          
-          if (!hasGrowthGoals && snapshot) {
-            setCanRecover(true);
-          }
         } else {
           // fallback to schema defaults plus PPI defaults
           const base = Object.fromEntries(
@@ -104,11 +67,6 @@ export default function BonusGridPage(){
           );
           const filled = { ...base, ...PPI_DEFAULTS };
           setState(filled);
-          
-          // Check if we have a snapshot to recover from
-          if (snapshot) {
-            setCanRecover(true);
-          }
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -124,8 +82,7 @@ export default function BonusGridPage(){
     };
     
     loadData();
-    loadAvailableSnapshots();
-  }, [loadAvailableSnapshots]);
+  }, []);
 
   // Auto-save to database when state changes
   useEffect(() => {
@@ -310,6 +267,10 @@ export default function BonusGridPage(){
   };
   
   const handleReset = async () => { 
+    // Clean up any existing custom elements to prevent conflicts
+    const existingElements = document.querySelectorAll('mce-autosize-textarea');
+    existingElements.forEach(el => el.remove());
+    
     setState({}); 
     try {
       await saveBonusGridState({});
@@ -330,31 +291,6 @@ export default function BonusGridPage(){
     });
   };
 
-  const handleRecoverFromSnapshot = async (snapshotId: string) => {
-    try {
-      const recoveredData = await recoverFromSnapshot(snapshotId);
-      if (recoveredData) {
-        setState(prevState => ({ ...prevState, ...recoveredData }));
-        setSavedSig(JSON.stringify({ ...state, ...recoveredData }));
-        toast({
-          title: "Data recovered!",
-          description: "Your bonus grid data has been recovered from the selected snapshot.",
-        });
-      } else {
-        toast({
-          title: "Recovery failed",
-          description: "Could not recover data from the selected snapshot.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Recovery failed",
-        description: "An error occurred while recovering data.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleReturnToDashboard = () => {
     if (isDirty) {
@@ -514,67 +450,6 @@ export default function BonusGridPage(){
           </AlertDialog>
         </div>
       </header>
-
-      {/* Data Recovery Section */}
-      {canRecover && latestSnapshot && (
-        <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-600 rounded-xl p-6 shadow-lg">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center">
-              <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-amber-900 dark:text-amber-100 text-lg mb-2">
-                🚨 Missing Bonus Grid Data Detected
-              </h3>
-              <p className="text-amber-800 dark:text-amber-200 mb-4">
-                Your Growth Goal values are missing but we found your saved data from {new Date(latestSnapshot.snapshot_date).toLocaleDateString()}. 
-                Click below to restore your Bonus Grid with values: <strong>222, 205, 201, 183, 150, 129, 95</strong>
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleRecoverFromSnapshot(latestSnapshot.id)}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-medium px-6"
-                >
-                  🔄 Recover My Data Now
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setCanRecover(false)}
-                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                >
-                  Dismiss
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {availableSnapshots.length > 0 && !canRecover && (
-        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <RefreshCw className="h-5 w-5 text-blue-600" />
-            <h3 className="font-medium text-blue-900 dark:text-blue-100">Recover Previous Data</h3>
-          </div>
-          <p className="text-sm text-blue-700 dark:text-blue-200 mb-3">
-            Previous snapshots available for recovery:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {availableSnapshots.map((snapshot) => (
-              <Button
-                key={snapshot.id}
-                variant="outline"
-                size="sm"
-                onClick={() => handleRecoverFromSnapshot(snapshot.id)}
-                className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-200 dark:border-blue-700 dark:hover:bg-blue-900"
-              >
-                {new Date(snapshot.snapshot_date).toLocaleDateString()}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">

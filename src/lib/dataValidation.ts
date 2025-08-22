@@ -27,15 +27,24 @@ export class DataValidator {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Check for required Growth Goals
-    const missingGrowthGoals = this.REQUIRED_GROWTH_GOALS.filter(addr => {
-      const val = gridData[addr];
-      const numVal = Number(val);
-      return val === undefined || val === null || val === "" || isNaN(numVal) || numVal <= 0;
-    });
+    // Check if grid is essentially empty (reset state) - don't flag as critical
+    const totalValues = Object.values(gridData).filter(val => 
+      val !== undefined && val !== null && val !== "" && val !== 0
+    ).length;
+    
+    const isEmptyGrid = totalValues === 0;
 
-    if (missingGrowthGoals.length > 0) {
-      errors.push(`Missing or invalid Growth Goals in cells: ${missingGrowthGoals.join(', ')}`);
+    // Check for required Growth Goals only if grid has substantial data
+    if (!isEmptyGrid) {
+      const missingGrowthGoals = this.REQUIRED_GROWTH_GOALS.filter(addr => {
+        const val = gridData[addr];
+        const numVal = Number(val);
+        return val === undefined || val === null || val === "" || isNaN(numVal) || numVal <= 0;
+      });
+
+      if (missingGrowthGoals.length > 0) {
+        warnings.push(`Missing or invalid Growth Goals in cells: ${missingGrowthGoals.join(', ')}`);
+      }
     }
 
     // Check for Points/Items Mix
@@ -80,9 +89,7 @@ export class DataValidator {
       return val !== undefined && val !== null && val !== "" && !isNaN(numVal) && numVal > 0;
     });
 
-    const criticalIssues = validation.errors.filter(error => 
-      error.includes('Growth Goals') || error.includes('critical')
-    );
+    const criticalIssues = validation.errors;
 
     return {
       validation,
