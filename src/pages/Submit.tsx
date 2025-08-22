@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CalendarIcon, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -18,6 +18,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { normalizeCommissionRate, computeEstimatedCommissionPerRow, computeTotals } from '@/utils/leadSourceCommission';
+import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
+import { UniversalDataProtectionPanel } from '@/components/UniversalDataProtectionPanel';
+import type { UniversalValidationResult } from '@/lib/universalDataProtection';
 
 interface FormData {
   sales: {
@@ -64,6 +67,46 @@ const initialFormData: FormData = {
   qualitative: { biggestStress: '', gutAction: '', biggestPersonalWin: '', biggestBusinessWin: '', attackItems: { item1: '', item2: '', item3: '' } },
 };
 
+// Form validation rules for Submit form
+const validateSubmitForm = (data: FormData): UniversalValidationResult => {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Required fields validation
+  if (!data.sales.premium && !data.sales.policies) {
+    errors.push('At least premium or policies must be filled in the Sales section');
+  }
+
+  if (!data.marketing.totalSpend && data.marketing.leadSources.length === 0) {
+    warnings.push('Marketing spend information is incomplete');
+  }
+
+  if (!data.cashFlow.compensation && !data.cashFlow.expenses) {
+    warnings.push('Cash flow information is incomplete');
+  }
+
+  // Calculate completeness
+  const totalSections = 6;
+  let completeSections = 0;
+  
+  if (data.sales.premium || data.sales.policies) completeSections++;
+  if (data.marketing.totalSpend || data.marketing.leadSources.length > 0) completeSections++;
+  if (data.operations.currentAlrTotal || data.operations.teamRoster.length > 0) completeSections++;
+  if (data.retention.numberTerminated || data.retention.currentRetentionPercent) completeSections++;
+  if (data.cashFlow.compensation || data.cashFlow.expenses) completeSections++;
+  if (data.qualitative.biggestStress || data.qualitative.gutAction) completeSections++;
+
+  const completeness = completeSections / totalSections;
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    completeness,
+    criticalIssues: errors
+  };
+};
+
 export default function Submit() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -80,9 +123,24 @@ export default function Submit() {
   const [endDate, setEndDate] = useState<Date>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showDataProtection, setShowDataProtection] = useState(false);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
+
+  // Initialize Universal Data Protection
+  const dataProtection = useUniversalDataProtection({
+    formData,
+    formType: 'submit',
+    tableName: 'periods',
+    autoBackupEnabled: true,
+    autoBackupInterval: 30,
+    validationRules: validateSubmitForm,
+    onDataRestored: (restoredData) => {
+      setFormData(restoredData);
+      setHasUnsavedChanges(true);
+    }
+  });
 
   useEffect(() => {
     if (user) {
@@ -448,34 +506,25 @@ export default function Submit() {
   }, [formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
   const saveForm = async () => {
-    // Enhanced validation
-    if (!formData.sales.premium && !formData.sales.policies) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in at least premium or policies in the Sales section.",
-        variant: "destructive",
-      });
-      return;
-    }
+    setSaving(true);
 
     // Create period if it doesn't exist
     let periodToUse = currentPeriod;
     if (!periodToUse) {
-      // Create a new period inline since we're saving data
       try {
-        const startDate = new Date();
-        startDate.setDate(1); // Start of current month
-        const endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
-        endDate.setDate(0); // Last day of start month
+        const startDateForPeriod = new Date();
+        startDateForPeriod.setDate(1); // Start of current month
+        const endDateForPeriod = new Date(startDateForPeriod);
+        endDateForPeriod.setMonth(endDateForPeriod.getMonth() + 1);
+        endDateForPeriod.setDate(0); // Last day of start month
 
         const { data: newPeriod, error: createError } = await supabase
           .from('periods')
           .insert({
             user_id: user?.id,
-            title: `Period ${endDate.toLocaleDateString()}`,
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0],
+            title: `Period ${endDateForPeriod.toLocaleDateString()}`,
+            start_date: startDateForPeriod.toISOString().split('T')[0],
+            end_date: endDateForPeriod.toISOString().split('T')[0],
             status: 'draft',
             form_data: null
           })
@@ -489,13 +538,14 @@ export default function Submit() {
             description: "Failed to create period. Please try again.",
             variant: "destructive",
           });
+          setSaving(false);
           return;
         }
 
         periodToUse = newPeriod;
         setCurrentPeriod(newPeriod);
-        setStartDate(startDate);
-        setEndDate(endDate);
+        setStartDate(startDateForPeriod);
+        setEndDate(endDateForPeriod);
       } catch (error) {
         console.error('Error creating period:', error);
         toast({
@@ -503,71 +553,29 @@ export default function Submit() {
           description: "Failed to create period. Please try again.",
           variant: "destructive",
         });
+        setSaving(false);
         return;
       }
     }
 
+    // Use universal data protection for saving
+    const additionalFields = {
+      id: periodToUse.id,
+      title: periodToUse.title || `Period ${new Date().toLocaleDateString()}`,
+      start_date: startDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+      end_date: endDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+      status: 'active'
+    };
 
-    // Check if this is a substantial form completion
-    const isSubstantialCompletion = formData.sales.premium > 0 || 
-                                   formData.sales.policies > 0 || 
-                                   formData.marketing.totalSpend > 0 ||
-                                   formData.cashFlow.compensation > 0;
-
-    setSaving(true);
-    try {
-      const updateData: any = {
-        form_data: formData,
-        updated_at: new Date().toISOString()
-      };
-
-      // Auto-update status based on form completion
-      if (isSubstantialCompletion) {
-        updateData.status = 'active';
-      }
-
-      const { error } = await supabase
-        .from('periods')
-        .update(updateData)
-        .eq('id', periodToUse.id);
-
-      if (error) {
-        console.error('Save error:', error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to save form data",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Form data saved successfully",
-        });
-        
-        // Update current period to reflect the change
-        setCurrentPeriod(prev => ({ 
-          ...prev, 
-          form_data: formData, 
-          updated_at: new Date().toISOString(),
-          status: isSubstantialCompletion ? 'active' : prev.status
-        }));
-        
-        // Clear unsaved changes flag
-        setHasUnsavedChanges(false);
-        
-        // Redirect to upload selection page
-        navigate('/uploads/select');
-      }
-    } catch (error) {
-      console.error('Unexpected error saving form:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while saving. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
+    const success = await dataProtection.saveWithProtection(additionalFields);
+    
+    if (success) {
+      setHasUnsavedChanges(false);
+      // Redirect to upload selection page
+      navigate('/uploads/select');
     }
+
+    setSaving(false);
   };
 
   // Shared section components for Tabs (desktop) and Accordion (mobile)
@@ -1145,10 +1153,38 @@ export default function Submit() {
               </Button>
             </div>
           </div>
-          <Button variant="gradient-glow" className="rounded-full hidden md:inline-flex" onClick={saveForm} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Form'}
-          </Button>
+          <div>
+            <Button 
+              variant="glass" 
+              size="sm" 
+              onClick={() => setShowDataProtection(!showDataProtection)}
+              className="rounded-full mr-2"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Data Protection
+            </Button>
+            <Button variant="gradient-glow" className="rounded-full" onClick={saveForm} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Form'}
+            </Button>
+          </div>
         </div>
+
+        {/* Data Protection Panel */}
+        {showDataProtection && (
+          <div className="mb-6">
+            <UniversalDataProtectionPanel
+              status={dataProtection.status}
+              backups={dataProtection.getBackups()}
+              onCreateBackup={() => dataProtection.createBackup()}
+              onExportData={() => dataProtection.exportData()}
+              onImportData={() => dataProtection.importData()}
+              onRestoreBackup={(timestamp) => dataProtection.restoreBackup(timestamp)}
+              onToggleAutoBackup={() => dataProtection.toggleAutoBackup()}
+              onValidateData={() => dataProtection.validateData()}
+              validationResult={dataProtection.validateData()}
+            />
+          </div>
+        )}
 
         {/* Mobile Accordion */}
         <div className="md:hidden">
