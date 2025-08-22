@@ -146,7 +146,18 @@ export default function SnapshotPlannerPage() {
     setSaving(true);
     
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to save snapshots.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { error } = await supabase.from('snapshot_planner').insert({
+        user_id: user.id,
         snapshot_date: format(snapshotDate, 'yyyy-MM-dd'),
         uploaded_month: reportMonth,
         ytd_items_total: ytdItems,
