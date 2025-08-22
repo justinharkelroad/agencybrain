@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Clock, Target, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Clock, Target, RefreshCw, Shield } from "lucide-react";
 import inputsSchema from "../bonus_grid_web_spec/schema_inputs.json";
 import { SummaryGrid } from "../bonus_grid_web_spec/SummaryGrid";
 import { computeRounded, type CellAddr, type WorkbookState } from "../bonus_grid_web_spec/computeWithRounding";
@@ -15,8 +15,9 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { getBonusGridState, saveBonusGridState, recoverFromSnapshot, getLatestSnapshotForRecovery } from "@/lib/bonusGridState";
+import { getBonusGridState, saveBonusGridState, recoverFromSnapshot, getLatestSnapshotForRecovery, type SaveResult } from "@/lib/bonusGridState";
 import { supabase } from "@/integrations/supabase/client";
+import { DataProtectionPanel } from "@/components/DataProtectionPanel";
 import React from "react";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
@@ -41,6 +42,7 @@ export default function BonusGridPage(){
   const [availableSnapshots, setAvailableSnapshots] = useState<any[]>([]);
   const [canRecover, setCanRecover] = useState(false);
   const [latestSnapshot, setLatestSnapshot] = useState<{id: string, snapshot_date: string} | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   const [state, setState] = useState<Record<CellAddr, any>>({});
   
@@ -131,11 +133,29 @@ export default function BonusGridPage(){
     
     const saveData = async () => {
       setIsAutoSaving(true);
+      setSaveError(null);
       try {
-        await saveBonusGridState(state);
-        setLastSaved(new Date());
+        const result: SaveResult = await saveBonusGridState(state);
+        if (result.success) {
+          setLastSaved(new Date());
+          setSavedSig(JSON.stringify(state));
+        } else {
+          setSaveError(result.error || 'Unknown save error');
+          toast({
+            title: "Auto-save failed",
+            description: result.error || "Failed to save data automatically. Your data is still safe in local storage.",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        setSaveError(errorMsg);
         console.error('Auto-save failed:', error);
+        toast({
+          title: "Auto-save failed",
+          description: "Failed to save data automatically. Your data is still safe in local storage.",
+          variant: "destructive",
+        });
       } finally {
         setIsAutoSaving(false);
       }
@@ -143,7 +163,7 @@ export default function BonusGridPage(){
     
     const t = setTimeout(saveData, 1000); // Increased debounce for database saves
     return () => clearTimeout(t);
-  }, [state, savedSig, isLoading]);
+  }, [state, savedSig, isLoading, toast]);
 
   // set baseline AFTER first hydration settles
   useEffect(() => {
@@ -261,14 +281,26 @@ export default function BonusGridPage(){
 
   const handleSave = async () => {
     try {
-      await saveBonusGridState(state);
-      setLastSaved(new Date());
-      setSavedSig(JSON.stringify(state));
-      toast({
-        title: "Data saved!",
-        description: "Your bonus grid data has been saved to your account.",
-      });
+      setSaveError(null);
+      const result: SaveResult = await saveBonusGridState(state);
+      if (result.success) {
+        setLastSaved(new Date());
+        setSavedSig(JSON.stringify(state));
+        toast({
+          title: "Data saved!",
+          description: "Your bonus grid data has been saved securely with integrity verification.",
+        });
+      } else {
+        setSaveError(result.error || 'Unknown save error');
+        toast({
+          title: "Save failed",
+          description: result.error || "Failed to save data. Your data is safe in local storage.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setSaveError(errorMsg);
       toast({
         title: "Save failed",
         description: "Failed to save data. Please try again.",
@@ -286,6 +318,16 @@ export default function BonusGridPage(){
     }
     setSavedSig(null);
     setLastSaved(null);
+    setSaveError(null);
+  };
+
+  const handleDataImported = (importedData: Record<CellAddr, any>) => {
+    setState(importedData);
+    setSavedSig(null); // Mark as dirty so it gets saved
+    toast({
+      title: "Data imported successfully",
+      description: "Your bonus grid has been updated with the imported data.",
+    });
   };
 
   const handleRecoverFromSnapshot = async (snapshotId: string) => {
@@ -373,12 +415,17 @@ export default function BonusGridPage(){
               </Breadcrumb>
             </div>
             
-            {/* Save Status */}
+            {/* Save Status with Error Handling */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {isAutoSaving ? (
                 <div className="flex items-center gap-2 text-blue-600">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   Auto-saving...
+                </div>
+              ) : saveError ? (
+                <div className="flex items-center gap-2 text-red-600">
+                  <Shield className="h-4 w-4" />
+                  Save error: {saveError}
                 </div>
               ) : isDirty ? (
                 <div className="flex items-center gap-2 text-amber-600">
@@ -388,7 +435,7 @@ export default function BonusGridPage(){
               ) : lastSaved ? (
                 <div className="flex items-center gap-2 text-green-600">
                   <Save className="h-4 w-4" />
-                  Saved to account at {lastSaved.toLocaleTimeString()}
+                  Saved at {lastSaved.toLocaleTimeString()}
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -564,6 +611,12 @@ export default function BonusGridPage(){
               <div className="p-4 text-sm text-muted-foreground">Loading…</div>
             </Card>
           )}
+          
+          {/* Data Protection Panel */}
+          <DataProtectionPanel 
+            gridData={state} 
+            onDataImported={handleDataImported}
+          />
         </section>
           </div>
         </>

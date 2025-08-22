@@ -1,16 +1,28 @@
 import { type CellAddr } from "../bonus_grid_web_spec/computeWithRounding";
 import { supabase } from "@/integrations/supabase/client";
+import { DataValidator, type DataIntegrityReport } from "./dataValidation";
+import { DataBackupManager } from "./dataBackup";
 
 const STORAGE_KEY = "bonusGrid:inputs-v1";
+const LEGACY_STORAGE_KEY = "bonusGrid:inputs-v1"; // For recovery
 
 export interface GridValidation {
   isValid: boolean;
   isSaved: boolean;
   hasRequiredValues: boolean;
+  integrityReport?: DataIntegrityReport;
+}
+
+export interface SaveResult {
+  success: boolean;
+  error?: string;
+  dataIntegrityReport?: DataIntegrityReport;
 }
 
 let cachedState: Record<CellAddr, any> | null = null;
 let lastSaveTime = 0;
+let saveAttempts = 0;
+const MAX_SAVE_ATTEMPTS = 3;
 
 export async function getBonusGridState(): Promise<Record<CellAddr, any> | null> {
   // Try to get from database first
@@ -25,24 +37,67 @@ export async function getBonusGridState(): Promise<Record<CellAddr, any> | null>
         .limit(1)
         .maybeSingle();
       
-      if (!error && data) {
-        cachedState = data.grid_data;
-        return data.grid_data;
+      if (!error && data && Object.keys(data.grid_data).length > 0) {
+        const validatedData = DataValidator.sanitizeGridData(data.grid_data);
+        cachedState = validatedData;
+        return validatedData;
       }
     }
   } catch (error) {
     console.log('Database fetch failed, trying localStorage:', error);
   }
 
-  // Fallback to localStorage if database fails or user not authenticated
+  // Try legacy localStorage recovery
+  try {
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const legacyState = JSON.parse(legacyRaw);
+      if (Object.keys(legacyState).length > 0) {
+        console.log('Found legacy localStorage data, migrating...');
+        const validatedData = DataValidator.sanitizeGridData(legacyState);
+        
+        // Create backup before migration
+        DataBackupManager.createPeriodicBackup(validatedData);
+        
+        // Attempt to migrate to database
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase
+              .from('bonus_grid_saves')
+              .upsert({
+                user_id: user.id,
+                grid_data: validatedData,
+                updated_at: new Date().toISOString()
+              });
+            console.log('Successfully migrated legacy data to database');
+          }
+        } catch (migrationError) {
+          console.error('Failed to migrate legacy data:', migrationError);
+        }
+        
+        cachedState = validatedData;
+        return validatedData;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to recover legacy data:', error);
+  }
+
+  // Fallback to current localStorage
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const localState = raw ? JSON.parse(raw) : null;
-    cachedState = localState;
-    return localState;
-  } catch {
-    return null;
+    if (localState && Object.keys(localState).length > 0) {
+      const validatedData = DataValidator.sanitizeGridData(localState);
+      cachedState = validatedData;
+      return validatedData;
+    }
+  } catch (error) {
+    console.error('Failed to read localStorage:', error);
   }
+
+  return null;
 }
 
 export function getBonusGridStateSync(): Record<CellAddr, any> | null {
@@ -58,43 +113,125 @@ export function getBonusGridStateSync(): Record<CellAddr, any> | null {
   }
 }
 
-export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<void> {
-  // Update cache
-  cachedState = state;
+export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<SaveResult> {
+  saveAttempts++;
   
-  // Save to localStorage for immediate access
+  // Pre-save validation
+  const integrityReport = DataValidator.createIntegrityReport(state);
+  if (!integrityReport.validation.isValid && integrityReport.criticalIssues.length > 0) {
+    console.warn('Attempting to save data with critical issues:', integrityReport.criticalIssues);
+  }
+
+  // Sanitize data before saving
+  const sanitizedState = DataValidator.sanitizeGridData(state);
+  
+  // Update cache
+  cachedState = sanitizedState;
+  
+  // Create backup before saving
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    DataBackupManager.createPeriodicBackup(sanitizedState);
+  } catch (backupError) {
+    console.warn('Failed to create backup:', backupError);
+  }
+  
+  // Save to localStorage for immediate access (multiple fallbacks)
+  const localSavePromises = [
+    // Primary localStorage save
+    new Promise<void>((resolve, reject) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizedState));
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    }),
+    // Secondary localStorage save with different key
+    new Promise<void>((resolve, reject) => {
+      try {
+        localStorage.setItem(`${STORAGE_KEY}:backup`, JSON.stringify(sanitizedState));
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    })
+  ];
+
+  try {
+    await Promise.allSettled(localSavePromises);
   } catch (error) {
     console.warn('Failed to save to localStorage:', error);
   }
 
   // Debounce database saves to avoid excessive requests
   const now = Date.now();
-  if (now - lastSaveTime < 1000) {
-    return;
+  if (now - lastSaveTime < 1000 && saveAttempts < MAX_SAVE_ATTEMPTS) {
+    return { success: true, dataIntegrityReport: integrityReport };
   }
   lastSaveTime = now;
 
-  // Save to database
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { error } = await supabase
-        .from('bonus_grid_saves')
-        .upsert({
-          user_id: user.id,
-          grid_data: state,
-          updated_at: new Date().toISOString()
-        });
+  // Save to database with retry logic
+  let dbSaveSuccess = false;
+  let lastError: string | undefined;
 
-      if (error) {
-        console.error('Failed to save to database:', error);
+  for (let attempt = 1; attempt <= MAX_SAVE_ATTEMPTS; attempt++) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from('bonus_grid_saves')
+          .upsert({
+            user_id: user.id,
+            grid_data: sanitizedState,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        // Verify the save was successful
+        const { data: savedData, error: verifyError } = await supabase
+          .from('bonus_grid_saves')  
+          .select('grid_data')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!verifyError && savedData) {
+          const savedChecksum = DataBackupManager.createChecksum(savedData.grid_data);
+          const originalChecksum = DataBackupManager.createChecksum(sanitizedState);
+          
+          if (savedChecksum === originalChecksum) {
+            dbSaveSuccess = true;
+            break;
+          } else {
+            throw new Error('Data integrity verification failed after save');
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Database save attempt ${attempt} failed:`, error);
+      lastError = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (attempt < MAX_SAVE_ATTEMPTS) {
+        // Wait before retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
-  } catch (error) {
-    console.error('Database save failed:', error);
   }
+
+  // Reset save attempts on successful save
+  if (dbSaveSuccess) {
+    saveAttempts = 0;
+  }
+
+  return {
+    success: dbSaveSuccess,
+    error: dbSaveSuccess ? undefined : lastError,
+    dataIntegrityReport: integrityReport
+  };
 }
 
 export async function recoverFromSnapshot(snapshotId: string): Promise<Record<CellAddr, any> | null> {
@@ -148,13 +285,26 @@ export async function getLatestSnapshotForRecovery(): Promise<{id: string, snaps
 export async function getGridValidation(): Promise<GridValidation> {
   const state = await getBonusGridState();
   if (!state) {
-    return { isValid: false, isSaved: false, hasRequiredValues: false };
+    return { 
+      isValid: false, 
+      isSaved: false, 
+      hasRequiredValues: false,
+      integrityReport: undefined
+    };
   }
+  
+  // Create comprehensive integrity report
+  const integrityReport = DataValidator.createIntegrityReport(state);
   
   // Check if state has any meaningful data at all
   const hasAnyData = Object.keys(state).length > 0;
   if (!hasAnyData) {
-    return { isValid: false, isSaved: false, hasRequiredValues: false };
+    return { 
+      isValid: false, 
+      isSaved: false, 
+      hasRequiredValues: false,
+      integrityReport
+    };
   }
   
   // Check if required Growth Goal values (C38-C44) exist and are valid numbers > 0
@@ -172,20 +322,28 @@ export async function getGridValidation(): Promise<GridValidation> {
     if (user) {
       const { data } = await supabase
         .from('bonus_grid_saves')
-        .select('id')
+        .select('id, updated_at, grid_data')
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
-      isSaved = !!data;
+      
+      if (data) {
+        // Verify data integrity in database
+        const dbChecksum = DataBackupManager.createChecksum(data.grid_data);
+        const currentChecksum = DataBackupManager.createChecksum(state);
+        isSaved = dbChecksum === currentChecksum;
+      }
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to check save status:', error);
     isSaved = false;
   }
   
   return {
-    isValid: hasRequiredValues,
+    isValid: hasRequiredValues && integrityReport.validation.isValid,
     isSaved,
     hasRequiredValues,
+    integrityReport
   };
 }
 
