@@ -324,6 +324,7 @@ export default function SnapshotPlannerPage() {
                 onClick={computeTargets} 
                 disabled={!canCompute}
                 className="w-full"
+                variant="gradient-glow"
               >
                 Calculate ROY Targets
               </Button>
