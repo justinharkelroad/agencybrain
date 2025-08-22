@@ -33,19 +33,22 @@ export function computeRoyTargets(params: RoyParams): RoyResult {
   const monthsRemaining = Math.max(1, 12 - monthsElapsed);
   const paceItemsPerMonth = ytdItemsTotal / monthsElapsed;
   
-  const tiers: RoyTierResult[] = oldMonthlyItemsByTier.map((targetMonthlyItems, index) => {
-    // Current monthly pace is the same for all tiers
-    const currentMonthlyPace = paceItemsPerMonth;
+  const tiers: RoyTierResult[] = oldMonthlyItemsByTier.map((oldTarget, index) => {
+    // Old Target: Monthly Items Needed from grid (J38-J44)
+    const oldMonthlyItems = oldTarget;
     
-    // Target monthly pace is from J38-J44 (Monthly Items Needed)
-    const targetMonthlyPace = targetMonthlyItems;
+    // Calculate annual goal based on old target
+    const annualGoalItems = oldTarget * 12;
     
-    // Calculate the change needed per month
-    const deltaItemsPerMonth = targetMonthlyPace - currentMonthlyPace;
+    // Calculate remaining items needed to reach annual goal
+    const itemsStillNeeded = Math.max(0, annualGoalItems - ytdItemsTotal);
     
-    // For display purposes, use target as "new" and current as "old"
-    const newMonthlyItemsExact = targetMonthlyPace;
+    // New Target: Rest-of-year adjusted target
+    const newMonthlyItemsExact = itemsStillNeeded / monthsRemaining;
     const newMonthlyItemsCeiling = Math.ceil(newMonthlyItemsExact);
+    
+    // Change: Simple difference between new and old targets
+    const deltaItemsPerMonth = newMonthlyItemsExact - oldTarget;
     
     // Optional calculations for points view
     let newMonthlyPoints: number | undefined;
@@ -67,7 +70,7 @@ export function computeRoyTargets(params: RoyParams): RoyResult {
     
     return {
       tierLabel,
-      oldMonthlyItems: currentMonthlyPace,
+      oldMonthlyItems,
       newMonthlyItemsExact,
       newMonthlyItemsCeiling,
       deltaItemsPerMonth,
