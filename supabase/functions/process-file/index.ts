@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { readPdf } from "https://deno.land/x/pdf_reader@0.0.9/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,42 +60,131 @@ serve(async (req) => {
         requiresClientProcessing: true
       };
     } else if (fileType === 'pdf') {
-      // Basic PDF text extraction (OCR would need additional services)
+      // Enhanced PDF text extraction with business metrics parsing
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       
-      // Simple text extraction from PDF
       let extractedText = '';
+      let ytdItemsTotal: number | undefined = undefined;
+      let currentMonthItemsTotal: number | undefined = undefined;
+      let uploadedMonth = new Date().getMonth() + 1; // Default to current month
+      
       try {
-        // Convert binary to string and look for text patterns
-        const binaryString = Array.from(uint8Array)
-          .map(byte => String.fromCharCode(byte))
-          .join('');
+        // Try to extract text using proper PDF parsing
+        const pdfText = await readPdf(uint8Array);
+        extractedText = pdfText;
         
-        // Look for text content between stream/endstream markers
-        const textMatches = binaryString.match(/stream\s*(.*?)\s*endstream/gs);
-        if (textMatches) {
-          extractedText = textMatches.map(match => 
-            match.replace(/stream\s*/, '').replace(/\s*endstream/, '')
-          ).join(' ');
+        console.log('PDF text extracted successfully:', extractedText.substring(0, 500));
+        
+        // Infer month from filename
+        const filename = file.name.toLowerCase();
+        const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
+                           'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        
+        for (let i = 0; i < monthNames.length; i++) {
+          if (filename.includes(monthNames[i])) {
+            uploadedMonth = i + 1;
+            break;
+          }
         }
         
-        // Clean up extracted text
-        extractedText = extractedText
-          .replace(/[^\x20-\x7E\n]/g, ' ') // Remove non-printable characters
-          .replace(/\s+/g, ' ')
-          .trim();
-          
+        // Enhanced patterns for YTD values including numbers with commas
+        const ytdPatterns = [
+          /YTD\s*:?\s*([\d,]+)/i,
+          /Year\s*to\s*Date\s*:?\s*([\d,]+)/i,
+          /YTD\s*Total\s*:?\s*([\d,]+)/i,
+          /YTD\s*Items\s*:?\s*([\d,]+)/i,
+          /Cumulative\s*:?\s*([\d,]+)/i,
+          /YTD\s*([\d,]+)/i,
+        ];
+        
+        // Current month patterns
+        const currentMonthPatterns = [
+          /Current\s*Month\s*New\s*:?\s*([\d,]+)/i,
+          /This\s*Month\s*:?\s*([\d,]+)/i,
+          /Month\s*Total\s*:?\s*([\d,]+)/i,
+          /New\s*Month\s*:?\s*([\d,]+)/i,
+        ];
+        
+        // Try to extract YTD
+        for (const pattern of ytdPatterns) {
+          const match = extractedText.match(pattern);
+          if (match && match[1]) {
+            const value = parseInt(match[1].replace(/,/g, ''));
+            if (value > 0 && value < 999999) {
+              ytdItemsTotal = value;
+              console.log('Found YTD:', value, 'with pattern:', pattern);
+              break;
+            }
+          }
+        }
+        
+        // Try to extract current month
+        for (const pattern of currentMonthPatterns) {
+          const match = extractedText.match(pattern);
+          if (match && match[1]) {
+            const value = parseInt(match[1].replace(/,/g, ''));
+            if (value > 0 && value < 99999) {
+              currentMonthItemsTotal = value;
+              console.log('Found Current Month:', value, 'with pattern:', pattern);
+              break;
+            }
+          }
+        }
+        
+        // Fallback: look for large numbers that might be YTD
+        if (!ytdItemsTotal) {
+          const numberMatches = extractedText.match(/\b([\d,]{3,7})\b/g);
+          if (numberMatches) {
+            const numbers = numberMatches
+              .map(n => parseInt(n.replace(/,/g, '')))
+              .filter(n => n >= 100 && n <= 999999);
+            if (numbers.length > 0) {
+              ytdItemsTotal = Math.max(...numbers);
+              console.log('Using largest number as YTD fallback:', ytdItemsTotal);
+            }
+          }
+        }
+        
       } catch (error) {
         console.error('PDF parsing error:', error);
-        extractedText = 'Unable to extract text from PDF. Consider using OCR services for better results.';
+        
+        // Fallback to basic binary text extraction
+        try {
+          const binaryString = Array.from(uint8Array)
+            .map(byte => String.fromCharCode(byte))
+            .join('');
+          
+          const textMatches = binaryString.match(/stream\s*(.*?)\s*endstream/gs);
+          if (textMatches) {
+            extractedText = textMatches.map(match => 
+              match.replace(/stream\s*/, '').replace(/\s*endstream/, '')
+            ).join(' ');
+          }
+          
+          extractedText = extractedText
+            .replace(/[^\x20-\x7E\n]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        } catch (fallbackError) {
+          console.error('Fallback PDF parsing also failed:', fallbackError);
+          extractedText = 'Unable to extract text from PDF.';
+        }
       }
       
       parsedData = {
         fileType: 'pdf',
         fileName: file.name,
-        extractedText: extractedText.substring(0, 1000), // Limit to first 1000 chars
-        requiresOCR: extractedText.length < 100 // Suggest OCR if little text found
+        extractedText: extractedText.substring(0, 1000),
+        requiresOCR: extractedText.length < 100,
+        // Business metrics specific fields
+        uploadedMonth,
+        ytdItemsTotal,
+        currentMonthItemsTotal,
+        businessMetrics: {
+          ytdFound: ytdItemsTotal !== undefined,
+          currentMonthFound: currentMonthItemsTotal !== undefined
+        }
       };
     } else {
       throw new Error(`Unsupported file type: ${fileType}`);
