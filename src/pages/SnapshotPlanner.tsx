@@ -374,6 +374,7 @@ export default function SnapshotPlannerPage() {
                     onClick={handleSaveSnapshot} 
                     disabled={!royResult || isSaving}
                     className="gap-2"
+                    variant="gradient-glow"
                   >
                     <Save className="h-4 w-4" />
                     {isSaving ? "Saving..." : "Save Snapshot"}
