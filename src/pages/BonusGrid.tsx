@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { getBonusGridState, saveBonusGridState, recoverFromSnapshot, getLatestSnapshotForRecovery, type SaveResult } from "@/lib/bonusGridState";
 import { supabase } from "@/integrations/supabase/client";
-import { DataProtectionPanel } from "@/components/DataProtectionPanel";
 import React from "react";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";
@@ -492,12 +491,6 @@ export default function BonusGridPage(){
               <div className="p-4 text-sm text-muted-foreground">Loading…</div>
             </Card>
           )}
-          
-          {/* Data Protection Panel */}
-          <DataProtectionPanel 
-            gridData={state} 
-            onDataImported={handleDataImported}
-          />
         </section>
           </div>
         </>
