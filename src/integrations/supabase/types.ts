@@ -68,6 +68,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_access_audit: {
+        Row: {
+          access_type: string
+          accessed_fields: string[] | null
+          agency_id: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          access_type: string
+          accessed_fields?: string[] | null
+          agency_id: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          accessed_fields?: string[] | null
+          agency_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       agency_files: {
         Row: {
           agency_id: string
@@ -825,6 +858,27 @@ export type Database = {
         }
         Returns: string
       }
+      get_agency_safe: {
+        Args: { agency_id_param: string }
+        Returns: {
+          address_city: string
+          address_line1: string
+          address_line2: string
+          address_state: string
+          address_zip: string
+          agency_email: string
+          agent_cell: string
+          agent_name: string
+          created_at: string
+          description: string
+          has_contact_access: boolean
+          id: string
+          logo_url: string
+          name: string
+          phone: string
+          updated_at: string
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -832,6 +886,17 @@ export type Database = {
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
+      }
+      list_agencies_safe: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          description: string
+          has_contact_access: boolean
+          id: string
+          logo_url: string
+          name: string
+        }[]
       }
     }
     Enums: {
