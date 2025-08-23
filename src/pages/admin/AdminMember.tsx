@@ -189,7 +189,10 @@ export default function AdminMember() {
       if (dbErr) throw dbErr;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["mci", memberId] });
+      // Add a small delay to let database triggers complete before invalidating
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["mci", memberId] });
+      }, 100);
       toast({ title: "Uploaded", description: "File attached" });
     },
     onError: (e: any) => toast({ title: "Upload failed", description: e?.message || "Unable to upload", variant: "destructive" }),

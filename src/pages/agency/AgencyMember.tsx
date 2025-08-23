@@ -250,24 +250,11 @@ export default function AgencyMember() {
         return newStaged;
       });
       
-      // Force refresh of queries
-      qc.invalidateQueries({ queryKey: ["mci", memberId] });
-      qc.invalidateQueries({ queryKey: ["agency_files"] });
-      
-      // Manually update the checklist state as immediate feedback
-      qc.setQueryData(["mci", memberId], (old: any) => {
-        if (!old) return old;
-        return old.map((item: any) => {
-          if (item.template_item_id === templateId) {
-            return {
-              ...item,
-              attachments_count: (item.attachments_count || 0) + uploadedFiles.length,
-              secured: true
-            };
-          }
-          return item;
-        });
-      });
+      // Add a small delay to let database triggers complete before invalidating
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["mci", memberId] });
+        qc.invalidateQueries({ queryKey: ["agency_files"] });
+      }, 100);
       
       toast({ 
         title: "Success", 
