@@ -664,6 +664,36 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_sources: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       member_checklist_items: {
         Row: {
           attachments_count: number
@@ -960,6 +990,39 @@ export type Database = {
         }
         Relationships: []
       }
+      quoted_household_details: {
+        Row: {
+          created_at: string
+          extras: Json | null
+          household_name: string
+          id: string
+          lead_source_id: string | null
+          policy_type: string | null
+          submission_id: string
+          zip_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          extras?: Json | null
+          household_name: string
+          id?: string
+          lead_source_id?: string | null
+          policy_type?: string | null
+          submission_id: string
+          zip_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          extras?: Json | null
+          household_name?: string
+          id?: string
+          lead_source_id?: string | null
+          policy_type?: string | null
+          submission_id?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       quoted_households: {
         Row: {
           agency_id: string
@@ -1101,6 +1164,42 @@ export type Database = {
           uploaded_month?: number
           user_id?: string
           ytd_items_total?: number
+        }
+        Relationships: []
+      }
+      sold_policy_details: {
+        Row: {
+          commission_amount_cents: number | null
+          created_at: string
+          extras: Json | null
+          id: string
+          policy_holder_name: string
+          policy_type: string
+          premium_amount_cents: number
+          quoted_household_detail_id: string | null
+          submission_id: string
+        }
+        Insert: {
+          commission_amount_cents?: number | null
+          created_at?: string
+          extras?: Json | null
+          id?: string
+          policy_holder_name: string
+          policy_type: string
+          premium_amount_cents?: number
+          quoted_household_detail_id?: string | null
+          submission_id: string
+        }
+        Update: {
+          commission_amount_cents?: number | null
+          created_at?: string
+          extras?: Json | null
+          id?: string
+          policy_holder_name?: string
+          policy_type?: string
+          premium_amount_cents?: number
+          quoted_household_detail_id?: string | null
+          submission_id?: string
         }
         Relationships: []
       }

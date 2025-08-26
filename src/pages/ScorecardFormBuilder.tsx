@@ -10,6 +10,8 @@ import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
+import LeadSourceManager from "@/components/FormBuilder/LeadSourceManager";
+import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,11 +32,37 @@ interface CustomField {
   options?: string[];
 }
 
+interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  order_index: number;
+}
+
+interface RepeaterSection {
+  enabled: boolean;
+  title: string;
+  description?: string;
+  triggerKPI?: string;
+  fields: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'select' | 'number' | 'currency';
+    required: boolean;
+    options?: string[];
+  }>;
+}
+
 interface FormSchema {
   title: string;
   role: 'Sales' | 'Service';
   kpis: KPIField[];
   customFields?: CustomField[];
+  leadSources?: LeadSource[];
+  repeaterSections?: {
+    quotedDetails: RepeaterSection;
+    soldDetails: RepeaterSection;
+  };
   settings: {
     dueBy: string;
     customDueTime?: string;
@@ -107,6 +135,37 @@ export default function ScorecardFormBuilder() {
     role: initialRole,
     kpis: initialRole === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
     customFields: [],
+    leadSources: [
+      { id: 'website', name: 'Website', is_active: true, order_index: 0 },
+      { id: 'referral', name: 'Referral', is_active: true, order_index: 1 },
+      { id: 'cold_call', name: 'Cold Call', is_active: true, order_index: 2 },
+    ],
+    repeaterSections: {
+      quotedDetails: {
+        enabled: false,
+        title: 'Quoted Household Details',
+        description: 'Capture detailed information for each quoted household',
+        triggerKPI: 'quoted_count',
+        fields: [
+          { key: 'household_name', label: 'Household Name', type: 'text', required: true },
+          { key: 'zip_code', label: 'ZIP Code', type: 'text', required: false },
+          { key: 'lead_source', label: 'Lead Source', type: 'select', required: false, options: ['Website', 'Referral', 'Cold Call'] },
+          { key: 'policy_type', label: 'Policy Type', type: 'text', required: false },
+        ]
+      },
+      soldDetails: {
+        enabled: false,
+        title: 'Sold Policy Details',
+        description: 'Track commission and policy details for each sale',
+        triggerKPI: 'sold_items',
+        fields: [
+          { key: 'policy_holder', label: 'Policy Holder', type: 'text', required: true },
+          { key: 'policy_type', label: 'Policy Type', type: 'text', required: true },
+          { key: 'premium_amount', label: 'Premium Amount', type: 'currency', required: true },
+          { key: 'commission_amount', label: 'Commission Amount', type: 'currency', required: false },
+        ]
+      }
+    },
     settings: {
       dueBy: 'same-day-23:59',
       lateCountsForPass: false,
@@ -320,6 +379,57 @@ export default function ScorecardFormBuilder() {
               onAddField={addCustomField}
               onRemoveField={removeCustomField}
             />
+
+            {/* Lead Source Management */}
+            <LeadSourceManager
+              leadSources={formSchema.leadSources || []}
+              onUpdateLeadSources={(sources) => setFormSchema(prev => ({...prev, leadSources: sources}))}
+            />
+
+            {/* Repeater Sections */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Dynamic Detail Collection</h3>
+              
+              <RepeaterSectionManager
+                section={formSchema.repeaterSections?.quotedDetails || {
+                  enabled: false,
+                  title: 'Quoted Household Details',
+                  description: 'Collect details for each quoted household',
+                  fields: []
+                }}
+                sectionKey="quotedDetails"
+                kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
+                onUpdateSection={(key, section) => {
+                  setFormSchema(prev => ({
+                    ...prev,
+                    repeaterSections: {
+                      ...prev.repeaterSections,
+                      [key]: section
+                    } as any
+                  }));
+                }}
+              />
+
+              <RepeaterSectionManager
+                section={formSchema.repeaterSections?.soldDetails || {
+                  enabled: false,
+                  title: 'Sold Policy Details',
+                  description: 'Track commission and policy information',
+                  fields: []
+                }}
+                sectionKey="soldDetails"
+                kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
+                onUpdateSection={(key, section) => {
+                  setFormSchema(prev => ({
+                    ...prev,
+                    repeaterSections: {
+                      ...prev.repeaterSections,
+                      [key]: section
+                    } as any
+                  }));
+                }}
+              />
+            </div>
 
             <AdvancedSettings 
               settings={formSchema.settings}
