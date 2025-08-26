@@ -76,13 +76,13 @@ export default function PublicFormSubmission() {
     try {
       setLoading(true);
       
-      const response = await supabase.functions.invoke('resolve_public_form', {
-        body: { 
-          agencySlug: agencySlug,
-          formSlug: formSlug,
-          token: token 
-        }
+      const queryParams = new URLSearchParams({
+        agencySlug,
+        formSlug,
+        t: token
       });
+      
+      const response = await supabase.functions.invoke(`resolve_public_form?${queryParams.toString()}`);
       
       if (response.error) {
         if (response.error.message?.includes('NOT_FOUND')) {
