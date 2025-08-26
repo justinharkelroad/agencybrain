@@ -65,52 +65,66 @@ export default function PublicFormSubmission() {
     try {
       setLoading(true);
       
-      // Verify token and get form template
-      const { data: linkData, error: linkError } = await supabase
-        .from('form_links')
-        .select(`
-          *,
-          form_templates (
-            id,
-            name,
-            role,
-            schema_json,
-            settings_json,
-            agencies (
-              id,
-              name
-            )
-          )
-        `)
-        .eq('token', token)
-        .eq('enabled', true)
-        .single();
-
-      if (linkError || !linkData) {
-        console.error('Form link error:', linkError);
-        toast.error("Invalid or expired form link");
+      // Extract agency slug from hostname
+      const agencySlug = window.location.hostname.split(".")[0];
+      
+      // Call secure edge function to resolve form
+      const response = await fetch(
+        `/functions/v1/resolve_public_form?agencySlug=${encodeURIComponent(agencySlug)}&formSlug=${encodeURIComponent(slug!)}&t=${encodeURIComponent(token!)}`
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ code: 'UNKNOWN' }));
+        console.error('Form resolution error:', errorData);
+        
+        switch (response.status) {
+          case 400:
+            toast.error("Invalid form link parameters");
+            break;
+          case 404:
+            toast.error("Form not found or no longer available");
+            break;
+          case 410:
+            toast.error("This form link has expired");
+            break;
+          case 429:
+            toast.error("Too many requests. Please try again later.");
+            break;
+          default:
+            toast.error("Failed to load form");
+        }
+        
         setFormTemplate(null);
         return;
       }
 
-      setFormTemplate(linkData.form_templates);
+      const { form } = await response.json();
+      setFormTemplate({
+        id: form.id,
+        name: form.name,
+        role: form.schema?.role || 'Sales',
+        schema_json: form.schema,
+        settings_json: form.settings
+      });
 
-      // Load team members for the agency with matching role
-      const { data: members, error: membersError } = await supabase
-        .from('team_members')
-        .select('id, name, email, role')
-        .eq('agency_id', linkData.form_templates.agencies.id)
-        .eq('role', linkData.form_templates.role)
-        .eq('status', 'active');
+      // Load team members from the form's agency and role information
+      if (form.agency?.id && form.schema?.role) {
+        const { data: members, error: membersError } = await supabase
+          .from('team_members')
+          .select('id, name, email, role')
+          .eq('agency_id', form.agency.id)
+          .eq('role', form.schema.role)
+          .eq('status', 'active');
 
-      if (membersError) {
-        console.error('Error loading team members:', membersError);
-      } else {
-        setTeamMembers(members || []);
+        if (membersError) {
+          console.error('Error loading team members:', membersError);
+        } else {
+          setTeamMembers(members || []);
+        }
       }
 
       // Initialize repeater sections
-      const schema = linkData.form_templates.schema_json;
+      const schema = form.schema;
       const initialRepeaterData: RepeaterData = {};
       
       if (schema?.repeaterSections) {

@@ -636,6 +636,7 @@ export type Database = {
           schema_json: Json | null
           settings_json: Json | null
           slug: string
+          status: string | null
           updated_at: string
         }
         Insert: {
@@ -648,6 +649,7 @@ export type Database = {
           schema_json?: Json | null
           settings_json?: Json | null
           slug: string
+          status?: string | null
           updated_at?: string
         }
         Update: {
@@ -660,6 +662,7 @@ export type Database = {
           schema_json?: Json | null
           settings_json?: Json | null
           slug?: string
+          status?: string | null
           updated_at?: string
         }
         Relationships: []

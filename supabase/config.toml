@@ -2,3 +2,6 @@ project_id = "wjqyccbytctqwceuhzhk"
 
 [functions.validate-invite]
 verify_jwt = false
+
+[functions.resolve_public_form]
+verify_jwt = false
