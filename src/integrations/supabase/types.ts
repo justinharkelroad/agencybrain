@@ -830,12 +830,16 @@ export type Database = {
           daily_score: number | null
           date: string
           final_submission_id: string | null
+          hits: number
           id: string
+          is_counted_day: boolean
+          is_late: boolean
           mini_reviews: number | null
           outbound_calls: number | null
           pass: boolean | null
           quoted_count: number | null
           quoted_entity: string | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
           sold_items: number | null
           sold_policies: number | null
           sold_premium_cents: number | null
@@ -851,12 +855,16 @@ export type Database = {
           daily_score?: number | null
           date: string
           final_submission_id?: string | null
+          hits?: number
           id?: string
+          is_counted_day?: boolean
+          is_late?: boolean
           mini_reviews?: number | null
           outbound_calls?: number | null
           pass?: boolean | null
           quoted_count?: number | null
           quoted_entity?: string | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           sold_items?: number | null
           sold_policies?: number | null
           sold_premium_cents?: number | null
@@ -872,12 +880,16 @@ export type Database = {
           daily_score?: number | null
           date?: string
           final_submission_id?: string | null
+          hits?: number
           id?: string
+          is_counted_day?: boolean
+          is_late?: boolean
           mini_reviews?: number | null
           outbound_calls?: number | null
           pass?: boolean | null
           quoted_count?: number | null
           quoted_entity?: string | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           sold_items?: number | null
           sold_policies?: number | null
           sold_premium_cents?: number | null
@@ -1517,6 +1529,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _nz_int: {
+        Args: { v: Json }
+        Returns: number
+      }
+      _nz_num: {
+        Args: { v: Json }
+        Returns: number
+      }
       admin_create_user: {
         Args: {
           p_agency_id: string
@@ -1526,6 +1546,10 @@ export type Database = {
           p_password: string
         }
         Returns: string
+      }
+      backfill_metrics_last_n_days: {
+        Args: { p_agency: string; p_days: number }
+        Returns: undefined
       }
       get_agency_safe: {
         Args: { agency_id_param: string }
@@ -1551,6 +1575,10 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_target: {
+        Args: { p_agency: string; p_member: string; p_metric: string }
+        Returns: number
       }
       gtrgm_compress: {
         Args: { "": unknown }
@@ -1587,6 +1615,10 @@ export type Database = {
           name: string
         }[]
       }
+      recompute_streaks_for_member: {
+        Args: { p_end: string; p_member: string; p_start: string }
+        Returns: undefined
+      }
       set_limit: {
         Args: { "": number }
         Returns: number
@@ -1598,6 +1630,10 @@ export type Database = {
       show_trgm: {
         Args: { "": string }
         Returns: string[]
+      }
+      upsert_metrics_from_submission: {
+        Args: { p_submission: string }
+        Returns: undefined
       }
     }
     Enums: {

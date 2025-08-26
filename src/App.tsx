@@ -8,6 +8,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
+import Targets from "./pages/Targets";
+import ScorecardSettings from "./pages/ScorecardSettings";
 // Index page removed
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -98,6 +100,17 @@ const App = () => (
             } />
             {/* Public form submission - no auth required */}
             <Route path="/f/:slug" element={<PublicFormSubmission />} />
+            {/* Phase 2: Targets and Scorecard Settings */}
+            <Route path="/targets" element={
+              <ProtectedRoute>
+                <Targets />
+              </ProtectedRoute>
+            } />
+            <Route path="/scorecard-settings" element={
+              <ProtectedRoute>
+                <ScorecardSettings role="Sales" />
+              </ProtectedRoute>
+            } />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />

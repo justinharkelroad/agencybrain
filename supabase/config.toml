@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.submit_public_form]
 verify_jwt = false
+
+[functions.recalc_metrics]
+verify_jwt = false
