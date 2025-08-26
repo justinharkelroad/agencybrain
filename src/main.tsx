@@ -2,31 +2,45 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Prevent custom element conflicts globally
+// Prevent custom element conflicts globally - defensive approach
 if (typeof window !== 'undefined') {
-  // Handle existing custom elements to prevent duplicate registration errors
-  const handleCustomElementConflicts = () => {
-    try {
-      // Remove any existing mce-autosize-textarea elements
-      const existingElements = document.querySelectorAll('mce-autosize-textarea');
-      existingElements.forEach(el => el.remove());
-      
-      // Prevent registration conflicts by checking if already defined
-      const elementName = 'mce-autosize-textarea';
-      if (customElements.get(elementName)) {
-        console.debug(`Custom element ${elementName} already registered, skipping`);
+  try {
+    // Intercept and prevent duplicate custom element registrations
+    const originalDefine = customElements.define;
+    customElements.define = function(name, constructor, options) {
+      if (customElements.get(name)) {
+        console.debug(`Custom element ${name} already defined, preventing duplicate registration`);
+        return;
       }
-    } catch (error) {
-      console.debug('Custom element conflict handling:', error);
-    }
-  };
+      return originalDefine.call(this, name, constructor, options);
+    };
+    
+    // Clean up any existing problematic elements
+    const cleanupElements = () => {
+      try {
+        const existingElements = document.querySelectorAll('mce-autosize-textarea');
+        existingElements.forEach(el => {
+          try {
+            el.remove();
+          } catch (e) {
+            console.debug('Element cleanup error:', e);
+          }
+        });
+      } catch (error) {
+        console.debug('Element cleanup failed:', error);
+      }
+    };
 
-  // Run on initial load
-  handleCustomElementConflicts();
-  
-  // Run on DOM changes to handle dynamic content
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', handleCustomElementConflicts);
+    // Run cleanup immediately
+    cleanupElements();
+    
+    // Run cleanup after DOM loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', cleanupElements);
+    }
+    
+  } catch (error) {
+    console.debug('Custom element protection setup failed:', error);
   }
 }
 
