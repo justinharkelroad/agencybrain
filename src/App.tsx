@@ -19,7 +19,7 @@ import ProcessVault from "./pages/ProcessVault";
 import ScorecardForms from "./pages/ScorecardForms";
 import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
 import ScorecardFormEditor from "./pages/ScorecardFormEditor";
-import PublicFormRoute from "./pages/PublicFormRoute";
+import PublicFormSubmission from "./pages/PublicFormSubmission";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -97,11 +97,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             {/* Public form submission - no auth required */}
-            <Route path="/f/:agencySlug/:formSlug" element={
-              <PublicFormErrorBoundary>
-                <PublicFormRoute />
-              </PublicFormErrorBoundary>
-            } />
+            <Route path="/f/:slug" element={<PublicFormSubmission />} />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />

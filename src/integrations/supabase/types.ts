@@ -590,6 +590,50 @@ export type Database = {
         }
         Relationships: []
       }
+      form_fields: {
+        Row: {
+          builtin: boolean
+          form_template_id: string
+          id: string
+          key: string
+          label: string
+          options_json: Json | null
+          position: number
+          required: boolean
+          type: string
+        }
+        Insert: {
+          builtin?: boolean
+          form_template_id: string
+          id?: string
+          key: string
+          label: string
+          options_json?: Json | null
+          position?: number
+          required?: boolean
+          type: string
+        }
+        Update: {
+          builtin?: boolean
+          form_template_id?: string
+          id?: string
+          key?: string
+          label?: string
+          options_json?: Json | null
+          position?: number
+          required?: boolean
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_fields_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_link_analytics: {
         Row: {
           accessed_at: string

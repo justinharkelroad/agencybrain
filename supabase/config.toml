@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.resolve_public_form]
 verify_jwt = false
+
+[functions.submit_public_form]
+verify_jwt = false

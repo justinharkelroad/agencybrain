@@ -1,625 +1,180 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { CheckCircle, Clock, AlertCircle, Plus, X } from "lucide-react";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
-import { FormLoadingSkeleton } from "@/components/ErrorViews/FormLoadingSkeleton";
-import { FormNotFoundView } from "@/components/ErrorViews/FormNotFoundView";
-import { FormExpiredView } from "@/components/ErrorViews/FormExpiredView";
-import { FormDisabledView } from "@/components/ErrorViews/FormDisabledView";
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 
-interface TeamMember {
+type Field = {
   id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-interface FormTemplate {
-  id: string;
-  name: string;
-  role: string;
-  schema_json: any;
-  settings_json: any;
-}
-
-interface FormSubmission {
-  team_member_id: string;
-  submission_date: string;
-  work_date: string;
-  [key: string]: string | number | any[];
-}
-
-interface RepeaterData {
-  [sectionKey: string]: Array<{ [fieldKey: string]: any }>;
-}
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options_json?: any;
+  builtin: boolean;
+  position: number;
+};
+type ResolvedForm = { id:string; slug:string; settings:any; fields:Field[] };
 
 export default function PublicFormSubmission() {
-  const { agencySlug, formSlug } = useParams();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('t');
-  
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [formTemplate, setFormTemplate] = useState<FormTemplate | null>(null);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [formData, setFormData] = useState<FormSubmission>({
-    team_member_id: '',
-    submission_date: new Date().toISOString().split('T')[0],
-    work_date: new Date().toISOString().split('T')[0],
-  });
-  const [repeaterData, setRepeaterData] = useState<RepeaterData>({});
-  const [error, setError] = useState<'not-found' | 'expired' | 'disabled' | null>(null);
+  const { slug } = useParams();
+  const [form, setForm] = useState<ResolvedForm | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [values, setValues] = useState<Record<string, any>>({});
+  const agencySlug = useMemo(() => window.location.hostname.split(".")[0], []);
+  const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
 
   useEffect(() => {
-    if (agencySlug && formSlug && token) {
-      loadForm();
-    }
-  }, [agencySlug, formSlug, token]);
+    if (!slug || !token) { setErr("Missing link parameters."); return; }
+    (async () => {
+      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${agencySlug}&formSlug=${slug}&t=${token}`;
+      const r = await fetch(u);
+      if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
+      const j = await r.json();
+      setForm(j.form);
+      // seed defaults
+      setValues(v => ({ ...v, submission_date: new Date().toISOString().slice(0,10) }));
+    })();
+  }, [agencySlug, slug, token]);
 
-  const loadForm = async () => {
-    if (!agencySlug || !formSlug || !token) {
-      setError('not-found');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      const queryParams = new URLSearchParams({
-        agencySlug,
-        formSlug,
-        t: token
-      });
-      
-      const response = await supabase.functions.invoke(`resolve_public_form?${queryParams.toString()}`);
-      
-      if (response.error) {
-        if (response.error.message?.includes('NOT_FOUND')) {
-          setError('not-found');
-          return;
-        }
-        if (response.error.message?.includes('EXPIRED')) {
-          setError('expired');
-          return;
-        }
-        if (response.error.message?.includes('DISABLED')) {
-          setError('disabled');
-          return;
-        }
-        setError('not-found');
-        return;
-      }
-
-      const { form } = response.data;
-      setFormTemplate({
-        id: form.id,
-        name: form.name,
-        role: form.schema?.role || 'Sales',
-        schema_json: form.schema,
-        settings_json: form.settings
-      });
-
-      // Track analytics
-      await supabase.from('form_link_analytics').insert({
-        form_link_id: form.linkId,
-        agency_id: form.agency.id,
-        user_agent: navigator.userAgent,
-        referer: document.referrer || null
-      });
-
-      // Load team members from the form's agency and role information
-      if (form.agency?.id && form.schema?.role) {
-        const { data: members, error: membersError } = await supabase
-          .from('team_members')
-          .select('id, name, email, role')
-          .eq('agency_id', form.agency.id)
-          .eq('role', form.schema.role)
-          .eq('status', 'active');
-
-        if (membersError) {
-          console.error('Error loading team members:', membersError);
-        } else {
-          setTeamMembers(members || []);
-        }
-      }
-
-      // Initialize repeater sections
-      const schema = form.schema;
-      const initialRepeaterData: RepeaterData = {};
-      
-      if (schema?.repeaterSections) {
-        Object.keys(schema.repeaterSections).forEach(sectionKey => {
-          const section = schema.repeaterSections[sectionKey];
-          if (section.enabled) {
-            initialRepeaterData[sectionKey] = [];
-          }
-        });
-      }
-      
-      setRepeaterData(initialRepeaterData);
-    } catch (error) {
-      console.error('Error loading form:', error);
-      setError('not-found');
-    } finally {
-      setLoading(false);
+  const onChange = (key: string, val: any) => {
+    setValues(v => ({ ...v, [key]: val }));
+    if (key === "quoted_count") {
+      const cap = form?.settings?.spawnCap ?? 25;
+      const rows = Math.max(0, Math.min(Number(val) || 0, cap));
+      setValues(v => ({ ...v, quoted_details: Array.from({length: rows}).map((_,i)=>v.quoted_details?.[i] || {}) }));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formTemplate || !formData.team_member_id) {
-      toast.error("Please select a team member");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      // Check if submission is late
-      const now = new Date();
-      const submissionDate = new Date(formData.submission_date);
-      const dueTime = formTemplate.settings_json?.dueBy || 'same-day-23:59';
-      
-      let isLate = false;
-      if (dueTime === 'same-day-23:59') {
-        const deadline = new Date(submissionDate);
-        deadline.setHours(23, 59, 59, 999);
-        isLate = now > deadline;
-      }
-
-      // Submit the form with both regular data and repeater data
-      const submissionPayload = {
-        ...formData,
-        repeaterData: repeaterData
-      };
-
-      const { data: submission, error: submitError } = await supabase
-        .from('submissions')
-        .insert({
-          form_template_id: formTemplate.id,
-          team_member_id: formData.team_member_id,
-          submission_date: formData.submission_date,
-          work_date: formData.work_date,
-          payload_json: submissionPayload,
-          late: isLate,
-          final: true,
-        })
-        .select()
-        .single();
-
-      if (submitError) throw submitError;
-
-      // Save repeater section details to their respective tables
-      for (const [sectionKey, entries] of Object.entries(repeaterData)) {
-        if (!entries || entries.length === 0) continue;
-
-        if (sectionKey === 'quotedDetails') {
-          // Save quoted household details
-          for (const entry of entries) {
-            if (entry.household_name) {
-              const { error: detailError } = await supabase
-                .from('quoted_household_details')
-                .insert({
-                  submission_id: submission.id,
-                  household_name: entry.household_name,
-                  zip_code: entry.zip_code || null,
-                  policy_type: entry.policy_type || null,
-                  extras: entry
-                });
-
-              if (detailError) {
-                console.error('Error saving quoted household detail:', detailError);
-              }
-            }
-          }
-        } else if (sectionKey === 'soldDetails') {
-          // Save sold policy details
-          for (const entry of entries) {
-            if (entry.policy_holder && entry.policy_type) {
-              const premiumCents = entry.premium_amount ? 
-                Math.round(parseFloat(entry.premium_amount) * 100) : 0;
-              const commissionCents = entry.commission_amount ? 
-                Math.round(parseFloat(entry.commission_amount) * 100) : 0;
-
-              const { error: detailError } = await supabase
-                .from('sold_policy_details')
-                .insert({
-                  submission_id: submission.id,
-                  policy_holder_name: entry.policy_holder,
-                  policy_type: entry.policy_type,
-                  premium_amount_cents: premiumCents,
-                  commission_amount_cents: commissionCents,
-                  extras: entry
-                });
-
-              if (detailError) {
-                console.error('Error saving sold policy detail:', detailError);
-              }
-            }
-          }
-        }
-      }
-
-      // Update or create metrics_daily record
-      const selectedMember = teamMembers.find(m => m.id === formData.team_member_id);
-      if (selectedMember) {
-        // Get agency_id from the team member
-        const { data: memberData } = await supabase
-          .from('team_members')
-          .select('agency_id')
-          .eq('id', formData.team_member_id)
-          .single();
-
-        if (memberData) {
-          const metricsData = {
-            agency_id: memberData.agency_id,
-            team_member_id: formData.team_member_id,
-            date: formData.work_date,
-            outbound_calls: parseInt(formData.outbound_calls as string) || 0,
-            talk_minutes: parseInt(formData.talk_minutes as string) || 0,
-            quoted_count: parseInt(formData.quoted_count as string) || 0,
-            sold_items: parseInt(formData.sold_items as string) || 0,
-            cross_sells_uncovered: parseInt(formData.cross_sells_uncovered as string) || 0,
-            mini_reviews: parseInt(formData.mini_reviews as string) || 0,
-            final_submission_id: submission.id,
-          };
-
-          const { error: metricsError } = await supabase
-            .from('metrics_daily')
-            .upsert(metricsData, {
-              onConflict: 'agency_id,team_member_id,date'
-            });
-
-          if (metricsError) {
-            console.error('Error updating metrics:', metricsError);
-          }
-        }
-      }
-
-      setSubmitted(true);
-      toast.success("Form submitted successfully!");
-    } catch (error: any) {
-      console.error('Error submitting form:', error);
-      toast.error(error.message || "Failed to submit form");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const updateFormData = (key: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
-  };
-
-  const updateRepeaterCount = (sectionKey: string, count: number) => {
-    setRepeaterData(prev => {
-      const currentData = prev[sectionKey] || [];
-      const schema = formTemplate?.schema_json?.repeaterSections?.[sectionKey];
-      
-      if (!schema) return prev;
-
-      // Adjust array length to match count
-      const newData = Array.from({ length: count }, (_, index) => {
-        if (currentData[index]) {
-          return currentData[index]; // Keep existing data
-        }
-        
-        // Initialize new entry with empty values
-        const newEntry: { [key: string]: any } = {};
-        schema.fields.forEach((field: any) => {
-          newEntry[field.key] = '';
-        });
-        return newEntry;
-      });
-
-      return { ...prev, [sectionKey]: newData };
+  const submit = async () => {
+    // required system fields
+    if (!values.staff_id || !values.submission_date) { setErr("MISSING_FIELDS"); return; }
+    const r = await fetch("https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/submit_public_form", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        agencySlug, formSlug: slug, token,
+        teamMemberId: values.staff_id,
+        submissionDate: values.submission_date,
+        workDate: values.work_date || null,
+        values
+      })
     });
+    if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
+    setErr(null);
+    alert("Submitted");
   };
 
-  const updateRepeaterField = (sectionKey: string, entryIndex: number, fieldKey: string, value: any) => {
-    setRepeaterData(prev => {
-      const sectionData = [...(prev[sectionKey] || [])];
-      if (sectionData[entryIndex]) {
-        sectionData[entryIndex] = {
-          ...sectionData[entryIndex],
-          [fieldKey]: value
-        };
-      }
-      return { ...prev, [sectionKey]: sectionData };
-    });
-  };
+  if (err) return <div>Form error: {err}</div>;
+  if (!form) return <div>Loading…</div>;
 
-  if (loading) {
-    return <FormLoadingSkeleton />;
-  }
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-xl font-semibold mb-4">{form.slug}</h1>
 
-  if (error === 'not-found') {
-    return <FormNotFoundView />;
-  }
+      {/* Required system fields */}
+      <div className="grid gap-4">
+        <label className="flex flex-col">
+          <span>Staff</span>
+          <select value={values.staff_id || ""} onChange={e=>onChange("staff_id", e.target.value)}>
+            {/* Populate from your Team endpoint or embed a dataset */}
+            <option value="">Select</option>
+            {/* TODO: fetch real team list filtered by role */}
+          </select>
+        </label>
 
-  if (error === 'expired') {
-    return <FormExpiredView />;
-  }
+        <label className="flex flex-col">
+          <span>Submission Date</span>
+          <input type="date" value={values.submission_date || ""} onChange={e=>onChange("submission_date", e.target.value)} />
+        </label>
 
-  if (error === 'disabled') {
-    return <FormDisabledView />;
-  }
-
-  if (!formTemplate) {
-    return <FormNotFoundView />;
-  }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <CardTitle>Submission Received</CardTitle>
-            <CardDescription>
-              Thank you! Your scorecard has been submitted successfully.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <label className="flex flex-col">
+          <span>Work Date (optional)</span>
+          <input type="date" value={values.work_date || ""} onChange={e=>onChange("work_date", e.target.value)} />
+        </label>
       </div>
-    );
-  }
 
-  const schema = formTemplate.schema_json;
-  const kpis = schema?.kpis || [];
-  const customFields = schema?.customFields || [];
-  const repeaterSections = schema?.repeaterSections || {};
+      <hr className="my-6" />
 
-  // Render a repeater section
-  const renderRepeaterSection = (sectionKey: string, section: any) => {
-    const triggerKPI = section.triggerKPI;
-    const triggerValue = parseInt(formData[triggerKPI] as string) || 0;
-    
-    // Update repeater count when trigger KPI changes
-    if (repeaterData[sectionKey]?.length !== triggerValue) {
-      updateRepeaterCount(sectionKey, triggerValue);
-    }
-    
-    if (triggerValue === 0) {
-      return null;
-    }
-
-    return (
-      <div key={sectionKey} className="border-t pt-6">
-        <h3 className="font-semibold text-lg mb-4">{section.title}</h3>
-        <p className="text-sm text-muted-foreground mb-4">{section.description}</p>
-        
-        <div className="space-y-4">
-          {Array.from({ length: triggerValue }, (_, index) => (
-            <Card key={index} className="p-4">
-              <h4 className="font-medium mb-3">Entry #{index + 1}</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {section.fields.map((field: any) => (
-                  <div key={field.key}>
-                    <Label>
-                      {field.label}
-                      {field.required && <span className="text-destructive">*</span>}
-                    </Label>
-                    
-                    {field.type === 'select' ? (
-                      <Select
-                        value={repeaterData[sectionKey]?.[index]?.[field.key] || ''}
-                        onValueChange={(value) => updateRepeaterField(sectionKey, index, field.key, value)}
-                      >
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue placeholder="Select..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border-border z-50">
-                          {field.key === 'lead_source' && schema?.leadSources ? (
-                            schema.leadSources
-                              .filter((ls: any) => ls.is_active)
-                              .sort((a: any, b: any) => a.order_index - b.order_index)
-                              .map((source: any) => (
-                                <SelectItem key={source.id} value={source.name} className="text-foreground">
-                                  {source.name}
-                                </SelectItem>
-                              ))
-                          ) : (
-                            field.options?.map((option: string, idx: number) => (
-                              <SelectItem key={idx} value={option} className="text-foreground">
-                                {option}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        type={field.type === 'currency' ? 'number' : field.type === 'number' ? 'number' : 'text'}
-                        value={repeaterData[sectionKey]?.[index]?.[field.key] || ''}
-                        onChange={(e) => updateRepeaterField(sectionKey, index, field.key, e.target.value)}
-                        placeholder={
-                          field.type === 'currency' ? '$0.00' : 
-                          field.type === 'number' ? '0' : ''
-                        }
-                        step={field.type === 'currency' ? '0.01' : undefined}
-                        required={field.required}
-                      />
-                    )}
+      {/* Render built-ins and customs */}
+      <div className="grid gap-4">
+        {form.fields.map((f) => {
+          if (f.type === "number") {
+            return (
+              <label key={f.id} className="flex flex-col">
+                <span>{f.label}{f.required?" *":""}</span>
+                <input type="number" min={0} value={values[f.key] ?? ""} onChange={e=>onChange(f.key, e.target.value)} />
+              </label>
+            );
+          }
+          if (f.type === "currency") {
+            return (
+              <label key={f.id} className="flex flex-col">
+                <span>{f.label}{f.required?" *":""}</span>
+                <input type="number" min={0} step="0.01" value={values[f.key] ?? ""} onChange={e=>onChange(f.key, e.target.value)} />
+              </label>
+            );
+          }
+          if (f.type === "dropdown") {
+            const opts = f.options_json?.entityOptions || f.options_json?.options || [];
+            return (
+              <label key={f.id} className="flex flex-col">
+                <span>{f.label}{f.required?" *":""}</span>
+                <select value={values[f.key] ?? ""} onChange={e=>onChange(f.key, e.target.value)}>
+                  <option value="">Select</option>
+                  {opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </label>
+            );
+          }
+          if (f.type === "textarea") {
+            return (
+              <label key={f.id} className="flex flex-col">
+                <span>{f.label}{f.required?" *":""}</span>
+                <textarea value={values[f.key] ?? ""} onChange={e=>onChange(f.key, e.target.value)} />
+              </label>
+            );
+          }
+          if (f.type === "repeater" && f.key === "quoted_details") {
+            const rows:any[] = values.quoted_details || [];
+            const subfields = f.options_json?.subfields || [];
+            return (
+              <div key={f.id} className="border rounded p-3">
+                <div className="font-medium mb-2">{f.label}</div>
+                {rows.map((row, i) => (
+                  <div key={i} className="grid gap-2 md:grid-cols-4 border-b py-2">
+                    {subfields.map((sf:any) => (
+                      <label key={sf.key} className="flex flex-col">
+                        <span>{sf.label}{sf.required?" *":""}</span>
+                        <input
+                          value={row[sf.key] || ""}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setValues(prev => {
+                              const next = [...(prev.quoted_details||[])];
+                              next[i] = { ...(next[i]||{}), [sf.key]: v };
+                              return { ...prev, quoted_details: next };
+                            });
+                          }}
+                        />
+                      </label>
+                    ))}
                   </div>
                 ))}
               </div>
-            </Card>
-          ))}
-        </div>
+            );
+          }
+          if (f.type === "repeater" && f.key === "sold_details") {
+            // similar render, but no auto-spawn by count
+          }
+          // default text
+          return (
+            <label key={f.id} className="flex flex-col">
+              <span>{f.label}{f.required?" *":""}</span>
+              <input value={values[f.key] ?? ""} onChange={e=>onChange(f.key, e.target.value)} />
+            </label>
+          );
+        })}
       </div>
-    );
-  };
 
-  return (
-    <PublicFormErrorBoundary>
-      <div className="min-h-screen bg-background py-8">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl">{formTemplate.name}</CardTitle>
-                  <CardDescription className="mt-2">
-                    Daily KPI tracking form
-                  </CardDescription>
-                </div>
-                <Badge variant={formTemplate.role === 'Sales' ? 'default' : 'secondary'}>
-                  {formTemplate.role}
-                </Badge>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Staff Selection */}
-                <div>
-                  <Label htmlFor="team_member">Staff Member *</Label>
-                  <Select 
-                    value={formData.team_member_id}
-                    onValueChange={(value) => updateFormData('team_member_id', value)}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your name..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="submission_date">Submission Date</Label>
-                    <Input
-                      id="submission_date"
-                      type="date"
-                      value={formData.submission_date}
-                      onChange={(e) => updateFormData('submission_date', e.target.value)}
-                      required
-                    />
-                  </div>
-                  {schema?.settings?.hasWorkDate && (
-                    <div>
-                      <Label htmlFor="work_date">Work Date</Label>
-                      <Input
-                        id="work_date"
-                        type="date"
-                        value={formData.work_date}
-                        onChange={(e) => updateFormData('work_date', e.target.value)}
-                        max={new Date().toISOString().split('T')[0]}
-                        required
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* KPIs */}
-                <div className="border-t pt-6">
-                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Daily KPIs
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {kpis.map((kpi: any) => (
-                      <div key={kpi.key}>
-                        <Label htmlFor={kpi.key}>
-                          {kpi.label}
-                          {kpi.required && <span className="text-destructive">*</span>}
-                        </Label>
-                        <Input
-                          id={kpi.key}
-                          type="number"
-                          min="0"
-                          value={formData[kpi.key] || ''}
-                          onChange={(e) => {
-                            updateFormData(kpi.key, e.target.value);
-                          }}
-                          placeholder="0"
-                          required={kpi.required}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom Fields */}
-                {customFields.length > 0 && (
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold text-lg mb-4">Additional Information</h3>
-                    <div className="space-y-4">
-                      {customFields.map((field: any) => (
-                        <div key={field.key}>
-                          <Label>
-                            {field.label}
-                            {field.required && <span className="text-destructive">*</span>}
-                          </Label>
-                          
-                          {field.type === 'dropdown' ? (
-                            <Select
-                              value={formData[field.key] as string || ''}
-                              onValueChange={(value) => updateFormData(field.key, value)}
-                              required={field.required}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {field.options?.map((option: string, idx: number) => (
-                                  <SelectItem key={idx} value={option}>{option}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input
-                              type={field.type === 'date' ? 'date' : 'text'}
-                              value={formData[field.key] as string || ''}
-                              onChange={(e) => updateFormData(field.key, e.target.value)}
-                              required={field.required}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Render Dynamic Repeater Sections */}
-                {Object.entries(repeaterSections)
-                  .filter(([_, section]: [string, any]) => section?.enabled)
-                  .map(([sectionKey, section]) => 
-                    renderRepeaterSection(sectionKey, section)
-                  )}
-
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={submitting}
-                  size="lg"
-                >
-                  {submitting ? "Submitting..." : "Submit Scorecard"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </PublicFormErrorBoundary>
+      <button className="mt-6 px-4 py-2 border rounded" onClick={submit}>Submit</button>
+    </div>
   );
 }
