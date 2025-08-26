@@ -2,9 +2,17 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Prevent custom element conflicts globally - defensive approach
+// Prevent custom element conflicts globally - enhanced for development mode
 if (typeof window !== 'undefined') {
   try {
+    // Detect if we're in development mode
+    const isDevelopment = import.meta.env.DEV;
+    
+    if (isDevelopment) {
+      // In development, aggressively prevent overlay conflicts
+      console.log('🛡️ Development mode: Enabling custom element protection');
+    }
+    
     // Intercept and prevent duplicate custom element registrations
     const originalDefine = customElements.define;
     customElements.define = function(name, constructor, options) {

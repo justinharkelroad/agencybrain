@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // Disable overlay in development to prevent custom element conflicts
+    hmr: {
+      overlay: false
+    }
   },
   plugins: [
     react(),
