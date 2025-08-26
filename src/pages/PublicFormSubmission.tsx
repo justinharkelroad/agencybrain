@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ import { CheckCircle, Clock, AlertCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
+import { FormLoadingSkeleton } from "@/components/ErrorViews/FormLoadingSkeleton";
+import { FormNotFoundView } from "@/components/ErrorViews/FormNotFoundView";
+import { FormExpiredView } from "@/components/ErrorViews/FormExpiredView";
+import { FormDisabledView } from "@/components/ErrorViews/FormDisabledView";
 
 interface TeamMember {
   id: string;
@@ -54,6 +58,7 @@ export default function PublicFormSubmission() {
     work_date: new Date().toISOString().split('T')[0],
   });
   const [repeaterData, setRepeaterData] = useState<RepeaterData>({});
+  const [error, setError] = useState<'not-found' | 'expired' | 'disabled' | null>(null);
 
   useEffect(() => {
     if (slug && token) {
@@ -70,31 +75,28 @@ export default function PublicFormSubmission() {
       
       // Call secure edge function to resolve form
       const response = await fetch(
-        `/functions/v1/resolve_public_form?agencySlug=${encodeURIComponent(agencySlug)}&formSlug=${encodeURIComponent(slug!)}&t=${encodeURIComponent(token!)}`
+        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${encodeURIComponent(agencySlug)}&formSlug=${encodeURIComponent(slug!)}&token=${encodeURIComponent(token!)}`
       );
       
+      if (response.status === 404) {
+        setError('not-found');
+        return;
+      }
+      
+      if (response.status === 410) {
+        setError('expired');
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ code: 'UNKNOWN' }));
-        console.error('Form resolution error:', errorData);
         
-        switch (response.status) {
-          case 400:
-            toast.error("Invalid form link parameters");
-            break;
-          case 404:
-            toast.error("Form not found or no longer available");
-            break;
-          case 410:
-            toast.error("This form link has expired");
-            break;
-          case 429:
-            toast.error("Too many requests. Please try again later.");
-            break;
-          default:
-            toast.error("Failed to load form");
+        if (errorData.error_code === 'FORM_DISABLED') {
+          setError('disabled');
+          return;
         }
         
-        setFormTemplate(null);
+        setError('not-found');
         return;
       }
 
@@ -105,6 +107,14 @@ export default function PublicFormSubmission() {
         role: form.schema?.role || 'Sales',
         schema_json: form.schema,
         settings_json: form.settings
+      });
+
+      // Track analytics
+      await supabase.from('form_link_analytics').insert({
+        form_link_id: form.linkId,
+        agency_id: form.agency.id,
+        user_agent: navigator.userAgent,
+        referer: document.referrer || null
       });
 
       // Load team members from the form's agency and role information
@@ -139,7 +149,7 @@ export default function PublicFormSubmission() {
       setRepeaterData(initialRepeaterData);
     } catch (error) {
       console.error('Error loading form:', error);
-      toast.error("Failed to load form");
+      setError('not-found');
     } finally {
       setLoading(false);
     }
@@ -329,30 +339,23 @@ export default function PublicFormSubmission() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading form...</p>
-        </div>
-      </div>
-    );
+    return <FormLoadingSkeleton />;
+  }
+
+  if (error === 'not-found') {
+    return <FormNotFoundView />;
+  }
+
+  if (error === 'expired') {
+    return <FormExpiredView />;
+  }
+
+  if (error === 'disabled') {
+    return <FormDisabledView />;
   }
 
   if (!formTemplate) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <CardTitle>Form Not Found</CardTitle>
-            <CardDescription>
-              The form link is invalid or has expired.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
+    return <FormNotFoundView />;
   }
 
   if (submitted) {

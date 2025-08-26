@@ -590,6 +590,42 @@ export type Database = {
         }
         Relationships: []
       }
+      form_link_analytics: {
+        Row: {
+          accessed_at: string
+          agency_id: string
+          form_link_id: string
+          form_submitted: boolean | null
+          id: string
+          ip_address: unknown | null
+          referer: string | null
+          submission_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          agency_id: string
+          form_link_id: string
+          form_submitted?: boolean | null
+          id?: string
+          ip_address?: unknown | null
+          referer?: string | null
+          submission_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          agency_id?: string
+          form_link_id?: string
+          form_submitted?: boolean | null
+          id?: string
+          ip_address?: unknown | null
+          referer?: string | null
+          submission_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       form_links: {
         Row: {
           created_at: string

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, Edit3, MoreVertical } from "lucide-react";
+import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +18,7 @@ interface FormTemplate {
   schema_json: any;
   settings_json: any;
   is_active: boolean;
+  status?: string;
   created_at: string;
   updated_at: string;
 }
@@ -52,7 +53,7 @@ export default function FormTemplateCard({ form }: FormTemplateCardProps) {
       }
       
       if (link) {
-        const publicUrl = generatePublicUrl('', form.slug, link.token);
+        const publicUrl = await generatePublicUrl(form, link.token);
         setFormLink(publicUrl);
         setLinkEnabled(link.enabled);
         
@@ -105,6 +106,9 @@ export default function FormTemplateCard({ form }: FormTemplateCardProps) {
               <Badge variant={form.role === 'Sales' ? 'default' : 'secondary'}>
                 {form.role}
               </Badge>
+              <Badge variant={form.status === 'published' ? 'default' : 'outline'}>
+                {form.status || 'draft'}
+              </Badge>
             </div>
             <CardDescription className="text-sm">
               {kpiCount} KPIs • {customFieldCount} custom fields
@@ -139,6 +143,14 @@ export default function FormTemplateCard({ form }: FormTemplateCardProps) {
                   </DropdownMenuItem>
                 </>
               )}
+              <DropdownMenuItem className="text-foreground">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                View Analytics
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-foreground">
+                <Clock className="h-4 w-4 mr-2" />
+                Set Expiration
+              </DropdownMenuItem>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">

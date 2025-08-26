@@ -147,9 +147,21 @@ export function useScorecardForms() {
     }
   };
 
-  const generatePublicUrl = (agencySlug: string, formSlug: string, token: string): string => {
+  const generatePublicUrl = async (form: FormTemplate, token: string) => {
+    // Get agency info for subdomain URL generation
+    const { data: agency } = await supabase
+      .from('agencies')
+      .select('slug')
+      .eq('id', agencyId)
+      .single();
+    
+    if (agency?.slug) {
+      return `https://${agency.slug}.myagencybrain.com/f/${form.slug}?t=${token}`;
+    }
+    
+    // Fallback to current domain
     const baseUrl = window.location.origin;
-    return `${baseUrl}/f/${formSlug}?t=${token}`;
+    return `${baseUrl}/f/${form.slug}?t=${token}`;
   };
 
   return {
