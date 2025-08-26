@@ -557,6 +557,62 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          agency_id: string
+          body_html: string | null
+          body_text: string
+          cc_owner: boolean
+          created_at: string
+          error: string | null
+          id: string
+          kind: string
+          meta: Json
+          scheduled_at: string
+          sent_at: string | null
+          subject: string
+          to_email: string
+        }
+        Insert: {
+          agency_id: string
+          body_html?: string | null
+          body_text: string
+          cc_owner?: boolean
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind: string
+          meta?: Json
+          scheduled_at: string
+          sent_at?: string | null
+          subject: string
+          to_email: string
+        }
+        Update: {
+          agency_id?: string
+          body_html?: string | null
+          body_text?: string
+          cc_owner?: boolean
+          created_at?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          meta?: Json
+          scheduled_at?: string
+          sent_at?: string | null
+          subject?: string
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       excusals: {
         Row: {
           agency_id: string
@@ -1551,6 +1607,20 @@ export type Database = {
         Args: { p_agency: string; p_days: number }
         Returns: undefined
       }
+      compute_is_late: {
+        Args: {
+          p_agency_id: string
+          p_settings: Json
+          p_submission_date: string
+          p_submitted_at: string
+          p_work_date: string
+        }
+        Returns: boolean
+      }
+      get_agency_dates_now: {
+        Args: { p_agency_id: string }
+        Returns: Json
+      }
       get_agency_safe: {
         Args: { agency_id_param: string }
         Returns: {
@@ -1603,6 +1673,10 @@ export type Database = {
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
+      }
+      is_now_agency_time: {
+        Args: { p_agency_id: string; p_hhmm: string }
+        Returns: Json
       }
       list_agencies_safe: {
         Args: Record<PropertyKey, never>
