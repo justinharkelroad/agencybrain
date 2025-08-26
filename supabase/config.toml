@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.recalc_metrics]
 verify_jwt = false
+
+[functions.scheduler_email]
+verify_jwt = false

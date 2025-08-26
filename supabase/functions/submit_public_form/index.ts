@@ -56,8 +56,16 @@ serve(async (req) => {
     if (link.expires_at && new Date(link.expires_at) < now) return json(410, {code:"EXPIRED"});
     if (link.form_template.status !== "published") return json(404, {code:"UNPUBLISHED"});
 
-    // Phase 3 will set accurate 'late' using agency TZ + due-by
-    const isLate = false;
+    // Compute isLate using DB function
+    const { data: lateCalc, error: lateErr } = await supabase.rpc("compute_is_late", {
+      p_agency_id: link.form_template.agency_id,
+      p_settings: link.form_template.settings_json,
+      p_submission_date: body.submissionDate,
+      p_work_date: body.workDate ?? null,
+      p_submitted_at: new Date().toISOString()
+    });
+    if (lateErr) return json(500, { code: "LATE_CALC_ERROR" });
+    const isLate = lateCalc as boolean;
     const finalDate = (body.workDate ?? body.submissionDate);
 
     // supersede previous final for that rep/day
@@ -144,11 +152,62 @@ serve(async (req) => {
       }
     }
 
+    // Queue receipt email to outbox
+    const { data: tm } = await supabase.from("team_members")
+      .select("id,name,email").eq("id", body.teamMemberId).maybeSingle();
+
+    const { data: owner } = await supabase
+      .from("agencies")
+      .select("id, timezone, cc_owner_on_reminders")
+      .eq("id", link.form_template.agency_id).maybeSingle();
+
+    // pick CC owner based on form override or agency default
+    const ccOwner = (link.form_template.settings_json?.reminders?.ccOwner ??
+                     owner?.cc_owner_on_reminders ?? true) as boolean;
+
+    // compose summary plain text
+    const wd = body.workDate ?? body.submissionDate;
+    const subject = `Submission received: ${link.form_template.slug} — ${tm?.name} on ${wd}`;
+    const text = [
+      `Hi ${tm?.name || "Rep"},`,
+      ``,
+      `We received your ${link.form_template.slug} entry for ${wd}.`,
+      `Late: ${isLate ? "Yes" : "No"}`,
+      ``,
+      `Summary:`,
+      `Outbound Calls: ${body.values?.outbound_calls ?? 0}`,
+      `Talk Minutes: ${body.values?.talk_minutes ?? 0}`,
+      `Quoted Count: ${body.values?.quoted_count ?? 0}`,
+      `Items Sold: ${body.values?.sold_items ?? 0}`,
+      `Policies Sold: ${body.values?.sold_policies ?? 0}`,
+      `Sold Premium: $${Number(body.values?.sold_premium ?? 0).toFixed(2)}`,
+      ``,
+      `— AgencyBrain`
+    ].join("\n");
+
+    // queue to outbox so reminders have a single channel
+    await supabase.from("email_outbox").insert({
+      agency_id: link.form_template.agency_id,
+      kind: 'receipt',
+      to_email: tm?.email || 'no-reply@invalid.local',
+      cc_owner: !!ccOwner,
+      subject, 
+      body_text: text,
+      meta: { 
+        submissionId: ins.id, 
+        teamMemberId: body.teamMemberId, 
+        workDate: wd, 
+        formId: link.form_template.id 
+      },
+      scheduled_at: new Date().toISOString()
+    });
+
     return json(200, { 
       ok: true, 
       submissionId: ins.id,
       quotedDetailsCreated: actualSpawnCount,
-      soldDetailsCreated: soldItems
+      soldDetailsCreated: soldItems,
+      isLate
     });
   } catch (e) {
     return json(500, {code:"SERVER_ERROR"});
