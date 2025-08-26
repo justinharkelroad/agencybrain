@@ -22,6 +22,11 @@ interface KPIField {
   label: string;
   required: boolean;
   type: 'number' | 'currency' | 'percentage';
+  target?: {
+    minimum?: number;
+    goal?: number;
+    excellent?: number;
+  };
 }
 
 interface CustomField {
@@ -262,6 +267,12 @@ export default function ScorecardFormBuilder() {
     setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
   };
 
+  const updateKPITarget = (index: number, target: { minimum?: number; goal?: number; excellent?: number }) => {
+    const updatedKPIs = [...formSchema.kpis];
+    updatedKPIs[index] = { ...updatedKPIs[index], target };
+    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+  };
+
   const addKPIField = () => {
     const newKPI: KPIField = {
       key: `custom_${Date.now()}`,
@@ -369,6 +380,7 @@ export default function ScorecardFormBuilder() {
               onUpdateLabel={updateKPILabel}
               onToggleRequired={toggleKPIRequired}
               onUpdateType={updateKPIType}
+              onUpdateTarget={updateKPITarget}
               onAddField={addKPIField}
               onRemoveField={removeKPIField}
             />

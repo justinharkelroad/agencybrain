@@ -11,6 +11,11 @@ interface KPIField {
   label: string;
   required: boolean;
   type: 'number' | 'currency' | 'percentage';
+  target?: {
+    minimum?: number;
+    goal?: number;
+    excellent?: number;
+  };
 }
 
 interface CustomField {
@@ -57,6 +62,21 @@ interface FormPreviewProps {
 
 export default function FormPreview({ formSchema }: FormPreviewProps) {
   const renderKPIField = (kpi: KPIField) => {
+    const getTargetBadge = () => {
+      if (!kpi.target) return null;
+      const { minimum, goal, excellent } = kpi.target;
+      if (minimum || goal || excellent) {
+        return (
+          <div className="text-xs text-muted-foreground mt-1">
+            {minimum && `Min: ${minimum}`}
+            {goal && `${minimum ? ' • ' : ''}Goal: ${goal}`}
+            {excellent && `${(minimum || goal) ? ' • ' : ''}Excellent: ${excellent}`}
+          </div>
+        );
+      }
+      return null;
+    };
+
     return (
       <div key={kpi.key}>
         <Label className="text-sm">
@@ -71,6 +91,7 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
             kpi.type === 'percentage' ? '0%' : '0'
           }
         />
+        {getTargetBadge()}
       </div>
     );
   };

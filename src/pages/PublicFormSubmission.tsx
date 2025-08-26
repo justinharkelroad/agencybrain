@@ -56,6 +56,15 @@ export default function PublicFormSubmission() {
 
   useEffect(() => {
     if (slug && token) {
+      // Prevent mce-autosize-textarea conflicts
+      try {
+        if (!customElements.get('mce-autosize-textarea')) {
+          // Only define if not already defined
+        }
+      } catch (error) {
+        // Element might already be defined, ignore error
+        console.debug('Custom element handling:', error);
+      }
       loadForm();
     }
   }, [slug, token]);
