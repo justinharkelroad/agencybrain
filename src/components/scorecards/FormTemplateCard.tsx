@@ -2,35 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  MoreVertical, 
-  Edit, 
-  Link2, 
-  Eye, 
-  EyeOff, 
-  Copy, 
-  Trash2,
-  Users,
-  Calendar
-} from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, Edit3, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
+import { useNavigate } from "react-router-dom";
 
 interface FormTemplate {
   id: string;
@@ -46,180 +24,192 @@ interface FormTemplate {
 
 interface FormTemplateCardProps {
   form: FormTemplate;
-  agencySlug?: string;
 }
 
-export default function FormTemplateCard({ form, agencySlug = "demo" }: FormTemplateCardProps) {
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+export default function FormTemplateCard({ form }: FormTemplateCardProps) {
+  const navigate = useNavigate();
+  const { 
+    createFormLink, 
+    getFormLink, 
+    toggleFormLink, 
+    deleteForm, 
+    generatePublicUrl 
+  } = useScorecardForms();
+  
+  const [linkEnabled, setLinkEnabled] = useState(false);
   const [formLink, setFormLink] = useState<string>("");
-  const [linkEnabled, setLinkEnabled] = useState(true);
-  const { getFormLink, createFormLink, toggleFormLink, deleteForm, generatePublicUrl } = useScorecardForms();
+  const [loading, setLoading] = useState(false);
 
   const handleGenerateLink = async () => {
-    let link = await getFormLink(form.id);
-    
-    if (!link) {
-      link = await createFormLink(form.id);
+    setLoading(true);
+    try {
+      // Check if a link already exists
+      let link = await getFormLink(form.id);
+      
+      if (!link) {
+        // Create new link
+        link = await createFormLink(form.id);
+      }
+      
+      if (link) {
+        const publicUrl = generatePublicUrl('', form.slug, link.token);
+        setFormLink(publicUrl);
+        setLinkEnabled(link.enabled);
+        
+        // Copy to clipboard
+        await navigator.clipboard.writeText(publicUrl);
+        toast.success("Form link copied to clipboard!");
+      }
+    } catch (error) {
+      console.error('Error with form link:', error);
+      toast.error("Failed to generate form link");
+    } finally {
+      setLoading(false);
     }
-    
-    if (link) {
-      const publicUrl = generatePublicUrl(agencySlug, form.slug, link.token);
-      setFormLink(publicUrl);
-      setLinkEnabled(link.enabled);
-      setLinkDialogOpen(true);
-    }
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(formLink);
-    toast.success("Link copied to clipboard!");
   };
 
   const handleToggleLink = async () => {
-    const success = await toggleFormLink(form.id, !linkEnabled);
+    const newState = !linkEnabled;
+    const success = await toggleFormLink(form.id, newState);
     if (success) {
-      setLinkEnabled(!linkEnabled);
+      setLinkEnabled(newState);
     }
   };
 
   const handleDeleteForm = async () => {
-    if (confirm("Are you sure you want to delete this form? This action cannot be undone.")) {
-      await deleteForm(form.id);
+    const success = await deleteForm(form.id);
+    // Form list will refresh automatically due to the hook
+  };
+
+  const handleCopyLink = async () => {
+    if (formLink) {
+      await navigator.clipboard.writeText(formLink);
+      toast.success("Link copied to clipboard!");
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getKPICount = () => {
-    return form.schema_json?.kpis?.length || 0;
-  };
+  const kpiCount = form.schema_json?.kpis?.length || 0;
+  const customFieldCount = form.schema_json?.customFields?.length || 0;
+  const hasRepeaterSections = form.schema_json?.repeaterSections && (
+    form.schema_json.repeaterSections.quotedDetails?.enabled || 
+    form.schema_json.repeaterSections.soldDetails?.enabled
+  );
 
   return (
-    <Card className="relative group hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              {form.name}
-              <Badge variant={form.role === 'sales' ? 'default' : 'secondary'}>
+            <div className="flex items-center gap-2 mb-2">
+              <CardTitle className="text-lg">{form.name}</CardTitle>
+              <Badge variant={form.role === 'Sales' ? 'default' : 'secondary'}>
                 {form.role}
               </Badge>
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {getKPICount()} KPI fields • Created {formatDate(form.created_at)}
+            </div>
+            <CardDescription className="text-sm">
+              {kpiCount} KPIs • {customFieldCount} custom fields
+              {hasRepeaterSections && " • Dynamic sections enabled"}
             </CardDescription>
           </div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="sm">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleGenerateLink}>
-                <Link2 className="h-4 w-4 mr-2" />
-                Get Link
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <Edit className="h-4 w-4 mr-2" />
+            <DropdownMenuContent align="end" className="bg-popover border-border">
+              <DropdownMenuItem onClick={() => navigate(`/scorecard-forms/edit/${form.id}`)} className="text-foreground">
+                <Edit3 className="h-4 w-4 mr-2" />
                 Edit Form
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDeleteForm} className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+              <DropdownMenuItem onClick={handleGenerateLink} disabled={loading} className="text-foreground">
+                <Link2 className="h-4 w-4 mr-2" />
+                {loading ? "Generating..." : "Generate Link"}
               </DropdownMenuItem>
+              {formLink && (
+                <>
+                  <DropdownMenuItem onClick={handleCopyLink} className="text-foreground">
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => window.open(formLink, '_blank')} className="text-foreground">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open Form
+                  </DropdownMenuItem>
+                </>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Form
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Form</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "{form.name}"? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteForm}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </CardHeader>
       
-      <CardContent>
-        <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>0 submissions</span>
+      <CardContent className="space-y-4">
+        <div className="text-xs text-muted-foreground">
+          Created {new Date(form.created_at).toLocaleDateString()}
+        </div>
+        
+        {formLink && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Public Link</span>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={linkEnabled}
+                  onCheckedChange={handleToggleLink}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {linkEnabled ? 'Active' : 'Disabled'}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>Due by {form.settings_json?.dueBy || 'same-day'}</span>
+            <div className="bg-muted p-2 rounded text-xs font-mono break-all">
+              {formLink}
             </div>
           </div>
-        </div>
+        )}
         
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            size="sm" 
-            onClick={handleGenerateLink}
+            size="sm"
+            onClick={() => navigate(`/scorecard-forms/edit/${form.id}`)}
             className="flex-1"
           >
-            <Link2 className="h-4 w-4 mr-2" />
-            Get Link
+            <Edit3 className="h-4 w-4 mr-1" />
+            Edit
           </Button>
-          <Button variant="outline" size="sm" disabled>
-            <Eye className="h-4 w-4 mr-2" />
-            View Data
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleGenerateLink}
+            disabled={loading}
+          >
+            <Link2 className="h-4 w-4 mr-1" />
+            {loading ? "..." : "Link"}
           </Button>
         </div>
       </CardContent>
-
-      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Form Submission Link</DialogTitle>
-            <DialogDescription>
-              Share this link with your team members to collect their daily KPI data.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="form-link">Public Form URL</Label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  id="form-link"
-                  value={formLink}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button variant="outline" onClick={handleCopyLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Link Status</p>
-                <p className="text-sm text-muted-foreground">
-                  {linkEnabled ? "Active - accepting submissions" : "Disabled - not accepting submissions"}
-                </p>
-              </div>
-              <Button 
-                variant={linkEnabled ? "destructive" : "default"}
-                size="sm"
-                onClick={handleToggleLink}
-              >
-                {linkEnabled ? (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Disable
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Enable
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

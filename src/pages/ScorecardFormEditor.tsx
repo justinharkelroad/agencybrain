@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Eye, Link2 } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
@@ -76,230 +76,156 @@ interface FormSchema {
   };
 }
 
-const DEFAULT_SALES_KPIS: KPIField[] = [
-  { key: 'outbound_calls', label: 'Outbound Calls', required: true, type: 'number' },
-  { key: 'talk_minutes', label: 'Talk Minutes', required: true, type: 'number' },
-  { key: 'quoted_count', label: 'Households Quoted', required: true, type: 'number' },
-  { key: 'sold_items', label: 'Items Sold', required: true, type: 'number' },
-];
-
-const DEFAULT_SERVICE_KPIS: KPIField[] = [
-  { key: 'talk_minutes', label: 'Talk Minutes', required: true, type: 'number' },
-  { key: 'outbound_calls', label: 'Outbound Calls', required: true, type: 'number' },
-  { key: 'cross_sells_uncovered', label: 'Cross-sells Uncovered', required: true, type: 'number' },
-  { key: 'mini_reviews', label: 'Mini Reviews', required: true, type: 'number' },
-];
-
-const TIME_OPTIONS = [
-  { value: '06:00', label: '6:00 AM' },
-  { value: '07:00', label: '7:00 AM' },
-  { value: '08:00', label: '8:00 AM' },
-  { value: '09:00', label: '9:00 AM' },
-  { value: '10:00', label: '10:00 AM' },
-  { value: '11:00', label: '11:00 AM' },
-  { value: '12:00', label: '12:00 PM' },
-  { value: '13:00', label: '1:00 PM' },
-  { value: '14:00', label: '2:00 PM' },
-  { value: '15:00', label: '3:00 PM' },
-  { value: '16:00', label: '4:00 PM' },
-  { value: '16:45', label: '4:45 PM' },
-  { value: '17:00', label: '5:00 PM' },
-  { value: '18:00', label: '6:00 PM' },
-  { value: '19:00', label: '7:00 PM' },
-  { value: '20:00', label: '8:00 PM' },
-  { value: '21:00', label: '9:00 PM' },
-  { value: '22:00', label: '10:00 PM' },
-  { value: '23:00', label: '11:00 PM' },
-  { value: '23:59', label: '11:59 PM' },
-];
-
-const formatTimeToAMPM = (time24: string): string => {
-  const [hours, minutes] = time24.split(':');
-  const hour24 = parseInt(hours);
-  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-  const period = hour24 >= 12 ? 'PM' : 'AM';
-  return `${hour12}:${minutes} ${period}`;
-};
-
-export default function ScorecardFormBuilder() {
+export default function ScorecardFormEditor() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { formId } = useParams();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [agencyId, setAgencyId] = useState<string>("");
-
-  const initialRole = (searchParams.get('role') as 'Sales' | 'Service') || 'Sales';
-  
-  const [formSchema, setFormSchema] = useState<FormSchema>({
-    title: `${initialRole} Scorecard`,
-    role: initialRole,
-    kpis: initialRole === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
-    customFields: [],
-    leadSources: [
-      { id: 'website', name: 'Website', is_active: true, order_index: 0 },
-      { id: 'referral', name: 'Referral', is_active: true, order_index: 1 },
-      { id: 'cold_call', name: 'Cold Call', is_active: true, order_index: 2 },
-    ],
-    repeaterSections: {
-      quotedDetails: {
-        enabled: false,
-        title: 'Quoted Household Details',
-        description: 'Capture detailed information for each quoted household',
-        triggerKPI: 'quoted_count',
-        fields: [
-          { key: 'household_name', label: 'Household Name', type: 'text', required: true },
-          { key: 'zip_code', label: 'ZIP Code', type: 'text', required: false },
-          { key: 'lead_source', label: 'Lead Source', type: 'select', required: false, options: ['Website', 'Referral', 'Cold Call'] },
-          { key: 'policy_type', label: 'Policy Type', type: 'text', required: false },
-        ]
-      },
-      soldDetails: {
-        enabled: false,
-        title: 'Sold Policy Details',
-        description: 'Track commission and policy details for each sale',
-        triggerKPI: 'sold_items',
-        fields: [
-          { key: 'policy_holder', label: 'Policy Holder', type: 'text', required: true },
-          { key: 'policy_type', label: 'Policy Type', type: 'text', required: true },
-          { key: 'premium_amount', label: 'Premium Amount', type: 'currency', required: true },
-          { key: 'commission_amount', label: 'Commission Amount', type: 'currency', required: false },
-        ]
-      }
-    },
-    settings: {
-      dueBy: 'same-day-23:59',
-      lateCountsForPass: false,
-      reminderTimes: ['16:45', '07:00'],
-      ccOwner: true,
-      suppressIfFinal: true,
-      hasWorkDate: false,
-      hasQuotedDetails: false,
-      hasSoldDetails: false,
-    }
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
 
   useEffect(() => {
-    const fetchAgencyId = async () => {
-      if (!user?.id) return;
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user.id)
-        .single();
-        
-      if (profile?.agency_id) {
-        setAgencyId(profile.agency_id);
-      }
-    };
-    
-    fetchAgencyId();
-  }, [user?.id]);
-
-  const handleSave = async () => {
-    if (!agencyId) {
-      toast.error("Agency information not found");
-      return;
+    if (formId && user?.id) {
+      loadForm();
     }
+  }, [formId, user?.id]);
 
-    setLoading(true);
+  const loadForm = async () => {
     try {
-      const slug = formSchema.title.toLowerCase().replace(/\s+/g, '-');
-      
-      // Create form template
-      const { data: template, error: templateError } = await supabase
+      const { data: template, error } = await supabase
         .from('form_templates')
-        .insert({
-          agency_id: agencyId,
-          name: formSchema.title,
-          slug: slug,
-          role: formSchema.role,
-          schema_json: formSchema,
-          settings_json: formSchema.settings,
-        })
-        .select()
+        .select('*')
+        .eq('id', formId)
         .single();
 
-      if (templateError) throw templateError;
+      if (error) throw error;
 
-      // Create form link with token
-      const token = crypto.randomUUID();
-      const { error: linkError } = await supabase
-        .from('form_links')
-        .insert({
-          form_template_id: template.id,
-          token: token,
-          enabled: true,
-        });
-
-      if (linkError) throw linkError;
-
-      toast.success("Form created successfully!");
-      navigate('/scorecard-forms');
+      setFormSchema(template.schema_json);
     } catch (error: any) {
-      console.error('Error creating form:', error);
-      toast.error(error.message || "Failed to create form");
+      console.error('Error loading form:', error);
+      toast.error('Failed to load form');
+      navigate('/scorecard-forms');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSave = async () => {
+    if (!formSchema) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('form_templates')
+        .update({
+          name: formSchema.title,
+          slug: formSchema.title.toLowerCase().replace(/\s+/g, '-'),
+          role: formSchema.role,
+          schema_json: formSchema,
+          settings_json: formSchema.settings,
+        })
+        .eq('id', formId);
+
+      if (error) throw error;
+
+      toast.success("Form updated successfully!");
+      navigate('/scorecard-forms');
+    } catch (error: any) {
+      console.error('Error updating form:', error);
+      toast.error(error.message || "Failed to update form");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const updateKPILabel = (index: number, label: string) => {
+    if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
     updatedKPIs[index] = { ...updatedKPIs[index], label };
-    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+    setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
 
   const toggleKPIRequired = (index: number) => {
+    if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
     updatedKPIs[index] = { ...updatedKPIs[index], required: !updatedKPIs[index].required };
-    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+    setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
 
   const updateKPIType = (index: number, type: 'number' | 'currency' | 'percentage') => {
+    if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
     updatedKPIs[index] = { ...updatedKPIs[index], type };
-    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+    setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
 
   const addKPIField = () => {
+    if (!formSchema) return;
     const newKPI: KPIField = {
       key: `custom_${Date.now()}`,
       label: 'New KPI',
       required: false,
       type: 'number'
     };
-    setFormSchema(prev => ({ ...prev, kpis: [...prev.kpis, newKPI] }));
+    setFormSchema(prev => prev ? { ...prev, kpis: [...prev.kpis, newKPI] } : null);
   };
 
   const removeKPIField = (index: number) => {
+    if (!formSchema) return;
     const updatedKPIs = formSchema.kpis.filter((_, i) => i !== index);
-    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+    setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
 
   const addCustomField = () => {
+    if (!formSchema) return;
     const newField: CustomField = {
       key: `field_${Date.now()}`,
       label: 'New Field',
       type: 'text',
       required: false
     };
-    setFormSchema(prev => ({ 
+    setFormSchema(prev => prev ? { 
       ...prev, 
       customFields: [...(prev.customFields || []), newField] 
-    }));
+    } : null);
   };
 
   const updateCustomField = (index: number, field: Partial<CustomField>) => {
+    if (!formSchema) return;
     const updatedFields = [...(formSchema.customFields || [])];
     updatedFields[index] = { ...updatedFields[index], ...field };
-    setFormSchema(prev => ({ ...prev, customFields: updatedFields }));
+    setFormSchema(prev => prev ? { ...prev, customFields: updatedFields } : null);
   };
 
   const removeCustomField = (index: number) => {
+    if (!formSchema) return;
     const updatedFields = (formSchema.customFields || []).filter((_, i) => i !== index);
-    setFormSchema(prev => ({ ...prev, customFields: updatedFields }));
+    setFormSchema(prev => prev ? { ...prev, customFields: updatedFields } : null);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading form...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!formSchema) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Form not found</p>
+          <Button onClick={() => navigate('/scorecard-forms')} className="mt-4">
+            Back to Forms
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -312,9 +238,9 @@ export default function ScorecardFormBuilder() {
             Back to Forms
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Form Builder</h1>
+            <h1 className="text-3xl font-bold text-foreground">Edit Form</h1>
             <p className="text-muted-foreground mt-2">
-              Create a new scorecard form for your team
+              Modify your scorecard form configuration
             </p>
           </div>
         </div>
@@ -335,7 +261,7 @@ export default function ScorecardFormBuilder() {
                   <Input
                     id="title"
                     value={formSchema.title}
-                    onChange={(e) => setFormSchema(prev => ({ ...prev, title: e.target.value }))}
+                    onChange={(e) => setFormSchema(prev => prev ? { ...prev, title: e.target.value } : null)}
                     placeholder="Enter form title"
                   />
                 </div>
@@ -345,11 +271,10 @@ export default function ScorecardFormBuilder() {
                   <Select 
                     value={formSchema.role} 
                     onValueChange={(value: 'Sales' | 'Service') => {
-                      setFormSchema(prev => ({ 
+                      setFormSchema(prev => prev ? { 
                         ...prev, 
-                        role: value,
-                        kpis: value === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS
-                      }));
+                        role: value
+                      } : null);
                     }}
                   >
                     <SelectTrigger>
@@ -383,7 +308,7 @@ export default function ScorecardFormBuilder() {
             {/* Lead Source Management */}
             <LeadSourceManager
               leadSources={formSchema.leadSources || []}
-              onUpdateLeadSources={(sources) => setFormSchema(prev => ({...prev, leadSources: sources}))}
+              onUpdateLeadSources={(sources) => setFormSchema(prev => prev ? {...prev, leadSources: sources} : null)}
             />
 
             {/* Repeater Sections */}
@@ -401,13 +326,13 @@ export default function ScorecardFormBuilder() {
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
                 leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
-                  setFormSchema(prev => ({
+                  setFormSchema(prev => prev ? {
                     ...prev,
                     repeaterSections: {
                       ...prev.repeaterSections,
                       [key]: section
                     } as any
-                  }));
+                  } : null);
                 }}
               />
 
@@ -422,23 +347,23 @@ export default function ScorecardFormBuilder() {
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
                 leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
-                  setFormSchema(prev => ({
+                  setFormSchema(prev => prev ? {
                     ...prev,
                     repeaterSections: {
                       ...prev.repeaterSections,
                       [key]: section
                     } as any
-                  }));
+                  } : null);
                 }}
               />
             </div>
 
             <AdvancedSettings 
               settings={formSchema.settings}
-              onUpdateSettings={(settings) => setFormSchema(prev => ({
+              onUpdateSettings={(settings) => setFormSchema(prev => prev ? {
                 ...prev,
                 settings: { ...prev.settings, ...settings }
-              }))}
+              } : null)}
             />
           </div>
 
@@ -447,13 +372,9 @@ export default function ScorecardFormBuilder() {
             <FormPreview formSchema={formSchema} />
 
             <div className="flex gap-4">
-              <Button onClick={handleSave} disabled={loading} className="flex-1">
+              <Button onClick={handleSave} disabled={saving} className="flex-1">
                 <Save className="h-4 w-4 mr-2" />
-                {loading ? "Creating..." : "Create Form"}
-              </Button>
-              <Button variant="outline" disabled>
-                <Link2 className="h-4 w-4 mr-2" />
-                Generate Link
+                {saving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>

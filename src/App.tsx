@@ -17,6 +17,7 @@ import FileProcessor from "./pages/FileProcessor";
 import ProcessVault from "./pages/ProcessVault";
 import ScorecardForms from "./pages/ScorecardForms";
 import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
+import ScorecardFormEditor from "./pages/ScorecardFormEditor";
 import PublicFormSubmission from "./pages/PublicFormSubmission";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
@@ -87,6 +88,11 @@ const App = () => (
             <Route path="/scorecard-forms/builder" element={
               <ProtectedRoute>
                 <ScorecardFormBuilder />
+              </ProtectedRoute>
+            } />
+            <Route path="/scorecard-forms/edit/:formId" element={
+              <ProtectedRoute>
+                <ScorecardFormEditor />
               </ProtectedRoute>
             } />
             {/* Public form submission - no auth required */}

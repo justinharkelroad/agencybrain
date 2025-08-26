@@ -28,6 +28,7 @@ interface RepeaterSectionManagerProps {
   section: RepeaterSection;
   sectionKey: string;
   kpiFields: Array<{ key: string; label: string }>;
+  leadSources?: Array<{ id: string; name: string; is_active: boolean; order_index: number }>;
   onUpdateSection: (sectionKey: string, section: RepeaterSection) => void;
 }
 
@@ -35,6 +36,7 @@ export default function RepeaterSectionManager({
   section, 
   sectionKey, 
   kpiFields,
+  leadSources = [],
   onUpdateSection 
 }: RepeaterSectionManagerProps) {
   const [showFieldConfig, setShowFieldConfig] = useState(false);
@@ -177,19 +179,28 @@ export default function RepeaterSectionManager({
                       {field.type === 'select' && (
                         <div>
                           <Label>Options (one per line)</Label>
-                          <textarea
-                            className="w-full p-2 border rounded-md text-sm"
-                            rows={3}
-                            value={(field.options || []).join('\n')}
-                            onChange={(e) => {
-                              const options = e.target.value
-                                .split('\n')
-                                .map(opt => opt.trim())
-                                .filter(opt => opt.length > 0);
-                              updateField(index, { options });
-                            }}
-                            placeholder="Option 1&#10;Option 2&#10;Option 3"
-                          />
+                          {field.key === 'lead_source' && leadSources.length > 0 ? (
+                            <div className="p-3 border rounded-md bg-muted text-sm">
+                              <p className="text-muted-foreground mb-2">Automatically populated from Lead Source Configuration:</p>
+                              {leadSources.filter(ls => ls.is_active).map(ls => (
+                                <p key={ls.id} className="text-xs">• {ls.name}</p>
+                              ))}
+                            </div>
+                          ) : (
+                            <textarea
+                              className="w-full p-2 border rounded-md text-sm bg-background text-foreground"
+                              rows={3}
+                              value={(field.options || []).join('\n')}
+                              onChange={(e) => {
+                                const options = e.target.value
+                                  .split('\n')
+                                  .map(opt => opt.trim())
+                                  .filter(opt => opt.length > 0);
+                                updateField(index, { options });
+                              }}
+                              placeholder="Option 1&#10;Option 2&#10;Option 3"
+                            />
+                          )}
                         </div>
                       )}
                     </div>

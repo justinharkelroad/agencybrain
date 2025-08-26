@@ -393,13 +393,26 @@ export default function PublicFormSubmission() {
                         value={repeaterData[sectionKey]?.[index]?.[field.key] || ''}
                         onValueChange={(value) => updateRepeaterField(sectionKey, index, field.key, value)}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background border-border">
                           <SelectValue placeholder="Select..." />
                         </SelectTrigger>
-                        <SelectContent>
-                          {field.options?.map((option: string, idx: number) => (
-                            <SelectItem key={idx} value={option}>{option}</SelectItem>
-                          ))}
+                        <SelectContent className="bg-popover border-border z-50">
+                          {field.key === 'lead_source' && schema?.leadSources ? (
+                            schema.leadSources
+                              .filter((ls: any) => ls.is_active)
+                              .sort((a: any, b: any) => a.order_index - b.order_index)
+                              .map((source: any) => (
+                                <SelectItem key={source.id} value={source.name} className="text-foreground">
+                                  {source.name}
+                                </SelectItem>
+                              ))
+                          ) : (
+                            field.options?.map((option: string, idx: number) => (
+                              <SelectItem key={idx} value={option} className="text-foreground">
+                                {option}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     ) : (

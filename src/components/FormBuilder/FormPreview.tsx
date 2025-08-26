@@ -21,11 +21,29 @@ interface CustomField {
   options?: string[];
 }
 
+interface RepeaterSection {
+  enabled: boolean;
+  title: string;
+  description?: string;
+  triggerKPI?: string;
+  fields: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'select' | 'number' | 'currency';
+    required: boolean;
+    options?: string[];
+  }>;
+}
+
 interface FormSchema {
   title: string;
   role: 'Sales' | 'Service';
   kpis: KPIField[];
   customFields?: CustomField[];
+  repeaterSections?: {
+    quotedDetails: RepeaterSection;
+    soldDetails: RepeaterSection;
+  };
   settings: {
     hasWorkDate: boolean;
     hasQuotedDetails: boolean;
@@ -190,26 +208,26 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
               </div>
             )}
 
-            {formSchema.settings.hasQuotedDetails && (
+            {formSchema.repeaterSections?.quotedDetails?.enabled && (
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Quoted Households</h4>
+                <h4 className="font-medium mb-3">{formSchema.repeaterSections.quotedDetails.title}</h4>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>• Household Name</p>
-                  <p>• ZIP Code</p>
-                  <p>• Lead Source</p>
-                  <p>• Quote Details</p>
+                  <p className="mb-2">{formSchema.repeaterSections.quotedDetails.description}</p>
+                  {formSchema.repeaterSections.quotedDetails.fields.map(field => (
+                    <p key={field.key}>• {field.label}</p>
+                  ))}
                 </div>
               </div>
             )}
 
-            {formSchema.settings.hasSoldDetails && (
+            {formSchema.repeaterSections?.soldDetails?.enabled && (
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Sold Policies</h4>
+                <h4 className="font-medium mb-3">{formSchema.repeaterSections.soldDetails.title}</h4>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>• Policy Holder</p>
-                  <p>• Policy Type</p>
-                  <p>• Premium Amount</p>
-                  <p>• Commission Details</p>
+                  <p className="mb-2">{formSchema.repeaterSections.soldDetails.description}</p>
+                  {formSchema.repeaterSections.soldDetails.fields.map(field => (
+                    <p key={field.key}>• {field.label}</p>
+                  ))}
                 </div>
               </div>
             )}
