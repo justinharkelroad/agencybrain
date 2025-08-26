@@ -32,12 +32,6 @@ export default function AdminMember() {
       m.content = content;
       document.head.appendChild(m);
     }
-
-    // Clean up any existing custom elements to prevent conflicts
-    return () => {
-      const existingElements = document.querySelectorAll('mce-autosize-textarea');
-      existingElements.forEach(el => el.remove());
-    };
   }, []);
 
   const profileQuery = useQuery({

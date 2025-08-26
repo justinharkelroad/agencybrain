@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
 // Index page removed
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -96,7 +97,11 @@ const App = () => (
               </ProtectedRoute>
             } />
             {/* Public form submission - no auth required */}
-            <Route path="/f/:slug" element={<PublicFormSubmission />} />
+            <Route path="/f/:slug" element={
+              <PublicFormErrorBoundary>
+                <PublicFormSubmission />
+              </PublicFormErrorBoundary>
+            } />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />

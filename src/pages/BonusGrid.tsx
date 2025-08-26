@@ -270,10 +270,6 @@ export default function BonusGridPage(){
   };
   
   const handleReset = async () => { 
-    // Clean up any existing custom elements to prevent conflicts
-    const existingElements = document.querySelectorAll('mce-autosize-textarea');
-    existingElements.forEach(el => el.remove());
-    
     setState({}); 
     try {
       await saveBonusGridState({});

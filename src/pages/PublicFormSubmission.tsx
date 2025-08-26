@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Clock, AlertCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
 
 interface TeamMember {
   id: string;
@@ -56,21 +57,14 @@ export default function PublicFormSubmission() {
 
   useEffect(() => {
     if (slug && token) {
-      // Prevent mce-autosize-textarea conflicts
-      try {
-        if (!customElements.get('mce-autosize-textarea')) {
-          // Only define if not already defined
-        }
-      } catch (error) {
-        // Element might already be defined, ignore error
-        console.debug('Custom element handling:', error);
-      }
       loadForm();
     }
   }, [slug, token]);
 
   const loadForm = async () => {
     try {
+      setLoading(true);
+      
       // Verify token and get form template
       const { data: linkData, error: linkError } = await supabase
         .from('form_links')
@@ -93,7 +87,9 @@ export default function PublicFormSubmission() {
         .single();
 
       if (linkError || !linkData) {
+        console.error('Form link error:', linkError);
         toast.error("Invalid or expired form link");
+        setFormTemplate(null);
         return;
       }
 
@@ -448,162 +444,164 @@ export default function PublicFormSubmission() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">{formTemplate.name}</CardTitle>
-                <CardDescription className="mt-2">
-                  Daily KPI tracking form
-                </CardDescription>
-              </div>
-              <Badge variant={formTemplate.role === 'Sales' ? 'default' : 'secondary'}>
-                {formTemplate.role}
-              </Badge>
-            </div>
-          </CardHeader>
-          
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Staff Selection */}
-              <div>
-                <Label htmlFor="team_member">Staff Member *</Label>
-                <Select 
-                  value={formData.team_member_id}
-                  onValueChange={(value) => updateFormData('team_member_id', value)}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your name..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
+    <PublicFormErrorBoundary>
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-4 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="submission_date">Submission Date</Label>
-                  <Input
-                    id="submission_date"
-                    type="date"
-                    value={formData.submission_date}
-                    onChange={(e) => updateFormData('submission_date', e.target.value)}
-                    required
-                  />
+                  <CardTitle className="text-2xl">{formTemplate.name}</CardTitle>
+                  <CardDescription className="mt-2">
+                    Daily KPI tracking form
+                  </CardDescription>
                 </div>
-                {schema?.settings?.hasWorkDate && (
+                <Badge variant={formTemplate.role === 'Sales' ? 'default' : 'secondary'}>
+                  {formTemplate.role}
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Staff Selection */}
+                <div>
+                  <Label htmlFor="team_member">Staff Member *</Label>
+                  <Select 
+                    value={formData.team_member_id}
+                    onValueChange={(value) => updateFormData('team_member_id', value)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your name..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="work_date">Work Date</Label>
+                    <Label htmlFor="submission_date">Submission Date</Label>
                     <Input
-                      id="work_date"
+                      id="submission_date"
                       type="date"
-                      value={formData.work_date}
-                      onChange={(e) => updateFormData('work_date', e.target.value)}
-                      max={new Date().toISOString().split('T')[0]}
+                      value={formData.submission_date}
+                      onChange={(e) => updateFormData('submission_date', e.target.value)}
                       required
                     />
                   </div>
-                )}
-              </div>
-
-              {/* KPIs */}
-              <div className="border-t pt-6">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Daily KPIs
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {kpis.map((kpi: any) => (
-                    <div key={kpi.key}>
-                      <Label htmlFor={kpi.key}>
-                        {kpi.label}
-                        {kpi.required && <span className="text-destructive">*</span>}
-                      </Label>
+                  {schema?.settings?.hasWorkDate && (
+                    <div>
+                      <Label htmlFor="work_date">Work Date</Label>
                       <Input
-                        id={kpi.key}
-                        type="number"
-                        min="0"
-                        value={formData[kpi.key] || ''}
-                        onChange={(e) => {
-                          updateFormData(kpi.key, e.target.value);
-                        }}
-                        placeholder="0"
-                        required={kpi.required}
+                        id="work_date"
+                        type="date"
+                        value={formData.work_date}
+                        onChange={(e) => updateFormData('work_date', e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        required
                       />
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
 
-              {/* Custom Fields */}
-              {customFields.length > 0 && (
+                {/* KPIs */}
                 <div className="border-t pt-6">
-                  <h3 className="font-semibold text-lg mb-4">Additional Information</h3>
-                  <div className="space-y-4">
-                    {customFields.map((field: any) => (
-                      <div key={field.key}>
-                        <Label>
-                          {field.label}
-                          {field.required && <span className="text-destructive">*</span>}
+                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Daily KPIs
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {kpis.map((kpi: any) => (
+                      <div key={kpi.key}>
+                        <Label htmlFor={kpi.key}>
+                          {kpi.label}
+                          {kpi.required && <span className="text-destructive">*</span>}
                         </Label>
-                        
-                        {field.type === 'dropdown' ? (
-                          <Select
-                            value={formData[field.key] as string || ''}
-                            onValueChange={(value) => updateFormData(field.key, value)}
-                            required={field.required}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {field.options?.map((option: string, idx: number) => (
-                                <SelectItem key={idx} value={option}>{option}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            type={field.type === 'date' ? 'date' : 'text'}
-                            value={formData[field.key] as string || ''}
-                            onChange={(e) => updateFormData(field.key, e.target.value)}
-                            required={field.required}
-                          />
-                        )}
+                        <Input
+                          id={kpi.key}
+                          type="number"
+                          min="0"
+                          value={formData[kpi.key] || ''}
+                          onChange={(e) => {
+                            updateFormData(kpi.key, e.target.value);
+                          }}
+                          placeholder="0"
+                          required={kpi.required}
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
 
-              {/* Render Dynamic Repeater Sections */}
-              {Object.entries(repeaterSections)
-                .filter(([_, section]: [string, any]) => section?.enabled)
-                .map(([sectionKey, section]) => 
-                  renderRepeaterSection(sectionKey, section)
+                {/* Custom Fields */}
+                {customFields.length > 0 && (
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold text-lg mb-4">Additional Information</h3>
+                    <div className="space-y-4">
+                      {customFields.map((field: any) => (
+                        <div key={field.key}>
+                          <Label>
+                            {field.label}
+                            {field.required && <span className="text-destructive">*</span>}
+                          </Label>
+                          
+                          {field.type === 'dropdown' ? (
+                            <Select
+                              value={formData[field.key] as string || ''}
+                              onValueChange={(value) => updateFormData(field.key, value)}
+                              required={field.required}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {field.options?.map((option: string, idx: number) => (
+                                  <SelectItem key={idx} value={option}>{option}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              type={field.type === 'date' ? 'date' : 'text'}
+                              value={formData[field.key] as string || ''}
+                              onChange={(e) => updateFormData(field.key, e.target.value)}
+                              required={field.required}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={submitting}
-                size="lg"
-              >
-                {submitting ? "Submitting..." : "Submit Scorecard"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+                {/* Render Dynamic Repeater Sections */}
+                {Object.entries(repeaterSections)
+                  .filter(([_, section]: [string, any]) => section?.enabled)
+                  .map(([sectionKey, section]) => 
+                    renderRepeaterSection(sectionKey, section)
+                  )}
+
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={submitting}
+                  size="lg"
+                >
+                  {submitting ? "Submitting..." : "Submit Scorecard"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </PublicFormErrorBoundary>
   );
 }
