@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, Eye, Link2 } from "lucide-react";
+import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
+import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
+import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
+import FormPreview from "@/components/FormBuilder/FormPreview";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,19 +19,32 @@ interface KPIField {
   key: string;
   label: string;
   required: boolean;
-  type: 'number';
+  type: 'number' | 'currency' | 'percentage';
+}
+
+interface CustomField {
+  key: string;
+  label: string;
+  type: 'text' | 'dropdown' | 'radio' | 'checkbox' | 'date';
+  required: boolean;
+  options?: string[];
 }
 
 interface FormSchema {
   title: string;
-  role: 'sales' | 'service';
+  role: 'Sales' | 'Service';
   kpis: KPIField[];
+  customFields?: CustomField[];
   settings: {
     dueBy: string;
+    customDueTime?: string;
     lateCountsForPass: boolean;
     reminderTimes: string[];
     ccOwner: boolean;
     suppressIfFinal: boolean;
+    hasWorkDate: boolean;
+    hasQuotedDetails: boolean;
+    hasSoldDetails: boolean;
   };
 }
 
@@ -47,6 +62,37 @@ const DEFAULT_SERVICE_KPIS: KPIField[] = [
   { key: 'mini_reviews', label: 'Mini Reviews', required: true, type: 'number' },
 ];
 
+const TIME_OPTIONS = [
+  { value: '06:00', label: '6:00 AM' },
+  { value: '07:00', label: '7:00 AM' },
+  { value: '08:00', label: '8:00 AM' },
+  { value: '09:00', label: '9:00 AM' },
+  { value: '10:00', label: '10:00 AM' },
+  { value: '11:00', label: '11:00 AM' },
+  { value: '12:00', label: '12:00 PM' },
+  { value: '13:00', label: '1:00 PM' },
+  { value: '14:00', label: '2:00 PM' },
+  { value: '15:00', label: '3:00 PM' },
+  { value: '16:00', label: '4:00 PM' },
+  { value: '16:45', label: '4:45 PM' },
+  { value: '17:00', label: '5:00 PM' },
+  { value: '18:00', label: '6:00 PM' },
+  { value: '19:00', label: '7:00 PM' },
+  { value: '20:00', label: '8:00 PM' },
+  { value: '21:00', label: '9:00 PM' },
+  { value: '22:00', label: '10:00 PM' },
+  { value: '23:00', label: '11:00 PM' },
+  { value: '23:59', label: '11:59 PM' },
+];
+
+const formatTimeToAMPM = (time24: string): string => {
+  const [hours, minutes] = time24.split(':');
+  const hour24 = parseInt(hours);
+  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  return `${hour12}:${minutes} ${period}`;
+};
+
 export default function ScorecardFormBuilder() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -54,18 +100,22 @@ export default function ScorecardFormBuilder() {
   const [loading, setLoading] = useState(false);
   const [agencyId, setAgencyId] = useState<string>("");
 
-  const initialRole = (searchParams.get('role') as 'sales' | 'service') || 'sales';
+  const initialRole = (searchParams.get('role') as 'Sales' | 'Service') || 'Sales';
   
   const [formSchema, setFormSchema] = useState<FormSchema>({
-    title: `${initialRole.charAt(0).toUpperCase() + initialRole.slice(1)} Scorecard`,
+    title: `${initialRole} Scorecard`,
     role: initialRole,
-    kpis: initialRole === 'sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
+    kpis: initialRole === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
+    customFields: [],
     settings: {
       dueBy: 'same-day-23:59',
       lateCountsForPass: false,
       reminderTimes: ['16:45', '07:00'],
       ccOwner: true,
       suppressIfFinal: true,
+      hasWorkDate: false,
+      hasQuotedDetails: false,
+      hasSoldDetails: false,
     }
   });
 
@@ -147,6 +197,51 @@ export default function ScorecardFormBuilder() {
     setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
   };
 
+  const updateKPIType = (index: number, type: 'number' | 'currency' | 'percentage') => {
+    const updatedKPIs = [...formSchema.kpis];
+    updatedKPIs[index] = { ...updatedKPIs[index], type };
+    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+  };
+
+  const addKPIField = () => {
+    const newKPI: KPIField = {
+      key: `custom_${Date.now()}`,
+      label: 'New KPI',
+      required: false,
+      type: 'number'
+    };
+    setFormSchema(prev => ({ ...prev, kpis: [...prev.kpis, newKPI] }));
+  };
+
+  const removeKPIField = (index: number) => {
+    const updatedKPIs = formSchema.kpis.filter((_, i) => i !== index);
+    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+  };
+
+  const addCustomField = () => {
+    const newField: CustomField = {
+      key: `field_${Date.now()}`,
+      label: 'New Field',
+      type: 'text',
+      required: false
+    };
+    setFormSchema(prev => ({ 
+      ...prev, 
+      customFields: [...(prev.customFields || []), newField] 
+    }));
+  };
+
+  const updateCustomField = (index: number, field: Partial<CustomField>) => {
+    const updatedFields = [...(formSchema.customFields || [])];
+    updatedFields[index] = { ...updatedFields[index], ...field };
+    setFormSchema(prev => ({ ...prev, customFields: updatedFields }));
+  };
+
+  const removeCustomField = (index: number) => {
+    const updatedFields = (formSchema.customFields || []).filter((_, i) => i !== index);
+    setFormSchema(prev => ({ ...prev, customFields: updatedFields }));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
@@ -190,11 +285,11 @@ export default function ScorecardFormBuilder() {
                   <Label htmlFor="role">Team Role</Label>
                   <Select 
                     value={formSchema.role} 
-                    onValueChange={(value: 'sales' | 'service') => {
+                    onValueChange={(value: 'Sales' | 'Service') => {
                       setFormSchema(prev => ({ 
                         ...prev, 
                         role: value,
-                        kpis: value === 'sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS
+                        kpis: value === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS
                       }));
                     }}
                   >
@@ -202,160 +297,42 @@ export default function ScorecardFormBuilder() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sales">Sales</SelectItem>
-                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="Sales">Sales</SelectItem>
+                      <SelectItem value="Service">Service</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>KPI Fields</CardTitle>
-                <CardDescription>
-                  Customize the KPI fields for your form
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {formSchema.kpis.map((kpi, index) => (
-                  <div key={kpi.key} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <Input
-                        value={kpi.label}
-                        onChange={(e) => updateKPILabel(index, e.target.value)}
-                        placeholder="KPI Label"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={kpi.required}
-                        onCheckedChange={() => toggleKPIRequired(index)}
-                      />
-                      <Label className="text-sm">Required</Label>
-                    </div>
-                    <Badge variant="secondary">{kpi.key}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <KPIFieldManager 
+              kpis={formSchema.kpis}
+              onUpdateLabel={updateKPILabel}
+              onToggleRequired={toggleKPIRequired}
+              onUpdateType={updateKPIType}
+              onAddField={addKPIField}
+              onRemoveField={removeKPIField}
+            />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Form Settings</CardTitle>
-                <CardDescription>
-                  Configure submission and notification settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="dueBy">Due By</Label>
-                  <Select 
-                    value={formSchema.settings.dueBy}
-                    onValueChange={(value) => setFormSchema(prev => ({
-                      ...prev,
-                      settings: { ...prev.settings, dueBy: value }
-                    }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="same-day-23:59">Same day 23:59</SelectItem>
-                      <SelectItem value="next-day-09:00">Next day 09:00</SelectItem>
-                      <SelectItem value="custom">Custom time</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <CustomFieldManager
+              fields={formSchema.customFields || []}
+              onUpdateField={updateCustomField}
+              onAddField={addCustomField}
+              onRemoveField={removeCustomField}
+            />
 
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="lateCountsForPass">Count late submissions toward pass/score</Label>
-                  <Switch
-                    id="lateCountsForPass"
-                    checked={formSchema.settings.lateCountsForPass}
-                    onCheckedChange={(checked) => setFormSchema(prev => ({
-                      ...prev,
-                      settings: { ...prev.settings, lateCountsForPass: checked }
-                    }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="ccOwner">CC owner on reminders</Label>
-                  <Switch
-                    id="ccOwner"
-                    checked={formSchema.settings.ccOwner}
-                    onCheckedChange={(checked) => setFormSchema(prev => ({
-                      ...prev,
-                      settings: { ...prev.settings, ccOwner: checked }
-                    }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="suppressIfFinal">Suppress reminders if submission exists</Label>
-                  <Switch
-                    id="suppressIfFinal"
-                    checked={formSchema.settings.suppressIfFinal}
-                    onCheckedChange={(checked) => setFormSchema(prev => ({
-                      ...prev,
-                      settings: { ...prev.settings, suppressIfFinal: checked }
-                    }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <AdvancedSettings 
+              settings={formSchema.settings}
+              onUpdateSettings={(settings) => setFormSchema(prev => ({
+                ...prev,
+                settings: { ...prev.settings, ...settings }
+              }))}
+            />
           </div>
 
           {/* Preview */}
           <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Form Preview
-                </CardTitle>
-                <CardDescription>
-                  Preview how your form will look to staff members
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 border-2 border-dashed border-muted rounded-lg">
-                  <h3 className="font-semibold text-lg mb-4">{formSchema.title}</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Staff Member</Label>
-                      <Select disabled>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select staff member..." />
-                        </SelectTrigger>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label>Submission Date</Label>
-                      <Input type="date" disabled value={new Date().toISOString().split('T')[0]} />
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <h4 className="font-medium mb-3">Daily KPIs</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        {formSchema.kpis.map((kpi) => (
-                          <div key={kpi.key}>
-                            <Label className="text-sm">
-                              {kpi.label}
-                              {kpi.required && <span className="text-destructive">*</span>}
-                            </Label>
-                            <Input type="number" disabled placeholder="0" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <FormPreview formSchema={formSchema} />
 
             <div className="flex gap-4">
               <Button onClick={handleSave} disabled={loading} className="flex-1">

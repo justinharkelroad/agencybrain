@@ -1,0 +1,221 @@
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Eye } from "lucide-react";
+
+interface KPIField {
+  key: string;
+  label: string;
+  required: boolean;
+  type: 'number' | 'currency' | 'percentage';
+}
+
+interface CustomField {
+  key: string;
+  label: string;
+  type: 'text' | 'dropdown' | 'radio' | 'checkbox' | 'date';
+  required: boolean;
+  options?: string[];
+}
+
+interface FormSchema {
+  title: string;
+  role: 'Sales' | 'Service';
+  kpis: KPIField[];
+  customFields?: CustomField[];
+  settings: {
+    hasWorkDate: boolean;
+    hasQuotedDetails: boolean;
+    hasSoldDetails: boolean;
+  };
+}
+
+interface FormPreviewProps {
+  formSchema: FormSchema;
+}
+
+export default function FormPreview({ formSchema }: FormPreviewProps) {
+  const renderKPIField = (kpi: KPIField) => {
+    return (
+      <div key={kpi.key}>
+        <Label className="text-sm">
+          {kpi.label}
+          {kpi.required && <span className="text-destructive">*</span>}
+        </Label>
+        <Input 
+          type={kpi.type === 'number' ? 'number' : 'text'} 
+          disabled 
+          placeholder={
+            kpi.type === 'currency' ? '$0.00' : 
+            kpi.type === 'percentage' ? '0%' : '0'
+          }
+        />
+      </div>
+    );
+  };
+
+  const renderCustomField = (field: CustomField) => {
+    switch (field.type) {
+      case 'text':
+        return (
+          <div key={field.key}>
+            <Label className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Input disabled placeholder="Enter text..." />
+          </div>
+        );
+      
+      case 'dropdown':
+        return (
+          <div key={field.key}>
+            <Label className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Select disabled>
+              <SelectTrigger>
+                <SelectValue placeholder="Select option..." />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options?.map((option, idx) => (
+                  <SelectItem key={idx} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      
+      case 'radio':
+        return (
+          <div key={field.key} className="space-y-2">
+            <Label className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <RadioGroup disabled>
+              {field.options?.map((option, idx) => (
+                <div key={idx} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option} id={`${field.key}-${idx}`} />
+                  <Label htmlFor={`${field.key}-${idx}`} className="text-sm">{option}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        );
+      
+      case 'checkbox':
+        return (
+          <div key={field.key} className="flex items-center space-x-2">
+            <Checkbox disabled id={field.key} />
+            <Label htmlFor={field.key} className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+          </div>
+        );
+      
+      case 'date':
+        return (
+          <div key={field.key}>
+            <Label className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Input type="date" disabled />
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Eye className="h-5 w-5" />
+          Form Preview
+        </CardTitle>
+        <CardDescription>
+          Preview how your form will look to staff members
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 border-2 border-dashed border-muted rounded-lg space-y-4">
+          <h3 className="font-semibold text-lg">{formSchema.title}</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Staff Member</Label>
+              <Select disabled>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select staff member..." />
+                </SelectTrigger>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Submission Date</Label>
+              <Input type="date" disabled value={new Date().toISOString().split('T')[0]} />
+            </div>
+
+            {formSchema.settings.hasWorkDate && (
+              <div>
+                <Label>Work Date</Label>
+                <Input type="date" disabled />
+              </div>
+            )}
+
+            {formSchema.kpis.length > 0 && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Daily KPIs</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {formSchema.kpis.map(renderKPIField)}
+                </div>
+              </div>
+            )}
+
+            {formSchema.customFields && formSchema.customFields.length > 0 && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Additional Information</h4>
+                <div className="space-y-3">
+                  {formSchema.customFields.map(renderCustomField)}
+                </div>
+              </div>
+            )}
+
+            {formSchema.settings.hasQuotedDetails && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Quoted Households</h4>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>• Household Name</p>
+                  <p>• ZIP Code</p>
+                  <p>• Lead Source</p>
+                  <p>• Quote Details</p>
+                </div>
+              </div>
+            )}
+
+            {formSchema.settings.hasSoldDetails && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Sold Policies</h4>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>• Policy Holder</p>
+                  <p>• Policy Type</p>
+                  <p>• Premium Amount</p>
+                  <p>• Commission Details</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
