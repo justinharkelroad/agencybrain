@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import TopNav from "@/components/TopNav";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
+import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
@@ -123,19 +124,7 @@ export default function ScorecardForms() {
           </TabsContent>
 
           <TabsContent value="submissions" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Submissions</CardTitle>
-                <CardDescription>
-                  View and manage form submissions from your team
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  No submissions yet. Create a form to start collecting data.
-                </p>
-              </CardContent>
-            </Card>
+            <SubmissionsList />
           </TabsContent>
 
           <TabsContent value="explorer" className="space-y-6">
