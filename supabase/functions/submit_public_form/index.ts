@@ -90,7 +90,66 @@ serve(async (req) => {
       .single();
 
     if (insErr) return json(500, {code:"WRITE_FAIL"});
-    return json(200, { ok: true, submissionId: ins.id });
+
+    // Handle quoted details auto-spawning
+    const quotedCount = parseInt(String(body.values.quoted_count || '0'));
+    const spawnCap = link.form_template.settings_json?.spawnCap || 10;
+    const actualSpawnCount = Math.min(quotedCount, spawnCap);
+
+    if (actualSpawnCount > 0) {
+      // Create quoted household details
+      const quotedDetails = [];
+      for (let i = 0; i < actualSpawnCount; i++) {
+        quotedDetails.push({
+          submission_id: ins.id,
+          household_name: body.values[`quoted_household_${i+1}`] || `Household ${i+1}`,
+          zip_code: body.values[`quoted_zip_${i+1}`] || null,
+          policy_type: body.values[`quoted_policy_type_${i+1}`] || null,
+        });
+      }
+
+      if (quotedDetails.length > 0) {
+        await supabase
+          .from('quoted_household_details')
+          .insert(quotedDetails);
+      }
+    }
+
+    // Handle sold policy details if provided
+    const soldItems = parseInt(String(body.values.sold_items || '0'));
+    if (soldItems > 0) {
+      const soldDetails = [];
+      for (let i = 0; i < soldItems; i++) {
+        const premiumStr = String(body.values[`sold_premium_${i+1}`] || '0');
+        const commissionStr = String(body.values[`sold_commission_${i+1}`] || '0');
+        
+        // Convert dollar amounts to cents
+        const premiumCents = Math.round(parseFloat(premiumStr.replace(/[$,]/g, '')) * 100);
+        const commissionCents = Math.round(parseFloat(commissionStr.replace(/[$,]/g, '')) * 100);
+        
+        soldDetails.push({
+          submission_id: ins.id,
+          policy_holder_name: body.values[`sold_policy_holder_${i+1}`] || `Policy ${i+1}`,
+          policy_type: body.values[`sold_policy_type_${i+1}`] || 'Unknown',
+          premium_amount_cents: premiumCents,
+          commission_amount_cents: commissionCents,
+          quoted_household_detail_id: body.values[`sold_quoted_ref_${i+1}`] || null,
+        });
+      }
+
+      if (soldDetails.length > 0) {
+        await supabase
+          .from('sold_policy_details')
+          .insert(soldDetails);
+      }
+    }
+
+    return json(200, { 
+      ok: true, 
+      submissionId: ins.id,
+      quotedDetailsCreated: actualSpawnCount,
+      soldDetailsCreated: soldItems
+    });
   } catch (e) {
     return json(500, {code:"SERVER_ERROR"});
   }
