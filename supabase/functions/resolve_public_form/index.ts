@@ -136,37 +136,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Single joined query to validate everything
-    const { data, error } = await supabase
+    // Step 1: Get form link by token
+    const { data: formLink, error: linkError } = await supabase
       .from("form_links")
-      .select(`
-        id, 
-        enabled, 
-        token, 
-        expires_at,
-        form_template:form_templates!inner(
-          id, 
-          slug, 
-          status, 
-          name,
-          schema_json,
-          settings_json,
-          agency_id,
-          agency:agencies!inner(id, slug, name)
-        )
-      `)
+      .select("id, enabled, token, expires_at, form_template_id")
       .eq("token", token)
       .eq("enabled", true)
-      .eq("form_templates.slug", formSlug)
-      .eq("form_templates.agencies.slug", agencySlug)
       .single();
 
-    if (error || !data) {
-      logSecure('INFO', 'Form not found or validation failed', { 
-        formSlug, 
-        agencySlug, 
+    if (linkError || !formLink) {
+      logSecure('INFO', 'Form link not found or disabled', { 
         tokenPrefix, 
-        error: error?.message 
+        error: linkError?.message 
       });
       return new Response(
         JSON.stringify({ code: "NOT_FOUND" }), 
@@ -176,6 +157,64 @@ serve(async (req) => {
         }
       );
     }
+
+    // Step 2: Get form template by ID and slug
+    const { data: formTemplate, error: templateError } = await supabase
+      .from("form_templates")
+      .select("id, slug, status, name, schema_json, settings_json, agency_id")
+      .eq("id", formLink.form_template_id)
+      .eq("slug", formSlug)
+      .single();
+
+    if (templateError || !formTemplate) {
+      logSecure('INFO', 'Form template not found or slug mismatch', { 
+        formSlug, 
+        tokenPrefix, 
+        error: templateError?.message 
+      });
+      return new Response(
+        JSON.stringify({ code: "NOT_FOUND" }), 
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, ...securityHeaders }
+        }
+      );
+    }
+
+    // Step 3: Get agency by ID and slug  
+    const { data: agency, error: agencyError } = await supabase
+      .from("agencies")
+      .select("id, slug, name")
+      .eq("id", formTemplate.agency_id)
+      .eq("slug", agencySlug)
+      .single();
+
+    if (agencyError || !agency) {
+      logSecure('INFO', 'Agency not found or slug mismatch', { 
+        agencySlug, 
+        tokenPrefix, 
+        error: agencyError?.message 
+      });
+      return new Response(
+        JSON.stringify({ code: "NOT_FOUND" }), 
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, ...securityHeaders }
+        }
+      );
+    }
+
+    // Combine data for validation
+    const data = {
+      id: formLink.id,
+      enabled: formLink.enabled,
+      token: formLink.token,
+      expires_at: formLink.expires_at,
+      form_template: {
+        ...formTemplate,
+        agency: agency
+      }
+    };
 
     // Check expiry
     const now = new Date();
