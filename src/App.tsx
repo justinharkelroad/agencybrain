@@ -15,6 +15,9 @@ import Uploads from "./pages/Uploads";
 import UploadSelection from "./pages/UploadSelection";
 import FileProcessor from "./pages/FileProcessor";
 import ProcessVault from "./pages/ProcessVault";
+import ScorecardForms from "./pages/ScorecardForms";
+import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
+import PublicFormSubmission from "./pages/PublicFormSubmission";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -75,6 +78,19 @@ const App = () => (
                 <ProcessVault />
               </ProtectedRoute>
             } />
+            {/* Scorecard Forms Routes */}
+            <Route path="/scorecard-forms" element={
+              <ProtectedRoute>
+                <ScorecardForms />
+              </ProtectedRoute>
+            } />
+            <Route path="/scorecard-forms/builder" element={
+              <ProtectedRoute>
+                <ScorecardFormBuilder />
+              </ProtectedRoute>
+            } />
+            {/* Public form submission - no auth required */}
+            <Route path="/f/:slug" element={<PublicFormSubmission />} />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminDashboard />

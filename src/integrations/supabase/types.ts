@@ -24,12 +24,19 @@ export type Database = {
           agency_email: string | null
           agent_cell: string | null
           agent_name: string | null
+          cc_owner_on_reminders: boolean | null
           created_at: string
           description: string | null
+          email_from: string | null
           id: string
           logo_url: string | null
           name: string
+          owner_rollup_time: string | null
           phone: string | null
+          reminder_times_json: Json | null
+          slug: string | null
+          suppress_if_final_exists: boolean | null
+          timezone: string | null
           updated_at: string
         }
         Insert: {
@@ -41,12 +48,19 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          cc_owner_on_reminders?: boolean | null
           created_at?: string
           description?: string | null
+          email_from?: string | null
           id?: string
           logo_url?: string | null
           name: string
+          owner_rollup_time?: string | null
           phone?: string | null
+          reminder_times_json?: Json | null
+          slug?: string | null
+          suppress_if_final_exists?: boolean | null
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
@@ -58,12 +72,19 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          cc_owner_on_reminders?: boolean | null
           created_at?: string
           description?: string | null
+          email_from?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          owner_rollup_time?: string | null
           phone?: string | null
+          reminder_times_json?: Json | null
+          slug?: string | null
+          suppress_if_final_exists?: boolean | null
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -471,6 +492,178 @@ export type Database = {
         }
         Relationships: []
       }
+      dictionaries: {
+        Row: {
+          agency_id: string
+          category: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dictionary_options: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          dictionary_id: string
+          id: string
+          label: string
+          order_index: number | null
+          value: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          dictionary_id: string
+          id?: string
+          label: string
+          order_index?: number | null
+          value: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          dictionary_id?: string
+          id?: string
+          label?: string
+          order_index?: number | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_dictionary_options_dictionary_id"
+            columns: ["dictionary_id"]
+            isOneToOne: false
+            referencedRelation: "dictionaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      excusals: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string
+          date: string
+          id: string
+          mode: string
+          note: string
+          team_member_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by: string
+          date: string
+          id?: string
+          mode: string
+          note: string
+          team_member_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          id?: string
+          mode?: string
+          note?: string
+          team_member_id?: string
+        }
+        Relationships: []
+      }
+      form_links: {
+        Row: {
+          created_at: string
+          enabled: boolean | null
+          expires_at: string | null
+          form_template_id: string
+          id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean | null
+          expires_at?: string | null
+          form_template_id: string
+          id?: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean | null
+          expires_at?: string | null
+          form_template_id?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_form_links_form_template_id"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_templates: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          role: Database["public"]["Enums"]["app_member_role"]
+          schema_json: Json | null
+          settings_json: Json | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          role: Database["public"]["Enums"]["app_member_role"]
+          schema_json?: Json | null
+          settings_json?: Json | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          role?: Database["public"]["Enums"]["app_member_role"]
+          schema_json?: Json | null
+          settings_json?: Json | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       member_checklist_items: {
         Row: {
           attachments_count: number
@@ -512,6 +705,87 @@ export type Database = {
             columns: ["template_item_id"]
             isOneToOne: false
             referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily: {
+        Row: {
+          agency_id: string
+          created_at: string
+          cross_sells_uncovered: number | null
+          daily_score: number | null
+          date: string
+          final_submission_id: string | null
+          id: string
+          mini_reviews: number | null
+          outbound_calls: number | null
+          pass: boolean | null
+          quoted_count: number | null
+          quoted_entity: string | null
+          sold_items: number | null
+          sold_policies: number | null
+          sold_premium_cents: number | null
+          streak_count: number | null
+          talk_minutes: number | null
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          cross_sells_uncovered?: number | null
+          daily_score?: number | null
+          date: string
+          final_submission_id?: string | null
+          id?: string
+          mini_reviews?: number | null
+          outbound_calls?: number | null
+          pass?: boolean | null
+          quoted_count?: number | null
+          quoted_entity?: string | null
+          sold_items?: number | null
+          sold_policies?: number | null
+          sold_premium_cents?: number | null
+          streak_count?: number | null
+          talk_minutes?: number | null
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          cross_sells_uncovered?: number | null
+          daily_score?: number | null
+          date?: string
+          final_submission_id?: string | null
+          id?: string
+          mini_reviews?: number | null
+          outbound_calls?: number | null
+          pass?: boolean | null
+          quoted_count?: number | null
+          quoted_entity?: string | null
+          sold_items?: number | null
+          sold_policies?: number | null
+          sold_premium_cents?: number | null
+          streak_count?: number | null
+          talk_minutes?: number | null
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_metrics_daily_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -686,6 +960,111 @@ export type Database = {
         }
         Relationships: []
       }
+      quoted_households: {
+        Row: {
+          agency_id: string
+          created_at: string
+          extras: Json | null
+          household_name: string
+          id: string
+          is_final: boolean | null
+          is_late: boolean | null
+          lead_source_id: string | null
+          submission_id: string
+          team_member_id: string
+          work_date: string
+          zip: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          extras?: Json | null
+          household_name: string
+          id?: string
+          is_final?: boolean | null
+          is_late?: boolean | null
+          lead_source_id?: string | null
+          submission_id: string
+          team_member_id: string
+          work_date: string
+          zip?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          extras?: Json | null
+          household_name?: string
+          id?: string
+          is_final?: boolean | null
+          is_late?: boolean | null
+          lead_source_id?: string | null
+          submission_id?: string
+          team_member_id?: string
+          work_date?: string
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_quoted_households_submission_id"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_quoted_households_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scorecard_rules: {
+        Row: {
+          agency_id: string
+          backfill_days: number | null
+          count_weekend_if_submitted: boolean | null
+          counted_days: Json | null
+          created_at: string
+          id: string
+          n_required: number | null
+          recalc_past_on_change: boolean | null
+          role: Database["public"]["Enums"]["app_member_role"]
+          selected_metrics: string[] | null
+          updated_at: string
+          weights: Json | null
+        }
+        Insert: {
+          agency_id: string
+          backfill_days?: number | null
+          count_weekend_if_submitted?: boolean | null
+          counted_days?: Json | null
+          created_at?: string
+          id?: string
+          n_required?: number | null
+          recalc_past_on_change?: boolean | null
+          role: Database["public"]["Enums"]["app_member_role"]
+          selected_metrics?: string[] | null
+          updated_at?: string
+          weights?: Json | null
+        }
+        Update: {
+          agency_id?: string
+          backfill_days?: number | null
+          count_weekend_if_submitted?: boolean | null
+          counted_days?: Json | null
+          created_at?: string
+          id?: string
+          n_required?: number | null
+          recalc_past_on_change?: boolean | null
+          role?: Database["public"]["Enums"]["app_member_role"]
+          selected_metrics?: string[] | null
+          updated_at?: string
+          weights?: Json | null
+        }
+        Relationships: []
+      }
       snapshot_planner: {
         Row: {
           created_at: string | null
@@ -725,6 +1104,111 @@ export type Database = {
         }
         Relationships: []
       }
+      submissions: {
+        Row: {
+          created_at: string
+          final: boolean | null
+          form_template_id: string
+          id: string
+          late: boolean | null
+          payload_json: Json
+          submission_date: string
+          submitted_at: string
+          superseded_at: string | null
+          supersedes_id: string | null
+          team_member_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          final?: boolean | null
+          form_template_id: string
+          id?: string
+          late?: boolean | null
+          payload_json?: Json
+          submission_date: string
+          submitted_at?: string
+          superseded_at?: string | null
+          supersedes_id?: string | null
+          team_member_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          final?: boolean | null
+          form_template_id?: string
+          id?: string
+          late?: boolean | null
+          payload_json?: Json
+          submission_date?: string
+          submitted_at?: string
+          superseded_at?: string | null
+          supersedes_id?: string | null
+          team_member_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_submissions_form_template_id"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_submissions_supersedes_id"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_submissions_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      targets: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          metric_key: string
+          team_member_id: string | null
+          updated_at: string
+          value_number: number
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          metric_key: string
+          team_member_id?: string | null
+          updated_at?: string
+          value_number: number
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          metric_key?: string
+          team_member_id?: string | null
+          updated_at?: string
+          value_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_targets_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           agency_id: string
@@ -735,6 +1219,7 @@ export type Database = {
           name: string
           notes: string | null
           role: Database["public"]["Enums"]["app_member_role"]
+          schedule_json: Json | null
           status: Database["public"]["Enums"]["app_member_status"]
           updated_at: string
         }
@@ -747,6 +1232,7 @@ export type Database = {
           name: string
           notes?: string | null
           role: Database["public"]["Enums"]["app_member_role"]
+          schedule_json?: Json | null
           status?: Database["public"]["Enums"]["app_member_status"]
           updated_at?: string
         }
@@ -759,6 +1245,7 @@ export type Database = {
           name?: string
           notes?: string | null
           role?: Database["public"]["Enums"]["app_member_role"]
+          schedule_json?: Json | null
           status?: Database["public"]["Enums"]["app_member_status"]
           updated_at?: string
         }
@@ -883,6 +1370,26 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
@@ -897,6 +1404,18 @@ export type Database = {
           logo_url: string
           name: string
         }[]
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
       }
     }
     Enums: {
