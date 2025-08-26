@@ -43,7 +43,7 @@ interface RepeaterData {
 }
 
 export default function PublicFormSubmission() {
-  const { slug } = useParams();
+  const { agencySlug, formSlug } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
   
@@ -61,46 +61,47 @@ export default function PublicFormSubmission() {
   const [error, setError] = useState<'not-found' | 'expired' | 'disabled' | null>(null);
 
   useEffect(() => {
-    if (slug && token) {
+    if (agencySlug && formSlug && token) {
       loadForm();
     }
-  }, [slug, token]);
+  }, [agencySlug, formSlug, token]);
 
   const loadForm = async () => {
+    if (!agencySlug || !formSlug || !token) {
+      setError('not-found');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Extract agency slug from hostname
-      const agencySlug = window.location.hostname.split(".")[0];
+      const response = await supabase.functions.invoke('resolve_public_form', {
+        body: { 
+          agencySlug: agencySlug,
+          formSlug: formSlug,
+          token: token 
+        }
+      });
       
-      // Call secure edge function to resolve form
-      const response = await fetch(
-        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${encodeURIComponent(agencySlug)}&formSlug=${encodeURIComponent(slug!)}&token=${encodeURIComponent(token!)}`
-      );
-      
-      if (response.status === 404) {
-        setError('not-found');
-        return;
-      }
-      
-      if (response.status === 410) {
-        setError('expired');
-        return;
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ code: 'UNKNOWN' }));
-        
-        if (errorData.error_code === 'FORM_DISABLED') {
+      if (response.error) {
+        if (response.error.message?.includes('NOT_FOUND')) {
+          setError('not-found');
+          return;
+        }
+        if (response.error.message?.includes('EXPIRED')) {
+          setError('expired');
+          return;
+        }
+        if (response.error.message?.includes('DISABLED')) {
           setError('disabled');
           return;
         }
-        
         setError('not-found');
         return;
       }
 
-      const { form } = await response.json();
+      const { form } = response.data;
       setFormTemplate({
         id: form.id,
         name: form.name,

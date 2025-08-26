@@ -84,10 +84,13 @@ serve(async (req) => {
   }
 
   try {
-    // Parse query parameters
+    // Parse URL path and query parameters
     const url = new URL(req.url);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    
+    // Expected format: /resolve_public_form?agencySlug=...&formSlug=...&t=...
     const agencySlug = url.searchParams.get("agencySlug");
-    const formSlug = url.searchParams.get("formSlug");
+    const formSlug = url.searchParams.get("formSlug"); 
     const token = url.searchParams.get("t");
     
     // Validate required parameters
@@ -120,22 +123,12 @@ serve(async (req) => {
       );
     }
 
-    // Validate agency slug from host header
-    const hostAgencySlug = getAgencySlugFromHost(req);
-    if (hostAgencySlug && hostAgencySlug !== agencySlug) {
-      logSecure('WARN', 'Host agency slug mismatch', { 
-        hostAgencySlug, 
-        requestedAgencySlug: agencySlug,
-        tokenPrefix 
-      });
-      return new Response(
-        JSON.stringify({ code: "NOT_FOUND" }), 
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, ...securityHeaders }
-        }
-      );
-    }
+    // No host validation needed for path-based routing
+    logSecure('DEBUG', 'Processing path-based form request', { 
+      agencySlug, 
+      formSlug, 
+      tokenPrefix 
+    });
 
     // Initialize Supabase client with service role
     const supabase = createClient(

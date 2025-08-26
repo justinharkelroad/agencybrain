@@ -148,7 +148,9 @@ export function useScorecardForms() {
   };
 
   const generatePublicUrl = async (form: FormTemplate, token: string) => {
-    // Get agency info for subdomain URL generation
+    if (!agencyId) return undefined;
+    
+    // Get agency details for slug
     const { data: agency } = await supabase
       .from('agencies')
       .select('slug')
@@ -156,12 +158,12 @@ export function useScorecardForms() {
       .single();
     
     if (agency?.slug) {
-      return `https://${agency.slug}.myagencybrain.com/f/${form.slug}?t=${token}`;
+      // Use path-based routing: /f/{agencySlug}/{formSlug}?t={token}
+      const baseUrl = window.location.origin;
+      return `${baseUrl}/f/${agency.slug}/${form.slug}?t=${token}`;
     }
     
-    // Fallback to current domain
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/f/${form.slug}?t=${token}`;
+    return undefined;
   };
 
   return {

@@ -4,28 +4,28 @@ import PublicFormSubmission from './PublicFormSubmission';
 import { FormNotFoundView } from '@/components/ErrorViews';
 
 /**
- * Route handler for public form URLs: /f/{slug}?t={token}
+ * Route handler for public form URLs: /f/{agencySlug}/{formSlug}?t={token}
  * Validates URL structure and renders appropriate views
  */
 export default function PublicFormRoute() {
-  const { slug } = useParams();
+  const { agencySlug, formSlug } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
 
   useEffect(() => {
     // Track page view for analytics
-    if (slug && token) {
-      console.log(`Form accessed: ${slug} with token: ${token.substring(0, 8)}...`);
+    if (agencySlug && formSlug && token) {
+      console.log(`Form accessed: ${agencySlug}/${formSlug} with token: ${token.substring(0, 8)}...`);
     }
-  }, [slug, token]);
+  }, [agencySlug, formSlug, token]);
 
   // Validate required parameters
-  if (!slug || !token) {
+  if (!agencySlug || !formSlug || !token) {
     return <FormNotFoundView />;
   }
 
-  // Validate slug format (lowercase, alphanumeric, hyphens only)
-  if (!/^[a-z0-9-]+$/.test(slug)) {
+  // Validate slug formats (lowercase, alphanumeric, hyphens only)
+  if (!/^[a-z0-9-]+$/.test(agencySlug) || !/^[a-z0-9-]+$/.test(formSlug)) {
     return <FormNotFoundView />;
   }
 
