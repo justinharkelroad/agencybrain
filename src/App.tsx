@@ -12,7 +12,7 @@ import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
 // Index page removed
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+import MetricsDashboard from "./pages/MetricsDashboard";
 import Submit from "./pages/Submit";
 import Uploads from "./pages/Uploads";
 import UploadSelection from "./pages/UploadSelection";
@@ -37,7 +37,6 @@ import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
-import MetricsDashboard from "./pages/MetricsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +54,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Dashboard />
+                <MetricsDashboard />
               </ProtectedRoute>
             } />
             <Route path="/submit" element={

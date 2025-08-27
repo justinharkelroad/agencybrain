@@ -9,7 +9,7 @@ test.describe("Metrics Dashboard", () => {
   });
 
   test("dashboard loads and shows main components", async ({ page }) => {
-    await page.goto("/metrics-dashboard");
+    await page.goto("/dashboard");
     
     // Wait for dashboard to load
     await page.waitForSelector('[data-testid="metrics-dashboard"]', { timeout: 10000 });
@@ -26,7 +26,7 @@ test.describe("Metrics Dashboard", () => {
   });
 
   test("can toggle between sales and service roles", async ({ page }) => {
-    await page.goto("/metrics-dashboard");
+    await page.goto("/dashboard");
     await page.waitForSelector('[data-testid="metrics-dashboard"]', { timeout: 10000 });
     
     // Select Service role
@@ -40,7 +40,7 @@ test.describe("Metrics Dashboard", () => {
   });
 
   test("can export CSV data", async ({ page }) => {
-    await page.goto("/metrics-dashboard");
+    await page.goto("/dashboard");
     await page.waitForSelector('[data-testid="metrics-dashboard"]', { timeout: 10000 });
     
     // Set up download listener
@@ -55,7 +55,7 @@ test.describe("Metrics Dashboard", () => {
   });
 
   test("date range controls work", async ({ page }) => {
-    await page.goto("/metrics-dashboard");
+    await page.goto("/dashboard");
     await page.waitForSelector('[data-testid="metrics-dashboard"]', { timeout: 10000 });
     
     // Change start date
