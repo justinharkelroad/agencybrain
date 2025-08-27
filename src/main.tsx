@@ -81,6 +81,44 @@ if (typeof window !== 'undefined') {
       }
     };
 
+    // Advanced MutationObserver to catch dynamic elements
+    const setupMutationObserver = () => {
+      const observer = new MutationObserver((mutations) => {
+        let shouldCleanup = false;
+        
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList') {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                const element = node as Element;
+                
+                // Check if the added element or any of its children are problematic
+                if (element.tagName === 'MCE-AUTOSIZE-TEXTAREA' || 
+                    element.querySelector('mce-autosize-textarea') ||
+                    element.getAttribute('is') === 'mce-autosize-textarea') {
+                  console.debug('🔒 Detected problematic element added to DOM, scheduling cleanup');
+                  shouldCleanup = true;
+                }
+              }
+            });
+          }
+        });
+        
+        if (shouldCleanup) {
+          // Delay cleanup to let the element fully initialize
+          setTimeout(cleanupProblematicElements, 100);
+        }
+      });
+      
+      // Start observing
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      return observer;
+    };
+
     // Run prevention immediately
     preventProblematicElements();
 
@@ -89,14 +127,24 @@ if (typeof window !== 'undefined') {
     
     // DOM ready cleanup
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', cleanupProblematicElements);
+      document.addEventListener('DOMContentLoaded', () => {
+        cleanupProblematicElements();
+        setupMutationObserver();
+      });
     } else {
       // DOM already ready, run again
-      setTimeout(cleanupProblematicElements, 0);
+      setTimeout(() => {
+        cleanupProblematicElements();
+        setupMutationObserver();
+      }, 0);
     }
     
     // Additional cleanup on window load (for late-loading scripts)
-    window.addEventListener('load', cleanupProblematicElements);
+    window.addEventListener('load', () => {
+      cleanupProblematicElements();
+      // Extra aggressive cleanup after window load
+      setTimeout(cleanupProblematicElements, 1000);
+    });
     
     // Periodic cleanup for persistent conflicts
     if (isDevelopment) {

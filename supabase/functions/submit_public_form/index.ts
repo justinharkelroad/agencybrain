@@ -45,9 +45,25 @@ serve(async (req) => {
     );
 
     const body = await req.json() as Body;
+    console.log('📥 Received submission request:', { 
+      agencySlug: body.agencySlug, 
+      formSlug: body.formSlug, 
+      teamMemberId: body.teamMemberId,
+      submissionDate: body.submissionDate 
+    });
+    
     const { agencySlug, formSlug, token } = body;
-    if (!agencySlug || !formSlug || !token) return json(400, {code:"BAD_REQUEST"});
-    if (!body.teamMemberId || !body.submissionDate) return json(400, {code:"MISSING_FIELDS"});
+    if (!agencySlug || !formSlug || !token) {
+      console.log('❌ Bad request - missing basic parameters');
+      return json(400, {code:"BAD_REQUEST"});
+    }
+    if (!body.teamMemberId || !body.submissionDate) {
+      console.log('❌ Missing required fields:', { 
+        teamMemberId: !!body.teamMemberId, 
+        submissionDate: !!body.submissionDate 
+      });
+      return json(400, {code:"MISSING_FIELDS"});
+    }
 
     // resolve link
     const { data: link, error } = await supabase

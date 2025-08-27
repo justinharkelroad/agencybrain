@@ -15,6 +15,8 @@ export default function PublicFormSubmission() {
   const [form, setForm] = useState<ResolvedForm | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
 
   useEffect(() => {
@@ -54,6 +56,12 @@ export default function PublicFormSubmission() {
 
   const onChange = (key: string, val: any) => {
     setValues(v => ({ ...v, [key]: val }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => ({ ...prev, [key]: '' }));
+    }
+    
     // Generate household details when quoted_count changes
     if (key === "quoted_count") {
       const cap = form?.settings?.spawnCap ?? 25;
@@ -73,30 +81,84 @@ export default function PublicFormSubmission() {
     }
   };
 
-  const submit = async () => {
-    // required system fields
-    if (!values.team_member_id || !values.submission_date) { setErr("MISSING_FIELDS"); return; }
+  const validateRequired = () => {
+    const errors: Record<string, string> = {};
     
-    const { data, error } = await supabase.functions.invoke('submit_public_form', {
-      body: {
-        agencySlug, 
-        formSlug, 
-        token,
-        teamMemberId: values.team_member_id,
-        submissionDate: values.submission_date,
-        workDate: values.work_date || null,
-        values
-      }
-    });
-    
-    if (error) { 
-      console.error('Submission error:', error);
-      setErr(error.message || "SUBMISSION_ERROR"); 
-      return; 
+    // System required fields
+    if (!values.team_member_id) {
+      errors.team_member_id = "Staff member is required";
+    }
+    if (!values.submission_date) {
+      errors.submission_date = "Submission date is required";
     }
     
+    // Schema-based required fields
+    if (form?.schema?.kpis) {
+      form.schema.kpis.forEach((kpi: any) => {
+        if (kpi.required && (!values[kpi.key] || values[kpi.key] === '')) {
+          errors[kpi.key] = `${kpi.label} is required`;
+        }
+      });
+    }
+    
+    if (form?.schema?.customFields) {
+      form.schema.customFields.forEach((field: any) => {
+        if (field.required && (!values[field.key] || values[field.key] === '')) {
+          errors[field.key] = `${field.label} is required`;
+        }
+      });
+    }
+    
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const submit = async () => {
+    setIsSubmitting(true);
     setErr(null);
-    alert("Submitted successfully!");
+    
+    console.log('🚀 Form submission started');
+    console.log('📋 Form values:', values);
+    console.log('✅ Required fields check...');
+    
+    // Enhanced validation with user feedback
+    if (!validateRequired()) {
+      console.log('❌ Validation failed - missing required fields');
+      setErr("Please fill in all required fields");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    console.log('✅ Validation passed, submitting to server...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('submit_public_form', {
+        body: {
+          agencySlug, 
+          formSlug, 
+          token,
+          teamMemberId: values.team_member_id,
+          submissionDate: values.submission_date,
+          workDate: values.work_date || null,
+          values
+        }
+      });
+      
+      if (error) { 
+        console.error('❌ Submission error:', error);
+        setErr(error.message || "Failed to submit form. Please try again."); 
+        return; 
+      }
+      
+      console.log('✅ Submission successful:', data);
+      setErr(null);
+      alert("Form submitted successfully!");
+    } catch (error) {
+      console.error('❌ Network error:', error);
+      setErr("Network error. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (err) return (
@@ -142,13 +204,18 @@ export default function PublicFormSubmission() {
                 <select 
                   value={values.team_member_id ?? ""} 
                   onChange={e=>onChange("team_member_id", e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                  className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                    fieldErrors.team_member_id ? 'border-destructive focus:ring-destructive' : 'border-input'
+                  }`}
                 >
                   <option value="">Select Staff Member</option>
                   {form.team_members?.map((member: any) => (
                     <option key={member.id} value={member.id}>{member.name}</option>
                   ))}
                 </select>
+                {fieldErrors.team_member_id && (
+                  <p className="text-sm text-destructive">{fieldErrors.team_member_id}</p>
+                )}
               </div>
               
               {/* Date Fields */}
@@ -160,8 +227,13 @@ export default function PublicFormSubmission() {
                   type="date"
                   value={values.submission_date ?? ""} 
                   onChange={e=>onChange("submission_date", e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                  className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                    fieldErrors.submission_date ? 'border-destructive focus:ring-destructive' : 'border-input'
+                  }`}
                 />
+                {fieldErrors.submission_date && (
+                  <p className="text-sm text-destructive">{fieldErrors.submission_date}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -345,9 +417,21 @@ export default function PublicFormSubmission() {
             <div className="border-t border-border pt-6">
               <button 
                 onClick={submit}
-                className="w-full px-4 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                disabled={isSubmitting}
+                className={`w-full px-4 py-3 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors ${
+                  isSubmitting 
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
               >
-                Submit Form
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    Submitting...
+                  </div>
+                ) : (
+                  'Submit Form'
+                )}
               </button>
             </div>
           </div>
