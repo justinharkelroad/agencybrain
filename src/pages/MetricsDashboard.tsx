@@ -87,7 +87,7 @@ export default function MetricsDashboard() {
         .single();
         
       if (profile?.agency_id) {
-        const { data: agency } = await supabase
+        const { data: agency } = await supa
           .from('agencies')
           .select('slug, name')
           .eq('id', profile.agency_id)
@@ -109,10 +109,10 @@ export default function MetricsDashboard() {
     setErr(null);
     
     try {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await supa.auth.getSession();
       const token = session?.session?.access_token;
       
-      const res = await supabase.functions.invoke('get_dashboard', {
+      const res = await supa.functions.invoke('get_dashboard', {
         body: { agencySlug, role, start, end, quotedLabel, soldMetric },
         headers: {
           Authorization: `Bearer ${token}`
