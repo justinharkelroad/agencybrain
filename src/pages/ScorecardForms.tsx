@@ -10,6 +10,8 @@ import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
 import MetricsDashboard from "@/pages/MetricsDashboard";
 import Explorer from "@/pages/Explorer";
+import { GeneralSettingsDialog } from "@/components/dialogs/GeneralSettingsDialog";
+import { KPIConfigDialog } from "@/components/dialogs/KPIConfigDialog";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
@@ -154,10 +156,12 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Sales Targets</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Button variant="outline" className="w-full">
-                        <Target className="h-4 w-4 mr-2" />
-                        Configure Sales KPIs
-                      </Button>
+                      <KPIConfigDialog title="Configure Sales KPIs" type="sales">
+                        <Button variant="outline" className="w-full">
+                          <Target className="h-4 w-4 mr-2" />
+                          Configure Sales KPIs
+                        </Button>
+                      </KPIConfigDialog>
                     </CardContent>
                   </Card>
                   <Card>
@@ -165,10 +169,12 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Service Targets</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Button variant="outline" className="w-full">
-                        <Target className="h-4 w-4 mr-2" />
-                        Configure Service KPIs
-                      </Button>
+                      <KPIConfigDialog title="Configure Service KPIs" type="service">
+                        <Button variant="outline" className="w-full">
+                          <Target className="h-4 w-4 mr-2" />
+                          Configure Service KPIs
+                        </Button>
+                      </KPIConfigDialog>
                     </CardContent>
                   </Card>
                 </div>
@@ -186,18 +192,24 @@ export default function ScorecardForms() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Timezone Settings
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Notification Preferences
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Default Form Settings
-                  </Button>
+                  <GeneralSettingsDialog title="Timezone Settings">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Timezone Settings
+                    </Button>
+                  </GeneralSettingsDialog>
+                  <GeneralSettingsDialog title="Notification Preferences">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Notification Preferences
+                    </Button>
+                  </GeneralSettingsDialog>
+                  <GeneralSettingsDialog title="Default Form Settings">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Default Form Settings
+                    </Button>
+                  </GeneralSettingsDialog>
                 </CardContent>
               </Card>
               
@@ -209,18 +221,24 @@ export default function ScorecardForms() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button variant="outline" className="w-full justify-start">
-                    <Target className="h-4 w-4 mr-2" />
-                    Sales Scoring Rules
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Target className="h-4 w-4 mr-2" />
-                    Service Scoring Rules
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Award className="h-4 w-4 mr-2" />
-                    Contest Settings
-                  </Button>
+                  <KPIConfigDialog title="Sales Scoring Rules" type="sales">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Target className="h-4 w-4 mr-2" />
+                      Sales Scoring Rules
+                    </Button>
+                  </KPIConfigDialog>
+                  <KPIConfigDialog title="Service Scoring Rules" type="service">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Target className="h-4 w-4 mr-2" />
+                      Service Scoring Rules
+                    </Button>
+                  </KPIConfigDialog>
+                  <GeneralSettingsDialog title="Contest Settings">
+                    <Button variant="outline" className="w-full justify-start">
+                      <Award className="h-4 w-4 mr-2" />
+                      Contest Settings
+                    </Button>
+                  </GeneralSettingsDialog>
                 </CardContent>
               </Card>
             </div>

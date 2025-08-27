@@ -5,9 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useSubmissions } from "@/hooks/useSubmissions";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function SubmissionsList() {
   const { submissions, loading } = useSubmissions();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -50,7 +52,11 @@ export function SubmissionsList() {
           </TableHeader>
           <TableBody>
             {submissions.map((submission) => (
-              <TableRow key={submission.id}>
+              <TableRow 
+                key={submission.id} 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => navigate(`/submissions/${submission.id}`)}
+              >
                 <TableCell>
                   <div className="font-medium">
                     {submission.form_templates?.name || 'Unknown Form'}

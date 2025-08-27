@@ -21,7 +21,7 @@ import ProcessVault from "./pages/ProcessVault";
 import ScorecardForms from "./pages/ScorecardForms";
 import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
 import ScorecardFormEditor from "./pages/ScorecardFormEditor";
-import PublicFormSubmission from "./pages/PublicFormSubmission";
+import PublicFormRoute from "./pages/PublicFormRoute";
 import Dashboard from "./pages/Dashboard";
 import MetricsEditRedirect from "./components/MetricsEditRedirect";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -40,6 +40,7 @@ import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import Explorer from "./pages/Explorer";
+import SubmissionDetail from "./pages/SubmissionDetail";
 
 const queryClient = new QueryClient();
 
@@ -111,7 +112,7 @@ const App = () => (
             <Route path="/scorecard-forms/builder" element={<Navigate to="/metrics/builder" replace />} />
             <Route path="/scorecard-forms/edit/:formId" element={<MetricsEditRedirect />} />
             {/* Public form submission - no auth required */}
-            <Route path="/f/:slug" element={<PublicFormSubmission />} />
+            <Route path="/f/:agencySlug/:formSlug" element={<PublicFormRoute />} />
             {/* Phase 2: Targets and Scorecard Settings */}
             <Route path="/targets" element={
               <ProtectedRoute>
@@ -188,9 +189,9 @@ const App = () => (
                 <SnapshotPlanner />
               </ProtectedRoute>
             } />
-            <Route path="/metrics-dashboard" element={
+            <Route path="/submissions/:submissionId" element={
               <ProtectedRoute>
-                <MetricsDashboard />
+                <SubmissionDetail />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

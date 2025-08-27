@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { SearchIcon, DownloadIcon, FilterIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -39,12 +38,6 @@ interface SearchFilters {
 
 export default function Explorer() {
   const { user } = useAuth();
-  const agencySlug = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.hostname.split(".")[0];
-    }
-    return "";
-  }, []);
 
   const [filters, setFilters] = useState<SearchFilters>({
     q: "",
@@ -62,6 +55,9 @@ export default function Explorer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [agencySlug, setAgencySlug] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<Array<{id: string, name: string}>>([]);
+  const [leadSources, setLeadSources] = useState<Array<{id: string, name: string}>>([]);
 
   const search = async (cursor?: string) => {
     if (!user) return;
@@ -73,26 +69,20 @@ export default function Explorer() {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token ?? "";
 
-      const response = await fetch("/functions/v1/explorer_search", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const response = await supabase.functions.invoke('explorer_search', {
+        body: {
           agencySlug,
           ...filters,
           cursor,
           limit: 50
-        })
+        }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ code: "ERROR" }));
-        throw new Error(errorData.message || errorData.code || "Search failed");
+      
+      if (response.error) {
+        throw new Error(response.error.message || "Search failed");
       }
 
-      const data = await response.json();
+      const data = response.data;
       setNextCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
 
@@ -160,7 +150,58 @@ export default function Explorer() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  // Initial search on component mount
+  // Fetch agency slug and related data
+  useEffect(() => {
+    const fetchAgencyData = async () => {
+      if (!user) return;
+
+      try {
+        // Get user's agency
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.agency_id) {
+          // Get agency slug
+          const { data: agency } = await supabase
+            .from('agencies')
+            .select('slug')
+            .eq('id', profile.agency_id)
+            .single();
+
+          if (agency?.slug) {
+            setAgencySlug(agency.slug);
+          }
+
+          // Get team members
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('id, name')
+            .eq('agency_id', profile.agency_id)
+            .eq('status', 'active');
+
+          setTeamMembers(members || []);
+
+          // Get lead sources
+          const { data: sources } = await supabase
+            .from('lead_sources')
+            .select('id, name')
+            .eq('agency_id', profile.agency_id)
+            .eq('is_active', true);
+
+          setLeadSources(sources || []);
+        }
+      } catch (error) {
+        console.error('Error fetching agency data:', error);
+      }
+    };
+
+    fetchAgencyData();
+  }, [user]);
+
+  // Initial search when agency data is loaded
   useEffect(() => {
     if (user && agencySlug) {
       search();
@@ -230,61 +271,45 @@ export default function Explorer() {
             </div>
           </div>
 
-          {/* Additional Filters */}
+          {/* Staff and Lead Source Dropdowns */}
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Staff ID</label>
-              <Input
-                placeholder="Filter by staff member ID"
+              <label className="text-sm font-medium">Staff Member</label>
+              <Select
                 value={filters.staffId}
-                onChange={(e) => updateFilter("staffId", e.target.value)}
-              />
+                onValueChange={(value) => updateFilter("staffId", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All staff members" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All staff members</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Lead Source</label>
-              <Input
-                placeholder="Filter by lead source"
+              <Select
                 value={filters.leadSource}
-                onChange={(e) => updateFilter("leadSource", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Checkboxes */}
-          <div className="flex flex-wrap gap-6">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="finalOnly"
-                checked={filters.finalOnly}
-                onCheckedChange={(checked) => updateFilter("finalOnly", !!checked)}
-              />
-              <label htmlFor="finalOnly" className="text-sm font-medium">
-                Final submissions only
-              </label>
-            </div>
-
-            {!filters.finalOnly && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="includeSuperseded"
-                  checked={filters.includeSuperseded}
-                  onCheckedChange={(checked) => updateFilter("includeSuperseded", !!checked)}
-                />
-                <label htmlFor="includeSuperseded" className="text-sm font-medium">
-                  Include superseded
-                </label>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="lateOnly"
-                checked={filters.lateOnly}
-                onCheckedChange={(checked) => updateFilter("lateOnly", !!checked)}
-              />
-              <label htmlFor="lateOnly" className="text-sm font-medium">
-                Late submissions only
-              </label>
+                onValueChange={(value) => updateFilter("leadSource", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All lead sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All lead sources</SelectItem>
+                  {leadSources.map((source) => (
+                    <SelectItem key={source.id} value={source.name}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
