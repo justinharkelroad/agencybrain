@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, BarChart3, Users, Target, FileText, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import TopNav from "@/components/TopNav";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
@@ -19,9 +18,7 @@ export default function ScorecardForms() {
   const { forms, loading } = useScorecardForms();
 
   return (
-    <div className="min-h-screen bg-background">
-      <TopNav />
-      
+    <div className="min-h-screen bg-background">      
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
