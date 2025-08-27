@@ -5,7 +5,9 @@ type RingMetric = {
   key: string; 
   label: string; 
   progress: number; 
-  color: string; 
+  color: string;
+  actual?: number;
+  target?: number;
 };
 
 function usePrefersReducedMotion() {
@@ -28,12 +30,16 @@ function Ring({
   progress, 
   color, 
   size = 120, 
-  duration = 900 
+  duration = 900,
+  actual,
+  targetValue
 }: { 
   progress: number; 
   color: string; 
   size?: number; 
   duration?: number; 
+  actual?: number;
+  targetValue?: number;
 }) {
   const r = size / 2 - 10;
   const circumference = 2 * Math.PI * r;
@@ -62,31 +68,47 @@ function Ring({
   }, [target, reduced, duration]);
 
   return (
-    <svg width={size} height={size} className="rotate-[-90deg]">
-      {/* Background ring */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="hsl(var(--border))"
-        strokeOpacity="0.25"
-        strokeWidth="12"
-        fill="none"
-      />
-      {/* Progress ring */}
-      <circle
-        ref={circleRef}
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke={color}
-        strokeWidth="12"
-        strokeDasharray={`${dashArray} ${circumference}`}
-        strokeLinecap="round"
-        fill="none"
-        className={progress >= 1 ? "drop-shadow-md" : ""}
-      />
-    </svg>
+    <div className="relative">
+      <svg width={size} height={size} className="rotate-[-90deg]">
+        {/* Background ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke="hsl(var(--border))"
+          strokeOpacity="0.25"
+          strokeWidth="12"
+          fill="none"
+        />
+        {/* Progress ring */}
+        <circle
+          ref={circleRef}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth="12"
+          strokeDasharray={`${dashArray} ${circumference}`}
+          strokeLinecap="round"
+          fill="none"
+          className={progress >= 1 ? "drop-shadow-md" : ""}
+        />
+      </svg>
+      {/* Number display inside the ring */}
+      {actual !== undefined && (
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ fontSize: `${size * 0.2}px`, lineHeight: 1 }}
+        >
+          <span 
+            className="font-bold tabular-nums"
+            style={{ color }}
+          >
+            {actual}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -109,7 +131,12 @@ export default function MemberRingsCard({
         <div className="grid grid-cols-2 gap-6 place-items-center">
           {metrics.map((metric) => (
             <div key={metric.key} className="flex flex-col items-center">
-              <Ring progress={metric.progress} color={metric.color} />
+              <Ring 
+                progress={metric.progress} 
+                color={metric.color} 
+                actual={metric.actual}
+                targetValue={metric.target}
+              />
               <div className="text-xs text-center text-muted-foreground mt-1 font-medium">
                 {metric.label}
               </div>

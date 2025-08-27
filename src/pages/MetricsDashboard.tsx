@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Users, Target, Award } from "lucide-react";
+import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -71,6 +72,7 @@ export default function MetricsDashboard() {
   const [contest, setContest] = useState<TableRow[]>([]);
   const [contestEnabled, setContestEnabled] = useState<boolean>(false);
   const [agencyName, setAgencyName] = useState<string>("");
+  const [agencyId, setAgencyId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -93,6 +95,7 @@ export default function MetricsDashboard() {
         if (agency?.slug) {
           setAgencySlug(agency.slug);
           setAgencyName(agency.name || "");
+          setAgencyId(profile.agency_id);
         }
       }
     };
@@ -212,6 +215,15 @@ export default function MetricsDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Team Performance Rings */}
+        {agencyId && (
+          <TeamPerformanceRings 
+            agencyId={agencyId}
+            role={role}
+            date={end} // Use end date since it's the most recent in the range
+          />
+        )}
 
         {/* Tiles - Default 4 KPIs only */}
         {tiles && (
