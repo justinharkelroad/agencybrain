@@ -36,7 +36,7 @@ export default function AdminChecklists() {
     queryKey: ["agency-id", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("agency_id").eq("id", user!.id).single();
+      const { data, error } = await supa.from("profiles").select("agency_id").eq("id", user!.id).single();
       if (error) throw error;
       return data?.agency_id as string | null;
     },
@@ -47,7 +47,7 @@ export default function AdminChecklists() {
     enabled: agencyId !== undefined,
     queryFn: async () => {
       const or = agencyId ? `agency_id.is.null,agency_id.eq.${agencyId}` : "agency_id.is.null";
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("checklist_template_items")
         .select("id,label,required,active,order_index,agency_id,created_at")
         .or(or)
@@ -59,13 +59,13 @@ export default function AdminChecklists() {
   });
 
   useEffect(() => {
-    const channel = supabase
+    const channel = supa
       .channel("admin-checklists")
       .on("postgres_changes", { event: "*", schema: "public", table: "checklist_template_items" }, () =>
         qc.invalidateQueries({ queryKey: ["checklist-templates", agencyId] })
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supa.removeChannel(channel); };
   }, [agencyId, qc]);
 
   type FormState = {
@@ -104,10 +104,10 @@ export default function AdminChecklists() {
       };
       if (!form.global && !agencyId) throw new Error("No agency available for agency-scoped template");
       if (editingId) {
-        const { error } = await supabase.from("checklist_template_items").update(payload).eq("id", editingId);
+        const { error } = await supa.from("checklist_template_items").update(payload).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("checklist_template_items").insert([payload]);
+        const { error } = await supa.from("checklist_template_items").insert([payload]);
         if (error) throw error;
       }
     },
@@ -122,7 +122,7 @@ export default function AdminChecklists() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("checklist_template_items").delete().eq("id", id);
+      const { error } = await supa.from("checklist_template_items").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

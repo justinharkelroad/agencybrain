@@ -254,7 +254,7 @@ export default function Submit() {
       
       // If mode is 'update' and we have a specific period ID, load that period
       if (mode === 'update' && periodIdParam) {
-        const { data: specificPeriod, error: specificError } = await supabase
+        const { data: specificPeriod, error: specificError } = await supa
           .from('periods')
           .select('*')
           .eq('user_id', user?.id)
@@ -310,7 +310,7 @@ export default function Submit() {
         
         // If we have a specific period ID for new mode, use it
         if (periodIdParam) {
-          const { data: newPeriod, error: newPeriodError } = await supabase
+          const { data: newPeriod, error: newPeriodError } = await supa
             .from('periods')
             .select('*')
             .eq('user_id', user?.id)
@@ -332,7 +332,7 @@ export default function Submit() {
       }
 
       // Default behavior - look for existing active or draft periods only
-      const { data: activePeriods, error: activeError } = await supabase
+      const { data: activePeriods, error: activeError } = await supa
         .from('periods')
         .select('*')
         .eq('user_id', user?.id)
@@ -418,7 +418,7 @@ export default function Submit() {
     if (!currentPeriod || !startDate || !endDate) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('periods')
         .update({
           start_date: startDate.toISOString().split('T')[0],
@@ -519,7 +519,7 @@ export default function Submit() {
         endDateForPeriod.setMonth(endDateForPeriod.getMonth() + 1);
         endDateForPeriod.setDate(0); // Last day of start month
 
-        const { data: newPeriod, error: createError } = await supabase
+        const { data: newPeriod, error: createError } = await supa
           .from('periods')
           .insert({
             user_id: user?.id,

@@ -38,7 +38,7 @@ const AdminProcessVaultTypes: React.FC = () => {
   }, []);
 
   const fetchTypes = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from("process_vault_types")
       .select("id,title,is_active,created_at")
       .order("title", { ascending: true });
@@ -60,7 +60,7 @@ const AdminProcessVaultTypes: React.FC = () => {
     const raw = newTitle.trim();
     if (!raw) return;
     const title = raw.toUpperCase();
-    const { error } = await supabase.from("process_vault_types").insert({ title });
+    const { error } = await supa.from("process_vault_types").insert({ title });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -71,7 +71,7 @@ const AdminProcessVaultTypes: React.FC = () => {
   };
 
   const deleteType = async (id: string) => {
-    const { error } = await supabase.from("process_vault_types").delete().eq("id", id);
+    const { error } = await supa.from("process_vault_types").delete().eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {

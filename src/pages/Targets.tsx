@@ -42,7 +42,7 @@ export default function Targets() {
   const loadData = async () => {
     try {
       // Get user's agency
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -56,7 +56,7 @@ export default function Targets() {
       setAgencyId(profile.agency_id);
 
       // Load team members
-      const { data: teamData } = await supabase
+      const { data: teamData } = await supa
         .from('team_members')
         .select('id, name, role')
         .eq('agency_id', profile.agency_id)
@@ -66,7 +66,7 @@ export default function Targets() {
       setTeam(teamData || []);
 
       // Load existing targets
-      const { data: targetsData } = await supabase
+      const { data: targetsData } = await supa
         .from('targets')
         .select('team_member_id, metric_key, value_number')
         .eq('agency_id', profile.agency_id);
@@ -117,7 +117,7 @@ export default function Targets() {
       }
 
       if (upserts.length > 0) {
-        const { error } = await supabase
+        const { error } = await supa
           .from("targets")
           .upsert(upserts, { 
             onConflict: "agency_id,team_member_id,metric_key",

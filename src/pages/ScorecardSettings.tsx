@@ -66,7 +66,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
   const loadData = async () => {
     try {
       // Get user's agency
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -80,7 +80,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
       setAgencyId(profile.agency_id);
 
       // Load scorecard rules for this agency and role
-      const { data: rules } = await supabase
+      const { data: rules } = await supa
         .from("scorecard_rules")
         .select("*")
         .eq("agency_id", profile.agency_id)
@@ -147,7 +147,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from("scorecard_rules")
         .upsert({
           agency_id: agencyId,

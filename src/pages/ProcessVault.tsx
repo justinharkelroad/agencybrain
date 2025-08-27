@@ -84,7 +84,7 @@ const ProcessVault: React.FC = () => {
       setFileCounts({});
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from("process_vault_files")
       .select("user_vault_id")
       .in("user_vault_id", vaultIds);
@@ -104,8 +104,8 @@ const ProcessVault: React.FC = () => {
     setLoading(true);
     try {
       const [{ data: typesData }, { data: vaultsData }] = await Promise.all([
-        supabase.from("process_vault_types").select("id,title,is_active").eq("is_active", true).order("title", { ascending: true }),
-        supabase.from("user_process_vaults").select("id,user_id,title,vault_type_id,created_at").order("created_at", { ascending: true }),
+        supa.from("process_vault_types").select("id,title,is_active").eq("is_active", true).order("title", { ascending: true }),
+        supa.from("user_process_vaults").select("id,user_id,title,vault_type_id,created_at").order("created_at", { ascending: true }),
       ]);
 
       const safeTypes = (typesData || []) as ProcessVaultType[];
@@ -113,7 +113,7 @@ const ProcessVault: React.FC = () => {
 
       // Ensure defaults then refetch vaults
       await ensureDefaultVaults(safeTypes, safeVaults);
-      const { data: vaultsAfter } = await supabase
+      const { data: vaultsAfter } = await supa
         .from("user_process_vaults")
         .select("id,user_id,title,vault_type_id,created_at")
         .order("created_at", { ascending: true });
@@ -142,7 +142,7 @@ const ProcessVault: React.FC = () => {
     setSelectedVault(vault);
     setDialogOpen(true);
     // load existing files
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from("process_vault_files")
       .select("id,user_vault_id,upload_file_path,created_at")
       .eq("user_vault_id", vault.id)
@@ -155,12 +155,12 @@ const ProcessVault: React.FC = () => {
     if (!files?.length) return;
     try {
       const rows = files.map(f => ({ user_vault_id: selectedVault.id, upload_file_path: f.id }));
-      const { error } = await supabase.from("process_vault_files").insert(rows);
+      const { error } = await supa.from("process_vault_files").insert(rows);
       if (error) throw error;
       toast({ title: "Vault updated", description: "Files secured in your vault." });
       await fetchCounts([selectedVault.id]);
       // refresh selected vault files
-      const { data } = await supabase
+      const { data } = await supa
         .from("process_vault_files")
         .select("id,user_vault_id,upload_file_path,created_at")
         .eq("user_vault_id", selectedVault.id)
@@ -178,7 +178,7 @@ const ProcessVault: React.FC = () => {
     if (!user) return;
     try {
       const upper = title.toUpperCase();
-      const { error } = await supabase.from("user_process_vaults").insert({ user_id: user.id, title: upper, vault_type_id: null });
+      const { error } = await supa.from("user_process_vaults").insert({ user_id: user.id, title: upper, vault_type_id: null });
       if (error) throw error;
       toast({ title: "Vault created", description: `${upper} added.` });
       await fetchData();
@@ -288,7 +288,7 @@ const ProcessVault: React.FC = () => {
                         <span className="truncate mr-2">{f.upload_file_path.split('/').pop()}</span>
                         <a
                           className="text-primary underline underline-offset-2"
-                          href={supabase.storage.from('uploads').getPublicUrl(f.upload_file_path).data.publicUrl}
+                          href={supa.storage.from('uploads').getPublicUrl(f.upload_file_path).data.publicUrl}
                           target="_blank"
                           rel="noreferrer"
                         >

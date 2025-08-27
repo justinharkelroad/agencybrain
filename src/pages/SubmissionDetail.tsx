@@ -41,7 +41,7 @@ export default function SubmissionDetail() {
 
   const fetchSubmission = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('submissions')
         .select(`
           *,

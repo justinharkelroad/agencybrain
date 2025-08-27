@@ -40,7 +40,7 @@ export default function AgencyMember() {
     queryKey: ["agency-member", memberId],
     enabled: !!memberId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("team_members")
         .select("id,name,email,agency_id,status,role,employment")
         .eq("id", memberId as string)
@@ -58,7 +58,7 @@ export default function AgencyMember() {
     enabled: !!agencyId,
     queryFn: async () => {
       const or = agencyId ? `agency_id.is.null,agency_id.eq.${agencyId}` : "agency_id.is.null";
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("checklist_template_items")
         .select("id,label,required,order_index,agency_id,active")
         .eq("active", true)
@@ -74,7 +74,7 @@ export default function AgencyMember() {
     queryKey: ["mci", memberId],
     enabled: !!memberId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("member_checklist_items")
         .select("id,member_id,template_item_id,secured,attachments_count,created_at,updated_at")
         .eq("member_id", memberId as string);
@@ -111,24 +111,24 @@ export default function AgencyMember() {
   // Realtime updates for MCI and files
   useEffect(() => {
     if (!memberId) return;
-    const ch1 = supabase
+    const ch1 = supa
       .channel(`mci-${memberId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'member_checklist_items', filter: `member_id=eq.${memberId}` },
         () => qc.invalidateQueries({ queryKey: ["mci", memberId] }))
       .subscribe();
-    const ch2 = supabase
+    const ch2 = supa
       .channel(`af-${memberId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agency_files', filter: `member_id=eq.${memberId}` },
         () => qc.invalidateQueries({ queryKey: ["mci", memberId] }))
       .subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    return () => { supa.removeChannel(ch1); supa.removeChannel(ch2); };
   }, [memberId, qc]);
 
   // Add/remove single checklist item for this member
   const addItemMutation = useMutation({
     mutationFn: async (templateId: string) => {
       if (!memberId) throw new Error("Missing member");
-      const { error } = await supabase
+      const { error } = await supa
         .from('member_checklist_items')
         .insert({ member_id: memberId, template_item_id: templateId });
       if (error) throw error;
@@ -143,7 +143,7 @@ export default function AgencyMember() {
   const removeItemMutation = useMutation({
     mutationFn: async (templateId: string) => {
       if (!memberId) throw new Error("Missing member");
-      const { error } = await supabase
+      const { error } = await supa
         .from('member_checklist_items')
         .delete()
         .eq('member_id', memberId as string)
@@ -198,7 +198,7 @@ export default function AgencyMember() {
         
         console.log('Uploading file:', file.name, 'to path:', path);
         
-        const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
+        const { error: upErr } = await supa.storage.from('uploads').upload(path, file);
         if (upErr) {
           console.error('Storage upload error:', upErr);
           throw new Error(`Upload failed: ${upErr.message}`);
@@ -206,7 +206,7 @@ export default function AgencyMember() {
         
         console.log('File uploaded to storage, inserting into database...');
         
-        const { error: dbErr } = await supabase.from('agency_files').insert({
+        const { error: dbErr } = await supa.from('agency_files').insert({
           agency_id: agencyId,
           member_id: memberId,
           template_item_id: templateId,

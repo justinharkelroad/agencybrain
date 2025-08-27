@@ -13,7 +13,7 @@ export type ChatMessageRow = {
 
 export async function fetchChatMessages(analysisId: string) {
   console.log("[chatPersistence] fetchChatMessages", { analysisId });
-  const { data, error } = await supabase
+  const { data, error } = await supa
     .from("ai_chat_messages")
     .select("*")
     .eq("analysis_id", analysisId)
@@ -25,7 +25,7 @@ export async function fetchChatMessages(analysisId: string) {
 
 export async function insertChatMessage(analysisId: string, role: "user" | "assistant", content: string) {
   console.log("[chatPersistence] insertChatMessage", { analysisId, role, preview: content.slice(0, 80) });
-  const { data, error } = await supabase
+  const { data, error } = await supa
     .from("ai_chat_messages")
     .insert([{ analysis_id: analysisId, role, content }])
     .select()
@@ -37,7 +37,7 @@ export async function insertChatMessage(analysisId: string, role: "user" | "assi
 
 export async function clearChatMessages(analysisId: string) {
   console.log("[chatPersistence] clearChatMessages", { analysisId });
-  const { error } = await supabase
+  const { error } = await supa
     .from("ai_chat_messages")
     .delete()
     .eq("analysis_id", analysisId);
@@ -48,7 +48,7 @@ export async function clearChatMessages(analysisId: string) {
 
 export async function markMessageShared(messageId: string, shared: boolean = true) {
   console.log("[chatPersistence] markMessageShared", { messageId, shared });
-  const { data, error } = await supabase
+  const { data, error } = await supa
     .from("ai_chat_messages")
     .update({ shared_with_client: shared })
     .eq("id", messageId)

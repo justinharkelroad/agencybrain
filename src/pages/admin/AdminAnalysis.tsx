@@ -166,7 +166,7 @@ const AdminAnalysis = () => {
   const fetchData = async () => {
     try {
       // Fetch clients
-      const { data: clientsData, error: clientsError } = await supabase
+      const { data: clientsData, error: clientsError } = await supa
         .from('profiles')
         .select(`
           *,
@@ -179,7 +179,7 @@ const AdminAnalysis = () => {
       setClients(clientsData || []);
 
       // Fetch prompts
-      const { data: promptsData, error: promptsError } = await supabase
+      const { data: promptsData, error: promptsError } = await supa
         .from('prompts')
         .select('*')
         .eq('is_active', true)
@@ -207,7 +207,7 @@ const AdminAnalysis = () => {
       const client = clients.find(c => c.id === selectedClient);
       if (!client) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('periods')
         .select('*')
         .eq('user_id', client.id)
@@ -228,7 +228,7 @@ const AdminAnalysis = () => {
       const client = clients.find(c => c.id === selectedClient);
       if (!client) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('uploads')
         .select('*')
         .eq('user_id', client.id)
@@ -245,7 +245,7 @@ const AdminAnalysis = () => {
     if (!selectedPeriod) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('ai_analysis')
         .select(`
           *,
@@ -284,7 +284,7 @@ const AdminAnalysis = () => {
   };
 
   const fetchViews = async (analysisIds: string[]) => {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from('ai_analysis_views')
       .select('*')
       .eq('user_id', selectedClient)
@@ -301,7 +301,7 @@ const AdminAnalysis = () => {
   };
 
   const fetchRequests = async (analysisIds: string[]) => {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from('ai_analysis_requests')
       .select('*')
       .eq('user_id', selectedClient)
@@ -411,7 +411,7 @@ const AdminAnalysis = () => {
 
       console.log('Uploads to analyze:', uploadsToAnalyze);
 
-      const response = await supabase.functions.invoke('analyze-performance', {
+      const response = await supa.functions.invoke('analyze-performance', {
         body: {
           periodData: period?.form_data || null,
           uploads: uploadsToAnalyze,
@@ -426,7 +426,7 @@ const AdminAnalysis = () => {
       const { analysis } = response.data;
 
       // Save analysis to database - include user_id so file-only analyses appear for the client when shared
-      const { error: saveError } = await supabase
+      const { error: saveError } = await supa
         .from('ai_analysis')
         .insert({
           user_id: selectedClient,
@@ -731,7 +731,7 @@ const AdminAnalysis = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={async () => {
-                                  const { error } = await supabase
+                                  const { error } = await supa
                                     .from('ai_analysis')
                                     .update({ shared_with_client: !analysis.shared_with_client })
                                     .eq('id', analysis.id);
@@ -869,7 +869,7 @@ const AdminAnalysis = () => {
                                     setNewMessages({...newMessages, [analysis.id]: ''});
 
                                     try {
-                                      const result = await supabase.functions.invoke('analyze-performance', {
+                                      const result = await supa.functions.invoke('analyze-performance', {
                                         body: {
                                           followUpPrompt: message,
                                           originalAnalysis: analysis.analysis_result,

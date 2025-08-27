@@ -52,7 +52,7 @@ const Uploads = () => {
 
   const fetchUploads = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('uploads')
         .select('*')
         .eq('user_id', user?.id)
@@ -84,7 +84,7 @@ const Uploads = () => {
 
   const downloadFile = async (filePath: string, originalName: string) => {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supa.storage
         .from('uploads')
         .download(filePath);
 
@@ -111,14 +111,14 @@ const Uploads = () => {
   const deleteFile = async (upload: Upload) => {
     try {
       // Delete from storage
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await supa.storage
         .from('uploads')
         .remove([upload.file_path]);
 
       if (storageError) throw storageError;
 
       // Delete from database
-      const { error: dbError } = await supabase
+      const { error: dbError } = await supa
         .from('uploads')
         .delete()
         .eq('id', upload.id);

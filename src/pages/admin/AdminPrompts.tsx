@@ -65,7 +65,7 @@ const [newPrompt, setNewPrompt] = useState({
 
   const fetchPrompts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('prompts')
         .select('*')
         .order('category');
@@ -89,7 +89,7 @@ const [newPrompt, setNewPrompt] = useState({
     try {
       if (prompt.id) {
         // Update existing prompt
-        const { error } = await supabase
+        const { error } = await supa
           .from('prompts')
           .update({
             title: prompt.title,
@@ -108,7 +108,7 @@ const [newPrompt, setNewPrompt] = useState({
         });
       } else {
         // Create new prompt
-        const { error } = await supabase
+        const { error } = await supa
           .from('prompts')
           .insert({
             category: prompt.category,
@@ -146,7 +146,7 @@ const [newPrompt, setNewPrompt] = useState({
     if (!confirm('Are you sure you want to delete this prompt?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('prompts')
         .delete()
         .eq('id', promptId);

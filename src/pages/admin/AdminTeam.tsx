@@ -57,7 +57,7 @@ export default function AdminTeam() {
     queryKey: ["agency-id", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("agency_id").eq("id", user!.id).single();
+      const { data, error } = await supa.from("profiles").select("agency_id").eq("id", user!.id).single();
       if (error) throw error;
       return data?.agency_id as string | null;
     },
@@ -67,7 +67,7 @@ export default function AdminTeam() {
     queryKey: ["team-members", agencyId],
     enabled: !!agencyId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("team_members")
         .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
         .eq("agency_id", agencyId!)
@@ -79,7 +79,7 @@ export default function AdminTeam() {
 
   useEffect(() => {
     if (!agencyId) return;
-    const channel = supabase
+    const channel = supa
       .channel("admin-team-members")
       .on(
         "postgres_changes",
@@ -88,7 +88,7 @@ export default function AdminTeam() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      supa.removeChannel(channel);
     };
   }, [agencyId, qc]);
 
@@ -143,10 +143,10 @@ const [form, setForm] = useState<FormState>({
       };
       
       if (editingId) {
-        const { error } = await supabase.from("team_members").update(updateData).eq("id", editingId);
+        const { error } = await supa.from("team_members").update(updateData).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
+        const { error } = await supa.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
         if (error) throw error;
       }
     },
@@ -161,7 +161,7 @@ const [form, setForm] = useState<FormState>({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("team_members").delete().eq("id", id);
+      const { error } = await supa.from("team_members").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
