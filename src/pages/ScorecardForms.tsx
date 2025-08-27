@@ -8,10 +8,11 @@ import TopNav from "@/components/TopNav";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
+import MetricsDashboard from "@/pages/MetricsDashboard";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("forms");
+  const [activeTab, setActiveTab] = useState("metrics");
   const { forms, loading } = useScorecardForms();
 
   return (
@@ -21,15 +22,19 @@ export default function ScorecardForms() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Scorecard Forms</h1>
+            <h1 className="text-3xl font-bold text-foreground">Metrics</h1>
             <p className="text-muted-foreground mt-2">
-              Create and manage daily KPI tracking forms for your team
+              View performance analytics and manage KPI tracking forms
             </p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="metrics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Metrics
+            </TabsTrigger>
             <TabsTrigger value="forms" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Forms
@@ -46,20 +51,20 @@ export default function ScorecardForms() {
               <Target className="h-4 w-4" />
               Targets
             </TabsTrigger>
-            <TabsTrigger value="dashboards" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Dashboards
-            </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Settings
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="metrics" className="space-y-6">
+            <MetricsDashboard />
+          </TabsContent>
+
           <TabsContent value="forms" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Form Templates</h2>
-              <Button onClick={() => navigate("/scorecard-forms/builder")}>
+              <Button onClick={() => navigate("/metrics/builder")}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Form
               </Button>
@@ -92,7 +97,7 @@ export default function ScorecardForms() {
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => navigate("/scorecard-forms/builder?role=sales")}
+                      onClick={() => navigate("/metrics/builder?role=sales")}
                     >
                       Create Sales Form
                     </Button>
@@ -113,7 +118,7 @@ export default function ScorecardForms() {
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => navigate("/scorecard-forms/builder?role=service")}
+                      onClick={() => navigate("/metrics/builder?role=service")}
                     >
                       Create Service Form
                     </Button>
@@ -157,38 +162,6 @@ export default function ScorecardForms() {
                 </p>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="dashboards" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sales Dashboard</CardTitle>
-                  <CardDescription>
-                    View sales team performance and metrics
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full" disabled>
-                    View Sales Dashboard
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Service Dashboard</CardTitle>
-                  <CardDescription>
-                    View service team performance and metrics
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full" disabled>
-                    View Service Dashboard
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

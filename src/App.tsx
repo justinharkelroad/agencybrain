@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -22,6 +22,8 @@ import ScorecardForms from "./pages/ScorecardForms";
 import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
 import ScorecardFormEditor from "./pages/ScorecardFormEditor";
 import PublicFormSubmission from "./pages/PublicFormSubmission";
+import Dashboard from "./pages/Dashboard";
+import MetricsEditRedirect from "./components/MetricsEditRedirect";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -55,7 +57,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <MetricsDashboard />
+                <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="/explorer" element={
@@ -88,22 +90,26 @@ const App = () => (
                 <ProcessVault />
               </ProtectedRoute>
             } />
-            {/* Scorecard Forms Routes */}
-            <Route path="/scorecard-forms" element={
+            {/* Metrics Routes */}
+            <Route path="/metrics" element={
               <ProtectedRoute>
                 <ScorecardForms />
               </ProtectedRoute>
             } />
-            <Route path="/scorecard-forms/builder" element={
+            <Route path="/scorecard-forms" element={<Navigate to="/metrics" replace />} />
+            <Route path="/metrics/builder" element={
               <ProtectedRoute>
                 <ScorecardFormBuilder />
               </ProtectedRoute>
             } />
-            <Route path="/scorecard-forms/edit/:formId" element={
+            <Route path="/metrics/edit/:formId" element={
               <ProtectedRoute>
                 <ScorecardFormEditor />
               </ProtectedRoute>
             } />
+            {/* Legacy scorecard-forms routes redirect to metrics */}
+            <Route path="/scorecard-forms/builder" element={<Navigate to="/metrics/builder" replace />} />
+            <Route path="/scorecard-forms/edit/:formId" element={<MetricsEditRedirect />} />
             {/* Public form submission - no auth required */}
             <Route path="/f/:slug" element={<PublicFormSubmission />} />
             {/* Phase 2: Targets and Scorecard Settings */}
