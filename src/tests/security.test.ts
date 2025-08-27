@@ -5,7 +5,7 @@ describe('Security Tests', () => {
   describe('Row Level Security', () => {
     it('should block anonymous access to form_templates', async () => {
       // Test that anon users cannot access form templates directly
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('form_templates')
         .select('*');
       
@@ -15,7 +15,7 @@ describe('Security Tests', () => {
 
     it('should block anonymous access to form_links', async () => {
       // Test that anon users cannot access form links directly
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('form_links')
         .select('*');
       
@@ -25,7 +25,7 @@ describe('Security Tests', () => {
 
     it('should block anonymous access to agencies', async () => {
       // Test that anon users cannot access agency data directly
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('agencies')
         .select('*');
       
@@ -35,7 +35,7 @@ describe('Security Tests', () => {
 
     it('should allow public form submissions via edge function only', async () => {
       // Test that public submissions work only through proper channels
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('submissions')
         .insert({
           form_template_id: '12345678-1234-1234-1234-123456789012',
