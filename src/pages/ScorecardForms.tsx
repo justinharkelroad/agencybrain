@@ -4,13 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, BarChart3, Users, Target, FileText, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import TopNav from "@/components/TopNav";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
 import MetricsDashboard from "@/pages/MetricsDashboard";
 import Explorer from "@/pages/Explorer";
-import { GeneralSettingsDialog } from "@/components/dialogs/GeneralSettingsDialog";
-import { KPIConfigDialog } from "@/components/dialogs/KPIConfigDialog";
+import { UnifiedSettingsDialog } from "@/components/dialogs/UnifiedSettingsDialog";
+import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
@@ -18,7 +19,9 @@ export default function ScorecardForms() {
   const { forms, loading } = useScorecardForms();
 
   return (
-    <div className="min-h-screen bg-background">      
+    <div className="min-h-screen bg-background">
+      <TopNav />
+      
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -153,12 +156,12 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Sales Targets</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <KPIConfigDialog title="Configure Sales KPIs" type="sales">
+                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales">
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Sales KPIs
                         </Button>
-                      </KPIConfigDialog>
+                      </EnhancedKPIConfigDialog>
                     </CardContent>
                   </Card>
                   <Card>
@@ -166,12 +169,12 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Service Targets</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <KPIConfigDialog title="Configure Service KPIs" type="service">
+                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service">
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Service KPIs
                         </Button>
-                      </KPIConfigDialog>
+                      </EnhancedKPIConfigDialog>
                     </CardContent>
                   </Card>
                 </div>
@@ -189,24 +192,12 @@ export default function ScorecardForms() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <GeneralSettingsDialog title="Timezone Settings">
+                  <UnifiedSettingsDialog title="General Settings">
                     <Button variant="outline" className="w-full justify-start">
                       <Settings className="h-4 w-4 mr-2" />
-                      Timezone Settings
+                      Configure Settings
                     </Button>
-                  </GeneralSettingsDialog>
-                  <GeneralSettingsDialog title="Notification Preferences">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Notification Preferences
-                    </Button>
-                  </GeneralSettingsDialog>
-                  <GeneralSettingsDialog title="Default Form Settings">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Default Form Settings
-                    </Button>
-                  </GeneralSettingsDialog>
+                  </UnifiedSettingsDialog>
                 </CardContent>
               </Card>
               
@@ -218,24 +209,22 @@ export default function ScorecardForms() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <KPIConfigDialog title="Sales Scoring Rules" type="sales">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Target className="h-4 w-4 mr-2" />
-                      Sales Scoring Rules
-                    </Button>
-                  </KPIConfigDialog>
-                  <KPIConfigDialog title="Service Scoring Rules" type="service">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Target className="h-4 w-4 mr-2" />
-                      Service Scoring Rules
-                    </Button>
-                  </KPIConfigDialog>
-                  <GeneralSettingsDialog title="Contest Settings">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Award className="h-4 w-4 mr-2" />
-                      Contest Settings
-                    </Button>
-                  </GeneralSettingsDialog>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate("/scorecard-settings?role=sales")}
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    Sales Scoring Rules
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate("/scorecard-settings?role=service")}
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    Service Scoring Rules
+                  </Button>
                 </CardContent>
               </Card>
             </div>

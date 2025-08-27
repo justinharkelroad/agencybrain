@@ -147,7 +147,9 @@ export default function Explorer() {
   };
 
   const updateFilter = (key: keyof SearchFilters, value: string | boolean) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // Handle "all" values as empty strings for API
+    const apiValue = (value === "all") ? "" : value;
+    setFilters(prev => ({ ...prev, [key]: apiValue }));
   };
 
   // Fetch agency slug and related data
@@ -283,7 +285,7 @@ export default function Explorer() {
                   <SelectValue placeholder="All staff members" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All staff members</SelectItem>
+                  <SelectItem value="all">All staff members</SelectItem>
                   {teamMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
@@ -302,7 +304,7 @@ export default function Explorer() {
                   <SelectValue placeholder="All lead sources" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All lead sources</SelectItem>
+                  <SelectItem value="all">All lead sources</SelectItem>
                   {leadSources.map((source) => (
                     <SelectItem key={source.id} value={source.name}>
                       {source.name}

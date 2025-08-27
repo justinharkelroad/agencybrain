@@ -153,18 +153,69 @@ export default function SubmissionDetail() {
           <CardContent>
             <div className="space-y-3">
               {submission.payload_json && typeof submission.payload_json === 'object' ? (
-                Object.entries(submission.payload_json).map(([key, value]) => (
-                  <div key={key} className="border-b pb-2 last:border-b-0">
-                    <span className="text-sm text-muted-foreground capitalize">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                    </span>
-                    <p className="font-medium">
-                      {typeof value === 'object' 
-                        ? JSON.stringify(value, null, 2) 
-                        : String(value)}
-                    </p>
-                  </div>
-                ))
+                Object.entries(submission.payload_json).map(([key, value]) => {
+                  // Handle repeater data (household information)
+                  if (key.includes('household') || key.includes('repeater') || Array.isArray(value)) {
+                    return (
+                      <div key={key} className="border rounded-md p-3">
+                        <span className="text-sm font-medium text-primary">
+                          {key === 'repeaterData' ? 'Household Information' : 
+                           key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                        </span>
+                        {Array.isArray(value) ? (
+                          <div className="mt-2 space-y-2">
+                            {value.map((item: any, index: number) => (
+                              <div key={index} className="bg-muted/50 rounded p-2">
+                                <div className="text-xs text-muted-foreground mb-1">Household {index + 1}</div>
+                                {typeof item === 'object' ? (
+                                  <div className="grid gap-1">
+                                    {Object.entries(item).map(([itemKey, itemValue]) => (
+                                      <div key={itemKey} className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground capitalize">
+                                          {itemKey.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
+                                        </span>
+                                        <span className="font-medium">{String(itemValue)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-sm">{String(item)}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : typeof value === 'object' ? (
+                          <div className="mt-2 grid gap-1">
+                            {Object.entries(value).map(([subKey, subValue]) => (
+                              <div key={subKey} className="flex justify-between text-sm">
+                                <span className="text-muted-foreground capitalize">
+                                  {subKey.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
+                                </span>
+                                <span className="font-medium">{String(subValue)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-sm">{String(value)}</p>
+                        )}
+                      </div>
+                    );
+                  }
+                  
+                  // Handle regular form fields
+                  return (
+                    <div key={key} className="border-b pb-2 last:border-b-0">
+                      <span className="text-sm text-muted-foreground capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                      </span>
+                      <p className="font-medium">
+                        {typeof value === 'object' 
+                          ? JSON.stringify(value, null, 2) 
+                          : String(value)}
+                      </p>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-muted-foreground">No data available</p>
               )}
