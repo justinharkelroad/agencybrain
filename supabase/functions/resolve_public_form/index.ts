@@ -53,8 +53,8 @@ serve(async (req) => {
       `)
       .eq("token", token)
       .eq("enabled", true)
-      .eq("form_templates.slug", formSlug)
-      .eq("agencies.slug", agencySlug)
+      .eq("form_template.slug", formSlug)
+      .eq("agency.slug", agencySlug)
       .single();
 
     if (error) return json(404, {code:"NOT_FOUND"});
