@@ -2,6 +2,12 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
+
 function json(status: number, body: any, extra: Record<string,string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -12,18 +18,22 @@ function json(status: number, body: any, extra: Record<string,string> = {}) {
       "referrer-policy": "no-referrer",
       "permissions-policy": "interest-cohort=()",
       "vary": "Host",
+      ...corsHeaders,
       ...extra
     }
   });
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const url = new URL(req.url);
-    // Parse URL path: /f/agencySlug/formSlug -> ["", "f", "agencySlug", "formSlug"]
-    const pathParts = url.pathname.split('/');
-    const agencySlug = pathParts[2] || "";
-    const formSlug = pathParts[3] || "";
+    const agencySlug = url.searchParams.get("agencySlug") || "";
+    const formSlug = url.searchParams.get("formSlug") || "";
     const token = url.searchParams.get("t") || "";
 
     if (!agencySlug || !formSlug || !token) return json(400, {code:"BAD_REQUEST"});

@@ -29,7 +29,7 @@ export default function PublicFormSubmission() {
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
-      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form/f/${agencySlug}/${formSlug}?t=${token}`;
+      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${agencySlug}&formSlug=${formSlug}&t=${token}`;
       const r = await fetch(u);
       if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
       const j = await r.json();
