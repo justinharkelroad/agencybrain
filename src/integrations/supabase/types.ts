@@ -1182,11 +1182,13 @@ export type Database = {
           agency_id: string
           created_at: string
           extras: Json | null
+          form_template_id: string
           household_name: string
           id: string
           is_final: boolean | null
           is_late: boolean | null
-          lead_source_id: string | null
+          lead_source: string | null
+          notes: string | null
           submission_id: string
           team_member_id: string
           work_date: string
@@ -1196,11 +1198,13 @@ export type Database = {
           agency_id: string
           created_at?: string
           extras?: Json | null
+          form_template_id: string
           household_name: string
           id?: string
           is_final?: boolean | null
           is_late?: boolean | null
-          lead_source_id?: string | null
+          lead_source?: string | null
+          notes?: string | null
           submission_id: string
           team_member_id: string
           work_date: string
@@ -1210,11 +1214,13 @@ export type Database = {
           agency_id?: string
           created_at?: string
           extras?: Json | null
+          form_template_id?: string
           household_name?: string
           id?: string
           is_final?: boolean | null
           is_late?: boolean | null
-          lead_source_id?: string | null
+          lead_source?: string | null
+          notes?: string | null
           submission_id?: string
           team_member_id?: string
           work_date?: string
@@ -1233,6 +1239,13 @@ export type Database = {
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quoted_households_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1714,6 +1727,10 @@ export type Database = {
           p_work_date: string
         }
         Returns: boolean
+      }
+      flatten_quoted_details: {
+        Args: { p_submission: string }
+        Returns: undefined
       }
       get_agency_dates_now: {
         Args: { p_agency_id: string }
