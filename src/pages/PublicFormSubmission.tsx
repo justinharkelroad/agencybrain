@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 type ResolvedForm = { 
   id: string; 
@@ -19,11 +20,17 @@ export default function PublicFormSubmission() {
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
-      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${agencySlug}&formSlug=${formSlug}&t=${token}`;
-      const r = await fetch(u);
-      if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
-      const j = await r.json();
-      setForm(j.form);
+      const { data, error } = await supabase.functions.invoke('resolve_public_form', {
+        body: { agencySlug, formSlug, token }
+      });
+      
+      if (error) { 
+        console.error('Form resolution error:', error);
+        setErr(error.message || "FORM_NOT_FOUND"); 
+        return; 
+      }
+      
+      setForm(data.form);
       // seed defaults including previous business day
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
@@ -54,20 +61,27 @@ export default function PublicFormSubmission() {
   const submit = async () => {
     // required system fields
     if (!values.team_member_id || !values.submission_date) { setErr("MISSING_FIELDS"); return; }
-    const r = await fetch("https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/submit_public_form", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        agencySlug, formSlug, token,
+    
+    const { data, error } = await supabase.functions.invoke('submit_public_form', {
+      body: {
+        agencySlug, 
+        formSlug, 
+        token,
         teamMemberId: values.team_member_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
         values
-      })
+      }
     });
-    if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
+    
+    if (error) { 
+      console.error('Submission error:', error);
+      setErr(error.message || "SUBMISSION_ERROR"); 
+      return; 
+    }
+    
     setErr(null);
-    alert("Submitted");
+    alert("Submitted successfully!");
   };
 
   if (err) return (
