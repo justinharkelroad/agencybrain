@@ -274,6 +274,20 @@ export default function PublicFormSubmission() {
                                   <option key={o} value={o}>{o}</option>
                                 ))}
                               </select>
+                            ) : field.type === "longtext" ? (
+                              <textarea
+                                value={row[field.key] || ""}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setValues(prev => {
+                                    const next = [...(prev[sectionKey] || [])];
+                                    next[i] = { ...(next[i] || {}), [field.key]: v };
+                                    return { ...prev, [sectionKey]: next };
+                                  });
+                                }}
+                                rows={3}
+                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical"
+                              />
                             ) : (
                               <input
                                 type={field.type === "number" ? "number" : "text"}
