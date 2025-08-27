@@ -133,7 +133,7 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
                 <SelectValue placeholder="Select option..." />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map((option, idx) => (
+                {field.options?.filter(option => option && option.trim() !== '').map((option, idx) => (
                   <SelectItem key={idx} value={option}>{option}</SelectItem>
                 ))}
               </SelectContent>

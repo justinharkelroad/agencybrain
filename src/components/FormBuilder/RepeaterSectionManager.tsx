@@ -72,7 +72,7 @@ export default function RepeaterSectionManager({
 
   const addOptionToField = (fieldIndex: number) => {
     const field = section.fields[fieldIndex];
-    const newOptions = [...(field.options || []), ''];
+    const newOptions = [...(field.options || []), 'New Option'];
     updateField(fieldIndex, { options: newOptions });
   };
 

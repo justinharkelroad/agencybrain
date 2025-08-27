@@ -47,7 +47,7 @@ export default function CustomFieldManager({
 
   const addOptionToField = (fieldIndex: number) => {
     const field = fields[fieldIndex];
-    const newOptions = [...(field.options || []), ''];
+    const newOptions = [...(field.options || []), 'New Option'];
     onUpdateField(fieldIndex, { options: newOptions });
   };
 
