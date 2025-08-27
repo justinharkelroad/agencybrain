@@ -154,68 +154,78 @@ export default function SubmissionDetail() {
             <div className="space-y-3">
               {submission.payload_json && typeof submission.payload_json === 'object' ? (
                 Object.entries(submission.payload_json).map(([key, value]) => {
-                  // Handle repeater data (household information)
-                  if (key.includes('household') || key.includes('repeater') || Array.isArray(value)) {
-                    return (
-                      <div key={key} className="border rounded-md p-3">
-                        <span className="text-sm font-medium text-primary">
-                          {key === 'repeaterData' ? 'Household Information' : 
-                           key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
-                        </span>
-                        {Array.isArray(value) ? (
-                          <div className="mt-2 space-y-2">
-                            {value.map((item: any, index: number) => (
-                              <div key={index} className="bg-muted/50 rounded p-2">
-                                <div className="text-xs text-muted-foreground mb-1">Household {index + 1}</div>
-                                {typeof item === 'object' ? (
-                                  <div className="grid gap-1">
-                                    {Object.entries(item).map(([itemKey, itemValue]) => (
-                                      <div key={itemKey} className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground capitalize">
-                                          {itemKey.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
-                                        </span>
-                                        <span className="font-medium">{String(itemValue)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-sm">{String(item)}</div>
-                                )}
+                  // Handle repeater data from the correct path: payload_json.repeaterData.quotedDetails  
+                  if (key === 'repeaterData' && typeof value === 'object' && value !== null) {
+                    const quotedDetails = (value as any).quotedDetails;
+                    if (Array.isArray(quotedDetails) && quotedDetails.length > 0) {
+                      return (
+                        <div key={key} className="border rounded-md p-3">
+                          <span className="text-sm font-medium text-primary mb-2 block">
+                            Quoted Household Details
+                          </span>
+                          <div className="space-y-3">
+                            {quotedDetails.map((household: any, index: number) => (
+                              <div key={index} className="bg-muted/50 rounded p-3 border border-border/50">
+                                <div className="text-xs text-muted-foreground mb-2 font-medium">
+                                  Household {index + 1}
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {household.household_name && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground">Household Name:</span>
+                                      <div className="font-medium">{household.household_name}</div>
+                                    </div>
+                                  )}
+                                  {household.lead_source && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground">Lead Source:</span>
+                                      <div className="font-medium">{household.lead_source}</div>
+                                    </div>
+                                  )}
+                                  {household.zip_code && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground">ZIP Code:</span>
+                                      <div className="font-medium">{household.zip_code}</div>
+                                    </div>
+                                  )}
+                                  {household.notes && (
+                                    <div className="sm:col-span-2">
+                                      <span className="text-xs text-muted-foreground">Notes:</span>
+                                      <div className="font-medium">{household.notes}</div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
-                        ) : typeof value === 'object' ? (
-                          <div className="mt-2 grid gap-1">
-                            {Object.entries(value).map(([subKey, subValue]) => (
-                              <div key={subKey} className="flex justify-between text-sm">
-                                <span className="text-muted-foreground capitalize">
-                                  {subKey.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
-                                </span>
-                                <span className="font-medium">{String(subValue)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="mt-1 text-sm">{String(value)}</p>
-                        )}
-                      </div>
-                    );
+                        </div>
+                      );
+                    }
                   }
                   
-                  // Handle regular form fields
+                  // Skip repeaterData if no quotedDetails to avoid showing empty object
+                  if (key === 'repeaterData') {
+                    return null;
+                  }
+                  
+                  // Handle regular form fields - skip internal fields
+                  if (key.includes('team_member_id') || key.includes('submission_date') || key.includes('work_date')) {
+                    return null;
+                  }
+                  
                   return (
                     <div key={key} className="border-b pb-2 last:border-b-0">
                       <span className="text-sm text-muted-foreground capitalize">
                         {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
                       </span>
                       <p className="font-medium">
-                        {typeof value === 'object' 
+                        {typeof value === 'object' && value !== null
                           ? JSON.stringify(value, null, 2) 
-                          : String(value)}
+                          : String(value || '—')}
                       </p>
                     </div>
                   );
-                })
+                }).filter(Boolean)
               ) : (
                 <p className="text-muted-foreground">No data available</p>
               )}

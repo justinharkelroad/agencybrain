@@ -1,13 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings } from "lucide-react";
 import { toast } from "sonner";
+import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+
+interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  order_index: number;
+}
 
 interface UnifiedSettingsDialogProps {
   title: string;
@@ -16,6 +24,8 @@ interface UnifiedSettingsDialogProps {
 }
 
 export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettingsDialogProps) {
+  const { user } = useAuth();
+  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [settings, setSettings] = useState({
     timezone: "America/New_York",
     notifications: {
@@ -31,6 +41,30 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
       prize: ""
     }
   });
+
+  useEffect(() => {
+    const fetchLeadSources = async () => {
+      if (!user?.id) return;
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.agency_id) {
+        const { data: sources } = await supabase
+          .from('lead_sources')
+          .select('*')
+          .eq('agency_id', profile.agency_id)
+          .order('order_index');
+        
+        setLeadSources(sources || []);
+      }
+    };
+
+    fetchLeadSources();
+  }, [user?.id]);
 
   const handleSave = () => {
     // TODO: Implement actual settings save
@@ -113,6 +147,17 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
             />
           </div>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* Lead Source Management */}
+      <div className="space-y-3">
+        <Label>Lead Sources</Label>
+        <LeadSourceManager 
+          leadSources={leadSources}
+          onUpdateLeadSources={setLeadSources}
+        />
       </div>
 
       <Separator />

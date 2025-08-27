@@ -4,11 +4,9 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { TopNav } from "@/components/TopNav";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
-import { Download, TrendingUp, Users, Target, Award } from "lucide-react";
+import { TrendingUp, Users, Target, Award } from "lucide-react";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -57,10 +55,16 @@ export default function MetricsDashboard() {
 
   const [agencySlug, setAgencySlug] = useState<string>("");
   const [role, setRole] = useState<Role>("Sales");
-  const [start, setStart] = useState<string>(new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10));
-  const [end, setEnd] = useState<string>(new Date(Date.now() - 86400000).toISOString().slice(0, 10));
-  const [quotedLabel, setQuotedLabel] = useState<"households" | "policies" | "items" | "quotes">("households");
-  const [soldMetric, setSoldMetric] = useState<"items" | "policies" | "premium">("items");
+  // Default to previous business day only
+  const getPreviousBusinessDay = () => {
+    const yesterday = new Date(Date.now() - 86400000);
+    return yesterday.toISOString().slice(0, 10);
+  };
+  const [start, setStart] = useState<string>(getPreviousBusinessDay());
+  const [end, setEnd] = useState<string>(getPreviousBusinessDay());
+  // Fixed metrics based on default KPIs - no user selection needed
+  const quotedLabel = "households";
+  const soldMetric = "items";
   const [tiles, setTiles] = useState<Tiles | null>(null);
   const [rows, setRows] = useState<TableRow[]>([]);
   const [series, setSeries] = useState<DailySeries[]>([]);
@@ -137,28 +141,13 @@ export default function MetricsDashboard() {
     if (agencySlug) {
       fetchData();
     }
-  }, [agencySlug, role, start, end, quotedLabel, soldMetric]);
+  }, [agencySlug, role, start, end]);
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  
-  const exportCsv = () => {
-    const headers = ["Rep", "Outbound", "Talk", "Quoted", "SoldItems", "SoldPolicies", "SoldPremium", "PassDays", "Score", "Streak"];
-    const lines = rows.map(r => [
-      r.team_member_name, r.outbound_calls, r.talk_minutes, r.quoted_count, r.sold_items,
-      r.sold_policies, money(r.sold_premium_cents), r.pass_days, r.score_sum, r.streak
-    ].join(","));
-    const blob = new Blob([[headers.join(","), ...lines].join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); 
-    a.href = url; 
-    a.download = `dashboard_${role}_${start}_${end}.csv`; 
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
-    <div className="min-h-screen bg-background" data-testid="metrics-dashboard">
-      <TopNav />
+    <div className="bg-background" data-testid="metrics-dashboard">
+      {/* Remove TopNav since this component is embedded in ScorecardForms which already has TopNav */}
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <div className="space-y-3">
@@ -179,7 +168,7 @@ export default function MetricsDashboard() {
             <CardTitle className="text-lg">Dashboard Controls</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="flex flex-col space-y-2">
                 <label className="text-sm font-medium">Role</label>
                 <select 
@@ -208,43 +197,6 @@ export default function MetricsDashboard() {
                   value={end} 
                   onChange={e => setEnd(e.target.value)} 
                 />
-              </div>
-              <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Quoted Label</label>
-                <select 
-                  className="border border-input bg-background px-3 py-2 rounded-md text-sm"
-                  value={quotedLabel} 
-                  onChange={e => setQuotedLabel(e.target.value as any)}
-                >
-                  <option value="households">Households</option>
-                  <option value="policies">Policies</option>
-                  <option value="items">Items</option>
-                  <option value="quotes">Quotes</option>
-                </select>
-              </div>
-              <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Sold Metric</label>
-                <select 
-                  className="border border-input bg-background px-3 py-2 rounded-md text-sm"
-                  value={soldMetric} 
-                  onChange={e => setSoldMetric(e.target.value as any)}
-                >
-                  <option value="items">Items</option>
-                  <option value="policies">Policies</option>
-                  <option value="premium">Premium</option>
-                </select>
-              </div>
-              <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Export</label>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={exportCsv}
-                  className="w-full"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  CSV
-                </Button>
               </div>
             </div>
             {loading && (
@@ -308,9 +260,8 @@ export default function MetricsDashboard() {
                     <Th>Rep</Th>
                     <Th>Outbound</Th>
                     <Th>Talk</Th>
-                    <Th>{quotedLabel}</Th>
-                    {soldMetric !== "premium" && <Th>Sold {soldMetric}</Th>}
-                    {soldMetric === "premium" && <Th>Sold Premium</Th>}
+                     <Th>Quoted Households</Th>
+                     <Th>Items Sold</Th>
                     <Th>Pass Days</Th>
                     <Th>Score</Th>
                     <Th>Streak</Th>
@@ -322,9 +273,8 @@ export default function MetricsDashboard() {
                       <Td className="font-medium">{r.team_member_name}</Td>
                       <Td>{r.outbound_calls}</Td>
                       <Td>{r.talk_minutes}</Td>
-                      <Td>{r.quoted_count}</Td>
-                      {soldMetric !== "premium" && <Td>{soldMetric === "items" ? r.sold_items : r.sold_policies}</Td>}
-                      {soldMetric === "premium" && <Td>{money(r.sold_premium_cents)}</Td>}
+                       <Td>{r.quoted_count}</Td>
+                       <Td>{r.sold_items}</Td>
                       <Td>
                         <Badge variant={r.pass_days > 0 ? "default" : "secondary"}>
                           {r.pass_days}
@@ -368,22 +318,22 @@ export default function MetricsDashboard() {
                         borderRadius: "6px"
                       }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="quoted_count" 
-                      name={quotedLabel} 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      dot={false} 
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey={soldMetric === "items" ? "sold_items" : soldMetric === "policies" ? "sold_policies" : "sold_premium_cents"} 
-                      name={`Sold ${soldMetric}`} 
-                      stroke="hsl(var(--secondary))" 
-                      strokeWidth={2}
-                      dot={false} 
-                    />
+                     <Line 
+                       type="monotone" 
+                       dataKey="quoted_count" 
+                       name="Quoted Households" 
+                       stroke="hsl(var(--primary))" 
+                       strokeWidth={2}
+                       dot={false} 
+                     />
+                     <Line 
+                       type="monotone" 
+                       dataKey="sold_items" 
+                       name="Items Sold" 
+                       stroke="hsl(var(--secondary))" 
+                       strokeWidth={2}
+                       dot={false} 
+                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

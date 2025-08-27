@@ -10,7 +10,7 @@ import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
-import LeadSourceManager from "@/components/FormBuilder/LeadSourceManager";
+import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";

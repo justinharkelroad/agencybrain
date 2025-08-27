@@ -11,7 +11,13 @@ type Field = {
   builtin: boolean;
   position: number;
 };
-type ResolvedForm = { id:string; slug:string; settings:any; fields:Field[] };
+type ResolvedForm = { 
+  id: string; 
+  slug: string; 
+  settings: any; 
+  fields: Field[];
+  team_members?: Array<{ id: string; name: string; }>;
+};
 
 export default function PublicFormSubmission() {
   const { slug } = useParams();
@@ -29,8 +35,9 @@ export default function PublicFormSubmission() {
       if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
       const j = await r.json();
       setForm(j.form);
-      // seed defaults
-      setValues(v => ({ ...v, submission_date: new Date().toISOString().slice(0,10) }));
+      // seed defaults including previous business day
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
     })();
   }, [agencySlug, slug, token]);
 
@@ -74,9 +81,11 @@ export default function PublicFormSubmission() {
         <label className="flex flex-col">
           <span>Staff</span>
           <select value={values.staff_id || ""} onChange={e=>onChange("staff_id", e.target.value)}>
-            {/* Populate from your Team endpoint or embed a dataset */}
-            <option value="">Select</option>
-            {/* TODO: fetch real team list filtered by role */}
+            <option value="">Select Staff Member</option>
+            {/* TODO: Replace with actual team member list from form.team_members */}
+            {form.team_members?.map((member: any) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
+            ))}
           </select>
         </label>
 

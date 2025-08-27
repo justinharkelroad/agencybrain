@@ -39,10 +39,16 @@ interface SearchFilters {
 export default function Explorer() {
   const { user } = useAuth();
 
+  // Default to previous business day
+  const getPreviousBusinessDay = () => {
+    const yesterday = new Date(Date.now() - 86400000);
+    return yesterday.toISOString().slice(0, 10);
+  };
+
   const [filters, setFilters] = useState<SearchFilters>({
     q: "",
-    start: "",
-    end: "",
+    start: getPreviousBusinessDay(),
+    end: getPreviousBusinessDay(),
     staffId: "",
     leadSource: "",
     finalOnly: true,
