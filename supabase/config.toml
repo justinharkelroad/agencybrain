@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.scheduler_email]
 verify_jwt = false
+
+[functions.get_dashboard]
+verify_jwt = true

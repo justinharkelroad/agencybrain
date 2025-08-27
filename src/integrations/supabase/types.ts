@@ -25,6 +25,7 @@ export type Database = {
           agent_cell: string | null
           agent_name: string | null
           cc_owner_on_reminders: boolean | null
+          contest_board_enabled: boolean
           created_at: string
           description: string | null
           email_from: string | null
@@ -49,6 +50,7 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           cc_owner_on_reminders?: boolean | null
+          contest_board_enabled?: boolean
           created_at?: string
           description?: string | null
           email_from?: string | null
@@ -73,6 +75,7 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           cc_owner_on_reminders?: boolean | null
+          contest_board_enabled?: boolean
           created_at?: string
           description?: string | null
           email_from?: string | null
@@ -1582,7 +1585,102 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_dashboard_weekly: {
+        Row: {
+          agency_id: string | null
+          counted_days: number | null
+          cross_sells_uncovered: number | null
+          end_date: string | null
+          mini_reviews: number | null
+          outbound_calls: number | null
+          pass_days: number | null
+          quoted_count: number | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          sold_items: number | null
+          sold_policies: number | null
+          sold_premium_cents: number | null
+          start_date: string | null
+          talk_minutes: number | null
+          team_member_id: string | null
+          team_member_name: string | null
+          weekly_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_dashboard_yesterday: {
+        Row: {
+          agency_id: string | null
+          cross_sells_uncovered: number | null
+          daily_score: number | null
+          date: string | null
+          hits: number | null
+          is_counted_day: boolean | null
+          is_late: boolean | null
+          mini_reviews: number | null
+          outbound_calls: number | null
+          pass: boolean | null
+          quoted_count: number | null
+          quoted_entity: string | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          sold_items: number | null
+          sold_policies: number | null
+          sold_premium_cents: number | null
+          streak_count: number | null
+          talk_minutes: number | null
+          team_member_id: string | null
+          team_member_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_metrics_with_team: {
+        Row: {
+          agency_id: string | null
+          cross_sells_uncovered: number | null
+          daily_score: number | null
+          date: string | null
+          hits: number | null
+          is_counted_day: boolean | null
+          is_late: boolean | null
+          mini_reviews: number | null
+          outbound_calls: number | null
+          pass: boolean | null
+          quoted_count: number | null
+          quoted_entity: string | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          sold_items: number | null
+          sold_policies: number | null
+          sold_premium_cents: number | null
+          streak_count: number | null
+          talk_minutes: number | null
+          team_member_id: string | null
+          team_member_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _nz_int: {
@@ -1620,6 +1718,10 @@ export type Database = {
       get_agency_dates_now: {
         Args: { p_agency_id: string }
         Returns: Json
+      }
+      get_agency_id_by_slug: {
+        Args: { p_slug: string }
+        Returns: string
       }
       get_agency_safe: {
         Args: { agency_id_param: string }
