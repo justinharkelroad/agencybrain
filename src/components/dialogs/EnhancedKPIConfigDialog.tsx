@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart3, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface KPITarget {
   id: string;
@@ -19,32 +20,98 @@ interface EnhancedKPIConfigDialogProps {
   title: string;
   type: "sales" | "service";
   children: React.ReactNode;
+  agencyId?: string;
 }
 
 const defaultSalesKPIs: KPITarget[] = [
-  { id: "outbound_calls", label: "Outbound Calls", value: 20, isDefault: true },
-  { id: "talk_minutes", label: "Talk Minutes", value: 60, isDefault: true },
-  { id: "quoted_households", label: "Quoted Households", value: 3, isDefault: true },
+  { id: "outbound_calls", label: "Outbound Calls", value: 100, isDefault: true },
+  { id: "talk_minutes", label: "Talk Minutes", value: 180, isDefault: true },
+  { id: "quoted_count", label: "Quoted Count", value: 5, isDefault: true },
   { id: "sold_items", label: "Items Sold", value: 2, isDefault: true },
 ];
 
 const defaultServiceKPIs: KPITarget[] = [
-  { id: "outbound_calls", label: "Outbound Calls", value: 15, isDefault: true },
-  { id: "talk_minutes", label: "Talk Minutes", value: 45, isDefault: true },
-  { id: "quoted_households", label: "Quoted Households", value: 2, isDefault: true },
-  { id: "sold_items", label: "Items Sold", value: 1, isDefault: true },
+  { id: "outbound_calls", label: "Outbound Calls", value: 30, isDefault: true },
+  { id: "talk_minutes", label: "Talk Minutes", value: 180, isDefault: true },
+  { id: "cross_sells_uncovered", label: "Cross-sells", value: 2, isDefault: true },
+  { id: "mini_reviews", label: "Mini-reviews", value: 5, isDefault: true },
 ];
 
-export function EnhancedKPIConfigDialog({ title, type, children }: EnhancedKPIConfigDialogProps) {
+export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: EnhancedKPIConfigDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [kpis, setKpis] = useState<KPITarget[]>(
     type === "sales" ? [...defaultSalesKPIs] : [...defaultServiceKPIs]
   );
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
-    // TODO: Save to database
-    toast.success(`${type === "sales" ? "Sales" : "Service"} KPI targets saved!`);
-    setIsOpen(false);
+  // Load existing targets when dialog opens
+  useEffect(() => {
+    if (isOpen && agencyId) {
+      loadExistingTargets();
+    }
+  }, [isOpen, agencyId]);
+
+  const loadExistingTargets = async () => {
+    if (!agencyId) return;
+    
+    try {
+      const { data: targets } = await supabase
+        .from('targets')
+        .select('metric_key, value_number')
+        .eq('agency_id', agencyId)
+        .is('team_member_id', null);
+
+      if (targets && targets.length > 0) {
+        const defaults = type === "sales" ? [...defaultSalesKPIs] : [...defaultServiceKPIs];
+        const updatedKpis = defaults.map(kpi => {
+          const existingTarget = targets.find(t => t.metric_key === kpi.id);
+          return existingTarget ? { ...kpi, value: existingTarget.value_number } : kpi;
+        });
+        setKpis(updatedKpis);
+      }
+    } catch (error) {
+      console.error('Error loading targets:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!agencyId) {
+      toast.error("Agency ID not found");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete existing targets for this agency and type
+      await supabase
+        .from('targets')
+        .delete()
+        .eq('agency_id', agencyId)
+        .is('team_member_id', null)
+        .in('metric_key', kpis.map(kpi => kpi.id));
+
+      // Insert new targets
+      const targetsToInsert = kpis.map(kpi => ({
+        agency_id: agencyId,
+        metric_key: kpi.id,
+        value_number: kpi.value,
+        team_member_id: null
+      }));
+
+      const { error } = await supabase
+        .from('targets')
+        .insert(targetsToInsert);
+
+      if (error) throw error;
+
+      toast.success(`${type === "sales" ? "Sales" : "Service"} KPI targets saved!`);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error saving targets:', error);
+      toast.error("Failed to save targets");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -159,7 +226,9 @@ export function EnhancedKPIConfigDialog({ title, type, children }: EnhancedKPICo
             <DialogClose asChild>
               <Button variant="outline" onClick={handleCancel}>Cancel</Button>
             </DialogClose>
-            <Button onClick={handleSave}>Save Targets</Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? "Saving..." : "Save Targets"}
+            </Button>
           </div>
         </div>
       </DialogContent>

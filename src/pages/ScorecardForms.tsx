@@ -16,7 +16,7 @@ import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigD
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
-  const { forms, loading } = useScorecardForms();
+  const { forms, loading, agencyId } = useScorecardForms();
 
   return (
     <div className="min-h-screen bg-background">
@@ -156,7 +156,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Sales Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales">
+                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales" agencyId={agencyId}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Sales KPIs
@@ -177,7 +177,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Service Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service">
+                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service" agencyId={agencyId}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Service KPIs
