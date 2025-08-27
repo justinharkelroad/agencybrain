@@ -24,15 +24,15 @@ interface EnhancedKPIConfigDialogProps {
 const defaultSalesKPIs: KPITarget[] = [
   { id: "outbound_calls", label: "Outbound Calls", value: 20, isDefault: true },
   { id: "talk_minutes", label: "Talk Minutes", value: 60, isDefault: true },
-  { id: "quoted_count", label: "Quoted Count", value: 3, isDefault: true },
-  { id: "sold_premium", label: "Sold Premium ($)", value: 500, isDefault: true },
+  { id: "quoted_households", label: "Quoted Households", value: 3, isDefault: true },
+  { id: "sold_items", label: "Items Sold", value: 2, isDefault: true },
 ];
 
 const defaultServiceKPIs: KPITarget[] = [
   { id: "outbound_calls", label: "Outbound Calls", value: 15, isDefault: true },
   { id: "talk_minutes", label: "Talk Minutes", value: 45, isDefault: true },
-  { id: "cross_sells_uncovered", label: "Cross-sells Uncovered", value: 2, isDefault: true },
-  { id: "mini_reviews", label: "Mini Reviews", value: 5, isDefault: true },
+  { id: "quoted_households", label: "Quoted Households", value: 2, isDefault: true },
+  { id: "sold_items", label: "Items Sold", value: 1, isDefault: true },
 ];
 
 export function EnhancedKPIConfigDialog({ title, type, children }: EnhancedKPIConfigDialogProps) {

@@ -261,28 +261,26 @@ export default function MetricsDashboard() {
           </CardContent>
         </Card>
 
-        {/* Tiles */}
+        {/* Tiles - Default 4 KPIs only */}
         {tiles && (
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <MetricTile title="Outbound Calls" value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
             <MetricTile title="Talk Minutes" value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
-            <MetricTile title={quotedLabel.charAt(0).toUpperCase() + quotedLabel.slice(1)} value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
-            <MetricTile title="Sold Items" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
-            <MetricTile title="Sold Policies" value={tiles.sold_policies} icon={<Award className="h-5 w-5" />} />
-            <MetricTile 
-              title="Sold Premium" 
-              value={money(tiles.sold_premium_cents)} 
-              icon={<Award className="h-5 w-5" />}
-              isMonetary
-            />
+            <MetricTile title="Quoted Households" value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
+            <MetricTile title="Items Sold" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
           </div>
         )}
 
-        {/* Pass Rate */}
+        {/* Team Performance with Date */}
         {tiles && (
           <Card className="glass-surface">
             <CardHeader>
-              <CardTitle className="text-lg">Team Performance</CardTitle>
+              <CardTitle className="text-lg flex items-center justify-between">
+                Team Member Performance
+                <span className="text-sm font-normal text-muted-foreground">
+                  {start === end ? start : `${start} to ${end}`}
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">

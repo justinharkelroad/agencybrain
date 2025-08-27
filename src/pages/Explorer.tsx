@@ -378,7 +378,9 @@ export default function Explorer() {
                   {rows.map((row) => (
                     <tr key={row.id} className="border-b hover:bg-muted/50">
                       <td className="p-3">{row.work_date}</td>
-                      <td className="p-3 font-mono text-xs">{row.team_member_id}</td>
+                      <td className="p-3">
+                        {teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id}
+                      </td>
                       <td className="p-3 font-medium">{row.household_name}</td>
                       <td className="p-3">{row.lead_source || "—"}</td>
                       <td className="p-3">{row.zip || "—"}</td>

@@ -144,37 +144,53 @@ export default function ScorecardForms() {
           <TabsContent value="targets" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Performance Targets</CardTitle>
+                <CardTitle>Performance Targets & Scoring</CardTitle>
                 <CardDescription>
-                  Set and manage KPI targets for your team members
+                  Set KPI targets and configure scoring rules for your team members
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+              <CardContent className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Sales Targets</CardTitle>
+                      <CardTitle className="text-lg">Sales Targets & Details</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                       <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales">
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Sales KPIs
                         </Button>
                       </EnhancedKPIConfigDialog>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => navigate("/scorecard-settings?role=sales")}
+                      >
+                        <Award className="h-4 w-4 mr-2" />
+                        Sales Scoring Rules
+                      </Button>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Service Targets</CardTitle>
+                      <CardTitle className="text-lg">Service Targets & Details</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                       <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service">
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Service KPIs
                         </Button>
                       </EnhancedKPIConfigDialog>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => navigate("/scorecard-settings?role=service")}
+                      >
+                        <Award className="h-4 w-4 mr-2" />
+                        Service Scoring Rules
+                      </Button>
                     </CardContent>
                   </Card>
                 </div>
@@ -183,51 +199,21 @@ export default function ScorecardForms() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>General Settings</CardTitle>
-                  <CardDescription>
-                    Configure basic agency settings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <UnifiedSettingsDialog title="General Settings">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Configure Settings
-                    </Button>
-                  </UnifiedSettingsDialog>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Scoring Rules</CardTitle>
-                  <CardDescription>
-                    Configure pass/fail criteria and scoring
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate("/scorecard-settings?role=sales")}
-                  >
-                    <Target className="h-4 w-4 mr-2" />
-                    Sales Scoring Rules
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start"
-                    onClick={() => navigate("/scorecard-settings?role=service")}
-                  >
-                    <Target className="h-4 w-4 mr-2" />
-                    Service Scoring Rules
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>General Settings</CardTitle>
+                <CardDescription>
+                  Configure basic agency settings and preferences
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UnifiedSettingsDialog title="General Settings">
+                  <div className="w-full">
+                    {/* Settings form content will be displayed directly here instead of behind a button */}
+                  </div>
+                </UnifiedSettingsDialog>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
