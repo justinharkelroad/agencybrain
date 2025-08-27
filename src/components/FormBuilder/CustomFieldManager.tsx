@@ -10,7 +10,7 @@ import { Plus, Trash2 } from "lucide-react";
 interface CustomField {
   key: string;
   label: string;
-  type: 'text' | 'dropdown' | 'radio' | 'checkbox' | 'date';
+  type: 'text' | 'longtext' | 'dropdown' | 'radio' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
 }
@@ -126,7 +126,8 @@ export default function CustomFieldManager({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="text">Short Text</SelectItem>
+                  <SelectItem value="longtext">Long Text</SelectItem>
                   <SelectItem value="dropdown">Dropdown</SelectItem>
                   <SelectItem value="radio">Radio</SelectItem>
                   <SelectItem value="checkbox">Checkbox</SelectItem>

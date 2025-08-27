@@ -202,11 +202,11 @@ export default function PublicFormSubmission() {
                     <label className="text-sm font-medium text-foreground">
                       {field.label}{field.required && <span className="text-destructive"> *</span>}
                     </label>
-                    {field.type === "textarea" ? (
+                    {(field.type === "textarea" || field.type === "longtext") ? (
                       <textarea 
                         value={values[field.key] ?? ""} 
                         onChange={e=>onChange(field.key, e.target.value)}
-                        rows={3}
+                        rows={4}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
                       />
                     ) : field.type === "select" ? (

@@ -11,7 +11,7 @@ import { useState } from "react";
 interface RepeaterField {
   key: string;
   label: string;
-  type: 'text' | 'select' | 'number' | 'currency';
+  type: 'text' | 'longtext' | 'select' | 'number' | 'currency';
   required: boolean;
   options?: string[];
 }
@@ -175,7 +175,8 @@ export default function RepeaterSectionManager({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="text">Short Text</SelectItem>
+                              <SelectItem value="longtext">Long Text</SelectItem>
                               <SelectItem value="select">Dropdown</SelectItem>
                               <SelectItem value="number">Number</SelectItem>
                               <SelectItem value="currency">Currency</SelectItem>
