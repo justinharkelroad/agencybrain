@@ -65,7 +65,7 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('validate-invite', {
+      const { data, error } = await supa.functions.invoke('validate-invite', {
         body: { code: inviteCode.trim() },
       });
 

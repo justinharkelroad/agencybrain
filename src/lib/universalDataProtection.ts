@@ -9,6 +9,189 @@ export interface DataProtectionSettings<T> {
   retentionDays?: number;
 }
 
+// Additional types for universal data protection hook
+export interface UniversalDataBackup<T> {
+  formData: T;
+  metadata: UniversalBackupMetadata;
+}
+
+export interface UniversalBackupMetadata {
+  formType: string;
+  timestamp: string;
+  userId?: string;
+  version?: string;
+}
+
+export interface UniversalDataProtectionStatus {
+  isHealthy: boolean;
+  lastBackup?: string;
+  backupCount: number;
+  autoBackupEnabled: boolean;
+  syncStatus?: 'synced' | 'pending' | 'failed';
+  lastValidated?: string;
+}
+
+export interface UniversalValidationResult {
+  isValid: boolean;
+  warnings: string[];
+  criticalIssues: string[];
+}
+
+// Universal Data Protection Service
+export class UniversalDataProtectionService {
+  static getProtectionStatus(formType: string): UniversalDataProtectionStatus {
+    return {
+      isHealthy: true,
+      backupCount: 0,
+      autoBackupEnabled: true
+    };
+  }
+
+  static createPeriodicBackup<T>(formData: T, formType: string, userId?: string): void {
+    // Local storage backup implementation
+    const backup: UniversalDataBackup<T> = {
+      formData,
+      metadata: {
+        formType,
+        timestamp: new Date().toISOString(),
+        userId,
+        version: '1.0'
+      }
+    };
+    
+    const storageKey = `backup_${formType}`;
+    const existing = localStorage.getItem(storageKey);
+    const backups: UniversalDataBackup<T>[] = existing ? JSON.parse(existing) : [];
+    backups.unshift(backup);
+    
+    // Keep only last 10 backups
+    if (backups.length > 10) {
+      backups.splice(10);
+    }
+    
+    localStorage.setItem(storageKey, JSON.stringify(backups));
+  }
+
+  static getBackupsFromStorage<T>(formType: string): UniversalDataBackup<T>[] {
+    const storageKey = `backup_${formType}`;
+    const existing = localStorage.getItem(storageKey);
+    return existing ? JSON.parse(existing) : [];
+  }
+
+  static validateBackup<T>(backup: UniversalDataBackup<T>): boolean {
+    return !!(backup.formData && backup.metadata && backup.metadata.timestamp);
+  }
+
+  static exportToFile<T>(formData: T, formType: string): void {
+    const backup: UniversalDataBackup<T> = {
+      formData,
+      metadata: {
+        formType,
+        timestamp: new Date().toISOString(),
+        version: '1.0'
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${formType}_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  static async importFromFile<T>(formType: string): Promise<T | null> {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const backup = JSON.parse(e.target?.result as string) as UniversalDataBackup<T>;
+            if (backup.metadata?.formType === formType && backup.formData) {
+              resolve(backup.formData);
+            } else {
+              resolve(null);
+            }
+          } catch {
+            resolve(null);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    });
+  }
+
+  static async saveToDatabase<T>(
+    formData: T,
+    formType: string,
+    tableName: string,
+    userId: string,
+    additionalFields: Record<string, any> = {}
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const payload = {
+        user_id: userId,
+        form_data: formData,
+        updated_at: new Date().toISOString(),
+        ...additionalFields
+      };
+
+      const { error } = await supa
+        .from(tableName)
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  static validateFormData<T>(
+    formData: T,
+    formType: string,
+    validationRules?: (data: T) => UniversalValidationResult
+  ): UniversalValidationResult {
+    if (validationRules) {
+      return validationRules(formData);
+    }
+    
+    return {
+      isValid: true,
+      warnings: [],
+      criticalIssues: []
+    };
+  }
+
+  static hasDataChanged<T>(oldData: T, newData: T): boolean {
+    return JSON.stringify(oldData) !== JSON.stringify(newData);
+  }
+
+  static recoverLatestBackup<T>(formType: string): T | null {
+    const backups = this.getBackupsFromStorage<T>(formType);
+    if (backups.length > 0 && this.validateBackup(backups[0])) {
+      return backups[0].formData;
+    }
+    return null;
+  }
+}
+
 export class UniversalDataProtection<T = any> {
   private settings: DataProtectionSettings<T>;
 

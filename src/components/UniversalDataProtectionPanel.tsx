@@ -194,9 +194,11 @@ export function UniversalDataProtectionPanel<T>({
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Badge variant="secondary" className="text-xs">
-                                {backup.metadata.source}
+                                Local
                               </Badge>
-                              <span>{(backup.metadata.dataSize / 1024).toFixed(1)}KB</span>
+                              <span>
+                                {Math.round(JSON.stringify(backup.formData).length / 1024)}KB
+                              </span>
                             </div>
                           </div>
                           <Button

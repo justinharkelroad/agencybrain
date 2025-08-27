@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
-import AgencyTemplatesManager from "@/components/checklists/AgencyTemplatesManager";
+import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -72,7 +72,7 @@ export default function Agency() {
       if (!user?.id) return;
       setLoading(true);
       try {
-        const { data: profile, error: pErr } = await supabase
+        const { data: profile, error: pErr } = await supa
           .from("profiles")
           .select("agency_id")
           .eq("id", user.id)
@@ -82,7 +82,7 @@ export default function Agency() {
         setAgencyId(aId || null);
 
         if (aId) {
-          const { data: agency, error: aErr } = await supabase
+          const { data: agency, error: aErr } = await supa
             .from("agencies")
             .select("id,name,agency_email,phone")
             .eq("id", aId)
@@ -92,7 +92,7 @@ export default function Agency() {
           setAgencyEmail(agency?.agency_email || "");
           setAgencyPhone(agency?.phone || "");
 
-          const { data: team, error: tErr } = await supabase
+          const { data: team, error: tErr } = await supa
             .from("team_members")
             .select("id,name,email,role,employment,status,notes,created_at")
             .eq("agency_id", aId)
@@ -118,21 +118,21 @@ export default function Agency() {
         return;
       }
       if (agencyId) {
-        const { error } = await supabase
+      const { error } = await supa
           .from("agencies")
           .update({ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null })
           .eq("id", agencyId);
         if (error) throw error;
         toast({ title: "Saved", description: "Agency updated" });
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await supa
           .from("agencies")
           .insert([{ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null }])
           .select("id")
           .single();
         if (error) throw error;
         const newId = data.id as string;
-        const { error: upErr } = await supabase.from("profiles").update({ agency_id: newId }).eq("id", user.id);
+        const { error: upErr } = await supa.from("profiles").update({ agency_id: newId }).eq("id", user.id);
         if (upErr) throw upErr;
         setAgencyId(newId);
         toast({ title: "Created", description: "Agency created and linked" });
@@ -144,7 +144,7 @@ export default function Agency() {
   };
 
   const refreshMembers = async (aId: string) => {
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from("team_members")
       .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
       .eq("agency_id", aId)
@@ -187,10 +187,10 @@ export default function Agency() {
       };
       
       if (editingId) {
-        const { error } = await supabase.from("team_members").update(updateData).eq("id", editingId);
+        const { error } = await supa.from("team_members").update(updateData).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
+        const { error } = await supa.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
         if (error) throw error;
       }
       await refreshMembers(agencyId);
@@ -204,7 +204,7 @@ export default function Agency() {
 
   const deleteMember = async (id: string) => {
     try {
-      const { error } = await supabase.from("team_members").delete().eq("id", id);
+      const { error } = await supa.from("team_members").delete().eq("id", id);
       if (error) throw error;
       if (agencyId) await refreshMembers(agencyId);
       toast({ title: "Deleted", description: "Team member removed" });
@@ -244,7 +244,7 @@ export default function Agency() {
           </CardContent>
         </Card>
 
-        <AgencyTemplatesManager agencyId={agencyId} />
+        <AgencyTemplatesManager />
 
         <Card>
           <CardHeader>

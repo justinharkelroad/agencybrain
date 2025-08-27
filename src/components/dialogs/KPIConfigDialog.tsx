@@ -53,15 +53,15 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
     
     const loadTargets = async () => {
       try {
-        const { data: profile } = await supabase
+        const { data: profile } = await supa
           .from('profiles')
           .select('agency_id')
-          .eq('id', (await supabase.auth.getUser()).data.user?.id)
+          .eq('id', (await supa.auth.getUser()).data.user?.id)
           .single();
 
         if (!profile?.agency_id) return;
 
-        const { data: existingTargets } = await supabase
+        const { data: existingTargets } = await supa
           .from('targets')
           .select('metric_key, value_number')
           .eq('agency_id', profile.agency_id)
@@ -87,10 +87,10 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('id', (await supa.auth.getUser()).data.user?.id)
         .single();
 
       if (!profile?.agency_id) {
@@ -104,7 +104,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
         : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews'];
 
       // Delete existing targets for these metrics
-      await supabase
+      await supa
         .from('targets')
         .delete()
         .eq('agency_id', profile.agency_id)
@@ -119,7 +119,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
         value_number: (targets as any)[metric]
       }));
 
-      const { error } = await supabase
+      const { error } = await supa
         .from('targets')
         .insert(targetRows);
 

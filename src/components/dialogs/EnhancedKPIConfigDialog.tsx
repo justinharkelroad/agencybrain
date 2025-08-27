@@ -55,7 +55,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     if (!agencyId) return;
     
     try {
-      const { data: targets } = await supabase
+      const { data: targets } = await supa
         .from('targets')
         .select('metric_key, value_number')
         .eq('agency_id', agencyId)
@@ -83,7 +83,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     setLoading(true);
     try {
       // Delete existing targets for this agency and type
-      await supabase
+      await supa
         .from('targets')
         .delete()
         .eq('agency_id', agencyId)
@@ -98,7 +98,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
         team_member_id: null
       }));
 
-      const { error } = await supabase
+      const { error } = await supa
         .from('targets')
         .insert(targetsToInsert);
 

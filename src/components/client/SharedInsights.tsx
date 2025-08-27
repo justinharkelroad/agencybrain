@@ -61,7 +61,7 @@ const SharedInsights: React.FC = () => {
 
   const fetchSharedAnalyses = async () => {
     // RLS ensures we only get shared rows for this user
-    const { data, error } = await supabase
+    const { data, error } = await supa
       .from('ai_analysis')
       .select('*')
       .eq('shared_with_client', true)
@@ -78,7 +78,7 @@ const SharedInsights: React.FC = () => {
 
     if (rows.length && user) {
       const ids = rows.map(r => r.id);
-      const { data: vData, error: vErr } = await supabase
+      const { data: vData, error: vErr } = await supa
         .from('ai_analysis_views')
         .select('*')
         .eq('user_id', user.id)
@@ -121,7 +121,7 @@ const SharedInsights: React.FC = () => {
   const recordView = async (analysis: AnalysisRow) => {
     if (!user) return;
 
-    const { data: existing, error: selErr } = await supabase
+    const { data: existing, error: selErr } = await supa
       .from('ai_analysis_views')
       .select('*')
       .eq('user_id', user.id)
@@ -134,7 +134,7 @@ const SharedInsights: React.FC = () => {
     }
 
     if (existing) {
-      const { data: upd, error: updErr } = await supabase
+      const { data: upd, error: updErr } = await supa
         .from('ai_analysis_views')
         .update({
           view_count: (existing.view_count || 0) + 1,
@@ -147,7 +147,7 @@ const SharedInsights: React.FC = () => {
         setViews(prev => ({ ...prev, [analysis.id]: upd as AnalysisView }));
       }
     } else {
-      const { data: ins, error: insErr } = await supabase
+      const { data: ins, error: insErr } = await supa
         .from('ai_analysis_views')
         .insert({
           analysis_id: analysis.id,
@@ -170,7 +170,7 @@ const SharedInsights: React.FC = () => {
 
     const current = views[analysis.id];
     if (current) {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('ai_analysis_views')
         .update({
           acknowledged: true,
@@ -184,7 +184,7 @@ const SharedInsights: React.FC = () => {
         toast({ title: 'Acknowledged', description: 'Marked as completed.' });
       }
     } else {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('ai_analysis_views')
         .insert({
           analysis_id: analysis.id,
@@ -208,7 +208,7 @@ const SharedInsights: React.FC = () => {
     if (messagesLoading[analysisId]) return;
     setMessagesLoading(prev => ({ ...prev, [analysisId]: true })); console.log('[SharedInsights] loadMessages start', { analysisId });
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('ai_chat_messages')
         .select('id, role, content, created_at')
         .eq('analysis_id', analysisId)

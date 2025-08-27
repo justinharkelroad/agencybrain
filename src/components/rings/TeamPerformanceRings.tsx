@@ -131,7 +131,7 @@ export default function TeamPerformanceRings({
       setLoading(true);
       try {
         // Get ring metrics from scorecard rules
-        const { data: rules } = await supabase
+        const { data: rules } = await supa
           .from('scorecard_rules')
           .select('ring_metrics')
           .eq('agency_id', agencyId)
@@ -144,7 +144,7 @@ export default function TeamPerformanceRings({
         setRingMetrics(metrics);
 
         // Get team metrics for the date
-        const { data: teamMetrics } = await supabase
+        const { data: teamMetrics } = await supa
           .rpc('get_team_metrics_for_day', {
             p_agency: agencyId,
             p_role: role,
@@ -152,7 +152,7 @@ export default function TeamPerformanceRings({
           });
 
         // Get targets for each member and metric
-        const { data: targets } = await supabase
+        const { data: targets } = await supa
           .from('targets')
           .select('team_member_id, metric_key, value_number')
           .eq('agency_id', agencyId);

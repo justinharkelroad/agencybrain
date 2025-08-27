@@ -37,7 +37,7 @@ export default function PerformanceMetrics() {
 const fetchLatest = async () => {
   if (!user) return;
   setLoading(true);
-  const { data } = await supabase
+  const { data } = await supa
     .from('periods')
     .select('*')
     .eq('user_id', user.id)

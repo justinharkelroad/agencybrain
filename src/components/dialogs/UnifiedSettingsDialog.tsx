@@ -46,14 +46,14 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
     const fetchLeadSources = async () => {
       if (!user?.id) return;
       
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
         .single();
       
       if (profile?.agency_id) {
-        const { data: sources } = await supabase
+        const { data: sources } = await supa
           .from('lead_sources')
           .select('*')
           .eq('agency_id', profile.agency_id)
