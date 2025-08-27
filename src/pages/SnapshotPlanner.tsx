@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { computeRoyTargets, type RoyResult, type RoyParams } from "@/lib/computeRoyTargets";
 import { getBonusGridState, getGridValidation, getPointsItemsMix, type GridValidation } from "@/lib/bonusGridState";
 import { computeRounded, type CellAddr } from "@/bonus_grid_web_spec/computeWithRounding";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 
 const MONTHS = [
   { value: 1, label: "January" },
@@ -159,7 +159,7 @@ export default function SnapshotPlannerPage() {
     setSaving(true);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supa.auth.getUser();
       if (!user) {
         toast({
           title: "Authentication required",
@@ -169,14 +169,14 @@ export default function SnapshotPlannerPage() {
         return;
       }
 
-      const { error } = await supabase.from('snapshot_planner').insert({
+      const { error } = await supa.from('snapshot_planner').insert({
         user_id: user.id,
         snapshot_date: format(snapshotDate, 'yyyy-MM-dd'),
         uploaded_month: reportMonth,
         ytd_items_total: ytdItems,
         current_month_items_total: ytdItems,
         grid_version: JSON.stringify(await getBonusGridState()),
-        tiers: royResult.tiers,
+        tiers: royResult.tiers as any,
         raw_pdf_meta: {
           months_elapsed: royResult.monthsElapsed,
           months_remaining: royResult.monthsRemaining,

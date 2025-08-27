@@ -14,7 +14,7 @@ import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useAuth } from "@/lib/auth";
 
 interface KPIField {
@@ -97,7 +97,7 @@ export default function ScorecardFormEditor() {
 
   const loadForm = async () => {
     try {
-      const { data: template, error } = await supabase
+      const { data: template, error } = await supa
         .from('form_templates')
         .select('*')
         .eq('id', formId)
@@ -105,7 +105,7 @@ export default function ScorecardFormEditor() {
 
       if (error) throw error;
 
-      setFormSchema(template.schema_json);
+      setFormSchema(template.schema_json as FormSchema | null);
     } catch (error: any) {
       console.error('Error loading form:', error);
       toast.error('Failed to load form');
@@ -120,14 +120,14 @@ export default function ScorecardFormEditor() {
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('form_templates')
         .update({
           name: formSchema.title,
           slug: formSchema.title.toLowerCase().replace(/\s+/g, '-'),
           role: formSchema.role,
-          schema_json: formSchema,
-          settings_json: formSchema.settings,
+          schema_json: formSchema as any,
+          settings_json: formSchema.settings as any,
         })
         .eq('id', formId);
 

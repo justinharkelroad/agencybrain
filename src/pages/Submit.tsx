@@ -100,7 +100,6 @@ const validateSubmitForm = (data: FormData): UniversalValidationResult => {
 
   return {
     isValid: errors.length === 0,
-    errors,
     warnings,
     completeness,
     criticalIssues: errors
@@ -216,17 +215,19 @@ export default function Submit() {
         console.log('Found previous period with data, applying persistence...');
         const prevData = periods.form_data;
         
+        const formDataFromPeriod = prevData && typeof prevData === 'object' && prevData ? prevData as any : {};
+        
         const persistedData = {
           ...initialFormData,
           // Preserve team roster names and roles
           operations: {
             ...initialFormData.operations,
-            teamRoster: prevData.operations?.teamRoster || []
+            teamRoster: (formDataFromPeriod.operations as any)?.teamRoster || []
           },
           // Preserve lead source names but reset spend to 0
           marketing: {
             ...initialFormData.marketing,
-            leadSources: (prevData.marketing?.leadSources || []).map(source => ({
+            leadSources: ((formDataFromPeriod.marketing as any)?.leadSources || []).map((source: any) => ({
               name: source.name,
               spend: 0
             }))
@@ -280,13 +281,13 @@ export default function Submit() {
             // Load full existing data for update mode
             const safeFormData = {
               ...initialFormData,
-              ...specificPeriod.form_data,
+              ...(typeof specificPeriod.form_data === 'object' ? specificPeriod.form_data as any : {}),
               qualitative: {
                 ...initialFormData.qualitative,
-                ...specificPeriod.form_data.qualitative,
+                ...(typeof (specificPeriod.form_data as any)?.qualitative === 'object' ? (specificPeriod.form_data as any).qualitative : {}),
                 attackItems: {
                   ...initialFormData.qualitative.attackItems,
-                  ...specificPeriod.form_data.qualitative?.attackItems,
+                  ...((specificPeriod.form_data as any)?.qualitative?.attackItems || {}),
                 },
               },
             };
@@ -363,13 +364,13 @@ export default function Submit() {
           // Ensure all required nested fields exist
           const safeFormData = {
             ...initialFormData,
-            ...period.form_data,
+            ...(typeof period.form_data === 'object' ? period.form_data as any : {}),
             qualitative: {
               ...initialFormData.qualitative,
-              ...period.form_data.qualitative,
+              ...(typeof (period.form_data as any)?.qualitative === 'object' ? (period.form_data as any).qualitative : {}),
               attackItems: {
                 ...initialFormData.qualitative.attackItems,
-                ...(period.form_data.qualitative?.attackItems || {})
+                ...((period.form_data as any)?.qualitative?.attackItems || {})
               }
             }
           };

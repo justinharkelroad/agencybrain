@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -135,7 +135,7 @@ const { toast } = useToast();
   const fetchAdminData = async () => {
     try {
       // Fetch all clients (profiles with agencies)
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data: profilesData, error: profilesError } = await supa
         .from('profiles')
         .select(`
           *,
@@ -145,10 +145,13 @@ const { toast } = useToast();
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
-      setClients(profilesData || []);
+      setClients((profilesData || []).map(item => ({
+        ...item,
+        user_id: item.id
+      })));
 
       // Fetch recent submissions (periods)
-      const { data: periodsData, error: periodsError } = await supabase
+      const { data: periodsData, error: periodsError } = await supa
         .from('periods')
         .select('*')
         .order('created_at', { ascending: false })
@@ -158,7 +161,7 @@ const { toast } = useToast();
       setRecentSubmissions(periodsData || []);
 
       // Fetch recent uploads
-      const { data: uploadsData, error: uploadsError } = await supabase
+      const { data: uploadsData, error: uploadsError } = await supa
         .from('uploads')
         .select('*')
         .order('created_at', { ascending: false })
@@ -168,7 +171,7 @@ const { toast } = useToast();
       setRecentUploads(uploadsData || []);
 
 // Build status sets (no limit)
-const { data: periodsAllData, error: periodsAllError } = await supabase
+const { data: periodsAllData, error: periodsAllError } = await supa
   .from('periods')
   .select('user_id, status, form_data');
 if (periodsAllError) throw periodsAllError;
@@ -176,7 +179,7 @@ if (periodsAllError) throw periodsAllError;
 const activeSet = new Set<string>((periodsAllData || []).filter((p: any) => p.status === 'active').map((p: any) => p.user_id));
 const completedSet = new Set<string>((periodsAllData || []).filter((p: any) => p.form_data && Object.keys(p.form_data).length > 0).map((p: any) => p.user_id));
 
-const { data: uploadsAllData, error: uploadsAllError } = await supabase
+const { data: uploadsAllData, error: uploadsAllError } = await supa
   .from('uploads')
   .select('user_id');
 if (uploadsAllError) throw uploadsAllError;
@@ -220,13 +223,13 @@ setCoachingRevenue(totalMRR);
       setIsDeleting(true);
       
       // Ensure we have a fresh session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supa.auth.getSession();
       if (sessionError || !session) {
         throw new Error('Authentication session expired. Please refresh the page and try again.');
       }
       
       // Attempt deletion with explicit authorization header
-      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+      const { data, error } = await supa.functions.invoke('admin-delete-user', {
         body: { userId: selectedUserId },
         headers: {
           Authorization: `Bearer ${session.access_token}`

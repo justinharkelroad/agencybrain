@@ -35,6 +35,7 @@ export interface UniversalValidationResult {
   isValid: boolean;
   warnings: string[];
   criticalIssues: string[];
+  completeness?: number;
 }
 
 // Universal Data Protection Service

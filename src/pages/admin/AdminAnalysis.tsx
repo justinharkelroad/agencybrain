@@ -260,7 +260,10 @@ const AdminAnalysis = () => {
       }
       
       console.log('Fetched analyses:', data);
-      setAnalyses(data || []);
+      setAnalyses((data || []).map(item => ({
+        ...item,
+        selected_uploads: Array.isArray(item.selected_uploads) ? item.selected_uploads : []
+      })));
 
       // Fetch engagement info for these analyses for the selected client
       const analysisIds = (data || []).map(a => a.id);

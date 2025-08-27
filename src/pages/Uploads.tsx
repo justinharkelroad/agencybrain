@@ -15,9 +15,11 @@ interface Upload {
   original_name: string;
   file_path: string;
   file_size: number;
-  file_type: string;
+  file_type?: string;
   category: string;
   created_at: string;
+  mime_type?: string;
+  user_id: string;
 }
 
 const Uploads = () => {
@@ -57,7 +59,10 @@ const Uploads = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUploads(data || []);
+      setUploads((data || []).map(item => ({
+        ...item,
+        file_type: item.mime_type || item.category
+      })));
     } catch (error) {
       console.error('Error fetching uploads:', error);
       // Only show error if it's not just an empty result

@@ -14,7 +14,7 @@ import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useAuth } from "@/lib/auth";
 
 interface KPIField {
@@ -187,7 +187,7 @@ export default function ScorecardFormBuilder() {
     const fetchAgencyId = async () => {
       if (!user?.id) return;
       
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
@@ -212,15 +212,15 @@ export default function ScorecardFormBuilder() {
       const slug = formSchema.title.toLowerCase().replace(/\s+/g, '-');
       
       // Create form template
-      const { data: template, error: templateError } = await supabase
+      const { data: template, error: templateError } = await supa
         .from('form_templates')
         .insert({
           agency_id: agencyId,
           name: formSchema.title,
           slug: slug,
           role: formSchema.role,
-          schema_json: formSchema,
-          settings_json: formSchema.settings,
+          schema_json: formSchema as any,
+          settings_json: formSchema.settings as any,
         })
         .select()
         .single();
@@ -229,7 +229,7 @@ export default function ScorecardFormBuilder() {
 
       // Create form link with token
       const token = crypto.randomUUID();
-      const { error: linkError } = await supabase
+      const { error: linkError } = await supa
         .from('form_links')
         .insert({
           form_template_id: template.id,

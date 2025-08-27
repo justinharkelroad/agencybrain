@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,7 +38,7 @@ export default function AdminMember() {
     queryKey: ["agency-id", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("agency_id").eq("id", user!.id).single();
+      const { data, error } = await supa.from("profiles").select("agency_id").eq("id", user!.id).single();
       if (error) throw error;
       return data?.agency_id as string | null;
     },
@@ -48,7 +48,7 @@ export default function AdminMember() {
     queryKey: ["member", memberId],
     enabled: !!memberId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("team_members")
         .select("id,name,email,agency_id,status,role,employment")
         .eq("id", memberId as string)
@@ -64,7 +64,7 @@ export default function AdminMember() {
     queryFn: async () => {
       const agencyId = memberQuery.data?.agency_id;
       const or = agencyId ? `agency_id.is.null,agency_id.eq.${agencyId}` : "agency_id.is.null";
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("checklist_template_items")
         .select("id,label,required,order_index,agency_id,active")
         .eq("active", true)
@@ -80,7 +80,7 @@ export default function AdminMember() {
     queryKey: ["mci", memberId],
     enabled: !!memberId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from("member_checklist_items")
         .select("id,member_id,template_item_id,secured,attachments_count,created_at,updated_at")
         .eq("member_id", memberId as string);
@@ -106,7 +106,7 @@ export default function AdminMember() {
   // Presence channel
   useEffect(() => {
     if (!memberId || !user) return;
-    const room = supabase.channel(`member-${memberId}`);
+    const room = supa.channel(`member-${memberId}`);
 
     room
       .on('presence', { event: 'sync' }, () => {
@@ -123,23 +123,23 @@ export default function AdminMember() {
         }
       });
 
-    return () => { supabase.removeChannel(room); };
+    return () => { supa.removeChannel(room); };
   }, [memberId, user]);
 
   // Realtime updates for MCI and files
   useEffect(() => {
     if (!memberId) return;
-    const ch1 = supabase
+    const ch1 = supa
       .channel(`mci-${memberId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'member_checklist_items', filter: `member_id=eq.${memberId}` },
         () => qc.invalidateQueries({ queryKey: ["mci", memberId] }))
       .subscribe();
-    const ch2 = supabase
+    const ch2 = supa
       .channel(`af-${memberId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agency_files', filter: `member_id=eq.${memberId}` },
         () => qc.invalidateQueries({ queryKey: ["mci", memberId] }))
       .subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    return () => { supa.removeChannel(ch1); supa.removeChannel(ch2); };
   }, [memberId, qc]);
 
   const syncMutation = useMutation({
@@ -152,7 +152,7 @@ export default function AdminMember() {
         .filter((t: any) => !existingSet.has(t.id))
         .map((t: any) => ({ member_id: memberId, template_item_id: t.id }));
       if (payload.length === 0) return;
-      const { error } = await supabase.from('member_checklist_items').insert(payload);
+      const { error } = await supa.from('member_checklist_items').insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -168,9 +168,9 @@ export default function AdminMember() {
       if (!agencyId) throw new Error("No agency id");
       const ext = file.name.split('.').pop();
       const path = `agencies/${agencyId}/members/${memberId}/${templateId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('uploads').upload(path, file);
+      const { error: upErr } = await supa.storage.from('uploads').upload(path, file);
       if (upErr) throw upErr;
-      const { error: dbErr } = await supabase.from('agency_files').insert({
+      const { error: dbErr } = await supa.from('agency_files').insert({
         agency_id: agencyId,
         member_id: memberId,
         template_item_id: templateId,
@@ -179,6 +179,7 @@ export default function AdminMember() {
         mime_type: file.type,
         size: file.size,
         visibility: 'owner_admin',
+        uploaded_by_user_id: user?.id || ''
       });
       if (dbErr) throw dbErr;
     },

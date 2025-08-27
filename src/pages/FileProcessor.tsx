@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import ColumnMappingWizard from '@/components/ColumnMappingWizard';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { 
   FileText, 
@@ -50,7 +50,7 @@ const FileProcessor = () => {
 
   const fetchSavedMappings = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('column_mappings')
         .select('*')
         .eq('user_id', user?.id)
@@ -58,7 +58,13 @@ const FileProcessor = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setSavedMappings(data || []);
+      setSavedMappings((data || []).map(item => ({
+        ...item,
+        original_columns: Array.isArray(item.original_columns) 
+          ? (item.original_columns as any[]).filter(col => typeof col === 'string') as string[]
+          : [],
+        mapped_columns: typeof item.mapped_columns === 'object' && item.mapped_columns ? item.mapped_columns as Record<string, string> : {}
+      })));
     } catch (error) {
       console.error('Error fetching mappings:', error);
       toast({
@@ -75,7 +81,7 @@ const FileProcessor = () => {
     if (!confirm('Are you sure you want to delete this mapping?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('column_mappings')
         .update({ is_active: false })
         .eq('id', mappingId);

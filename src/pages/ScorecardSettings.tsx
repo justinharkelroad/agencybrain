@@ -90,8 +90,8 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
       if (rules) {
         setSelectedMetrics(rules.selected_metrics || selectedMetrics);
         setNRequired(rules.n_required || 2);
-        setWeights(rules.weights || weights);
-        setCountedDays(rules.counted_days || countedDays);
+        setWeights(typeof rules.weights === 'object' && rules.weights ? rules.weights as Record<string, number> : weights);
+        setCountedDays(typeof rules.counted_days === 'object' && rules.counted_days ? rules.counted_days as { monday: boolean; tuesday: boolean; wednesday: boolean; thursday: boolean; friday: boolean; saturday: boolean; sunday: boolean; } : countedDays);
         setBackfillDays(rules.backfill_days || 7);
         setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
         setRingMetrics(rules.ring_metrics || rules.selected_metrics || ringMetrics);

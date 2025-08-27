@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info, Folder, Plus, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
 import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
@@ -319,7 +319,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       setLoading(true);
       
       // Fetch client details
-      const { data: clientData, error: clientError } = await supabase
+      const { data: clientData, error: clientError } = await supa
         .from('profiles')
         .select('*')
         .eq('id', clientId)
@@ -331,7 +331,7 @@ setClient(clientData);
       // Resolve agency name for header
       try {
         if (clientData?.agency_id) {
-          const { data: agency, error: agencyError } = await supabase
+          const { data: agency, error: agencyError } = await supa
             .from('agencies')
             .select('name')
             .eq('id', clientData.agency_id)
@@ -351,7 +351,7 @@ setClient(clientData);
       }
       
       // Fetch periods
-      const { data: periodsData, error: periodsError } = await supabase
+      const { data: periodsData, error: periodsError } = await supa
         .from('periods')
         .select('*')
         .eq('user_id', clientId)
@@ -361,7 +361,7 @@ setClient(clientData);
       setPeriods(periodsData || []);
       
       // Fetch uploads
-      const { data: uploadsData, error: uploadsError } = await supabase
+      const { data: uploadsData, error: uploadsError } = await supa
         .from('uploads')
         .select('*')
         .eq('user_id', clientId)
@@ -375,14 +375,14 @@ setClient(clientData);
 
       const results: Array<{ data: Analysis[] | null; error: any | null }> = [];
 
-      const byUser = await supabase
+      const byUser = await supa
         .from('ai_analysis')
         .select('*')
         .eq('user_id', clientId);
       results.push({ data: byUser.data as Analysis[] | null, error: byUser.error });
 
       if (periodIds.length > 0) {
-        const byPeriod = await supabase
+        const byPeriod = await supa
           .from('ai_analysis')
           .select('*')
           .in('period_id', periodIds);
@@ -400,7 +400,7 @@ setClient(clientData);
       setAnalyses(deduped);
       
       // Fetch prompts
-      const { data: promptsData, error: promptsError } = await supabase
+      const { data: promptsData, error: promptsError } = await supa
         .from('prompts')
         .select('id,title,content,category')
         .eq('is_active', true)
@@ -437,14 +437,14 @@ setClient(clientData);
         const filePath = `${clientId}/${fileName}`;
         
         // Upload file to storage
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supa.storage
           .from('uploads')
           .upload(filePath, file);
         
         if (uploadError) throw uploadError;
         
         // Save file metadata to database
-        const { error: dbError } = await supabase
+        const { error: dbError } = await supa
           .from('uploads')
           .insert({
             user_id: clientId,
@@ -480,14 +480,14 @@ setClient(clientData);
   const handleDeleteUpload = async (upload: Upload) => {
     try {
       // Delete from storage
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await supa.storage
         .from('uploads')
         .remove([upload.file_path]);
       
       if (storageError) throw storageError;
       
       // Delete from database
-      const { error: dbError } = await supabase
+      const { error: dbError } = await supa
         .from('uploads')
         .delete()
         .eq('id', upload.id);
@@ -514,7 +514,7 @@ setClient(clientData);
 
   const handleDownloadUpload = async (upload: Upload) => {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supa.storage
         .from('uploads')
         .download(upload.file_path);
       
@@ -590,7 +590,7 @@ setClient(clientData);
       }
       
       // Call analysis function
-      const { data, error } = await supabase.functions.invoke('analyze-performance', {
+      const { data, error } = await supa.functions.invoke('analyze-performance', {
         body: {
           periodData,
           uploads: selectedUploadData,
@@ -678,7 +678,7 @@ setClient(clientData);
       }
       
       // Call analysis function with follow-up
-      const { data, error } = await supabase.functions.invoke('analyze-performance', {
+      const { data, error } = await supa.functions.invoke('analyze-performance', {
         body: {
           periodData,
           uploads: uploadsData,
@@ -757,8 +757,8 @@ setClient(clientData);
     if (!clientId) return;
     try {
       const [{ data: typesData, error: typesError }, { data: vaultsData, error: vaultsError }] = await Promise.all([
-        supabase.from('process_vault_types').select('id,title,is_active').eq('is_active', true).order('title', { ascending: true }),
-        supabase.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true }),
+        supa.from('process_vault_types').select('id,title,is_active').eq('is_active', true).order('title', { ascending: true }),
+        supa.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true }),
       ]);
       if (typesError) throw typesError;
       if (vaultsError) throw vaultsError;
@@ -767,11 +767,11 @@ setClient(clientData);
       const existingTypeIds = new Set(vaults.filter(v => v.vault_type_id).map(v => v.vault_type_id as string));
       const missing = types.filter(t => !existingTypeIds.has(t.id));
       if (missing.length > 0) {
-        const { error: insertErr } = await supabase.from('user_process_vaults').insert(
+        const { error: insertErr } = await supa.from('user_process_vaults').insert(
           missing.map(m => ({ user_id: clientId, title: m.title, vault_type_id: m.id }))
         );
         if (insertErr) throw insertErr;
-        const { data: v2, error: v2Err } = await supabase
+        const { data: v2, error: v2Err } = await supa
           .from('user_process_vaults')
           .select('id,user_id,title,vault_type_id,created_at')
           .eq('user_id', clientId)
@@ -783,7 +783,7 @@ setClient(clientData);
       setPvVaults(vaults);
       if (vaults.length > 0) {
         const ids = vaults.map(v => v.id);
-        const { data: files, error: filesErr } = await supabase
+        const { data: files, error: filesErr } = await supa
           .from('process_vault_files')
           .select('id,user_vault_id,upload_file_path,created_at')
           .in('user_vault_id', ids);
@@ -806,7 +806,7 @@ setClient(clientData);
     setVaultDialogOpen(true);
     setSelectedUploadId('');
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('process_vault_files')
         .select('id,user_vault_id,upload_file_path,created_at')
         .eq('user_vault_id', vault.id)
@@ -821,7 +821,7 @@ setClient(clientData);
 
   const downloadVaultFile = async (row: VaultFileRow) => {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supa.storage
         .from('uploads')
         .createSignedUrl(row.upload_file_path, 60);
       if (error) throw error;
@@ -835,7 +835,7 @@ setClient(clientData);
 
   const unlinkFile = async (row: VaultFileRow) => {
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('process_vault_files')
         .delete()
         .eq('id', row.id);
@@ -856,7 +856,7 @@ setClient(clientData);
     try {
       const upload = uploads.find(u => u.id === selectedUploadId);
       if (!upload) return;
-      const { data, error } = await supabase
+      const { data, error } = await supa
         .from('process_vault_files')
         .insert({ user_vault_id: activeVault.id, upload_file_path: upload.file_path })
         .select('*')
@@ -898,7 +898,7 @@ setClient(clientData);
     }
     try {
       setSavingMRR(true);
-      const { error } = await supabase.from('profiles').update({ mrr: value }).eq('id', clientId);
+      const { error } = await supa.from('profiles').update({ mrr: value }).eq('id', clientId);
       if (error) throw error;
       setClient(prev => prev ? { ...(prev as any), mrr: value } : prev);
       toast({ title: 'Coaching MRR updated' });
@@ -1129,7 +1129,7 @@ setClient(clientData);
                   onClick={async () => {
                     if (!newVaultTitle.trim()) return;
                     try {
-                      const { error } = await supabase
+                      const { error } = await supa
                         .from('user_process_vaults')
                         .insert({ user_id: clientId, title: newVaultTitle.trim().toUpperCase() });
                       if (error) throw error;
@@ -1369,7 +1369,7 @@ setClient(clientData);
                             variant="outline"
                             size="sm"
                             onClick={async () => {
-                              const { error } = await supabase
+                              const { error } = await supa
                                 .from('ai_analysis')
                                 .update({ shared_with_client: !analysis.shared_with_client })
                                 .eq('id', analysis.id);
