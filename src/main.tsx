@@ -2,53 +2,82 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Prevent custom element conflicts globally - enhanced for development mode
+// Enhanced custom element protection - prevents conflicts and overlay issues
 if (typeof window !== 'undefined') {
   try {
-    // Detect if we're in development mode
     const isDevelopment = import.meta.env.DEV;
     
     if (isDevelopment) {
-      // In development, aggressively prevent overlay conflicts
-      console.log('🛡️ Development mode: Enabling custom element protection');
+      console.log('🛡️ Development mode: Enhanced custom element protection enabled');
     }
     
-    // Intercept and prevent duplicate custom element registrations
+    // Robust custom element registration interceptor
     const originalDefine = customElements.define;
     customElements.define = function(name, constructor, options) {
-      if (customElements.get(name)) {
-        console.debug(`Custom element ${name} already defined, preventing duplicate registration`);
-        return;
+      try {
+        if (customElements.get(name)) {
+          console.debug(`🔒 Prevented duplicate custom element registration: ${name}`);
+          return;
+        }
+        return originalDefine.call(this, name, constructor, options);
+      } catch (error) {
+        console.debug(`Custom element registration error for ${name}:`, error);
+        return; // Fail silently to prevent crashes
       }
-      return originalDefine.call(this, name, constructor, options);
     };
     
-    // Clean up any existing problematic elements
-    const cleanupElements = () => {
+    // Enhanced cleanup for problematic elements
+    const cleanupProblematicElements = () => {
       try {
-        const existingElements = document.querySelectorAll('mce-autosize-textarea');
-        existingElements.forEach(el => {
-          try {
-            el.remove();
-          } catch (e) {
-            console.debug('Element cleanup error:', e);
-          }
+        // Target known problematic elements
+        const selectors = [
+          'mce-autosize-textarea',
+          '[is="mce-autosize-textarea"]',
+          'textarea[is="mce-autosize-textarea"]'
+        ];
+        
+        selectors.forEach(selector => {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach(el => {
+            try {
+              // Try to properly dispose if it has cleanup methods
+              if (el && typeof (el as any).disconnect === 'function') {
+                (el as any).disconnect();
+              }
+              if (el && typeof el.remove === 'function') {
+                el.remove();
+              }
+            } catch (e) {
+              console.debug(`Element cleanup error for ${selector}:`, e);
+            }
+          });
         });
       } catch (error) {
-        console.debug('Element cleanup failed:', error);
+        console.debug('Comprehensive element cleanup failed:', error);
       }
     };
 
-    // Run cleanup immediately
-    cleanupElements();
+    // Multiple cleanup triggers
+    cleanupProblematicElements(); // Immediate
     
-    // Run cleanup after DOM loads
+    // DOM ready cleanup
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', cleanupElements);
+      document.addEventListener('DOMContentLoaded', cleanupProblematicElements);
+    } else {
+      // DOM already ready, run again
+      setTimeout(cleanupProblematicElements, 0);
+    }
+    
+    // Additional cleanup on window load (for late-loading scripts)
+    window.addEventListener('load', cleanupProblematicElements);
+    
+    // Periodic cleanup for persistent conflicts
+    if (isDevelopment) {
+      setInterval(cleanupProblematicElements, 5000); // Every 5 seconds in dev mode
     }
     
   } catch (error) {
-    console.debug('Custom element protection setup failed:', error);
+    console.debug('Enhanced custom element protection setup failed:', error);
   }
 }
 

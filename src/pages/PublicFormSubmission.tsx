@@ -20,20 +20,33 @@ export default function PublicFormSubmission() {
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
-      const { data, error } = await supabase.functions.invoke('resolve_public_form', {
-        body: { agencySlug, formSlug, token }
-      });
+      // resolve_public_form expects query parameters, not body
+      const url = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${agencySlug}&formSlug=${formSlug}&t=${token}`;
       
-      if (error) { 
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ code: "NETWORK_ERROR" }));
+          console.error('Form resolution failed:', response.status, errorData);
+          setErr(errorData.code || "FORM_NOT_FOUND");
+          return;
+        }
+        
+        const data = await response.json();
+        setForm(data.form);
+        // seed defaults including previous business day
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
+      } catch (error) {
         console.error('Form resolution error:', error);
-        setErr(error.message || "FORM_NOT_FOUND"); 
-        return; 
+        setErr("NETWORK_ERROR");
       }
-      
-      setForm(data.form);
-      // seed defaults including previous business day
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
     })();
   }, [agencySlug, formSlug, token]);
 
