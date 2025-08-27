@@ -20,9 +20,11 @@ function json(status: number, body: any, extra: Record<string,string> = {}) {
 serve(async (req) => {
   try {
     const url = new URL(req.url);
-    const agencySlug = url.searchParams.get("agencySlug") || "";
-    const formSlug   = url.searchParams.get("formSlug") || "";
-    const token      = url.searchParams.get("t") || "";
+    // Parse URL path: /f/agencySlug/formSlug -> ["", "f", "agencySlug", "formSlug"]
+    const pathParts = url.pathname.split('/');
+    const agencySlug = pathParts[2] || "";
+    const formSlug = pathParts[3] || "";
+    const token = url.searchParams.get("t") || "";
 
     if (!agencySlug || !formSlug || !token) return json(400, {code:"BAD_REQUEST"});
 

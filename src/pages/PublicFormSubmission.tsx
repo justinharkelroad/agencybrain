@@ -20,17 +20,16 @@ type ResolvedForm = {
 };
 
 export default function PublicFormSubmission() {
-  const { slug } = useParams();
+  const { agencySlug, formSlug } = useParams();
   const [form, setForm] = useState<ResolvedForm | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
-  const agencySlug = useMemo(() => window.location.hostname.split(".")[0], []);
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
 
   useEffect(() => {
-    if (!slug || !token) { setErr("Missing link parameters."); return; }
+    if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
-      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form?agencySlug=${agencySlug}&formSlug=${slug}&t=${token}`;
+      const u = `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/resolve_public_form/f/${agencySlug}/${formSlug}?t=${token}`;
       const r = await fetch(u);
       if (!r.ok) { const j = await r.json().catch(()=>({code:"ERROR"})); setErr(j.code || "ERROR"); return; }
       const j = await r.json();
@@ -39,7 +38,7 @@ export default function PublicFormSubmission() {
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
     })();
-  }, [agencySlug, slug, token]);
+  }, [agencySlug, formSlug, token]);
 
   const onChange = (key: string, val: any) => {
     setValues(v => ({ ...v, [key]: val }));
@@ -57,7 +56,7 @@ export default function PublicFormSubmission() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        agencySlug, formSlug: slug, token,
+        agencySlug, formSlug, token,
         teamMemberId: values.staff_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
