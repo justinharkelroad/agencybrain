@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 type ResolvedForm = { 
   id: string; 
@@ -18,6 +18,12 @@ export default function PublicFormSubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
+  
+  // Create supabase client with proper auth
+  const supabase = createClient(
+    "https://wjqyccbytctqwceuhzhk.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw"
+  );
 
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
@@ -129,13 +135,11 @@ export default function PublicFormSubmission() {
       return;
     }
     
-    console.log('✅ Validation passed, submitting to server...');
-    
     try {
       const { data, error } = await supabase.functions.invoke('submit_public_form', {
         body: {
           agencySlug, 
-          formSlug, 
+          formSlug: formSlug, 
           token,
           teamMemberId: values.team_member_id,
           submissionDate: values.submission_date,
@@ -145,16 +149,14 @@ export default function PublicFormSubmission() {
       });
       
       if (error) { 
-        console.error('❌ Submission error:', error);
-        setErr(error.message || "Failed to submit form. Please try again."); 
+        setErr(error.message || "ERROR"); 
         return; 
       }
       
-      console.log('✅ Submission successful:', data);
       setErr(null);
       alert("Form submitted successfully!");
     } catch (error) {
-      console.error('❌ Network error:', error);
+      console.error('Network error:', error);
       setErr("Network error. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);

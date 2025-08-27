@@ -32,6 +32,8 @@ type Body = {
 };
 
 serve(async (req) => {
+  console.log("submit_public_form start", new Date().toISOString());
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -47,7 +49,7 @@ serve(async (req) => {
     const body = await req.json() as Body;
     console.log('📥 Received submission request:', { 
       agencySlug: body.agencySlug, 
-      formSlug: body.formSlug, 
+      formSlug: body.formSlug,
       teamMemberId: body.teamMemberId,
       submissionDate: body.submissionDate 
     });
