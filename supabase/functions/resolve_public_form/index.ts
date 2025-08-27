@@ -43,40 +43,53 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // single secure join
-    const { data, error } = await supabase
-      .from("form_links")
-      .select(`
-        id, enabled, token, expires_at,
-        form_template:form_templates!inner(id, slug, status, settings_json, agency_id),
-        agency:agencies!inner(id, slug)
-      `)
-      .eq("token", token)
-      .eq("enabled", true)
-      .eq("form_template.slug", formSlug)
-      .eq("agency.slug", agencySlug)
+    // Step 1: Get form template by agency slug and form slug
+    const { data: agencyData, error: agencyError } = await supabase
+      .from("agencies")
+      .select("id")
+      .eq("slug", agencySlug)
       .single();
 
-    if (error) return json(404, {code:"NOT_FOUND"});
+    if (agencyError) return json(404, {code:"NOT_FOUND"});
+
+    const { data: formTemplate, error: formError } = await supabase
+      .from("form_templates")
+      .select("id, slug, status, settings_json")
+      .eq("slug", formSlug)
+      .eq("agency_id", agencyData.id)
+      .single();
+
+    if (formError) return json(404, {code:"NOT_FOUND"});
+
+    // Step 2: Get form link by form template ID and token
+    const { data: formLink, error: linkError } = await supabase
+      .from("form_links")
+      .select("id, enabled, token, expires_at")
+      .eq("token", token)
+      .eq("enabled", true)
+      .eq("form_template_id", formTemplate.id)
+      .single();
+
+    if (linkError) return json(404, {code:"NOT_FOUND"});
 
     const now = new Date();
-    if (data.expires_at && new Date(data.expires_at) < now) return json(410, {code:"EXPIRED"});
-    if (data.form_template.status !== "published") return json(404, {code:"UNPUBLISHED"});
+    if (formLink.expires_at && new Date(formLink.expires_at) < now) return json(410, {code:"EXPIRED"});
+    if (formTemplate.status !== "published") return json(404, {code:"UNPUBLISHED"});
 
-    // get fields
-    const { data: fields, error: ferr } = await supabase
+    // Get form fields
+    const { data: fields, error: fieldsError } = await supabase
       .from("form_fields")
       .select("*")
-      .eq("form_template_id", data.form_template.id)
+      .eq("form_template_id", formTemplate.id)
       .order("position", { ascending: true });
 
-    if (ferr) return json(500, {code:"FIELDS_FETCH_ERROR"});
+    if (fieldsError) return json(500, {code:"FIELDS_FETCH_ERROR"});
 
     return json(200, {
       form: {
-        id: data.form_template.id,
-        slug: data.form_template.slug,
-        settings: data.form_template.settings_json ?? {},
+        id: formTemplate.id,
+        slug: formTemplate.slug,
+        settings: formTemplate.settings_json ?? {},
         fields: fields ?? []
       }
     });
