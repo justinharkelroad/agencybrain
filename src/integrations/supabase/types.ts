@@ -1481,6 +1481,7 @@ export type Database = {
           created_at: string
           email: string
           employment: Database["public"]["Enums"]["app_employment_type"]
+          hybrid_team_assignments: string[] | null
           id: string
           name: string
           notes: string | null
@@ -1494,6 +1495,7 @@ export type Database = {
           created_at?: string
           email: string
           employment: Database["public"]["Enums"]["app_employment_type"]
+          hybrid_team_assignments?: string[] | null
           id?: string
           name: string
           notes?: string | null
@@ -1507,6 +1509,7 @@ export type Database = {
           created_at?: string
           email?: string
           employment?: Database["public"]["Enums"]["app_employment_type"]
+          hybrid_team_assignments?: string[] | null
           id?: string
           name?: string
           notes?: string | null

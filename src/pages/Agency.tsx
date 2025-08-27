@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
 import AgencyTemplatesManager from "@/components/checklists/AgencyTemplatesManager";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
@@ -49,6 +50,7 @@ export default function Agency() {
     employment: EMPLOYMENT_TYPES[0] as Employment,
     status: MEMBER_STATUS[0] as MemberStatus,
     notes: "",
+    hybridTeamAssignments: [] as string[],
   });
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export default function Agency() {
   const refreshMembers = async (aId: string) => {
     const { data, error } = await supabase
       .from("team_members")
-      .select("id,name,email,role,employment,status,notes,created_at")
+      .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
       .eq("agency_id", aId)
       .order("created_at", { ascending: false });
     if (!error) setMembers(data || []);
@@ -152,13 +154,21 @@ export default function Agency() {
 
   const startCreate = () => {
     setEditingId(null);
-    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "" });
+    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [] });
     setMemberDialogOpen(true);
   };
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setMemberForm({ name: m.name, email: m.email, role: m.role, employment: m.employment, status: m.status, notes: m.notes || "" });
+    setMemberForm({ 
+      name: m.name, 
+      email: m.email, 
+      role: m.role, 
+      employment: m.employment, 
+      status: m.status, 
+      notes: m.notes || "",
+      hybridTeamAssignments: m.hybrid_team_assignments || []
+    });
     setMemberDialogOpen(true);
   };
 
@@ -166,11 +176,21 @@ export default function Agency() {
     try {
       if (!agencyId) throw new Error("No agency configured");
       if (!memberForm.name.trim() || !memberForm.email.trim()) throw new Error("Name and email are required");
+      const updateData = {
+        name: memberForm.name,
+        email: memberForm.email,
+        role: memberForm.role,
+        employment: memberForm.employment,
+        status: memberForm.status,
+        notes: memberForm.notes,
+        hybrid_team_assignments: memberForm.role === 'Hybrid' ? memberForm.hybridTeamAssignments : null
+      };
+      
       if (editingId) {
-        const { error } = await supabase.from("team_members").update({ ...memberForm }).eq("id", editingId);
+        const { error } = await supabase.from("team_members").update(updateData).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...memberForm }]);
+        const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
         if (error) throw error;
       }
       await refreshMembers(agencyId);
@@ -280,15 +300,54 @@ export default function Agency() {
                     <Label className="text-right" htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-3" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right">Role</Label>
-                    <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
-                      <SelectContent>
-                        {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                   <div className="grid grid-cols-4 items-center gap-3">
+                     <Label className="text-right">Role</Label>
+                     <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
+                       <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
+                       <SelectContent>
+                         {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                   
+                   {memberForm.role === 'Hybrid' && (
+                     <div className="grid grid-cols-4 items-start gap-3">
+                       <Label className="text-right">Teams</Label>
+                       <div className="col-span-3 space-y-2">
+                         <p className="text-sm text-muted-foreground">Select which team(s) this hybrid member counts for:</p>
+                         <div className="flex items-center space-x-2">
+                           <Checkbox 
+                             id="sales-team-form"
+                             checked={memberForm.hybridTeamAssignments.includes('Sales')}
+                             onCheckedChange={(checked) => {
+                               setMemberForm(f => ({
+                                 ...f,
+                                 hybridTeamAssignments: checked 
+                                   ? [...f.hybridTeamAssignments, 'Sales']
+                                   : f.hybridTeamAssignments.filter(t => t !== 'Sales')
+                               }));
+                             }}
+                           />
+                           <Label htmlFor="sales-team-form">Sales Team</Label>
+                         </div>
+                         <div className="flex items-center space-x-2">
+                           <Checkbox 
+                             id="service-team-form"
+                             checked={memberForm.hybridTeamAssignments.includes('Service')}
+                             onCheckedChange={(checked) => {
+                               setMemberForm(f => ({
+                                 ...f,
+                                 hybridTeamAssignments: checked 
+                                   ? [...f.hybridTeamAssignments, 'Service']
+                                   : f.hybridTeamAssignments.filter(t => t !== 'Service')
+                               }));
+                             }}
+                           />
+                           <Label htmlFor="service-team-form">Service Team</Label>
+                         </div>
+                       </div>
+                     </div>
+                   )}
                   <div className="grid grid-cols-4 items-center gap-3">
                     <Label className="text-right">Employment</Label>
                     <Select value={memberForm.employment} onValueChange={(v) => setMemberForm((f) => ({ ...f, employment: v as Employment }))}>
@@ -338,7 +397,7 @@ export default function Agency() {
                       <Link to={`/agency/team/${m.id}`} className="text-primary hover:underline">{m.name}</Link>
                     </TableCell>
                     <TableCell>{m.email}</TableCell>
-                    <TableCell>{m.role}</TableCell>
+                    <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                     <TableCell>{m.employment}</TableCell>
                     <TableCell>{m.status}</TableCell>
                     <TableCell className="text-right">
