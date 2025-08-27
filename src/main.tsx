@@ -26,6 +26,27 @@ if (typeof window !== 'undefined') {
       }
     };
     
+    // Prevent problematic custom element registration
+    const preventProblematicElements = () => {
+      const problematicElements = ['mce-autosize-textarea'];
+      
+      problematicElements.forEach(elementName => {
+        try {
+          if (!customElements.get(elementName)) {
+            // Register a dummy component to prevent the problematic one from loading
+            customElements.define(elementName, class extends HTMLElement {
+              constructor() {
+                super();
+                console.debug(`🔒 Blocked problematic element: ${elementName}`);
+              }
+            });
+          }
+        } catch (e) {
+          console.debug(`Failed to block ${elementName}:`, e);
+        }
+      });
+    };
+
     // Enhanced cleanup for problematic elements
     const cleanupProblematicElements = () => {
       try {
@@ -44,8 +65,11 @@ if (typeof window !== 'undefined') {
               if (el && typeof (el as any).disconnect === 'function') {
                 (el as any).disconnect();
               }
-              if (el && typeof el.remove === 'function') {
-                el.remove();
+              if (el && typeof (el as any).destroy === 'function') {
+                (el as any).destroy();
+              }
+              if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
               }
             } catch (e) {
               console.debug(`Element cleanup error for ${selector}:`, e);
@@ -56,6 +80,9 @@ if (typeof window !== 'undefined') {
         console.debug('Comprehensive element cleanup failed:', error);
       }
     };
+
+    // Run prevention immediately
+    preventProblematicElements();
 
     // Multiple cleanup triggers
     cleanupProblematicElements(); // Immediate

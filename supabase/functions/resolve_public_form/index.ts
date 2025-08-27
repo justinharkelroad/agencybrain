@@ -31,10 +31,11 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const agencySlug = url.searchParams.get("agencySlug") || "";
-    const formSlug = url.searchParams.get("formSlug") || "";
-    const token = url.searchParams.get("t") || "";
+    // Parse body for parameters (consistent with supabase.functions.invoke)
+    const body = await req.json().catch(() => ({}));
+    const agencySlug = body.agencySlug || "";
+    const formSlug = body.formSlug || "";
+    const token = body.token || "";
 
     if (!agencySlug || !formSlug || !token) return json(400, {code:"BAD_REQUEST"});
 
