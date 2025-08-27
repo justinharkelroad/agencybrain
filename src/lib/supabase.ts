@@ -8,6 +8,7 @@ declare global {
 
 const url = import.meta.env.VITE_SUPABASE_URL!;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+console.log('VITE url?', import.meta.env.VITE_SUPABASE_URL);
 if (!url || !anon) {
   throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
 }
