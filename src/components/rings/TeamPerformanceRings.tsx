@@ -155,14 +155,36 @@ export default function TeamPerformanceRings({
           .select('team_member_id, metric_key, value_number')
           .eq('agency_id', agencyId);
 
+        // Role-based default targets and metrics
+        const getDefaultTarget = (metricKey: string) => {
+          const defaults = role === 'Sales' 
+            ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2, sold_policies: 1, sold_premium: 500 }
+            : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+          return (defaults as any)[metricKey] || 1;
+        };
+
+        // Filter metrics based on role
+        const roleMetrics = role === 'Sales' 
+          ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
+          : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews'];
+        
+        const filteredMetrics = metrics.filter(m => roleMetrics.includes(m));
+
         // Build team data with rings
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
-          const memberMetrics: RingMetric[] = metrics.map((metricKey: string) => {
+          const memberMetrics: RingMetric[] = filteredMetrics.map((metricKey: string) => {
             const actual = member[metricKey] || 0;
-            const target = targets?.find(t => 
-              (t.team_member_id === member.team_member_id || t.team_member_id === null) && 
-              t.metric_key === metricKey
-            )?.value_number || 1;
+            
+            // Get target: member-specific first, then agency default, then role default
+            const memberTarget = targets?.find(t => 
+              t.team_member_id === member.team_member_id && t.metric_key === metricKey
+            )?.value_number;
+            
+            const agencyTarget = targets?.find(t => 
+              t.team_member_id === null && t.metric_key === metricKey
+            )?.value_number;
+            
+            const target = memberTarget || agencyTarget || getDefaultTarget(metricKey);
             
             return {
               key: metricKey,

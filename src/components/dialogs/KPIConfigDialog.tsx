@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { BarChart3 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface KPIConfigDialogProps {
   title: string;
@@ -14,21 +15,109 @@ interface KPIConfigDialogProps {
   children: React.ReactNode;
 }
 
-export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps) {
-  const [targets, setTargets] = useState({
-    outbound_calls: 20,
-    talk_minutes: 60,
-    quoted_count: 3,
-    sold_items: 2,
-    sold_policies: 1,
-    sold_premium: 500,
-    cross_sells_uncovered: type === "service" ? 2 : 0,
-    mini_reviews: type === "service" ? 5 : 0
-  });
+// Default target values based on role
+const getDefaultTargets = (type: "sales" | "service") => ({
+  outbound_calls: type === "sales" ? 100 : 30,
+  talk_minutes: 180,
+  quoted_count: type === "sales" ? 5 : 0,
+  sold_items: type === "sales" ? 2 : 0,
+  sold_policies: type === "sales" ? 1 : 0,
+  sold_premium: type === "sales" ? 500 : 0,
+  cross_sells_uncovered: type === "service" ? 2 : 0,
+  mini_reviews: type === "service" ? 5 : 0
+});
 
-  const handleSave = () => {
-    // TODO: Implement actual KPI targets save
-    toast.success(`${type === "sales" ? "Sales" : "Service"} KPI targets saved!`);
+export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps) {
+  const [targets, setTargets] = useState(getDefaultTargets(type));
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Load existing targets when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    
+    const loadTargets = async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', (await supabase.auth.getUser()).data.user?.id)
+          .single();
+
+        if (!profile?.agency_id) return;
+
+        const { data: existingTargets } = await supabase
+          .from('targets')
+          .select('metric_key, value_number')
+          .eq('agency_id', profile.agency_id)
+          .is('team_member_id', null);
+
+        if (existingTargets && existingTargets.length > 0) {
+          const loadedTargets = { ...getDefaultTargets(type) };
+          existingTargets.forEach(target => {
+            if (target.metric_key in loadedTargets) {
+              (loadedTargets as any)[target.metric_key] = target.value_number;
+            }
+          });
+          setTargets(loadedTargets);
+        }
+      } catch (error) {
+        console.error('Error loading targets:', error);
+      }
+    };
+
+    loadTargets();
+  }, [open, type]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+      if (!profile?.agency_id) {
+        toast.error('Agency not found');
+        return;
+      }
+
+      // Get relevant metrics for this role
+      const relevantMetrics = type === "sales" 
+        ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items', 'sold_policies', 'sold_premium']
+        : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews'];
+
+      // Delete existing targets for these metrics
+      await supabase
+        .from('targets')
+        .delete()
+        .eq('agency_id', profile.agency_id)
+        .is('team_member_id', null)
+        .in('metric_key', relevantMetrics);
+
+      // Insert/update targets
+      const targetRows = relevantMetrics.map(metric => ({
+        agency_id: profile.agency_id,
+        team_member_id: null,
+        metric_key: metric,
+        value_number: (targets as any)[metric]
+      }));
+
+      const { error } = await supabase
+        .from('targets')
+        .insert(targetRows);
+
+      if (error) throw error;
+
+      toast.success(`${type === "sales" ? "Sales" : "Service"} KPI targets saved!`);
+      setOpen(false);
+    } catch (error) {
+      console.error('Error saving targets:', error);
+      toast.error('Failed to save targets');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateTarget = (key: keyof typeof targets, value: number) => {
@@ -36,7 +125,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -75,47 +164,52 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quoted_count">Quoted Count</Label>
-                <Input
-                  id="quoted_count"
-                  type="number"
-                  value={targets.quoted_count}
-                  onChange={(e) => updateTarget("quoted_count", parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sold_items">Sold Items</Label>
-                <Input
-                  id="sold_items"
-                  type="number"
-                  value={targets.sold_items}
-                  onChange={(e) => updateTarget("sold_items", parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
+            {/* Sales-specific KPIs */}
+            {type === "sales" && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quoted_count">Quoted Count</Label>
+                    <Input
+                      id="quoted_count"
+                      type="number"
+                      value={targets.quoted_count}
+                      onChange={(e) => updateTarget("quoted_count", parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sold_items">Sold Items</Label>
+                    <Input
+                      id="sold_items"
+                      type="number"
+                      value={targets.sold_items}
+                      onChange={(e) => updateTarget("sold_items", parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="sold_policies">Sold Policies</Label>
-                <Input
-                  id="sold_policies"
-                  type="number"
-                  value={targets.sold_policies}
-                  onChange={(e) => updateTarget("sold_policies", parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sold_premium">Sold Premium ($)</Label>
-                <Input
-                  id="sold_premium"
-                  type="number"
-                  value={targets.sold_premium}
-                  onChange={(e) => updateTarget("sold_premium", parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sold_policies">Sold Policies</Label>
+                    <Input
+                      id="sold_policies"
+                      type="number"
+                      value={targets.sold_policies}
+                      onChange={(e) => updateTarget("sold_policies", parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sold_premium">Sold Premium ($)</Label>
+                    <Input
+                      id="sold_premium"
+                      type="number"
+                      value={targets.sold_premium}
+                      onChange={(e) => updateTarget("sold_premium", parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             {type === "service" && (
               <>
@@ -145,8 +239,12 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => {}}>Cancel</Button>
-            <Button onClick={handleSave}>Save Targets</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? "Saving..." : "Save Targets"}
+            </Button>
           </div>
         </div>
       </DialogContent>
