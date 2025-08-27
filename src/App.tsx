@@ -39,7 +39,6 @@ import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
-import Explorer from "./pages/Explorer";
 import SubmissionDetail from "./pages/SubmissionDetail";
 
 const queryClient = new QueryClient();
@@ -63,7 +62,7 @@ const App = () => (
             } />
             <Route path="/explorer" element={
               <ProtectedRoute>
-                <Explorer />
+                <ScorecardForms />
               </ProtectedRoute>
             } />
             <Route path="/submit" element={
