@@ -138,8 +138,10 @@ export default function CustomFieldManager({
                 <Textarea
                   value={(field.options || []).join('\n')}
                   onChange={(e) => updateFieldOptions(index, e.target.value)}
-                  placeholder="Option 1&#10;Option 2&#10;Option 3"
-                  rows={3}
+                  placeholder={`Option 1\nOption 2\nOption 3`}
+                  rows={4}
+                  className="font-mono text-sm resize-none"
+                  style={{ whiteSpace: 'pre-wrap' }}
                 />
               </div>
             )}
