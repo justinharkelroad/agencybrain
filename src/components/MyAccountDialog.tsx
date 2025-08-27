@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from "@/lib/supabase";
 
 export function MyAccountDialogTriggerButton() {
   const { user, isAdmin } = useAuth();

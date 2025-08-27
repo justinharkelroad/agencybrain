@@ -1,5 +1,5 @@
 import { type CellAddr } from "../bonus_grid_web_spec/computeWithRounding";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { DataValidator, type DataIntegrityReport } from "./dataValidation";
 import { DataBackupManager } from "./dataBackup";
 

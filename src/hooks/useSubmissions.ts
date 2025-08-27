@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -37,7 +37,7 @@ export function useSubmissions() {
   const fetchSubmissions = async () => {
     try {
       // Get user's agency first
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -50,7 +50,7 @@ export function useSubmissions() {
       }
 
       // Fetch submissions for forms from this agency
-      const { data: submissionsData, error } = await supabase
+      const { data: submissionsData, error } = await supa
         .from('submissions')
         .select(`
           *,
