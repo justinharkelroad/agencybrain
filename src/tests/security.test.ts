@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 
 describe('Security Tests', () => {
   describe('Row Level Security', () => {

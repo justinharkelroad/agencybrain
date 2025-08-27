@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from "@/lib/supabase";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -80,7 +80,7 @@ export default function MetricsDashboard() {
   useEffect(() => {
     const fetchAgencySlug = async () => {
       if (!user) return;
-      const { data: profile } = await supabase
+      const { data: profile } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)

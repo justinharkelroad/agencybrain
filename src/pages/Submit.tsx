@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -197,7 +197,7 @@ export default function Submit() {
       console.log('Applying selective data persistence...');
       
       // Fetch periods with actual form_data, excluding the current period if it exists
-      const query = supabase
+      const query = supa
         .from('periods')
         .select('form_data, id, created_at')
         .eq('user_id', user?.id)

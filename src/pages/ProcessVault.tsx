@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +72,7 @@ const ProcessVault: React.FC = () => {
     if (missing.length === 0) return;
 
     const inserts = missing.map(m => ({ user_id: user.id, title: m.title, vault_type_id: m.id }));
-    const { error } = await supabase.from("user_process_vaults").insert(inserts);
+    const { error } = await supa.from("user_process_vaults").insert(inserts);
     if (error) {
       console.error("Failed ensuring defaults", error);
       toast({ title: "Error", description: "Couldn't create default vaults.", variant: "destructive" });

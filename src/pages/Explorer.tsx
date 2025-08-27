@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,10 +72,10 @@ export default function Explorer() {
     setError(null);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await supa.auth.getSession();
       const token = session.session?.access_token ?? "";
 
-      const response = await supabase.functions.invoke('explorer_search', {
+      const response = await supa.functions.invoke('explorer_search', {
         body: {
           agencySlug,
           ...filters,
