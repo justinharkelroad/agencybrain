@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Settings } from "lucide-react";
+import { Plus, X, Settings, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 interface RepeaterField {
@@ -68,6 +68,25 @@ export default function RepeaterSectionManager({
   const removeField = (index: number) => {
     const updatedFields = section.fields.filter((_, idx) => idx !== index);
     updateSection({ fields: updatedFields });
+  };
+
+  const addOptionToField = (fieldIndex: number) => {
+    const field = section.fields[fieldIndex];
+    const newOptions = [...(field.options || []), ''];
+    updateField(fieldIndex, { options: newOptions });
+  };
+
+  const updateOptionInField = (fieldIndex: number, optionIndex: number, value: string) => {
+    const field = section.fields[fieldIndex];
+    const newOptions = [...(field.options || [])];
+    newOptions[optionIndex] = value;
+    updateField(fieldIndex, { options: newOptions });
+  };
+
+  const removeOptionFromField = (fieldIndex: number, optionIndex: number) => {
+    const field = section.fields[fieldIndex];
+    const newOptions = (field.options || []).filter((_, i) => i !== optionIndex);
+    updateField(fieldIndex, { options: newOptions });
   };
 
   return (
@@ -177,29 +196,58 @@ export default function RepeaterSectionManager({
                       </div>
 
                       {field.type === 'select' && (
-                        <div>
-                          <Label>Options (one per line)</Label>
+                        <div className="space-y-3">
                           {field.key === 'lead_source' && leadSources.length > 0 ? (
-                            <div className="p-3 border rounded-md bg-muted text-sm">
-                              <p className="text-muted-foreground mb-2">Automatically populated from Lead Source Configuration:</p>
-                              {leadSources.filter(ls => ls.is_active).map(ls => (
-                                <p key={ls.id} className="text-xs">• {ls.name}</p>
-                              ))}
+                            <div>
+                              <Label>Options</Label>
+                              <div className="p-3 border rounded-md bg-muted text-sm">
+                                <p className="text-muted-foreground mb-2">Automatically populated from Lead Source Configuration:</p>
+                                {leadSources.filter(ls => ls.is_active).map(ls => (
+                                  <p key={ls.id} className="text-xs">• {ls.name}</p>
+                                ))}
+                              </div>
                             </div>
                           ) : (
-                            <textarea
-                              className="w-full p-2 border rounded-md text-sm bg-background text-foreground"
-                              rows={3}
-                              value={(field.options || []).join('\n')}
-                              onChange={(e) => {
-                                const options = e.target.value
-                                  .split('\n')
-                                  .map(opt => opt.trim())
-                                  .filter(opt => opt.length > 0);
-                                updateField(index, { options });
-                              }}
-                              placeholder="Option 1&#10;Option 2&#10;Option 3"
-                            />
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm">Options</Label>
+                                <Button
+                                  onClick={() => addOptionToField(index)}
+                                  size="sm"
+                                  variant="outline"
+                                  type="button"
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add Option
+                                </Button>
+                              </div>
+                              <div className="space-y-2">
+                                {(field.options || []).map((option, optionIndex) => (
+                                  <div key={optionIndex} className="flex items-center gap-2">
+                                    <Input
+                                      value={option}
+                                      onChange={(e) => updateOptionInField(index, optionIndex, e.target.value)}
+                                      placeholder={`Option ${optionIndex + 1}`}
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() => removeOptionFromField(index, optionIndex)}
+                                      size="sm"
+                                      variant="outline"
+                                      type="button"
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                {(field.options || []).length === 0 && (
+                                  <p className="text-muted-foreground text-sm">
+                                    No options added yet. Click "Add Option" to get started.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       )}
