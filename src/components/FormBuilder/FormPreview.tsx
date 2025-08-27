@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import { Eye } from "lucide-react";
 
 interface KPIField {
@@ -21,7 +22,7 @@ interface KPIField {
 interface CustomField {
   key: string;
   label: string;
-  type: 'text' | 'dropdown' | 'radio' | 'checkbox' | 'date';
+  type: 'text' | 'longtext' | 'dropdown' | 'radio' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
 }
@@ -106,6 +107,17 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
               {field.required && <span className="text-destructive">*</span>}
             </Label>
             <Input disabled placeholder="Enter text..." />
+          </div>
+        );
+      
+      case 'longtext':
+        return (
+          <div key={field.key}>
+            <Label className="text-sm">
+              {field.label}
+              {field.required && <span className="text-destructive">*</span>}
+            </Label>
+            <Textarea disabled placeholder="Enter detailed information..." rows={3} />
           </div>
         );
       
