@@ -16,7 +16,7 @@ type ResolvedForm = {
   slug: string; 
   settings: any; 
   fields: Field[];
-  team_members?: Array<{ id: string; name: string; }>;
+  team_members: Array<{ id: string; name: string; }>;
 };
 
 export default function PublicFormSubmission() {
@@ -99,161 +99,173 @@ export default function PublicFormSubmission() {
 
           {/* Form Content */}
           <div className="p-6 space-y-6">
-            {/* All Fields Rendered from Database */}
+            {/* System Fields First */}
             <div className="space-y-4">
-              {form.fields.map((f) => {
-                      if (f.type === "number") {
-                        return (
-                          <div key={f.id} className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">
-                              {f.label}{f.required && <span className="text-destructive"> *</span>}
-                            </label>
-                            <input 
-                              type="number" 
-                              min={0} 
-                              value={values[f.key] ?? ""} 
-                              onChange={e=>onChange(f.key, e.target.value)}
-                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                            />
-                          </div>
-                        );
-                      }
-                      if (f.type === "currency") {
-                        return (
-                          <div key={f.id} className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">
-                              {f.label}{f.required && <span className="text-destructive"> *</span>}
-                            </label>
-                            <input 
-                              type="number" 
-                              min={0} 
-                              step="0.01" 
-                              value={values[f.key] ?? ""} 
-                              onChange={e=>onChange(f.key, e.target.value)}
-                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                            />
-                          </div>
-                        );
-                      }
-                      if (f.type === "dropdown" || f.type === "select") {
-                        // Handle team_member_id specially
-                        if (f.key === "team_member_id") {
-                          return (
-                            <div key={f.id} className="space-y-2">
-                              <label className="text-sm font-medium text-foreground">
-                                {f.label}{f.required && <span className="text-destructive"> *</span>}
-                              </label>
-                              <select 
-                                value={values[f.key] ?? ""} 
-                                onChange={e=>onChange(f.key, e.target.value)}
-                                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                              >
-                                <option value="">Select {f.label}</option>
-                                {form.team_members?.map((member: any) => (
-                                  <option key={member.id} value={member.id}>{member.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        }
-                        // Handle other dropdowns
-                        const opts = f.options_json?.entityOptions || f.options_json?.options || [];
-                        return (
-                          <div key={f.id} className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">
-                              {f.label}{f.required && <span className="text-destructive"> *</span>}
-                            </label>
-                            <select 
-                              value={values[f.key] ?? ""} 
-                              onChange={e=>onChange(f.key, e.target.value)}
-                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                            >
-                              <option value="">Select</option>
-                              {opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (f.type === "textarea") {
-                        return (
-                          <div key={f.id} className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">
-                              {f.label}{f.required && <span className="text-destructive"> *</span>}
-                            </label>
-                            <textarea 
-                              value={values[f.key] ?? ""} 
-                              onChange={e=>onChange(f.key, e.target.value)}
-                              rows={3}
-                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
-                            />
-                          </div>
-                        );
-                      }
-                      if (f.type === "repeater" && f.key === "quoted_details") {
-                        const rows:any[] = values.quoted_details || [];
-                        const subfields = f.options_json?.subfields || [];
-                        return (
-                          <div key={f.id} className="space-y-4">
-                            <label className="text-sm font-medium text-foreground">{f.label}</label>
-                            <div className="bg-muted/30 border border-border rounded-lg p-4">
-                              {rows.map((row, i) => (
-                                <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 p-3 bg-background rounded-md mb-3 last:mb-0">
-                                  {subfields.map((sf:any) => (
-                                    <div key={sf.key} className="space-y-1">
-                                      <label className="text-xs font-medium text-muted-foreground">
-                                        {sf.label}{sf.required && <span className="text-destructive"> *</span>}
-                                      </label>
-                                      <input
-                                        value={row[sf.key] || ""}
-                                        onChange={e => {
-                                          const v = e.target.value;
-                                          setValues(prev => {
-                                            const next = [...(prev.quoted_details||[])];
-                                            next[i] = { ...(next[i]||{}), [sf.key]: v };
-                                            return { ...prev, quoted_details: next };
-                                          });
-                                        }}
-                                        className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-                      // Handle date fields with special defaults
-                      if (f.key === "submission_date" || f.key === "work_date") {
-                        return (
-                          <div key={f.id} className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">
-                              {f.label}{f.required && <span className="text-destructive"> *</span>}
-                            </label>
-                            <input 
-                              type="date"
-                              value={values[f.key] ?? ""} 
-                              onChange={e=>onChange(f.key, e.target.value)}
-                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                            />
-                          </div>
-                        );
-                      }
-                      // default text
-                      return (
-                        <div key={f.id} className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">
-                            {f.label}{f.required && <span className="text-destructive"> *</span>}
-                          </label>
-                          <input 
-                            value={values[f.key] ?? ""} 
-                            onChange={e=>onChange(f.key, e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                          />
-                        </div>
-                      );
-                    })}
+              <h3 className="text-lg font-semibold text-foreground mb-4">Basic Information</h3>
+              {/* Staff Member Field */}
+              {form.fields.filter(f => f.key === "team_member_id").map(f => (
+                <div key={f.id} className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    {f.label}{f.required && <span className="text-destructive"> *</span>}
+                  </label>
+                  <select 
+                    value={values[f.key] ?? ""} 
+                    onChange={e=>onChange(f.key, e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                  >
+                    <option value="">Select {f.label}</option>
+                    {form.team_members?.map((member: any) => (
+                      <option key={member.id} value={member.id}>{member.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+              
+              {/* Date Fields */}
+              {form.fields.filter(f => f.key === "submission_date" || f.key === "work_date").map(f => (
+                <div key={f.id} className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    {f.label}{f.required && <span className="text-destructive"> *</span>}
+                  </label>
+                  <input 
+                    type="date"
+                    value={values[f.key] ?? ""} 
+                    onChange={e=>onChange(f.key, e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                  />
+                </div>
+              ))}
             </div>
+
+            {/* Performance Metrics */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Performance Metrics</h3>
+              {form.fields.filter(f => f.key !== "team_member_id" && f.key !== "submission_date" && f.key !== "work_date" && f.key !== "quoted_details").map((f) => {
+                if (f.type === "number") {
+                  return (
+                    <div key={f.id} className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        {f.label}{f.required && <span className="text-destructive"> *</span>}
+                      </label>
+                      <input 
+                        type="number" 
+                        min={0} 
+                        value={values[f.key] ?? ""} 
+                        onChange={e=>onChange(f.key, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                      />
+                    </div>
+                  );
+                }
+                if (f.type === "currency") {
+                  return (
+                    <div key={f.id} className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        {f.label}{f.required && <span className="text-destructive"> *</span>}
+                      </label>
+                      <input 
+                        type="number" 
+                        min={0} 
+                        step="0.01" 
+                        value={values[f.key] ?? ""} 
+                        onChange={e=>onChange(f.key, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                      />
+                    </div>
+                  );
+                }
+                if (f.type === "dropdown" || f.type === "select") {
+                  // Handle other dropdowns (team_member_id already handled above)
+                  const opts = f.options_json?.entityOptions || f.options_json?.options || [];
+                  return (
+                    <div key={f.id} className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        {f.label}{f.required && <span className="text-destructive"> *</span>}
+                      </label>
+                      <select 
+                        value={values[f.key] ?? ""} 
+                        onChange={e=>onChange(f.key, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                      >
+                        <option value="">Select</option>
+                        {opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  );
+                }
+                if (f.type === "textarea") {
+                  return (
+                    <div key={f.id} className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        {f.label}{f.required && <span className="text-destructive"> *</span>}
+                      </label>
+                      <textarea 
+                        value={values[f.key] ?? ""} 
+                        onChange={e=>onChange(f.key, e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
+                      />
+                    </div>
+                  );
+                }
+                
+                // default text
+                return (
+                  <div key={f.id} className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      {f.label}{f.required && <span className="text-destructive"> *</span>}
+                    </label>
+                    <input 
+                      value={values[f.key] ?? ""} 
+                      onChange={e=>onChange(f.key, e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Household Details Section */}
+            {form.fields.filter(f => f.key === "quoted_details").map(f => {
+              const rows:any[] = values.quoted_details || [];
+              const subfields = f.options_json?.subfields || [];
+              
+              if (rows.length === 0) return null;
+              
+              return (
+                <div key={f.id} className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Quoted Household Details</h3>
+                  <div className="bg-muted/30 border border-border rounded-lg p-4">
+                    {rows.map((row, i) => (
+                      <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 p-3 bg-background rounded-md mb-3 last:mb-0">
+                        <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
+                          Household #{i + 1}
+                        </div>
+                        {subfields.map((sf:any) => (
+                          <div key={sf.key} className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              {sf.label}{sf.required && <span className="text-destructive"> *</span>}
+                            </label>
+                            <input
+                              value={row[sf.key] || ""}
+                              onChange={e => {
+                                const v = e.target.value;
+                                setValues(prev => {
+                                  const next = [...(prev.quoted_details||[])];
+                                  next[i] = { ...(next[i]||{}), [sf.key]: v };
+                                  return { ...prev, quoted_details: next };
+                                });
+                              }}
+                              className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
 
             {/* Submit Button */}
             <div className="border-t border-border pt-6">

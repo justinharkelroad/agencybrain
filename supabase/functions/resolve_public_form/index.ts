@@ -85,12 +85,23 @@ serve(async (req) => {
 
     if (fieldsError) return json(500, {code:"FIELDS_FETCH_ERROR"});
 
+    // Get team members for the agency
+    const { data: teamMembers, error: teamMembersError } = await supabase
+      .from("team_members")
+      .select("id, name")
+      .eq("agency_id", agencyData.id)
+      .eq("status", "active")
+      .order("name", { ascending: true });
+
+    if (teamMembersError) return json(500, {code:"TEAM_MEMBERS_FETCH_ERROR"});
+
     return json(200, {
       form: {
         id: formTemplate.id,
         slug: formTemplate.slug,
         settings: formTemplate.settings_json ?? {},
-        fields: fields ?? []
+        fields: fields ?? [],
+        team_members: teamMembers ?? []
       }
     });
   } catch (e) {
