@@ -98,19 +98,33 @@ serve(async (req) => {
     const isLate = lateCalc as boolean;
     const finalDate = (body.workDate ?? body.submissionDate);
 
+    // Context logging
+    console.log("submit_public_form", 
+      { agency: link.agency.slug, form: link.form_template.slug, tm: body.teamMemberId, d: finalDate });
+
     // supersede previous final for that rep/day
-    const { data: prev } = await supabase
+    const d = finalDate; // YYYY-MM-DD string
+
+    const { data: prev, error: prevErr } = await supabase
       .from("submissions")
       .select("id")
       .eq("form_template_id", link.form_template.id)
       .eq("team_member_id", body.teamMemberId)
-      .eq("coalesce(work_date, submission_date)", finalDate) as any;
+      // match rows where work_date == d OR (work_date is null AND submission_date == d)
+      .or(`work_date.eq.${d},and(work_date.is.null,submission_date.eq.${d})`)
+      .eq("final", true);
+
+    if (prevErr) {
+      console.error("prev lookup failed", prevErr);
+      return json(500, { code: "PREV_LOOKUP_ERROR" });
+    }
 
     if (prev?.length) {
-      await supabase
+      const { error: updErr } = await supabase
         .from("submissions")
         .update({ final: false, superseded_at: new Date().toISOString() })
-        .in("id", prev.map((r:any)=>r.id));
+        .in("id", prev.map((r: any) => r.id));
+      if (updErr) return json(500, { code: "PREV_SUPERSEDE_ERROR" });
     }
 
     const { data: ins, error: insErr } = await supabase
