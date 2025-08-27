@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const { data: formTemplate, error: formError } = await supabase
       .from("form_templates")
-      .select("id, slug, status, settings_json")
+      .select("id, slug, status, settings_json, schema_json")
       .eq("slug", formSlug)
       .eq("agency_id", agencyData.id)
       .single();
@@ -76,15 +76,6 @@ serve(async (req) => {
     if (formLink.expires_at && new Date(formLink.expires_at) < now) return json(410, {code:"EXPIRED"});
     if (formTemplate.status !== "published") return json(404, {code:"UNPUBLISHED"});
 
-    // Get form fields
-    const { data: fields, error: fieldsError } = await supabase
-      .from("form_fields")
-      .select("*")
-      .eq("form_template_id", formTemplate.id)
-      .order("position", { ascending: true });
-
-    if (fieldsError) return json(500, {code:"FIELDS_FETCH_ERROR"});
-
     // Get team members for the agency
     const { data: teamMembers, error: teamMembersError } = await supabase
       .from("team_members")
@@ -100,7 +91,7 @@ serve(async (req) => {
         id: formTemplate.id,
         slug: formTemplate.slug,
         settings: formTemplate.settings_json ?? {},
-        fields: fields ?? [],
+        schema: formTemplate.schema_json ?? {},
         team_members: teamMembers ?? []
       }
     });

@@ -1,21 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
-type Field = {
-  id: string;
-  key: string;
-  label: string;
-  type: string;
-  required: boolean;
-  options_json?: any;
-  builtin: boolean;
-  position: number;
-};
 type ResolvedForm = { 
   id: string; 
   slug: string; 
   settings: any; 
-  fields: Field[];
+  schema: any;
   team_members: Array<{ id: string; name: string; }>;
 };
 
@@ -42,10 +32,22 @@ export default function PublicFormSubmission() {
 
   const onChange = (key: string, val: any) => {
     setValues(v => ({ ...v, [key]: val }));
+    // Generate household details when quoted_count changes
     if (key === "quoted_count") {
       const cap = form?.settings?.spawnCap ?? 25;
       const rows = Math.max(0, Math.min(Number(val) || 0, cap));
       setValues(v => ({ ...v, quoted_details: Array.from({length: rows}).map((_,i)=>v.quoted_details?.[i] || {}) }));
+    }
+    
+    // Handle repeater section triggers
+    if (form?.schema?.repeaterSections) {
+      Object.entries(form.schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
+        if (section.enabled && section.triggerKPI === key) {
+          const cap = form?.settings?.spawnCap ?? 25;
+          const rows = Math.max(0, Math.min(Number(val) || 0, cap));
+          setValues(v => ({ ...v, [sectionKey]: Array.from({length: rows}).map((_,i)=>v[sectionKey]?.[i] || {}) }));
+        }
+      });
     }
   };
 
@@ -102,162 +104,191 @@ export default function PublicFormSubmission() {
             {/* System Fields First */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground mb-4">Basic Information</h3>
+              
               {/* Staff Member Field */}
-              {form.fields.filter(f => f.key === "team_member_id").map(f => (
-                <div key={f.id} className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    {f.label}{f.required && <span className="text-destructive"> *</span>}
-                  </label>
-                  <select 
-                    value={values[f.key] ?? ""} 
-                    onChange={e=>onChange(f.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                  >
-                    <option value="">Select {f.label}</option>
-                    {form.team_members?.map((member: any) => (
-                      <option key={member.id} value={member.id}>{member.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Staff Member<span className="text-destructive"> *</span>
+                </label>
+                <select 
+                  value={values.team_member_id ?? ""} 
+                  onChange={e=>onChange("team_member_id", e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                >
+                  <option value="">Select Staff Member</option>
+                  {form.team_members?.map((member: any) => (
+                    <option key={member.id} value={member.id}>{member.name}</option>
+                  ))}
+                </select>
+              </div>
               
               {/* Date Fields */}
-              {form.fields.filter(f => f.key === "submission_date" || f.key === "work_date").map(f => (
-                <div key={f.id} className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    {f.label}{f.required && <span className="text-destructive"> *</span>}
-                  </label>
-                  <input 
-                    type="date"
-                    value={values[f.key] ?? ""} 
-                    onChange={e=>onChange(f.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                  />
-                </div>
-              ))}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Submission Date<span className="text-destructive"> *</span>
+                </label>
+                <input 
+                  type="date"
+                  value={values.submission_date ?? ""} 
+                  onChange={e=>onChange("submission_date", e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  Work Date
+                </label>
+                <input 
+                  type="date"
+                  value={values.work_date ?? ""} 
+                  onChange={e=>onChange("work_date", e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                />
+              </div>
             </div>
 
-            {/* Performance Metrics */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Performance Metrics</h3>
-              {form.fields.filter(f => f.key !== "team_member_id" && f.key !== "submission_date" && f.key !== "work_date" && f.key !== "quoted_details").map((f) => {
-                if (f.type === "number") {
-                  return (
-                    <div key={f.id} className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        {f.label}{f.required && <span className="text-destructive"> *</span>}
-                      </label>
+            {/* KPI Fields */}
+            {form.schema?.kpis?.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Key Performance Indicators</h3>
+                {form.schema.kpis.map((kpi: any) => (
+                  <div key={kpi.key} className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      {kpi.label}{kpi.required && <span className="text-destructive"> *</span>}
+                    </label>
+                    {kpi.type === "number" && (
                       <input 
                         type="number" 
                         min={0} 
-                        value={values[f.key] ?? ""} 
-                        onChange={e=>onChange(f.key, e.target.value)}
+                        value={values[kpi.key] ?? ""} 
+                        onChange={e=>onChange(kpi.key, e.target.value)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       />
-                    </div>
-                  );
-                }
-                if (f.type === "currency") {
-                  return (
-                    <div key={f.id} className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        {f.label}{f.required && <span className="text-destructive"> *</span>}
-                      </label>
+                    )}
+                    {kpi.type === "currency" && (
                       <input 
                         type="number" 
                         min={0} 
                         step="0.01" 
-                        value={values[f.key] ?? ""} 
-                        onChange={e=>onChange(f.key, e.target.value)}
+                        value={values[kpi.key] ?? ""} 
+                        onChange={e=>onChange(kpi.key, e.target.value)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       />
-                    </div>
-                  );
-                }
-                if (f.type === "dropdown" || f.type === "select") {
-                  // Handle other dropdowns (team_member_id already handled above)
-                  const opts = f.options_json?.entityOptions || f.options_json?.options || [];
-                  return (
-                    <div key={f.id} className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        {f.label}{f.required && <span className="text-destructive"> *</span>}
-                      </label>
+                    )}
+                    {(kpi.type === "dropdown" || kpi.type === "select") && (
                       <select 
-                        value={values[f.key] ?? ""} 
-                        onChange={e=>onChange(f.key, e.target.value)}
+                        value={values[kpi.key] ?? ""} 
+                        onChange={e=>onChange(kpi.key, e.target.value)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       >
                         <option value="">Select</option>
-                        {opts.map((o:string) => <option key={o} value={o}>{o}</option>)}
+                        {(kpi.entityOptions || kpi.options || []).map((o:string) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
                       </select>
-                    </div>
-                  );
-                }
-                if (f.type === "textarea") {
-                  return (
-                    <div key={f.id} className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        {f.label}{f.required && <span className="text-destructive"> *</span>}
-                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Custom Fields */}
+            {form.schema?.customFields?.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Additional Information</h3>
+                {form.schema.customFields.map((field: any) => (
+                  <div key={field.key} className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      {field.label}{field.required && <span className="text-destructive"> *</span>}
+                    </label>
+                    {field.type === "textarea" ? (
                       <textarea 
-                        value={values[f.key] ?? ""} 
-                        onChange={e=>onChange(f.key, e.target.value)}
+                        value={values[field.key] ?? ""} 
+                        onChange={e=>onChange(field.key, e.target.value)}
                         rows={3}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
                       />
-                    </div>
-                  );
-                }
-                
-                // default text
-                return (
-                  <div key={f.id} className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      {f.label}{f.required && <span className="text-destructive"> *</span>}
-                    </label>
-                    <input 
-                      value={values[f.key] ?? ""} 
-                      onChange={e=>onChange(f.key, e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                    />
+                    ) : field.type === "select" ? (
+                      <select 
+                        value={values[field.key] ?? ""} 
+                        onChange={e=>onChange(field.key, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                      >
+                        <option value="">Select</option>
+                        {(field.options || []).map((o:string) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input 
+                        type={field.type === "number" ? "number" : "text"}
+                        value={values[field.key] ?? ""} 
+                        onChange={e=>onChange(field.key, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                      />
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
-            {/* Household Details Section */}
-            {form.fields.filter(f => f.key === "quoted_details").map(f => {
-              const rows:any[] = values.quoted_details || [];
-              const subfields = f.options_json?.subfields || [];
+            {/* Repeater Sections (Household Details) */}
+            {form.schema?.repeaterSections && Object.entries(form.schema.repeaterSections).map(([sectionKey, section]: [string, any]) => {
+              if (!section.enabled || !section.triggerKPI) return null;
               
-              if (rows.length === 0) return null;
+              const triggerValue = values[section.triggerKPI];
+              const rows: any[] = values[sectionKey] || [];
+              
+              if (!triggerValue || triggerValue <= 0 || rows.length === 0) return null;
               
               return (
-                <div key={f.id} className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground mb-4">Quoted Household Details</h3>
+                <div key={sectionKey} className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">{section.title}</h3>
                   <div className="bg-muted/30 border border-border rounded-lg p-4">
                     {rows.map((row, i) => (
                       <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 p-3 bg-background rounded-md mb-3 last:mb-0">
                         <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
-                          Household #{i + 1}
+                          {section.title.slice(0, -1)} #{i + 1}
                         </div>
-                        {subfields.map((sf:any) => (
-                          <div key={sf.key} className="space-y-1">
+                        {section.fields?.map((field: any) => (
+                          <div key={field.key} className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">
-                              {sf.label}{sf.required && <span className="text-destructive"> *</span>}
+                              {field.label}{field.required && <span className="text-destructive"> *</span>}
                             </label>
-                            <input
-                              value={row[sf.key] || ""}
-                              onChange={e => {
-                                const v = e.target.value;
-                                setValues(prev => {
-                                  const next = [...(prev.quoted_details||[])];
-                                  next[i] = { ...(next[i]||{}), [sf.key]: v };
-                                  return { ...prev, quoted_details: next };
-                                });
-                              }}
-                              className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                            />
+                            {field.type === "select" ? (
+                              <select
+                                value={row[field.key] || ""}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setValues(prev => {
+                                    const next = [...(prev[sectionKey] || [])];
+                                    next[i] = { ...(next[i] || {}), [field.key]: v };
+                                    return { ...prev, [sectionKey]: next };
+                                  });
+                                }}
+                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                              >
+                                <option value="">Select</option>
+                                {(field.options || []).map((o: string) => (
+                                  <option key={o} value={o}>{o}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type={field.type === "number" ? "number" : "text"}
+                                value={row[field.key] || ""}
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setValues(prev => {
+                                    const next = [...(prev[sectionKey] || [])];
+                                    next[i] = { ...(next[i] || {}), [field.key]: v };
+                                    return { ...prev, [sectionKey]: next };
+                                  });
+                                }}
+                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
