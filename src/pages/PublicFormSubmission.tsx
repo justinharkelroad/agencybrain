@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
+import { supa } from "@/lib/supabase";
 
 type ResolvedForm = { 
   id: string; 
@@ -18,18 +18,12 @@ export default function PublicFormSubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
-  
-  // Create supabase client with proper auth
-  const supabase = createClient(
-    "https://wjqyccbytctqwceuhzhk.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw"
-  );
 
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('resolve_public_form', {
+        const { data, error } = await supa.functions.invoke('resolve_public_form', {
           body: {
             agencySlug,
             formSlug,
@@ -136,17 +130,17 @@ export default function PublicFormSubmission() {
     }
     
     try {
-      const { data, error } = await supabase.functions.invoke('submit_public_form', {
-        body: {
-          agencySlug, 
-          formSlug: formSlug, 
-          token,
-          teamMemberId: values.team_member_id,
-          submissionDate: values.submission_date,
-          workDate: values.work_date || null,
-          values
-        }
-      });
+      const payload = {
+        agencySlug,
+        formSlug: formSlug,
+        token,
+        teamMemberId: values.team_member_id,
+        submissionDate: values.submission_date,
+        workDate: values.work_date || null,
+        values,
+      };
+
+      const { data, error } = await supa.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
         setErr(error.message || "ERROR"); 
