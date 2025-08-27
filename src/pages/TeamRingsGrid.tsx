@@ -181,8 +181,14 @@ export default function TeamRingsGrid() {
           }
         })();
 
-        const target = Math.max(0, Number(memberTargets[key] || 0));
-        const progress = target > 0 ? actual / target : 0;
+        // Get target with role-based fallback
+        const targetValue = Number(memberTargets[key]);
+        const roleDefaults = selectedRole === "Sales" 
+          ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2, sold_policies: 1, sold_premium: 500 }
+          : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+        
+        const target = targetValue > 0 ? targetValue : (roleDefaults as any)[key] || 0;
+        const progress = target > 0 ? Math.min(actual / target, 1) : 0;
         
         return {
           key,

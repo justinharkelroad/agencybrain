@@ -138,7 +138,9 @@ export default function TeamPerformanceRings({
           .eq('role', role)
           .single();
 
-        const metrics = rules?.ring_metrics || ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items'];
+        const metrics = rules?.ring_metrics || (role === 'Sales' 
+          ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
+          : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
         setRingMetrics(metrics);
 
         // Get team metrics for the date
@@ -160,7 +162,7 @@ export default function TeamPerformanceRings({
           const defaults = role === 'Sales' 
             ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2, sold_policies: 1, sold_premium: 500 }
             : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
-          return (defaults as any)[metricKey] || 1;
+          return (defaults as any)[metricKey] || 0;
         };
 
         // Filter metrics based on role
@@ -192,7 +194,7 @@ export default function TeamPerformanceRings({
               progress: target > 0 ? Math.min(actual / target, 1) : 0,
               color: RING_COLORS[metricKey] || "#9ca3af",
               actual,
-              target
+              target: target > 0 ? target : 0
             };
           });
 

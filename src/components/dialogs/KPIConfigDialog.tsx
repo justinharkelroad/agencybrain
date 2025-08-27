@@ -16,16 +16,31 @@ interface KPIConfigDialogProps {
 }
 
 // Default target values based on role
-const getDefaultTargets = (type: "sales" | "service") => ({
-  outbound_calls: type === "sales" ? 100 : 30,
-  talk_minutes: 180,
-  quoted_count: type === "sales" ? 5 : 0,
-  sold_items: type === "sales" ? 2 : 0,
-  sold_policies: type === "sales" ? 1 : 0,
-  sold_premium: type === "sales" ? 500 : 0,
-  cross_sells_uncovered: type === "service" ? 2 : 0,
-  mini_reviews: type === "service" ? 5 : 0
-});
+const getDefaultTargets = (type: "sales" | "service") => {
+  if (type === "sales") {
+    return {
+      outbound_calls: 100,
+      talk_minutes: 180,
+      quoted_count: 5,
+      sold_items: 2,
+      sold_policies: 1,
+      sold_premium: 500,
+      cross_sells_uncovered: 0,
+      mini_reviews: 0
+    };
+  } else {
+    return {
+      outbound_calls: 30,
+      talk_minutes: 180,
+      quoted_count: 0,
+      sold_items: 0,
+      sold_policies: 0,
+      sold_premium: 0,
+      cross_sells_uncovered: 2,
+      mini_reviews: 5
+    };
+  }
+};
 
 export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps) {
   const [targets, setTargets] = useState(getDefaultTargets(type));
