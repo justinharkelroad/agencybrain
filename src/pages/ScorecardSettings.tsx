@@ -53,6 +53,9 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
   });
   const [backfillDays, setBackfillDays] = useState(7);
   const [countWeekendIfSubmitted, setCountWeekendIfSubmitted] = useState(true);
+  const [ringMetrics, setRingMetrics] = useState<string[]>([
+    "outbound_calls", "talk_minutes", "quoted_count", "sold_items"
+  ]);
 
   useEffect(() => {
     if (user?.id) {
@@ -91,6 +94,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
         setCountedDays(rules.counted_days || countedDays);
         setBackfillDays(rules.backfill_days || 7);
         setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
+        setRingMetrics(rules.ring_metrics || rules.selected_metrics || ringMetrics);
       }
     } catch (error: any) {
       console.error('Error loading data:', error);
@@ -122,6 +126,14 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
     }));
   };
 
+  const toggleRingMetric = (metricKey: string) => {
+    setRingMetrics(prev => 
+      prev.includes(metricKey) 
+        ? prev.filter(x => x !== metricKey)
+        : [...prev, metricKey]
+    );
+  };
+
   const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
   const maxRequired = Math.max(1, selectedMetrics.length);
 
@@ -145,7 +157,8 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
           weights,
           counted_days: countedDays,
           backfill_days: backfillDays,
-          count_weekend_if_submitted: countWeekendIfSubmitted
+          count_weekend_if_submitted: countWeekendIfSubmitted,
+          ring_metrics: ringMetrics
         }, { 
           onConflict: "agency_id,role" 
         });
@@ -293,6 +306,26 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
                     Count weekend days if submission exists (overrides day settings above)
                   </Label>
                 </div>
+              </div>
+            </div>
+
+            {/* Ring Metrics */}
+            <div>
+              <Label className="text-base font-medium">Show in Performance Rings</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Select which metrics to display in the visual performance rings dashboard.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {ALL_METRICS.map(metric => (
+                  <div key={`ring-${metric.key}`} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`ring-${metric.key}`}
+                      checked={ringMetrics.includes(metric.key)}
+                      onCheckedChange={() => toggleRingMetric(metric.key)}
+                    />
+                    <Label htmlFor={`ring-${metric.key}`}>{metric.label}</Label>
+                  </div>
+                ))}
               </div>
             </div>
 

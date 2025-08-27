@@ -1260,6 +1260,7 @@ export type Database = {
           id: string
           n_required: number | null
           recalc_past_on_change: boolean | null
+          ring_metrics: string[] | null
           role: Database["public"]["Enums"]["app_member_role"]
           selected_metrics: string[] | null
           updated_at: string
@@ -1274,6 +1275,7 @@ export type Database = {
           id?: string
           n_required?: number | null
           recalc_past_on_change?: boolean | null
+          ring_metrics?: string[] | null
           role: Database["public"]["Enums"]["app_member_role"]
           selected_metrics?: string[] | null
           updated_at?: string
@@ -1288,6 +1290,7 @@ export type Database = {
           id?: string
           n_required?: number | null
           recalc_past_on_change?: boolean | null
+          ring_metrics?: string[] | null
           role?: Database["public"]["Enums"]["app_member_role"]
           selected_metrics?: string[] | null
           updated_at?: string
@@ -1771,6 +1774,24 @@ export type Database = {
       get_target: {
         Args: { p_agency: string; p_member: string; p_metric: string }
         Returns: number
+      }
+      get_team_metrics_for_day: {
+        Args: { p_agency: string; p_date: string; p_role: string }
+        Returns: {
+          cross_sells_uncovered: number
+          date: string
+          mini_reviews: number
+          name: string
+          outbound_calls: number
+          quoted_count: number
+          quoted_entity: string
+          role: string
+          sold_items: number
+          sold_policies: number
+          sold_premium_cents: number
+          talk_minutes: number
+          team_member_id: string
+        }[]
       }
       gtrgm_compress: {
         Args: { "": unknown }
