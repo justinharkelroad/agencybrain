@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, BarChart3, Users, Target, FileText } from "lucide-react";
+import { Plus, Settings, BarChart3, Users, Target, FileText, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import TopNav from "@/components/TopNav";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
 import MetricsDashboard from "@/pages/MetricsDashboard";
+import Explorer from "@/pages/Explorer";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
@@ -133,19 +134,9 @@ export default function ScorecardForms() {
           </TabsContent>
 
           <TabsContent value="explorer" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Explorer</CardTitle>
-                <CardDescription>
-                  Search and analyze quoted household details
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  No data to explore yet. Submissions will appear here once forms are created.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="bg-background rounded-lg">
+              <Explorer />
+            </div>
           </TabsContent>
 
           <TabsContent value="targets" className="space-y-6">
@@ -156,28 +147,83 @@ export default function ScorecardForms() {
                   Set and manage KPI targets for your team members
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  No targets configured. Set targets to enable pass/fail scoring.
-                </p>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Sales Targets</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Button variant="outline" className="w-full">
+                        <Target className="h-4 w-4 mr-2" />
+                        Configure Sales KPIs
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Service Targets</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Button variant="outline" className="w-full">
+                        <Target className="h-4 w-4 mr-2" />
+                        Configure Service KPIs
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Agency Settings</CardTitle>
-                <CardDescription>
-                  Configure scorecard settings for your agency
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  Settings will be available here to configure timezones, reminders, and scoring rules.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>General Settings</CardTitle>
+                  <CardDescription>
+                    Configure basic agency settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Timezone Settings
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Notification Preferences
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Default Form Settings
+                  </Button>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Scoring Rules</CardTitle>
+                  <CardDescription>
+                    Configure pass/fail criteria and scoring
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Target className="h-4 w-4 mr-2" />
+                    Sales Scoring Rules
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Target className="h-4 w-4 mr-2" />
+                    Service Scoring Rules
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Award className="h-4 w-4 mr-2" />
+                    Contest Settings
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

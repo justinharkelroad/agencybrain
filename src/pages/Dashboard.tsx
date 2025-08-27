@@ -94,7 +94,7 @@ const Dashboard = () => {
                 <CardDescription>View team performance and analytics</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="outline" className="w-full" asChild>
+                <Button variant="gradient-glow" className="w-full" asChild>
                   <Link to="/metrics">View Metrics Dashboard</Link>
                 </Button>
               </CardContent>
