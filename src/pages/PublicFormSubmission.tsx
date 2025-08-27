@@ -252,7 +252,7 @@ export default function PublicFormSubmission() {
                           {section.title.slice(0, -1)} #{i + 1}
                         </div>
                         {section.fields?.map((field: any) => (
-                          <div key={field.key} className="space-y-1">
+                          <div key={field.key} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
                             <label className="text-xs font-medium text-muted-foreground">
                               {field.label}{field.required && <span className="text-destructive"> *</span>}
                             </label>
