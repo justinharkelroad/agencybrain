@@ -1,182 +1,265 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { supa } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Plus, ArrowUp, ArrowDown } from 'lucide-react';
+import { toast } from 'sonner';
 
-import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-
-type Props = {
-  agencyId: string | null;
-};
-
-type Template = {
+interface TemplateItem {
   id: string;
-  label: string;
-  required: boolean;
-  order_index: number;
+  agency_id: string;
+  title: string;
   active: boolean;
-  agency_id: string | null;
-};
+  order_index: number;
+}
 
-export default function AgencyTemplatesManager({ agencyId }: Props) {
-  const { toast } = useToast();
+export function AgencyTemplatesManager() {
+  const { user } = useAuth();
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [newItemTitle, setNewItemTitle] = useState('');
   const [loading, setLoading] = useState(false);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ label: string; active: boolean }>({
-    label: "",
-    active: true,
-  });
-
-  const canManage = useMemo(() => !!agencyId, [agencyId]);
-
-  const loadTemplates = async () => {
-    if (!agencyId) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("checklist_template_items")
-        .select("id,label,required,order_index,active,agency_id")
-        .eq("agency_id", agencyId)
-        .order("order_index", { ascending: true });
-      if (error) throw error;
-      setTemplates(data || []);
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: "Load failed", description: e?.message || "Unable to load templates", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [agencyId, setAgencyId] = useState<string | null>(null);
 
   useEffect(() => {
-    void loadTemplates();
+    if (user) {
+      fetchAgencyId();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (agencyId) {
+      fetchTemplates();
+    }
   }, [agencyId]);
 
-  const createTemplate = async () => {
-    if (!agencyId) return;
-    if (!form.label.trim()) {
-      toast({ title: "Label required", description: "Please enter a label for the template.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
+  const fetchAgencyId = async () => {
     try {
-      const nextOrder = templates.length > 0 ? Math.max(...templates.map((t) => t.order_index)) + 1 : 0;
-      const { error } = await supabase
-        .from("checklist_template_items")
-        .insert([{ agency_id: agencyId, label: form.label.trim(), order_index: nextOrder, active: form.active }]);
+      const { data: profile } = await supa
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user?.id)
+        .single();
+      
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+      }
+    } catch (error) {
+      console.error('Error fetching agency ID:', error);
+    }
+  };
+
+  const fetchTemplates = async () => {
+    if (!agencyId) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await supa
+        .from('checklist_template_items')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .order('order_index', { ascending: true });
+
       if (error) throw error;
-      setOpen(false);
-      setForm({ label: "", active: true });
-      await loadTemplates();
-      toast({ title: "Created", description: "Template added for your agency" });
-    } catch (e: any) {
-      console.error(e);
-      toast({ title: "Create failed", description: e?.message || "Unable to create template", variant: "destructive" });
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+      toast.error('Failed to load templates');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleActive = async (t: Template) => {
-    setTemplates((prev) => prev.map((x) => (x.id === t.id ? { ...x, active: !x.active } : x))); // optimistic
-    const desired = !t.active;
-    const { error } = await supabase.from("checklist_template_items").update({ active: desired }).eq("id", t.id);
-    if (error) {
-      console.error(error);
-      // revert
-      setTemplates((prev) => prev.map((x) => (x.id === t.id ? { ...x, active: t.active } : x)));
-      toast({ title: "Update failed", description: error.message || "Unable to update", variant: "destructive" });
-      return;
+  const addTemplate = async () => {
+    if (!newItemTitle.trim() || !agencyId) return;
+
+    setLoading(true);
+    try {
+      const maxOrder = Math.max(...templates.map(t => t.order_index), 0);
+      
+      const { data, error } = await supa
+        .from('checklist_template_items')
+        .insert({
+          agency_id: agencyId,
+          title: newItemTitle.trim(),
+          active: true,
+          order_index: maxOrder + 1
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTemplates([...templates, data]);
+      setNewItemTitle('');
+      toast.success('Template item added successfully');
+    } catch (error: any) {
+      console.error('Error adding template:', error);
+      toast.error('Failed to add template item');
+    } finally {
+      setLoading(false);
     }
-    // Note: when turning ON, DB trigger seeds MCIs for all members automatically
-    toast({ title: "Updated", description: desired ? "Template activated" : "Template deactivated" });
   };
 
-  const updateOrder = async (t: Template, order: number) => {
-    setTemplates((prev) => prev.map((x) => (x.id === t.id ? { ...x, order_index: order } : x))); // optimistic
-    const { error } = await supabase.from("checklist_template_items").update({ order_index: order }).eq("id", t.id);
-    if (error) {
-      console.error(error);
-      // revert
-      setTemplates((prev) => prev.map((x) => (x.id === t.id ? { ...x, order_index: t.order_index } : x)));
-      toast({ title: "Update failed", description: error.message || "Unable to update order", variant: "destructive" });
-      return;
+  const toggleActive = async (id: string, desired: boolean) => {
+    const t = templates.find(template => template.id === id);
+    if (!t) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supa.from("checklist_template_items").update({ active: desired }).eq("id", t.id);
+      if (error) throw error;
+
+      setTemplates(templates.map(template =>
+        template.id === id ? { ...template, active: desired } : template
+      ));
+      toast.success(`Template ${desired ? 'activated' : 'deactivated'}`);
+    } catch (error: any) {
+      console.error('Error toggling template:', error);
+      toast.error('Failed to update template');
+    } finally {
+      setLoading(false);
     }
-    toast({ title: "Order saved", description: "Item order updated" });
+  };
+
+  const moveTemplate = async (template: TemplateItem, direction: 'up' | 'down') => {
+    const sortedTemplates = [...templates].sort((a, b) => a.order_index - b.order_index);
+    const currentIndex = sortedTemplates.findIndex(t => t.id === template.id);
+    
+    if (currentIndex === -1) return;
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === sortedTemplates.length - 1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const targetTemplate = sortedTemplates[targetIndex];
+    
+    setLoading(true);
+    try {
+      const { error } = await supa.from("checklist_template_items").update({ order_index: targetTemplate.order_index }).eq("id", template.id);
+      if (error) throw error;
+
+      await fetchTemplates();
+      toast.success('Template order updated');
+    } catch (error: any) {
+      console.error('Error moving template:', error);
+      toast.error('Failed to update template order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeTemplate = async (id: string) => {
+    setLoading(true);
+    try {
+      const { error } = await supa
+        .from('checklist_template_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTemplates(templates.filter(template => template.id !== id));
+      toast.success('Template item removed successfully');
+    } catch (error: any) {
+      console.error('Error removing template:', error);
+      toast.error('Failed to remove template item');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Create Employee Checklist Item</CardTitle>
-          <CardDescription>Templates here apply to all members in your agency; each member can remove items they don't need.</CardDescription>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="rounded-full" disabled={!canManage}>New Template</Button>
-          </DialogTrigger>
-          <DialogContent className="glass-surface">
-            <DialogHeader>
-              <DialogTitle>New Checklist Template</DialogTitle>
-              <DialogDescription>Define a checklist item that will be available to every team member.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right" htmlFor="tmpl-label">Label</Label>
-                <Input id="tmpl-label" className="col-span-3" value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right" htmlFor="tmpl-active">Active</Label>
-                <div className="col-span-3">
-                  <Switch id="tmpl-active" checked={form.active} onCheckedChange={(v) => setForm((f) => ({ ...f, active: v }))} />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button variant="gradient-glow" onClick={createTemplate} disabled={loading}>{loading ? "Saving..." : "Create"}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+      <CardHeader>
+        <CardTitle>Agency Checklist Templates</CardTitle>
       </CardHeader>
-      <CardContent>
-        {!agencyId ? (
-          <div className="text-sm text-muted-foreground">Create your agency first to manage templates.</div>
-        ) : (
-          <Table>
-            <TableCaption>Agency-specific checklist templates</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Label</TableHead>
-                <TableHead>Active</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {templates.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell>{t.label}</TableCell>
-                  <TableCell>
-                    <Switch checked={t.active} onCheckedChange={() => toggleActive(t)} disabled={loading} />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {templates.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={2} className="text-center text-muted-foreground">
-                    {loading ? "Loading..." : "No templates yet. Create your first one."}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
+      <CardContent className="space-y-4">
+        {/* Add new template */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Enter template item title..."
+            value={newItemTitle}
+            onChange={(e) => setNewItemTitle(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addTemplate()}
+            disabled={loading}
+          />
+          <Button 
+            onClick={addTemplate} 
+            disabled={!newItemTitle.trim() || loading}
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add
+          </Button>
+        </div>
+
+        {/* Templates list */}
+        <div className="space-y-2">
+          {templates.length > 0 ? (
+            templates
+              .sort((a, b) => a.order_index - b.order_index)
+              .map((template, index) => (
+                <div 
+                  key={template.id} 
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-card"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{template.title}</span>
+                      {!template.active && (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={template.active}
+                      onCheckedChange={(checked) => toggleActive(template.id, checked)}
+                      disabled={loading}
+                    />
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => moveTemplate(template, 'up')}
+                      disabled={index === 0 || loading}
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => moveTemplate(template, 'down')}
+                      disabled={index === templates.length - 1 || loading}
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTemplate(template.id)}
+                      disabled={loading}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No template items configured yet.</p>
+              <p className="text-sm">Add your first template item above.</p>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

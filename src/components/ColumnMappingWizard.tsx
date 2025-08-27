@@ -165,7 +165,7 @@ const ColumnMappingWizard: React.FC<FileProcessingProps> = ({
         formData.append('file', file);
         formData.append('category', category);
 
-        const response = await supabase.functions.invoke('process-file', {
+        const response = await supa.functions.invoke('process-file', {
           body: formData
         });
 
@@ -214,7 +214,7 @@ const ColumnMappingWizard: React.FC<FileProcessingProps> = ({
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await supa
         .from('column_mappings')
         .insert({
           user_id: user.id,

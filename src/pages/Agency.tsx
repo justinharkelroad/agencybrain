@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

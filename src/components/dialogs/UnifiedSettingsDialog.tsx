@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
-import { supabase } from "@/integrations/supabase/client";
+import { supa } from '@/lib/supabase';
 import { useAuth } from "@/lib/auth";
 
 interface LeadSource {

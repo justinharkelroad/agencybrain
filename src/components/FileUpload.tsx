@@ -78,19 +78,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${category}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        const { data, error } = await supabase.storage
+        const { data, error } = await supa.storage
           .from('uploads')
           .upload(fileName, file);
 
         if (error) throw error;
 
         // Get public URL
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = supa.storage
           .from('uploads')
           .getPublicUrl(fileName);
 
         // Save file info to database
-        const { error: dbError } = await supabase
+        const { error: dbError } = await supa
           .from('uploads')
           .insert({
             user_id: user.id,
@@ -149,14 +149,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const removeFile = async (fileId: string) => {
     try {
       // Remove from storage
-      const { error: storageError } = await supabase.storage
+      const { error: storageError } = await supa.storage
         .from('uploads')
         .remove([fileId]);
 
       if (storageError) throw storageError;
 
       // Remove from database
-      const { error: dbError } = await supabase
+      const { error: dbError } = await supa
         .from('uploads')
         .delete()
         .eq('file_path', fileId);

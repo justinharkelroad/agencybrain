@@ -27,7 +27,7 @@ export function MyAccountDialogTriggerButton() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({ data: { full_name } });
+      const { error } = await supa.auth.updateUser({ data: { full_name } });
       if (error) throw error;
       toast({ title: "Saved", description: "Account updated successfully." });
       setOpen(false);
