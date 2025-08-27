@@ -7,11 +7,11 @@ declare global {
 }
 
 const url = import.meta.env.VITE_SUPABASE_URL!;
-const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 console.log('VITE url?', import.meta.env.VITE_SUPABASE_URL);
-console.log('VITE anon?', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+console.log('VITE anon?', import.meta.env.VITE_SUPABASE_ANON_KEY);
 if (!url || !anon) {
-  throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY");
+  throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
 }
 
 export const supa: SupabaseClient =
