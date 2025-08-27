@@ -51,13 +51,13 @@ export default function PublicFormSubmission() {
 
   const submit = async () => {
     // required system fields
-    if (!values.staff_id || !values.submission_date) { setErr("MISSING_FIELDS"); return; }
+    if (!values.team_member_id || !values.submission_date) { setErr("MISSING_FIELDS"); return; }
     const r = await fetch("https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/submit_public_form", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         agencySlug, formSlug, token,
-        teamMemberId: values.staff_id,
+        teamMemberId: values.team_member_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
         values
@@ -99,59 +99,9 @@ export default function PublicFormSubmission() {
 
           {/* Form Content */}
           <div className="p-6 space-y-6">
-            {/* Required system fields */}
+            {/* All Fields Rendered from Database */}
             <div className="space-y-4">
-              <h2 className="text-lg font-medium text-foreground">Basic Information</h2>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Staff Member <span className="text-destructive">*</span>
-                  </label>
-                  <select 
-                    value={values.staff_id || ""} 
-                    onChange={e=>onChange("staff_id", e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                  >
-                    <option value="">Select Staff Member</option>
-                    {form.team_members?.map((member: any) => (
-                      <option key={member.id} value={member.id}>{member.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Submission Date <span className="text-destructive">*</span>
-                  </label>
-                  <input 
-                    type="date" 
-                    value={values.submission_date || ""} 
-                    onChange={e=>onChange("submission_date", e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Work Date (optional)</label>
-                  <input 
-                    type="date" 
-                    value={values.work_date || ""} 
-                    onChange={e=>onChange("work_date", e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Form Fields */}
-            {form.fields.length > 0 && (
-              <>
-                <div className="border-t border-border pt-6">
-                  <h2 className="text-lg font-medium text-foreground mb-4">Performance Metrics</h2>
-                  
-                  <div className="space-y-4">
-                    {form.fields.map((f) => {
+              {form.fields.map((f) => {
                       if (f.type === "number") {
                         return (
                           <div key={f.id} className="space-y-2">
@@ -185,7 +135,28 @@ export default function PublicFormSubmission() {
                           </div>
                         );
                       }
-                      if (f.type === "dropdown") {
+                      if (f.type === "dropdown" || f.type === "select") {
+                        // Handle team_member_id specially
+                        if (f.key === "team_member_id") {
+                          return (
+                            <div key={f.id} className="space-y-2">
+                              <label className="text-sm font-medium text-foreground">
+                                {f.label}{f.required && <span className="text-destructive"> *</span>}
+                              </label>
+                              <select 
+                                value={values[f.key] ?? ""} 
+                                onChange={e=>onChange(f.key, e.target.value)}
+                                className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                              >
+                                <option value="">Select {f.label}</option>
+                                {form.team_members?.map((member: any) => (
+                                  <option key={member.id} value={member.id}>{member.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        }
+                        // Handle other dropdowns
                         const opts = f.options_json?.entityOptions || f.options_json?.options || [];
                         return (
                           <div key={f.id} className="space-y-2">
@@ -252,6 +223,22 @@ export default function PublicFormSubmission() {
                           </div>
                         );
                       }
+                      // Handle date fields with special defaults
+                      if (f.key === "submission_date" || f.key === "work_date") {
+                        return (
+                          <div key={f.id} className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">
+                              {f.label}{f.required && <span className="text-destructive"> *</span>}
+                            </label>
+                            <input 
+                              type="date"
+                              value={values[f.key] ?? ""} 
+                              onChange={e=>onChange(f.key, e.target.value)}
+                              className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                            />
+                          </div>
+                        );
+                      }
                       // default text
                       return (
                         <div key={f.id} className="space-y-2">
@@ -266,10 +253,7 @@ export default function PublicFormSubmission() {
                         </div>
                       );
                     })}
-                  </div>
-                </div>
-              </>
-            )}
+            </div>
 
             {/* Submit Button */}
             <div className="border-t border-border pt-6">
