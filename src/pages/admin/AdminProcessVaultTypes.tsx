@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { LogOut, Shield, Trash2, Plus } from "lucide-react";
 import { AdminTopNav } from "@/components/AdminTopNav";
+import { fetchActiveProcessVaultTypes } from "@/data/publicCatalog";
 
 interface ProcessVaultType {
   id: string;
@@ -38,17 +39,15 @@ const AdminProcessVaultTypes: React.FC = () => {
   }, []);
 
   const fetchTypes = async () => {
-    const { data, error } = await supa
-      .from("process_vault_types")
-      .select("id,title,is_active,created_at")
-      .order("title", { ascending: true });
-    if (error) {
+    try {
+      const data = await fetchActiveProcessVaultTypes();
+      setTypes(data as ProcessVaultType[]);
+    } catch (error) {
       console.error(error);
       toast({ title: "Error", description: "Failed to load types", variant: "destructive" });
-    } else {
-      setTypes((data || []) as ProcessVaultType[]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {

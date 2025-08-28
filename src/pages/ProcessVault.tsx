@@ -10,6 +10,7 @@ import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
+import { fetchActiveProcessVaultTypes } from "@/data/publicCatalog";
 
 interface ProcessVaultType {
   id: string;
@@ -103,12 +104,11 @@ const ProcessVault: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [{ data: typesData }, { data: vaultsData }] = await Promise.all([
-        supa.from("process_vault_types").select("id,title,is_active").eq("is_active", true).order("title", { ascending: true }),
-        supa.from("user_process_vaults").select("id,user_id,title,vault_type_id,created_at").order("created_at", { ascending: true }),
-      ]);
+      const typesData = await fetchActiveProcessVaultTypes();
+      const { data: vaultsData } = await supa
+        .from("user_process_vaults").select("id,user_id,title,vault_type_id,created_at").order("created_at", { ascending: true });
 
-      const safeTypes = (typesData || []) as ProcessVaultType[];
+      const safeTypes = typesData as ProcessVaultType[];
       const safeVaults = (vaultsData || []) as UserVault[];
 
       // Ensure defaults then refetch vaults

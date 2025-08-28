@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supa } from "@/lib/supabase";
+import { supaPublic } from "@/lib/supabasePublic";
 
 type ResolvedForm = { 
   id: string; 
@@ -23,7 +23,7 @@ export default function PublicFormSubmission() {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
       try {
-        const { data, error } = await supa.functions.invoke('resolve_public_form', {
+        const { data, error } = await supaPublic.functions.invoke('resolve_public_form', {
           body: {
             agencySlug,
             formSlug,
@@ -140,7 +140,7 @@ export default function PublicFormSubmission() {
         values,
       };
 
-      const { data, error } = await supa.functions.invoke("submit_public_form", { body: payload });
+      const { data, error } = await supaPublic.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
         setErr(error.message || "ERROR"); 

@@ -18,6 +18,7 @@ import { fetchActivePromptsOnly } from '@/lib/promptFetcher';
 import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
 import type { Tables } from '@/integrations/supabase/types';
+import { fetchActiveProcessVaultTypes } from '@/data/publicCatalog';
 
 interface Client {
   id: string;
@@ -770,14 +771,17 @@ setClient(clientData);
   const loadProcessVaultData = async () => {
     if (!clientId) return;
     try {
-      const [{ data: typesData, error: typesError }, { data: vaultsData, error: vaultsError }] = await Promise.all([
-        supa.from('process_vault_types').select('id,title,is_active').eq('is_active', true).order('title', { ascending: true }),
-        supa.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true }),
-      ]);
-      if (typesError) throw typesError;
+      const typesData = await fetchActiveProcessVaultTypes();
+      const { data: vaultsData, error: vaultsError } = await
+        supa.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true });
+      
       if (vaultsError) throw vaultsError;
-      const types = (typesData || []) as ProcessVaultType[];
+      const types = typesData as ProcessVaultType[];
       let vaults = (vaultsData || []) as UserVault[];
+      
+      const [{ data: _unused }] = await Promise.all([
+        Promise.resolve({ data: null }) // placeholder
+      ]);
       const existingTypeIds = new Set(vaults.filter(v => v.vault_type_id).map(v => v.vault_type_id as string));
       const missing = types.filter(t => !existingTypeIds.has(t.id));
       if (missing.length > 0) {
