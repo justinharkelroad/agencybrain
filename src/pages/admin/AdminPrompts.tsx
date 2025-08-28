@@ -72,7 +72,20 @@ const [newPrompt, setNewPrompt] = useState({
 
       if (error) throw error;
       setPrompts(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      // If auth fails, try anonymous fetch for active prompts only
+      if (error.message?.includes('403') || error.code === 'PGRST301') {
+        console.log('Auth failed for prompts, trying anonymous fetch...');
+        try {
+          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
+          const promptsData = await fetchActivePrompts();
+          setPrompts(promptsData || []);
+          return;
+        } catch (anonError) {
+          console.error('Anonymous fetch also failed:', anonError);
+        }
+      }
+      
       console.error('Error fetching prompts:', error);
       toast({
         title: "Error",

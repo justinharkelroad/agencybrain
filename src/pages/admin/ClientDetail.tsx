@@ -399,15 +399,27 @@ setClient(clientData);
       );
       setAnalyses(deduped);
       
-      // Fetch prompts
-      const { data: promptsData, error: promptsError } = await supa
-        .from('prompts')
-        .select('id,title,content,category')
-        .eq('is_active', true)
-        .order('title', { ascending: true });
-      
-      if (promptsError) throw promptsError;
-      setPrompts((promptsData as Prompt[]) || []);
+      // Fetch prompts with auth fallback
+      try {
+        const { data: promptsData, error: promptsError } = await supa
+          .from('prompts')
+          .select('id,title,content,category')
+          .eq('is_active', true)
+          .order('title', { ascending: true });
+        
+        if (promptsError) throw promptsError;
+        setPrompts((promptsData as Prompt[]) || []);
+      } catch (error: any) {
+        // If auth fails, try anonymous fetch
+        if (error.message?.includes('403') || error.code === 'PGRST301') {
+          console.log('Auth failed for prompts, trying anonymous fetch...');
+          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
+          const promptsData = await fetchActivePrompts();
+          setPrompts(promptsData || []);
+        } else {
+          throw error;
+        }
+      }
 
       // Load Process Vault data after core client data is ready
       await loadProcessVaultData();

@@ -178,15 +178,27 @@ const AdminAnalysis = () => {
       if (clientsError) throw clientsError;
       setClients(clientsData || []);
 
-      // Fetch prompts
-      const { data: promptsData, error: promptsError } = await supa
-        .from('prompts')
-        .select('*')
-        .eq('is_active', true)
-        .order('category');
+      // Fetch prompts with auth fallback
+      try {
+        const { data: promptsData, error: promptsError } = await supa
+          .from('prompts')
+          .select('*')
+          .eq('is_active', true)
+          .order('category');
 
-      if (promptsError) throw promptsError;
-      setPrompts(promptsData || []);
+        if (promptsError) throw promptsError;
+        setPrompts(promptsData || []);
+      } catch (error: any) {
+        // If auth fails, try anonymous fetch
+        if (error.message?.includes('403') || error.code === 'PGRST301') {
+          console.log('Auth failed for prompts, trying anonymous fetch...');
+          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
+          const promptsData = await fetchActivePrompts();
+          setPrompts(promptsData || []);
+        } else {
+          throw error;
+        }
+      }
 
     } catch (error) {
       console.error('Error fetching data:', error);
