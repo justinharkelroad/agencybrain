@@ -120,7 +120,7 @@ export async function fetchPromptsWithComprehensiveErrorHandling(
       attemptCount++;
       console.log(`📡 Attempt ${attemptCount}: Anonymous fallback (verified)`);
       
-      const { fetchActivePrompts } = await import('@/lib/anonSupabase');
+      const { fetchActivePromptsOnly } = await import('@/lib/dataFetchers');
       
       let data: any[];
       
@@ -129,7 +129,7 @@ export async function fetchPromptsWithComprehensiveErrorHandling(
         console.log('⚠️ Cannot fetch inactive prompts with anonymous client due to RLS');
         throw new Error('Cannot fetch inactive prompts anonymously - RLS restriction');
       } else {
-        data = await fetchActivePrompts();
+        data = await fetchActivePromptsOnly();
       }
 
       const totalDuration = Date.now() - startTime;

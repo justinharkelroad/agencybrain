@@ -1,14 +1,20 @@
-// stateless client only for public form pages
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let _public: SupabaseClient | undefined;
+declare global {
+  // eslint-disable-next-line no-var
+  var __supa_pub__: SupabaseClient | undefined;
+}
 
-export const supaPublic = (() => {
-  if (_public) return _public;
-  const url = import.meta.env.VITE_SUPABASE_URL!;
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
-  _public = createClient(url, anon, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+const url = import.meta.env.VITE_SUPABASE_URL!;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+if (!url || !anon) throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
+
+export const supaPublic: SupabaseClient =
+  globalThis.__supa_pub__ ??
+  createClient(url, anon, {
+    auth: {
+      persistSession: false, // stateless
+    },
   });
-  return _public;
-})();
+
+if (!globalThis.__supa_pub__) globalThis.__supa_pub__ = supaPublic;

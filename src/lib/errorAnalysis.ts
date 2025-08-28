@@ -198,8 +198,9 @@ export async function verifyAnonymousClient(): Promise<{ success: boolean; error
   try {
     console.log('🧪 Testing anonymous client independently...');
     
-    const { fetchActivePrompts } = await import('@/lib/anonSupabase');
-    const result = await fetchActivePrompts();
+    const { fetchActivePromptsOnly } = await import('@/lib/dataFetchers');
+    const result = await fetchActivePromptsOnly();
+    // result already set above
     
     const duration = Date.now() - startTime;
     

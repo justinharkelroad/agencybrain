@@ -48,7 +48,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
             <Link to="/process-vault" aria-label="Go to Process Vault">
               <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
             </Link>
-            <Link to="/scorecard-forms" aria-label="Go to Metrics">
+            <Link to="/metrics" aria-label="Go to Metrics">
               <Button variant="glass" size="sm" className="rounded-full">Metrics</Button>
             </Link>
             {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
@@ -97,7 +97,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               <Link to="/process-vault" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
               </Link>
-              <Link to="/scorecard-forms" onClick={() => setOpen(false)}>
+              <Link to="/metrics" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Metrics</Button>
               </Link>
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
