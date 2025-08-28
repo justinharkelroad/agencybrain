@@ -18,6 +18,8 @@ import {
   Edit,
   Trash2
 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { fetchAllPrompts } from '@/lib/promptFetcher';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
 import { AdminTopNav } from '@/components/AdminTopNav';
@@ -73,12 +75,16 @@ const [newPrompt, setNewPrompt] = useState({
       
       // Show warning if fallback was used for admin operations
       if (result.method === 'anonymous_fallback') {
-        toast.error('Authentication issue - some admin features may be limited');
+        toast({
+          title: "Authentication Warning",
+          description: "Some admin features may be limited",
+          variant: "destructive",
+        });
       }
     } else {
       console.error('❌ Failed to load admin prompts:', result.error);
       toast({
-        title: "Error", 
+        title: "Error",
         description: "Failed to load prompts",
         variant: "destructive",
       });

@@ -14,6 +14,7 @@ import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, 
 import { useToast } from '@/hooks/use-toast';
 import { supa } from '@/lib/supabase';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
+import { fetchActivePromptsOnly } from '@/lib/promptFetcher';
 import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
 import type { Tables } from '@/integrations/supabase/types';
@@ -415,7 +416,11 @@ setClient(clientData);
         console.log(`✅ Client prompts loaded via ${result.method} (verified: ${result.verified})`);
       } else {
         console.error('❌ Failed to load client prompts:', result.error);
-        toast.error('Failed to load analysis prompts');
+        toast({
+          title: "Error",
+          description: "Failed to load analysis prompts",
+          variant: "destructive",
+        });
       }
 
       // Load Process Vault data after core client data is ready

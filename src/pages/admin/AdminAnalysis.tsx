@@ -25,9 +25,10 @@ import {
   Send,
   Eye
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Link, Navigate } from 'react-router-dom';
-import { AdminTopNav } from '@/components/AdminTopNav';
+import { fetchActivePromptsOnly } from "@/lib/promptFetcher";
+import { useToast } from "@/hooks/use-toast";
+import { Link, Navigate } from "react-router-dom";
+import { AdminTopNav } from "@/components/AdminTopNav";
 
 interface Agency {
   id: string;
@@ -105,6 +106,9 @@ interface AnalysisRequest {
 
 const AdminAnalysis = () => {
   const { user, isAdmin, signOut } = useAuth();
+  const { toast } = useToast();
+
+  // Component state
   const [clients, setClients] = useState<Profile[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -122,7 +126,6 @@ const AdminAnalysis = () => {
   const [conversations, setConversations] = useState<{[analysisId: string]: Array<{role: 'user' | 'assistant', content: string}>}>({});
   const [newMessages, setNewMessages] = useState<{[analysisId: string]: string}>({});
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
-  const { toast } = useToast();
 
   // New engagement state
   const [viewsByAnalysis, setViewsByAnalysis] = useState<Record<string, AnalysisView | null>>({});
@@ -186,7 +189,11 @@ const AdminAnalysis = () => {
         console.log(`✅ Prompts loaded via ${result.method} (verified: ${result.verified})`);
       } else {
         console.error('❌ Failed to load prompts:', result.error);
-        toast.error('Failed to load analysis prompts');
+        toast({
+          title: "Error",
+          description: "Failed to load analysis prompts",
+          variant: "destructive",
+        });
       }
 
     } catch (error) {

@@ -138,7 +138,7 @@ export function ErrorAnalysisReportDialog() {
                       .map(([pattern, count]) => (
                         <div key={pattern} className="flex justify-between items-center p-2 border rounded">
                           <span className="font-mono text-sm">{pattern}</span>
-                          <Badge variant="secondary">{count} occurrences</Badge>
+                          <Badge variant="secondary">{String(count)} occurrences</Badge>
                         </div>
                       ))}
                   </div>
