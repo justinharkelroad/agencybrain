@@ -411,7 +411,7 @@ setClient(clientData);
         setPrompts((promptsData as Prompt[]) || []);
       } catch (error: any) {
         // If auth fails, try anonymous fetch
-        if (error.message?.includes('403') || error.code === 'PGRST301') {
+        if (error.message?.includes('403') || error.code === 'PGRST301' || error.name === 'AuthApiError' || error.message?.includes('Invalid Refresh Token')) {
           console.log('Auth failed for prompts, trying anonymous fetch...');
           const { fetchActivePrompts } = await import('@/lib/anonSupabase');
           const promptsData = await fetchActivePrompts();
