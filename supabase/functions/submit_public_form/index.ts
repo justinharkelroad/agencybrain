@@ -32,15 +32,20 @@ type Body = {
 };
 
 serve(async (req) => {
-  console.log("submit_public_form start", new Date().toISOString());
+  console.log("🚀 submit_public_form started", new Date().toISOString());
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("✅ CORS preflight handled");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (req.method !== "POST") return json(405, {code:"METHOD_NOT_ALLOWED"});
+    if (req.method !== "POST") {
+      console.log("❌ Method not allowed:", req.method);
+      return json(405, {code:"METHOD_NOT_ALLOWED"});
+    }
+    
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -51,7 +56,8 @@ serve(async (req) => {
       agencySlug: body.agencySlug, 
       formSlug: body.formSlug,
       teamMemberId: body.teamMemberId,
-      submissionDate: body.submissionDate 
+      submissionDate: body.submissionDate,
+      workDate: body.workDate
     });
     
     const { agencySlug, formSlug, token } = body;
@@ -68,6 +74,7 @@ serve(async (req) => {
     }
 
     // resolve link
+    console.log("🔗 Resolving form link...");
     const { data: link, error } = await supabase
       .from("form_links")
       .select(`
@@ -81,12 +88,24 @@ serve(async (req) => {
       .eq("agencies.slug", agencySlug)
       .single();
 
-    if (error) return json(404, {code:"NOT_FOUND"});
+    if (error) {
+      console.log("❌ Form link not found:", error);
+      return json(404, {code:"NOT_FOUND"});
+    }
+    
+    console.log("✅ Form link resolved for:", link.form_template.slug);
     const now = new Date();
-    if (link.expires_at && new Date(link.expires_at) < now) return json(410, {code:"EXPIRED"});
-    if (link.form_template.status !== "published") return json(404, {code:"UNPUBLISHED"});
+    if (link.expires_at && new Date(link.expires_at) < now) {
+      console.log("❌ Form link expired:", link.expires_at);
+      return json(410, {code:"EXPIRED"});
+    }
+    if (link.form_template.status !== "published") {
+      console.log("❌ Form template not published:", link.form_template.status);
+      return json(404, {code:"UNPUBLISHED"});
+    }
 
     // Compute isLate using DB function
+    console.log("⏰ Computing late status...");
     const { data: lateCalc, error: lateErr } = await supabase.rpc("compute_is_late", {
       p_agency_id: link.form_template.agency_id,
       p_settings: link.form_template.settings_json,
@@ -94,15 +113,21 @@ serve(async (req) => {
       p_work_date: body.workDate ?? null,
       p_submitted_at: new Date().toISOString()
     });
-    if (lateErr) return json(500, { code: "LATE_CALC_ERROR" });
+    if (lateErr) {
+      console.log("❌ Late calculation error:", lateErr);
+      return json(500, { code: "LATE_CALC_ERROR" });
+    }
     const isLate = lateCalc as boolean;
     const finalDate = (body.workDate ?? body.submissionDate);
+
+    console.log("📊 Submission analysis:", { isLate, finalDate });
 
     // Context logging
     console.log("submit_public_form", 
       { agency: link.agency.slug, form: link.form_template.slug, tm: body.teamMemberId, d: finalDate });
 
     // supersede previous final for that rep/day
+    console.log("🔄 Checking for previous submissions to supersede...");
     const d = finalDate; // YYYY-MM-DD string
 
     const { data: prev, error: prevErr } = await supabase
@@ -115,18 +140,25 @@ serve(async (req) => {
       .eq("final", true);
 
     if (prevErr) {
-      console.error("prev lookup failed", prevErr);
+      console.error("❌ Previous submission lookup failed:", prevErr);
       return json(500, { code: "PREV_LOOKUP_ERROR" });
     }
 
     if (prev?.length) {
+      console.log("🔄 Superseding", prev.length, "previous submissions");
       const { error: updErr } = await supabase
         .from("submissions")
         .update({ final: false, superseded_at: new Date().toISOString() })
         .in("id", prev.map((r: any) => r.id));
-      if (updErr) return json(500, { code: "PREV_SUPERSEDE_ERROR" });
+      if (updErr) {
+        console.log("❌ Previous supersede error:", updErr);
+        return json(500, { code: "PREV_SUPERSEDE_ERROR" });
+      }
+    } else {
+      console.log("ℹ️ No previous submissions to supersede");
     }
 
+    console.log("💾 Inserting new submission...");
     const { data: ins, error: insErr } = await supabase
       .from("submissions")
       .insert({
@@ -141,7 +173,12 @@ serve(async (req) => {
       .select("id")
       .single();
 
-    if (insErr) return json(500, {code:"WRITE_FAIL"});
+    if (insErr) {
+      console.log("❌ Submission insert failed:", insErr);
+      return json(500, {code:"WRITE_FAIL"});
+    }
+
+    console.log("✅ Submission created with ID:", ins.id);
 
     // Handle quoted details auto-spawning
     const quotedCount = parseInt(String(body.values.quoted_count || '0'));
@@ -246,6 +283,14 @@ serve(async (req) => {
       scheduled_at: new Date().toISOString()
     });
 
+    console.log("✅ Form submission completed successfully:", {
+      submissionId: ins.id,
+      quotedDetailsCreated: actualSpawnCount,
+      soldDetailsCreated: soldItems,
+      isLate,
+      finalDate
+    });
+
     return json(200, { 
       ok: true, 
       submissionId: ins.id,
@@ -254,6 +299,7 @@ serve(async (req) => {
       isLate
     });
   } catch (e) {
+    console.error("💥 Server error in submit_public_form:", e);
     return json(500, {code:"SERVER_ERROR"});
   }
 });

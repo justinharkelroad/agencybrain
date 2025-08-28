@@ -25,8 +25,11 @@ function json(status: number, body: any, extra: Record<string,string> = {}) {
 }
 
 serve(async (req) => {
+  console.log("🔍 resolve_public_form started", new Date().toISOString());
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("✅ CORS preflight handled");
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -37,7 +40,12 @@ serve(async (req) => {
     const formSlug = body.formSlug || "";
     const token = body.token || "";
 
-    if (!agencySlug || !formSlug || !token) return json(400, {code:"BAD_REQUEST"});
+    console.log("📥 Request params:", { agencySlug, formSlug, token: token.substring(0, 8) + "..." });
+
+    if (!agencySlug || !formSlug || !token) {
+      console.log("❌ Bad request - missing parameters");
+      return json(400, {code:"BAD_REQUEST"});
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -45,14 +53,19 @@ serve(async (req) => {
     );
 
     // Step 1: Get form template by agency slug and form slug
+    console.log("🏢 Looking up agency:", agencySlug);
     const { data: agencyData, error: agencyError } = await supabase
       .from("agencies")
       .select("id")
       .eq("slug", agencySlug)
       .single();
 
-    if (agencyError) return json(404, {code:"NOT_FOUND"});
+    if (agencyError) {
+      console.log("❌ Agency not found:", agencyError);
+      return json(404, {code:"NOT_FOUND"});
+    }
 
+    console.log("📋 Looking up form template:", formSlug, "for agency:", agencyData.id);
     const { data: formTemplate, error: formError } = await supabase
       .from("form_templates")
       .select("id, slug, status, settings_json, schema_json")
@@ -60,9 +73,13 @@ serve(async (req) => {
       .eq("agency_id", agencyData.id)
       .single();
 
-    if (formError) return json(404, {code:"NOT_FOUND"});
+    if (formError) {
+      console.log("❌ Form template not found:", formError);
+      return json(404, {code:"NOT_FOUND"});
+    }
 
     // Step 2: Get form link by form template ID and token
+    console.log("🔗 Looking up form link with token:", token.substring(0, 8) + "...");
     const { data: formLink, error: linkError } = await supabase
       .from("form_links")
       .select("id, enabled, token, expires_at")
@@ -71,13 +88,23 @@ serve(async (req) => {
       .eq("form_template_id", formTemplate.id)
       .single();
 
-    if (linkError) return json(404, {code:"NOT_FOUND"});
+    if (linkError) {
+      console.log("❌ Form link not found or disabled:", linkError);
+      return json(404, {code:"NOT_FOUND"});
+    }
 
     const now = new Date();
-    if (formLink.expires_at && new Date(formLink.expires_at) < now) return json(410, {code:"EXPIRED"});
-    if (formTemplate.status !== "published") return json(404, {code:"UNPUBLISHED"});
+    if (formLink.expires_at && new Date(formLink.expires_at) < now) {
+      console.log("❌ Form link expired:", formLink.expires_at);
+      return json(410, {code:"EXPIRED"});
+    }
+    if (formTemplate.status !== "published") {
+      console.log("❌ Form template not published:", formTemplate.status);
+      return json(404, {code:"UNPUBLISHED"});
+    }
 
     // Get team members for the agency
+    console.log("👥 Fetching team members for agency:", agencyData.id);
     const { data: teamMembers, error: teamMembersError } = await supabase
       .from("team_members")
       .select("id, name")
@@ -85,7 +112,16 @@ serve(async (req) => {
       .eq("status", "active")
       .order("name", { ascending: true });
 
-    if (teamMembersError) return json(500, {code:"TEAM_MEMBERS_FETCH_ERROR"});
+    if (teamMembersError) {
+      console.log("❌ Team members fetch error:", teamMembersError);
+      return json(500, {code:"TEAM_MEMBERS_FETCH_ERROR"});
+    }
+
+    console.log("✅ Form resolution successful:", {
+      formId: formTemplate.id,
+      slug: formTemplate.slug,
+      teamMembersCount: teamMembers?.length || 0
+    });
 
     return json(200, {
       form: {
@@ -97,6 +133,7 @@ serve(async (req) => {
       }
     });
   } catch (e) {
+    console.error("💥 Server error in resolve_public_form:", e);
     return json(500, {code:"SERVER_ERROR"});
   }
 });

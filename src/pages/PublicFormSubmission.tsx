@@ -10,6 +10,8 @@ type ResolvedForm = {
   team_members: Array<{ id: string; name: string; }>;
 };
 
+import { supa } from "@/lib/supabase";
+
 export default function PublicFormSubmission() {
   const { agencySlug, formSlug } = useParams();
   const [form, setForm] = useState<ResolvedForm | null>(null);
@@ -18,6 +20,13 @@ export default function PublicFormSubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
+
+  // Check auth session on load
+  useEffect(() => {
+    supa.auth.getSession().then(({ data }) => {
+      console.log("🔐 Auth session present?", Boolean(data.session));
+    });
+  }, []);
 
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
@@ -130,6 +139,8 @@ export default function PublicFormSubmission() {
     }
     
     try {
+      console.log('✅ Required fields check passed');
+
       const payload = {
         agencySlug,
         formSlug: formSlug,
@@ -140,13 +151,16 @@ export default function PublicFormSubmission() {
         values,
       };
 
-      const { data, error } = await supaPublic.functions.invoke("submit_public_form", { body: payload });
+      console.log('📤 POST to submit_public_form...');
+      const { data, error } = await supa.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
+        console.log('❌ Submission error:', error);
         setErr(error.message || "ERROR"); 
         return; 
       }
       
+      console.log('✅ 200 OK - Form submitted successfully!');
       setErr(null);
       alert("Form submitted successfully!");
     } catch (error) {

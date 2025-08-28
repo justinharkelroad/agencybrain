@@ -17,7 +17,7 @@ import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageSha
 import { fetchActivePromptsOnly } from '@/lib/dataFetchers';
 import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
-import type { Tables } from '@/integrations/supabase/types';
+// Types removed - using generic any types for now
 import { fetchActiveProcessVaultTypes } from '@/lib/dataFetchers';
 
 interface Client {
@@ -31,7 +31,7 @@ interface Client {
   mrr?: number | null;
 }
 
-type Period = Tables<'periods'>;
+type Period = any;
 
 interface Upload {
   id: string;
@@ -53,7 +53,7 @@ interface Analysis {
   period_id?: string;
 }
 
-type Prompt = Tables<'prompts'>;
+type Prompt = any;
 
 interface ProcessVaultType { id: string; title: string; is_active: boolean }
 interface UserVault { id: string; user_id: string; title: string; vault_type_id?: string | null; created_at: string }
