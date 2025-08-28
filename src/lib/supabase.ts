@@ -9,8 +9,6 @@ if (!url || !anon) throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_A
 
 // keep session so RLS sees logged-in user
 export const supa: SupabaseClient =
-  globalThis.__supa__ ?? createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  });
+  globalThis.__supa__ ?? createClient(url, anon, { auth: { persistSession: false } });
 
 if (!globalThis.__supa__) globalThis.__supa__ = supa;
