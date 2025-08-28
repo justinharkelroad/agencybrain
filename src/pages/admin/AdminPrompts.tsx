@@ -64,37 +64,26 @@ const [newPrompt, setNewPrompt] = useState({
   }, [user, isAdmin]);
 
   const fetchPrompts = async () => {
-    try {
-      const { data, error } = await supa
-        .from('prompts')
-        .select('*')
-        .order('category');
-
-      if (error) throw error;
-      setPrompts(data || []);
-    } catch (error: any) {
-      // If auth fails, try anonymous fetch for active prompts only
-      if (error.message?.includes('403') || error.code === 'PGRST301' || error.name === 'AuthApiError' || error.message?.includes('Invalid Refresh Token')) {
-        console.log('Auth failed for prompts, trying anonymous fetch...');
-        try {
-          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
-          const promptsData = await fetchActivePrompts();
-          setPrompts(promptsData || []);
-          return;
-        } catch (anonError) {
-          console.error('Anonymous fetch also failed:', anonError);
-        }
-      }
+    // Use comprehensive error handling for admin prompts (includes inactive)
+    const result = await fetchAllPrompts('AdminPrompts - Admin Management');
+    
+    if (result.success) {
+      setPrompts(result.data || []);
+      console.log(`✅ Admin prompts loaded via ${result.method} (verified: ${result.verified})`);
       
-      console.error('Error fetching prompts:', error);
+      // Show warning if fallback was used for admin operations
+      if (result.method === 'anonymous_fallback') {
+        toast.error('Authentication issue - some admin features may be limited');
+      }
+    } else {
+      console.error('❌ Failed to load admin prompts:', result.error);
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to load prompts",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const savePrompt = async (prompt: Partial<Prompt>) => {

@@ -399,26 +399,23 @@ setClient(clientData);
       );
       setAnalyses(deduped);
       
-      // Fetch prompts with auth fallback
-      try {
-        const { data: promptsData, error: promptsError } = await supa
-          .from('prompts')
-          .select('id,title,content,category')
-          .eq('is_active', true)
-          .order('title', { ascending: true });
+      // Fetch prompts with comprehensive error handling and verification
+      const result = await fetchActivePromptsOnly('ClientDetail - Analysis Generation');
+      
+      if (result.success) {
+        // Transform data to match expected format (id, title, content, category)
+        const promptsData = (result.data || []).map((prompt: any) => ({
+          id: prompt.id,
+          title: prompt.title,
+          content: prompt.content,
+          category: prompt.category
+        }));
         
-        if (promptsError) throw promptsError;
-        setPrompts((promptsData as Prompt[]) || []);
-      } catch (error: any) {
-        // If auth fails, try anonymous fetch
-        if (error.message?.includes('403') || error.code === 'PGRST301' || error.name === 'AuthApiError' || error.message?.includes('Invalid Refresh Token')) {
-          console.log('Auth failed for prompts, trying anonymous fetch...');
-          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
-          const promptsData = await fetchActivePrompts();
-          setPrompts(promptsData || []);
-        } else {
-          throw error;
-        }
+        setPrompts(promptsData as Prompt[]);
+        console.log(`✅ Client prompts loaded via ${result.method} (verified: ${result.verified})`);
+      } else {
+        console.error('❌ Failed to load client prompts:', result.error);
+        toast.error('Failed to load analysis prompts');
       }
 
       // Load Process Vault data after core client data is ready

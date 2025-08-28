@@ -178,26 +178,15 @@ const AdminAnalysis = () => {
       if (clientsError) throw clientsError;
       setClients(clientsData || []);
 
-      // Fetch prompts with auth fallback
-      try {
-        const { data: promptsData, error: promptsError } = await supa
-          .from('prompts')
-          .select('*')
-          .eq('is_active', true)
-          .order('category');
-
-        if (promptsError) throw promptsError;
-        setPrompts(promptsData || []);
-      } catch (error: any) {
-        // If auth fails, try anonymous fetch
-        if (error.message?.includes('403') || error.code === 'PGRST301' || error.name === 'AuthApiError' || error.message?.includes('Invalid Refresh Token')) {
-          console.log('Auth failed for prompts, trying anonymous fetch...');
-          const { fetchActivePrompts } = await import('@/lib/anonSupabase');
-          const promptsData = await fetchActivePrompts();
-          setPrompts(promptsData || []);
-        } else {
-          throw error;
-        }
+      // Fetch prompts with comprehensive error handling and verification
+      const result = await fetchActivePromptsOnly('AdminAnalysis - Initial Load');
+      
+      if (result.success) {
+        setPrompts(result.data || []);
+        console.log(`✅ Prompts loaded via ${result.method} (verified: ${result.verified})`);
+      } else {
+        console.error('❌ Failed to load prompts:', result.error);
+        toast.error('Failed to load analysis prompts');
       }
 
     } catch (error) {
