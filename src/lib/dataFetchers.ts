@@ -3,7 +3,7 @@ import { supa } from "@/lib/supabase";
 export async function fetchActivePromptsOnly() {
   const { data, error, status } = await supa
     .from("prompts")
-    .select("id,title,content,category")
+    .select("*")
     .eq("is_active", true)
     .order("category", { ascending: true });
 
@@ -16,7 +16,7 @@ export async function fetchActivePromptsOnly() {
 export async function fetchActiveProcessVaultTypes() {
   const { data, error, status } = await supa
     .from("process_vault_types")
-    .select("id,title,is_active")
+    .select("*")
     .eq("is_active", true)
     .order("title", { ascending: true });
 

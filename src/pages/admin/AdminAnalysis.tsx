@@ -25,7 +25,7 @@ import {
   Send,
   Eye
 } from 'lucide-react';
-import { fetchActivePromptsOnly } from "@/lib/promptFetcher";
+import { fetchActivePromptsOnly } from "@/lib/dataFetchers";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { AdminTopNav } from "@/components/AdminTopNav";
@@ -181,20 +181,10 @@ const AdminAnalysis = () => {
       if (clientsError) throw clientsError;
       setClients(clientsData || []);
 
-      // Fetch prompts with comprehensive error handling and verification
-      const result = await fetchActivePromptsOnly('AdminAnalysis - Initial Load');
-      
-      if (result.success) {
-        setPrompts(result.data || []);
-        console.log(`✅ Prompts loaded via ${result.method} (verified: ${result.verified})`);
-      } else {
-        console.error('❌ Failed to load prompts:', result.error);
-        toast({
-          title: "Error",
-          description: "Failed to load analysis prompts",
-          variant: "destructive",
-        });
-      }
+      // Fetch prompts with simple authenticated fetch
+      const promptsData = await fetchActivePromptsOnly();
+      setPrompts(promptsData || []);
+      console.log(`✅ Prompts loaded successfully`);
 
     } catch (error) {
       console.error('Error fetching data:', error);

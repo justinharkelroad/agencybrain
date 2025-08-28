@@ -14,11 +14,11 @@ import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, 
 import { useToast } from '@/hooks/use-toast';
 import { supa } from '@/lib/supabase';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
-import { fetchActivePromptsOnly } from '@/lib/promptFetcher';
+import { fetchActivePromptsOnly } from '@/lib/dataFetchers';
 import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
 import type { Tables } from '@/integrations/supabase/types';
-import { fetchActiveProcessVaultTypes } from '@/data/publicCatalog';
+import { fetchActiveProcessVaultTypes } from '@/lib/dataFetchers';
 
 interface Client {
   id: string;
@@ -401,28 +401,10 @@ setClient(clientData);
       );
       setAnalyses(deduped);
       
-      // Fetch prompts with comprehensive error handling and verification
-      const result = await fetchActivePromptsOnly('ClientDetail - Analysis Generation');
-      
-      if (result.success) {
-        // Transform data to match expected format (id, title, content, category)
-        const promptsData = (result.data || []).map((prompt: any) => ({
-          id: prompt.id,
-          title: prompt.title,
-          content: prompt.content,
-          category: prompt.category
-        }));
-        
-        setPrompts(promptsData as Prompt[]);
-        console.log(`✅ Client prompts loaded via ${result.method} (verified: ${result.verified})`);
-      } else {
-        console.error('❌ Failed to load client prompts:', result.error);
-        toast({
-          title: "Error",
-          description: "Failed to load analysis prompts",
-          variant: "destructive",
-        });
-      }
+      // Fetch prompts with simple authenticated fetch
+      const promptsData = await fetchActivePromptsOnly();
+      setPrompts(promptsData || []);
+      console.log(`✅ Prompts loaded successfully`);
 
       // Load Process Vault data after core client data is ready
       await loadProcessVaultData();

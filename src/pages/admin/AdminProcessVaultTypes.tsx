@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { LogOut, Shield, Trash2, Plus } from "lucide-react";
 import { AdminTopNav } from "@/components/AdminTopNav";
-import { fetchActiveProcessVaultTypes } from "@/data/publicCatalog";
+import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
 
 interface ProcessVaultType {
   id: string;

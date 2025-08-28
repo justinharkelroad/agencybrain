@@ -10,7 +10,7 @@ import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { fetchActiveProcessVaultTypes } from "@/data/publicCatalog";
+import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
 
 interface ProcessVaultType {
   id: string;
