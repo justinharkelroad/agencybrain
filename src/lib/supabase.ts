@@ -15,7 +15,7 @@ export const supa: SupabaseClient =
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      storageKey: "sb-app-auth", // distinct key; avoids multi-client warnings
+      // Use default storage - no custom storageKey to avoid conflicts
     },
   });
 
