@@ -141,7 +141,7 @@ serve(async (req) => {
 
     if (prevErr) {
       console.error("❌ Previous submission lookup failed:", prevErr);
-      return json(500, { code: "PREV_LOOKUP_ERROR" });
+      return json(500, { code: "DB_ERROR" });
     }
 
     if (prev?.length) {
@@ -152,7 +152,7 @@ serve(async (req) => {
         .in("id", prev.map((r: any) => r.id));
       if (updErr) {
         console.log("❌ Previous supersede error:", updErr);
-        return json(500, { code: "PREV_SUPERSEDE_ERROR" });
+        return json(500, { code: "DB_ERROR" });
       }
     } else {
       console.log("ℹ️ No previous submissions to supersede");
@@ -175,7 +175,7 @@ serve(async (req) => {
 
     if (insErr) {
       console.log("❌ Submission insert failed:", insErr);
-      return json(500, {code:"WRITE_FAIL"});
+      return json(500, { code: "DB_ERROR" });
     }
 
     console.log("✅ Submission created with ID:", ins.id);
