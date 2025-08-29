@@ -152,7 +152,7 @@ export default function PublicFormSubmission() {
       };
 
       console.log('📤 POST to submit_public_form...');
-      const { data, error } = await supa.functions.invoke("submit_public_form", { body: payload });
+      const { data, error } = await supaPublic.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
         console.log('❌ Submission error:', error);
