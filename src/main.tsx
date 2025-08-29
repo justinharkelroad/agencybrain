@@ -9,6 +9,9 @@ supa.auth.getSession().then(({ data }) => {
     console.log("📧 User email:", data.session.user.email);
   }
 });
+
+// Debug client initialization
+console.log('supa?', !!(window as any).__supa__, 'supaPublic?', !!(window as any).__supa_pub__);
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
