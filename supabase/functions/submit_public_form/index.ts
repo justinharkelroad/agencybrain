@@ -59,6 +59,12 @@ serve(async (req) => {
       submissionDate: body.submissionDate,
       workDate: body.workDate
     });
+
+    console.log("resolve input", {
+      agencySlug: body.agencySlug,
+      formSlug: body.formSlug,
+      token: (body.token || "").slice(0, 8)
+    });
     
     const { agencySlug, formSlug, token } = body;
     if (!agencySlug || !formSlug || !token) {
@@ -88,20 +94,31 @@ serve(async (req) => {
       .eq("agencies.slug", agencySlug)
       .single();
 
-    if (error) {
+    console.log("link query", { 
+      linkErr: error, 
+      hasLink: !!link, 
+      enabled: link?.enabled, 
+      expires_at: link?.expires_at,
+      ft_slug: link?.form_template?.slug, 
+      ft_status: link?.form_template?.status, 
+      ag_slug: link?.agency?.slug 
+    });
+
+    if (error || !link) {
       console.log("❌ Form link not found:", error);
       return json(404, {code:"NOT_FOUND"});
     }
     
     console.log("✅ Form link resolved for:", link.form_template.slug);
-    const now = new Date();
-    if (link.expires_at && new Date(link.expires_at) < now) {
-      console.log("❌ Form link expired:", link.expires_at);
-      return json(410, {code:"EXPIRED"});
-    }
-    if (link.form_template.status !== "published") {
+    
+    // Optionally check publish status/expiry explicitly:
+    if (link.form_template?.status !== "published") {
       console.log("❌ Form template not published:", link.form_template.status);
-      return json(404, {code:"UNPUBLISHED"});
+      return json(404, {code:"NOT_FOUND"});
+    }
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      console.log("❌ Form link expired:", link.expires_at);
+      return json(404, {code:"NOT_FOUND"});
     }
 
     // Compute isLate using DB function
