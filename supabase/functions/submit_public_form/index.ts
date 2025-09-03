@@ -81,12 +81,13 @@ serve(async (req) => {
 
     // resolve link with safe joins
     console.log("🔗 Resolving form link...");
+    console.log("resolver:SELECT_V2");
     const { data: link, error } = await supabase
       .from("form_links")
       .select(`
-        id, enabled, expires_at,
-        form_templates:form_template_id(id, slug, status, settings_json, agency_id),
-        agencies:agency_id(id, slug)
+        id, token, enabled, expires_at,
+        form_templates:form_template_id ( id, slug, status, settings_json, agency_id ),
+        agencies:agency_id ( id, slug )
       `)
       .eq("token", token)
       .single();
