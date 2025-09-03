@@ -79,90 +79,98 @@ serve(async (req) => {
       return json(400, { error: 'MISSING_FIELDS', detail: 'Missing teamMemberId or submissionDate' });
     }
 
-    // resolve link with safe joins
+    // resolve link with plain fetches to bypass PostgREST embedding
     console.log("🔗 Resolving form link...");
-    console.log("resolver:SELECT_V2");
-    const { data: link, error } = await supabase
-      .from("form_links")
-      .select(`
-        id, token, enabled, expires_at,
-        form_templates:form_template_id ( id, slug, status, settings_json, agency_id ),
-        agencies:agency_id ( id, slug )
-      `)
-      .eq("token", token)
+    console.log("SELECT_V3");
+    
+    // 1) fetch link only
+    const { data: link, error: e1 } = await supabase
+      .from('form_links')
+      .select('id, token, enabled, expires_at, form_template_id, agency_id')
+      .eq('token', token)
       .single();
+      
+    if (e1 || !link) {
+      console.log("❌ Database error during link fetch:", e1);
+      return json(500, { error: 'DB_ERROR_LINK', details: e1 });
+    }
 
-    console.log("link query", { 
-      linkErr: error, 
-      hasLink: !!link, 
-      enabled: link?.enabled, 
-      expires_at: link?.expires_at,
-      ft_slug: link?.form_templates?.slug, 
-      ft_status: link?.form_templates?.status, 
-      ag_slug: link?.agencies?.slug 
+    console.log("✅ Link found:", {
+      id: link.id,
+      enabled: link.enabled,
+      expires_at: link.expires_at,
+      form_template_id: link.form_template_id,
+      agency_id: link.agency_id
     });
 
-    // Handle database errors
-    if (error) {
-      console.log("❌ Database error during link resolution:", error);
-      if (error.code === 'PGRST116') {
-        return json(404, { error: 'NOT_FOUND', reason: 'link', detail: 'Token not found' });
-      }
-      return json(500, { error: 'DB_ERROR', detail: error.message });
-    }
-
-    if (!link) {
-      console.log("❌ Form link not found for token");
-      return json(404, { error: 'NOT_FOUND', reason: 'link', detail: 'Invalid token' });
-    }
-
-    // Validate link is enabled
     if (!link.enabled) {
-      console.log("❌ Form link disabled");
-      return json(404, { error: 'NOT_FOUND', reason: 'disabled', detail: 'Form link is disabled' });
+      console.log("❌ Form link is disabled");
+      return json(403, { error: 'FORM_DISABLED' });
     }
 
-    // Validate expiry
-    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+    const now = new Date();
+    if (link.expires_at && new Date(link.expires_at) < now) {
       console.log("❌ Form link expired:", link.expires_at);
-      return json(404, { error: 'NOT_FOUND', reason: 'expired', detail: 'Form link has expired' });
+      return json(410, { error: 'FORM_EXPIRED' });
     }
 
-    // Validate form template exists and matches
-    if (!link.form_templates) {
-      console.log("❌ Form template not found");
-      return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not found' });
+    // 2) fetch template by id
+    const { data: template, error: e2 } = await supabase
+      .from('form_templates')
+      .select('id, slug, status, settings_json, agency_id')
+      .eq('id', link.form_template_id)
+      .single();
+      
+    if (e2 || !template) {
+      console.log("❌ Template fetch error:", e2);
+      return json(404, { error: 'NOT_FOUND_TEMPLATE', details: e2 });
     }
 
-    if (link.form_templates.slug !== formSlug) {
-      console.log("❌ Form slug mismatch:", { expected: formSlug, actual: link.form_templates.slug });
+    console.log("✅ Template found:", {
+      id: template.id,
+      slug: template.slug,
+      status: template.status,
+      agency_id: template.agency_id
+    });
+
+    if (template.status !== 'published') {
+      console.log("❌ Form template not published:", template.status);
+      return json(403, { error: 'FORM_UNPUBLISHED' });
+    }
+
+    // 3) fetch agency by id
+    const { data: agency, error: e3 } = await supabase
+      .from('agencies')
+      .select('id, slug')
+      .eq('id', link.agency_id)
+      .single();
+      
+    if (e3 || !agency) {
+      console.log("❌ Agency fetch error:", e3);
+      return json(404, { error: 'NOT_FOUND_AGENCY', details: e3 });
+    }
+
+    console.log("✅ Agency found:", {
+      id: agency.id,
+      slug: agency.slug
+    });
+
+    // Validate slugs match
+    if (template.slug !== formSlug) {
+      console.log("❌ Form slug mismatch:", { expected: formSlug, actual: template.slug });
       return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form slug mismatch' });
     }
 
-    // Validate agency exists and matches
-    if (!link.agencies) {
-      console.log("❌ Agency not found");
-      return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency not found' });
-    }
-
-    if (link.agencies.slug !== agencySlug) {
-      console.log("❌ Agency slug mismatch:", { expected: agencySlug, actual: link.agencies.slug });
+    if (agency.slug !== agencySlug) {
+      console.log("❌ Agency slug mismatch:", { expected: agencySlug, actual: agency.slug });
       return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency slug mismatch' });
-    }
-    
-    console.log("✅ Form link resolved for:", link.form_templates.slug);
-    
-    // Check publish status
-    if (link.form_templates?.status !== "published") {
-      console.log("❌ Form template not published:", link.form_templates.status);
-      return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not published' });
     }
 
     // Compute isLate using DB function
     console.log("⏰ Computing late status...");
     const { data: lateCalc, error: lateErr } = await supabase.rpc("compute_is_late", {
-      p_agency_id: link.form_templates.agency_id,
-      p_settings: link.form_templates.settings_json,
+      p_agency_id: template.agency_id,
+      p_settings: template.settings_json,
       p_submission_date: body.submissionDate,
       p_work_date: body.workDate ?? null,
       p_submitted_at: new Date().toISOString()
@@ -178,7 +186,7 @@ serve(async (req) => {
 
     // Context logging
     console.log("submit_public_form", 
-      { agency: link.agencies.slug, form: link.form_templates.slug, tm: body.teamMemberId, d: finalDate });
+      { agency: agency.slug, form: template.slug, tm: body.teamMemberId, d: finalDate });
 
     // supersede previous final for that rep/day
     console.log("🔄 Checking for previous submissions to supersede...");
@@ -187,7 +195,7 @@ serve(async (req) => {
     const { data: prev, error: prevErr } = await supabase
       .from("submissions")
       .select("id")
-      .eq("form_template_id", link.form_templates.id)
+      .eq("form_template_id", template.id)
       .eq("team_member_id", body.teamMemberId)
       // match rows where work_date == d OR (work_date is null AND submission_date == d)
       .or(`work_date.eq.${d},and(work_date.is.null,submission_date.eq.${d})`)
@@ -216,7 +224,7 @@ serve(async (req) => {
     const { data: ins, error: insErr } = await supabase
       .from("submissions")
       .insert({
-        form_template_id: link.form_templates.id,
+        form_template_id: template.id,
         team_member_id: body.teamMemberId,
         submission_date: body.submissionDate,
         work_date: body.workDate ?? null,
@@ -236,7 +244,7 @@ serve(async (req) => {
 
     // Handle quoted details auto-spawning
     const quotedCount = parseInt(String(body.values.quoted_count || '0'));
-    const spawnCap = link.form_templates.settings_json?.spawnCap || 10;
+    const spawnCap = template.settings_json?.spawnCap || 10;
     const actualSpawnCount = Math.min(quotedCount, spawnCap);
 
     if (actualSpawnCount > 0) {
@@ -294,19 +302,19 @@ serve(async (req) => {
     const { data: owner } = await supabase
       .from("agencies")
       .select("id, timezone, cc_owner_on_reminders")
-      .eq("id", link.form_templates.agency_id).maybeSingle();
+      .eq("id", template.agency_id).maybeSingle();
 
     // pick CC owner based on form override or agency default
-    const ccOwner = (link.form_templates.settings_json?.reminders?.ccOwner ??
+    const ccOwner = (template.settings_json?.reminders?.ccOwner ??
                      owner?.cc_owner_on_reminders ?? true) as boolean;
 
     // compose summary plain text
     const wd = body.workDate ?? body.submissionDate;
-    const subject = `Submission received: ${link.form_templates.slug} — ${tm?.name} on ${wd}`;
+    const subject = `Submission received: ${template.slug} — ${tm?.name} on ${wd}`;
     const text = [
       `Hi ${tm?.name || "Rep"},`,
       ``,
-      `We received your ${link.form_templates.slug} entry for ${wd}.`,
+      `We received your ${template.slug} entry for ${wd}.`,
       `Late: ${isLate ? "Yes" : "No"}`,
       ``,
       `Summary:`,
@@ -322,7 +330,7 @@ serve(async (req) => {
 
     // queue to outbox so reminders have a single channel
     await supabase.from("email_outbox").insert({
-      agency_id: link.form_templates.agency_id,
+      agency_id: template.agency_id,
       kind: 'receipt',
       to_email: tm?.email || 'no-reply@invalid.local',
       cc_owner: !!ccOwner,
@@ -332,7 +340,7 @@ serve(async (req) => {
         submissionId: ins.id, 
         teamMemberId: body.teamMemberId, 
         workDate: wd, 
-        formId: link.form_templates.id 
+        formId: template.id 
       },
       scheduled_at: new Date().toISOString()
     });
