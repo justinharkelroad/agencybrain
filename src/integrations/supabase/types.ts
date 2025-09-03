@@ -759,6 +759,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_form_links_agencies"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_form_links_form_template_id"
             columns: ["form_template_id"]
             isOneToOne: false
@@ -766,14 +773,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "form_links_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "form_links_form_template_id_fkey"
+            foreignKeyName: "fk_form_links_form_templates"
             columns: ["form_template_id"]
             isOneToOne: false
             referencedRelation: "form_templates"
