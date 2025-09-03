@@ -43,7 +43,7 @@ serve(async (req) => {
   try {
     if (req.method !== "POST") {
       console.log("❌ Method not allowed:", req.method);
-      return json(405, {code:"METHOD_NOT_ALLOWED"});
+      return json(405, { error: 'METHOD_NOT_ALLOWED', detail: 'Only POST method allowed' });
     }
     
     const supabase = createClient(
@@ -69,29 +69,26 @@ serve(async (req) => {
     const { agencySlug, formSlug, token } = body;
     if (!agencySlug || !formSlug || !token) {
       console.log('❌ Bad request - missing basic parameters');
-      return json(400, {code:"BAD_REQUEST"});
+      return json(400, { error: 'BAD_REQUEST', detail: 'Missing agencySlug, formSlug, or token' });
     }
     if (!body.teamMemberId || !body.submissionDate) {
       console.log('❌ Missing required fields:', { 
         teamMemberId: !!body.teamMemberId, 
         submissionDate: !!body.submissionDate 
       });
-      return json(400, {code:"MISSING_FIELDS"});
+      return json(400, { error: 'MISSING_FIELDS', detail: 'Missing teamMemberId or submissionDate' });
     }
 
-    // resolve link
+    // resolve link with safe joins
     console.log("🔗 Resolving form link...");
     const { data: link, error } = await supabase
       .from("form_links")
       .select(`
         id, enabled, expires_at,
-        form_template:form_templates!inner(id, slug, status, settings_json, agency_id),
-        agency:agencies!inner(id, slug)
+        form_template:form_templates(id, slug, status, settings_json, agency_id),
+        agency:agencies(id, slug)
       `)
       .eq("token", token)
-      .eq("enabled", true)
-      .eq("form_templates.slug", formSlug)
-      .eq("agencies.slug", agencySlug)
       .single();
 
     console.log("link query", { 
@@ -104,21 +101,60 @@ serve(async (req) => {
       ag_slug: link?.agency?.slug 
     });
 
-    if (error || !link) {
-      console.log("❌ Form link not found:", error);
-      return json(404, {code:"NOT_FOUND"});
+    // Handle database errors
+    if (error) {
+      console.log("❌ Database error during link resolution:", error);
+      if (error.code === 'PGRST116') {
+        return json(404, { error: 'NOT_FOUND', reason: 'link', detail: 'Token not found' });
+      }
+      return json(500, { error: 'DB_ERROR', detail: error.message });
+    }
+
+    if (!link) {
+      console.log("❌ Form link not found for token");
+      return json(404, { error: 'NOT_FOUND', reason: 'link', detail: 'Invalid token' });
+    }
+
+    // Validate link is enabled
+    if (!link.enabled) {
+      console.log("❌ Form link disabled");
+      return json(404, { error: 'NOT_FOUND', reason: 'disabled', detail: 'Form link is disabled' });
+    }
+
+    // Validate expiry
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      console.log("❌ Form link expired:", link.expires_at);
+      return json(404, { error: 'NOT_FOUND', reason: 'expired', detail: 'Form link has expired' });
+    }
+
+    // Validate form template exists and matches
+    if (!link.form_template) {
+      console.log("❌ Form template not found");
+      return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not found' });
+    }
+
+    if (link.form_template.slug !== formSlug) {
+      console.log("❌ Form slug mismatch:", { expected: formSlug, actual: link.form_template.slug });
+      return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form slug mismatch' });
+    }
+
+    // Validate agency exists and matches
+    if (!link.agency) {
+      console.log("❌ Agency not found");
+      return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency not found' });
+    }
+
+    if (link.agency.slug !== agencySlug) {
+      console.log("❌ Agency slug mismatch:", { expected: agencySlug, actual: link.agency.slug });
+      return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency slug mismatch' });
     }
     
     console.log("✅ Form link resolved for:", link.form_template.slug);
     
-    // Optionally check publish status/expiry explicitly:
+    // Check publish status
     if (link.form_template?.status !== "published") {
       console.log("❌ Form template not published:", link.form_template.status);
-      return json(404, {code:"NOT_FOUND"});
-    }
-    if (link.expires_at && new Date(link.expires_at) < new Date()) {
-      console.log("❌ Form link expired:", link.expires_at);
-      return json(404, {code:"NOT_FOUND"});
+      return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not published' });
     }
 
     // Compute isLate using DB function
@@ -132,7 +168,7 @@ serve(async (req) => {
     });
     if (lateErr) {
       console.log("❌ Late calculation error:", lateErr);
-      return json(500, { code: "LATE_CALC_ERROR" });
+      return json(500, { error: 'DB_ERROR', detail: 'Failed to calculate late status' });
     }
     const isLate = lateCalc as boolean;
     const finalDate = (body.workDate ?? body.submissionDate);
@@ -158,7 +194,7 @@ serve(async (req) => {
 
     if (prevErr) {
       console.error("❌ Previous submission lookup failed:", prevErr);
-      return json(500, { code: "DB_ERROR" });
+      return json(500, { error: 'DB_ERROR', detail: 'Failed to lookup previous submissions' });
     }
 
     if (prev?.length) {
@@ -169,7 +205,7 @@ serve(async (req) => {
         .in("id", prev.map((r: any) => r.id));
       if (updErr) {
         console.log("❌ Previous supersede error:", updErr);
-        return json(500, { code: "DB_ERROR" });
+        return json(500, { error: 'DB_ERROR', detail: 'Failed to supersede previous submissions' });
       }
     } else {
       console.log("ℹ️ No previous submissions to supersede");
@@ -192,7 +228,7 @@ serve(async (req) => {
 
     if (insErr) {
       console.log("❌ Submission insert failed:", insErr);
-      return json(500, { code: "DB_ERROR" });
+      return json(500, { error: 'DB_ERROR', detail: 'Failed to insert submission' });
     }
 
     console.log("✅ Submission created with ID:", ins.id);
@@ -317,6 +353,6 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("💥 Server error in submit_public_form:", e);
-    return json(500, {code:"SERVER_ERROR"});
+    return json(500, { error: 'SERVER_ERROR', detail: 'Internal server error' });
   }
 });

@@ -731,6 +731,7 @@ export type Database = {
       }
       form_links: {
         Row: {
+          agency_id: string | null
           created_at: string
           enabled: boolean | null
           expires_at: string | null
@@ -739,6 +740,7 @@ export type Database = {
           token: string
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           enabled?: boolean | null
           expires_at?: string | null
@@ -747,6 +749,7 @@ export type Database = {
           token: string
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           enabled?: boolean | null
           expires_at?: string | null
@@ -757,6 +760,20 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fk_form_links_form_template_id"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_links_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_links_form_template_id_fkey"
             columns: ["form_template_id"]
             isOneToOne: false
             referencedRelation: "form_templates"
