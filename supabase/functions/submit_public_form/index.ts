@@ -85,8 +85,8 @@ serve(async (req) => {
       .from("form_links")
       .select(`
         id, enabled, expires_at,
-        form_template:form_templates(id, slug, status, settings_json, agency_id),
-        agency:agencies(id, slug)
+        form_templates:form_template_id(id, slug, status, settings_json, agency_id),
+        agencies:agency_id(id, slug)
       `)
       .eq("token", token)
       .single();
@@ -96,9 +96,9 @@ serve(async (req) => {
       hasLink: !!link, 
       enabled: link?.enabled, 
       expires_at: link?.expires_at,
-      ft_slug: link?.form_template?.slug, 
-      ft_status: link?.form_template?.status, 
-      ag_slug: link?.agency?.slug 
+      ft_slug: link?.form_templates?.slug, 
+      ft_status: link?.form_templates?.status, 
+      ag_slug: link?.agencies?.slug 
     });
 
     // Handle database errors
@@ -128,40 +128,40 @@ serve(async (req) => {
     }
 
     // Validate form template exists and matches
-    if (!link.form_template) {
+    if (!link.form_templates) {
       console.log("❌ Form template not found");
       return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not found' });
     }
 
-    if (link.form_template.slug !== formSlug) {
-      console.log("❌ Form slug mismatch:", { expected: formSlug, actual: link.form_template.slug });
+    if (link.form_templates.slug !== formSlug) {
+      console.log("❌ Form slug mismatch:", { expected: formSlug, actual: link.form_templates.slug });
       return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form slug mismatch' });
     }
 
     // Validate agency exists and matches
-    if (!link.agency) {
+    if (!link.agencies) {
       console.log("❌ Agency not found");
       return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency not found' });
     }
 
-    if (link.agency.slug !== agencySlug) {
-      console.log("❌ Agency slug mismatch:", { expected: agencySlug, actual: link.agency.slug });
+    if (link.agencies.slug !== agencySlug) {
+      console.log("❌ Agency slug mismatch:", { expected: agencySlug, actual: link.agencies.slug });
       return json(404, { error: 'NOT_FOUND', reason: 'agency', detail: 'Agency slug mismatch' });
     }
     
-    console.log("✅ Form link resolved for:", link.form_template.slug);
+    console.log("✅ Form link resolved for:", link.form_templates.slug);
     
     // Check publish status
-    if (link.form_template?.status !== "published") {
-      console.log("❌ Form template not published:", link.form_template.status);
+    if (link.form_templates?.status !== "published") {
+      console.log("❌ Form template not published:", link.form_templates.status);
       return json(404, { error: 'NOT_FOUND', reason: 'template', detail: 'Form template not published' });
     }
 
     // Compute isLate using DB function
     console.log("⏰ Computing late status...");
     const { data: lateCalc, error: lateErr } = await supabase.rpc("compute_is_late", {
-      p_agency_id: link.form_template.agency_id,
-      p_settings: link.form_template.settings_json,
+      p_agency_id: link.form_templates.agency_id,
+      p_settings: link.form_templates.settings_json,
       p_submission_date: body.submissionDate,
       p_work_date: body.workDate ?? null,
       p_submitted_at: new Date().toISOString()
@@ -177,7 +177,7 @@ serve(async (req) => {
 
     // Context logging
     console.log("submit_public_form", 
-      { agency: link.agency.slug, form: link.form_template.slug, tm: body.teamMemberId, d: finalDate });
+      { agency: link.agencies.slug, form: link.form_templates.slug, tm: body.teamMemberId, d: finalDate });
 
     // supersede previous final for that rep/day
     console.log("🔄 Checking for previous submissions to supersede...");
@@ -186,7 +186,7 @@ serve(async (req) => {
     const { data: prev, error: prevErr } = await supabase
       .from("submissions")
       .select("id")
-      .eq("form_template_id", link.form_template.id)
+      .eq("form_template_id", link.form_templates.id)
       .eq("team_member_id", body.teamMemberId)
       // match rows where work_date == d OR (work_date is null AND submission_date == d)
       .or(`work_date.eq.${d},and(work_date.is.null,submission_date.eq.${d})`)
@@ -215,7 +215,7 @@ serve(async (req) => {
     const { data: ins, error: insErr } = await supabase
       .from("submissions")
       .insert({
-        form_template_id: link.form_template.id,
+        form_template_id: link.form_templates.id,
         team_member_id: body.teamMemberId,
         submission_date: body.submissionDate,
         work_date: body.workDate ?? null,
@@ -235,7 +235,7 @@ serve(async (req) => {
 
     // Handle quoted details auto-spawning
     const quotedCount = parseInt(String(body.values.quoted_count || '0'));
-    const spawnCap = link.form_template.settings_json?.spawnCap || 10;
+    const spawnCap = link.form_templates.settings_json?.spawnCap || 10;
     const actualSpawnCount = Math.min(quotedCount, spawnCap);
 
     if (actualSpawnCount > 0) {
@@ -293,19 +293,19 @@ serve(async (req) => {
     const { data: owner } = await supabase
       .from("agencies")
       .select("id, timezone, cc_owner_on_reminders")
-      .eq("id", link.form_template.agency_id).maybeSingle();
+      .eq("id", link.form_templates.agency_id).maybeSingle();
 
     // pick CC owner based on form override or agency default
-    const ccOwner = (link.form_template.settings_json?.reminders?.ccOwner ??
+    const ccOwner = (link.form_templates.settings_json?.reminders?.ccOwner ??
                      owner?.cc_owner_on_reminders ?? true) as boolean;
 
     // compose summary plain text
     const wd = body.workDate ?? body.submissionDate;
-    const subject = `Submission received: ${link.form_template.slug} — ${tm?.name} on ${wd}`;
+    const subject = `Submission received: ${link.form_templates.slug} — ${tm?.name} on ${wd}`;
     const text = [
       `Hi ${tm?.name || "Rep"},`,
       ``,
-      `We received your ${link.form_template.slug} entry for ${wd}.`,
+      `We received your ${link.form_templates.slug} entry for ${wd}.`,
       `Late: ${isLate ? "Yes" : "No"}`,
       ``,
       `Summary:`,
@@ -321,7 +321,7 @@ serve(async (req) => {
 
     // queue to outbox so reminders have a single channel
     await supabase.from("email_outbox").insert({
-      agency_id: link.form_template.agency_id,
+      agency_id: link.form_templates.agency_id,
       kind: 'receipt',
       to_email: tm?.email || 'no-reply@invalid.local',
       cc_owner: !!ccOwner,
@@ -331,7 +331,7 @@ serve(async (req) => {
         submissionId: ins.id, 
         teamMemberId: body.teamMemberId, 
         workDate: wd, 
-        formId: link.form_template.id 
+        formId: link.form_templates.id 
       },
       scheduled_at: new Date().toISOString()
     });
