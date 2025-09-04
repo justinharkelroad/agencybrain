@@ -152,10 +152,8 @@ export default function ScorecardFormBuilder() {
         description: 'Capture detailed information for each quoted household',
         triggerKPI: 'quoted_count',
         fields: [
-          { key: 'household_name', label: 'Household Name', type: 'text', required: true },
-          { key: 'zip_code', label: 'ZIP Code', type: 'text', required: false },
-          { key: 'lead_source', label: 'Lead Source', type: 'select', required: false, options: ['Website', 'Referral', 'Cold Call'] },
-          { key: 'policy_type', label: 'Policy Type', type: 'text', required: false },
+          // Sticky fields will be loaded from database
+          // Only include non-sticky custom fields here if needed
         ]
       },
       soldDetails: {
@@ -164,10 +162,8 @@ export default function ScorecardFormBuilder() {
         description: 'Track household details and policy information for each sale',
         triggerKPI: 'sold_items',
         fields: [
-          { key: 'policy_holder', label: 'Policy Holder', type: 'text', required: true },
-          { key: 'policy_type', label: 'Policy Type', type: 'text', required: true },
-          { key: 'premium_amount', label: 'Premium Amount', type: 'currency', required: true },
-          { key: 'commission_amount', label: 'Commission Amount', type: 'currency', required: false },
+          // Sticky fields will be loaded from database
+          // Only include non-sticky custom fields here if needed
         ]
       }
     },

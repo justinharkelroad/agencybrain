@@ -77,36 +77,37 @@ export default function RepeaterSectionManager({
     loadStickyFields();
   }, [sectionKey]);
 
-  // Initialize section with sticky fields if not already present
+  // Initialize section with sticky fields, replacing any pre-defined fields that match
   useEffect(() => {
     if (stickyFields.length > 0) {
       const existingFieldKeys = section.fields.map(f => f.key);
-      const missingSticky = stickyFields.filter(sf => !existingFieldKeys.includes(sf.field_key));
+      const stickyFieldKeys = stickyFields.map(sf => sf.field_key);
       
-      if (missingSticky.length > 0) {
-        const newStickyFields: RepeaterField[] = missingSticky.map(sf => ({
-          key: sf.field_key,
-          label: sf.field_label,
-          type: sf.field_type as any,
-          required: sf.is_system_required,
-          isSticky: true,
-          isSystemRequired: sf.is_system_required,
-          options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [
-            'Auto Insurance',
-            'Home Insurance', 
-            'Life Insurance',
-            'Business Insurance',
-            'Health Insurance',
-            'Other'
-          ] : undefined
-        }));
+      // Create sticky fields from database
+      const newStickyFields: RepeaterField[] = stickyFields.map(sf => ({
+        key: sf.field_key,
+        label: sf.field_label,
+        type: sf.field_type as any,
+        required: sf.is_system_required,
+        isSticky: true,
+        isSystemRequired: sf.is_system_required,
+        options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [
+          'Auto Insurance',
+          'Home Insurance', 
+          'Life Insurance',
+          'Business Insurance',
+          'Health Insurance',
+          'Other'
+        ] : undefined
+      }));
 
-        // Merge sticky fields with existing fields, ensuring sticky fields come first
-        const customFields = section.fields.filter(f => !f.isSticky);
-        updateSection({
-          fields: [...newStickyFields, ...customFields]
-        });
-      }
+      // Keep only custom fields that don't conflict with sticky fields
+      const customFields = section.fields.filter(f => !stickyFieldKeys.includes(f.key) && !f.isSticky);
+      
+      // Always replace with sticky fields first, then custom fields
+      updateSection({
+        fields: [...newStickyFields, ...customFields]
+      });
     }
   }, [stickyFields]);
 
