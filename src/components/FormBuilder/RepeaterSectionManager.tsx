@@ -246,7 +246,7 @@ export default function RepeaterSectionManager({
                       .map((field, index) => {
                         const actualIndex = section.fields.findIndex(f => f.key === field.key);
                         return (
-                           <div key={field.key} className="border rounded-lg p-3 space-y-2">
+                           <div key={field.key} className="border rounded-lg p-3 space-y-2 bg-card">
                              <div className="flex items-center justify-between">
                                <div className="flex items-center gap-2">
                                  <Input
@@ -308,7 +308,7 @@ export default function RepeaterSectionManager({
                                 {field.key === 'lead_source' ? (
                                   <div>
                                     <Label className="text-xs">Options</Label>
-                                    <div className="p-3 border rounded-md bg-white/60 text-sm">
+                                     <div className="p-3 border rounded-md bg-card text-sm">
                                       <div className="flex items-center justify-between mb-2">
                                         <p className="text-muted-foreground text-xs">Automatically populated from Lead Source Management</p>
                                         <Button
@@ -336,7 +336,7 @@ export default function RepeaterSectionManager({
                                 ) : field.key === 'policy_type' ? (
                                   <div>
                                     <Label className="text-xs">Options</Label>
-                                    <div className="p-3 border rounded-md bg-white/60 text-sm">
+                                    <div className="p-3 border rounded-md bg-card text-sm">
                                       <p className="text-muted-foreground mb-2 text-xs">Pre-defined policy types:</p>
                                       {(field.options || []).map(option => (
                                         <p key={option} className="text-xs">• {option}</p>
