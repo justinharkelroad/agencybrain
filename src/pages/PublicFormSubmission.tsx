@@ -56,9 +56,10 @@ export default function PublicFormSubmission() {
         }
         
         setForm(data.form);
-        // seed defaults with current date
+        // seed defaults - submission date is today, work date is yesterday (previous business day)
         const today = new Date().toISOString().slice(0, 10);
-        setValues(v => ({ ...v, submission_date: today, work_date: today }));
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        setValues(v => ({ ...v, submission_date: today, work_date: yesterday }));
         
         // Load lead sources for the agency
         try {
@@ -176,24 +177,58 @@ export default function PublicFormSubmission() {
       };
 
       console.log('📤 POST to submit_public_form...');
+      console.log('📋 Payload being sent:', JSON.stringify(payload, null, 2));
+      
       const { data, error } = await supaPublic.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
-        console.log('❌ Submission error:', error);
-        setErr(error.message || "ERROR"); 
+        console.log('❌ Submission error details:', {
+          error,
+          errorMessage: error.message,
+          errorCode: error.code,
+          errorDetails: error.details
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = "Submission failed";
+        if (error.message) {
+          if (error.message.includes('UUID')) {
+            errorMessage = "Invalid data format. Please refresh the page and try again.";
+          } else if (error.message.includes('FORM_NOT_FOUND')) {
+            errorMessage = "This form link is no longer valid.";
+          } else if (error.message.includes('FORM_EXPIRED')) {
+            errorMessage = "This form link has expired.";
+          } else if (error.message.includes('FORM_DISABLED')) {
+            errorMessage = "This form is currently disabled.";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        setErr(errorMessage); 
         return; 
       }
       
       console.log('✅ 200 OK - Form submitted successfully!');
+      console.log('📋 Response data:', data);
       setErr(null);
       toast.success("Form submitted successfully!");
       
-      // Reset form values to prevent duplicate submissions
+      // Reset form values to prevent duplicate submissions - maintain correct date defaults  
       const today = new Date().toISOString().slice(0, 10);
-      setValues({ submission_date: today, work_date: today });
-    } catch (error) {
-      console.error('Network error:', error);
-      setErr("Network error. Please check your connection and try again.");
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      setValues({ submission_date: today, work_date: yesterday });
+    } catch (error: any) {
+      console.error('❌ Network/catch error:', error);
+      let errorMessage = "Network error. Please check your connection and try again.";
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = "Connection failed. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setErr(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -242,7 +277,7 @@ export default function PublicFormSubmission() {
                 <select 
                   value={values.team_member_id ?? ""} 
                   onChange={e=>onChange("team_member_id", e.target.value)}
-                  className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                  className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground relative z-10 ${
                     fieldErrors.team_member_id ? 'border-destructive focus:ring-destructive' : 'border-input'
                   }`}
                 >
@@ -401,10 +436,19 @@ export default function PublicFormSubmission() {
                                 onChange={e => {
                                   const v = e.target.value;
                                   setValues(prev => {
-                                    const next = [...(prev[sectionKey] || [])];
-                                    next[i] = { ...(next[i] || {}), [field.key]: v };
-                                    return { ...prev, [sectionKey]: next };
+                                    // Create immutable copy of the array and object
+                                    const currentArray = [...(prev[sectionKey] || [])];
+                                    const currentItem = { ...(currentArray[i] || {}) };
+                                    currentItem[field.key] = v;
+                                    currentArray[i] = currentItem;
+                                    return { ...prev, [sectionKey]: currentArray };
                                   });
+                                  
+                                  // Clear field error if exists
+                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                  if (fieldErrors[errorKey]) {
+                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                  }
                                 }}
                                 className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                               >
@@ -425,10 +469,19 @@ export default function PublicFormSubmission() {
                                 onChange={e => {
                                   const v = e.target.value;
                                   setValues(prev => {
-                                    const next = [...(prev[sectionKey] || [])];
-                                    next[i] = { ...(next[i] || {}), [field.key]: v };
-                                    return { ...prev, [sectionKey]: next };
+                                    // Create immutable copy of the array and object
+                                    const currentArray = [...(prev[sectionKey] || [])];
+                                    const currentItem = { ...(currentArray[i] || {}) };
+                                    currentItem[field.key] = v;
+                                    currentArray[i] = currentItem;
+                                    return { ...prev, [sectionKey]: currentArray };
                                   });
+                                  
+                                  // Clear field error if exists
+                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                  if (fieldErrors[errorKey]) {
+                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                  }
                                 }}
                                 rows={3}
                                 className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical"
@@ -440,10 +493,19 @@ export default function PublicFormSubmission() {
                                 onChange={e => {
                                   const v = e.target.value;
                                   setValues(prev => {
-                                    const next = [...(prev[sectionKey] || [])];
-                                    next[i] = { ...(next[i] || {}), [field.key]: v };
-                                    return { ...prev, [sectionKey]: next };
+                                    // Create immutable copy of the array and object
+                                    const currentArray = [...(prev[sectionKey] || [])];
+                                    const currentItem = { ...(currentArray[i] || {}) };
+                                    currentItem[field.key] = v;
+                                    currentArray[i] = currentItem;
+                                    return { ...prev, [sectionKey]: currentArray };
                                   });
+                                  
+                                  // Clear field error if exists
+                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                  if (fieldErrors[errorKey]) {
+                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                  }
                                 }}
                                 className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                               />

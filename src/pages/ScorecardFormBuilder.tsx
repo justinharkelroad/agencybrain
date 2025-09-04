@@ -223,6 +223,7 @@ export default function ScorecardFormBuilder() {
         .from('form_links')
         .insert({
           form_template_id: template.id,
+          agency_id: agencyId, // Fix: Include agency_id from state
           token: token,
           enabled: true,
         });
