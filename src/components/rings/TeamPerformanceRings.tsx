@@ -165,10 +165,10 @@ export default function TeamPerformanceRings({
           return (defaults as any)[metricKey] || 0;
         };
 
-        // Filter metrics based on role
+        // Filter metrics based on role - reordered to show Quoted first, then Sold
         const roleMetrics = role === 'Sales' 
-          ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
-          : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews'];
+          ? ['quoted_count', 'sold_items', 'outbound_calls', 'talk_minutes']
+          : ['cross_sells_uncovered', 'mini_reviews', 'outbound_calls', 'talk_minutes'];
         
         const filteredMetrics = metrics.filter(m => roleMetrics.includes(m));
 

@@ -39,16 +39,21 @@ interface SearchFilters {
 export default function Explorer() {
   const { user } = useAuth();
 
-  // Default to previous business day
-  const getPreviousBusinessDay = () => {
-    const yesterday = new Date(Date.now() - 86400000);
-    return yesterday.toISOString().slice(0, 10);
+  // Default to current month (1st to today)
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      start: firstOfMonth.toISOString().slice(0, 10),
+      end: now.toISOString().slice(0, 10)
+    };
   };
 
+  const monthRange = getCurrentMonthRange();
   const [filters, setFilters] = useState<SearchFilters>({
     q: "",
-    start: getPreviousBusinessDay(),
-    end: getPreviousBusinessDay(),
+    start: monthRange.start,
+    end: monthRange.end,
     staffId: "",
     leadSource: "",
     finalOnly: true,

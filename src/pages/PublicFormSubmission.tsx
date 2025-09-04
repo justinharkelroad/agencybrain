@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supaPublic } from "@/lib/supabasePublic";
+import { toast } from "sonner";
 
 type ResolvedForm = { 
   id: string; 
@@ -165,7 +166,7 @@ export default function PublicFormSubmission() {
       
       console.log('✅ 200 OK - Form submitted successfully!');
       setErr(null);
-      alert("Form submitted successfully!");
+      toast.success("Form submitted successfully!");
     } catch (error) {
       console.error('Network error:', error);
       setErr("Network error. Please check your connection and try again.");
