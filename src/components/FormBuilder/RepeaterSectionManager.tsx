@@ -80,29 +80,37 @@ export default function RepeaterSectionManager({
   // Initialize section with sticky fields, replacing any pre-defined fields that match
   useEffect(() => {
     if (stickyFields.length > 0) {
+      console.log('🔧 Sticky fields from database:', stickyFields);
+      
       const existingFieldKeys = section.fields.map(f => f.key);
       const stickyFieldKeys = stickyFields.map(sf => sf.field_key);
       
       // Create sticky fields from database
-      const newStickyFields: RepeaterField[] = stickyFields.map(sf => ({
-        key: sf.field_key,
-        label: sf.field_label,
-        type: sf.field_type as any,
-        required: sf.is_system_required,
-        isSticky: true,
-        isSystemRequired: sf.is_system_required,
-        options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [
-          'Auto Insurance',
-          'Home Insurance', 
-          'Life Insurance',
-          'Business Insurance',
-          'Health Insurance',
-          'Other'
-        ] : undefined
-      }));
+      const newStickyFields: RepeaterField[] = stickyFields.map(sf => {
+        const field = {
+          key: sf.field_key,
+          label: sf.field_label,
+          type: sf.field_type as any,
+          required: sf.is_system_required,
+          isSticky: true,
+          isSystemRequired: sf.is_system_required,
+          options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [
+            'Auto Insurance',
+            'Home Insurance', 
+            'Life Insurance',
+            'Business Insurance',
+            'Health Insurance',
+            'Other'
+          ] : undefined
+        };
+        console.log('🔧 Created sticky field:', field);
+        return field;
+      });
 
       // Keep only custom fields that don't conflict with sticky fields
       const customFields = section.fields.filter(f => !stickyFieldKeys.includes(f.key) && !f.isSticky);
+      
+      console.log('🔧 Final fields array:', [...newStickyFields, ...customFields]);
       
       // Always replace with sticky fields first, then custom fields
       updateSection({
@@ -242,11 +250,12 @@ export default function RepeaterSectionManager({
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Input
-                                  value={field.label}
+                                  value={field.label || ''}
                                   onChange={(e) => updateField(actualIndex, { label: e.target.value })}
                                   placeholder="Field label"
-                                  className="flex-1 mr-2 bg-white"
+                                  className="flex-1 mr-2 bg-white disabled:opacity-100 disabled:bg-gray-100 disabled:text-gray-700"
                                   disabled={field.isSystemRequired}
+                                  readOnly={field.isSystemRequired}
                                 />
                                 {field.isSystemRequired && (
                                   <Badge variant="outline" className="text-xs">
