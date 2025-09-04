@@ -1,6 +1,11 @@
 // deno-lint-ignore-file no-explicit-any
+// DEPLOYMENT TIMESTAMP: 2025-09-04T12:50:00Z - FORCE REDEPLOY v3.1-FIXED
+// POSTGREST EMBEDDING FIX DEPLOYED
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const FUNCTION_VERSION = "3.1-POSTGREST-FIXED";
+const DEPLOYMENT_ID = "deploy-20250904-1250";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +37,8 @@ type Body = {
 };
 
 serve(async (req) => {
-  console.log("🚀 submit_public_form started", new Date().toISOString());
+  console.log(`🚀 submit_public_form ${FUNCTION_VERSION} started`, new Date().toISOString());
+  console.log(`📦 Deployment ID: ${DEPLOYMENT_ID}`);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -81,7 +87,8 @@ serve(async (req) => {
 
     // resolve link with plain fetches to bypass PostgREST embedding
     console.log("🔗 Resolving form link...");
-    console.log("SELECT_V3_FIXED");
+    console.log(`🔧 POSTGREST-EMBEDDING-FIX-${FUNCTION_VERSION}-ACTIVE`);
+    console.log("SELECT_V3_FIXED_DEPLOYED");
     
     // 1) fetch link only
     const { data: link, error: e1 } = await supabase
