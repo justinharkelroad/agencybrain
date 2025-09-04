@@ -216,7 +216,7 @@ export default function MetricsDashboard() {
           </CardContent>
         </Card>
 
-        {/* Team Performance Rings */}
+        {/* Team Member Performance Rings */}
         {agencyId && (
           <TeamPerformanceRings 
             agencyId={agencyId}
@@ -233,30 +233,6 @@ export default function MetricsDashboard() {
             <MetricTile title="Quoted Households" value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
             <MetricTile title="Items Sold" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
           </div>
-        )}
-
-        {/* Team Performance with Date */}
-        {tiles && (
-          <Card className="glass-surface">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center justify-between">
-                Team Member Performance
-                <span className="text-sm font-normal text-muted-foreground">
-                  {start === end ? start : `${start} to ${end}`}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="text-3xl font-bold text-primary">
-                  {Math.round(tiles.pass_rate * 100)}%
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Pass Rate for {role} team in selected period
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
 
         {/* Table */}
@@ -305,86 +281,6 @@ export default function MetricsDashboard() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Charts */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="glass-surface">
-            <CardHeader>
-              <CardTitle className="text-lg">Daily Trends</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={series}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                    />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px"
-                      }}
-                    />
-                     <Line 
-                       type="monotone" 
-                       dataKey="quoted_count" 
-                       name="Quoted Households" 
-                       stroke="hsl(var(--primary))" 
-                       strokeWidth={2}
-                       dot={false} 
-                     />
-                     <Line 
-                       type="monotone" 
-                       dataKey="sold_items" 
-                       name="Items Sold" 
-                       stroke="hsl(var(--secondary))" 
-                       strokeWidth={2}
-                       dot={false} 
-                     />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-surface">
-            <CardHeader>
-              <CardTitle className="text-lg">Daily Pass Count</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={series}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={12}
-                    />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px"
-                      }}
-                    />
-                    <Bar 
-                      dataKey="pass_count" 
-                      name="Passes" 
-                      fill="hsl(var(--primary))"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Contest board */}
         {contestEnabled && contest.length > 0 && (

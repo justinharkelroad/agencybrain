@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RING_COLORS, RING_LABELS } from "./colors";
 import { useRef } from "react";
+import { Check, X } from "lucide-react";
 
 type RingMetric = {
   key: string;
@@ -18,6 +19,9 @@ type TeamMemberRings = {
   id: string;
   name: string;
   metrics: RingMetric[];
+  passes: boolean;
+  hitsCount: number;
+  requiredHits: number;
 };
 
 function usePrefersReducedMotion() {
@@ -125,15 +129,16 @@ export default function TeamPerformanceRings({
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamMemberRings[]>([]);
   const [ringMetrics, setRingMetrics] = useState<string[]>([]);
+  const [nRequired, setNRequired] = useState(2);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Get ring metrics from scorecard rules
+        // Get ring metrics and n_required from scorecard rules
         const { data: rules } = await supa
           .from('scorecard_rules')
-          .select('ring_metrics')
+          .select('ring_metrics, n_required')
           .eq('agency_id', agencyId)
           .eq('role', role)
           .single();
@@ -142,6 +147,7 @@ export default function TeamPerformanceRings({
           ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
         setRingMetrics(metrics);
+        setNRequired(rules?.n_required || 2);
 
         // Get team metrics for the date
         const { data: teamMetrics } = await supa
@@ -172,7 +178,7 @@ export default function TeamPerformanceRings({
         
         const filteredMetrics = metrics.filter(m => roleMetrics.includes(m));
 
-        // Build team data with rings
+        // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
           const memberMetrics: RingMetric[] = filteredMetrics.map((metricKey: string) => {
             const actual = member[metricKey] || 0;
@@ -198,10 +204,21 @@ export default function TeamPerformanceRings({
             };
           });
 
+          // Calculate how many metrics meet their targets
+          const hitsCount = memberMetrics.filter(metric => 
+            metric.target > 0 && metric.actual >= metric.target
+          ).length;
+
+          // Determine if member passes based on n_required
+          const passes = hitsCount >= nRequired;
+
           return {
             id: member.team_member_id,
             name: member.name,
-            metrics: memberMetrics
+            metrics: memberMetrics,
+            passes,
+            hitsCount,
+            requiredHits: nRequired
           };
         });
 
@@ -222,7 +239,7 @@ export default function TeamPerformanceRings({
     return (
       <Card className="glass-surface">
         <CardHeader>
-          <CardTitle className="text-lg">Team Performance</CardTitle>
+          <CardTitle className="text-lg">Team Member Performance</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
@@ -238,7 +255,7 @@ export default function TeamPerformanceRings({
     return (
       <Card className="glass-surface">
         <CardHeader>
-          <CardTitle className="text-lg">Team Performance</CardTitle>
+          <CardTitle className="text-lg">Team Member Performance</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">No team data available for {date}</p>
@@ -251,7 +268,7 @@ export default function TeamPerformanceRings({
     <Card className="glass-surface">
       <CardHeader>
         <CardTitle className="text-lg flex items-center justify-between">
-          Team Performance
+          Team Member Performance
           <span className="text-sm font-normal text-muted-foreground">{date}</span>
         </CardTitle>
       </CardHeader>
@@ -261,8 +278,16 @@ export default function TeamPerformanceRings({
             <Card key={member.id} className="flex-shrink-0 min-w-[200px]">
               <CardContent className="p-4">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="text-sm font-medium text-foreground text-center">
-                    {member.name}
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground text-center">
+                    {member.passes ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <X className="h-4 w-4 text-red-600" />
+                    )}
+                    <span>{member.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({member.hitsCount}/{member.requiredHits})
+                    </span>
                   </div>
                   <div className="flex gap-4">
                     {member.metrics.map((metric) => (
