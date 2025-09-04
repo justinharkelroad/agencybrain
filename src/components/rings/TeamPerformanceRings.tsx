@@ -273,7 +273,7 @@ export default function TeamPerformanceRings({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-6 overflow-x-auto pb-2">
+        <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:overflow-x-auto pb-2">
           {teamData.map((member) => (
             <Card key={member.id} className="flex-shrink-0 min-w-[200px]">
               <CardContent className="p-4">
