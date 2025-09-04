@@ -167,6 +167,10 @@ export default function PublicFormSubmission() {
       console.log('✅ 200 OK - Form submitted successfully!');
       setErr(null);
       toast.success("Form submitted successfully!");
+      
+      // Reset form values to prevent duplicate submissions
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      setValues({ submission_date: yesterday, work_date: yesterday });
     } catch (error) {
       console.error('Network error:', error);
       setErr("Network error. Please check your connection and try again.");

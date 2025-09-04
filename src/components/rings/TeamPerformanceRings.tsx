@@ -258,28 +258,29 @@ export default function TeamPerformanceRings({
       <CardContent>
         <div className="flex gap-6 overflow-x-auto pb-2">
           {teamData.map((member) => (
-            <div 
-              key={member.id} 
-              className="flex-shrink-0 flex flex-col items-center gap-3 min-w-[200px]"
-            >
-              <div className="text-sm font-medium text-foreground text-center">
-                {member.name}
-              </div>
-              <div className="flex gap-4">
-                {member.metrics.map((metric) => (
-                  <div key={metric.key} className="flex flex-col items-center gap-1">
-                    <CompactRing
-                      progress={metric.progress}
-                      color={metric.color}
-                      actual={metric.actual}
-                    />
-                    <div className="text-xs text-muted-foreground text-center">
-                      {metric.label}
-                    </div>
+            <Card key={member.id} className="flex-shrink-0 min-w-[200px]">
+              <CardContent className="p-4">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="text-sm font-medium text-foreground text-center">
+                    {member.name}
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="flex gap-4">
+                    {member.metrics.map((metric) => (
+                      <div key={metric.key} className="flex flex-col items-center gap-1">
+                        <CompactRing
+                          progress={metric.progress}
+                          color={metric.color}
+                          actual={metric.actual}
+                        />
+                        <div className="text-xs text-muted-foreground text-center">
+                          {metric.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </CardContent>
