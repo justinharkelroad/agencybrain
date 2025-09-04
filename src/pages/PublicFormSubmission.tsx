@@ -276,7 +276,7 @@ export default function PublicFormSubmission() {
                         type="number" 
                         min={0} 
                         value={values[kpi.key] ?? ""} 
-                        onChange={e=>onChange(kpi.key, e.target.value)}
+                        onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       />
                     )}
@@ -286,7 +286,7 @@ export default function PublicFormSubmission() {
                         min={0} 
                         step="0.01" 
                         value={values[kpi.key] ?? ""} 
-                        onChange={e=>onChange(kpi.key, e.target.value)}
+                        onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       />
                     )}
