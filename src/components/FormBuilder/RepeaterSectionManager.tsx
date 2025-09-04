@@ -79,7 +79,7 @@ export default function RepeaterSectionManager({
 
   // Initialize section with sticky fields if not already present
   useEffect(() => {
-    if (stickyFields.length > 0 && section.enabled) {
+    if (stickyFields.length > 0) {
       const existingFieldKeys = section.fields.map(f => f.key);
       const missingSticky = stickyFields.filter(sf => !existingFieldKeys.includes(sf.field_key));
       
@@ -108,7 +108,7 @@ export default function RepeaterSectionManager({
         });
       }
     }
-  }, [stickyFields, section.enabled]);
+  }, [stickyFields]);
 
   const updateSection = (updates: Partial<RepeaterSection>) => {
     onUpdateSection(sectionKey, { ...section, ...updates });
@@ -182,8 +182,8 @@ export default function RepeaterSectionManager({
         </div>
       </CardHeader>
       
-      {section.enabled && (
-        <CardContent className="space-y-4">
+      <CardContent className="space-y-4">
+        {section.enabled && (
           <div className="space-y-4">
             <div>
               <Label htmlFor={`${sectionKey}-trigger`}>Controlled by KPI Field</Label>
@@ -203,8 +203,10 @@ export default function RepeaterSectionManager({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        )}
 
-            {showFieldConfig && (
+        {showFieldConfig && (
               <div className="border-t pt-4">
                 {/* Sticky Fields Section */}
                 {section.fields.some(f => f.isSticky) && (
@@ -497,9 +499,7 @@ export default function RepeaterSectionManager({
                 </div>
               </div>
             )}
-          </div>
-        </CardContent>
-      )}
+      </CardContent>
     </Card>
   );
 }
