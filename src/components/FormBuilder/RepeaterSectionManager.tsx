@@ -405,7 +405,7 @@ export default function RepeaterSectionManager({
                     .map((field, customIndex) => {
                       const actualIndex = section.fields.findIndex(f => f.key === field.key);
                       return (
-                         <div key={field.key} className="border rounded-lg p-3 space-y-2">
+                         <div key={field.key} className="border rounded-lg p-3 space-y-2 bg-card">
                            <div className="flex items-center justify-between">
                              <Input
                                value={field.label}
