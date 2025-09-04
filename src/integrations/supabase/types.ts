@@ -772,13 +772,6 @@ export type Database = {
             referencedRelation: "form_templates"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_form_links_form_templates"
-            columns: ["form_template_id"]
-            isOneToOne: false
-            referencedRelation: "form_templates"
-            referencedColumns: ["id"]
-          },
         ]
       }
       form_templates: {

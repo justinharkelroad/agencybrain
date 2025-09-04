@@ -81,7 +81,7 @@ serve(async (req) => {
 
     // resolve link with plain fetches to bypass PostgREST embedding
     console.log("🔗 Resolving form link...");
-    console.log("SELECT_V3");
+    console.log("SELECT_V3_FIXED");
     
     // 1) fetch link only
     const { data: link, error: e1 } = await supabase
