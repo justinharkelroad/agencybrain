@@ -127,6 +127,7 @@ serve(async (req) => {
       form: {
         id: formTemplate.id,
         slug: formTemplate.slug,
+        agency_id: agencyData.id,
         settings: formTemplate.settings_json ?? {},
         schema: formTemplate.schema_json ?? {},
         team_members: teamMembers ?? []

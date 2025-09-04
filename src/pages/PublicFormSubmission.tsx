@@ -6,6 +6,7 @@ import { toast } from "sonner";
 type ResolvedForm = { 
   id: string; 
   slug: string; 
+  agency_id: string;
   settings: any; 
   schema: any;
   team_members: Array<{ id: string; name: string; }>;
@@ -55,9 +56,9 @@ export default function PublicFormSubmission() {
         }
         
         setForm(data.form);
-        // seed defaults including previous business day
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-        setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
+        // seed defaults with current date
+        const today = new Date().toISOString().slice(0, 10);
+        setValues(v => ({ ...v, submission_date: today, work_date: today }));
         
         // Load lead sources for the agency
         try {
@@ -188,8 +189,8 @@ export default function PublicFormSubmission() {
       toast.success("Form submitted successfully!");
       
       // Reset form values to prevent duplicate submissions
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      setValues({ submission_date: yesterday, work_date: yesterday });
+      const today = new Date().toISOString().slice(0, 10);
+      setValues({ submission_date: today, work_date: today });
     } catch (error) {
       console.error('Network error:', error);
       setErr("Network error. Please check your connection and try again.");

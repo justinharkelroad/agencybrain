@@ -145,11 +145,12 @@ serve(async (req) => {
       return json(403, { error: 'FORM_UNPUBLISHED' });
     }
 
-    // 3) fetch agency by id
+    // 3) fetch agency by id - handle null agency_id from link
+    const agencyId = link.agency_id || template.agency_id;
     const { data: agency, error: e3 } = await supabase
       .from('agencies')
       .select('id, slug')
-      .eq('id', link.agency_id)
+      .eq('id', agencyId)
       .single();
       
     if (e3 || !agency) {
