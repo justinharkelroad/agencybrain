@@ -1396,7 +1396,7 @@ export type Database = {
           superseded_at: string | null
           supersedes_id: string | null
           team_member_id: string
-          work_date: string
+          work_date: string | null
         }
         Insert: {
           created_at?: string
@@ -1410,7 +1410,7 @@ export type Database = {
           superseded_at?: string | null
           supersedes_id?: string | null
           team_member_id: string
-          work_date: string
+          work_date?: string | null
         }
         Update: {
           created_at?: string
@@ -1424,7 +1424,7 @@ export type Database = {
           superseded_at?: string | null
           supersedes_id?: string | null
           team_member_id?: string
-          work_date?: string
+          work_date?: string | null
         }
         Relationships: [
           {
