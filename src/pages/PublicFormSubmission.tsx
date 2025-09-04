@@ -104,7 +104,7 @@ export default function PublicFormSubmission() {
     // Schema-based required fields
     if (form?.schema?.kpis) {
       form.schema.kpis.forEach((kpi: any) => {
-        if (kpi.required && (!values[kpi.key] || values[kpi.key] === '')) {
+        if (kpi.required && (values[kpi.key] === undefined || values[kpi.key] === null || values[kpi.key] === '')) {
           errors[kpi.key] = `${kpi.label} is required`;
         }
       });
@@ -112,7 +112,7 @@ export default function PublicFormSubmission() {
     
     if (form?.schema?.customFields) {
       form.schema.customFields.forEach((field: any) => {
-        if (field.required && (!values[field.key] || values[field.key] === '')) {
+        if (field.required && (values[field.key] === undefined || values[field.key] === null || values[field.key] === '')) {
           errors[field.key] = `${field.label} is required`;
         }
       });

@@ -257,12 +257,31 @@ serve(async (req) => {
     if (actualSpawnCount > 0) {
       // Create quoted household details
       const quotedDetails = [];
+      const quotedHouseholds = [];
+      
       for (let i = 0; i < actualSpawnCount; i++) {
+        const householdName = body.values[`quoted_household_${i+1}`] || `Household ${i+1}`;
+        const zipCode = body.values[`quoted_zip_${i+1}`] || null;
+        const policyType = body.values[`quoted_policy_type_${i+1}`] || null;
+        
         quotedDetails.push({
           submission_id: ins.id,
-          household_name: body.values[`quoted_household_${i+1}`] || `Household ${i+1}`,
-          zip_code: body.values[`quoted_zip_${i+1}`] || null,
-          policy_type: body.values[`quoted_policy_type_${i+1}`] || null,
+          household_name: householdName,
+          zip_code: zipCode,
+          policy_type: policyType,
+        });
+
+        // Also populate the quoted_households table for Explorer
+        quotedHouseholds.push({
+          agency_id: agency.id,
+          submission_id: ins.id,
+          form_template_id: template.id,
+          team_member_id: body.teamMemberId,
+          work_date: body.workDate || body.submissionDate,
+          household_name: householdName,
+          zip: zipCode,
+          is_final: true,
+          is_late: isLate,
         });
       }
 
@@ -270,6 +289,10 @@ serve(async (req) => {
         await supabase
           .from('quoted_household_details')
           .insert(quotedDetails);
+          
+        await supabase
+          .from('quoted_households')
+          .insert(quotedHouseholds);
       }
     }
 
