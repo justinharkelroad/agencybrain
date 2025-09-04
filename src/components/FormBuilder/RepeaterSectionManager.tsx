@@ -411,7 +411,7 @@ export default function RepeaterSectionManager({
                               value={field.label}
                               onChange={(e) => updateField(actualIndex, { label: e.target.value })}
                               placeholder="Field label"
-                              className="flex-1 mr-2"
+                              className="flex-1 mr-2 bg-white"
                             />
                             <Button
                               variant="ghost"
@@ -430,10 +430,10 @@ export default function RepeaterSectionManager({
                                 value={field.type}
                                 onValueChange={(value: any) => updateField(actualIndex, { type: value })}
                               >
-                                <SelectTrigger>
+                                <SelectTrigger className="bg-white">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="bg-white z-50">
                                   <SelectItem value="text">Short Text</SelectItem>
                                   <SelectItem value="longtext">Long Text</SelectItem>
                                   <SelectItem value="select">Dropdown</SelectItem>
@@ -472,12 +472,12 @@ export default function RepeaterSectionManager({
                               <div className="space-y-2">
                                 {(field.options || []).map((option, optionIndex) => (
                                   <div key={optionIndex} className="flex items-center gap-2">
-                                    <Input
-                                      value={option}
-                                      onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
-                                      placeholder={`Option ${optionIndex + 1}`}
-                                      className="flex-1"
-                                    />
+                                     <Input
+                                       value={option}
+                                       onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
+                                       placeholder={`Option ${optionIndex + 1}`}
+                                       className="flex-1 bg-white"
+                                     />
                                     <Button
                                       onClick={() => removeOptionFromField(actualIndex, optionIndex)}
                                       size="sm"
