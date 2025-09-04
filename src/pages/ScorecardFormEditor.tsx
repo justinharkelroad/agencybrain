@@ -75,9 +75,6 @@ interface FormSchema {
     reminderTimes: string[];
     ccOwner: boolean;
     suppressIfFinal: boolean;
-    hasWorkDate: boolean;
-    hasQuotedDetails: boolean;
-    hasSoldDetails: boolean;
   };
 }
 

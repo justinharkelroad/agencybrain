@@ -51,9 +51,12 @@ interface FormSchema {
     soldDetails: RepeaterSection;
   };
   settings: {
-    hasWorkDate: boolean;
-    hasQuotedDetails: boolean;
-    hasSoldDetails: boolean;
+    dueBy: string;
+    customDueTime?: string;
+    lateCountsForPass: boolean;
+    reminderTimes: string[];
+    ccOwner: boolean;
+    suppressIfFinal: boolean;
   };
 }
 
@@ -216,12 +219,6 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
               <Input type="date" disabled value={new Date().toISOString().split('T')[0]} />
             </div>
 
-            {formSchema.settings.hasWorkDate && (
-              <div>
-                <Label>Work Date</Label>
-                <Input type="date" disabled />
-              </div>
-            )}
 
             {formSchema.kpis.length > 0 && (
               <div className="border-t pt-4">

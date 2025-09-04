@@ -75,9 +75,6 @@ interface FormSchema {
     reminderTimes: string[];
     ccOwner: boolean;
     suppressIfFinal: boolean;
-    hasWorkDate: boolean;
-    hasQuotedDetails: boolean;
-    hasSoldDetails: boolean;
   };
 }
 
@@ -173,9 +170,6 @@ export default function ScorecardFormBuilder() {
       reminderTimes: ['16:45', '07:00'],
       ccOwner: true,
       suppressIfFinal: true,
-      hasWorkDate: false,
-      hasQuotedDetails: false,
-      hasSoldDetails: false,
     }
   });
 

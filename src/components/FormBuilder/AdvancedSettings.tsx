@@ -11,9 +11,6 @@ interface FormSettings {
   reminderTimes: string[];
   ccOwner: boolean;
   suppressIfFinal: boolean;
-  hasWorkDate: boolean;
-  hasQuotedDetails: boolean;
-  hasSoldDetails: boolean;
 }
 
 interface AdvancedSettingsProps {
@@ -122,51 +119,6 @@ export default function AdvancedSettings({ settings, onUpdateSettings }: Advance
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Advanced Fields</CardTitle>
-          <CardDescription>
-            Enable additional data collection fields
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="hasWorkDate">Work Date Field</Label>
-              <p className="text-sm text-muted-foreground">Allow separate work date from submission date</p>
-            </div>
-            <Switch
-              id="hasWorkDate"
-              checked={settings.hasWorkDate}
-              onCheckedChange={(checked) => onUpdateSettings({ hasWorkDate: checked })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="hasQuotedDetails">Quoted Details Section</Label>
-              <p className="text-sm text-muted-foreground">Collect detailed information about quoted households</p>
-            </div>
-            <Switch
-              id="hasQuotedDetails"
-              checked={settings.hasQuotedDetails}
-              onCheckedChange={(checked) => onUpdateSettings({ hasQuotedDetails: checked })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="hasSoldDetails">Sold Details Section</Label>
-              <p className="text-sm text-muted-foreground">Collect detailed information about sold policies</p>
-            </div>
-            <Switch
-              id="hasSoldDetails"
-              checked={settings.hasSoldDetails}
-              onCheckedChange={(checked) => onUpdateSettings({ hasSoldDetails: checked })}
-            />
-          </div>
-        </CardContent>
-      </Card>
     </>
   );
 }
