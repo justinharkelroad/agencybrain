@@ -246,17 +246,17 @@ export default function RepeaterSectionManager({
                       .map((field, index) => {
                         const actualIndex = section.fields.findIndex(f => f.key === field.key);
                         return (
-                          <div key={field.key} className="border-2 border-blue-200 bg-blue-50/30 p-3 rounded-lg space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  value={field.label || ''}
-                                  onChange={(e) => updateField(actualIndex, { label: e.target.value })}
-                                  placeholder="Field label"
-                                  className="flex-1 mr-2 bg-white disabled:opacity-100 disabled:bg-gray-100 disabled:text-gray-700"
-                                  disabled={field.isSystemRequired}
-                                  readOnly={field.isSystemRequired}
-                                />
+                           <div key={field.key} className="border rounded-lg p-3 space-y-2">
+                             <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-2">
+                                 <Input
+                                   value={field.label || ''}
+                                   onChange={(e) => updateField(actualIndex, { label: e.target.value })}
+                                   placeholder="Field label"
+                                   className="flex-1 mr-2"
+                                   disabled={field.isSystemRequired}
+                                   readOnly={field.isSystemRequired}
+                                 />
                                 {field.isSystemRequired && (
                                   <Badge variant="outline" className="text-xs">
                                     <Lock className="h-3 w-3 mr-1" />
@@ -272,14 +272,14 @@ export default function RepeaterSectionManager({
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label className="text-xs">Field Type</Label>
-                                <Select
-                                  value={field.type}
-                                  onValueChange={(value: any) => updateField(actualIndex, { type: value })}
-                                  disabled={field.isSystemRequired}
-                                >
-                                  <SelectTrigger className="bg-white">
-                                    <SelectValue />
-                                  </SelectTrigger>
+                                 <Select
+                                   value={field.type}
+                                   onValueChange={(value: any) => updateField(actualIndex, { type: value })}
+                                   disabled={field.isSystemRequired}
+                                 >
+                                   <SelectTrigger>
+                                     <SelectValue />
+                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="text">Short Text</SelectItem>
                                     <SelectItem value="longtext">Long Text</SelectItem>
@@ -361,12 +361,12 @@ export default function RepeaterSectionManager({
                                     <div className="space-y-2">
                                       {(field.options || []).map((option, optionIndex) => (
                                         <div key={optionIndex} className="flex items-center gap-2">
-                                          <Input
-                                            value={option}
-                                            onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
-                                            placeholder={`Option ${optionIndex + 1}`}
-                                            className="flex-1 h-8 text-xs bg-white"
-                                          />
+                                           <Input
+                                             value={option}
+                                             onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
+                                             placeholder={`Option ${optionIndex + 1}`}
+                                             className="flex-1 h-8 text-xs"
+                                           />
                                           <Button
                                             onClick={() => removeOptionFromField(actualIndex, optionIndex)}
                                             size="sm"
@@ -405,14 +405,14 @@ export default function RepeaterSectionManager({
                     .map((field, customIndex) => {
                       const actualIndex = section.fields.findIndex(f => f.key === field.key);
                       return (
-                        <div key={field.key} className="border p-3 rounded-lg space-y-2 bg-white">
-                          <div className="flex items-center justify-between">
-                            <Input
-                              value={field.label}
-                              onChange={(e) => updateField(actualIndex, { label: e.target.value })}
-                              placeholder="Field label"
-                              className="flex-1 mr-2 bg-white"
-                            />
+                         <div key={field.key} className="border rounded-lg p-3 space-y-2">
+                           <div className="flex items-center justify-between">
+                             <Input
+                               value={field.label}
+                               onChange={(e) => updateField(actualIndex, { label: e.target.value })}
+                               placeholder="Field label"
+                               className="flex-1 mr-2"
+                             />
                             <Button
                               variant="ghost"
                               size="sm"
@@ -426,14 +426,14 @@ export default function RepeaterSectionManager({
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <Label className="text-xs">Field Type</Label>
-                              <Select
-                                value={field.type}
-                                onValueChange={(value: any) => updateField(actualIndex, { type: value })}
-                              >
-                                <SelectTrigger className="bg-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-white z-50">
+                               <Select
+                                 value={field.type}
+                                 onValueChange={(value: any) => updateField(actualIndex, { type: value })}
+                               >
+                                 <SelectTrigger>
+                                   <SelectValue />
+                                 </SelectTrigger>
+                                 <SelectContent className="z-50">
                                   <SelectItem value="text">Short Text</SelectItem>
                                   <SelectItem value="longtext">Long Text</SelectItem>
                                   <SelectItem value="select">Dropdown</SelectItem>
@@ -472,12 +472,12 @@ export default function RepeaterSectionManager({
                               <div className="space-y-2">
                                 {(field.options || []).map((option, optionIndex) => (
                                   <div key={optionIndex} className="flex items-center gap-2">
-                                     <Input
-                                       value={option}
-                                       onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
-                                       placeholder={`Option ${optionIndex + 1}`}
-                                       className="flex-1 bg-white"
-                                     />
+                                      <Input
+                                        value={option}
+                                        onChange={(e) => updateOptionInField(actualIndex, optionIndex, e.target.value)}
+                                        placeholder={`Option ${optionIndex + 1}`}
+                                        className="flex-1"
+                                      />
                                     <Button
                                       onClick={() => removeOptionFromField(actualIndex, optionIndex)}
                                       size="sm"
