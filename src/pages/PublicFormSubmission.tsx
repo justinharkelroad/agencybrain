@@ -20,6 +20,7 @@ export default function PublicFormSubmission() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_active: boolean; order_index: number }>>([]);
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
 
   // Check auth session on load
@@ -57,6 +58,24 @@ export default function PublicFormSubmission() {
         // seed defaults including previous business day
         const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
         setValues(v => ({ ...v, submission_date: yesterday, work_date: yesterday }));
+        
+        // Load lead sources for the agency
+        try {
+          const { data: leadSourcesData, error: leadSourcesError } = await supaPublic
+            .from('lead_sources')
+            .select('id, name, is_active, order_index')
+            .eq('agency_id', data.form.agency_id)
+            .eq('is_active', true)
+            .order('order_index', { ascending: true });
+          
+          if (leadSourcesError) {
+            console.error('Error loading lead sources:', leadSourcesError);
+          } else {
+            setLeadSources(leadSourcesData || []);
+          }
+        } catch (leadSourceError) {
+          console.error('Lead sources loading failed:', leadSourceError);
+        }
       } catch (error) {
         console.error('Form resolution error:', error);
         setErr("NETWORK_ERROR");
@@ -389,9 +408,15 @@ export default function PublicFormSubmission() {
                                 className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
                               >
                                 <option value="">Select</option>
-                                {(field.options || []).map((o: string) => (
-                                  <option key={o} value={o}>{o}</option>
-                                ))}
+                                {field.key === 'lead_source' ? (
+                                  leadSources.map((ls) => (
+                                    <option key={ls.id} value={ls.id}>{ls.name}</option>
+                                  ))
+                                ) : (
+                                  (field.options || []).map((o: string) => (
+                                    <option key={o} value={o}>{o}</option>
+                                  ))
+                                )}
                               </select>
                             ) : field.type === "longtext" ? (
                               <textarea

@@ -774,6 +774,45 @@ export type Database = {
           },
         ]
       }
+      form_section_field_types: {
+        Row: {
+          created_at: string
+          field_key: string
+          field_label: string
+          field_type: string
+          id: string
+          is_sticky: boolean
+          is_system_required: boolean
+          order_index: number
+          section_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_key: string
+          field_label: string
+          field_type: string
+          id?: string
+          is_sticky?: boolean
+          is_system_required?: boolean
+          order_index?: number
+          section_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_key?: string
+          field_label?: string
+          field_type?: string
+          id?: string
+          is_sticky?: boolean
+          is_system_required?: boolean
+          order_index?: number
+          section_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       form_templates: {
         Row: {
           agency_id: string
@@ -1353,6 +1392,7 @@ export type Database = {
           created_at: string
           extras: Json | null
           id: string
+          lead_source_id: string | null
           policy_holder_name: string
           policy_type: string
           premium_amount_cents: number
@@ -1364,6 +1404,7 @@ export type Database = {
           created_at?: string
           extras?: Json | null
           id?: string
+          lead_source_id?: string | null
           policy_holder_name: string
           policy_type: string
           premium_amount_cents?: number
@@ -1375,13 +1416,22 @@ export type Database = {
           created_at?: string
           extras?: Json | null
           id?: string
+          lead_source_id?: string | null
           policy_holder_name?: string
           policy_type?: string
           premium_amount_cents?: number
           quoted_household_detail_id?: string | null
           submission_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sold_policy_details_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {
@@ -1780,6 +1830,16 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_sticky_fields_for_section: {
+        Args: { p_section_type: string }
+        Returns: {
+          field_key: string
+          field_label: string
+          field_type: string
+          is_system_required: boolean
+          order_index: number
+        }[]
       }
       get_target: {
         Args: { p_agency: string; p_member: string; p_metric: string }

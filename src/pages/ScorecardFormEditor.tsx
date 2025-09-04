@@ -352,8 +352,8 @@ export default function ScorecardFormEditor() {
               <RepeaterSectionManager
                 section={formSchema.repeaterSections?.soldDetails || {
                   enabled: false,
-                  title: 'Sold Policy Details',
-                  description: 'Track commission and policy information',
+                  title: 'Sold Household Details',
+                  description: 'Track household details and policy information',
                   fields: []
                 }}
                 sectionKey="soldDetails"

@@ -160,8 +160,8 @@ export default function ScorecardFormBuilder() {
       },
       soldDetails: {
         enabled: false,
-        title: 'Sold Policy Details',
-        description: 'Track commission and policy details for each sale',
+        title: 'Sold Household Details',
+        description: 'Track household details and policy information for each sale',
         triggerKPI: 'sold_items',
         fields: [
           { key: 'policy_holder', label: 'Policy Holder', type: 'text', required: true },
@@ -426,8 +426,8 @@ export default function ScorecardFormBuilder() {
               <RepeaterSectionManager
                 section={formSchema.repeaterSections?.soldDetails || {
                   enabled: false,
-                  title: 'Sold Policy Details',
-                  description: 'Track commission and policy information',
+                  title: 'Sold Household Details',
+                  description: 'Track household details and policy information',
                   fields: []
                 }}
                 sectionKey="soldDetails"
