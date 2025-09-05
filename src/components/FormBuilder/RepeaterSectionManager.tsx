@@ -323,8 +323,19 @@ export default function RepeaterSectionManager({
                                       </div>
                                        {leadSourcesLoading ? (
                                          <p className="text-xs text-muted-foreground">Loading lead sources...</p>
-                                       ) : leadSourcesError ? (
-                                         <p className="text-xs text-destructive">Error loading lead sources: {leadSourcesError}</p>
+                                        ) : leadSourcesError ? (
+                                          <div className="space-y-2">
+                                            <p className="text-xs text-destructive">Failed to load lead sources</p>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => window.open('/settings', '_blank')}
+                                              className="text-xs h-6"
+                                            >
+                                              <ExternalLink className="h-3 w-3 mr-1" />
+                                              Setup Lead Sources
+                                            </Button>
+                                          </div>
                                        ) : leadSources.length > 0 ? (
                                          leadSources.map(ls => (
                                            <p key={ls.id} className="text-xs">• {ls.name}</p>
