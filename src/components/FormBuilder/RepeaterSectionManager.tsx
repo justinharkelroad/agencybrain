@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, X, Settings, Trash2, Lock, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supa } from "@/lib/supabase";
+import { useLeadSources } from "@/hooks/useLeadSources";
 
 interface RepeaterField {
   key: string;
@@ -41,7 +42,6 @@ interface RepeaterSectionManagerProps {
   section: RepeaterSection;
   sectionKey: string;
   kpiFields: Array<{ key: string; label: string }>;
-  leadSources?: Array<{ id: string; name: string; is_active: boolean; order_index: number }>;
   onUpdateSection: (sectionKey: string, section: RepeaterSection) => void;
 }
 
@@ -49,12 +49,12 @@ export default function RepeaterSectionManager({
   section, 
   sectionKey, 
   kpiFields,
-  leadSources = [],
   onUpdateSection 
 }: RepeaterSectionManagerProps) {
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const [stickyFields, setStickyFields] = useState<StickyField[]>([]);
   const [loadingSticky, setLoadingSticky] = useState(false);
+  const { leadSources, loading: leadSourcesLoading, error: leadSourcesError } = useLeadSources();
 
   // Load sticky fields for this section type
   useEffect(() => {
@@ -321,16 +321,17 @@ export default function RepeaterSectionManager({
                                           Manage
                                         </Button>
                                       </div>
-                                      {leadSources.filter(ls => ls.is_active).length > 0 ? (
-                                        leadSources
-                                          .filter(ls => ls.is_active)
-                                          .sort((a, b) => a.order_index - b.order_index)
-                                          .map(ls => (
-                                            <p key={ls.id} className="text-xs">• {ls.name}</p>
-                                          ))
-                                      ) : (
-                                        <p className="text-xs text-orange-600">No active lead sources configured. Configure them in Settings → Lead Source Management.</p>
-                                      )}
+                                       {leadSourcesLoading ? (
+                                         <p className="text-xs text-muted-foreground">Loading lead sources...</p>
+                                       ) : leadSourcesError ? (
+                                         <p className="text-xs text-destructive">Error loading lead sources: {leadSourcesError}</p>
+                                       ) : leadSources.length > 0 ? (
+                                         leadSources.map(ls => (
+                                           <p key={ls.id} className="text-xs">• {ls.name}</p>
+                                         ))
+                                       ) : (
+                                         <p className="text-xs text-orange-600">No active lead sources configured. Configure them in Settings → Lead Source Management.</p>
+                                       )}
                                     </div>
                                   </div>
                                 ) : field.key === 'policy_type' ? (

@@ -41,11 +41,19 @@ interface RepeaterSection {
   }>;
 }
 
+interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  order_index: number;
+}
+
 interface FormSchema {
   title: string;
   role: 'Sales' | 'Service';
   kpis: KPIField[];
   customFields?: CustomField[];
+  leadSources?: LeadSource[];
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;

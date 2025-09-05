@@ -10,7 +10,6 @@ import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
-import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
@@ -63,7 +62,6 @@ interface FormSchema {
   role: 'Sales' | 'Service';
   kpis: KPIField[];
   customFields?: CustomField[];
-  leadSources?: LeadSource[];
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;
@@ -315,12 +313,6 @@ export default function ScorecardFormEditor() {
               onRemoveField={removeCustomField}
             />
 
-            {/* Lead Source Management */}
-            <LeadSourceManager
-              leadSources={formSchema.leadSources || []}
-              onUpdateLeadSources={(sources) => setFormSchema(prev => prev ? {...prev, leadSources: sources} : null)}
-            />
-
             {/* Repeater Sections */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Dynamic Detail Collection</h3>
@@ -334,7 +326,6 @@ export default function ScorecardFormEditor() {
                 }}
                 sectionKey="quotedDetails"
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
-                leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
                   setFormSchema(prev => prev ? {
                     ...prev,
@@ -355,7 +346,6 @@ export default function ScorecardFormEditor() {
                 }}
                 sectionKey="soldDetails"
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
-                leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
                   setFormSchema(prev => prev ? {
                     ...prev,

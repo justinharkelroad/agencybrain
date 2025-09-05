@@ -10,7 +10,6 @@ import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
-import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
@@ -63,7 +62,6 @@ interface FormSchema {
   role: 'Sales' | 'Service';
   kpis: KPIField[];
   customFields?: CustomField[];
-  leadSources?: LeadSource[];
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;
@@ -137,11 +135,6 @@ export default function ScorecardFormBuilder() {
     role: initialRole,
     kpis: initialRole === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
     customFields: [],
-    leadSources: [
-      { id: 'website', name: 'Website', is_active: true, order_index: 0 },
-      { id: 'referral', name: 'Referral', is_active: true, order_index: 1 },
-      { id: 'cold_call', name: 'Cold Call', is_active: true, order_index: 2 },
-    ],
     repeaterSections: {
       quotedDetails: {
         enabled: false,
@@ -383,12 +376,6 @@ export default function ScorecardFormBuilder() {
               onRemoveField={removeCustomField}
             />
 
-            {/* Lead Source Management */}
-            <LeadSourceManager
-              leadSources={formSchema.leadSources || []}
-              onUpdateLeadSources={(sources) => setFormSchema(prev => ({...prev, leadSources: sources}))}
-            />
-
             {/* Repeater Sections */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Dynamic Detail Collection</h3>
@@ -402,7 +389,6 @@ export default function ScorecardFormBuilder() {
                 }}
                 sectionKey="quotedDetails"
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
-                leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
                   setFormSchema(prev => ({
                     ...prev,
@@ -423,7 +409,6 @@ export default function ScorecardFormBuilder() {
                 }}
                 sectionKey="soldDetails"
                 kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
-                leadSources={formSchema.leadSources}
                 onUpdateSection={(key, section) => {
                   setFormSchema(prev => ({
                     ...prev,
