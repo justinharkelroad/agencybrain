@@ -16,7 +16,13 @@ import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigD
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
-  const { forms, loading, agencyId } = useScorecardForms();
+  const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+
+  const handleDeleteForm = async (formId: string) => {
+    await deleteForm(formId);
+    // Refetch to ensure UI is updated immediately
+    await refetch();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,7 +87,7 @@ export default function ScorecardForms() {
             ) : forms.length > 0 ? (
               <div className="grid md:grid-cols-2 gap-6">
                 {forms.map((form) => (
-                  <FormTemplateCard key={form.id} form={form} />
+                  <FormTemplateCard key={form.id} form={form} onDelete={handleDeleteForm} />
                 ))}
               </div>
             ) : (

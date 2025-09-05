@@ -25,15 +25,16 @@ interface FormTemplate {
 
 interface FormTemplateCardProps {
   form: FormTemplate;
+  onDelete?: (formId: string) => Promise<void>;
 }
 
-export default function FormTemplateCard({ form }: FormTemplateCardProps) {
+export default function FormTemplateCard({ form, onDelete }: FormTemplateCardProps) {
   const navigate = useNavigate();
   const { 
     createFormLink, 
     getFormLink, 
     toggleFormLink, 
-    deleteForm, 
+    deleteForm: hookDeleteForm, 
     generatePublicUrl 
   } = useScorecardForms();
   
@@ -78,8 +79,11 @@ export default function FormTemplateCard({ form }: FormTemplateCardProps) {
   };
 
   const handleDeleteForm = async () => {
-    const success = await deleteForm(form.id);
-    // Form list will refresh automatically due to the hook
+    if (onDelete) {
+      await onDelete(form.id);
+    } else {
+      await hookDeleteForm(form.id);
+    }
   };
 
   const handleCopyLink = async () => {
