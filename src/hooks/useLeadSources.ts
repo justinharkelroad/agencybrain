@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supa } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 interface LeadSource {
@@ -27,7 +27,7 @@ export const useLeadSources = () => {
       setError(null);
 
       // Get user's agency_id from profiles
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await supa
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
@@ -42,7 +42,7 @@ export const useLeadSources = () => {
       }
 
       // Fetch lead sources for the agency
-      const { data, error: leadSourceError } = await supabase
+      const { data, error: leadSourceError } = await supa
         .from('lead_sources')
         .select('*')
         .eq('agency_id', profile.agency_id)

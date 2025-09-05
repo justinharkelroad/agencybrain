@@ -119,6 +119,24 @@ export default function RepeaterSectionManager({
     }
   }, [stickyFields]);
 
+  // Update lead source options when leadSources data changes
+  useEffect(() => {
+    if (leadSources && leadSources.length > 0 && section.fields) {
+      const updatedFields = section.fields.map(field => {
+        if (field.key === 'lead_source' && field.type === 'select') {
+          const options = leadSources.map(ls => ls.name);
+          console.log('🔧 Updating lead source options:', options);
+          return { ...field, options };
+        }
+        return field;
+      });
+      
+      if (JSON.stringify(updatedFields) !== JSON.stringify(section.fields)) {
+        updateSection({ fields: updatedFields });
+      }
+    }
+  }, [leadSources, section.fields]);
+
   const updateSection = (updates: Partial<RepeaterSection>) => {
     onUpdateSection(sectionKey, { ...section, ...updates });
   };
