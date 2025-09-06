@@ -3,6 +3,15 @@ import { useParams } from "react-router-dom";
 import { supaPublic } from "@/lib/supabasePublic";
 import { toast } from "sonner";
 
+// Helper function to get current local date in YYYY-MM-DD format
+const getCurrentLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 type ResolvedForm = { 
   id: string; 
   slug: string; 
@@ -54,10 +63,9 @@ export default function PublicFormSubmission() {
         }
         
         setForm(data.form);
-        // seed defaults - submission date is today, work date is yesterday (previous business day)
-        const today = new Date().toISOString().slice(0, 10);
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-        setValues(v => ({ ...v, submission_date: today, work_date: yesterday }));
+        // seed defaults - both submission_date and work_date default to today (submission_date will be locked)
+        const today = getCurrentLocalDate();
+        setValues(v => ({ ...v, submission_date: today, work_date: today }));
         
         console.log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
       } catch (error) {
@@ -66,6 +74,20 @@ export default function PublicFormSubmission() {
       }
     })();
   }, [agencySlug, formSlug, token]);
+
+  // Dynamic date refresh - ensure submission_date is always current
+  useEffect(() => {
+    const refreshSubmissionDate = () => {
+      const currentDate = getCurrentLocalDate();
+      setValues(v => ({ ...v, submission_date: currentDate }));
+    };
+
+    // Refresh immediately and then every minute to handle day changes
+    refreshSubmissionDate();
+    const interval = setInterval(refreshSubmissionDate, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const onChange = (key: string, val: any) => {
     setValues(v => ({ ...v, [key]: val }));
@@ -222,9 +244,8 @@ export default function PublicFormSubmission() {
       toast.success("Form submitted successfully!");
       
       // Reset form values to prevent duplicate submissions - maintain correct date defaults  
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      setValues({ submission_date: today, work_date: yesterday });
+      const today = getCurrentLocalDate();
+      setValues({ submission_date: today, work_date: today });
     } catch (error: any) {
       console.error('❌ Network/catch error:', error);
       let errorMessage = "Network error. Please check your connection and try again.";
@@ -299,16 +320,16 @@ export default function PublicFormSubmission() {
               </div>
               
               {/* Date Fields */}
-              <div className="space-y-2">
+               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
                   Submission Date<span className="text-destructive"> *</span>
                 </label>
                 <input 
                   type="date"
                   value={values.submission_date ?? ""} 
-                  onChange={e=>onChange("submission_date", e.target.value)}
-                  className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
-                    fieldErrors.submission_date ? 'border-destructive focus:ring-destructive' : 'border-input'
+                  readOnly
+                  className={`w-full px-3 py-2 bg-muted border rounded-md text-foreground cursor-not-allowed ${
+                    fieldErrors.submission_date ? 'border-destructive' : 'border-input'
                   }`}
                 />
                 {fieldErrors.submission_date && (
