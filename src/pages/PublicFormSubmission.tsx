@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supaPublic } from "@/lib/supabasePublic";
+import { supa } from "@/lib/supabase";
 import { toast } from "sonner";
 
 type ResolvedForm = { 
@@ -11,8 +12,6 @@ type ResolvedForm = {
   schema: any;
   team_members: Array<{ id: string; name: string; }>;
 };
-
-import { supa } from "@/lib/supabase";
 
 export default function PublicFormSubmission() {
   const { agencySlug, formSlug } = useParams();
@@ -61,9 +60,9 @@ export default function PublicFormSubmission() {
         const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
         setValues(v => ({ ...v, submission_date: today, work_date: yesterday }));
         
-        // Load lead sources for the agency
+        // Load lead sources for the agency using authenticated client
         try {
-          const { data: leadSourcesData, error: leadSourcesError } = await supaPublic
+          const { data: leadSourcesData, error: leadSourcesError } = await supa
             .from('lead_sources')
             .select('id, name, is_active, order_index')
             .eq('agency_id', data.form.agency_id)
@@ -73,6 +72,7 @@ export default function PublicFormSubmission() {
           if (leadSourcesError) {
             console.error('Error loading lead sources:', leadSourcesError);
           } else {
+            console.log('🔧 Lead sources loaded:', leadSourcesData?.length || 0, 'items');
             setLeadSources(leadSourcesData || []);
           }
         } catch (leadSourceError) {
@@ -136,6 +136,31 @@ export default function PublicFormSubmission() {
       form.schema.customFields.forEach((field: any) => {
         if (field.required && (values[field.key] === undefined || values[field.key] === null || values[field.key] === '')) {
           errors[field.key] = `${field.label} is required`;
+        }
+      });
+    }
+    
+    // Validate required fields in repeater sections
+    if (form?.schema?.repeaterSections) {
+      Object.entries(form.schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
+        if (!section.enabled || !section.fields) return;
+        
+        const triggerValue = values[section.triggerKPI];
+        const rows: any[] = values[sectionKey] || [];
+        
+        // Only validate if the section is triggered and has rows
+        if (triggerValue && triggerValue > 0 && rows.length > 0) {
+          rows.forEach((row, rowIndex) => {
+            section.fields.forEach((field: any) => {
+              if (field.required) {
+                const fieldValue = row[field.key];
+                if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+                  const errorKey = `${sectionKey}.${rowIndex}.${field.key}`;
+                  errors[errorKey] = `${field.label} is required for ${section.title.slice(0, -1)} #${rowIndex + 1}`;
+                }
+              }
+            });
+          });
         }
       });
     }
@@ -431,84 +456,105 @@ export default function PublicFormSubmission() {
                               {field.label}{field.required && <span className="text-destructive"> *</span>}
                             </label>
                             {field.type === "select" ? (
-                              <select
-                                value={row[field.key] || ""}
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setValues(prev => {
-                                    // Create immutable copy of the array and object
-                                    const currentArray = [...(prev[sectionKey] || [])];
-                                    const currentItem = { ...(currentArray[i] || {}) };
-                                    currentItem[field.key] = v;
-                                    currentArray[i] = currentItem;
-                                    return { ...prev, [sectionKey]: currentArray };
-                                  });
-                                  
-                                  // Clear field error if exists
-                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
-                                  if (fieldErrors[errorKey]) {
-                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
-                                  }
-                                }}
-                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                              >
-                                <option value="">Select</option>
-                                {field.key === 'lead_source' ? (
-                                  leadSources.map((ls) => (
-                                    <option key={ls.id} value={ls.id}>{ls.name}</option>
-                                  ))
-                                ) : (
-                                  (field.options || []).map((o: string) => (
-                                    <option key={o} value={o}>{o}</option>
-                                  ))
+                              <div className="space-y-1">
+                                <select
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      // Create immutable copy of the array and object
+                                      const currentArray = [...(prev[sectionKey] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [sectionKey]: currentArray };
+                                    });
+                                    
+                                    // Clear field error if exists
+                                    const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                    if (fieldErrors[errorKey]) {
+                                      setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                    }
+                                  }}
+                                  className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground ${
+                                    fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                  }`}
+                                >
+                                  <option value="">Select</option>
+                                  {field.key === 'lead_source' ? (
+                                    leadSources.map((ls) => (
+                                      <option key={ls.id} value={ls.id}>{ls.name}</option>
+                                    ))
+                                  ) : (
+                                    (field.options || []).map((o: string) => (
+                                      <option key={o} value={o}>{o}</option>
+                                    ))
+                                  )}
+                                </select>
+                                {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                  <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                 )}
-                              </select>
+                              </div>
                             ) : field.type === "longtext" ? (
-                              <textarea
-                                value={row[field.key] || ""}
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setValues(prev => {
-                                    // Create immutable copy of the array and object
-                                    const currentArray = [...(prev[sectionKey] || [])];
-                                    const currentItem = { ...(currentArray[i] || {}) };
-                                    currentItem[field.key] = v;
-                                    currentArray[i] = currentItem;
-                                    return { ...prev, [sectionKey]: currentArray };
-                                  });
-                                  
-                                  // Clear field error if exists
-                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
-                                  if (fieldErrors[errorKey]) {
-                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
-                                  }
-                                }}
-                                rows={3}
-                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical"
-                              />
+                              <div className="space-y-1">
+                                <textarea
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      // Create immutable copy of the array and object
+                                      const currentArray = [...(prev[sectionKey] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [sectionKey]: currentArray };
+                                    });
+                                    
+                                    // Clear field error if exists
+                                    const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                    if (fieldErrors[errorKey]) {
+                                      setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                    }
+                                  }}
+                                  rows={3}
+                                  className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical ${
+                                    fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                  }`}
+                                />
+                                {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                  <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                )}
+                              </div>
                             ) : (
-                              <input
-                                type={field.type === "number" ? "number" : "text"}
-                                value={row[field.key] || ""}
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setValues(prev => {
-                                    // Create immutable copy of the array and object
-                                    const currentArray = [...(prev[sectionKey] || [])];
-                                    const currentItem = { ...(currentArray[i] || {}) };
-                                    currentItem[field.key] = v;
-                                    currentArray[i] = currentItem;
-                                    return { ...prev, [sectionKey]: currentArray };
-                                  });
-                                  
-                                  // Clear field error if exists
-                                  const errorKey = `${sectionKey}.${i}.${field.key}`;
-                                  if (fieldErrors[errorKey]) {
-                                    setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
-                                  }
-                                }}
-                                className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
-                              />
+                              <div className="space-y-1">
+                                <input
+                                  type={field.type === "number" ? "number" : "text"}
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      // Create immutable copy of the array and object
+                                      const currentArray = [...(prev[sectionKey] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [sectionKey]: currentArray };
+                                    });
+                                    
+                                    // Clear field error if exists
+                                    const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                    if (fieldErrors[errorKey]) {
+                                      setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                    }
+                                  }}
+                                  className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground ${
+                                    fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                  }`}
+                                />
+                                {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                  <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}
