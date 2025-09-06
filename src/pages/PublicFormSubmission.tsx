@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supaPublic } from "@/lib/supabasePublic";
-import { supa } from "@/lib/supabase";
 import { toast } from "sonner";
 
 type ResolvedForm = { 
@@ -11,6 +10,7 @@ type ResolvedForm = {
   settings: any; 
   schema: any;
   team_members: Array<{ id: string; name: string; }>;
+  lead_sources: Array<{ id: string; name: string; }>;
 };
 
 export default function PublicFormSubmission() {
@@ -20,12 +20,11 @@ export default function PublicFormSubmission() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_active: boolean; order_index: number }>>([]);
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
 
-  // Check auth session on load
+  // Check auth session on load (for debugging)
   useEffect(() => {
-    supa.auth.getSession().then(({ data }) => {
+    supaPublic.auth.getSession().then(({ data }) => {
       console.log("🔐 Auth session present?", Boolean(data.session));
     });
   }, []);
@@ -60,24 +59,7 @@ export default function PublicFormSubmission() {
         const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
         setValues(v => ({ ...v, submission_date: today, work_date: yesterday }));
         
-        // Load lead sources for the agency using authenticated client
-        try {
-          const { data: leadSourcesData, error: leadSourcesError } = await supa
-            .from('lead_sources')
-            .select('id, name, is_active, order_index')
-            .eq('agency_id', data.form.agency_id)
-            .eq('is_active', true)
-            .order('order_index', { ascending: true });
-          
-          if (leadSourcesError) {
-            console.error('Error loading lead sources:', leadSourcesError);
-          } else {
-            console.log('🔧 Lead sources loaded:', leadSourcesData?.length || 0, 'items');
-            setLeadSources(leadSourcesData || []);
-          }
-        } catch (leadSourceError) {
-          console.error('Lead sources loading failed:', leadSourceError);
-        }
+        console.log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
       } catch (error) {
         console.error('Form resolution error:', error);
         setErr("NETWORK_ERROR");
@@ -482,7 +464,7 @@ export default function PublicFormSubmission() {
                                 >
                                   <option value="">Select</option>
                                   {field.key === 'lead_source' ? (
-                                    leadSources.map((ls) => (
+                                    form.lead_sources?.map((ls) => (
                                       <option key={ls.id} value={ls.id}>{ls.name}</option>
                                     ))
                                   ) : (

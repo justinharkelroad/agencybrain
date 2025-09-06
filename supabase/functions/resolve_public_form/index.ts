@@ -117,10 +117,25 @@ serve(async (req) => {
       return json(500, {code:"TEAM_MEMBERS_FETCH_ERROR"});
     }
 
+    // Get lead sources for the agency
+    console.log("📋 Fetching lead sources for agency:", agencyData.id);
+    const { data: leadSources, error: leadSourcesError } = await supabase
+      .from("lead_sources")
+      .select("id, name")
+      .eq("agency_id", agencyData.id)
+      .eq("is_active", true)
+      .order("order_index", { ascending: true });
+
+    if (leadSourcesError) {
+      console.log("❌ Lead sources fetch error:", leadSourcesError);
+      return json(500, {code:"LEAD_SOURCES_FETCH_ERROR"});
+    }
+
     console.log("✅ Form resolution successful:", {
       formId: formTemplate.id,
       slug: formTemplate.slug,
-      teamMembersCount: teamMembers?.length || 0
+      teamMembersCount: teamMembers?.length || 0,
+      leadSourcesCount: leadSources?.length || 0
     });
 
     return json(200, {
@@ -130,7 +145,8 @@ serve(async (req) => {
         agency_id: agencyData.id,
         settings: formTemplate.settings_json ?? {},
         schema: formTemplate.schema_json ?? {},
-        team_members: teamMembers ?? []
+        team_members: teamMembers ?? [],
+        lead_sources: leadSources ?? []
       }
     });
   } catch (e) {
