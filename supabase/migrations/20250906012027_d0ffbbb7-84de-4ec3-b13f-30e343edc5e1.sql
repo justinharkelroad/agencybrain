@@ -1,0 +1,263 @@
+-- PHASE 1: Fix Scoring Logic & Clean Duplicates
+
+-- First, clean duplicate targets (keep the most appropriate one for each agency/metric)
+DELETE FROM targets t1 
+WHERE t1.id NOT IN (
+  SELECT DISTINCT ON (agency_id, metric_key, COALESCE(team_member_id, '00000000-0000-0000-0000-000000000000'::uuid)) id
+  FROM targets
+  ORDER BY agency_id, metric_key, COALESCE(team_member_id, '00000000-0000-0000-0000-000000000000'::uuid), created_at DESC
+);
+
+-- Fix the upsert_metrics_from_submission function scoring logic
+-- The issue: it only adds weight if > target, should add if >= target
+CREATE OR REPLACE FUNCTION public.upsert_metrics_from_submission(p_submission uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  s record;
+  role_txt app_member_role;
+  rules record;
+  settings jsonb;
+  -- extracted KPI values
+  oc int; tm int; qc int; qe text; si int; sp int; sp_cents int; so int;
+  csu int; mr int;
+  the_date date;
+  counted jsonb;
+  count_if_submit boolean;
+  tmap jsonb;
+  w_out int; w_talk int; w_quoted int; w_items int; w_pols int; w_prem int; w_csu int; w_mr int;
+  sel text[];
+  nreq int;
+  hits int := 0;
+  score int := 0;
+  pass bool := false;
+  late bool := false;
+  allow_late boolean := false;
+  agency_id uuid;
+  wd int;
+  flag boolean;
+BEGIN
+  -- load submission + template + agency + team role
+  SELECT
+    sub.id as submission_id, 
+    sub.final, 
+    sub.late,
+    coalesce(sub.work_date, sub.submission_date) as d,
+    sub.payload_json as p,
+    ft.id as template_id, 
+    ft.settings_json as settings,
+    ft.status,
+    ag.id as agency_id,
+    tm.id as tm_id, 
+    tm.role as role_txt
+  INTO s
+  FROM submissions sub
+  JOIN form_templates ft ON ft.id = sub.form_template_id
+  JOIN agencies ag ON ag.id = ft.agency_id
+  JOIN team_members tm ON tm.id = sub.team_member_id
+  WHERE sub.id = p_submission;
+
+  IF s.submission_id IS NULL OR s.final IS false THEN
+    RETURN;
+  END IF;
+  
+  IF s.status <> 'published' THEN
+    RETURN;
+  END IF;
+
+  settings := coalesce(s.settings, '{}'::jsonb);
+  allow_late := coalesce((settings->>'lateCountsForPass')::boolean, false);
+  agency_id := s.agency_id;
+  role_txt := coalesce(s.role_txt, 'Sales');
+  the_date := s.d;
+  late := coalesce(s.late, false);
+
+  -- scorecard rules for agency+role
+  SELECT *
+  INTO rules
+  FROM scorecard_rules
+  WHERE scorecard_rules.agency_id = s.agency_id 
+    AND scorecard_rules.role = role_txt
+  LIMIT 1;
+
+  IF rules IS NULL THEN
+    -- seed minimal rules if missing
+    INSERT INTO scorecard_rules(agency_id, role) 
+    VALUES (s.agency_id, role_txt) 
+    RETURNING * INTO rules;
+  END IF;
+
+  counted := coalesce(rules.counted_days, '{}'::jsonb);
+  count_if_submit := coalesce(rules.count_weekend_if_submitted, true);
+
+  -- extract KPIs from payload (Sales)
+  oc := _nz_int(s.p->'outbound_calls');
+  tm := _nz_int(s.p->'talk_minutes');
+  qc := _nz_int(s.p->'quoted_count');
+  qe := nullif(coalesce(s.p->>'quoted_entity',''), '');
+  si := _nz_int(s.p->'sold_items');
+  so := _nz_int(s.p->'sold_policies');
+  sp := floor(_nz_num(s.p->'sold_premium')*100)::int; -- cents
+  sp_cents := sp;
+
+  -- Service KPIs
+  csu := _nz_int(s.p->'cross_sells_uncovered');
+  mr := _nz_int(s.p->'mini_reviews');
+
+  -- determine if this day is counted
+  -- weekday 0=Sunday ... 6=Saturday
+  wd := extract(dow from the_date);
+  
+  IF wd = 0 THEN 
+    flag := coalesce((counted->>'sunday')::boolean, false);
+  ELSIF wd = 1 THEN 
+    flag := coalesce((counted->>'monday')::boolean, false);
+  ELSIF wd = 2 THEN 
+    flag := coalesce((counted->>'tuesday')::boolean, false);
+  ELSIF wd = 3 THEN 
+    flag := coalesce((counted->>'wednesday')::boolean, false);
+  ELSIF wd = 4 THEN 
+    flag := coalesce((counted->>'thursday')::boolean, false);
+  ELSIF wd = 5 THEN 
+    flag := coalesce((counted->>'friday')::boolean, false);
+  ELSE 
+    flag := coalesce((counted->>'saturday')::boolean, false);
+  END IF;
+  
+  IF flag = false AND count_if_submit = true THEN
+    flag := true; -- count weekend if a submission exists
+  END IF;
+
+  -- weight map and selected metrics
+  tmap := coalesce(rules.weights, '{}'::jsonb);
+  w_out := coalesce((tmap->>'outbound_calls')::int, 0);
+  w_talk := coalesce((tmap->>'talk_minutes')::int, 0);
+  w_quoted := coalesce((tmap->>'quoted_count')::int, 0);
+  w_items := coalesce((tmap->>'sold_items')::int, 0);
+  w_pols := coalesce((tmap->>'sold_policies')::int, 0);
+  w_prem := coalesce((tmap->>'sold_premium')::int, 0);
+  w_csu := coalesce((tmap->>'cross_sells_uncovered')::int, 0);
+  w_mr := coalesce((tmap->>'mini_reviews')::int, 0);
+
+  sel := coalesce(rules.selected_metrics, ARRAY['outbound_calls','talk_minutes','quoted_count','sold_items']);
+  nreq := rules.n_required;
+
+  -- FIXED: compute hits (>= target) and score (weight if >= target, not just >)
+  hits := 0; 
+  score := 0;
+
+  IF 'outbound_calls' = ANY(sel) THEN
+    IF oc >= get_target(s.agency_id, s.tm_id, 'outbound_calls') THEN 
+      hits := hits + 1;
+      score := score + w_out; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'talk_minutes' = ANY(sel) THEN
+    IF tm >= get_target(s.agency_id, s.tm_id, 'talk_minutes') THEN 
+      hits := hits + 1;
+      score := score + w_talk; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'quoted_count' = ANY(sel) THEN
+    IF qc >= get_target(s.agency_id, s.tm_id, 'quoted_count') THEN 
+      hits := hits + 1;
+      score := score + w_quoted; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'sold_items' = ANY(sel) THEN
+    IF si >= get_target(s.agency_id, s.tm_id, 'sold_items') THEN 
+      hits := hits + 1;
+      score := score + w_items; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'sold_policies' = ANY(sel) THEN
+    IF so >= get_target(s.agency_id, s.tm_id, 'sold_policies') THEN 
+      hits := hits + 1;
+      score := score + w_pols; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'sold_premium' = ANY(sel) THEN
+    IF sp_cents >= (get_target(s.agency_id, s.tm_id, 'sold_premium')*100)::int THEN 
+      hits := hits + 1;
+      score := score + w_prem; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'cross_sells_uncovered' = ANY(sel) THEN
+    IF csu >= get_target(s.agency_id, s.tm_id, 'cross_sells_uncovered') THEN 
+      hits := hits + 1;
+      score := score + w_csu; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  IF 'mini_reviews' = ANY(sel) THEN
+    IF mr >= get_target(s.agency_id, s.tm_id, 'mini_reviews') THEN 
+      hits := hits + 1;
+      score := score + w_mr; -- FIXED: Add weight if >= target
+    END IF;
+  END IF;
+
+  pass := (hits >= nreq);
+
+  -- late policy: if allow_late=false, late entries do NOT count for pass nor score
+  IF late = true AND allow_late = false THEN
+    pass := false;
+    score := 0;
+  END IF;
+
+  -- upsert metrics_daily (last wins)
+  INSERT INTO metrics_daily (
+    agency_id, team_member_id, role, date,
+    outbound_calls, talk_minutes, quoted_count, quoted_entity,
+    sold_items, sold_policies, sold_premium_cents,
+    cross_sells_uncovered, mini_reviews,
+    pass, hits, daily_score, is_late, is_counted_day, final_submission_id, updated_at
+  )
+  VALUES (
+    s.agency_id, s.tm_id, role_txt, the_date,
+    oc, tm, qc, qe,
+    si, so, sp_cents,
+    csu, mr,
+    pass, hits, score, late, flag, s.submission_id, now()
+  )
+  ON CONFLICT (team_member_id, date)
+  DO UPDATE SET
+    role = EXCLUDED.role,
+    outbound_calls = EXCLUDED.outbound_calls,
+    talk_minutes = EXCLUDED.talk_minutes,
+    quoted_count = EXCLUDED.quoted_count,
+    quoted_entity = EXCLUDED.quoted_entity,
+    sold_items = EXCLUDED.sold_items,
+    sold_policies = EXCLUDED.sold_policies,
+    sold_premium_cents = EXCLUDED.sold_premium_cents,
+    cross_sells_uncovered = EXCLUDED.cross_sells_uncovered,
+    mini_reviews = EXCLUDED.mini_reviews,
+    pass = EXCLUDED.pass,
+    hits = EXCLUDED.hits,
+    daily_score = EXCLUDED.daily_score,
+    is_late = EXCLUDED.is_late,
+    is_counted_day = EXCLUDED.is_counted_day,
+    final_submission_id = EXCLUDED.final_submission_id,
+    updated_at = now();
+END;
+$function$;
+
+-- Recalculate all existing scores by re-running the function for all final submissions
+DO $$
+DECLARE
+  sub_id uuid;
+BEGIN
+  FOR sub_id IN 
+    SELECT id FROM submissions WHERE final = true
+  LOOP
+    PERFORM upsert_metrics_from_submission(sub_id);
+  END LOOP;
+END $$;
