@@ -18,6 +18,8 @@ type Tiles = {
   sold_policies: number; 
   sold_premium_cents: number;
   pass_rate: number;
+  cross_sells_uncovered?: number;
+  mini_reviews?: number;
 };
 
 type TableRow = {
@@ -34,6 +36,8 @@ type TableRow = {
   pass_days: number; 
   score_sum: number; 
   streak: number;
+  cross_sells_uncovered?: number;
+  mini_reviews?: number;
 };
 
 type DailySeries = {
@@ -56,13 +60,12 @@ export default function MetricsDashboard() {
 
   const [agencySlug, setAgencySlug] = useState<string>("");
   const [role, setRole] = useState<Role>("Sales");
-  // Default to previous business day only
-  const getPreviousBusinessDay = () => {
-    const yesterday = new Date(Date.now() - 86400000);
-    return yesterday.toISOString().slice(0, 10);
+  // Default to today
+  const getToday = () => {
+    return new Date().toISOString().slice(0, 10);
   };
-  const [start, setStart] = useState<string>(getPreviousBusinessDay());
-  const [end, setEnd] = useState<string>(getPreviousBusinessDay());
+  const [start, setStart] = useState<string>(getToday());
+  const [end, setEnd] = useState<string>(getToday());
   // Fixed metrics based on default KPIs - no user selection needed
   const quotedLabel = "households";
   const soldMetric = "items";
@@ -75,6 +78,7 @@ export default function MetricsDashboard() {
   const [agencyId, setAgencyId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [scorecardRules, setScorecardRules] = useState<any>(null);
 
   // Get agency slug from user profile
   useEffect(() => {
@@ -97,6 +101,15 @@ export default function MetricsDashboard() {
           setAgencyName(agency.name || "");
           setAgencyId(profile.agency_id);
         }
+        
+        // Fetch scorecard rules for this agency and role
+        const { data: rules } = await supa
+          .from('scorecard_rules')
+          .select('*')
+          .eq('agency_id', profile.agency_id)
+          .eq('role', role)
+          .single();
+        setScorecardRules(rules);
       }
     };
     fetchAgencySlug();
@@ -147,6 +160,25 @@ export default function MetricsDashboard() {
   }, [agencySlug, role, start, end]);
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  // Get role-based metric labels and display logic
+  const getMetricConfig = () => {
+    if (!scorecardRules) return { selectedMetrics: [], isService: false };
+    
+    const selectedMetrics = scorecardRules.selected_metrics || [];
+    const isService = role === 'Service';
+    
+    return {
+      selectedMetrics,
+      isService,
+      quotedLabel: isService ? 'cross_sells_uncovered' : 'quoted_count',
+      soldLabel: isService ? 'mini_reviews' : 'sold_items',
+      quotedTitle: isService ? 'Cross-sells' : 'Quoted Households', 
+      soldTitle: isService ? 'Mini Reviews' : 'Items Sold'
+    };
+  };
+
+  const metricConfig = getMetricConfig();
 
   return (
     <div className="bg-background" data-testid="metrics-dashboard">
@@ -225,13 +257,27 @@ export default function MetricsDashboard() {
           />
         )}
 
-        {/* Tiles - Default 4 KPIs only */}
+        {/* Tiles - Dynamic based on role */}
         {tiles && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <MetricTile title="Outbound Calls" value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
-            <MetricTile title="Talk Minutes" value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
-            <MetricTile title="Quoted Households" value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
-            <MetricTile title="Items Sold" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
+            {metricConfig.selectedMetrics.includes('outbound_calls') && (
+              <MetricTile title="Outbound Calls" value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
+            )}
+            {metricConfig.selectedMetrics.includes('talk_minutes') && (
+              <MetricTile title="Talk Minutes" value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
+            )}
+            {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && (
+              <MetricTile title="Quoted Households" value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
+            )}
+            {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && (
+              <MetricTile title="Items Sold" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
+            )}
+            {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tiles.cross_sells_uncovered !== undefined && (
+              <MetricTile title="Cross-sells" value={tiles.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
+            )}
+            {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tiles.mini_reviews !== undefined && (
+              <MetricTile title="Mini Reviews" value={tiles.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
+            )}
           </div>
         )}
 
@@ -246,10 +292,12 @@ export default function MetricsDashboard() {
                 <thead className="border-b border-border">
                   <tr>
                     <Th>Rep</Th>
-                    <Th>Outbound</Th>
-                    <Th>Talk</Th>
-                     <Th>Quoted Households</Th>
-                     <Th>Items Sold</Th>
+                    {metricConfig.selectedMetrics.includes('outbound_calls') && <Th>Outbound</Th>}
+                    {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>Talk</Th>}
+                    {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Th>Quoted Households</Th>}
+                    {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Th>Items Sold</Th>}
+                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Th>Cross-sells</Th>}
+                    {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Th>Mini Reviews</Th>}
                     <Th>Pass Days</Th>
                     <Th>Score</Th>
                     <Th>Streak</Th>
@@ -259,10 +307,12 @@ export default function MetricsDashboard() {
                   {rows.map(r => (
                     <tr key={r.team_member_id} className="border-b border-border/50">
                       <Td className="font-medium">{r.team_member_name}</Td>
-                      <Td>{r.outbound_calls}</Td>
-                      <Td>{r.talk_minutes}</Td>
-                       <Td>{r.quoted_count}</Td>
-                       <Td>{r.sold_items}</Td>
+                      {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
+                      {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
+                      {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Td>{r.quoted_count}</Td>}
+                      {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Td>{r.sold_items}</Td>}
+                      {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
+                      {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
                       <Td>
                         <Badge variant={r.pass_days > 0 ? "default" : "secondary"}>
                           {r.pass_days}

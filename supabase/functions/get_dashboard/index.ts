@@ -66,11 +66,11 @@ serve(async (req) => {
       return j(403, { code: "FORBIDDEN" });
     }
 
-    // Date range default: yesterday..yesterday (snapshot) and week = last 7 days
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    // Date range default: today..today (current snapshot) and week = last 7 days
+    const today = new Date().toISOString().slice(0, 10);
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     const start = body.start ?? weekAgo;
-    const end = body.end ?? yesterday;
+    const end = body.end ?? today;
     const quotedLabel = body.quotedLabel ?? "households";
     const soldMetric = body.soldMetric ?? "items";
 
@@ -98,6 +98,8 @@ serve(async (req) => {
       sold_items: sum(rows, "sold_items"),
       sold_policies: sum(rows, "sold_policies"),
       sold_premium_cents: sum(rows, "sold_premium_cents"),
+      cross_sells_uncovered: sum(rows, "cross_sells_uncovered"),
+      mini_reviews: sum(rows, "mini_reviews"),
       pass_rate: rows.length ? (rows.filter(r => r.pass).length / rows.length) : 0
     };
 
@@ -122,6 +124,8 @@ serve(async (req) => {
         sold_items: sum(arr, "sold_items"),
         sold_policies: sum(arr, "sold_policies"),
         sold_premium_cents: sum(arr, "sold_premium_cents"),
+        cross_sells_uncovered: sum(arr, "cross_sells_uncovered"),
+        mini_reviews: sum(arr, "mini_reviews"),
         pass_days: arr.filter(r => r.pass).length,
         score_sum: sum(arr, "daily_score"),
         streak: last.streak_count || 0,
