@@ -1794,6 +1794,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_default_scorecard_rules: {
+        Args: { p_agency_id: string }
+        Returns: undefined
+      }
+      create_default_targets: {
+        Args: { p_agency_id: string }
+        Returns: undefined
+      }
       flatten_quoted_details: {
         Args: { p_submission: string }
         Returns: undefined

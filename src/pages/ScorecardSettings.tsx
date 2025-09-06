@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { TopNav } from "@/components/TopNav";
+import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
+import { Settings } from "lucide-react";
 
 const ALL_METRICS = [
   { key: "outbound_calls", label: "Outbound Calls" },
@@ -344,6 +346,26 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
                 onChange={e => setBackfillDays(Number(e.target.value) || 7)}
                 className="w-20"
               />
+            </div>
+
+            {/* KPI Targets Management */}
+            <div>
+              <Label className="text-base font-medium">KPI Targets</Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Configure the daily target values for each metric. These targets determine when team members are considered to be hitting their goals.
+              </p>
+              <div className="flex gap-2">
+                <EnhancedKPIConfigDialog
+                  title={`Configure ${selectedRole} KPI Targets`}
+                  type={selectedRole.toLowerCase() as "sales" | "service"}
+                  agencyId={agencyId}
+                >
+                  <Button variant="outline">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Edit {selectedRole} Targets
+                  </Button>
+                </EnhancedKPIConfigDialog>
+              </div>
             </div>
 
             {/* Save Button */}
