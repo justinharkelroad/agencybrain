@@ -13,6 +13,7 @@ export interface CustomField {
   order_index: number;
   active: boolean;
   created_at: string;
+  options?: string[]; // For dropdown fields
 }
 
 export interface CreateCustomFieldData {
@@ -20,6 +21,7 @@ export interface CreateCustomFieldData {
   field_label: string;
   field_type: string;
   order_index?: number;
+  options?: string[]; // For dropdown fields
 }
 
 export function useCustomFields(agencyId: string) {
@@ -63,7 +65,8 @@ export function useCustomFields(agencyId: string) {
           field_label: fieldData.field_label,
           field_type: fieldData.field_type,
           order_index: fieldData.order_index ?? customFields.length,
-          active: true
+          active: true,
+          options: fieldData.options || null
         });
 
       if (error) throw error;

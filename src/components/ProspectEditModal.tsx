@@ -39,6 +39,7 @@ interface CustomField {
   field_label: string;
   field_type: string;
   value?: string;
+  options?: string[]; // For dropdown fields
 }
 
 interface ProspectEditModalProps {
@@ -410,7 +411,26 @@ export function ProspectEditModal({
                 {customFields.map((field) => (
                   <div key={field.id} className="space-y-2">
                     <Label htmlFor={`custom_${field.id}`}>{field.field_label}</Label>
-                    {field.field_type === 'textarea' ? (
+                    {field.field_type === 'dropdown' ? (
+                      <Select
+                        value={customFieldValues[field.id] || field.value || ""}
+                        onValueChange={(value) => setCustomFieldValues(prev => ({ 
+                          ...prev, 
+                          [field.id]: value 
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(field.options || []).map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : field.field_type === 'textarea' ? (
                       <Textarea
                         id={`custom_${field.id}`}
                         value={customFieldValues[field.id] || field.value || ""}
@@ -433,6 +453,7 @@ export function ProspectEditModal({
                     ) : (
                       <Input
                         id={`custom_${field.id}`}
+                        type={field.field_type === 'email' ? 'email' : field.field_type === 'phone' ? 'tel' : 'text'}
                         value={customFieldValues[field.id] || field.value || ""}
                         onChange={(e) => setCustomFieldValues(prev => ({ 
                           ...prev, 

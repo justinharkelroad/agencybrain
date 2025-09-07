@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit2, Trash2, GripVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, GripVertical, X } from "lucide-react";
 import { useCustomFields, type CustomField, type CreateCustomFieldData } from "@/hooks/useCustomFields";
 
 interface CustomFieldsManagerProps {
@@ -18,7 +18,8 @@ const FIELD_TYPES = [
   { value: 'number', label: 'Number' },
   { value: 'textarea', label: 'Text Area' },
   { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' }
+  { value: 'phone', label: 'Phone' },
+  { value: 'dropdown', label: 'Dropdown' }
 ];
 
 export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
@@ -37,7 +38,8 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
   const [newField, setNewField] = useState<CreateCustomFieldData>({
     field_key: '',
     field_label: '',
-    field_type: 'text'
+    field_type: 'text',
+    options: []
   });
 
   const [editField, setEditField] = useState<Partial<CustomField>>({});
@@ -59,7 +61,8 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
       setNewField({
         field_key: '',
         field_label: '',
-        field_type: 'text'
+        field_type: 'text',
+        options: []
       });
     }
   };
@@ -86,9 +89,52 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
     setEditingField(field);
     setEditField({
       field_label: field.field_label,
-      field_type: field.field_type
+      field_type: field.field_type,
+      options: field.options || []
     });
     setIsEditDialogOpen(true);
+  };
+
+  const addNewFieldOption = () => {
+    setNewField(prev => ({
+      ...prev,
+      options: [...(prev.options || []), '']
+    }));
+  };
+
+  const updateNewFieldOption = (index: number, value: string) => {
+    setNewField(prev => ({
+      ...prev,
+      options: prev.options?.map((opt, i) => i === index ? value : opt) || []
+    }));
+  };
+
+  const removeNewFieldOption = (index: number) => {
+    setNewField(prev => ({
+      ...prev,
+      options: prev.options?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const addEditFieldOption = () => {
+    setEditField(prev => ({
+      ...prev,
+      options: [...(prev.options || []), '']
+    }));
+  };
+
+  const updateEditFieldOption = (index: number, value: string) => {
+    setEditField(prev => ({
+      ...prev,
+      options: prev.options?.map((opt, i) => i === index ? value : opt) || []
+    }));
+  };
+
+  const removeEditFieldOption = (index: number) => {
+    setEditField(prev => ({
+      ...prev,
+      options: prev.options?.filter((_, i) => i !== index) || []
+    }));
   };
 
   return (
@@ -131,10 +177,20 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
                       <Badge variant="outline" className="text-xs">
                         {FIELD_TYPES.find(t => t.value === field.field_type)?.label || field.field_type}
                       </Badge>
+                      {field.field_type === 'dropdown' && field.options && (
+                        <Badge variant="secondary" className="text-xs">
+                          {field.options.length} options
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Key: {field.field_key}
                     </p>
+                    {field.field_type === 'dropdown' && field.options && field.options.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Options: {field.options.slice(0, 3).join(', ')}{field.options.length > 3 ? '...' : ''}
+                      </p>
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
@@ -162,7 +218,7 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
 
       {/* Create Field Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create Custom Field</DialogTitle>
           </DialogHeader>
@@ -209,6 +265,43 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Dropdown Options */}
+            {newField.field_type === 'dropdown' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Dropdown Options</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addNewFieldOption}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Option
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {(newField.options || []).map((option, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={option}
+                        onChange={(e) => updateNewFieldOption(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeNewFieldOption(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
@@ -224,7 +317,7 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
 
       {/* Edit Field Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Custom Field</DialogTitle>
           </DialogHeader>
@@ -258,6 +351,43 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Dropdown Options */}
+            {editField.field_type === 'dropdown' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Dropdown Options</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addEditFieldOption}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Option
+                  </Button>
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {(editField.options || []).map((option, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={option}
+                        onChange={(e) => updateEditFieldOption(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeEditFieldOption(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
