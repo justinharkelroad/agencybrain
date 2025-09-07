@@ -858,6 +858,7 @@ export type Database = {
       lead_sources: {
         Row: {
           agency_id: string
+          cost_per_lead_cents: number
           created_at: string
           id: string
           is_active: boolean
@@ -867,6 +868,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          cost_per_lead_cents?: number
           created_at?: string
           id?: string
           is_active?: boolean
@@ -876,6 +878,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          cost_per_lead_cents?: number
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1193,14 +1196,192 @@ export type Database = {
         }
         Relationships: []
       }
+      prospect_custom_field_values: {
+        Row: {
+          agency_id: string
+          created_at: string
+          field_id: string
+          id: string
+          owner_user_id: string
+          quoted_household_detail_id: string
+          updated_at: string
+          value_text: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          field_id: string
+          id?: string
+          owner_user_id: string
+          quoted_household_detail_id: string
+          updated_at?: string
+          value_text?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          field_id?: string
+          id?: string
+          owner_user_id?: string
+          quoted_household_detail_id?: string
+          updated_at?: string
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_custom_field_values_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_custom_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_custom_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_custom_field_values_quoted_household_detail_id_fkey"
+            columns: ["quoted_household_detail_id"]
+            isOneToOne: false
+            referencedRelation: "quoted_household_details"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_custom_fields: {
+        Row: {
+          active: boolean
+          agency_id: string
+          created_at: string
+          field_key: string
+          field_label: string
+          field_type: string
+          id: string
+          order_index: number
+          owner_user_id: string
+        }
+        Insert: {
+          active?: boolean
+          agency_id: string
+          created_at?: string
+          field_key: string
+          field_label: string
+          field_type: string
+          id?: string
+          order_index?: number
+          owner_user_id: string
+        }
+        Update: {
+          active?: boolean
+          agency_id?: string
+          created_at?: string
+          field_key?: string
+          field_label?: string
+          field_type?: string
+          id?: string
+          order_index?: number
+          owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_custom_fields_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_overrides: {
+        Row: {
+          agency_id: string
+          created_at: string
+          email: string | null
+          id: string
+          items_quoted: number | null
+          lead_source_id: string | null
+          lead_source_raw: string | null
+          notes: string | null
+          phone: string | null
+          policies_quoted: number | null
+          premium_potential_cents: number | null
+          prospect_name: string | null
+          quoted_household_detail_id: string
+          updated_at: string
+          zip: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          items_quoted?: number | null
+          lead_source_id?: string | null
+          lead_source_raw?: string | null
+          notes?: string | null
+          phone?: string | null
+          policies_quoted?: number | null
+          premium_potential_cents?: number | null
+          prospect_name?: string | null
+          quoted_household_detail_id: string
+          updated_at?: string
+          zip?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          items_quoted?: number | null
+          lead_source_id?: string | null
+          lead_source_raw?: string | null
+          notes?: string | null
+          phone?: string | null
+          policies_quoted?: number | null
+          premium_potential_cents?: number | null
+          prospect_name?: string | null
+          quoted_household_detail_id?: string
+          updated_at?: string
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_overrides_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_overrides_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_overrides_quoted_household_detail_id_fkey"
+            columns: ["quoted_household_detail_id"]
+            isOneToOne: false
+            referencedRelation: "quoted_household_details"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quoted_household_details: {
         Row: {
           created_at: string
           extras: Json | null
           household_name: string
           id: string
+          items_quoted: number | null
           lead_source_id: string | null
+          policies_quoted: number | null
           policy_type: string | null
+          premium_potential_cents: number | null
           submission_id: string
           zip_code: string | null
         }
@@ -1209,8 +1390,11 @@ export type Database = {
           extras?: Json | null
           household_name: string
           id?: string
+          items_quoted?: number | null
           lead_source_id?: string | null
+          policies_quoted?: number | null
           policy_type?: string | null
+          premium_potential_cents?: number | null
           submission_id: string
           zip_code?: string | null
         }
@@ -1219,8 +1403,11 @@ export type Database = {
           extras?: Json | null
           household_name?: string
           id?: string
+          items_quoted?: number | null
           lead_source_id?: string | null
+          policies_quoted?: number | null
           policy_type?: string | null
+          premium_potential_cents?: number | null
           submission_id?: string
           zip_code?: string | null
         }
