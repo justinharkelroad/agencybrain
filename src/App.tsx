@@ -10,6 +10,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
+import ProspectSettings from "./pages/ProspectSettings";
 import TeamRingsGrid from "./pages/TeamRingsGrid";
 // Index page removed
 import Auth from "./pages/Auth";
@@ -122,6 +123,11 @@ const App = () => (
             <Route path="/scorecard-settings" element={
               <ProtectedRoute>
                 <ScorecardSettings role="Sales" />
+              </ProtectedRoute>
+            } />
+            <Route path="/prospect-settings" element={
+              <ProtectedRoute>
+                <ProspectSettings />
               </ProtectedRoute>
             } />
             <Route path="/team-rings" element={

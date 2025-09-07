@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchIcon, DownloadIcon, FilterIcon } from "lucide-react";
 import { toast } from "sonner";
-import { ViewDetailsModal } from "@/components/ViewDetailsModal";
+import { ProspectEditModal } from "@/components/ProspectEditModal";
 
 interface QuotedHousehold {
   id: string;
@@ -75,7 +75,8 @@ export default function Explorer() {
   const [teamMembers, setTeamMembers] = useState<Array<{id: string, name: string}>>([]);
   const [leadSources, setLeadSources] = useState<Array<{id: string, name: string}>>([]);
   const [selectedHousehold, setSelectedHousehold] = useState<QuotedHousehold | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [agencyIdForModal, setAgencyIdForModal] = useState<string>("");
 
   const search = async (cursor?: string) => {
     if (!user) return;
@@ -194,6 +195,7 @@ export default function Explorer() {
 
           if (agency?.slug) {
             setAgencySlug(agency.slug);
+            setAgencyIdForModal(profile.agency_id);
           }
 
           // Get team members
@@ -434,10 +436,10 @@ export default function Explorer() {
                           size="sm"
                           onClick={() => {
                             setSelectedHousehold(row);
-                            setIsDetailsModalOpen(true);
+                            setIsEditModalOpen(true);
                           }}
                         >
-                          View Details
+                          Edit Details
                         </Button>
                       </td>
                     </tr>
@@ -455,15 +457,20 @@ export default function Explorer() {
         </CardContent>
       </Card>
 
-      <ViewDetailsModal
-        isOpen={isDetailsModalOpen}
+      <ProspectEditModal
+        isOpen={isEditModalOpen}
         onClose={() => {
-          setIsDetailsModalOpen(false);
+          setIsEditModalOpen(false);
           setSelectedHousehold(null);
         }}
-        household={selectedHousehold}
+        onSave={() => {
+          // Refresh the search results after saving
+          search();
+        }}
+        prospect={selectedHousehold}
         teamMembers={teamMembers}
         leadSources={leadSources}
+        agencyId={agencyIdForModal}
       />
     </div>
   );

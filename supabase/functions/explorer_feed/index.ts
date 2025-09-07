@@ -128,6 +128,15 @@ serve(async (req) => {
           lead_source_id,
           lead_source_raw,
           lead_sources(name)
+        ),
+        prospect_custom_field_values(
+          field_id,
+          value_text,
+          prospect_custom_fields(
+            field_key,
+            field_label,
+            field_type
+          )
         )
       `)
       .eq("submissions.form_templates.agency_id", agency.id);
@@ -192,6 +201,18 @@ serve(async (req) => {
       const override = row.prospect_overrides?.[0]; // First override if exists
       const leadSource = override?.lead_sources?.name || row.lead_sources?.name;
       
+      // Process custom fields
+      const customFields = (row.prospect_custom_field_values || []).reduce((acc: any, cfv: any) => {
+        if (cfv.prospect_custom_fields) {
+          acc[cfv.prospect_custom_fields.field_key] = {
+            label: cfv.prospect_custom_fields.field_label,
+            type: cfv.prospect_custom_fields.field_type,
+            value: cfv.value_text
+          };
+        }
+        return acc;
+      }, {});
+      
       return {
         id: row.id,
         submission_id: row.submission_id,
@@ -213,7 +234,10 @@ serve(async (req) => {
         premium_potential_cents: override?.premium_potential_cents ?? row.premium_potential_cents ?? 0,
         
         // Lead source handling
-        lead_source: override?.lead_source_raw || leadSource || "Undefined"
+        lead_source: override?.lead_source_raw || leadSource || "Undefined",
+        
+        // Custom fields
+        custom_fields: customFields
       };
     });
 
