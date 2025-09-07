@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supa } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { fetchExplorerData } from "@/lib/explorer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -83,26 +84,18 @@ export default function Explorer() {
     setError(null);
 
     try {
-      const response = await supa.functions.invoke('explorer_feed', {
-        body: {
-          page,
-          pageSize: 50,
-          query: filters.q || undefined,
-          start: filters.start || undefined,
-          end: filters.end || undefined,
-          staffId: filters.staffId || undefined,
-          leadSource: filters.leadSource || undefined,
-          finalOnly: filters.finalOnly,
-          includeSuperseded: filters.includeSuperseded,
-          lateOnly: filters.lateOnly
-        }
+      const data = await fetchExplorerData({
+        page,
+        pageSize: 50,
+        query: filters.q || undefined,
+        start: filters.start || undefined,
+        end: filters.end || undefined,
+        staffId: filters.staffId || undefined,
+        leadSource: filters.leadSource || undefined,
+        finalOnly: filters.finalOnly,
+        includeSuperseded: filters.includeSuperseded,
+        lateOnly: filters.lateOnly
       });
-      
-      if (response.error) {
-        throw new Error(response.error.message || "Search failed");
-      }
-
-      const data = response.data;
 
       if (page === 1) {
         // Replace results for new search

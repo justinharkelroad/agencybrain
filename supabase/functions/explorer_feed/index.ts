@@ -39,7 +39,7 @@ serve(async (req) => {
 
   try {
     // Log request start
-    console.log("EXPLORER_FEED_V1_START", { errorId, timestamp: new Date().toISOString() });
+    console.log("FEED_V1_START", { errorId, timestamp: new Date().toISOString() });
 
     if (req.method !== "POST") {
       return jsonResponse(405, { error: "METHOD_NOT_ALLOWED" });
@@ -50,7 +50,7 @@ serve(async (req) => {
     try {
       body = await req.json() as SearchQuery;
     } catch (parseError) {
-      console.log("EXPLORER_FEED_V1_ERR", { errorId, error: "Invalid JSON", message: String(parseError) });
+      console.log("FEED_V1_ERR", { errorId, error: "Invalid JSON", message: String(parseError) });
       return jsonResponse(400, { error: "invalid_json" });
     }
 
@@ -60,7 +60,7 @@ serve(async (req) => {
     // Extract JWT token and validate auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("EXPLORER_FEED_V1_ERR", { errorId, error: "Missing or invalid auth header" });
+      console.log("FEED_V1_ERR", { errorId, error: "Missing or invalid auth header" });
       return jsonResponse(401, { error: "unauthorized" });
     }
 
@@ -78,7 +78,7 @@ serve(async (req) => {
     // Get user from token
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
-      console.log("EXPLORER_FEED_V1_ERR", { errorId, error: "Invalid token", message: userError?.message });
+      console.log("FEED_V1_ERR", { errorId, error: "Invalid token", message: userError?.message });
       return jsonResponse(401, { error: "unauthorized" });
     }
 
@@ -92,12 +92,12 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile?.agency_id) {
-      console.log("EXPLORER_FEED_V1_ERR", { errorId, userId, error: "No agency found for user", message: profileError?.message });
+      console.log("FEED_V1_ERR", { errorId, userId, error: "No agency found for user", message: profileError?.message });
       return jsonResponse(400, { error: "missing_agency" });
     }
 
     agencyId = profile.agency_id;
-    console.log("EXPLORER_FEED_V1_START", { errorId, userId, agencyId, page, pageSize });
+    console.log("FEED_V1_START", { errorId, userId, agencyId, page, pageSize });
 
     // Calculate offset for pagination
     const offset = (page - 1) * pageSize;
@@ -182,7 +182,7 @@ serve(async (req) => {
     const queryDuration = Date.now() - queryStartTime;
     
     if (error) {
-      console.log("EXPLORER_FEED_V1_ERR", { 
+      console.log("FEED_V1_ERR", { 
         errorId, 
         userId, 
         agencyId, 
@@ -266,14 +266,14 @@ serve(async (req) => {
     const total = count || 0;
     const totalPages = Math.ceil(total / pageSize);
 
-    console.log("EXPLORER_FEED_V1_SUCCESS", { 
+    console.log("FEED_V1_OK", { 
       errorId, 
       userId, 
       agencyId, 
       page, 
       pageSize, 
       total, 
-      returned: processedRows.length 
+      row_count: processedRows.length 
     });
 
     return jsonResponse(200, {
@@ -284,7 +284,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.log("EXPLORER_FEED_V1_ERR", { 
+    console.log("FEED_V1_ERR", { 
       errorId, 
       userId, 
       agencyId, 
