@@ -59,18 +59,33 @@ serve(async (req) => {
 
       console.log(`🔧 Repairing record ${record.id} from submission ${record.submission_id}`);
 
-      // Extract prospect name from quotedDetails array first, then dynamic fields
+      // Extract prospect name, notes, and custom fields from quotedDetails array
       let extractedName = null;
+      let extractedNotes = null;
+      let extractedCustomFields = {};
       
-      // First check quotedDetails array for prospect_name
+      // First check quotedDetails array for prospect_name and detailed_notes
       const quotedDetails = payload.quotedDetails;
       if (Array.isArray(quotedDetails) && quotedDetails.length > 0) {
         for (const prospect of quotedDetails) {
           if (prospect.prospect_name && typeof prospect.prospect_name === 'string') {
             extractedName = prospect.prospect_name;
             console.log(`🔍 Found prospect name in quotedDetails: ${extractedName}`);
-            break;
           }
+          
+          if (prospect.detailed_notes && typeof prospect.detailed_notes === 'string') {
+            extractedNotes = prospect.detailed_notes;
+            console.log(`🔍 Found notes in quotedDetails: ${extractedNotes}`);
+          }
+          
+          // Extract custom fields
+          Object.keys(prospect).forEach(key => {
+            if (key.startsWith('field_')) {
+              extractedCustomFields[key] = prospect[key];
+            }
+          });
+          
+          if (extractedName) break;
         }
       }
       
@@ -90,10 +105,16 @@ serve(async (req) => {
       }
 
       if (extractedName && extractedName !== record.household_name) {
-        // Update the record with the extracted name
+        // Prepare update data
+        const updateData = { household_name: extractedName };
+        if (Object.keys(extractedCustomFields).length > 0) {
+          updateData.extras = extractedCustomFields;
+        }
+
+        // Update the record with the extracted name and custom fields
         const { error: updateError } = await supabaseClient
           .from('quoted_household_details')
-          .update({ household_name: extractedName })
+          .update(updateData)
           .eq('id', record.id);
 
         if (updateError) {
@@ -115,10 +136,24 @@ serve(async (req) => {
     console.log("🔧 Updating quoted_households table to match...");
     
     for (const repaired of repairedRecords) {
+      const originalRecord = brokenRecords.find(r => r.id === repaired.id);
+      const payload = originalRecord?.submissions?.payload_json;
+      
+      // Prepare household update data
+      const householdUpdateData = { household_name: repaired.new_name };
+      
+      // Extract notes from quotedDetails if available
+      if (payload?.quotedDetails && Array.isArray(payload.quotedDetails)) {
+        const prospect = payload.quotedDetails.find(p => p.prospect_name === repaired.new_name);
+        if (prospect?.detailed_notes) {
+          householdUpdateData.notes = prospect.detailed_notes;
+        }
+      }
+
       const { error: householdUpdateError } = await supabaseClient
         .from('quoted_households')
-        .update({ household_name: repaired.new_name })
-        .eq('submission_id', brokenRecords.find(r => r.id === repaired.id)?.submission_id);
+        .update(householdUpdateData)
+        .eq('submission_id', originalRecord?.submission_id);
 
       if (householdUpdateError) {
         console.error(`❌ Failed to update quoted_households for record ${repaired.id}:`, householdUpdateError);
