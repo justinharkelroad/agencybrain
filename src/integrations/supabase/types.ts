@@ -1260,6 +1260,7 @@ export type Database = {
           field_label: string
           field_type: string
           id: string
+          options: string[] | null
           order_index: number
           owner_user_id: string
         }
@@ -1271,6 +1272,7 @@ export type Database = {
           field_label: string
           field_type: string
           id?: string
+          options?: string[] | null
           order_index?: number
           owner_user_id: string
         }
@@ -1282,6 +1284,7 @@ export type Database = {
           field_label?: string
           field_type?: string
           id?: string
+          options?: string[] | null
           order_index?: number
           owner_user_id?: string
         }

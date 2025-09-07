@@ -28,6 +28,7 @@ interface QuotedHousehold {
   is_final: boolean;
   is_late: boolean;
   created_at: string;
+  custom_fields?: Record<string, { label: string; type: string; value: string }>;
 }
 
 interface SearchFilters {
@@ -395,6 +396,7 @@ export default function Explorer() {
                     <th className="text-left p-3 font-medium">#Items</th>
                     <th className="text-left p-3 font-medium">#Policies</th>
                     <th className="text-left p-3 font-medium">Premium Potential</th>
+                    <th className="text-left p-3 font-medium">Custom Fields</th>
                     <th className="text-left p-3 font-medium">Notes</th>
                     <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
@@ -424,6 +426,22 @@ export default function Explorer() {
                           minimumFractionDigits: 2, 
                           maximumFractionDigits: 2 
                         })}
+                      </td>
+                      <td className="p-3 max-w-[150px]">
+                        {row.custom_fields && Object.keys(row.custom_fields).length > 0 ? (
+                          <div className="text-xs space-y-1">
+                            {Object.entries(row.custom_fields).slice(0, 2).map(([key, field]) => (
+                              <div key={key} className="truncate">
+                                <span className="font-medium text-muted-foreground">{field.label}:</span> {field.value || '—'}
+                              </div>
+                            ))}
+                            {Object.keys(row.custom_fields).length > 2 && (
+                              <div className="text-muted-foreground">+{Object.keys(row.custom_fields).length - 2} more</div>
+                            )}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="p-3 max-w-[200px]">
                         <div className="truncate" title={row.notes || ""}>
