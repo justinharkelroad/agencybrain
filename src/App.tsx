@@ -45,6 +45,7 @@ import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
+import RunRepair from "./pages/RunRepair";
 
 const queryClient = new QueryClient();
 
@@ -216,6 +217,11 @@ const App = () => (
             <Route path="/repair-explorer" element={
               <ProtectedRoute requireAdmin>
                 <RepairExplorer />
+              </ProtectedRoute>
+            } />
+            <Route path="/run-repair" element={
+              <ProtectedRoute requireAdmin>
+                <RunRepair />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

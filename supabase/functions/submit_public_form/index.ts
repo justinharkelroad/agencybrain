@@ -274,25 +274,41 @@ serve(async (req) => {
         const prospect = quotedDetailsArray[i];
         
         // Extract prospect name - never use "Household X"
-        const prospectName = prospect.householdName || 
-                           prospect.name || 
-                           prospect.prospect_name ||
+        const prospectName = prospect.prospect_name || 
+                           prospect.householdName || 
+                           prospect.name ||
                            null; // Allow NULL if no name provided
         
-        // Derive counts from the prospect data
-        const quotedItems = Array.isArray(prospect.quotedItems) ? prospect.quotedItems : [];
-        const itemsQuoted = quotedItems.length;
+        console.log(`🔍 DEBUG: Prospect ${i+1} name extraction:`, {
+          prospect_name: prospect.prospect_name,
+          householdName: prospect.householdName,
+          name: prospect.name,
+          finalName: prospectName
+        });
         
-        // Count unique policy types
-        const policyTypes = new Set(quotedItems.map(item => item.policyType).filter(Boolean));
-        const policiesQuoted = policyTypes.size;
+        // Extract business metrics from dynamic fields in this prospect
+        let itemsQuoted = 0;
+        let policiesQuoted = 0;
+        let premiumPotentialCents = 0;
         
-        // Sum premium potential from quoted items
-        const premiumPotential = quotedItems.reduce((sum, item) => {
-          const premium = parseFloat(String(item.premiumPotential || item.premium || 0));
-          return sum + (isNaN(premium) ? 0 : premium);
-        }, 0);
-        const premiumPotentialCents = Math.round(premiumPotential * 100);
+        // Look for numeric fields that might represent quoted items/policies
+        for (const [fieldKey, fieldValue] of Object.entries(prospect)) {
+          if (fieldKey.startsWith('field_') && fieldValue) {
+            const numValue = parseInt(String(fieldValue));
+            if (!isNaN(numValue) && numValue > 0) {
+              // This could be items quoted or policies quoted
+              console.log(`🔍 DEBUG: Found numeric field ${fieldKey}: ${numValue}`);
+              if (itemsQuoted === 0) itemsQuoted = numValue;
+              if (policiesQuoted === 0) policiesQuoted = numValue;
+            }
+          }
+        }
+        
+        console.log(`🔍 DEBUG: Extracted metrics for prospect ${i+1}:`, {
+          itemsQuoted,
+          policiesQuoted,
+          premiumPotentialCents
+        });
         
         quotedDetails.push({
           submission_id: ins.id,

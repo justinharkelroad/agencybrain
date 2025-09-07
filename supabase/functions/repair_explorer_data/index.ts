@@ -59,19 +59,33 @@ serve(async (req) => {
 
       console.log(`🔧 Repairing record ${record.id} from submission ${record.submission_id}`);
 
-      // Extract prospect name from dynamic fields in the payload
+      // Extract prospect name from quotedDetails array first, then dynamic fields
       let extractedName = null;
       
-      // Look for field values that might be prospect names
-      for (const [key, value] of Object.entries(payload)) {
-        if (key.startsWith('field_') && typeof value === 'string' && 
-            value.length > 0 && value.length < 50 && 
-            !value.match(/^\d+$/) && // not just numbers
-            !value.includes('$') && // not currency
-            !value.match(/^\d{5}(-\d{4})?$/)) { // not zip code
-          extractedName = value;
-          console.log(`🔍 Found prospect name in ${key}: ${extractedName}`);
-          break;
+      // First check quotedDetails array for prospect_name
+      const quotedDetails = payload.quotedDetails;
+      if (Array.isArray(quotedDetails) && quotedDetails.length > 0) {
+        for (const prospect of quotedDetails) {
+          if (prospect.prospect_name && typeof prospect.prospect_name === 'string') {
+            extractedName = prospect.prospect_name;
+            console.log(`🔍 Found prospect name in quotedDetails: ${extractedName}`);
+            break;
+          }
+        }
+      }
+      
+      // Fallback: Look for field values that might be prospect names
+      if (!extractedName) {
+        for (const [key, value] of Object.entries(payload)) {
+          if (key.startsWith('field_') && typeof value === 'string' && 
+              value.length > 0 && value.length < 50 && 
+              !value.match(/^\d+$/) && // not just numbers
+              !value.includes('$') && // not currency
+              !value.match(/^\d{5}(-\d{4})?$/)) { // not zip code
+            extractedName = value;
+            console.log(`🔍 Found prospect name in ${key}: ${extractedName}`);
+            break;
+          }
         }
       }
 
