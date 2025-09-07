@@ -1414,7 +1414,15 @@ export type Database = {
           submission_id?: string
           zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "qhd_submission_fk"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quoted_households: {
         Row: {
