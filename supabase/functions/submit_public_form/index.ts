@@ -250,26 +250,49 @@ serve(async (req) => {
 
     console.log("✅ Submission created with ID:", ins.id);
 
-    // Handle quoted details auto-spawning
-    const quotedCount = parseInt(String(body.values.quoted_count || '0'));
-    const spawnCap = template.settings_json?.spawnCap || 10;
-    const actualSpawnCount = Math.min(quotedCount, spawnCap);
-
-    if (actualSpawnCount > 0) {
-      // Create quoted household details
+    // Phase 1: Handle multiple prospects from quotedDetails array
+    console.log("📋 Processing quoted details from submission...");
+    const quotedDetailsArray = body.values.quotedDetails as any[] || [];
+    const leadSourceRaw = body.values.leadSource as string || null;
+    
+    if (quotedDetailsArray.length > 0) {
+      console.log(`📊 Found ${quotedDetailsArray.length} prospect(s) in quotedDetails`);
+      
       const quotedDetails = [];
       const quotedHouseholds = [];
       
-      for (let i = 0; i < actualSpawnCount; i++) {
-        const householdName = body.values[`quoted_household_${i+1}`] || `Household ${i+1}`;
-        const zipCode = body.values[`quoted_zip_${i+1}`] || null;
-        const policyType = body.values[`quoted_policy_type_${i+1}`] || null;
+      for (let i = 0; i < quotedDetailsArray.length; i++) {
+        const prospect = quotedDetailsArray[i];
+        
+        // Extract prospect name - never use "Household X"
+        const prospectName = prospect.householdName || 
+                           prospect.name || 
+                           prospect.prospect_name ||
+                           null; // Allow NULL if no name provided
+        
+        // Derive counts from the prospect data
+        const quotedItems = Array.isArray(prospect.quotedItems) ? prospect.quotedItems : [];
+        const itemsQuoted = quotedItems.length;
+        
+        // Count unique policy types
+        const policyTypes = new Set(quotedItems.map(item => item.policyType).filter(Boolean));
+        const policiesQuoted = policyTypes.size;
+        
+        // Sum premium potential from quoted items
+        const premiumPotential = quotedItems.reduce((sum, item) => {
+          const premium = parseFloat(String(item.premiumPotential || item.premium || 0));
+          return sum + (isNaN(premium) ? 0 : premium);
+        }, 0);
+        const premiumPotentialCents = Math.round(premiumPotential * 100);
         
         quotedDetails.push({
           submission_id: ins.id,
-          household_name: householdName,
-          zip_code: zipCode,
-          policy_type: policyType,
+          household_name: prospectName,
+          zip_code: prospect.zipCode || prospect.zip || null,
+          policy_type: prospect.policyType || null,
+          items_quoted: itemsQuoted,
+          policies_quoted: policiesQuoted,
+          premium_potential_cents: premiumPotentialCents,
         });
 
         // Also populate the quoted_households table for Explorer
@@ -279,14 +302,17 @@ serve(async (req) => {
           form_template_id: template.id,
           team_member_id: body.teamMemberId,
           work_date: body.workDate || body.submissionDate,
-          household_name: householdName,
-          zip: zipCode,
+          household_name: prospectName,
+          zip: prospect.zipCode || prospect.zip || null,
+          lead_source: leadSourceRaw,
+          notes: prospect.notes || null,
           is_final: true,
           is_late: isLate,
         });
       }
 
       if (quotedDetails.length > 0) {
+        console.log(`💾 Inserting ${quotedDetails.length} quoted household detail(s)`);
         await supabase
           .from('quoted_household_details')
           .insert(quotedDetails);
@@ -295,34 +321,153 @@ serve(async (req) => {
           .from('quoted_households')
           .insert(quotedHouseholds);
       }
+    } else {
+      // Fallback for legacy format - but still avoid "Household X"
+      const quotedCount = parseInt(String(body.values.quoted_count || '0'));
+      if (quotedCount > 0) {
+        console.log(`📊 Legacy format: creating ${quotedCount} prospect(s)`);
+        const quotedDetails = [];
+        const quotedHouseholds = [];
+        
+        for (let i = 0; i < quotedCount; i++) {
+          // Try to get actual name, don't default to "Household X"  
+          const prospectName = body.values[`quoted_household_${i+1}`] as string || null;
+          const zipCode = body.values[`quoted_zip_${i+1}`] || null;
+          const policyType = body.values[`quoted_policy_type_${i+1}`] || null;
+          
+          quotedDetails.push({
+            submission_id: ins.id,
+            household_name: prospectName,
+            zip_code: zipCode,
+            policy_type: policyType,
+            items_quoted: null,
+            policies_quoted: null, 
+            premium_potential_cents: null,
+          });
+
+          quotedHouseholds.push({
+            agency_id: agency.id,
+            submission_id: ins.id,
+            form_template_id: template.id,
+            team_member_id: body.teamMemberId,
+            work_date: body.workDate || body.submissionDate,
+            household_name: prospectName,
+            zip: zipCode,
+            lead_source: leadSourceRaw,
+            is_final: true,
+            is_late: isLate,
+          });
+        }
+
+        if (quotedDetails.length > 0) {
+          await supabase
+            .from('quoted_household_details')
+            .insert(quotedDetails);
+            
+          await supabase
+            .from('quoted_households')
+            .insert(quotedHouseholds);
+        }
+      }
     }
 
-    // Handle sold policy details if provided
-    const soldItems = parseInt(String(body.values.sold_items || '0'));
-    if (soldItems > 0) {
+    // Phase 1: Handle sold policy details - create Explorer entries for each
+    console.log("💰 Processing sold policy details...");
+    const soldDetailsArray = body.values.soldDetails as any[] || [];
+    
+    if (soldDetailsArray.length > 0) {
+      console.log(`💰 Found ${soldDetailsArray.length} sold policy detail(s)`);
+      
       const soldDetails = [];
-      for (let i = 0; i < soldItems; i++) {
-        const premiumStr = String(body.values[`sold_premium_${i+1}`] || '0');
-        const commissionStr = String(body.values[`sold_commission_${i+1}`] || '0');
-        
+      const soldHouseholdDetails = [];
+      
+      for (const soldItem of soldDetailsArray) {
         // Convert dollar amounts to cents
-        const premiumCents = Math.round(parseFloat(premiumStr.replace(/[$,]/g, '')) * 100);
-        const commissionCents = Math.round(parseFloat(commissionStr.replace(/[$,]/g, '')) * 100);
+        const premiumCents = Math.round(parseFloat(String(soldItem.premiumAmount || 0).replace(/[$,]/g, '')) * 100);
+        const commissionCents = Math.round(parseFloat(String(soldItem.commissionAmount || 0).replace(/[$,]/g, '')) * 100);
         
+        // Create sold policy detail record
         soldDetails.push({
           submission_id: ins.id,
-          policy_holder_name: body.values[`sold_policy_holder_${i+1}`] || `Policy ${i+1}`,
-          policy_type: body.values[`sold_policy_type_${i+1}`] || 'Unknown',
+          policy_holder_name: soldItem.policyHolderName || soldItem.name || null,
+          policy_type: soldItem.policyType || 'Unknown',
           premium_amount_cents: premiumCents,
           commission_amount_cents: commissionCents,
-          quoted_household_detail_id: body.values[`sold_quoted_ref_${i+1}`] || null,
+          quoted_household_detail_id: soldItem.quotedHouseholdDetailId || null,
+        });
+        
+        // Create separate quoted household detail for Explorer (status='Sold')
+        soldHouseholdDetails.push({
+          submission_id: ins.id,
+          household_name: soldItem.policyHolderName || soldItem.name || null,
+          zip_code: soldItem.zipCode || soldItem.zip || null,
+          policy_type: soldItem.policyType || null,
+          items_quoted: null, // Sold items don't have quoted counts
+          policies_quoted: 1, // Each sold detail represents 1 policy
+          premium_potential_cents: premiumCents, // Actual premium for sold
         });
       }
 
       if (soldDetails.length > 0) {
+        console.log(`💾 Inserting ${soldDetails.length} sold policy detail(s)`);
         await supabase
           .from('sold_policy_details')
           .insert(soldDetails);
+          
+        // Create Explorer entries for sold policies  
+        await supabase
+          .from('quoted_household_details')
+          .insert(soldHouseholdDetails);
+      }
+    } else {
+      // Fallback for legacy sold items format
+      const soldItems = parseInt(String(body.values.sold_items || '0'));
+      if (soldItems > 0) {
+        console.log(`💰 Legacy format: creating ${soldItems} sold item(s)`);
+        const soldDetails = [];
+        const soldHouseholdDetails = [];
+        
+        for (let i = 0; i < soldItems; i++) {
+          const premiumStr = String(body.values[`sold_premium_${i+1}`] || '0');
+          const commissionStr = String(body.values[`sold_commission_${i+1}`] || '0');
+          
+          // Convert dollar amounts to cents
+          const premiumCents = Math.round(parseFloat(premiumStr.replace(/[$,]/g, '')) * 100);
+          const commissionCents = Math.round(parseFloat(commissionStr.replace(/[$,]/g, '')) * 100);
+          
+          const policyHolderName = body.values[`sold_policy_holder_${i+1}`] as string || null;
+          const policyType = body.values[`sold_policy_type_${i+1}`] as string || 'Unknown';
+          
+          soldDetails.push({
+            submission_id: ins.id,
+            policy_holder_name: policyHolderName,
+            policy_type: policyType,
+            premium_amount_cents: premiumCents,
+            commission_amount_cents: commissionCents,
+            quoted_household_detail_id: body.values[`sold_quoted_ref_${i+1}`] || null,
+          });
+          
+          // Create Explorer entry for sold policy
+          soldHouseholdDetails.push({
+            submission_id: ins.id,
+            household_name: policyHolderName,
+            zip_code: null,
+            policy_type: policyType,
+            items_quoted: null,
+            policies_quoted: 1,
+            premium_potential_cents: premiumCents,
+          });
+        }
+
+        if (soldDetails.length > 0) {
+          await supabase
+            .from('sold_policy_details')
+            .insert(soldDetails);
+            
+          await supabase
+            .from('quoted_household_details') 
+            .insert(soldHouseholdDetails);
+        }
       }
     }
 
@@ -376,10 +521,13 @@ serve(async (req) => {
       scheduled_at: new Date().toISOString()
     });
 
+    const quotedDetailsCount = (body.values.quotedDetails as any[])?.length || parseInt(String(body.values.quoted_count || '0'));
+    const soldDetailsCount = (body.values.soldDetails as any[])?.length || parseInt(String(body.values.sold_items || '0'));
+
     console.log("✅ Form submission completed successfully:", {
       submissionId: ins.id,
-      quotedDetailsCreated: actualSpawnCount,
-      soldDetailsCreated: soldItems,
+      quotedProspectsProcessed: quotedDetailsCount,
+      soldPoliciesProcessed: soldDetailsCount,
       isLate,
       finalDate
     });
@@ -387,8 +535,8 @@ serve(async (req) => {
     return json(200, { 
       ok: true, 
       submissionId: ins.id,
-      quotedDetailsCreated: actualSpawnCount,
-      soldDetailsCreated: soldItems,
+      quotedProspectsProcessed: quotedDetailsCount,
+      soldPoliciesProcessed: soldDetailsCount,
       isLate
     });
   } catch (e) {
