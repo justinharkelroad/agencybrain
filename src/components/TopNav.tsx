@@ -54,6 +54,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
             <Link to="/scorecard-settings" aria-label="Go to Settings">
               <Button variant="glass" size="sm" className="rounded-full">Settings</Button>
             </Link>
+            <Link to="/analytics" aria-label="Go to Analytics">
+              <Button variant="glass" size="sm" className="rounded-full">Analytics</Button>
+            </Link>
             {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
               <Link to="/admin" aria-label="Go to Admin Portal">
                 <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
@@ -105,6 +108,9 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               </Link>
               <Link to="/scorecard-settings" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Settings</Button>
+              </Link>
+              <Link to="/analytics" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">Analytics</Button>
               </Link>
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin" onClick={() => setOpen(false)}>
