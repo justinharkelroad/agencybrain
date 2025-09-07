@@ -12,12 +12,13 @@ import { ProspectEditModal } from "@/components/ProspectEditModal";
 
 interface QuotedHousehold {
   id: string;
-  submission_id: string;
-  form_template_id: string;
-  team_member_id: string;
-  work_date: string;
-  household_name: string;
-  lead_source?: string | null;
+  submission_id?: string;
+  form_template_id?: string;
+  team_member_id?: string;
+  work_date?: string;
+  created_at: string;
+  prospect_name: string;
+  lead_source_label?: string | null;
   zip?: string | null;
   notes?: string | null;
   email?: string | null;
@@ -25,9 +26,7 @@ interface QuotedHousehold {
   items_quoted: number;
   policies_quoted: number;
   premium_potential_cents: number;
-  is_final: boolean;
-  is_late: boolean;
-  created_at: string;
+  status?: string;
   custom_fields?: Record<string, { label: string; type: string; value: string }>;
 }
 
@@ -68,33 +67,34 @@ export default function Explorer() {
   });
 
   const [rows, setRows] = useState<QuotedHousehold[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [agencySlug, setAgencySlug] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<Array<{id: string, name: string}>>([]);
   const [leadSources, setLeadSources] = useState<Array<{id: string, name: string}>>([]);
-  const [selectedHousehold, setSelectedHousehold] = useState<QuotedHousehold | null>(null);
+  const [selectedHousehold, setSelectedHousehold] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [agencyIdForModal, setAgencyIdForModal] = useState<string>("");
 
-  const search = async (cursor?: string) => {
+  const search = async (page: number = 1) => {
     if (!user) return;
     
     setLoading(true);
     setError(null);
 
     try {
-      const { data: session } = await supa.auth.getSession();
-      const token = session.session?.access_token ?? "";
-
       const response = await supa.functions.invoke('explorer_feed', {
         body: {
-          agencySlug,
-          ...filters,
-          cursor,
-          limit: 50
+          page,
+          pageSize: 50,
+          query: filters.q || undefined,
+          start: filters.start || undefined,
+          end: filters.end || undefined,
+          staffId: filters.staffId || undefined,
+          leadSource: filters.leadSource || undefined,
+          finalOnly: filters.finalOnly,
+          includeSuperseded: filters.includeSuperseded,
+          lateOnly: filters.lateOnly
         }
       });
       
@@ -103,15 +103,15 @@ export default function Explorer() {
       }
 
       const data = response.data;
-      setNextCursor(data.nextCursor);
-      setHasMore(!!data.nextCursor);
 
-      if (cursor) {
-        // Append to existing results for "Load more"
-        setRows(prevRows => [...prevRows, ...data.rows]);
-      } else {
+      if (page === 1) {
         // Replace results for new search
         setRows(data.rows);
+        setHasMore(data.page < Math.ceil(data.total / data.pageSize));
+      } else {
+        // Append to existing results for "Load more"
+        setRows(prevRows => [...prevRows, ...data.rows]);
+        setHasMore(page < Math.ceil(data.total / data.pageSize));
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -123,12 +123,16 @@ export default function Explorer() {
   };
 
   const handleSearch = () => {
-    search();
+    search(1);
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+
   const handleLoadMore = () => {
-    if (nextCursor && !loading) {
-      search(nextCursor);
+    if (hasMore && !loading) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      search(nextPage);
     }
   };
 
@@ -141,10 +145,10 @@ export default function Explorer() {
     const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes"];
     const csvRows = rows.map(row => {
       const values = [
-        row.work_date,
-        teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id,
-        row.household_name || "",
-        row.lead_source || "Undefined",
+        row.work_date || row.created_at?.split('T')[0] || "",
+        teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id || "",
+        row.prospect_name || "",
+        row.lead_source_label || "Undefined",
         row.zip || "",
         row.items_quoted?.toString() || "0",
         row.policies_quoted?.toString() || "0", 
@@ -173,6 +177,21 @@ export default function Explorer() {
     setFilters(prev => ({ ...prev, [key]: apiValue }));
   };
 
+  // Convert API data format to modal format
+  const convertToModalFormat = (row: QuotedHousehold): any => {
+    return {
+      ...row,
+      household_name: row.prospect_name,
+      lead_source: row.lead_source_label,
+      is_final: row.status === "final",
+      is_late: false, // Not provided by new API
+      submission_id: row.submission_id || "",
+      form_template_id: row.form_template_id || "",
+      team_member_id: row.team_member_id || "",
+      work_date: row.work_date || row.created_at?.split('T')[0] || ""
+    };
+  };
+
   // Fetch agency slug and related data
   useEffect(() => {
     const fetchAgencyData = async () => {
@@ -187,17 +206,8 @@ export default function Explorer() {
           .single();
 
         if (profile?.agency_id) {
-          // Get agency slug
-          const { data: agency } = await supa
-            .from('agencies')
-            .select('slug')
-            .eq('id', profile.agency_id)
-            .single();
-
-          if (agency?.slug) {
-            setAgencySlug(agency.slug);
-            setAgencyIdForModal(profile.agency_id);
-          }
+          // Set agency ID for modal
+          setAgencyIdForModal(profile.agency_id);
 
           // Get team members
           const { data: members } = await supa
@@ -225,12 +235,13 @@ export default function Explorer() {
     fetchAgencyData();
   }, [user]);
 
-  // Initial search when agency data is loaded
+  // Initial search when user is available
   useEffect(() => {
-    if (user && agencySlug) {
-      search();
+    if (user) {
+      search(1);
+      setCurrentPage(1);
     }
-  }, [user, agencySlug]);
+  }, [user]);
 
   if (!user) {
     return (
@@ -404,18 +415,18 @@ export default function Explorer() {
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id} className="border-b hover:bg-muted/50">
-                      <td className="p-3">{row.work_date}</td>
+                      <td className="p-3">{row.work_date || row.created_at?.split('T')[0] || "—"}</td>
                       <td className="p-3">
                         {teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id}
                       </td>
-                      <td className="p-3 font-medium">{row.household_name}</td>
+                      <td className="p-3 font-medium">{row.prospect_name}</td>
                       <td className="p-3">
-                        {row.lead_source === "Undefined" ? (
+                        {row.lead_source_label === "Undefined" ? (
                           <Badge variant="outline" className="text-xs">
                             Undefined
                           </Badge>
                         ) : (
-                          row.lead_source || "—"
+                          row.lead_source_label || "—"
                         )}
                       </td>
                       <td className="p-3">{row.zip || "—"}</td>
@@ -453,7 +464,7 @@ export default function Explorer() {
                           variant="outline" 
                           size="sm"
                           onClick={() => {
-                            setSelectedHousehold(row);
+                            setSelectedHousehold(convertToModalFormat(row));
                             setIsEditModalOpen(true);
                           }}
                         >
