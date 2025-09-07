@@ -1416,6 +1416,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "qhd_lead_source_fk"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "qhd_submission_fk"
             columns: ["submission_id"]
             isOneToOne: false
