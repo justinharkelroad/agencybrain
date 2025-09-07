@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchIcon, DownloadIcon, FilterIcon } from "lucide-react";
 import { toast } from "sonner";
+import { ViewDetailsModal } from "@/components/ViewDetailsModal";
 
 interface QuotedHousehold {
   id: string;
@@ -73,6 +74,8 @@ export default function Explorer() {
   const [agencySlug, setAgencySlug] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<Array<{id: string, name: string}>>([]);
   const [leadSources, setLeadSources] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedHousehold, setSelectedHousehold] = useState<QuotedHousehold | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const search = async (cursor?: string) => {
     if (!user) return;
@@ -430,8 +433,8 @@ export default function Explorer() {
                           variant="outline" 
                           size="sm"
                           onClick={() => {
-                            // TODO: Implement view details modal
-                            toast.info("View details functionality coming soon");
+                            setSelectedHousehold(row);
+                            setIsDetailsModalOpen(true);
                           }}
                         >
                           View Details
@@ -451,6 +454,17 @@ export default function Explorer() {
           )}
         </CardContent>
       </Card>
+
+      <ViewDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => {
+          setIsDetailsModalOpen(false);
+          setSelectedHousehold(null);
+        }}
+        household={selectedHousehold}
+        teamMembers={teamMembers}
+        leadSources={leadSources}
+      />
     </div>
   );
 }
