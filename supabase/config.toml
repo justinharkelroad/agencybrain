@@ -20,3 +20,6 @@ verify_jwt = true
 
 [functions.explorer_search]
 verify_jwt = true
+
+[functions.explorer_feed]
+verify_jwt = true

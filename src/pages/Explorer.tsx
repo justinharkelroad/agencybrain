@@ -19,7 +19,11 @@ interface QuotedHousehold {
   lead_source?: string | null;
   zip?: string | null;
   notes?: string | null;
-  extras: any;
+  email?: string | null;
+  phone?: string | null;
+  items_quoted: number;
+  policies_quoted: number;
+  premium_potential_cents: number;
   is_final: boolean;
   is_late: boolean;
   created_at: string;
@@ -80,7 +84,7 @@ export default function Explorer() {
       const { data: session } = await supa.auth.getSession();
       const token = session.session?.access_token ?? "";
 
-      const response = await supa.functions.invoke('explorer_search', {
+      const response = await supa.functions.invoke('explorer_feed', {
         body: {
           agencySlug,
           ...filters,
@@ -129,16 +133,17 @@ export default function Explorer() {
       return;
     }
 
-    const headers = ["Date", "Staff ID", "Household", "Lead Source", "ZIP", "Late", "Final", "Notes"];
+    const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes"];
     const csvRows = rows.map(row => {
       const values = [
         row.work_date,
-        row.team_member_id,
+        teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id,
         row.household_name || "",
-        row.lead_source || "",
+        row.lead_source || "Undefined",
         row.zip || "",
-        row.is_late ? "Yes" : "No",
-        row.is_final ? "Yes" : "No",
+        row.items_quoted?.toString() || "0",
+        row.policies_quoted?.toString() || "0", 
+        (row.premium_potential_cents / 100).toFixed(2),
         (row.notes || "").replace(/\n/g, " ").replace(/"/g, '""') // Escape quotes and newlines
       ];
       return values.map(value => `"${value}"`).join(",");
@@ -316,6 +321,7 @@ export default function Explorer() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All lead sources</SelectItem>
+                  <SelectItem value="Undefined">Undefined</SelectItem>
                   {leadSources.map((source) => (
                     <SelectItem key={source.id} value={source.name}>
                       {source.name}
@@ -381,8 +387,11 @@ export default function Explorer() {
                     <th className="text-left p-3 font-medium">Household</th>
                     <th className="text-left p-3 font-medium">Lead Source</th>
                     <th className="text-left p-3 font-medium">ZIP</th>
-                    <th className="text-left p-3 font-medium">Status</th>
+                    <th className="text-left p-3 font-medium">#Items</th>
+                    <th className="text-left p-3 font-medium">#Policies</th>
+                    <th className="text-left p-3 font-medium">Premium Potential</th>
                     <th className="text-left p-3 font-medium">Notes</th>
+                    <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -393,30 +402,40 @@ export default function Explorer() {
                         {teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id}
                       </td>
                       <td className="p-3 font-medium">{row.household_name}</td>
-                      <td className="p-3">{row.lead_source || "—"}</td>
-                      <td className="p-3">{row.zip || "—"}</td>
                       <td className="p-3">
-                        <div className="flex gap-1">
-                          {row.is_late && (
-                            <Badge variant="destructive" className="text-xs">
-                              Late
-                            </Badge>
-                          )}
-                          {row.is_final ? (
-                            <Badge variant="default" className="text-xs">
-                              Final
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              Draft
-                            </Badge>
-                          )}
-                        </div>
+                        {row.lead_source === "Undefined" ? (
+                          <Badge variant="outline" className="text-xs">
+                            Undefined
+                          </Badge>
+                        ) : (
+                          row.lead_source || "—"
+                        )}
+                      </td>
+                      <td className="p-3">{row.zip || "—"}</td>
+                      <td className="p-3">{row.items_quoted || 0}</td>
+                      <td className="p-3">{row.policies_quoted || 0}</td>
+                      <td className="p-3">
+                        ${((row.premium_potential_cents || 0) / 100).toLocaleString('en-US', { 
+                          minimumFractionDigits: 2, 
+                          maximumFractionDigits: 2 
+                        })}
                       </td>
                       <td className="p-3 max-w-[200px]">
                         <div className="truncate" title={row.notes || ""}>
                           {row.notes || "—"}
                         </div>
+                      </td>
+                      <td className="p-3">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            // TODO: Implement view details modal
+                            toast.info("View details functionality coming soon");
+                          }}
+                        >
+                          View Details
+                        </Button>
                       </td>
                     </tr>
                   ))}
