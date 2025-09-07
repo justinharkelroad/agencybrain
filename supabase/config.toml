@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.explorer_feed]
 verify_jwt = true
+
+[functions.repair_explorer_data]
+verify_jwt = true

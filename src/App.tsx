@@ -44,6 +44,7 @@ import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import SubmissionDetail from "./pages/SubmissionDetail";
+import RepairExplorer from "./pages/RepairExplorer";
 
 const queryClient = new QueryClient();
 
@@ -210,6 +211,11 @@ const App = () => (
             <Route path="/submissions/:submissionId" element={
               <ProtectedRoute>
                 <SubmissionDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/repair-explorer" element={
+              <ProtectedRoute requireAdmin>
+                <RepairExplorer />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

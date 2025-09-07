@@ -252,8 +252,17 @@ serve(async (req) => {
 
     // Phase 1: Handle multiple prospects from quotedDetails array
     console.log("📋 Processing quoted details from submission...");
+    
+    // DEBUG: Log the entire body.values to understand the actual structure
+    console.log("🔍 DEBUG: Complete body.values structure:", JSON.stringify(body.values, null, 2));
+    
     const quotedDetailsArray = body.values.quotedDetails as any[] || [];
     const leadSourceRaw = body.values.leadSource as string || null;
+    
+    // DEBUG: Log specific extraction attempts
+    console.log("🔍 DEBUG: quotedDetailsArray length:", quotedDetailsArray.length);
+    console.log("🔍 DEBUG: quotedDetailsArray content:", JSON.stringify(quotedDetailsArray, null, 2));
+    console.log("🔍 DEBUG: leadSourceRaw:", leadSourceRaw);
     
     if (quotedDetailsArray.length > 0) {
       console.log(`📊 Found ${quotedDetailsArray.length} prospect(s) in quotedDetails`);
@@ -323,15 +332,65 @@ serve(async (req) => {
       }
     } else {
       // Fallback for legacy format - but still avoid "Household X"
+      console.log("🔍 DEBUG: quotedDetailsArray is empty, trying legacy format");
+      
+      // DEBUG: Look for dynamic field IDs that might contain prospect names
+      const dynamicFields = Object.keys(body.values).filter(key => key.startsWith('field_'));
+      console.log("🔍 DEBUG: Found dynamic fields:", dynamicFields);
+      
+      // Try to extract prospect names from dynamic fields
+      const prospectNames = [];
+      for (const fieldKey of dynamicFields) {
+        const fieldValue = body.values[fieldKey];
+        if (typeof fieldValue === 'string' && fieldValue.length > 0 && fieldValue.length < 100) {
+          // This might be a prospect name - log it
+          console.log(`🔍 DEBUG: Possible prospect name in ${fieldKey}:`, fieldValue);
+          prospectNames.push({ field: fieldKey, value: fieldValue });
+        }
+      }
+      
       const quotedCount = parseInt(String(body.values.quoted_count || '0'));
+      console.log("🔍 DEBUG: quotedCount from body.values.quoted_count:", quotedCount);
+      
       if (quotedCount > 0) {
         console.log(`📊 Legacy format: creating ${quotedCount} prospect(s)`);
         const quotedDetails = [];
         const quotedHouseholds = [];
         
+        // Use the prospect names we found from dynamic fields if available
+        console.log(`🔍 DEBUG: Using ${prospectNames.length} prospect names found in dynamic fields`);
+        
         for (let i = 0; i < quotedCount; i++) {
-          // Try to get actual name, don't default to "Household X"  
-          const prospectName = body.values[`quoted_household_${i+1}`] as string || null;
+          // Try to get actual name from multiple sources
+          let prospectName = null;
+          
+          // First try legacy format field names
+          prospectName = body.values[`quoted_household_${i+1}`] as string || null;
+          
+          // If not found, try to use prospect names from dynamic fields
+          if (!prospectName && i < prospectNames.length) {
+            prospectName = prospectNames[i].value;
+            console.log(`🔍 DEBUG: Using dynamic field ${prospectNames[i].field} for prospect ${i+1}: ${prospectName}`);
+          }
+          
+          // If still no name, extract from any available dynamic field that looks like a name
+          if (!prospectName) {
+            // Look for field values that might be names (not numbers, not too long, etc.)
+            for (const [key, value] of Object.entries(body.values)) {
+              if (key.startsWith('field_') && typeof value === 'string' && 
+                  value.length > 0 && value.length < 50 && 
+                  !value.match(/^\d+$/) && // not just numbers
+                  !value.includes('$') && // not currency
+                  !value.match(/^\d{5}(-\d{4})?$/)) { // not zip code
+                prospectName = value;
+                console.log(`🔍 DEBUG: Found possible prospect name in ${key}: ${prospectName}`);
+                break;
+              }
+            }
+          }
+          
+          console.log(`🔍 DEBUG: Final prospect name for ${i+1}: ${prospectName || 'NULL'}`);
+          
           const zipCode = body.values[`quoted_zip_${i+1}`] || null;
           const policyType = body.values[`quoted_policy_type_${i+1}`] || null;
           
