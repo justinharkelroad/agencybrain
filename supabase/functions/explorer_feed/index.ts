@@ -15,22 +15,27 @@ interface SearchQuery {
   lateOnly?: boolean;     // default false
 }
 
-function jsonResponse(status: number, body: any) {
+function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...corsHeaders,
-      "content-type": "application/json",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff"
-    }
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
   });
 }
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+    });
   }
 
   const errorId = crypto.randomUUID();
@@ -42,8 +47,13 @@ serve(async (req) => {
     console.log("FEED_V1_START", { errorId, timestamp: new Date().toISOString() });
 
     if (req.method !== "POST") {
-      return jsonResponse(405, { error: "METHOD_NOT_ALLOWED" });
+      return json(405, { error: "METHOD_NOT_ALLOWED" });
     }
+
+    // Read and validate Bearer token
+    const auth = req.headers.get("authorization") || "";
+    const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (!bearer) return json(401, { error: "unauthorized" });
 
     // Parse and validate request body
     let body: SearchQuery;
@@ -51,38 +61,30 @@ serve(async (req) => {
       body = await req.json() as SearchQuery;
     } catch (parseError) {
       console.log("FEED_V1_ERR", { errorId, error: "Invalid JSON", message: String(parseError) });
-      return jsonResponse(400, { error: "invalid_json" });
+      return json(400, { error: "invalid_json" });
     }
 
     const page = Math.max(1, body.page || 1);
     const pageSize = Math.max(1, Math.min(body.pageSize || 10, 100));
 
-    // Extract JWT token and validate auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("FEED_V1_ERR", { errorId, error: "Missing or invalid auth header" });
-      return jsonResponse(401, { error: "unauthorized" });
-    }
-
-    const token = authHeader.slice(7);
-    
-    // Create authenticated Supabase client
+    // Create Supabase client with user's JWT attached
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!
+      Deno.env.get("SUPABASE_ANON_KEY")!,        // anon key, not service role
+      {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${bearer}` } }, // critical
+      }
     );
 
-    // Set auth token
-    await supabase.auth.setSession({ access_token: token, refresh_token: "" });
-
     // Get user from token
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData?.user) {
-      console.log("FEED_V1_ERR", { errorId, error: "Invalid token", message: userError?.message });
-      return jsonResponse(401, { error: "unauthorized" });
+    const { data: { user }, error: uerr } = await supabase.auth.getUser();
+    if (uerr || !user) {
+      console.log("FEED_V1_ERR", { errorId, error: "Invalid token", message: uerr?.message });
+      return json(401, { error: "unauthorized" });
     }
 
-    userId = userData.user.id;
+    userId = user.id;
 
     // Get user's agency_id from profile
     const { data: profile, error: profileError } = await supabase
@@ -93,7 +95,7 @@ serve(async (req) => {
 
     if (profileError || !profile?.agency_id) {
       console.log("FEED_V1_ERR", { errorId, userId, error: "No agency found for user", message: profileError?.message });
-      return jsonResponse(400, { error: "missing_agency" });
+      return json(400, { error: "missing_agency" });
     }
 
     agencyId = profile.agency_id;
@@ -190,7 +192,7 @@ serve(async (req) => {
         message: error.message,
         duration: queryDuration
       });
-      return jsonResponse(500, { error: error.message });
+      return json(500, { error: error.message });
     }
 
     console.log("Query completed", { 
@@ -276,7 +278,7 @@ serve(async (req) => {
       row_count: processedRows.length 
     });
 
-    return jsonResponse(200, {
+    return json(200, {
       rows: processedRows,
       page,
       pageSize,
@@ -294,7 +296,7 @@ serve(async (req) => {
     });
     
     // Never leak stack traces or internal details
-    return jsonResponse(500, { 
+    return json(500, { 
       error: "internal_server_error",
       error_id: errorId
     });
