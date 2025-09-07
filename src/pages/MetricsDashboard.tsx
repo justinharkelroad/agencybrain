@@ -6,7 +6,12 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, R
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Users, Target, Award } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TrendingUp, Users, Target, Award, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
 
 type Role = "Sales" | "Service";
@@ -60,12 +65,7 @@ export default function MetricsDashboard() {
 
   const [agencySlug, setAgencySlug] = useState<string>("");
   const [role, setRole] = useState<Role>("Sales");
-  // Default to today
-  const getToday = () => {
-    return new Date().toISOString().slice(0, 10);
-  };
-  const [start, setStart] = useState<string>(getToday());
-  const [end, setEnd] = useState<string>(getToday());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   // Fixed metrics based on default KPIs - no user selection needed
   const quotedLabel = "households";
   const soldMetric = "items";
@@ -125,8 +125,11 @@ export default function MetricsDashboard() {
       const { data: session } = await supa.auth.getSession();
       const token = session?.session?.access_token;
       
+      // Send same date as both start and end for single-day view
+      const dateString = format(selectedDate, "yyyy-MM-dd");
+      
       const res = await supa.functions.invoke('get_dashboard', {
-        body: { agencySlug, role, start, end, quotedLabel, soldMetric },
+        body: { agencySlug, role, start: dateString, end: dateString, quotedLabel, soldMetric },
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -157,7 +160,7 @@ export default function MetricsDashboard() {
     if (agencySlug) {
       fetchData();
     }
-  }, [agencySlug, role, start, end]);
+  }, [agencySlug, role, selectedDate]);
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -203,7 +206,7 @@ export default function MetricsDashboard() {
             <CardTitle className="text-lg">Dashboard Controls</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col space-y-2">
                 <label className="text-sm font-medium">Role</label>
                 <select 
@@ -216,22 +219,30 @@ export default function MetricsDashboard() {
                 </select>
               </div>
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">Start Date</label>
-                <input 
-                  className="border border-input bg-background px-3 py-2 rounded-md text-sm"
-                  type="date" 
-                  value={start} 
-                  onChange={e => setStart(e.target.value)} 
-                />
-              </div>
-              <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">End Date</label>
-                <input 
-                  className="border border-input bg-background px-3 py-2 rounded-md text-sm"
-                  type="date" 
-                  value={end} 
-                  onChange={e => setEnd(e.target.value)} 
-                />
+                <label className="text-sm font-medium">Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             {loading && (
@@ -253,7 +264,7 @@ export default function MetricsDashboard() {
           <TeamPerformanceRings 
             agencyId={agencyId}
             role={role}
-            date={end} // Use end date since it's the most recent in the range
+            date={format(selectedDate, "yyyy-MM-dd")}
           />
         )}
 
