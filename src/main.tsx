@@ -1,5 +1,5 @@
 import "@/lib/custom-elements-guard"; // MUST be first - ONLY custom element guard
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient"; // Singleton client with global supa
 
 // Verify session at bootstrap with detailed debugging
 supabase.auth.getSession().then(({ data }) => {
