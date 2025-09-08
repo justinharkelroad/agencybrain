@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supaPublic } from "@/lib/supabasePublic";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // Helper function to get current local date in YYYY-MM-DD format

@@ -7,7 +7,7 @@ import SharedInsights from '@/components/client/SharedInsights';
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { TopNav } from "@/components/TopNav";

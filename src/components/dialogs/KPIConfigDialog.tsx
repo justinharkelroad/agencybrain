@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KPIConfigDialogProps {
   title: string;

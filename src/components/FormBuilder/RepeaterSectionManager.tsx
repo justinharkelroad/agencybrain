@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Plus, X, Settings, Trash2, Lock, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useLeadSources } from "@/hooks/useLeadSources";
 
 interface RepeaterField {
@@ -61,7 +61,7 @@ export default function RepeaterSectionManager({
     const loadStickyFields = async () => {
       setLoadingSticky(true);
       try {
-        const { data, error } = await supa.rpc('get_sticky_fields_for_section', {
+        const { data, error } = await supabase.rpc('get_sticky_fields_for_section', {
           p_section_type: sectionKey
         });
 

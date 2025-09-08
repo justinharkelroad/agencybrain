@@ -17,7 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 
@@ -165,7 +165,7 @@ const ColumnMappingWizard: React.FC<FileProcessingProps> = ({
         formData.append('file', file);
         formData.append('category', category);
 
-        const response = await supa.functions.invoke('process-file', {
+        const response = await supabase.functions.invoke('process-file', {
           body: formData
         });
 
@@ -214,7 +214,7 @@ const ColumnMappingWizard: React.FC<FileProcessingProps> = ({
 
     setIsSaving(true);
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('column_mappings')
         .insert({
           user_id: user.id,

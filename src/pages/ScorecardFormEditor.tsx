@@ -13,7 +13,7 @@ import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from "@/lib/auth";
 
 interface KPIField {

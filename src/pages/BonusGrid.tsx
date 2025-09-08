@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { getBonusGridState, saveBonusGridState, recoverFromSnapshot, getLatestSnapshotForRecovery, type SaveResult } from "@/lib/bonusGridState";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import React from "react";
 
 import { BASELINE_ROWS, NEW_BIZ_ROWS } from "../bonus_grid_web_spec/rows";

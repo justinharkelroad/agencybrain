@@ -3,7 +3,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PeriodDeleteDialogProps {
   period: any;

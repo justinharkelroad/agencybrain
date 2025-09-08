@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -31,7 +31,7 @@ export function LeadSourceManager({ leadSources, onUpdateLeadSources }: LeadSour
     const fetchAgencyId = async () => {
       if (!user?.id) return;
       
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
@@ -52,7 +52,7 @@ export function LeadSourceManager({ leadSources, onUpdateLeadSources }: LeadSour
     try {
       const maxOrder = Math.max(...leadSources.map(s => s.order_index), 0);
       
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('lead_sources')
         .insert({
           agency_id: agencyId,
@@ -79,7 +79,7 @@ export function LeadSourceManager({ leadSources, onUpdateLeadSources }: LeadSour
   const removeLeadSource = async (id: string) => {
     setLoading(true);
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('lead_sources')
         .delete()
         .eq('id', id);
@@ -99,7 +99,7 @@ export function LeadSourceManager({ leadSources, onUpdateLeadSources }: LeadSour
   const updateLeadSource = async (id: string, updates: Partial<LeadSource>) => {
     setLoading(true);
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('lead_sources')
         .update(updates)
         .eq('id', id);
@@ -144,7 +144,7 @@ export function LeadSourceManager({ leadSources, onUpdateLeadSources }: LeadSour
       }));
 
       for (const update of updates) {
-        const { error } = await supa
+        const { error } = await supabase
           .from('lead_sources')
           .update({ order_index: update.order_index })
           .eq('id', update.id);

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -82,54 +82,55 @@ export default function MetricsDashboard() {
   const [scorecardRules, setScorecardRules] = useState<any>(null);
 
   // Get agency slug from user profile
-  useEffect(() => {
-    const fetchAgencySlug = async () => {
-      if (!user) return;
-      const { data: profile } = await supa
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user.id)
+  const fetchAgencySlug = useCallback(async () => {
+    if (!user) return;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('agency_id')
+      .eq('id', user.id)
+      .single();
+      
+    if (profile?.agency_id) {
+      const { data: agency } = await supabase
+        .from('agencies')
+        .select('slug, name')
+        .eq('id', profile.agency_id)
         .single();
-        
-      if (profile?.agency_id) {
-        const { data: agency } = await supa
-          .from('agencies')
-          .select('slug, name')
-          .eq('id', profile.agency_id)
-          .single();
-        if (agency?.slug) {
-          setAgencySlug(agency.slug);
-          setAgencyName(agency.name || "");
-          setAgencyId(profile.agency_id);
-        }
-        
-        // Fetch scorecard rules for this agency and role
-        const { data: rules } = await supa
-          .from('scorecard_rules')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .eq('role', role)
-          .single();
-        setScorecardRules(rules);
+      if (agency?.slug) {
+        setAgencySlug(agency.slug);
+        setAgencyName(agency.name || "");
+        setAgencyId(profile.agency_id);
       }
-    };
-    fetchAgencySlug();
-  }, [user]);
+      
+      // Fetch scorecard rules for this agency and role
+      const { data: rules } = await supabase
+        .from('scorecard_rules')
+        .select('*')
+        .eq('agency_id', profile.agency_id)
+        .eq('role', role)
+        .single();
+      setScorecardRules(rules);
+    }
+  }, [user, role]);
 
-  const fetchData = async () => {
-    if (!agencySlug) return;
+  useEffect(() => {
+    fetchAgencySlug();
+  }, [fetchAgencySlug]);
+
+  const fetchData = useCallback(async () => {
+    if (!agencySlug || loading) return;
     
     setLoading(true);
     setErr(null);
     
     try {
-      const { data: session } = await supa.auth.getSession();
+      const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       
       // Send same date as both start and end for single-day view
       const dateString = format(selectedDate, "yyyy-MM-dd");
       
-      const res = await supa.functions.invoke('get_dashboard', {
+      const res = await supabase.functions.invoke('get_dashboard', {
         body: { agencySlug, role, start: dateString, end: dateString, quotedLabel, soldMetric },
         headers: {
           Authorization: `Bearer ${token}`
@@ -155,13 +156,13 @@ export default function MetricsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [agencySlug, role, selectedDate, quotedLabel, soldMetric, loading]);
 
   useEffect(() => {
-    if (agencySlug) {
+    if (agencySlug && !loading) {
       fetchData();
     }
-  }, [agencySlug, role, selectedDate]);
+  }, [agencySlug, role, selectedDate, fetchData]);
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

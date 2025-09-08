@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/lib/auth";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export function MyAccountDialogTriggerButton() {
   const { user, isAdmin } = useAuth();
@@ -27,7 +27,7 @@ export function MyAccountDialogTriggerButton() {
     }
     setSaving(true);
     try {
-      const { error } = await supa.auth.updateUser({ data: { full_name } });
+      const { error } = await supabase.auth.updateUser({ data: { full_name } });
       if (error) throw error;
       toast({ title: "Saved", description: "Account updated successfully." });
       setOpen(false);

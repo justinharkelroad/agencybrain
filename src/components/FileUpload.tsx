@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
 interface FileUploadProps {
@@ -78,19 +78,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${category}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        const { data, error } = await supa.storage
+        const { data, error } = await supabase.storage
           .from('uploads')
           .upload(fileName, file);
 
         if (error) throw error;
 
         // Get public URL
-        const { data: { publicUrl } } = supa.storage
+        const { data: { publicUrl } } = supabase.storage
           .from('uploads')
           .getPublicUrl(fileName);
 
         // Save file info to database
-        const { error: dbError } = await supa
+        const { error: dbError } = await supabase
           .from('uploads')
           .insert({
             user_id: user.id,
@@ -149,14 +149,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const removeFile = async (fileId: string) => {
     try {
       // Remove from storage
-      const { error: storageError } = await supa.storage
+      const { error: storageError } = await supabase.storage
         .from('uploads')
         .remove([fileId]);
 
       if (storageError) throw storageError;
 
       // Remove from database
-      const { error: dbError } = await supa
+      const { error: dbError } = await supabase
         .from('uploads')
         .delete()
         .eq('file_path', fileId);

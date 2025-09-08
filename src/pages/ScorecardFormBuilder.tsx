@@ -16,7 +16,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from "@/lib/auth";
 
 interface KPIField {
