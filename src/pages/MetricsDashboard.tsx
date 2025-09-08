@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TrendingUp, Users, Target, Award, CalendarIcon } from "lucide-react";
+import { TrendingUp, Users, Target, Award, CalendarIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
+import { Link } from "react-router-dom";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -263,11 +264,22 @@ export default function MetricsDashboard() {
 
         {/* Team Member Performance Rings */}
         {agencyId && (
-          <TeamPerformanceRings 
-            agencyId={agencyId}
-            role={role}
-            date={format(selectedDate, "yyyy-MM-dd")}
-          />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Team Performance Overview</h2>
+              <Link to="/team-rings">
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Full Team Performance
+                </Button>
+              </Link>
+            </div>
+            <TeamPerformanceRings 
+              agencyId={agencyId}
+              role={role}
+              date={format(selectedDate, "yyyy-MM-dd")}
+            />
+          </div>
         )}
 
         {/* Tiles - Dynamic based on role */}

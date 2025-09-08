@@ -105,11 +105,10 @@ function CompactRing({
       </svg>
       <div 
         className="absolute inset-0 flex items-center justify-center"
-        style={{ fontSize: `${size * 0.18}px`, lineHeight: 1 }}
+        style={{ fontSize: `${size * 0.2}px`, lineHeight: 1 }}
       >
         <span 
-          className="font-semibold tabular-nums"
-          style={{ color }}
+          className="font-bold tabular-nums text-foreground drop-shadow-sm"
         >
           {actual}
         </span>

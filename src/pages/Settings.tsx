@@ -360,26 +360,18 @@ export default function Settings() {
           <TabsContent value="targets" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>KPI Targets Management</CardTitle>
+                <CardTitle>Performance Targets</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Set individual targets for team members and roles.
+                  Set individual targets for team members and roles. Team performance can be viewed from the Metrics Dashboard.
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-4">
-                  <Link to="/targets">
-                    <Button variant="outline">
-                      <Target className="h-4 w-4 mr-2" />
-                      Manage KPI Targets
-                    </Button>
-                  </Link>
-                  <Link to="/team-rings">
-                    <Button variant="outline">
-                      <Users className="h-4 w-4 mr-2" />
-                      View Team Performance
-                    </Button>
-                  </Link>
-                </div>
+                <Link to="/targets">
+                  <Button variant="outline">
+                    <Target className="h-4 w-4 mr-2" />
+                    Manage KPI Targets
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </TabsContent>

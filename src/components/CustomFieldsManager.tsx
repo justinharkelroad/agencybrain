@@ -155,6 +155,13 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              <strong>Custom fields</strong> will appear in the Explorer tab when viewing prospect details. 
+              Use them to collect additional information specific to your agency's needs.
+            </p>
+          </div>
+          
           {loading ? (
             <div className="text-center py-4">
               <p className="text-muted-foreground">Loading custom fields...</p>
@@ -183,9 +190,6 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Key: {field.field_key}
-                    </p>
                     {field.field_type === 'dropdown' && field.options && field.options.length > 0 && (
                       <p className="text-xs text-muted-foreground">
                         Options: {field.options.slice(0, 3).join(', ')}{field.options.length > 3 ? '...' : ''}
@@ -221,6 +225,9 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create Custom Field</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              This field will be available when viewing prospect details in the Explorer.
+            </p>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -230,21 +237,8 @@ export function CustomFieldsManager({ agencyId }: CustomFieldsManagerProps) {
                 id="field_label"
                 value={newField.field_label}
                 onChange={(e) => setNewField(prev => ({ ...prev, field_label: e.target.value }))}
-                placeholder="Enter field label"
+                placeholder="e.g. 'Follow-up Date' or 'Lead Source'"
               />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="field_key">Field Key (optional)</Label>
-              <Input
-                id="field_key"
-                value={newField.field_key}
-                onChange={(e) => setNewField(prev => ({ ...prev, field_key: e.target.value }))}
-                placeholder="Auto-generated from label"
-              />
-              <p className="text-xs text-muted-foreground">
-                Used for data storage. Leave blank to auto-generate.
-              </p>
             </div>
             
             <div className="space-y-2">
