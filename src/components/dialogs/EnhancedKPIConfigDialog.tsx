@@ -55,21 +55,45 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     try {
       setLoading(true);
 
-      // Load agency's active KPIs
+      // First, load scorecard rules to get role-specific selected_metrics
+      const { data: scorecardRules, error: rulesError } = await supa
+        .from('scorecard_rules')
+        .select('selected_metrics')
+        .eq('agency_id', agencyId)
+        .eq('role', type)
+        .single();
+
+      if (rulesError) {
+        console.error('Error loading scorecard rules:', rulesError);
+        toast.error('Failed to load role configuration');
+        return;
+      }
+
+      const selectedMetrics = scorecardRules?.selected_metrics || [];
+      
+      if (selectedMetrics.length === 0) {
+        console.warn(`No selected metrics found for ${type} role`);
+        setKpis([]);
+        return;
+      }
+
+      // Load only KPIs that are in the role's selected_metrics
       const { data: kpisData, error: kpisError } = await supa
         .from('kpis')
         .select('*')
         .eq('agency_id', agencyId)
         .eq('is_active', true)
+        .in('key', selectedMetrics)
         .order('key');
 
       if (kpisError) throw kpisError;
 
-      // Load existing targets
+      // Load existing targets for role-relevant KPIs only
       const { data: targets, error: targetsError } = await supa
         .from('targets')
         .select('metric_key, value_number')
         .eq('agency_id', agencyId)
+        .in('metric_key', selectedMetrics)
         .is('team_member_id', null);
 
       if (targetsError) throw targetsError;
@@ -153,15 +177,18 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
     setLoading(true);
     try {
-      // Delete existing targets for these KPIs
+      // Only process KPIs that are in the current role's scope
+      const kpiKeys = kpis.map(kpi => kpi.key);
+      
+      // Delete existing targets for role-relevant KPIs only
       await supa
         .from('targets')
         .delete()
         .eq('agency_id', agencyId)
         .is('team_member_id', null)
-        .in('metric_key', kpis.map(kpi => kpi.key));
+        .in('metric_key', kpiKeys);
 
-      // Insert new targets
+      // Insert new targets for role-relevant KPIs only
       const targetsToInsert = kpis.map(kpi => ({
         agency_id: agencyId,
         metric_key: kpi.key,
@@ -253,6 +280,9 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
               {title}
+              <span className="ml-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
+                {type.toUpperCase()}
+              </span>
             </DialogTitle>
           </DialogHeader>
           
