@@ -43,9 +43,9 @@ serve(async (req) => {
   let agencyId: string | null = null;
 
   try {
-    // Log request start with deployment verification
+    // DEPLOYMENT VERIFICATION - NEW VERSION WITH FIXES
+    console.log("DEPLOYMENT_SUCCESS: explorer_feed version 2025-01-08-v4 - TEAM MEMBERS AND NOTES FIX ACTIVE");
     console.log("FEED_V1_START", { errorId, timestamp: new Date().toISOString() });
-    console.log("DEPLOYMENT_VERIFICATION: explorer_feed version 2025-01-08-v3 - comprehensive debugging active");
 
     if (req.method !== "POST") {
       return json(405, { error: "METHOD_NOT_ALLOWED" });
@@ -232,30 +232,39 @@ serve(async (req) => {
 
     // Process and merge the data with COALESCE logic
     let processedRows = (rawRows || []).map((row: any) => {
+      // Get data with flexible access pattern for PostgREST response
       const override = row.prospect_overrides?.[0]; // First override if exists
       const originalLeadSource = row.lead_sources?.name;
       const overrideLeadSource = override?.lead_sources?.name;
-      const quotedHousehold = row.submissions?.quoted_households?.[0]; // Get notes from quoted_households
-      const teamMember = row.submissions?.team_members?.[0]; // Get team member info
+      
+      // Handle team_members - can be object or array depending on PostgREST structure
+      const teamMemberData = row.submissions?.team_members;
+      const teamMember = Array.isArray(teamMemberData) ? teamMemberData[0] : teamMemberData;
+      
+      // Handle quoted_households - can be object or array depending on PostgREST structure  
+      const quotedHouseholdData = row.submissions?.quoted_households;
+      const quotedHousehold = Array.isArray(quotedHouseholdData) ? quotedHouseholdData[0] : quotedHouseholdData;
       
       // DEBUG: Comprehensive logging for team member data
       console.log("DEBUG_TEAM_MEMBER_DATA", {
         errorId,
         household: row.household_name,
         team_member_id: row.submissions?.team_member_id,
-        team_members_array: row.submissions?.team_members,
-        team_member_object: teamMember,
-        team_member_name: teamMember?.name
+        team_members_raw: teamMemberData,
+        team_member_processed: teamMember,
+        team_member_name: teamMember?.name,
+        is_array: Array.isArray(teamMemberData)
       });
 
       // DEBUG: Comprehensive logging for notes data
       console.log("DEBUG_NOTES_DATA", {
         errorId,
         household: row.household_name,
-        quoted_households_array: row.submissions?.quoted_households,
-        quoted_household_object: quotedHousehold,
+        quoted_households_raw: quotedHouseholdData,
+        quoted_household_processed: quotedHousehold,
         notes_from_quoted_household: quotedHousehold?.notes,
-        override_notes: override?.notes
+        override_notes: override?.notes,
+        is_array: Array.isArray(quotedHouseholdData)
       });
       
       // Process custom fields
