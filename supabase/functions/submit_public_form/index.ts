@@ -310,6 +310,14 @@ serve(async (req) => {
           premiumPotentialCents
         });
         
+        // Extract custom fields from prospect data
+        const customFields = {};
+        Object.keys(prospect).forEach(key => {
+          if (key.startsWith('field_')) {
+            customFields[key] = prospect[key];
+          }
+        });
+
         quotedDetails.push({
           submission_id: ins.id,
           household_name: prospectName,
@@ -319,14 +327,6 @@ serve(async (req) => {
           policies_quoted: policiesQuoted,
           premium_potential_cents: premiumPotentialCents,
           extras: customFields,
-        });
-
-        // Extract custom fields from prospect data
-        const customFields = {};
-        Object.keys(prospect).forEach(key => {
-          if (key.startsWith('field_')) {
-            customFields[key] = prospect[key];
-          }
         });
 
         // Also populate the quoted_households table for Explorer
