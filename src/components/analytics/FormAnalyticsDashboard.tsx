@@ -30,7 +30,7 @@ export function FormAnalyticsDashboard() {
       setLoading(true);
       
       // Get user's agency first
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -42,7 +42,7 @@ export function FormAnalyticsDashboard() {
       }
 
       // Fetch form submissions for this agency
-      const { data: submissions, error } = await supa
+      const { data: submissions, error } = await supabase
         .from('submissions')
         .select(`
           *,
@@ -65,7 +65,7 @@ export function FormAnalyticsDashboard() {
       const totalSubmissions = submissions?.length || 0;
       
       // Get form templates count for completion rate
-      const { data: templates } = await supa
+      const { data: templates } = await supabase
         .from('form_templates')
         .select('id')
         .eq('agency_id', profile.agency_id);

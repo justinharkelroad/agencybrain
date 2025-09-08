@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AdminTopNav } from "@/components/AdminTopNav";
 import { useAuth } from "@/lib/auth";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";

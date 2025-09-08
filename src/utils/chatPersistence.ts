@@ -1,5 +1,5 @@
 
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ChatMessageRow = {
   id: string;

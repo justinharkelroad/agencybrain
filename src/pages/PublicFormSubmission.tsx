@@ -33,7 +33,7 @@ export default function PublicFormSubmission() {
 
   // Check auth session on load (for debugging)
   useEffect(() => {
-    supaPublic.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       console.log("🔐 Auth session present?", Boolean(data.session));
     });
   }, []);
@@ -42,7 +42,7 @@ export default function PublicFormSubmission() {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
     (async () => {
       try {
-        const { data, error } = await supaPublic.functions.invoke('resolve_public_form', {
+        const { data, error } = await supabase.functions.invoke('resolve_public_form', {
           body: {
             agencySlug,
             formSlug,
@@ -208,7 +208,7 @@ export default function PublicFormSubmission() {
       console.log('📤 POST to submit_public_form...');
       console.log('📋 Payload being sent:', JSON.stringify(payload, null, 2));
       
-      const { data, error } = await supaPublic.functions.invoke("submit_public_form", { body: payload });
+      const { data, error } = await supabase.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
         console.log('❌ Submission error details:', {

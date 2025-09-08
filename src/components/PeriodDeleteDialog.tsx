@@ -24,7 +24,7 @@ export const PeriodDeleteDialog: React.FC<PeriodDeleteDialogProps> = ({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-    const { error } = await supa
+    const { error } = await supabase
       .from('periods')
       .delete()
       .eq('id', period.id);

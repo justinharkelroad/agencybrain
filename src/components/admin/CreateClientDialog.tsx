@@ -40,14 +40,14 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
 
     try {
       // Get the current session to send the auth token
-      const { data: { session } } = await supa.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
         throw new Error('No authentication token found');
       }
 
       // Call the edge function to create the user
-      const { data, error } = await supa.functions.invoke('admin-create-user', {
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: {
           email: formData.email,
           password: formData.password,
@@ -77,7 +77,7 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
       // Optionally set initial Coaching MRR
       try {
         if (formData.mrr && !Number.isNaN(Number(formData.mrr))) {
-          await supa
+          await supabase
             .from('profiles')
             .update({ mrr: Number(formData.mrr) })
             .eq('id', data?.user?.id);
