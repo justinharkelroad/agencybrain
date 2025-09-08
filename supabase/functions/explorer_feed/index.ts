@@ -130,7 +130,7 @@ serve(async (req) => {
             notes,
             lead_source
           ),
-          team_members!inner(
+          team_members(
             name
           )
         ),
@@ -219,6 +219,11 @@ serve(async (req) => {
       const overrideLeadSource = override?.lead_sources?.name;
       const quotedHousehold = row.submissions?.quoted_households?.[0]; // Get notes from quoted_households
       const teamMember = row.submissions?.team_members?.[0]; // Get team member info
+      
+      // Debug: Log when team member data is missing
+      if (!teamMember?.name && row.submissions?.team_member_id) {
+        console.log(`Missing team member data for ID: ${row.submissions.team_member_id}, household: ${row.household_name}`);
+      }
       
       // Process custom fields
       const customFields = (row.prospect_custom_field_values || []).reduce((acc: any, cfv: any) => {
