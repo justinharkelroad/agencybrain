@@ -5,6 +5,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RING_COLORS, RING_LABELS } from "./colors";
 import { useRef } from "react";
 import { Check, X } from "lucide-react";
+import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 
 type RingMetric = {
   key: string;
@@ -130,6 +131,15 @@ export default function TeamPerformanceRings({
   const [teamData, setTeamData] = useState<TeamMemberRings[]>([]);
   const [ringMetrics, setRingMetrics] = useState<string[]>([]);
   const [nRequired, setNRequired] = useState(2);
+  
+  // Modal state for PersonSnapshotModal
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+  const handleMemberClick = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    setSnapshotOpen(true);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -275,7 +285,11 @@ export default function TeamPerformanceRings({
       <CardContent>
         <div className="flex flex-col gap-4 md:flex-row md:gap-6 md:overflow-x-auto pb-2">
           {teamData.map((member) => (
-            <Card key={member.id} className="flex-shrink-0 min-w-[200px]">
+            <Card 
+              key={member.id} 
+              className="flex-shrink-0 min-w-[200px] cursor-pointer hover:bg-accent/50 transition-colors" 
+              onClick={() => handleMemberClick(member.id)}
+            >
               <CardContent className="p-4">
                 <div className="flex flex-col items-center gap-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-foreground text-center">
@@ -309,6 +323,12 @@ export default function TeamPerformanceRings({
           ))}
         </div>
       </CardContent>
+      
+      <PersonSnapshotModal 
+        open={snapshotOpen} 
+        onOpenChange={setSnapshotOpen} 
+        memberId={selectedMemberId} 
+      />
     </Card>
   );
 }
