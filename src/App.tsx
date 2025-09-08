@@ -124,11 +124,12 @@ const App = () => (
                 <Targets />
               </ProtectedRoute>
             } />
-            <Route path="/scorecard-settings" element={
+            <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
               </ProtectedRoute>
             } />
+            <Route path="/scorecard-settings" element={<Navigate to="/settings" replace />} />
             <Route path="/prospect-settings" element={
               <ProtectedRoute>
                 <ProspectSettings />
