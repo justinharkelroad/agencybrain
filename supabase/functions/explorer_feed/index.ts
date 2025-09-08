@@ -104,7 +104,7 @@ serve(async (req) => {
     // Calculate offset for pagination
     const offset = (page - 1) * pageSize;
 
-    // Build query - simplified single query with joins
+    // Build query - simplified single query with joins including team_members
     const queryStartTime = Date.now();
     let query = supabase
       .from("quoted_household_details")
@@ -129,6 +129,9 @@ serve(async (req) => {
             household_name,
             notes,
             lead_source
+          ),
+          team_members!inner(
+            name
           )
         ),
         lead_sources(name),
@@ -215,6 +218,7 @@ serve(async (req) => {
       const originalLeadSource = row.lead_sources?.name;
       const overrideLeadSource = override?.lead_sources?.name;
       const quotedHousehold = row.submissions?.quoted_households?.[0]; // Get notes from quoted_households
+      const teamMember = row.submissions?.team_members?.[0]; // Get team member info
       
       // Process custom fields
       const customFields = (row.prospect_custom_field_values || []).reduce((acc: any, cfv: any) => {
@@ -233,7 +237,7 @@ serve(async (req) => {
         created_at: row.created_at,
         prospect_name: override?.prospect_name || row.household_name,
         zip: override?.zip || row.zip_code || "",
-        lead_source_label: override?.lead_source_raw || overrideLeadSource || originalLeadSource || "Undefined",
+        lead_source_label: override?.lead_source_raw || overrideLeadSource || originalLeadSource || quotedHousehold?.lead_source || "Undefined",
         notes: override?.notes || quotedHousehold?.notes || "", // Get notes from quoted_households first, then override
         items_quoted: override?.items_quoted ?? row.items_quoted ?? 0,
         policies_quoted: override?.policies_quoted ?? row.policies_quoted ?? 0,
@@ -241,6 +245,8 @@ serve(async (req) => {
         status: row.submissions?.final ? "final" : "draft",
         email: override?.email || "",
         phone: override?.phone || "",
+        staff_member_name: teamMember?.name || "Unknown",
+        team_member_id: row.submissions?.team_member_id,
         custom_fields: customFields
       };
     });

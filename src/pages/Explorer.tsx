@@ -19,6 +19,7 @@ interface QuotedHousehold {
   work_date?: string;
   created_at: string;
   prospect_name: string;
+  staff_member_name?: string;
   lead_source_label?: string | null;
   zip?: string | null;
   notes?: string | null;
@@ -137,10 +138,9 @@ export default function Explorer() {
 
     const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes", "Email", "Phone"];
     const csvRows = rows.map(row => {
-      const staffMember = teamMembers.find(m => m.id === row.team_member_id);
       const values = [
         row.work_date || row.created_at?.split('T')[0] || "",
-        staffMember?.name || "Unknown",
+        row.staff_member_name || "Unknown",
         row.prospect_name || "",
         row.lead_source_label || "Undefined",
         row.zip || "",
@@ -422,7 +422,7 @@ export default function Explorer() {
                       </td>
                       <td className="p-3">{row.work_date || row.created_at?.split('T')[0] || "—"}</td>
                       <td className="p-3">
-                        {teamMembers.find(m => m.id === row.team_member_id)?.name || "Unknown"}
+                        {row.staff_member_name || "Unknown"}
                       </td>
                       <td className="p-3 font-medium">{row.prospect_name}</td>
                       <td className="p-3">

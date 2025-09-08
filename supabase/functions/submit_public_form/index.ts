@@ -280,9 +280,9 @@ serve(async (req) => {
                                leadSourceRaw ||
                                null;
         
-        // If it looks like a UUID, use it as lead_source_id, otherwise as raw text
+        // If it looks like a UUID, query for the name and use both ID and name
         let leadSourceId = null;
-        let leadSourceRaw = null;
+        let leadSourceName = null;
         
         if (leadSourceValue) {
           // Check if it's a UUID format (36 chars with hyphens)
@@ -290,9 +290,23 @@ serve(async (req) => {
           if (uuidRegex.test(leadSourceValue)) {
             leadSourceId = leadSourceValue;
             console.log("🔍 DEBUG: Using lead_source_id (UUID):", leadSourceId);
+            
+            // Query lead_sources table to get the name
+            const { data: leadSourceData, error: leadSourceError } = await supabase
+              .from('lead_sources')
+              .select('name')
+              .eq('id', leadSourceId)
+              .single();
+            
+            if (!leadSourceError && leadSourceData) {
+              leadSourceName = leadSourceData.name;
+              console.log("🔍 DEBUG: Found lead source name:", leadSourceName);
+            } else {
+              console.log("⚠️ WARNING: Could not find lead source name for UUID:", leadSourceId);
+            }
           } else {
-            leadSourceRaw = leadSourceValue;
-            console.log("🔍 DEBUG: Using lead_source_raw (text):", leadSourceRaw);
+            leadSourceName = leadSourceValue;
+            console.log("🔍 DEBUG: Using lead_source_name (text):", leadSourceName);
           }
         }
         
@@ -362,7 +376,7 @@ serve(async (req) => {
           work_date: body.workDate || body.submissionDate,
           household_name: prospectName,
           zip: prospect.zipCode || prospect.zip || null,
-          lead_source: leadSourceRaw || leadSourceId, // Use raw text or ID as fallback
+          lead_source: leadSourceName || leadSourceValue, // Use resolved name or original value
           notes: prospect.detailed_notes || prospect.notes || null,
           extras: customFields,
           is_final: true,
