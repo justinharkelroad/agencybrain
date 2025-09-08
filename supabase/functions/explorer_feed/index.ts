@@ -124,7 +124,12 @@ serve(async (req) => {
           form_template_id,
           final,
           late,
-          form_templates!inner(agency_id)
+          form_templates!inner(agency_id),
+          quoted_households!inner(
+            household_name,
+            notes,
+            lead_source
+          )
         ),
         lead_sources(name),
         prospect_overrides(
@@ -209,6 +214,7 @@ serve(async (req) => {
       const override = row.prospect_overrides?.[0]; // First override if exists
       const originalLeadSource = row.lead_sources?.name;
       const overrideLeadSource = override?.lead_sources?.name;
+      const quotedHousehold = row.submissions?.quoted_households?.[0]; // Get notes from quoted_households
       
       // Process custom fields
       const customFields = (row.prospect_custom_field_values || []).reduce((acc: any, cfv: any) => {
@@ -228,7 +234,7 @@ serve(async (req) => {
         prospect_name: override?.prospect_name || row.household_name,
         zip: override?.zip || row.zip_code || "",
         lead_source_label: override?.lead_source_raw || overrideLeadSource || originalLeadSource || "Undefined",
-        notes: override?.notes || "",
+        notes: override?.notes || quotedHousehold?.notes || "", // Get notes from quoted_households first, then override
         items_quoted: override?.items_quoted ?? row.items_quoted ?? 0,
         policies_quoted: override?.policies_quoted ?? row.policies_quoted ?? 0,
         premium_potential_cents: override?.premium_potential_cents ?? row.premium_potential_cents ?? 0,

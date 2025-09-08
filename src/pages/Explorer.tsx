@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, DownloadIcon, FilterIcon } from "lucide-react";
+import { SearchIcon, DownloadIcon, FilterIcon, EditIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ProspectEditModal } from "@/components/ProspectEditModal";
 
@@ -135,18 +135,21 @@ export default function Explorer() {
       return;
     }
 
-    const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes"];
+    const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes", "Email", "Phone"];
     const csvRows = rows.map(row => {
+      const staffMember = teamMembers.find(m => m.id === row.team_member_id);
       const values = [
         row.work_date || row.created_at?.split('T')[0] || "",
-        teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id || "",
+        staffMember?.name || "Unknown",
         row.prospect_name || "",
         row.lead_source_label || "Undefined",
         row.zip || "",
         row.items_quoted?.toString() || "0",
         row.policies_quoted?.toString() || "0", 
         (row.premium_potential_cents / 100).toFixed(2),
-        (row.notes || "").replace(/\n/g, " ").replace(/"/g, '""') // Escape quotes and newlines
+        (row.notes || "").replace(/\n/g, " ").replace(/"/g, '""'), // Escape quotes and newlines
+        row.email || "",
+        row.phone || ""
       ];
       return values.map(value => `"${value}"`).join(",");
     });
@@ -392,25 +395,34 @@ export default function Explorer() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left p-3 font-medium w-12">Edit</th>
                     <th className="text-left p-3 font-medium">Date</th>
                     <th className="text-left p-3 font-medium">Staff</th>
                     <th className="text-left p-3 font-medium">Household</th>
                     <th className="text-left p-3 font-medium">Lead Source</th>
-                    <th className="text-left p-3 font-medium">ZIP</th>
                     <th className="text-left p-3 font-medium">#Items</th>
                     <th className="text-left p-3 font-medium">#Policies</th>
-                    <th className="text-left p-3 font-medium">Premium Potential</th>
-                    <th className="text-left p-3 font-medium">Custom Fields</th>
-                    <th className="text-left p-3 font-medium">Notes</th>
-                    <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id} className="border-b hover:bg-muted/50">
+                      <td className="p-3">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedHousehold(convertToModalFormat(row));
+                            setIsEditModalOpen(true);
+                          }}
+                          className="h-8 w-8 p-0"
+                        >
+                          <EditIcon className="h-4 w-4" />
+                        </Button>
+                      </td>
                       <td className="p-3">{row.work_date || row.created_at?.split('T')[0] || "—"}</td>
                       <td className="p-3">
-                        {teamMembers.find(m => m.id === row.team_member_id)?.name || row.team_member_id}
+                        {teamMembers.find(m => m.id === row.team_member_id)?.name || "Unknown"}
                       </td>
                       <td className="p-3 font-medium">{row.prospect_name}</td>
                       <td className="p-3">
@@ -422,48 +434,8 @@ export default function Explorer() {
                           row.lead_source_label || "—"
                         )}
                       </td>
-                      <td className="p-3">{row.zip || "—"}</td>
                       <td className="p-3">{row.items_quoted || 0}</td>
                       <td className="p-3">{row.policies_quoted || 0}</td>
-                      <td className="p-3">
-                        ${((row.premium_potential_cents || 0) / 100).toLocaleString('en-US', { 
-                          minimumFractionDigits: 2, 
-                          maximumFractionDigits: 2 
-                        })}
-                      </td>
-                      <td className="p-3 max-w-[150px]">
-                        {row.custom_fields && Object.keys(row.custom_fields).length > 0 ? (
-                          <div className="text-xs space-y-1">
-                            {Object.entries(row.custom_fields).slice(0, 2).map(([key, field]) => (
-                              <div key={key} className="truncate">
-                                <span className="font-medium text-muted-foreground">{field.label}:</span> {field.value || '—'}
-                              </div>
-                            ))}
-                            {Object.keys(row.custom_fields).length > 2 && (
-                              <div className="text-muted-foreground">+{Object.keys(row.custom_fields).length - 2} more</div>
-                            )}
-                          </div>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="p-3 max-w-[200px]">
-                        <div className="truncate" title={row.notes || ""}>
-                          {row.notes || "—"}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedHousehold(convertToModalFormat(row));
-                            setIsEditModalOpen(true);
-                          }}
-                        >
-                          Edit Details
-                        </Button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
