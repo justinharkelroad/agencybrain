@@ -47,7 +47,16 @@ import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 60 seconds
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <ErrorBoundary>

@@ -1029,6 +1029,7 @@ export type Database = {
           id: string
           is_counted_day: boolean
           is_late: boolean
+          metric_slug: string | null
           mini_reviews: number | null
           outbound_calls: number | null
           pass: boolean | null
@@ -1054,6 +1055,7 @@ export type Database = {
           id?: string
           is_counted_day?: boolean
           is_late?: boolean
+          metric_slug?: string | null
           mini_reviews?: number | null
           outbound_calls?: number | null
           pass?: boolean | null
@@ -1079,6 +1081,7 @@ export type Database = {
           id?: string
           is_counted_day?: boolean
           is_late?: boolean
+          metric_slug?: string | null
           mini_reviews?: number | null
           outbound_calls?: number | null
           pass?: boolean | null
@@ -1600,6 +1603,7 @@ export type Database = {
           recalc_past_on_change: boolean | null
           ring_metrics: string[] | null
           role: Database["public"]["Enums"]["app_member_role"]
+          selected_metric_slugs: string[] | null
           selected_metrics: string[] | null
           updated_at: string
           weights: Json | null
@@ -1615,6 +1619,7 @@ export type Database = {
           recalc_past_on_change?: boolean | null
           ring_metrics?: string[] | null
           role: Database["public"]["Enums"]["app_member_role"]
+          selected_metric_slugs?: string[] | null
           selected_metrics?: string[] | null
           updated_at?: string
           weights?: Json | null
@@ -1630,6 +1635,7 @@ export type Database = {
           recalc_past_on_change?: boolean | null
           ring_metrics?: string[] | null
           role?: Database["public"]["Enums"]["app_member_role"]
+          selected_metric_slugs?: string[] | null
           selected_metrics?: string[] | null
           updated_at?: string
           weights?: Json | null

@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TrendingUp, Users, Target, Award, CalendarIcon, Eye } from "lucide-react";
+import { TrendingUp, Users, Target, Award, CalendarIcon, Eye, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
 import { Link } from "react-router-dom";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { DashboardError } from "@/components/DashboardError";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { useAgencyProfile } from "@/hooks/useAgencyProfile";
+import { useKpis } from "@/hooks/useKpis";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -64,115 +66,97 @@ export default function MetricsDashboard() {
     return <Navigate to="/auth" replace />;
   }
 
-  const [agencySlug, setAgencySlug] = useState<string>("");
   const [role, setRole] = useState<Role>("Sales");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   // Fixed metrics based on default KPIs - no user selection needed
   const quotedLabel = "households";
   const soldMetric = "items";
-  const [tiles, setTiles] = useState<Tiles | null>(null);
-  const [rows, setRows] = useState<TableRow[]>([]);
-  const [series, setSeries] = useState<DailySeries[]>([]);
-  const [contest, setContest] = useState<TableRow[]>([]);
-  const [contestEnabled, setContestEnabled] = useState<boolean>(false);
-  const [agencyName, setAgencyName] = useState<string>("");
-  const [agencyId, setAgencyId] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [scorecardRules, setScorecardRules] = useState<any>(null);
 
-  // Get agency slug from user profile
-  const fetchAgencySlug = useCallback(async () => {
-    if (!user) return;
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('agency_id')
-      .eq('id', user.id)
-      .single();
-      
-    if (profile?.agency_id) {
-      const { data: agency } = await supabase
-        .from('agencies')
-        .select('slug, name')
-        .eq('id', profile.agency_id)
-        .single();
-      if (agency?.slug) {
-        setAgencySlug(agency.slug);
-        setAgencyName(agency.name || "");
-        setAgencyId(profile.agency_id);
-      }
-      
-      // Fetch scorecard rules for this agency and role
-      const { data: rules } = await supabase
-        .from('scorecard_rules')
-        .select('*')
-        .eq('agency_id', profile.agency_id)
-        .eq('role', role)
-        .single();
-      setScorecardRules(rules);
-    }
-  }, [user, role]);
+  // Load agency profile data
+  const {
+    data: agencyProfile,
+    isLoading: agencyLoading,
+    error: agencyError,
+  } = useAgencyProfile(user?.id, role);
 
-  useEffect(() => {
-    fetchAgencySlug();
-  }, [fetchAgencySlug]);
+  // Load dashboard data
+  const {
+    data: dashboardData,
+    isLoading: dashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+    isFetching: dashboardFetching,
+  } = useDashboardData({
+    agencySlug: agencyProfile?.agencySlug || "",
+    role,
+    selectedDate,
+    quotedLabel,
+    soldMetric,
+  });
 
-  const fetchData = useCallback(async () => {
-    if (!agencySlug || loading) return;
-    
-    setLoading(true);
-    setErr(null);
-    
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session?.session?.access_token;
-      
-      // Send same date as both start and end for single-day view
-      const dateString = format(selectedDate, "yyyy-MM-dd");
-      
-      const res = await supabase.functions.invoke('get_dashboard', {
-        body: { agencySlug, role, start: dateString, end: dateString, quotedLabel, soldMetric },
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+  // Load KPIs for the current agency member
+  const {
+    data: kpisData,
+    isLoading: kpisLoading,
+  } = useKpis(user?.id || "", role);
 
-      if (res.error) {
-        throw new Error(res.error.message || 'Dashboard fetch failed');
-      }
+  // Show loading skeleton on first load
+  if (agencyLoading || (dashboardLoading && !dashboardData)) {
+    return <DashboardSkeleton />;
+  }
 
-      const data = res.data;
-      setTiles(data.tiles);
-      setRows(data.table);
-      setSeries(data.dailySeries);
-      setContest(data.contest);
-      setContestEnabled(!!data.meta?.contest_board_enabled);
-      if (data.meta?.agencyName) {
-        setAgencyName(data.meta.agencyName);
-      }
-    } catch (error: any) {
-      setErr(error.message || "Failed to load dashboard");
-      console.error("Dashboard error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [agencySlug, role, selectedDate, quotedLabel, soldMetric, loading]);
+  // Show error state with retry
+  if (agencyError) {
+    return (
+      <DashboardError 
+        error={agencyError} 
+        onRetry={() => window.location.reload()} 
+      />
+    );
+  }
 
-  useEffect(() => {
-    if (agencySlug && !loading) {
-      fetchData();
-    }
-  }, [agencySlug, role, selectedDate, fetchData]);
+  if (dashboardError) {
+    return (
+      <DashboardError 
+        error={dashboardError} 
+        onRetry={refetchDashboard}
+        isRetrying={dashboardFetching}
+      />
+    );
+  }
+
+  // Always render content with data fallbacks
+  const tiles = dashboardData?.tiles || {
+    outbound_calls: 0,
+    talk_minutes: 0,
+    quoted: 0,
+    sold_items: 0,
+    sold_policies: 0,
+    sold_premium_cents: 0,
+    pass_rate: 0,
+  };
+  
+  const rows = dashboardData?.table || [];
+  const contest = dashboardData?.contest || [];
+  const contestEnabled = !!dashboardData?.meta?.contest_board_enabled;
+  const agencyName = agencyProfile?.agencyName || dashboardData?.meta?.agencyName || "";
+  const agencyId = agencyProfile?.agencyId || "";
+  const scorecardRules = agencyProfile?.scorecardRules;
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Get role-based metric labels and display logic
+  // Get role-based metric labels and display logic using KPI slugs
   const getMetricConfig = () => {
-    if (!scorecardRules) return { selectedMetrics: [], isService: false };
-    
-    const selectedMetrics = scorecardRules.selected_metrics || [];
-    const ringMetrics = scorecardRules.ring_metrics || [];
+    // Use selected_metric_slugs if available, fallback to selected_metrics
+    const selectedMetrics = scorecardRules?.selected_metric_slugs || scorecardRules?.selected_metrics || [];
+    const ringMetrics = scorecardRules?.ring_metrics || [];
     const isService = role === 'Service';
+    
+    // Map KPI slugs to display labels using KPI definitions
+    const getKpiLabel = (slug: string) => {
+      const kpi = kpisData?.kpis?.find(k => k.key === slug);
+      return kpi?.label || slug;
+    };
     
     return {
       selectedMetrics: selectedMetrics.filter(Boolean), // Filter out any null/undefined values
@@ -180,8 +164,9 @@ export default function MetricsDashboard() {
       isService,
       quotedLabel: isService ? 'cross_sells_uncovered' : 'quoted_count',
       soldLabel: isService ? 'mini_reviews' : 'sold_items',
-      quotedTitle: isService ? 'Cross-sells' : 'Quoted Households', 
-      soldTitle: isService ? 'Mini Reviews' : 'Items Sold'
+      quotedTitle: isService ? getKpiLabel('cross_sells_uncovered') : getKpiLabel('quoted_count'), 
+      soldTitle: isService ? getKpiLabel('mini_reviews') : getKpiLabel('sold_items'),
+      getKpiLabel,
     };
   };
 
@@ -206,8 +191,14 @@ export default function MetricsDashboard() {
 
         {/* Controls */}
         <Card className="glass-surface">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Dashboard Controls</CardTitle>
+            {dashboardFetching && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Refreshing...</span>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
@@ -249,17 +240,6 @@ export default function MetricsDashboard() {
                 </Popover>
               </div>
             </div>
-            {loading && (
-              <div className="flex items-center gap-2 mt-4">
-                <LoadingSpinner />
-                <span className="text-sm text-muted-foreground">Loading dashboard data...</span>
-              </div>
-            )}
-            {err && (
-              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm text-destructive">Error: {err}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -284,28 +264,26 @@ export default function MetricsDashboard() {
         )}
 
         {/* Tiles - Dynamic based on role */}
-        {tiles && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {metricConfig.selectedMetrics.includes('outbound_calls') && (
-              <MetricTile title="Outbound Calls" value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
-            )}
-            {metricConfig.selectedMetrics.includes('talk_minutes') && (
-              <MetricTile title="Talk Minutes" value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
-            )}
-            {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && (
-              <MetricTile title="Quoted Households" value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
-            )}
-            {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && (
-              <MetricTile title="Items Sold" value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
-            )}
-            {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tiles.cross_sells_uncovered !== undefined && (
-              <MetricTile title="Cross-sells" value={tiles.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
-            )}
-            {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tiles.mini_reviews !== undefined && (
-              <MetricTile title="Mini Reviews" value={tiles.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
-            )}
-          </div>
-        )}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {metricConfig.selectedMetrics.includes('outbound_calls') && (
+            <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
+          )}
+          {metricConfig.selectedMetrics.includes('talk_minutes') && (
+            <MetricTile title={metricConfig.getKpiLabel('talk_minutes')} value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
+          )}
+          {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && (
+            <MetricTile title={metricConfig.quotedTitle} value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
+          )}
+          {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && (
+            <MetricTile title={metricConfig.soldTitle} value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
+          )}
+          {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tiles.cross_sells_uncovered !== undefined && (
+            <MetricTile title={metricConfig.quotedTitle} value={tiles.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
+          )}
+          {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tiles.mini_reviews !== undefined && (
+            <MetricTile title={metricConfig.soldTitle} value={tiles.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
+          )}
+        </div>
 
         {/* Table */}
         <Card className="glass-surface">
@@ -318,12 +296,12 @@ export default function MetricsDashboard() {
                 <thead className="border-b border-border">
                   <tr>
                     <Th>Rep</Th>
-                    {metricConfig.selectedMetrics.includes('outbound_calls') && <Th>Outbound</Th>}
-                    {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>Talk</Th>}
-                    {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Th>Quoted Households</Th>}
-                    {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Th>Items Sold</Th>}
-                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Th>Cross-sells</Th>}
-                    {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Th>Mini Reviews</Th>}
+                    {metricConfig.selectedMetrics.includes('outbound_calls') && <Th>{metricConfig.getKpiLabel('outbound_calls')}</Th>}
+                    {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>{metricConfig.getKpiLabel('talk_minutes')}</Th>}
+                    {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Th>{metricConfig.quotedTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Th>{metricConfig.soldTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Th>{metricConfig.quotedTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Th>{metricConfig.soldTitle}</Th>}
                     <Th>Pass Days</Th>
                     <Th>Score</Th>
                     <Th>Streak</Th>
@@ -354,8 +332,14 @@ export default function MetricsDashboard() {
                   ))}
                 </tbody>
               </table>
+          </div>
+          {dashboardFetching && (
+            <div className="flex items-center gap-2 mt-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm text-muted-foreground">Refreshing dashboard data...</span>
             </div>
-          </CardContent>
+          )}
+        </CardContent>
         </Card>
 
         {/* Contest board */}
