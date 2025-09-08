@@ -49,13 +49,19 @@ function Ring({
   const circleRef = useRef<SVGCircleElement>(null);
 
   useEffect(() => {
+    // Only animate if the target value actually changed
     if (reduced) {
       setDashArray(target);
       return;
     }
 
-    // Start from 0 and animate to target
-    setDashArray(0);
+    // Prevent unnecessary animations by checking if target actually changed
+    const currentDashArray = dashArray;
+    if (Math.abs(currentDashArray - target) < 0.01) {
+      return; // No significant change, skip animation
+    }
+
+    // Start from current position and animate to target
     const id = requestAnimationFrame(() => {
       // Apply CSS transition
       if (circleRef.current) {

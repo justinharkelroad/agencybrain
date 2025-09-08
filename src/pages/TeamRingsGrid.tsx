@@ -202,7 +202,9 @@ export default function TeamRingsGrid() {
           key,
           label: RING_LABELS[key] ?? key,
           progress,
-          color: RING_COLORS[key] || "#9ca3af"
+          color: RING_COLORS[key] || "#9ca3af",
+          actual,
+          target
         };
       });
 
