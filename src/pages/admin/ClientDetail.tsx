@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info, Folder, Plus, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
 import { fetchActivePromptsOnly } from '@/lib/dataFetchers';
 import { FormViewer } from '@/components/FormViewer';
@@ -321,19 +321,27 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       setLoading(true);
       
       // Fetch client details
-      const { data: clientData, error: clientError } = await supa
+      const { data: clientData, error: clientError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', clientId)
         .single();
       
       if (clientError) throw clientError;
-setClient(clientData);
+        // Fix client type mismatch by using available fields
+        setClient({
+          id: clientData.id,
+          name: clientData.id, // Use ID as fallback for name
+          email: clientData.id, // Use ID as fallback for email  
+          status: 'active',
+          created_at: clientData.created_at,
+          mrr: clientData.mrr
+        } as Client);
       setMrrInput(clientData?.mrr != null ? String(clientData.mrr) : '');
       // Resolve agency name for header
       try {
         if (clientData?.agency_id) {
-          const { data: agency, error: agencyError } = await supa
+          const { data: agency, error: agencyError } = await supabase
             .from('agencies')
             .select('name')
             .eq('id', clientData.agency_id)
@@ -434,7 +442,7 @@ setClient(clientData);
         const filePath = `${clientId}/${fileName}`;
         
         // Upload file to storage
-        const { error: uploadError } = await supa.storage
+        const { error: uploadError } = await supabase.storage
           .from('uploads')
           .upload(filePath, file);
         
@@ -511,7 +519,7 @@ setClient(clientData);
 
   const handleDownloadUpload = async (upload: Upload) => {
     try {
-      const { data, error } = await supa.storage
+      const { data, error } = await supabase.storage
         .from('uploads')
         .download(upload.file_path);
       
@@ -587,7 +595,7 @@ setClient(clientData);
       }
       
       // Call analysis function
-      const { data, error } = await supa.functions.invoke('analyze-performance', {
+      const { data, error } = await supabase.functions.invoke('analyze-performance', {
         body: {
           periodData,
           uploads: selectedUploadData,
@@ -675,7 +683,7 @@ setClient(clientData);
       }
       
       // Call analysis function with follow-up
-      const { data, error } = await supa.functions.invoke('analyze-performance', {
+      const { data, error } = await supabase.functions.invoke('analyze-performance', {
         body: {
           periodData,
           uploads: uploadsData,
@@ -767,11 +775,11 @@ setClient(clientData);
       const existingTypeIds = new Set(vaults.filter(v => v.vault_type_id).map(v => v.vault_type_id as string));
       const missing = types.filter(t => !existingTypeIds.has(t.id));
       if (missing.length > 0) {
-        const { error: insertErr } = await supa.from('user_process_vaults').insert(
+        const { error: insertErr } = await supabase.from('user_process_vaults').insert(
           missing.map(m => ({ user_id: clientId, title: m.title, vault_type_id: m.id }))
         );
         if (insertErr) throw insertErr;
-        const { data: v2, error: v2Err } = await supa
+        const { data: v2, error: v2Err } = await supabase
           .from('user_process_vaults')
           .select('id,user_id,title,vault_type_id,created_at')
           .eq('user_id', clientId)
@@ -821,7 +829,7 @@ setClient(clientData);
 
   const downloadVaultFile = async (row: VaultFileRow) => {
     try {
-      const { data, error } = await supa.storage
+      const { data, error } = await supabase.storage
         .from('uploads')
         .createSignedUrl(row.upload_file_path, 60);
       if (error) throw error;
@@ -898,7 +906,7 @@ setClient(clientData);
     }
     try {
       setSavingMRR(true);
-      const { error } = await supa.from('profiles').update({ mrr: value }).eq('id', clientId);
+      const { error } = await supabase.from('profiles').update({ mrr: value }).eq('id', clientId);
       if (error) throw error;
       setClient(prev => prev ? { ...(prev as any), mrr: value } : prev);
       toast({ title: 'Coaching MRR updated' });

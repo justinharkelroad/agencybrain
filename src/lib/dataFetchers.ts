@@ -6,7 +6,7 @@ export async function fetchActivePromptsOnly() {
   // 1) Try authenticated first
   try {
     console.log("🔐 Trying authenticated fetch for prompts");
-    const auth = await supa
+    const auth = await supabase
       .from("prompts")
       .select("*")
       .eq("is_active", true)
@@ -24,7 +24,7 @@ export async function fetchActivePromptsOnly() {
   // 2) Fallback to anonymous
   try {
     console.log("🌐 Trying anonymous fetch for prompts");
-    const anon = await supaPublic
+    const anon = await supabase
       .from("prompts")
       .select("*")
       .eq("is_active", true)
@@ -48,7 +48,7 @@ export async function fetchActiveProcessVaultTypes() {
   // 1) Try authenticated first
   try {
     console.log("🔐 Trying authenticated fetch for process_vault_types");
-    const auth = await supa
+    const auth = await supabase
       .from("process_vault_types")
       .select("*")
       .eq("is_active", true)
@@ -66,7 +66,7 @@ export async function fetchActiveProcessVaultTypes() {
   // 2) Fallback to anonymous
   try {
     console.log("🌐 Trying anonymous fetch for process_vault_types");
-    const anon = await supaPublic
+    const anon = await supabase
       .from("process_vault_types")
       .select("*")
       .eq("is_active", true)

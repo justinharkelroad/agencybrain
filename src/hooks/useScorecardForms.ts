@@ -39,7 +39,7 @@ export function useScorecardForms() {
   const fetchAgencyAndForms = async () => {
     try {
       // Get user's agency
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -49,7 +49,7 @@ export function useScorecardForms() {
         setAgencyId(profile.agency_id);
 
         // Fetch forms for this agency
-        const { data: formsData, error } = await supa
+        const { data: formsData, error } = await supabase
           .from('form_templates')
           .select('*')
           .eq('agency_id', profile.agency_id)
@@ -71,7 +71,7 @@ export function useScorecardForms() {
     try {
       const token = crypto.randomUUID();
       
-    const { data, error } = await supa
+    const { data, error } = await supabase
         .from('form_links')
         .insert({
           form_template_id: formTemplateId,
@@ -94,7 +94,7 @@ export function useScorecardForms() {
 
   const getFormLink = async (formTemplateId: string): Promise<FormLink | null> => {
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('form_links')
         .select('*')
         .eq('form_template_id', formTemplateId)
@@ -111,7 +111,7 @@ export function useScorecardForms() {
 
   const toggleFormLink = async (formTemplateId: string, enabled: boolean): Promise<boolean> => {
     try {
-    const { error } = await supa
+    const { error } = await supabase
         .from('form_links')
         .update({ enabled })
         .eq('form_template_id', formTemplateId);
@@ -129,7 +129,7 @@ export function useScorecardForms() {
 
   const deleteForm = async (formId: string): Promise<boolean> => {
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('form_templates')
         .update({ is_active: false })
         .eq('id', formId);
@@ -151,7 +151,7 @@ export function useScorecardForms() {
     if (!agencyId) return undefined;
     
     // Get agency details for slug
-    const { data: agency } = await supa
+    const { data: agency } = await supabase
       .from('agencies')
       .select('slug')
       .eq('id', agencyId)

@@ -14,7 +14,7 @@ export async function parseBusinessMetricsPdf(file: File): Promise<ParsedPdf> {
     formData.append('file', file);
     formData.append('category', 'sales'); // Category for business metrics
     
-    const { data, error } = await supa.functions.invoke('process-file', {
+    const { data, error } = await supabase.functions.invoke('process-file', {
       body: formData
     });
     

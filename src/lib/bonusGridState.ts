@@ -27,9 +27,9 @@ const MAX_SAVE_ATTEMPTS = 3;
 export async function getBonusGridState(): Promise<Record<CellAddr, any> | null> {
   // Try to get from database first
   try {
-    const { data: { user } } = await supa.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('bonus_grid_saves')
         .select('grid_data')
         .eq('user_id', user.id)
@@ -38,7 +38,7 @@ export async function getBonusGridState(): Promise<Record<CellAddr, any> | null>
         .maybeSingle();
       
       if (!error && data && Object.keys(data.grid_data).length > 0) {
-        const validatedData = DataValidator.sanitizeGridData(data.grid_data);
+        const validatedData = DataValidator.sanitizeGridData(data.grid_data as Record<CellAddr, any>);
         cachedState = validatedData;
         return validatedData;
       }
@@ -61,9 +61,9 @@ export async function getBonusGridState(): Promise<Record<CellAddr, any> | null>
         
         // Attempt to migrate to database
         try {
-          const { data: { user } } = await supa.auth.getUser();
+          const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            await supa
+            await supabase
               .from('bonus_grid_saves')
               .upsert({
                 user_id: user.id,
@@ -176,9 +176,9 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
 
   for (let attempt = 1; attempt <= MAX_SAVE_ATTEMPTS; attempt++) {
     try {
-      const { data: { user } } = await supa.auth.getUser();
-      if (user) {
-        const { error } = await supa
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { error } = await supabase
           .from('bonus_grid_saves')
           .upsert({
             user_id: user.id,
@@ -191,7 +191,7 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
         }
 
         // Verify the save was successful
-        const { data: savedData, error: verifyError } = await supa
+        const { data: savedData, error: verifyError } = await supabase
           .from('bonus_grid_saves')  
           .select('grid_data')
           .eq('user_id', user.id)
@@ -200,7 +200,7 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
           .maybeSingle();
 
         if (!verifyError && savedData) {
-          const savedChecksum = DataBackupManager.createChecksum(savedData.grid_data);
+          const savedChecksum = DataBackupManager.createChecksum(savedData.grid_data as Record<CellAddr, any>);
           const originalChecksum = DataBackupManager.createChecksum(sanitizedState);
           
           if (savedChecksum === originalChecksum) {
@@ -236,7 +236,7 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
 
 export async function recoverFromSnapshot(snapshotId: string): Promise<Record<CellAddr, any> | null> {
   try {
-    const { data, error } = await supa
+    const { data, error } = await supabase
       .from('snapshot_planner')
       .select('tiers')
       .eq('id', snapshotId)
@@ -264,10 +264,10 @@ export async function recoverFromSnapshot(snapshotId: string): Promise<Record<Ce
 
 export async function getLatestSnapshotForRecovery(): Promise<{id: string, snapshot_date: string} | null> {
   try {
-    const { data: { user } } = await supa.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     
-    const { data, error } = await supa
+    const { data, error } = await supabase
       .from('snapshot_planner')
       .select('id, snapshot_date')
       .eq('user_id', user.id)
@@ -318,9 +318,9 @@ export async function getGridValidation(): Promise<GridValidation> {
   // Check if data is saved to database
   let isSaved = false;
   try {
-    const { data: { user } } = await supa.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supa
+      const { data } = await supabase
         .from('bonus_grid_saves')
         .select('id, updated_at, grid_data')
         .eq('user_id', user.id)
@@ -329,7 +329,7 @@ export async function getGridValidation(): Promise<GridValidation> {
       
       if (data) {
         // Verify data integrity in database
-        const dbChecksum = DataBackupManager.createChecksum(data.grid_data);
+        const dbChecksum = DataBackupManager.createChecksum(data.grid_data as Record<CellAddr, any>);
         const currentChecksum = DataBackupManager.createChecksum(state);
         isSaved = dbChecksum === currentChecksum;
       }

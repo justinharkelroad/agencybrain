@@ -1,4 +1,4 @@
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface DataProtectionSettings<T> {
   tableName: string;
@@ -150,8 +150,8 @@ export class UniversalDataProtectionService {
         ...additionalFields
       };
 
-      const { error } = await supa
-        .from(tableName)
+      const { error } = await supabase
+        .from(tableName as any) // Type assertion for dynamic table names
         .upsert(payload, { onConflict: 'user_id' });
 
       if (error) {
@@ -223,8 +223,8 @@ export class UniversalDataProtection<T = any> {
         // Add compression logic here if needed
       }
 
-      const { error } = await supa
-        .from(this.settings.tableName)
+      const { error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .upsert(payload, {
           onConflict: 'user_id'
         });
@@ -244,8 +244,8 @@ export class UniversalDataProtection<T = any> {
 
   async load(userId: string): Promise<T | null> {
     try {
-      const { data, error } = await supa
-        .from(this.settings.tableName)
+      const { data, error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .select('form_data')
         .eq('user_id', userId)
         .single();
@@ -257,7 +257,7 @@ export class UniversalDataProtection<T = any> {
         throw error;
       }
 
-      return data?.form_data as T || null;
+      return data && 'form_data' in data ? (data.form_data as T) : null;
     } catch (error) {
       console.error(`Error loading data from ${this.settings.tableName}:`, error);
       return null;
@@ -266,8 +266,8 @@ export class UniversalDataProtection<T = any> {
 
   async delete(userId: string): Promise<void> {
     try {
-      const { error } = await supa
-        .from(this.settings.tableName)
+      const { error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .delete()
         .eq('user_id', userId);
 
@@ -283,8 +283,8 @@ export class UniversalDataProtection<T = any> {
 
   async exists(userId: string): Promise<boolean> {
     try {
-      const { data, error } = await supa
-        .from(this.settings.tableName)
+      const { data, error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .select('id')
         .eq('user_id', userId)
         .single();
@@ -297,15 +297,15 @@ export class UniversalDataProtection<T = any> {
 
   async list(userId: string): Promise<T[]> {
     try {
-      const { data, error } = await supa
-        .from(this.settings.tableName)
+      const { data, error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .select('form_data')
         .eq('user_id', userId)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
-      return data?.map(item => item.form_data as T) || [];
+      return data?.map(item => item && 'form_data' in item ? (item.form_data as T) : null).filter(Boolean) as T[] || [];
     } catch (error) {
       console.error(`Error listing data from ${this.settings.tableName}:`, error);
       return [];
@@ -316,8 +316,8 @@ export class UniversalDataProtection<T = any> {
     try {
       const backupTableName = `${this.settings.tableName}_backups`;
       
-      const { error } = await supa
-        .from(backupTableName)
+      const { error } = await supabase
+        .from(backupTableName as any) // Type assertion for dynamic table names
         .insert({
           user_id: userId,
           form_data: data,
@@ -337,8 +337,8 @@ export class UniversalDataProtection<T = any> {
     try {
       const backupTableName = `${this.settings.tableName}_backups`;
       
-      const { error } = await supa
-        .from(backupTableName)
+      const { error } = await supabase
+        .from(backupTableName as any) // Type assertion for dynamic table names
         .delete()
         .eq('user_id', userId);
 
@@ -357,8 +357,8 @@ export class UniversalDataProtection<T = any> {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - this.settings.retentionDays);
 
-      const { error } = await supa
-        .from(this.settings.tableName)
+      const { error } = await supabase
+        .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .delete()
         .lt('updated_at', cutoffDate.toISOString());
 

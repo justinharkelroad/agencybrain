@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RING_COLORS, RING_LABELS } from "./colors";
@@ -149,11 +149,11 @@ export default function TeamPerformanceRings({
       setLoading(true);
       try {
         // Get ring metrics and n_required from scorecard rules
-        const { data: rules } = await supa
+        const { data: rules } = await supabase
           .from('scorecard_rules')
           .select('ring_metrics, n_required')
           .eq('agency_id', agencyId)
-          .eq('role', role)
+          .eq('role', role as 'Sales' | 'Service') // Type assertion for role
           .single();
 
         const metrics = rules?.ring_metrics || (role === 'Sales' 
@@ -163,7 +163,7 @@ export default function TeamPerformanceRings({
         setNRequired(rules?.n_required || 2);
 
         // Get team metrics for the date
-        const { data: teamMetrics } = await supa
+        const { data: teamMetrics } = await supabase
           .rpc('get_team_metrics_for_day', {
             p_agency: agencyId,
             p_role: role,
@@ -171,7 +171,7 @@ export default function TeamPerformanceRings({
           });
 
         // Get targets for each member and metric
-        const { data: targets } = await supa
+        const { data: targets } = await supabase
           .from('targets')
           .select('team_member_id, metric_key, value_number')
           .eq('agency_id', agencyId);

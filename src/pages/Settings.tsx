@@ -100,8 +100,16 @@ export default function Settings() {
       if (rules) {
         setSelectedMetrics(rules.selected_metrics || []);
         setNRequired(rules.n_required || 2);
-        setWeights(rules.weights || {});
-        setCountedDays(rules.counted_days || {
+        setWeights((rules.weights as Record<string, number>) || {});
+        setCountedDays((rules.counted_days as {
+          monday: boolean;
+          tuesday: boolean;
+          wednesday: boolean;
+          thursday: boolean;
+          friday: boolean;
+          saturday: boolean;
+          sunday: boolean;
+        }) || {
           monday: true,
           tuesday: true,
           wednesday: true,

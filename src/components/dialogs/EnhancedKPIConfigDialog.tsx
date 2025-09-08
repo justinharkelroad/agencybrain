@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { BarChart3, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KPIData {
   id: string;
@@ -59,11 +59,11 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 
       // First, load scorecard rules to get role-specific selected_metrics
-      const { data: scorecardRules, error: rulesError } = await supa
+      const { data: scorecardRules, error: rulesError } = await supabase
         .from('scorecard_rules')
         .select('selected_metrics')
         .eq('agency_id', agencyId)
-        .eq('role', normalizedRole)
+        .eq('role', normalizedRole as 'Sales' | 'Service') // Type assertion for role
         .single();
 
       if (rulesError) {
@@ -81,7 +81,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       }
 
       // Load only KPIs that are in the role's selected_metrics
-      const { data: kpisData, error: kpisError } = await supa
+      const { data: kpisData, error: kpisError } = await supabase
         .from('kpis')
         .select('*')
         .eq('agency_id', agencyId)
@@ -92,7 +92,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       if (kpisError) throw kpisError;
 
       // Load existing targets for role-relevant KPIs only
-      const { data: targets, error: targetsError } = await supa
+      const { data: targets, error: targetsError } = await supabase
         .from('targets')
         .select('metric_key, value_number')
         .eq('agency_id', agencyId)
@@ -101,9 +101,10 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
       if (targetsError) throw targetsError;
 
-      // Combine KPI data with target values
+      // Combine KPI data with target values, ensuring proper typing
       const kpisWithValues = (kpisData || []).map(kpi => ({
         ...kpi,
+        type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number', // Ensure proper type
         value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
       }));
 
@@ -152,7 +153,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     try {
       setLoading(true);
 
-      const response = await supa.functions.invoke('delete_kpi', {
+      const response = await supabase.functions.invoke('delete_kpi', {
         body: {
           agency_id: agencyId,
           kpi_key: deleteConfirm.kpi.key
@@ -184,7 +185,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       const kpiKeys = kpis.map(kpi => kpi.key);
       
       // Delete existing targets for role-relevant KPIs only
-      await supa
+      await supabase
         .from('targets')
         .delete()
         .eq('agency_id', agencyId)
@@ -199,7 +200,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
         team_member_id: null
       }));
 
-      const { error } = await supa
+      const { error } = await supabase
         .from('targets')
         .insert(targetsToInsert);
 
@@ -229,7 +230,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       const newKpiKey = `custom_${Date.now()}`;
       
       // Insert new KPI into database
-      const { error } = await supa
+      const { error } = await supabase
         .from('kpis')
         .insert({
           agency_id: agencyId,
@@ -252,7 +253,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
   const updateKPILabel = async (kpiId: string, label: string) => {
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('kpis')
         .update({ label })
         .eq('id', kpiId);

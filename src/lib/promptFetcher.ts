@@ -30,7 +30,7 @@ export async function fetchPromptsWithComprehensiveErrorHandling(
     attemptCount++;
     console.log(`📡 Attempt ${attemptCount}: Authenticated fetch`);
     
-    const query = supa.from('prompts').select('*').order('category');
+    const query = supabase.from('prompts').select('*').order('category');
     
     if (!includeInactive) {
       query.eq('is_active', true);

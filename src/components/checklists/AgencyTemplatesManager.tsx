@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { supa } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 interface TemplateItem {
   id: string;
   agency_id: string;
-  title: string;
+  label: string; // Changed from title to label to match database
   active: boolean;
   order_index: number;
 }
@@ -39,7 +39,7 @@ export function AgencyTemplatesManager() {
 
   const fetchAgencyId = async () => {
     try {
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -58,7 +58,7 @@ export function AgencyTemplatesManager() {
 
     try {
       setLoading(true);
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('checklist_template_items')
         .select('*')
         .eq('agency_id', agencyId)
@@ -81,11 +81,11 @@ export function AgencyTemplatesManager() {
     try {
       const maxOrder = Math.max(...templates.map(t => t.order_index), 0);
       
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('checklist_template_items')
         .insert({
           agency_id: agencyId,
-          title: newItemTitle.trim(),
+          label: newItemTitle.trim(), // Changed from 'title' to 'label'
           active: true,
           order_index: maxOrder + 1
         })
@@ -111,7 +111,7 @@ export function AgencyTemplatesManager() {
 
     setLoading(true);
     try {
-      const { error } = await supa.from("checklist_template_items").update({ active: desired }).eq("id", t.id);
+      const { error } = await supabase.from("checklist_template_items").update({ active: desired }).eq("id", t.id);
       if (error) throw error;
 
       setTemplates(templates.map(template =>
@@ -139,7 +139,7 @@ export function AgencyTemplatesManager() {
     
     setLoading(true);
     try {
-      const { error } = await supa.from("checklist_template_items").update({ order_index: targetTemplate.order_index }).eq("id", template.id);
+      const { error } = await supabase.from("checklist_template_items").update({ order_index: targetTemplate.order_index }).eq("id", template.id);
       if (error) throw error;
 
       await fetchTemplates();
@@ -155,7 +155,7 @@ export function AgencyTemplatesManager() {
   const removeTemplate = async (id: string) => {
     setLoading(true);
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('checklist_template_items')
         .delete()
         .eq('id', id);
@@ -209,7 +209,7 @@ export function AgencyTemplatesManager() {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{template.title}</span>
+                      <span className="font-medium">{template.label}</span>
                       {!template.active && (
                         <Badge variant="secondary">Inactive</Badge>
                       )}

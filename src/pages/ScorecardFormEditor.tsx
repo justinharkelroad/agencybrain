@@ -100,7 +100,7 @@ export default function ScorecardFormEditor() {
 
       if (error) throw error;
 
-      setFormSchema(template.schema_json as FormSchema | null);
+      setFormSchema(template.schema_json as unknown as FormSchema);
     } catch (error: any) {
       console.error('Error loading form:', error);
       toast.error('Failed to load form');

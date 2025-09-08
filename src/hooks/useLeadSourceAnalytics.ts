@@ -47,7 +47,7 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
       setLoading(true);
 
       // Get user's agency
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
@@ -60,7 +60,7 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
       }
 
       // Get lead sources for this agency
-      const { data: leadSources } = await supa
+      const { data: leadSources } = await supabase
         .from('lead_sources')
         .select('*')
         .eq('agency_id', profile.agency_id)
@@ -86,7 +86,7 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
       }
 
       // Get submissions within date range for this agency
-      const { data: submissions } = await supa
+      const { data: submissions } = await supabase
         .from('submissions')
         .select(`
           *,
@@ -102,7 +102,7 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
         .eq('final', true);
 
       // Get prospect overrides within date range
-      const { data: overrides } = await supa
+      const { data: overrides } = await supabase
         .from('prospect_overrides')
         .select(`
           *,
@@ -135,13 +135,13 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
         });
       });
 
-      // Process submissions data
-      submissions?.forEach(submission => {
-        const payload = submission.payload_json || {};
-        const quotedCount = parseInt(payload.quoted_count) || 0;
-        const soldItems = parseInt(payload.sold_items) || 0;
-        const soldPolicies = parseInt(payload.sold_policies) || 0;
-        const soldPremium = parseInt(payload.sold_premium_cents) || 0;
+        // Process submissions data
+        submissions?.forEach(submission => {
+          const payload = submission.payload_json as any || {}; // Type assertion for JSON data
+          const quotedCount = parseInt(payload.quoted_count) || 0;
+          const soldItems = parseInt(payload.sold_items) || 0;
+          const soldPolicies = parseInt(payload.sold_policies) || 0;
+          const soldPremium = parseInt(payload.sold_premium_cents) || 0;
 
         // Process quoted households
         submission.quoted_households?.forEach((qh: any) => {

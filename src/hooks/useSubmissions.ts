@@ -37,7 +37,7 @@ export function useSubmissions() {
   const fetchSubmissions = async () => {
     try {
       // Get user's agency first
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -50,7 +50,7 @@ export function useSubmissions() {
       }
 
       // Fetch submissions for forms from this agency
-      const { data: submissionsData, error } = await supa
+      const { data: submissionsData, error } = await supabase
         .from('submissions')
         .select(`
           *,

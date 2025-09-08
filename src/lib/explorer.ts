@@ -22,7 +22,7 @@ interface ExplorerResponse {
 
 export async function fetchExplorerData(searchQuery: SearchQuery): Promise<ExplorerResponse> {
   // Get current session with explicit token
-  const { data: { session } } = await supa.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
   
   if (!session?.access_token) {
     throw new Error("No authentication session found");
