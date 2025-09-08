@@ -51,16 +51,19 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
   const loadKPIsAndTargets = async () => {
     if (!agencyId) return;
-    
+
     try {
       setLoading(true);
+
+      // Normalize role to match database enum (capitalize first letter)
+      const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
 
       // First, load scorecard rules to get role-specific selected_metrics
       const { data: scorecardRules, error: rulesError } = await supa
         .from('scorecard_rules')
         .select('selected_metrics')
         .eq('agency_id', agencyId)
-        .eq('role', type)
+        .eq('role', normalizedRole)
         .single();
 
       if (rulesError) {
