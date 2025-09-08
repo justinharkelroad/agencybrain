@@ -817,9 +817,11 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
+          form_kpi_version: number
           id: string
           is_active: boolean | null
           name: string
+          needs_attention: boolean
           role: Database["public"]["Enums"]["app_member_role"]
           schema_json: Json | null
           settings_json: Json | null
@@ -830,9 +832,11 @@ export type Database = {
         Insert: {
           agency_id: string
           created_at?: string
+          form_kpi_version?: number
           id?: string
           is_active?: boolean | null
           name: string
+          needs_attention?: boolean
           role: Database["public"]["Enums"]["app_member_role"]
           schema_json?: Json | null
           settings_json?: Json | null
@@ -843,15 +847,89 @@ export type Database = {
         Update: {
           agency_id?: string
           created_at?: string
+          form_kpi_version?: number
           id?: string
           is_active?: boolean | null
           name?: string
+          needs_attention?: boolean
           role?: Database["public"]["Enums"]["app_member_role"]
           schema_json?: Json | null
           settings_json?: Json | null
           slug?: string
           status?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      kpi_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          agency_id: string
+          at: string
+          id: string
+          kpi_key: string
+          payload: Json | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          agency_id: string
+          at?: string
+          id?: string
+          kpi_key: string
+          payload?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          agency_id?: string
+          at?: string
+          id?: string
+          kpi_key?: string
+          payload?: Json | null
+        }
+        Relationships: []
+      }
+      kpis: {
+        Row: {
+          agency_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          key: string
+          label: string
+          type: string
+        }
+        Insert: {
+          agency_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          key: string
+          label: string
+          type: string
+        }
+        Update: {
+          agency_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          key?: string
+          label?: string
+          type?: string
         }
         Relationships: []
       }
