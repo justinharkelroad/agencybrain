@@ -67,6 +67,9 @@ function CompactRing({
       return;
     }
 
+    // Only animate if target actually changed
+    if (dashArray === target) return;
+
     setDashArray(0);
     const id = requestAnimationFrame(() => {
       if (circleRef.current) {
