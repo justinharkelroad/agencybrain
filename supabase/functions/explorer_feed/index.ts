@@ -43,8 +43,9 @@ serve(async (req) => {
   let agencyId: string | null = null;
 
   try {
-    // Log request start
+    // Log request start with deployment verification
     console.log("FEED_V1_START", { errorId, timestamp: new Date().toISOString() });
+    console.log("DEPLOYMENT_VERIFICATION: explorer_feed version 2025-01-08-v3 - comprehensive debugging active");
 
     if (req.method !== "POST") {
       return json(405, { error: "METHOD_NOT_ALLOWED" });
@@ -212,6 +213,23 @@ serve(async (req) => {
       totalCount: count 
     });
 
+    // DEBUG: Log first raw row structure to understand PostgREST response
+    if (rawRows && rawRows.length > 0) {
+      console.log("DEBUG_RAW_ROW_STRUCTURE", { 
+        errorId,
+        firstRow: {
+          id: rawRows[0].id,
+          household_name: rawRows[0].household_name,
+          submissions: rawRows[0].submissions ? {
+            team_member_id: rawRows[0].submissions.team_member_id,
+            work_date: rawRows[0].submissions.work_date,
+            team_members: rawRows[0].submissions.team_members,
+            quoted_households: rawRows[0].submissions.quoted_households
+          } : null
+        }
+      });
+    }
+
     // Process and merge the data with COALESCE logic
     let processedRows = (rawRows || []).map((row: any) => {
       const override = row.prospect_overrides?.[0]; // First override if exists
@@ -220,10 +238,25 @@ serve(async (req) => {
       const quotedHousehold = row.submissions?.quoted_households?.[0]; // Get notes from quoted_households
       const teamMember = row.submissions?.team_members?.[0]; // Get team member info
       
-      // Debug: Log when team member data is missing
-      if (!teamMember?.name && row.submissions?.team_member_id) {
-        console.log(`Missing team member data for ID: ${row.submissions.team_member_id}, household: ${row.household_name}`);
-      }
+      // DEBUG: Comprehensive logging for team member data
+      console.log("DEBUG_TEAM_MEMBER_DATA", {
+        errorId,
+        household: row.household_name,
+        team_member_id: row.submissions?.team_member_id,
+        team_members_array: row.submissions?.team_members,
+        team_member_object: teamMember,
+        team_member_name: teamMember?.name
+      });
+
+      // DEBUG: Comprehensive logging for notes data
+      console.log("DEBUG_NOTES_DATA", {
+        errorId,
+        household: row.household_name,
+        quoted_households_array: row.submissions?.quoted_households,
+        quoted_household_object: quotedHousehold,
+        notes_from_quoted_household: quotedHousehold?.notes,
+        override_notes: override?.notes
+      });
       
       // Process custom fields
       const customFields = (row.prospect_custom_field_values || []).reduce((acc: any, cfv: any) => {
