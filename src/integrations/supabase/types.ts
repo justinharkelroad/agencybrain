@@ -2085,6 +2085,10 @@ export type Database = {
         Args: { p_agency_id: string }
         Returns: undefined
       }
+      delete_kpi_transaction: {
+        Args: { p_actor_id?: string; p_agency_id: string; p_kpi_key: string }
+        Returns: Json
+      }
       flatten_quoted_details: {
         Args: { p_submission: string }
         Returns: undefined

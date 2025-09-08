@@ -12,16 +12,10 @@ import { TopNav } from "@/components/TopNav";
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
 import { Settings } from "lucide-react";
 
-const ALL_METRICS = [
-  { key: "outbound_calls", label: "Outbound Calls" },
-  { key: "talk_minutes", label: "Talk Minutes" },
-  { key: "quoted_count", label: "Quoted Count" },
-  { key: "sold_items", label: "Sold Items" },
-  { key: "sold_policies", label: "Sold Policies" },
-  { key: "sold_premium", label: "Sold Premium" },
-  { key: "cross_sells_uncovered", label: "Cross Sells Uncovered" },
-  { key: "mini_reviews", label: "Mini Reviews" }
-];
+interface KPIOption {
+  key: string;
+  label: string;
+}
 
 interface ScorecardSettingsProps {
   role: "Sales" | "Service";
@@ -32,6 +26,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
   const [agencyId, setAgencyId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [availableMetrics, setAvailableMetrics] = useState<KPIOption[]>([]);
   
   const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(role);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
@@ -80,6 +75,23 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
       }
 
       setAgencyId(profile.agency_id);
+
+      // Load available KPIs for this agency
+      const { data: kpis, error: kpisError } = await supa
+        .from('kpis')
+        .select('key, label')
+        .eq('agency_id', profile.agency_id)
+        .eq('is_active', true)
+        .order('key');
+
+      if (kpisError) throw kpisError;
+
+      const metrics: KPIOption[] = (kpis || []).map(kpi => ({
+        key: kpi.key,
+        label: kpi.label
+      }));
+
+      setAvailableMetrics(metrics);
 
       // Load scorecard rules for this agency and role
       const { data: rules } = await supa
@@ -216,7 +228,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
                 Choose which metrics count towards daily performance. Passing requires hitting targets on N of these selected metrics.
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {ALL_METRICS.map(metric => (
+                {availableMetrics.map(metric => (
                   <div key={metric.key} className="flex items-center space-x-2">
                     <Checkbox
                       id={metric.key}
@@ -254,7 +266,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
                 Weight is added to daily score only when actual performance exceeds the target (not just meets it).
               </p>
               <div className="grid grid-cols-2 gap-4">
-                {ALL_METRICS.map(metric => (
+                {availableMetrics.map(metric => (
                   <div key={metric.key} className="flex items-center justify-between">
                     <Label htmlFor={`weight-${metric.key}`} className="flex-1">
                       {metric.label}
@@ -318,7 +330,7 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
                 Select which metrics to display in the visual performance rings dashboard.
               </p>
               <div className="grid grid-cols-2 gap-3">
-                {ALL_METRICS.map(metric => (
+                {availableMetrics.map(metric => (
                   <div key={`ring-${metric.key}`} className="flex items-center space-x-2">
                     <Checkbox
                       id={`ring-${metric.key}`}

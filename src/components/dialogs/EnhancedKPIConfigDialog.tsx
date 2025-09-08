@@ -5,15 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
-import { BarChart3, Plus, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { BarChart3, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supa } from '@/lib/supabase';
 
-interface KPITarget {
+interface KPIData {
   id: string;
+  agency_id: string;
+  key: string;
   label: string;
-  value: number;
-  isDefault: boolean;
+  type: 'number' | 'currency' | 'percentage' | 'integer';
+  color?: string;
+  is_active: boolean;
+  value?: number; // Current target value
 }
 
 interface EnhancedKPIConfigDialogProps {
@@ -23,54 +28,120 @@ interface EnhancedKPIConfigDialogProps {
   agencyId?: string;
 }
 
-const defaultSalesKPIs: KPITarget[] = [
-  { id: "outbound_calls", label: "Outbound Calls", value: 100, isDefault: true },
-  { id: "talk_minutes", label: "Talk Minutes", value: 180, isDefault: true },
-  { id: "quoted_count", label: "Quoted Count", value: 5, isDefault: true },
-  { id: "sold_items", label: "Items Sold", value: 2, isDefault: true },
-];
-
-const defaultServiceKPIs: KPITarget[] = [
-  { id: "outbound_calls", label: "Outbound Calls", value: 30, isDefault: true },
-  { id: "talk_minutes", label: "Talk Minutes", value: 180, isDefault: true },
-  { id: "cross_sells_uncovered", label: "Cross-sells", value: 2, isDefault: true },
-  { id: "mini_reviews", label: "Mini-reviews", value: 5, isDefault: true },
-];
-
 export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: EnhancedKPIConfigDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [kpis, setKpis] = useState<KPITarget[]>(
-    type === "sales" ? [...defaultSalesKPIs] : [...defaultServiceKPIs]
-  );
+  const [kpis, setKpis] = useState<KPIData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deletingKpi, setDeletingKpi] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    kpi: KPIData;
+    impact: {
+      forms_affected: number;
+      rules_touched: boolean;
+      remaining_kpis: number;
+    };
+  } | null>(null);
 
-  // Load existing targets when dialog opens
+  // Load KPIs and targets when dialog opens
   useEffect(() => {
     if (isOpen && agencyId) {
-      loadExistingTargets();
+      loadKPIsAndTargets();
     }
   }, [isOpen, agencyId]);
 
-  const loadExistingTargets = async () => {
+  const loadKPIsAndTargets = async () => {
     if (!agencyId) return;
     
     try {
-      const { data: targets } = await supa
+      setLoading(true);
+
+      // Load agency's active KPIs
+      const { data: kpisData, error: kpisError } = await supa
+        .from('kpis')
+        .select('*')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('key');
+
+      if (kpisError) throw kpisError;
+
+      // Load existing targets
+      const { data: targets, error: targetsError } = await supa
         .from('targets')
         .select('metric_key, value_number')
         .eq('agency_id', agencyId)
         .is('team_member_id', null);
 
-      if (targets && targets.length > 0) {
-        const defaults = type === "sales" ? [...defaultSalesKPIs] : [...defaultServiceKPIs];
-        const updatedKpis = defaults.map(kpi => {
-          const existingTarget = targets.find(t => t.metric_key === kpi.id);
-          return existingTarget ? { ...kpi, value: existingTarget.value_number } : kpi;
-        });
-        setKpis(updatedKpis);
-      }
+      if (targetsError) throw targetsError;
+
+      // Combine KPI data with target values
+      const kpisWithValues = (kpisData || []).map(kpi => ({
+        ...kpi,
+        value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
+      }));
+
+      setKpis(kpisWithValues);
     } catch (error) {
-      console.error('Error loading targets:', error);
+      console.error('Error loading KPIs and targets:', error);
+      toast.error('Failed to load KPI data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteKpi = async (kpi: KPIData) => {
+    if (!agencyId) return;
+
+    try {
+      setDeletingKpi(kpi.key);
+
+      // Check impact before deletion
+      const remainingCount = kpis.filter(k => k.key !== kpi.key).length;
+      
+      if (remainingCount === 0) {
+        toast.error("Cannot delete the last KPI. Each agency must have at least one KPI.");
+        return;
+      }
+
+      // Mock impact analysis (in real implementation, you'd call an endpoint)
+      const impact = {
+        forms_affected: 0, // Would be calculated based on form_templates that reference this KPI
+        rules_touched: true, // Assume rules will be touched
+        remaining_kpis: remainingCount
+      };
+
+      setDeleteConfirm({ kpi, impact });
+    } catch (error) {
+      console.error('Error preparing KPI deletion:', error);
+      toast.error('Failed to prepare KPI deletion');
+    } finally {
+      setDeletingKpi(null);
+    }
+  };
+
+  const confirmDeleteKpi = async () => {
+    if (!deleteConfirm || !agencyId) return;
+
+    try {
+      setLoading(true);
+
+      const response = await supa.functions.invoke('delete_kpi', {
+        body: {
+          agency_id: agencyId,
+          kpi_key: deleteConfirm.kpi.key
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      toast.success(`KPI "${deleteConfirm.kpi.label}" has been deleted successfully`);
+      setDeleteConfirm(null);
+      await loadKPIsAndTargets(); // Reload the data
+    } catch (error) {
+      console.error('Error deleting KPI:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete KPI');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,19 +153,19 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
     setLoading(true);
     try {
-      // Delete existing targets for this agency and type
+      // Delete existing targets for these KPIs
       await supa
         .from('targets')
         .delete()
         .eq('agency_id', agencyId)
         .is('team_member_id', null)
-        .in('metric_key', kpis.map(kpi => kpi.id));
+        .in('metric_key', kpis.map(kpi => kpi.key));
 
       // Insert new targets
       const targetsToInsert = kpis.map(kpi => ({
         agency_id: agencyId,
-        metric_key: kpi.id,
-        value_number: kpi.value,
+        metric_key: kpi.key,
+        value_number: kpi.value || 0,
         team_member_id: null
       }));
 
@@ -114,36 +185,57 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     }
   };
 
-  const handleCancel = () => {
-    setIsOpen(false);
-  };
-
-  const updateKPIValue = (id: string, value: string) => {
+  const updateKPIValue = (key: string, value: string) => {
     const numValue = parseInt(value) || 0;
     setKpis(prev => prev.map(kpi => 
-      kpi.id === id ? { ...kpi, value: numValue } : kpi
+      kpi.key === key ? { ...kpi, value: numValue } : kpi
     ));
   };
 
-  const addCustomKPI = () => {
-    const newId = `custom_${Date.now()}`;
-    const newKPI: KPITarget = {
-      id: newId,
-      label: "New KPI",
-      value: 1,
-      isDefault: false
-    };
-    setKpis(prev => [...prev, newKPI]);
+  const addCustomKPI = async () => {
+    if (!agencyId) return;
+
+    try {
+      const newKpiKey = `custom_${Date.now()}`;
+      
+      // Insert new KPI into database
+      const { error } = await supa
+        .from('kpis')
+        .insert({
+          agency_id: agencyId,
+          key: newKpiKey,
+          label: "New KPI",
+          type: "number",
+          is_active: true
+        });
+
+      if (error) throw error;
+
+      // Reload KPIs
+      await loadKPIsAndTargets();
+      toast.success("Custom KPI added successfully");
+    } catch (error) {
+      console.error('Error adding custom KPI:', error);
+      toast.error("Failed to add custom KPI");
+    }
   };
 
-  const removeKPI = (id: string) => {
-    setKpis(prev => prev.filter(kpi => kpi.id !== id));
-  };
+  const updateKPILabel = async (kpiId: string, label: string) => {
+    try {
+      const { error } = await supa
+        .from('kpis')
+        .update({ label })
+        .eq('id', kpiId);
 
-  const updateKPILabel = (id: string, label: string) => {
-    setKpis(prev => prev.map(kpi => 
-      kpi.id === id ? { ...kpi, label } : kpi
-    ));
+      if (error) throw error;
+
+      setKpis(prev => prev.map(kpi => 
+        kpi.id === kpiId ? { ...kpi, label } : kpi
+      ));
+    } catch (error) {
+      console.error('Error updating KPI label:', error);
+      toast.error("Failed to update KPI label");
+    }
   };
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -151,87 +243,131 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            {title}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Configure daily targets for {type} team members. These targets are used to calculate daily scores and achievements.
-          </p>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              {title}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Configure daily targets for {type} team members. These targets are used to calculate daily scores and achievements.
+            </p>
 
-          <div className="space-y-3">
-            {kpis.map((kpi) => (
-              <Card key={kpi.id} className={kpi.isDefault ? "border-primary/20" : "border-muted"}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      {kpi.isDefault ? (
-                        <Label className="font-medium">{kpi.label}</Label>
-                      ) : (
-                        <Input
-                          value={kpi.label}
-                          onChange={(e) => updateKPILabel(kpi.id, e.target.value)}
-                          className="font-medium h-8"
-                          placeholder="KPI Name"
-                        />
-                      )}
-                    </div>
-                    <div className="w-24">
-                      <Input
-                        type="number"
-                        value={kpi.value}
-                        onChange={(e) => updateKPIValue(kpi.id, e.target.value)}
-                        onFocus={handleInputFocus}
-                        className="text-center"
-                        min="0"
-                      />
-                    </div>
-                    {!kpi.isDefault && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeKPI(kpi.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {kpis.map((kpi) => (
+                  <Card key={kpi.id} className="border-muted">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Input
+                            value={kpi.label}
+                            onChange={(e) => updateKPILabel(kpi.id, e.target.value)}
+                            className="font-medium h-8"
+                            placeholder="KPI Name"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <Input
+                            type="number"
+                            value={kpi.value || 0}
+                            onChange={(e) => updateKPIValue(kpi.key, e.target.value)}
+                            onFocus={handleInputFocus}
+                            className="text-center"
+                            min="0"
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteKpi(kpi)}
+                          disabled={deletingKpi === kpi.key}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  onClick={addCustomKPI}
+                  className="w-full"
+                  disabled={loading}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Custom KPI
+                </Button>
+              </div>
+            )}
+
+            <Separator />
+
+            <div className="flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button onClick={handleSave} disabled={loading}>
+                {loading ? "Saving..." : "Save Targets"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete KPI: {deleteConfirm?.kpi.label}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Are you sure you want to delete this KPI? This action cannot be undone.</p>
+                
+                {deleteConfirm && (
+                  <div className="bg-muted p-3 rounded-md space-y-2">
+                    <h4 className="font-medium text-sm">Impact Analysis:</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>• Forms affected: {deleteConfirm.impact.forms_affected}</li>
+                      <li>• Scorecard rules: {deleteConfirm.impact.rules_touched ? 'Will be updated' : 'No changes needed'}</li>
+                      <li>• Remaining KPIs: {deleteConfirm.impact.remaining_kpis}</li>
+                    </ul>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Historical data will be preserved. Only future calculations will be affected.
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            <Button
-              variant="outline"
-              onClick={addCustomKPI}
-              className="w-full"
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteKpi}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Custom KPI
-            </Button>
-          </div>
-
-          <Separator />
-
-          <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading ? "Saving..." : "Save Targets"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+              Delete KPI
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -169,10 +169,12 @@ export default function MetricsDashboard() {
     if (!scorecardRules) return { selectedMetrics: [], isService: false };
     
     const selectedMetrics = scorecardRules.selected_metrics || [];
+    const ringMetrics = scorecardRules.ring_metrics || [];
     const isService = role === 'Service';
     
     return {
-      selectedMetrics,
+      selectedMetrics: selectedMetrics.filter(Boolean), // Filter out any null/undefined values
+      ringMetrics: ringMetrics.filter(Boolean), // Filter out any null/undefined values
       isService,
       quotedLabel: isService ? 'cross_sells_uncovered' : 'quoted_count',
       soldLabel: isService ? 'mini_reviews' : 'sold_items',

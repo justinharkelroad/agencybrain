@@ -88,16 +88,14 @@ export default function KPIFieldManager({
                 />
                 <Label className="text-sm">Required</Label>
               </div>
-              {kpis.length > 1 && (
-                <Button
-                  onClick={() => onRemoveField(index)}
-                  size="sm"
-                  variant="outline"
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                onClick={() => onRemoveField(index)}
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
             
             {/* KPI Targets */}
