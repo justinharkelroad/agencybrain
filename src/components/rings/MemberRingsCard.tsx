@@ -115,14 +115,28 @@ function Ring({
 export default function MemberRingsCard({ 
   name, 
   date, 
-  metrics 
+  metrics,
+  memberId,
+  onMemberClick
 }: { 
   name: string; 
   date: string; 
-  metrics: RingMetric[]; 
+  metrics: RingMetric[];
+  memberId?: string;
+  onMemberClick?: (memberId: string) => void;
 }) {
+  const handleClick = () => {
+    if (memberId && onMemberClick) {
+      onMemberClick(memberId);
+    }
+  };
   return (
-    <Card className="w-full max-w-sm rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200">
+    <Card 
+      className={`w-full max-w-sm rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 ${
+        memberId && onMemberClick ? 'cursor-pointer hover:opacity-90' : ''
+      }`}
+      onClick={handleClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="font-semibold text-foreground truncate">{name}</div>

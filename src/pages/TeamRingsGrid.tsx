@@ -10,6 +10,7 @@ import MemberRingsCard from "@/components/rings/MemberRingsCard";
 import RingLegend from "@/components/rings/RingLegend";
 import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
 import { toast } from "sonner";
+import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 
 type TeamMetricRow = {
   team_member_id: string;
@@ -44,6 +45,8 @@ export default function TeamRingsGrid() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date(Date.now() - 86400000).toISOString().slice(0, 10) // yesterday
   );
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   // Load agency and ring metrics
   useEffect(() => {
@@ -161,6 +164,11 @@ export default function TeamRingsGrid() {
     }
   };
 
+  const handleMemberClick = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    setSnapshotOpen(true);
+  };
+
   const gridData = useMemo(() => {
     return rows.map((row) => {
       const memberTargets = targets[row.team_member_id] || {};
@@ -199,6 +207,7 @@ export default function TeamRingsGrid() {
       });
 
       return {
+        id: row.team_member_id,
         name: row.name,
         date: row.date,
         metrics
@@ -264,6 +273,8 @@ export default function TeamRingsGrid() {
                     name={member.name}
                     date={member.date}
                     metrics={member.metrics}
+                    memberId={member.id}
+                    onMemberClick={handleMemberClick}
                   />
                 ))}
               </div>
@@ -271,6 +282,12 @@ export default function TeamRingsGrid() {
           </CardContent>
         </Card>
       </div>
+      
+      <PersonSnapshotModal
+        open={snapshotOpen}
+        onOpenChange={setSnapshotOpen}
+        memberId={selectedMemberId}
+      />
     </div>
   );
 }
