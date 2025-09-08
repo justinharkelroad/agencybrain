@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import type { SnapshotResponse, SnapshotDay } from "@/types/snapshot";
@@ -32,28 +32,28 @@ export default function PersonSnapshotModal({ open, onOpenChange, memberId }: Pr
     queryKey: ["member-month-snapshot", memberId, yyyymm(month)],
     enabled,
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get_member_month_snapshot", {
-        method: "GET",
-      });
-      if (error) throw new Error(error.message);
-      
-      // Since we can't pass query params through supabase.functions.invoke,
-      // we need to use direct fetch with the Authorization header
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+      
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get_member_month_snapshot?member_id=${memberId}&month=${yyyymm(month)}`,
+        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_member_month_snapshot?member_id=${memberId}&month=${yyyymm(month)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "x-client-info": "supabase-js-web",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
             "Content-Type": "application/json",
           },
         }
       );
       
       if (!response.ok) {
-        throw new Error(await response.text());
+        const errorText = await response.text();
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
       
       return response.json();
@@ -105,6 +105,9 @@ export default function PersonSnapshotModal({ open, onOpenChange, memberId }: Pr
               >›</button>
             </div>
           </DialogTitle>
+          <DialogDescription>
+            View daily performance metrics showing pass/fail status for each day of the month.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="mb-3 text-sm flex gap-4">
