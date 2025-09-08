@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Eye, Link2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, Link2, Settings } from "lucide-react";
 import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
+import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
 import { supa } from '@/lib/supabase';
@@ -76,20 +79,6 @@ interface FormSchema {
   };
 }
 
-const DEFAULT_SALES_KPIS: KPIField[] = [
-  { key: 'outbound_calls', label: 'Outbound Calls', required: true, type: 'number' },
-  { key: 'talk_minutes', label: 'Talk Minutes', required: true, type: 'number' },
-  { key: 'quoted_count', label: 'Households Quoted', required: true, type: 'number' },
-  { key: 'sold_items', label: 'Items Sold', required: true, type: 'number' },
-];
-
-const DEFAULT_SERVICE_KPIS: KPIField[] = [
-  { key: 'talk_minutes', label: 'Talk Minutes', required: true, type: 'number' },
-  { key: 'outbound_calls', label: 'Outbound Calls', required: true, type: 'number' },
-  { key: 'cross_sells_uncovered', label: 'Cross-sells Uncovered', required: true, type: 'number' },
-  { key: 'mini_reviews', label: 'Mini Reviews', required: true, type: 'number' },
-];
-
 const TIME_OPTIONS = [
   { value: '06:00', label: '6:00 AM' },
   { value: '07:00', label: '7:00 AM' },
@@ -127,13 +116,14 @@ export default function ScorecardFormBuilder() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [agencyId, setAgencyId] = useState<string>("");
+  const [currentMemberId, setCurrentMemberId] = useState<string>("");
 
   const initialRole = (searchParams.get('role') as 'Sales' | 'Service') || 'Sales';
   
   const [formSchema, setFormSchema] = useState<FormSchema>({
     title: `${initialRole} Scorecard`,
     role: initialRole,
-    kpis: initialRole === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS,
+    kpis: [],
     customFields: [],
     repeaterSections: {
       quotedDetails: {
@@ -141,20 +131,14 @@ export default function ScorecardFormBuilder() {
         title: 'Quoted Household Details',
         description: 'Capture detailed information for each quoted household',
         triggerKPI: 'quoted_count',
-        fields: [
-          // Sticky fields will be loaded from database
-          // Only include non-sticky custom fields here if needed
-        ]
+        fields: []
       },
       soldDetails: {
         enabled: false,
         title: 'Sold Household Details',
         description: 'Track household details and policy information for each sale',
         triggerKPI: 'sold_items',
-        fields: [
-          // Sticky fields will be loaded from database
-          // Only include non-sticky custom fields here if needed
-        ]
+        fields: []
       }
     },
     settings: {
@@ -166,8 +150,14 @@ export default function ScorecardFormBuilder() {
     }
   });
 
+  // Load KPIs dynamically based on role
+  const { data: kpiData, isLoading: kpisLoading, error: kpisError, refetch } = useKpis(
+    currentMemberId, 
+    formSchema.role
+  );
+
   useEffect(() => {
-    const fetchAgencyId = async () => {
+    const fetchAgencyAndMember = async () => {
       if (!user?.id) return;
       
       const { data: profile } = await supa
@@ -178,11 +168,52 @@ export default function ScorecardFormBuilder() {
         
       if (profile?.agency_id) {
         setAgencyId(profile.agency_id);
+        
+        // Get first team member for this agency (for KPI loading)
+        const { data: members } = await supa
+          .from('team_members')
+          .select('id')
+          .eq('agency_id', profile.agency_id)
+          .limit(1);
+          
+        if (members?.[0]) {
+          setCurrentMemberId(members[0].id);
+        }
       }
     };
     
-    fetchAgencyId();
+    fetchAgencyAndMember();
   }, [user?.id]);
+
+  // Update KPI fields when KPI data loads
+  useEffect(() => {
+    if (kpiData?.kpis && kpiData.kpis.length > 0) {
+      const kpiFields: KPIField[] = kpiData.kpis.map(kpi => ({
+        key: kpi.key,
+        label: kpi.label,
+        required: true,
+        type: kpi.type as 'number' | 'currency' | 'percentage',
+        target: {
+          minimum: 0,
+          goal: 100,
+          excellent: 150
+        }
+      }));
+      
+      setFormSchema(prev => ({
+        ...prev,
+        kpis: kpiFields
+      }));
+    }
+  }, [kpiData]);
+
+  const handleRoleChange = (newRole: 'Sales' | 'Service') => {
+    setFormSchema(prev => ({
+      ...prev,
+      role: newRole,
+      kpis: [] // Will be repopulated by useEffect when KPI data loads
+    }));
+  };
 
   const handleSave = async () => {
     if (!agencyId) {
@@ -296,6 +327,33 @@ export default function ScorecardFormBuilder() {
     setFormSchema(prev => ({ ...prev, customFields: updatedFields }));
   };
 
+  if (kpisLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <TopNav />
+        <div className="container mx-auto p-6">
+          <div className="flex items-center gap-2 justify-center mt-20">
+            <LoadingSpinner />
+            <span>Loading KPI configuration...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (kpisError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <TopNav />
+        <div className="container mx-auto p-6">
+          <div className="text-destructive text-center mt-20">
+            Error loading KPIs: {kpisError.message}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
@@ -339,13 +397,7 @@ export default function ScorecardFormBuilder() {
                   <Label htmlFor="role">Team Role</Label>
                   <Select 
                     value={formSchema.role} 
-                    onValueChange={(value: 'Sales' | 'Service') => {
-                      setFormSchema(prev => ({ 
-                        ...prev, 
-                        role: value,
-                        kpis: value === 'Sales' ? DEFAULT_SALES_KPIS : DEFAULT_SERVICE_KPIS
-                      }));
-                    }}
+                    onValueChange={handleRoleChange}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -359,15 +411,39 @@ export default function ScorecardFormBuilder() {
               </CardContent>
             </Card>
 
-            <KPIFieldManager 
-              kpis={formSchema.kpis}
-              onUpdateLabel={updateKPILabel}
-              onToggleRequired={toggleKPIRequired}
-              onUpdateType={updateKPIType}
-              onUpdateTarget={updateKPITarget}
-              onAddField={addKPIField}
-              onRemoveField={removeKPIField}
-            />
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>KPI Fields</CardTitle>
+                    <CardDescription>Configure the KPI fields for your form</CardDescription>
+                  </div>
+                  {currentMemberId && (
+                    <KPIManagementDialog 
+                      memberId={currentMemberId} 
+                      role={formSchema.role}
+                      onKPIUpdated={() => refetch()}
+                    >
+                      <Button variant="outline" size="sm">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Manage KPIs
+                      </Button>
+                    </KPIManagementDialog>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <KPIFieldManager 
+                  kpis={formSchema.kpis}
+                  onUpdateLabel={updateKPILabel}
+                  onToggleRequired={toggleKPIRequired}
+                  onUpdateType={updateKPIType}
+                  onUpdateTarget={updateKPITarget}
+                  onAddField={addKPIField}
+                  onRemoveField={removeKPIField}
+                />
+              </CardContent>
+            </Card>
 
             <CustomFieldManager
               fields={formSchema.customFields || []}

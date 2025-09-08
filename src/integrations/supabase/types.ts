@@ -894,6 +894,7 @@ export type Database = {
       kpis: {
         Row: {
           agency_id: string
+          archived_at: string | null
           color: string | null
           created_at: string
           created_by: string | null
@@ -903,10 +904,12 @@ export type Database = {
           is_active: boolean
           key: string
           label: string
+          role: Database["public"]["Enums"]["app_member_role"] | null
           type: string
         }
         Insert: {
           agency_id: string
+          archived_at?: string | null
           color?: string | null
           created_at?: string
           created_by?: string | null
@@ -916,10 +919,12 @@ export type Database = {
           is_active?: boolean
           key: string
           label: string
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           type: string
         }
         Update: {
           agency_id?: string
+          archived_at?: string | null
           color?: string | null
           created_at?: string
           created_by?: string | null
@@ -929,6 +934,7 @@ export type Database = {
           is_active?: boolean
           key?: string
           label?: string
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           type?: string
         }
         Relationships: []
@@ -1947,6 +1953,54 @@ export type Database = {
       }
     }
     Views: {
+      vw_active_kpis: {
+        Row: {
+          agency_id: string | null
+          archived_at: string | null
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string | null
+          is_active: boolean | null
+          key: string | null
+          label: string | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          type: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          key?: string | null
+          label?: string | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          type?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          key?: string | null
+          label?: string | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       vw_dashboard_weekly: {
         Row: {
           agency_id: string | null
