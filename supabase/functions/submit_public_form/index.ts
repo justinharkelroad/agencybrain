@@ -273,6 +273,29 @@ serve(async (req) => {
       for (let i = 0; i < quotedDetailsArray.length; i++) {
         const prospect = quotedDetailsArray[i];
         
+        // Extract lead source from prospect and map to UUID
+        const leadSourceValue = prospect.lead_source_raw || 
+                               prospect.leadSource || 
+                               prospect.lead_source || 
+                               leadSourceRaw ||
+                               null;
+        
+        // If it looks like a UUID, use it as lead_source_id, otherwise as raw text
+        let leadSourceId = null;
+        let leadSourceRaw = null;
+        
+        if (leadSourceValue) {
+          // Check if it's a UUID format (36 chars with hyphens)
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (uuidRegex.test(leadSourceValue)) {
+            leadSourceId = leadSourceValue;
+            console.log("🔍 DEBUG: Using lead_source_id (UUID):", leadSourceId);
+          } else {
+            leadSourceRaw = leadSourceValue;
+            console.log("🔍 DEBUG: Using lead_source_raw (text):", leadSourceRaw);
+          }
+        }
+        
         // Extract prospect name - never use "Household X"
         const prospectName = prospect.prospect_name || 
                            prospect.householdName || 
@@ -323,6 +346,7 @@ serve(async (req) => {
           household_name: prospectName,
           zip_code: prospect.zipCode || prospect.zip || null,
           policy_type: prospect.policyType || null,
+          lead_source_id: leadSourceId,
           items_quoted: itemsQuoted,
           policies_quoted: policiesQuoted,
           premium_potential_cents: premiumPotentialCents,
@@ -338,7 +362,7 @@ serve(async (req) => {
           work_date: body.workDate || body.submissionDate,
           household_name: prospectName,
           zip: prospect.zipCode || prospect.zip || null,
-          lead_source: leadSourceRaw,
+          lead_source: leadSourceRaw || leadSourceId, // Use raw text or ID as fallback
           notes: prospect.detailed_notes || prospect.notes || null,
           extras: customFields,
           is_final: true,
