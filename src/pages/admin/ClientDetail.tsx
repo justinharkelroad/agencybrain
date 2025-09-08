@@ -361,7 +361,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       }
       
       // Fetch periods
-      const { data: periodsData, error: periodsError } = await supa
+      const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
         .select('*')
         .eq('user_id', clientId)
@@ -371,7 +371,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       setPeriods(periodsData || []);
       
       // Fetch uploads
-      const { data: uploadsData, error: uploadsError } = await supa
+      const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
         .eq('user_id', clientId)
@@ -385,14 +385,14 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
 
       const results: Array<{ data: Analysis[] | null; error: any | null }> = [];
 
-      const byUser = await supa
+      const byUser = await supabase
         .from('ai_analysis')
         .select('*')
         .eq('user_id', clientId);
       results.push({ data: byUser.data as Analysis[] | null, error: byUser.error });
 
       if (periodIds.length > 0) {
-        const byPeriod = await supa
+        const byPeriod = await supabase
           .from('ai_analysis')
           .select('*')
           .in('period_id', periodIds);
@@ -449,7 +449,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
         if (uploadError) throw uploadError;
         
         // Save file metadata to database
-        const { error: dbError } = await supa
+        const { error: dbError } = await supabase
           .from('uploads')
           .insert({
             user_id: clientId,
@@ -485,14 +485,14 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
   const handleDeleteUpload = async (upload: Upload) => {
     try {
       // Delete from storage
-      const { error: storageError } = await supa.storage
+      const { error: storageError } = await supabase.storage
         .from('uploads')
         .remove([upload.file_path]);
       
       if (storageError) throw storageError;
       
       // Delete from database
-      const { error: dbError } = await supa
+      const { error: dbError } = await supabase
         .from('uploads')
         .delete()
         .eq('id', upload.id);
@@ -763,7 +763,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
     try {
       const typesData = await fetchActiveProcessVaultTypes();
       const { data: vaultsData, error: vaultsError } = await
-        supa.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true });
+        supabase.from('user_process_vaults').select('id,user_id,title,vault_type_id,created_at').eq('user_id', clientId).order('created_at', { ascending: true });
       
       if (vaultsError) throw vaultsError;
       const types = typesData as ProcessVaultType[];
@@ -791,7 +791,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       setPvVaults(vaults);
       if (vaults.length > 0) {
         const ids = vaults.map(v => v.id);
-        const { data: files, error: filesErr } = await supa
+        const { data: files, error: filesErr } = await supabase
           .from('process_vault_files')
           .select('id,user_vault_id,upload_file_path,created_at')
           .in('user_vault_id', ids);
@@ -814,7 +814,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
     setVaultDialogOpen(true);
     setSelectedUploadId('');
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('process_vault_files')
         .select('id,user_vault_id,upload_file_path,created_at')
         .eq('user_vault_id', vault.id)
@@ -843,7 +843,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
 
   const unlinkFile = async (row: VaultFileRow) => {
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('process_vault_files')
         .delete()
         .eq('id', row.id);
@@ -864,7 +864,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
     try {
       const upload = uploads.find(u => u.id === selectedUploadId);
       if (!upload) return;
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('process_vault_files')
         .insert({ user_vault_id: activeVault.id, upload_file_path: upload.file_path })
         .select('*')
@@ -1137,7 +1137,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                   onClick={async () => {
                     if (!newVaultTitle.trim()) return;
                     try {
-                      const { error } = await supa
+                      const { error } = await supabase
                         .from('user_process_vaults')
                         .insert({ user_id: clientId, title: newVaultTitle.trim().toUpperCase() });
                       if (error) throw error;
@@ -1377,7 +1377,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                             variant="outline"
                             size="sm"
                             onClick={async () => {
-                              const { error } = await supa
+                              const { error } = await supabase
                                 .from('ai_analysis')
                                 .update({ shared_with_client: !analysis.shared_with_client })
                                 .eq('id', analysis.id);
