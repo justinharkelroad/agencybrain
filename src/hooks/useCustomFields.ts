@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -34,7 +34,7 @@ export function useCustomFields(agencyId: string) {
 
     setLoading(true);
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('prospect_custom_fields')
         .select('*')
         .eq('agency_id', agencyId)
@@ -56,7 +56,7 @@ export function useCustomFields(agencyId: string) {
     if (!user || !agencyId) return false;
 
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('prospect_custom_fields')
         .insert({
           agency_id: agencyId,
@@ -85,7 +85,7 @@ export function useCustomFields(agencyId: string) {
     if (!user) return false;
 
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('prospect_custom_fields')
         .update(updates)
         .eq('id', fieldId)
@@ -108,7 +108,7 @@ export function useCustomFields(agencyId: string) {
 
     try {
       // Soft delete by setting active to false
-      const { error } = await supa
+      const { error } = await supabase
         .from('prospect_custom_fields')
         .update({ active: false })
         .eq('id', fieldId)
@@ -131,7 +131,7 @@ export function useCustomFields(agencyId: string) {
 
     try {
       const updates = fieldIds.map((id, index) => 
-        supa
+        supabase
           .from('prospect_custom_fields')
           .update({ order_index: index })
           .eq('id', id)

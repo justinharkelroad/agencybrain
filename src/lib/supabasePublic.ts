@@ -1,22 +1,3 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __supa_pub__: SupabaseClient | undefined;
-}
-
-const url = import.meta.env.VITE_SUPABASE_URL!;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
-if (!url || !anon) throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY");
-
-export const supaPublic: SupabaseClient =
-  (globalThis as any).__supa_pub__ ??
-  createClient(url, anon, {
-    auth: {
-      persistSession: false,
-      detectSessionInUrl: false,
-      storageKey: "sb-public"
-    },
-  });
-
-if (!(globalThis as any).__supa_pub__) (globalThis as any).__supa_pub__ = supaPublic;
+// Compatibility redirects to main supabase client  
+import { supabase } from "@/integrations/supabase/client";
+export const supaPublic = supabase;

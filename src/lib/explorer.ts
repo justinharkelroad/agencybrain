@@ -1,4 +1,4 @@
-import { supa } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SearchQuery {
   page?: number;

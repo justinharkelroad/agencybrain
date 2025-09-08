@@ -14,9 +14,9 @@ serve(async (req) => {
   if (opt) return opt;
   
   try {
-    const url = new URL(req.url);
-    const memberId = url.searchParams.get('member_id'); // UUID
-    const role = url.searchParams.get('role'); // optional, else from member
+    const body = await req.json();
+    const memberId = body.member_id; // UUID
+    const role = body.role; // optional, else from member
     
     if (!memberId) return bad('member_id required');
 
