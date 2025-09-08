@@ -39,7 +39,7 @@ export default function ScorecardForms() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="metrics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Metrics
@@ -59,10 +59,6 @@ export default function ScorecardForms() {
             <TabsTrigger value="targets" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               Targets
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
             </TabsTrigger>
           </TabsList>
 
@@ -171,7 +167,7 @@ export default function ScorecardForms() {
                       <Button 
                         variant="outline" 
                         className="w-full justify-start"
-                        onClick={() => navigate("/scorecard-settings?role=sales")}
+                        onClick={() => navigate("/settings?tab=scorecards&role=sales")}
                       >
                         <Award className="h-4 w-4 mr-2" />
                         Sales Scoring Rules
@@ -192,7 +188,7 @@ export default function ScorecardForms() {
                       <Button 
                         variant="outline" 
                         className="w-full justify-start"
-                        onClick={() => navigate("/scorecard-settings?role=service")}
+                        onClick={() => navigate("/settings?tab=scorecards&role=service")}
                       >
                         <Award className="h-4 w-4 mr-2" />
                         Service Scoring Rules
@@ -204,23 +200,6 @@ export default function ScorecardForms() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>General Settings</CardTitle>
-                <CardDescription>
-                  Configure basic agency settings and preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UnifiedSettingsDialog title="General Settings">
-                  <div className="w-full">
-                    {/* Settings form content will be displayed directly here instead of behind a button */}
-                  </div>
-                </UnifiedSettingsDialog>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </div>
