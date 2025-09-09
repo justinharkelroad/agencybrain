@@ -150,11 +150,11 @@ export default function ScorecardFormBuilder() {
     }
   });
 
-  // Load KPIs dynamically based on role
-  const { data: kpiData, isLoading: kpisLoading, error: kpisError, refetch } = useKpis(
-    currentMemberId, 
-    formSchema.role
-  );
+  // Load KPIs dynamically based on role - temporarily disabled to prevent 404s
+  const kpiData = null;
+  const kpisLoading = false;
+  const kpisError = null;
+  const refetch = () => {};
 
   useEffect(() => {
     const fetchAgencyAndMember = async () => {

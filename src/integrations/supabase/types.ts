@@ -2318,7 +2318,12 @@ export type Database = {
           p_consolidate_versions?: boolean
           p_role: string
         }
-        Returns: Json
+        Returns: {
+          date: string
+          display_label: string
+          kpi_version_id: string
+          total_val: number
+        }[]
       }
       gtrgm_compress: {
         Args: { "": unknown }

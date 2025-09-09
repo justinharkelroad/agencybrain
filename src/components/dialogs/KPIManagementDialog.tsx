@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit2, Plus, AlertCircle, Check, X } from "lucide-react";
-import { useKpis } from "@/hooks/useKpis";
+import { useKpis, useAgencyKpis } from "@/hooks/useKpis";
 import { useOutdatedFormKpis } from "@/hooks/useKpiVersions";
 import { FormKpiUpdateDialog } from "./FormKpiUpdateDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +36,7 @@ export default function KPIManagementDialog({
     kpi: any;
   } | null>(null);
   
-  const { data: kpiData, refetch } = useKpis(memberId, role);
+  const { data: kpiData, refetch } = useAgencyKpis(""); // Will need agency ID from context
   const { data: outdatedForms } = useOutdatedFormKpis(""); // TODO: Get agency ID properly
 
   const handleRename = async (kpiId: string, newLabel: string) => {
@@ -101,16 +101,16 @@ export default function KPIManagementDialog({
               </Alert>
             )}
             
-            {kpiData?.kpis.map((kpi) => (
-              <div key={kpi.id} className="flex items-center justify-between p-4 border rounded-lg">
-                {editingKpi === kpi.id ? (
+            {kpiData?.map((kpi) => (
+              <div key={kpi.kpi_id} className="flex items-center justify-between p-4 border rounded-lg">
+                {editingKpi === kpi.kpi_id ? (
                   <div className="flex items-center gap-2 flex-1">
                     <Input
                       value={editingLabel}
                       onChange={(e) => setEditingLabel(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          handleRename(kpi.id, editingLabel);
+                          handleRename(kpi.kpi_id, editingLabel);
                         } else if (e.key === 'Escape') {
                           setEditingKpi(null);
                         }
@@ -119,7 +119,7 @@ export default function KPIManagementDialog({
                     />
                     <Button 
                       size="sm" 
-                      onClick={() => handleRename(kpi.id, editingLabel)}
+                      onClick={() => handleRename(kpi.kpi_id, editingLabel)}
                     >
                       <Check className="h-4 w-4" />
                     </Button>
@@ -136,7 +136,7 @@ export default function KPIManagementDialog({
                     <div className="flex items-center gap-2">
                       <Label className="font-medium">{kpi.label}</Label>
                       <Badge variant="outline" className="text-xs">
-                        {kpi.key}
+                        {kpi.slug}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1">
@@ -144,7 +144,7 @@ export default function KPIManagementDialog({
                         size="sm"
                         variant="ghost"
                         onClick={() => {
-                          setEditingKpi(kpi.id);
+                          setEditingKpi(kpi.kpi_id);
                           setEditingLabel(kpi.label);
                         }}
                       >
@@ -153,7 +153,7 @@ export default function KPIManagementDialog({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setDeleteKpiId(kpi.id)}
+                        onClick={() => setDeleteKpiId(kpi.kpi_id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

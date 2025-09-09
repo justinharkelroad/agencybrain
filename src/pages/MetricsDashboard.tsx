@@ -93,11 +93,9 @@ export default function MetricsDashboard() {
     { consolidateVersions: false }
   );
 
-  // Load KPIs for the current agency member
-  const {
-    data: kpisData,
-    isLoading: kpisLoading,
-  } = useKpis(user?.id || "", role);
+  // Load KPIs for the current agency - temporarily disabled to prevent 404s
+  const kpisData = null;
+  const kpisLoading = false;
 
   // Show loading skeleton on first load
   if (agencyLoading || (dashboardLoading && !dashboardData)) {
