@@ -13,6 +13,7 @@ import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
 import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
+import { useAgencyKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
 import { supabase } from '@/lib/supabaseClient';
@@ -23,6 +24,8 @@ interface KPIField {
   label: string;
   required: boolean;
   type: 'number' | 'currency' | 'percentage';
+  selectedKpiId?: string; // Links to actual agency KPI
+  selectedKpiSlug?: string; // KPI slug for submission mapping
   target?: {
     minimum?: number;
     goal?: number;
@@ -98,6 +101,9 @@ export default function ScorecardFormEditor() {
   const { data: formBindings } = useFormKpiBindings(formId);
   const outdatedBinding = formBindings?.find(binding => binding.kpi_versions.valid_to !== null);
   const { data: currentKpiVersion } = useCurrentKpiVersion(outdatedBinding?.kpi_versions.kpi_id || "");
+  
+  // Load agency KPIs for dropdown
+  const { data: agencyKpis = [] } = useAgencyKpis(agencyId);
 
   useEffect(() => {
     if (formId && user?.id) {
@@ -202,6 +208,18 @@ export default function ScorecardFormEditor() {
     if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
     updatedKPIs[index] = { ...updatedKPIs[index], target };
+    setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
+  };
+
+  const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
+    if (!formSchema) return;
+    const updatedKPIs = [...formSchema.kpis];
+    updatedKPIs[index] = { 
+      ...updatedKPIs[index], 
+      selectedKpiId: kpiId,
+      selectedKpiSlug: slug,
+      label: label // Update label to match selected KPI
+    };
     setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
 
@@ -337,10 +355,12 @@ export default function ScorecardFormEditor() {
 
             <KPIFieldManager 
               kpis={formSchema.kpis}
+              availableKpis={agencyKpis}
               onUpdateLabel={updateKPILabel}
               onToggleRequired={toggleKPIRequired}
               onUpdateType={updateKPIType}
               onUpdateTarget={updateKPITarget}
+              onUpdateKpiSelection={updateKpiSelection}
               onAddField={addKPIField}
               onRemoveField={removeKPIField}
             />

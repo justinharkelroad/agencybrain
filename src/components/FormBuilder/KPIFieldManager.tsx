@@ -12,6 +12,8 @@ interface KPIField {
   label: string;
   required: boolean;
   type: 'number' | 'currency' | 'percentage';
+  selectedKpiId?: string; // Links to actual agency KPI
+  selectedKpiSlug?: string; // KPI slug for submission mapping
   target?: {
     minimum?: number;
     goal?: number;
@@ -19,22 +21,33 @@ interface KPIField {
   };
 }
 
+interface AgencyKPI {
+  kpi_id: string;
+  slug: string;
+  label: string;
+  active: boolean;
+}
+
 interface KPIFieldManagerProps {
   kpis: KPIField[];
+  availableKpis: AgencyKPI[];
   onUpdateLabel: (index: number, label: string) => void;
   onToggleRequired: (index: number) => void;
   onUpdateType: (index: number, type: 'number' | 'currency' | 'percentage') => void;
   onUpdateTarget: (index: number, target: { minimum?: number; goal?: number; excellent?: number }) => void;
+  onUpdateKpiSelection: (index: number, kpiId: string, slug: string, label: string) => void;
   onAddField: () => void;
   onRemoveField: (index: number) => void;
 }
 
 export default function KPIFieldManager({
   kpis,
+  availableKpis,
   onUpdateLabel,
   onToggleRequired,
   onUpdateType,
   onUpdateTarget,
+  onUpdateKpiSelection,
   onAddField,
   onRemoveField
 }: KPIFieldManagerProps) {
@@ -57,10 +70,33 @@ export default function KPIFieldManager({
           <div key={kpi.key} className="space-y-4 p-4 border rounded-lg">
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Select KPI</Label>
+                  <Select 
+                    value={kpi.selectedKpiId || ''} 
+                    onValueChange={(kpiId) => {
+                      const selectedKpi = availableKpis.find(k => k.kpi_id === kpiId);
+                      if (selectedKpi) {
+                        onUpdateKpiSelection(index, kpiId, selectedKpi.slug, selectedKpi.label);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a KPI" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableKpis.map(availKpi => (
+                        <SelectItem key={availKpi.kpi_id} value={availKpi.kpi_id}>
+                          {availKpi.label} ({availKpi.slug})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Input
                   value={kpi.label}
                   onChange={(e) => onUpdateLabel(index, e.target.value)}
-                  placeholder="KPI Label"
+                  placeholder="Display Label (optional override)"
                 />
                 <div className="flex items-center gap-2">
                   <Select 
@@ -78,7 +114,7 @@ export default function KPIFieldManager({
                       <SelectItem value="percentage">Percentage</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Badge variant="secondary">{kpi.key}</Badge>
+                  <Badge variant="secondary">{kpi.selectedKpiSlug || kpi.key}</Badge>
                 </div>
               </div>
               <div className="flex items-center gap-2">

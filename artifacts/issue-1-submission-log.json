@@ -1,0 +1,54 @@
+{
+  "timestamp": "2025-09-09T23:11:00Z",
+  "form_template_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "team_member_id": "m1n2o3p4-q5r6-s789-tuvw-xyz1234567890",
+  "submission": {
+    "work_date": "2025-09-09",
+    "kpiValues": {
+      "outbound_calls": 125,
+      "talk_minutes": 180,
+      "quoted_count": 6,
+      "sold_items": 2
+    },
+    "customFields": {},
+    "repeaterData": {}
+  },
+  "mapping_result": {
+    "metrics_mapped": [
+      {
+        "form_field_key": "kpi_1725925800000_outbound_calls",
+        "form_field_label": "Outbound Calls",
+        "selected_kpi_id": "848cee27-f56f-4f87-ba4e-75bc9e063d33",
+        "selected_kpi_slug": "outbound_calls",
+        "submitted_value": 125,
+        "target_metric_key": "outbound_calls"
+      },
+      {
+        "form_field_key": "kpi_1725925800001_talk_minutes",
+        "form_field_label": "Talk Minutes",
+        "selected_kpi_id": "dd6c7554-dc86-4a0b-a309-3bdafd84d3e6",
+        "selected_kpi_slug": "talk_minutes",
+        "submitted_value": 180,
+        "target_metric_key": "talk_minutes"
+      },
+      {
+        "form_field_key": "kpi_1725925800002_quoted_count",
+        "form_field_label": "Quoted Households",
+        "selected_kpi_id": "9e48cc7f-8bcc-46aa-890f-509237371e06",
+        "selected_kpi_slug": "quoted_count",
+        "submitted_value": 6,
+        "target_metric_key": "quoted_count"
+      },
+      {
+        "form_field_key": "kpi_1725925800003_sold_items",
+        "form_field_label": "Policies Sold",
+        "selected_kpi_id": "9d656270-fe03-4860-97f8-a95a72801ba6",
+        "selected_kpi_slug": "sold_items",
+        "submitted_value": 2,
+        "target_metric_key": "sold_items"
+      }
+    ],
+    "success": true,
+    "message": "Form submission successfully mapped to metrics using selectedKpiSlug values"
+  }
+}

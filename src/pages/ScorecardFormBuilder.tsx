@@ -13,17 +13,19 @@ import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { useKpis } from "@/hooks/useKpis";
-import { toast } from "sonner";
-import TopNav from "@/components/TopNav";
-import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from "@/lib/auth";
+  import { useAgencyKpis } from "@/hooks/useKpis";
+  import { toast } from "sonner";
+  import TopNav from "@/components/TopNav";
+  import { supabase } from '@/lib/supabaseClient';
+  import { useAuth } from "@/lib/auth";
 
 interface KPIField {
   key: string;
   label: string;
   required: boolean;
   type: 'number' | 'currency' | 'percentage';
+  selectedKpiId?: string; // Links to actual agency KPI
+  selectedKpiSlug?: string; // KPI slug for submission mapping
   target?: {
     minimum?: number;
     goal?: number;
@@ -150,11 +152,28 @@ export default function ScorecardFormBuilder() {
     }
   });
 
-  // Load KPIs dynamically based on role - temporarily disabled to prevent 404s
-  const kpiData = null;
-  const kpisLoading = false;
-  const kpisError = null;
-  const refetch = () => {};
+  // Load KPIs and scorecard rules
+  const { data: agencyKpis = [], isLoading: kpisLoading, error: kpisError, refetch } = useAgencyKpis(agencyId);
+  
+  // Load scorecard rules for preselected KPIs
+  const [scorecardRules, setScorecardRules] = useState<{ selected_metrics?: string[] } | null>(null);
+  
+  useEffect(() => {
+    const loadScorecardRules = async () => {
+      if (!agencyId) return;
+      
+      const { data } = await supabase
+        .from('scorecard_rules')
+        .select('selected_metrics, selected_metric_slugs')
+        .eq('agency_id', agencyId)
+        .eq('role', formSchema.role)
+        .single();
+        
+      setScorecardRules(data);
+    };
+    
+    loadScorecardRules();
+  }, [agencyId, formSchema.role]);
 
   useEffect(() => {
     const fetchAgencyAndMember = async () => {
@@ -185,33 +204,37 @@ export default function ScorecardFormBuilder() {
     fetchAgencyAndMember();
   }, [user?.id]);
 
-  // Update KPI fields when KPI data loads
+  // Initialize KPI fields when agency KPIs load or role changes
   useEffect(() => {
-    if (kpiData?.kpis && kpiData.kpis.length > 0) {
-      const kpiFields: KPIField[] = kpiData.kpis.map(kpi => ({
-        key: kpi.key,
-        label: kpi.label,
-        required: true,
-        type: kpi.type as 'number' | 'currency' | 'percentage',
-        target: {
-          minimum: 0,
-          goal: 100,
-          excellent: 150
-        }
-      }));
+    if (agencyKpis.length > 0 && scorecardRules) {
+      const preselectedSlugs = scorecardRules.selected_metrics || [];
+      
+      // Create KPI fields for preselected metrics
+      const kpiFields: KPIField[] = preselectedSlugs.map(slug => {
+        const matchedKpi = agencyKpis.find(k => k.slug === slug);
+        return {
+          key: `kpi_${Date.now()}_${slug}`,
+          label: matchedKpi?.label || slug,
+          required: true,
+          type: 'number' as const,
+          selectedKpiId: matchedKpi?.kpi_id,
+          selectedKpiSlug: slug,
+          target: { minimum: 0, goal: 100, excellent: 150 }
+        };
+      });
       
       setFormSchema(prev => ({
         ...prev,
         kpis: kpiFields
       }));
     }
-  }, [kpiData]);
+  }, [agencyKpis, scorecardRules]);
 
   const handleRoleChange = (newRole: 'Sales' | 'Service') => {
     setFormSchema(prev => ({
       ...prev,
       role: newRole,
-      kpis: [] // Will be repopulated by useEffect when KPI data loads
+      kpis: [] // Will be repopulated when scorecard rules load
     }));
   };
 
@@ -285,6 +308,17 @@ export default function ScorecardFormBuilder() {
   const updateKPITarget = (index: number, target: { minimum?: number; goal?: number; excellent?: number }) => {
     const updatedKPIs = [...formSchema.kpis];
     updatedKPIs[index] = { ...updatedKPIs[index], target };
+    setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
+  };
+
+  const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
+    const updatedKPIs = [...formSchema.kpis];
+    updatedKPIs[index] = { 
+      ...updatedKPIs[index], 
+      selectedKpiId: kpiId,
+      selectedKpiSlug: slug,
+      label: label // Update label to match selected KPI
+    };
     setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
   };
 
@@ -435,10 +469,12 @@ export default function ScorecardFormBuilder() {
               <CardContent>
                 <KPIFieldManager 
                   kpis={formSchema.kpis}
+                  availableKpis={agencyKpis}
                   onUpdateLabel={updateKPILabel}
                   onToggleRequired={toggleKPIRequired}
                   onUpdateType={updateKPIType}
                   onUpdateTarget={updateKPITarget}
+                  onUpdateKpiSelection={updateKpiSelection}
                   onAddField={addKPIField}
                   onRemoveField={removeKPIField}
                 />
