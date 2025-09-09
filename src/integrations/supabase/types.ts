@@ -861,6 +861,42 @@ export type Database = {
         }
         Relationships: []
       }
+      forms_kpi_bindings: {
+        Row: {
+          created_at: string
+          form_template_id: string
+          id: string
+          kpi_version_id: string
+        }
+        Insert: {
+          created_at?: string
+          form_template_id: string
+          id?: string
+          kpi_version_id: string
+        }
+        Update: {
+          created_at?: string
+          form_template_id?: string
+          id?: string
+          kpi_version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_kpi_bindings_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forms_kpi_bindings_kpi_version_id_fkey"
+            columns: ["kpi_version_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kpi_audit: {
         Row: {
           action: string
@@ -890,6 +926,48 @@ export type Database = {
           payload?: Json | null
         }
         Relationships: []
+      }
+      kpi_versions: {
+        Row: {
+          created_at: string
+          id: string
+          kpi_id: string
+          label: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kpi_id: string
+          label: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kpi_id?: string
+          label?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_versions_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "kpis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_versions_kpi_id_fkey"
+            columns: ["kpi_id"]
+            isOneToOne: false
+            referencedRelation: "vw_active_kpis"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kpis: {
         Row: {
@@ -1029,6 +1107,8 @@ export type Database = {
           id: string
           is_counted_day: boolean
           is_late: boolean
+          kpi_version_id: string | null
+          label_at_submit: string | null
           metric_slug: string | null
           mini_reviews: number | null
           outbound_calls: number | null
@@ -1040,6 +1120,7 @@ export type Database = {
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
+          submitted_at: string | null
           talk_minutes: number | null
           team_member_id: string
           updated_at: string
@@ -1055,6 +1136,8 @@ export type Database = {
           id?: string
           is_counted_day?: boolean
           is_late?: boolean
+          kpi_version_id?: string | null
+          label_at_submit?: string | null
           metric_slug?: string | null
           mini_reviews?: number | null
           outbound_calls?: number | null
@@ -1066,6 +1149,7 @@ export type Database = {
           sold_policies?: number | null
           sold_premium_cents?: number | null
           streak_count?: number | null
+          submitted_at?: string | null
           talk_minutes?: number | null
           team_member_id: string
           updated_at?: string
@@ -1081,6 +1165,8 @@ export type Database = {
           id?: string
           is_counted_day?: boolean
           is_late?: boolean
+          kpi_version_id?: string | null
+          label_at_submit?: string | null
           metric_slug?: string | null
           mini_reviews?: number | null
           outbound_calls?: number | null
@@ -1092,6 +1178,7 @@ export type Database = {
           sold_policies?: number | null
           sold_premium_cents?: number | null
           streak_count?: number | null
+          submitted_at?: string | null
           talk_minutes?: number | null
           team_member_id?: string
           updated_at?: string
@@ -1109,6 +1196,13 @@ export type Database = {
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_kpi_version_id_fkey"
+            columns: ["kpi_version_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_versions"
             referencedColumns: ["id"]
           },
         ]
