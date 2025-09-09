@@ -313,8 +313,8 @@ export default function MetricsDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                   {rows.map((r, index) => (
-                     <tr key={`${r.team_member_id}-${index}`} className="border-b border-border/50">
+                  {rows.map(r => (
+                    <tr key={r.team_member_id} className="border-b border-border/50">
                       <Td className="font-medium">{r.team_member_name}</Td>
                       {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
                       {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
@@ -358,8 +358,8 @@ export default function MetricsDashboard() {
             </CardHeader>
             <CardContent>
               <ol className="space-y-3">
-                 {contest.map((r, i) => (
-                   <li key={`${r.team_member_id}-${i}`} className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border/50">
+                {contest.map((r, i) => (
+                  <li key={r.team_member_id} className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border/50">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-muted-foreground">#{i + 1}</span>
