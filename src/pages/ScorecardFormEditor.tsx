@@ -11,6 +11,8 @@ import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
+import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
+import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
 import { supabase } from '@/integrations/supabase/client';
@@ -83,6 +85,19 @@ export default function ScorecardFormEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
+  const [agencyId, setAgencyId] = useState<string>("");
+  const [showKpiUpdateDialog, setShowKpiUpdateDialog] = useState(false);
+  const [outdatedKpiInfo, setOutdatedKpiInfo] = useState<{
+    kpi_id: string;
+    current_label: string;
+    bound_label: string;
+    bound_version_id: string;
+  } | null>(null);
+
+  // Get form KPI bindings to check for outdated versions
+  const { data: formBindings } = useFormKpiBindings(formId);
+  const outdatedBinding = formBindings?.find(binding => binding.kpi_versions.valid_to !== null);
+  const { data: currentKpiVersion } = useCurrentKpiVersion(outdatedBinding?.kpi_versions.kpi_id || "");
 
   useEffect(() => {
     if (formId && user?.id) {
@@ -90,9 +105,33 @@ export default function ScorecardFormEditor() {
     }
   }, [formId, user?.id]);
 
+  // Check for outdated KPI versions after form loads
+  useEffect(() => {
+    if (outdatedBinding && currentKpiVersion && !showKpiUpdateDialog) {
+      setOutdatedKpiInfo({
+        kpi_id: outdatedBinding.kpi_versions.kpi_id,
+        current_label: currentKpiVersion.label,
+        bound_label: outdatedBinding.kpi_versions.label,
+        bound_version_id: outdatedBinding.kpi_version_id,
+      });
+      setShowKpiUpdateDialog(true);
+    }
+  }, [outdatedBinding, currentKpiVersion, showKpiUpdateDialog]);
+
   const loadForm = async () => {
     try {
-      const { data: template, error } = await supa
+      // Get user's agency first
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+      }
+
+      const { data: template, error } = await supabase
         .from('form_templates')
         .select('*')
         .eq('id', formId)
@@ -115,7 +154,7 @@ export default function ScorecardFormEditor() {
 
     setSaving(true);
     try {
-      const { error } = await supa
+      const { error } = await supabase
         .from('form_templates')
         .update({
           name: formSchema.title,
@@ -380,6 +419,22 @@ export default function ScorecardFormEditor() {
           </div>
         </div>
       </div>
+
+      {/* KPI Update Dialog */}
+      {formSchema && outdatedKpiInfo && (
+        <FormKpiUpdateDialog
+          isOpen={showKpiUpdateDialog}
+          onOpenChange={(open) => {
+            setShowKpiUpdateDialog(open);
+            if (!open) {
+              setOutdatedKpiInfo(null);
+            }
+          }}
+          formId={formId!}
+          formName={formSchema.title}
+          outdatedKpi={outdatedKpiInfo}
+        />
+      )}
     </div>
   );
 }
