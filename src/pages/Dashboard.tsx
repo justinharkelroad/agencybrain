@@ -7,7 +7,7 @@ import SharedInsights from '@/components/client/SharedInsights';
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { TopNav } from "@/components/TopNav";
@@ -32,13 +32,13 @@ const Dashboard = () => {
 
   const fetchAgencyName = async () => {
     if (!user) return;
-    const { data: profile, error } = await supa
+    const { data: profile, error } = await supabase
       .from('profiles')
       .select('agency_id')
       .eq('id', user.id)
       .maybeSingle();
     if (!error && profile?.agency_id) {
-      const { data: agency, error: agencyError } = await supa
+      const { data: agency, error: agencyError } = await supabase
         .from('agencies')
         .select('name')
         .eq('id', profile.agency_id)

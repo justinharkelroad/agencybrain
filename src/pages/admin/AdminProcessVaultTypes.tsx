@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,7 @@ const AdminProcessVaultTypes: React.FC = () => {
     const raw = newTitle.trim();
     if (!raw) return;
     const title = raw.toUpperCase();
-    const { error } = await supa.from("process_vault_types").insert({ title });
+    const { error } = await supabase.from("process_vault_types").insert({ title });
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -70,7 +70,7 @@ const AdminProcessVaultTypes: React.FC = () => {
   };
 
   const deleteType = async (id: string) => {
-    const { error } = await supa.from("process_vault_types").delete().eq("id", id);
+    const { error } = await supabase.from("process_vault_types").delete().eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {

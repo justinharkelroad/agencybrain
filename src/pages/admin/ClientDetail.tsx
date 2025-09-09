@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info, Folder, Plus, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
 import { fetchActivePromptsOnly } from '@/lib/dataFetchers';
 import { FormViewer } from '@/components/FormViewer';

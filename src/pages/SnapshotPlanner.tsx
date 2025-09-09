@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { computeRoyTargets, type RoyResult, type RoyParams } from "@/lib/computeRoyTargets";
 import { getBonusGridState, getGridValidation, getPointsItemsMix, type GridValidation } from "@/lib/bonusGridState";
 import { computeRounded, type CellAddr } from "@/bonus_grid_web_spec/computeWithRounding";
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 const MONTHS = [
   { value: 1, label: "January" },

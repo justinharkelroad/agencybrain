@@ -8,7 +8,7 @@ export type ParsedPdf = {
 export async function parseBusinessMetricsPdf(file: File): Promise<ParsedPdf> {
   try {
     // Use the Supabase Edge Function for server-side PDF parsing
-    const { supabase } = await import('@/integrations/supabase/client');
+    const { supabase } = await import('@/lib/supabaseClient');
     
     const formData = new FormData();
     formData.append('file', file);

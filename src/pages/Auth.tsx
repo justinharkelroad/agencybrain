@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -65,7 +65,7 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supa.functions.invoke('validate-invite', {
+      const { data, error } = await supabase.functions.invoke('validate-invite', {
         body: { code: inviteCode.trim() },
       });
 

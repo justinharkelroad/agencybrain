@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { TopNav } from "@/components/TopNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

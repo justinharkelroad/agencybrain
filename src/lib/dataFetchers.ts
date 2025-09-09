@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 
 export async function fetchActivePromptsOnly() {
   console.log("🔍 Fetching active prompts...");

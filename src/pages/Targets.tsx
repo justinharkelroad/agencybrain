@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ export default function Targets() {
   const loadData = async () => {
     try {
       // Get user's agency
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -56,7 +56,7 @@ export default function Targets() {
       setAgencyId(profile.agency_id);
 
       // Load team members
-      const { data: teamData } = await supa
+      const { data: teamData } = await supabase
         .from('team_members')
         .select('id, name, role')
         .eq('agency_id', profile.agency_id)
@@ -66,7 +66,7 @@ export default function Targets() {
       setTeam(teamData || []);
 
       // Load existing targets
-      const { data: targetsData } = await supa
+      const { data: targetsData } = await supabase
         .from('targets')
         .select('team_member_id, metric_key, value_number')
         .eq('agency_id', profile.agency_id);
@@ -117,7 +117,7 @@ export default function Targets() {
       }
 
       if (upserts.length > 0) {
-        const { error } = await supa
+        const { error } = await supabase
           .from("targets")
           .upsert(upserts, { 
             onConflict: "agency_id,team_member_id,metric_key",

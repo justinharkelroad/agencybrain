@@ -1,7 +1,7 @@
 // Bulletproof Prompt Fetcher
 // Built on facts from comprehensive error analysis
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { errorAnalyzer, isAuthenticationError, verifyAnonymousClient } from '@/lib/errorAnalysis';
 
 interface PromptFetchResult {

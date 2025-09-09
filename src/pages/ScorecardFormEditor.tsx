@@ -15,7 +15,7 @@ import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
 import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
 import { toast } from "sonner";
 import TopNav from "@/components/TopNav";
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 
 interface KPIField {

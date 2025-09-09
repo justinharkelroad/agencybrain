@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
@@ -19,11 +19,11 @@ const Health: React.FC = () => {
   const runChecks = async () => {
     setRunning(true);
     try {
-      const { data: sessionData, error: sessionError } = await supa.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       setSessionOk(!sessionError);
       setAuthOk(!!sessionData.session);
 
-      const { error: dbErr } = await supa
+      const { error: dbErr } = await supabase
         .from("profiles")
         .select("id", { head: true, count: "exact" })
         .limit(1);

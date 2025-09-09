@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { TopNav } from "@/components/TopNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

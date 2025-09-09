@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Download, FileText, Trash2, ArrowLeft } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import FileUpload from '@/components/FileUpload';
 
 interface Upload {
