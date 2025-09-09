@@ -142,22 +142,30 @@ export default function MetricsDashboard() {
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Get role-based metric labels and display logic using KPI slugs
+  // Get role-based metric labels using versioned data (label_at_submit wins)
   const getMetricConfig = () => {
-    // Use selected_metric_slugs if available, fallback to selected_metrics
     const selectedMetrics = scorecardRules?.selected_metric_slugs || scorecardRules?.selected_metrics || [];
     const ringMetrics = scorecardRules?.ring_metrics || [];
     const isService = role === 'Service';
     
-    // Map KPI slugs to display labels using KPI definitions
+    // Create label map from versioned metrics data (uses label_at_submit)
+    const labelMap = new Map<string, string>();
+    if (dashboardData?.metrics) {
+      dashboardData.metrics.forEach((metric: any) => {
+        if (metric.kpi_key && metric.kpi_label) {
+          labelMap.set(metric.kpi_key, metric.kpi_label);
+        }
+      });
+    }
+    
+    // Get KPI label from versioned data first, fallback to slug
     const getKpiLabel = (slug: string) => {
-      const kpi = kpisData?.kpis?.find(k => k.key === slug);
-      return kpi?.label || slug;
+      return labelMap.get(slug) || slug;
     };
     
     return {
-      selectedMetrics: selectedMetrics.filter(Boolean), // Filter out any null/undefined values
-      ringMetrics: ringMetrics.filter(Boolean), // Filter out any null/undefined values
+      selectedMetrics: selectedMetrics.filter(Boolean),
+      ringMetrics: ringMetrics.filter(Boolean),
       isService,
       quotedLabel: isService ? 'cross_sells_uncovered' : 'quoted_count',
       soldLabel: isService ? 'mini_reviews' : 'sold_items',

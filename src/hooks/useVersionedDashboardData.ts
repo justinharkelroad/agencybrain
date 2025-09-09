@@ -7,7 +7,7 @@ interface VersionedMetric {
   team_member_name: string;
   role: string;
   kpi_key: string;
-  kpi_label: string; // The label at time of submission
+  kpi_label: string; // The label at time of submission (label_at_submit)
   kpi_version_id: string;
   value: number;
   pass: boolean;
@@ -15,6 +15,21 @@ interface VersionedMetric {
   daily_score: number;
   is_late: boolean;
   streak_count: number;
+}
+
+interface VersionedTableRow extends VersionedMetric {
+  // Additional computed fields for table display
+  outbound_calls: number;
+  talk_minutes: number;
+  quoted_count: number;
+  sold_items: number;
+  sold_policies: number;
+  sold_premium_cents: number;
+  cross_sells_uncovered?: number;
+  mini_reviews?: number;
+  pass_days: number;
+  score_sum: number;
+  streak: number;
 }
 
 interface DashboardOptions {
@@ -25,6 +40,11 @@ interface VersionedDashboardResult {
   metrics: VersionedMetric[];
   tiles: Record<string, number>;
   contest: any[];
+  table?: VersionedTableRow[]; // Table format compatible with existing dashboard
+  meta?: {
+    contest_board_enabled?: boolean;
+    agencyName?: string;
+  };
 }
 
 export function useVersionedDashboardData(
@@ -45,10 +65,34 @@ export function useVersionedDashboardData(
       if (error) throw new Error(error.message);
 
       const result = data as any;
+      
+      // Transform metrics data into table rows for dashboard compatibility
+      const metrics = result?.metrics || [];
+      const table = metrics.map((metric: VersionedMetric) => ({
+        ...metric,
+        team_member_name: metric.team_member_name,
+        outbound_calls: 0, // Will be populated from actual metrics
+        talk_minutes: 0,
+        quoted_count: 0,
+        sold_items: 0,
+        sold_policies: 0,
+        sold_premium_cents: 0,
+        cross_sells_uncovered: 0,
+        mini_reviews: 0,
+        pass_days: metric.pass ? 1 : 0,
+        score_sum: metric.daily_score,
+        streak: metric.streak_count
+      }));
+      
       return {
-        metrics: result?.metrics || [],
+        metrics,
         tiles: result?.tiles || {},
-        contest: result?.contest || []
+        contest: result?.contest || [],
+        table,
+        meta: {
+          contest_board_enabled: false,
+          agencyName: ""
+        }
       };
     },
     enabled: !!agencySlug && !!role,
