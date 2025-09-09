@@ -80,14 +80,20 @@ export function useDashboardData(params: DashboardParams) {
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       
-      const dateString = format(params.selectedDate, "yyyy-MM-dd");
+      // Create a 7-day window ending on the selected date
+      const endDate = new Date(params.selectedDate);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 6); // 7 days total (including end date)
+      
+      const startDateString = format(startDate, "yyyy-MM-dd");
+      const endDateString = format(endDate, "yyyy-MM-dd");
       
       const res = await supabase.functions.invoke('get_dashboard', {
         body: { 
           agencySlug: params.agencySlug, 
           role: params.role, 
-          start: dateString, 
-          end: dateString, 
+          start: startDateString, 
+          end: endDateString, 
           quotedLabel: params.quotedLabel, 
           soldMetric: params.soldMetric 
         },

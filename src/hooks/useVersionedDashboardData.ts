@@ -107,20 +107,26 @@ export function useVersionedDashboardData(
 export function useDashboardDataWithFallback(
   agencySlug: string,
   role: "Sales" | "Service",
-  options: DashboardOptions = {}
+  options: DashboardOptions = {},
+  selectedDate: Date = new Date()
 ) {
   const versionedQuery = useVersionedDashboardData(agencySlug, role, options);
   
-  // Fallback query using the existing hook structure  
+  // Fallback query using the existing hook structure with proper date window  
   const fallbackQuery = useQuery({
-    queryKey: ["dashboard-fallback", agencySlug, role],
+    queryKey: ["dashboard-fallback", agencySlug, role, selectedDate.toISOString()],
     queryFn: async () => {
+      // Create a 7-day window ending on the selected date
+      const endDate = new Date(selectedDate);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 6); // 7 days total (including end date)
+      
       const { data, error } = await supabase.functions.invoke('get_dashboard', {
         body: {
           agencySlug,
           role,
-          start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-          end: new Date().toISOString().slice(0, 10),
+          start: startDate.toISOString().slice(0, 10),
+          end: endDate.toISOString().slice(0, 10),
         }
       });
 

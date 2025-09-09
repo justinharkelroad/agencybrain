@@ -89,7 +89,8 @@ export default function MetricsDashboard() {
   } = useDashboardDataWithFallback(
     agencyProfile?.agencySlug || "",
     role,
-    { consolidateVersions: false }
+    { consolidateVersions: false },
+    selectedDate
   );
 
   // Load KPIs for the current agency - temporarily disabled to prevent 404s
