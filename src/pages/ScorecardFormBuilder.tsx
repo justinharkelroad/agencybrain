@@ -277,6 +277,17 @@ export default function ScorecardFormBuilder() {
 
       if (linkError) throw linkError;
 
+      // Bind KPI fields to their versions
+      const { error: bindError } = await supa.rpc('bind_form_kpis', {
+        p_form: template.id
+      });
+
+      if (bindError) {
+        console.error('Error binding KPIs:', bindError);
+        // Don't fail the form creation, just warn
+        toast.error("Form created but KPI bindings failed: " + bindError.message);
+      }
+
       toast.success("Form created successfully!");
       navigate('/scorecard-forms');
     } catch (error: any) {

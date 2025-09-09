@@ -2221,6 +2221,10 @@ export type Database = {
         Args: { p_agency: string; p_days: number }
         Returns: undefined
       }
+      bind_form_kpis: {
+        Args: { p_form: string }
+        Returns: undefined
+      }
       compute_is_late: {
         Args: {
           p_agency_id: string

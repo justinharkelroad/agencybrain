@@ -173,6 +173,17 @@ export default function ScorecardFormEditor() {
 
       if (error) throw error;
 
+      // Bind KPI fields to their versions
+      const { error: bindError } = await supabase.rpc('bind_form_kpis', {
+        p_form: formId
+      });
+
+      if (bindError) {
+        console.error('Error binding KPIs:', bindError);
+        // Don't fail the form update, just warn
+        toast.error("Form updated but KPI bindings failed: " + bindError.message);
+      }
+
       toast.success("Form updated successfully!");
       navigate('/scorecard-forms');
     } catch (error: any) {
