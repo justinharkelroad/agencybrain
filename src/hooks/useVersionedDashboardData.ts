@@ -21,6 +21,12 @@ interface DashboardOptions {
   consolidateVersions?: boolean; // Whether to group all versions of a KPI together
 }
 
+interface VersionedDashboardResult {
+  metrics: VersionedMetric[];
+  tiles: Record<string, number>;
+  contest: any[];
+}
+
 export function useVersionedDashboardData(
   agencySlug: string,
   role: "Sales" | "Service",
@@ -28,11 +34,7 @@ export function useVersionedDashboardData(
 ) {
   return useQuery({
     queryKey: ["versioned-dashboard", agencySlug, role, options],
-    queryFn: async (): Promise<{
-      metrics: VersionedMetric[];
-      tiles: Record<string, number>;
-      contest: any[];
-    }> => {
+    queryFn: async (): Promise<VersionedDashboardResult> => {
       // Get dashboard data with versioned KPI information
       const { data, error } = await supabase.rpc('get_versioned_dashboard_data', {
         p_agency_slug: agencySlug,
@@ -42,10 +44,11 @@ export function useVersionedDashboardData(
 
       if (error) throw new Error(error.message);
 
+      const result = data as any;
       return {
-        metrics: data?.metrics || [],
-        tiles: data?.tiles || {},
-        contest: data?.contest || []
+        metrics: result?.metrics || [],
+        tiles: result?.tiles || {},
+        contest: result?.contest || []
       };
     },
     enabled: !!agencySlug && !!role,
@@ -64,6 +67,7 @@ export function useDashboardDataWithFallback(
 ) {
   const versionedQuery = useVersionedDashboardData(agencySlug, role, options);
   
+  // Fallback query using the existing hook structure  
   const fallbackQuery = useQuery({
     queryKey: ["dashboard-fallback", agencySlug, role],
     queryFn: async () => {
@@ -79,7 +83,7 @@ export function useDashboardDataWithFallback(
       if (error) throw new Error(error.message);
       return data;
     },
-    enabled: versionedQuery.isError || !versionedQuery.data,
+    enabled: versionedQuery.isError,
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
@@ -89,11 +93,12 @@ export function useDashboardDataWithFallback(
   return {
     data: versionedQuery.data || fallbackQuery.data,
     isLoading: versionedQuery.isLoading || (versionedQuery.isError && fallbackQuery.isLoading),
+    isFetching: versionedQuery.isFetching || fallbackQuery.isFetching,
     error: versionedQuery.error || fallbackQuery.error,
     isError: versionedQuery.isError && fallbackQuery.isError,
     refetch: () => {
       versionedQuery.refetch();
-      if (fallbackQuery.isEnabled) fallbackQuery.refetch();
+      fallbackQuery.refetch();
     }
   };
 }

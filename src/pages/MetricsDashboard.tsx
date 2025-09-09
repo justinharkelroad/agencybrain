@@ -13,7 +13,7 @@ import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
 import { Link } from "react-router-dom";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardError } from "@/components/DashboardError";
-import { useDashboardData } from "@/hooks/useDashboardData";
+import { useDashboardDataWithFallback } from "@/hooks/useVersionedDashboardData";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpis } from "@/hooks/useKpis";
 
@@ -86,13 +86,11 @@ export default function MetricsDashboard() {
     error: dashboardError,
     refetch: refetchDashboard,
     isFetching: dashboardFetching,
-  } = useDashboardData({
-    agencySlug: agencyProfile?.agencySlug || "",
+  } = useDashboardDataWithFallback(
+    agencyProfile?.agencySlug || "",
     role,
-    selectedDate,
-    quotedLabel,
-    soldMetric,
-  });
+    { consolidateVersions: false }
+  );
 
   // Load KPIs for the current agency member
   const {

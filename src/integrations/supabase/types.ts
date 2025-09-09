@@ -2312,6 +2312,14 @@ export type Database = {
           team_member_id: string
         }[]
       }
+      get_versioned_dashboard_data: {
+        Args: {
+          p_agency_slug: string
+          p_consolidate_versions?: boolean
+          p_role: string
+        }
+        Returns: Json
+      }
       gtrgm_compress: {
         Args: { "": unknown }
         Returns: unknown

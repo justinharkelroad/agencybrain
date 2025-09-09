@@ -37,7 +37,7 @@ export default function KPIManagementDialog({
   } | null>(null);
   
   const { data: kpiData, refetch } = useKpis(memberId, role);
-  const { data: outdatedForms } = useOutdatedFormKpis(kpiData?.agency_id);
+  const { data: outdatedForms } = useOutdatedFormKpis(""); // TODO: Get agency ID properly
 
   const handleRename = async (kpiId: string, newLabel: string) => {
     try {
