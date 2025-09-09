@@ -1,2 +1,2 @@
-export { supabase as supa } from "./supabaseClient";
-export { supabase } from "./supabaseClient";
+export { supabase as supa } from "@/integrations/supabase/client";
+export { supabase } from "@/integrations/supabase/client";
