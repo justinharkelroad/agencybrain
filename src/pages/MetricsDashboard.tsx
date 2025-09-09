@@ -16,7 +16,6 @@ import { DashboardError } from "@/components/DashboardError";
 import { useDashboardDataWithFallback } from "@/hooks/useVersionedDashboardData";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpis } from "@/hooks/useKpis";
-import { TestAgencyKpis } from "@/components/TestAgencyKpis";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -194,8 +193,6 @@ export default function MetricsDashboard() {
           )}
         </div>
 
-        {/* Temporary RPC Test */}
-        <TestAgencyKpis />
 
         {/* Controls */}
         <Card className="glass-surface">
