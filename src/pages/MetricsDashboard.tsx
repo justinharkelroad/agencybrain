@@ -324,8 +324,8 @@ export default function MetricsDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(r => (
-                    <tr key={r.team_member_id} className="border-b border-border/50">
+                  {rows.map((r, index) => (
+                    <tr key={`${r.team_member_id}-${r.date || index}`} className="border-b border-border/50">
                       <Td className="font-medium">{r.team_member_name}</Td>
                       {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
                       {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
