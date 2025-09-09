@@ -250,6 +250,83 @@ serve(async (req) => {
 
     console.log("✅ Submission created with ID:", ins.id);
 
+    // PHASE A: Resolve KPI version for this form and process metrics
+    console.log("📊 Resolving KPI version for form...");
+    
+    // 1) Resolve form_id → forms_kpi_bindings.kpi_version_id
+    const { data: kpiBinding, error: kpiBindingError } = await supabase
+      .from('forms_kpi_bindings')
+      .select(`
+        kpi_version_id,
+        kpi_versions!inner(
+          id,
+          label,
+          kpi_id,
+          kpis!inner(
+            id,
+            key,
+            agency_id
+          )
+        )
+      `)
+      .eq('form_template_id', template.id)
+      .maybeSingle();
+
+    if (kpiBindingError) {
+      console.log("⚠️ KPI binding lookup error:", kpiBindingError);
+    }
+
+    let kpiVersionId = null;
+    let labelAtSubmit = null;
+    let kpiKey = null;
+
+    if (kpiBinding?.kpi_versions) {
+      kpiVersionId = kpiBinding.kpi_version_id;
+      labelAtSubmit = kpiBinding.kpi_versions.label;
+      kpiKey = kpiBinding.kpi_versions.kpis.key;
+      console.log("✅ KPI version resolved:", {
+        kpiVersionId,
+        labelAtSubmit,
+        kpiKey
+      });
+    } else {
+      console.log("⚠️ No KPI binding found for form, metrics will use legacy processing");
+    }
+
+    // 2) Process metrics with KPI version data
+    console.log("📊 Processing metrics with KPI version data...");
+    
+    // Call the existing metrics processing function with additional version data
+    const { error: metricsError } = await supabase.rpc('upsert_metrics_from_submission', {
+      p_submission: ins.id
+    });
+    
+    if (metricsError) {
+      console.log("❌ Metrics processing error:", metricsError);
+      // Don't fail the submission if metrics processing fails
+    } else {
+      console.log("✅ Metrics processed successfully");
+      
+      // 3) Update the metrics_daily row with KPI version data if we have it
+      if (kpiVersionId && labelAtSubmit) {
+        const { error: versionUpdateError } = await supabase
+          .from('metrics_daily')
+          .update({
+            kpi_version_id: kpiVersionId,
+            label_at_submit: labelAtSubmit,
+            submitted_at: new Date().toISOString()
+          })
+          .eq('team_member_id', body.teamMemberId)
+          .eq('date', finalDate);
+          
+        if (versionUpdateError) {
+          console.log("⚠️ KPI version update error:", versionUpdateError);
+        } else {
+          console.log("✅ KPI version data added to metrics_daily");
+        }
+      }
+    }
+
     // Phase 1: Handle multiple prospects from quotedDetails array
     console.log("📋 Processing quoted details from submission...");
     
