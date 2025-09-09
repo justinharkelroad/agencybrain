@@ -55,12 +55,16 @@ export function useVersionedDashboardData(
   return useQuery({
     queryKey: ["versioned-dashboard", agencySlug, role, options],
     queryFn: async (): Promise<VersionedDashboardResult> => {
+      console.log('Fetching versioned dashboard data for:', { agencySlug, role });
+      
       // Get dashboard data with versioned KPI information
       const { data, error } = await supabase.rpc('get_versioned_dashboard_data', {
         p_agency_slug: agencySlug,
         p_role: role,
         p_consolidate_versions: options.consolidateVersions || false
       });
+      
+      console.log('Versioned dashboard response:', { data, error });
 
       if (error) throw new Error(error.message);
 
@@ -109,12 +113,15 @@ export function useDashboardDataWithFallback(
   role: "Sales" | "Service",
   options: DashboardOptions = {}
 ) {
-  const versionedQuery = useVersionedDashboardData(agencySlug, role, options);
+  // Always use fallback for now until versioned data is working correctly
+  const versionedQuery = { isError: true, data: null, isLoading: false, isFetching: false, error: new Error('Using fallback'), refetch: () => {} };
   
   // Fallback query using the existing hook structure  
   const fallbackQuery = useQuery({
     queryKey: ["dashboard-fallback", agencySlug, role],
     queryFn: async () => {
+      console.log('Using fallback dashboard data for:', { agencySlug, role });
+      
       const { data, error } = await supabase.functions.invoke('get_dashboard', {
         body: {
           agencySlug,
@@ -123,11 +130,13 @@ export function useDashboardDataWithFallback(
           end: new Date().toISOString().slice(0, 10),
         }
       });
+      
+      console.log('Fallback dashboard response:', { data, error });
 
       if (error) throw new Error(error.message);
       return data;
     },
-    enabled: versionedQuery.isError,
+    enabled: true, // Always enabled since we're forcing fallback
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
