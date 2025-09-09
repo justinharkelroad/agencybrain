@@ -2359,6 +2359,15 @@ export type Database = {
           name: string
         }[]
       }
+      list_agency_kpis: {
+        Args: { _agency: string }
+        Returns: {
+          active: boolean
+          kpi_id: string
+          label: string
+          slug: string
+        }[]
+      }
       recompute_streaks_for_member: {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
