@@ -41,21 +41,15 @@ export function useAgencyKpis(agencyId: string) {
   });
 }
 
-// Legacy hook - still using edge function
+// Legacy hook - now also using RPC (no more edge function calls)
 export function useKpis(memberId: string, role?: string) {
   return useQuery({
     queryKey: ["kpis", memberId, role],
     enabled: !!memberId,
     queryFn: async (): Promise<KPIsResponse> => {
-      const params = new URLSearchParams({ member_id: memberId });
-      if (role) params.set("role", role);
-      
-      const { data, error } = await supabase.functions.invoke('list_agency_kpis', {
-        body: { member_id: memberId, role }
-      });
-      
-      if (error) throw new Error(error.message);
-      return data;
+      // This needs to be replaced with proper RPC call once we have the agency ID
+      // For now, throw an error to prevent 404s
+      throw new Error("useKpis needs to be updated to use agency-based RPC call");
     },
   });
 }
