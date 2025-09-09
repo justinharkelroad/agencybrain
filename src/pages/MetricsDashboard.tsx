@@ -269,6 +269,13 @@ export default function MetricsDashboard() {
         )}
 
         {/* Tiles - Dynamic based on role */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>📊 Metric labels reflect the names used in the last submission</span>
+            <span>•</span>
+            <span>Renamed KPIs will update after next form submission</span>
+          </div>
+        </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metricConfig.selectedMetrics.includes('outbound_calls') && (
             <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
@@ -294,6 +301,9 @@ export default function MetricsDashboard() {
         <Card className="glass-surface">
           <CardHeader>
             <CardTitle className="text-lg">Team Member Performance</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Column names reflect KPI labels from most recent submissions • Renamed KPIs update after next submission
+            </p>
           </CardHeader>
           <CardContent>
             <div className="overflow-auto">
