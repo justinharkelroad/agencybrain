@@ -229,7 +229,8 @@ export default function ScorecardFormEditor() {
       ...updatedKPIs[index], 
       selectedKpiId: kpiId,
       selectedKpiSlug: slug,
-      label: label // Update label to match selected KPI
+      // Only update label if it's empty or was auto-generated, don't override user input
+      ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {})
     };
     setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
@@ -237,7 +238,7 @@ export default function ScorecardFormEditor() {
   const addKPIField = () => {
     if (!formSchema) return;
     const newKPI: KPIField = {
-      key: `custom_${Date.now()}`,
+      key: `custom_kpi_${formSchema.kpis.length}`,
       label: 'New KPI',
       required: false,
       type: 'number'
@@ -254,7 +255,7 @@ export default function ScorecardFormEditor() {
   const addCustomField = () => {
     if (!formSchema) return;
     const newField: CustomField = {
-      key: `field_${Date.now()}`,
+      key: `field_${formSchema.customFields?.length || 0}`,
       label: 'New Field',
       type: 'text',
       required: false

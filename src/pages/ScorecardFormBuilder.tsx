@@ -210,10 +210,10 @@ export default function ScorecardFormBuilder() {
       const preselectedSlugs = scorecardRules.selected_metrics || [];
       
       // Create KPI fields for preselected metrics
-      const kpiFields: KPIField[] = preselectedSlugs.map(slug => {
+      const kpiFields: KPIField[] = preselectedSlugs.map((slug, index) => {
         const matchedKpi = agencyKpis.find(k => k.slug === slug);
         return {
-          key: `kpi_${Date.now()}_${slug}`,
+          key: `preselected_kpi_${index}_${slug}`,
           label: matchedKpi?.label || slug,
           required: true,
           type: 'number' as const,
@@ -328,14 +328,15 @@ export default function ScorecardFormBuilder() {
       ...updatedKPIs[index], 
       selectedKpiId: kpiId,
       selectedKpiSlug: slug,
-      label: label // Update label to match selected KPI
+      // Only update label if it's empty or was auto-generated, don't override user input
+      ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {})
     };
     setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
   };
 
   const addKPIField = () => {
     const newKPI: KPIField = {
-      key: `custom_${Date.now()}`,
+      key: `custom_kpi_${formSchema.kpis.length}`,
       label: 'New KPI',
       required: false,
       type: 'number'
@@ -350,7 +351,7 @@ export default function ScorecardFormBuilder() {
 
   const addCustomField = () => {
     const newField: CustomField = {
-      key: `field_${Date.now()}`,
+      key: `field_${formSchema.customFields?.length || 0}`,
       label: 'New Field',
       type: 'text',
       required: false

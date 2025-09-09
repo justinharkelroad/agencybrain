@@ -67,7 +67,7 @@ export default function KPIFieldManager({
       </CardHeader>
       <CardContent className="space-y-4">
         {kpis.map((kpi, index) => (
-          <div key={kpi.key} className="space-y-4 p-4 border rounded-lg">
+          <div key={`kpi-field-${index}`} className="space-y-4 p-4 border rounded-lg">
             <div className="flex items-start gap-4">
               <div className="flex-1 space-y-2">
                 <div className="space-y-2">
