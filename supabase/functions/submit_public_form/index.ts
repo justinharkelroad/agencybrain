@@ -298,33 +298,17 @@ serve(async (req) => {
     
     // Call the existing metrics processing function with additional version data
     const { error: metricsError } = await supabase.rpc('upsert_metrics_from_submission', {
-      p_submission: ins.id
+      p_submission: ins.id,
+      p_kpi_version_id: kpiVersionId,
+      p_label_at_submit: labelAtSubmit,
+      p_submitted_at: new Date().toISOString()
     });
     
     if (metricsError) {
       console.log("❌ Metrics processing error:", metricsError);
       // Don't fail the submission if metrics processing fails
     } else {
-      console.log("✅ Metrics processed successfully");
-      
-      // 3) Update the metrics_daily row with KPI version data if we have it
-      if (kpiVersionId && labelAtSubmit) {
-        const { error: versionUpdateError } = await supabase
-          .from('metrics_daily')
-          .update({
-            kpi_version_id: kpiVersionId,
-            label_at_submit: labelAtSubmit,
-            submitted_at: new Date().toISOString()
-          })
-          .eq('team_member_id', body.teamMemberId)
-          .eq('date', finalDate);
-          
-        if (versionUpdateError) {
-          console.log("⚠️ KPI version update error:", versionUpdateError);
-        } else {
-          console.log("✅ KPI version data added to metrics_daily");
-        }
-      }
+      console.log("✅ Metrics processed successfully with KPI version data");
     }
 
     // Phase 1: Handle multiple prospects from quotedDetails array
