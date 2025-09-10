@@ -16,7 +16,7 @@ if (typeof window !== "undefined" && window.customElements) {
   }
   
   ce.define = (name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {
-    // Enhanced protection for multiple definition attempts
+    // Idempotent define with enhanced protection
     if (definedElements.has(name) || ce.get(name)) {
       console.log(`🛡️ Custom element '${name}' already defined, skipping redefinition`);
       return;
@@ -52,8 +52,8 @@ export async function loadOverlayOnce(): Promise<any> {
   
   overlayPromise = (async () => {
     console.log("📦 Loading overlay bundle once...");
-    // Note: Add actual overlay import here when needed
-    // await import("@/editor/overlay_bundle");
+    // Singleflight pattern - only one load ever
+    // await import("@/editor/overlay_bundle"); // Add when needed
     return {};
   })();
   

@@ -131,7 +131,7 @@ serve(async (req) => {
     if (!body.teamMemberId || !body.submissionDate) {
       logStructured('warn', 'validation_failed', {
         request_id: requestId,
-        error_type: 'invalid_payload',
+        error_type: 'invalid_payload', 
         missing_fields: ['teamMemberId', 'submissionDate'].filter(f => !body[f as keyof Body])
       });
       return errorResponse(400, "invalid_payload");
