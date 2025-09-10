@@ -1,31 +1,66 @@
+import { afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+
+// Cleanup after each test case
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+// Mock Supabase client for tests
+vi.mock('@/integrations/supabase/client', () => {
+  const mockSupabase = {
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+          maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        })),
+        order: vi.fn(() => ({
+          limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
+      })),
+      insert: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        })),
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      })),
+      delete: vi.fn(() => ({
+        eq: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      })),
+    })),
+    rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    functions: {
+      invoke: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    },
+    auth: {
+      getSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+      signOut: vi.fn(() => Promise.resolve({ error: null })),
+    },
+  };
+
+  return {
+    supabase: mockSupabase,
+  };
+});
+
+// Mock React Router
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+  useParams: () => ({}),
+  useLocation: () => ({ pathname: '/' }),
+  BrowserRouter: ({ children }: { children: React.ReactNode }) => children,
+  Routes: ({ children }: { children: React.ReactNode }) => children,
+  Route: ({ element }: { element: React.ReactNode }) => element,
+}));
 
 // Mock environment variables
-process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
-process.env.VITE_SUPABASE_ANON_KEY = 'test-anon-key';
-
-// Mock fetch for tests
-global.fetch = vi.fn();
-
-// Mock crypto.randomUUID
-Object.defineProperty(global, 'crypto', {
-  value: {
-    randomUUID: () => '12345678-1234-1234-1234-123456789012'
-  }
-});
-
-// Mock navigator.clipboard
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: vi.fn().mockResolvedValue(undefined)
-  }
-});
-
-// Mock window.location
 Object.defineProperty(window, 'location', {
   value: {
-    hostname: 'test-agency.myagencybrain.com',
-    origin: 'https://test-agency.myagencybrain.com'
-  }
+    href: 'http://localhost:3000',
+    origin: 'http://localhost:3000',
+  },
+  writable: true,
 });

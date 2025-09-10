@@ -1,0 +1,279 @@
+name: Gate F - CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  # Gate F: Unit Tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run unit tests with coverage
+      run: npm run test:coverage
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: unit-test-coverage
+
+  # Gate F: Security Tests  
+  security-tests:
+    runs-on: ubuntu-latest
+    name: Security & RLS Tests
+    needs: unit-tests
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security tests
+      run: npm run test:security
+      env:
+        TEST_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        TEST_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    
+    - name: Run RLS policy tests
+      run: npm run test:rls
+
+  # Gate F: Performance Tests
+  performance-tests:
+    runs-on: ubuntu-latest
+    name: Performance Tests
+    needs: unit-tests
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Run performance tests
+      run: npm run test:performance
+      
+    - name: Verify dashboard performance target (150ms)
+      run: npm run test:dashboard-performance
+
+  # Gate F: Edge Function Tests
+  edge-function-tests:
+    runs-on: ubuntu-latest
+    name: Edge Function Tests
+    needs: unit-tests
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v1.x
+    
+    - name: Test submit_public_form function
+      run: |
+        cd supabase/functions/submit_public_form
+        deno test --allow-all ../../../src/tests/edge-functions/
+    
+    - name: Test structured logging
+      run: |
+        cd supabase/functions/test_gate_e_logs  
+        deno test --allow-all index.ts
+
+  # Gate F: E2E Tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    needs: [unit-tests, security-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install Playwright browsers
+      run: npx playwright install
+    
+    - name: Build application
+      run: npm run build
+    
+    - name: Start development server
+      run: npm run dev &
+      
+    - name: Wait for server to start
+      run: npx wait-on http://localhost:5173
+    
+    - name: Run E2E tests
+      run: npx playwright test
+      env:
+        CI: true
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: playwright-report
+        path: playwright-report/
+
+  # Gate F: Integration Tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: [performance-tests, edge-function-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run form submission integration tests
+      run: npm run test:integration:forms
+      env:
+        TEST_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        TEST_SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    
+    - name: Run dashboard integration tests  
+      run: npm run test:integration:dashboard
+    
+    - name: Run KPI versioning integration tests
+      run: npm run test:integration:kpi-versions
+
+  # Gate F: Deployment Tests
+  deployment-tests:
+    runs-on: ubuntu-latest
+    name: Deployment Validation
+    needs: [e2e-tests, integration-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build for production
+      run: npm run build
+      env:
+        NODE_ENV: production
+    
+    - name: Test production build
+      run: npm run test:production
+    
+    - name: Validate edge function deployments
+      run: npm run test:edge-functions:deployed
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    
+    - name: Run smoke tests against production
+      run: npm run test:smoke
+      if: github.event_name == 'push'
+
+  # Gate F: Test Results Summary
+  test-summary:
+    runs-on: ubuntu-latest
+    name: Test Results Summary
+    needs: [unit-tests, security-tests, performance-tests, e2e-tests, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Generate test summary
+      run: |
+        echo "## Gate F Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Tests | ${{ needs.security-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Performance Tests | ${{ needs.performance-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.unit-tests.result }}" = "success" ] && 
+           [ "${{ needs.security-tests.result }}" = "success" ] && 
+           [ "${{ needs.performance-tests.result }}" = "success" ] && 
+           [ "${{ needs.e2e-tests.result }}" = "success" ] && 
+           [ "${{ needs.integration-tests.result }}" = "success" ]; then
+          echo "✅ **All Gate F tests passed!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Code coverage targets met" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Security policies enforced" >> $GITHUB_STEP_SUMMARY  
+          echo "- ✅ Performance targets achieved (<150ms dashboard)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ E2E workflows validated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Integration flows tested" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Ready for production deployment** 🚀" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ **Some Gate F tests failed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please review failed tests before merging." >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Fail workflow if any tests failed
+      run: |
+        if [ "${{ needs.unit-tests.result }}" != "success" ] || 
+           [ "${{ needs.security-tests.result }}" != "success" ] || 
+           [ "${{ needs.performance-tests.result }}" != "success" ] || 
+           [ "${{ needs.e2e-tests.result }}" != "success" ] || 
+           [ "${{ needs.integration-tests.result }}" != "success" ]; then
+          echo "One or more test suites failed"
+          exit 1
+        fi
