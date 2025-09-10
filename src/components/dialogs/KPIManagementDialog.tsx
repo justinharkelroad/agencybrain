@@ -36,7 +36,7 @@ export default function KPIManagementDialog({
     kpi: any;
   } | null>(null);
   
-  const { data: kpiData, refetch } = useAgencyKpis(""); // Will need agency ID from context
+  const { data: kpiData, refetch } = useAgencyKpis(""); // All KPIs for management - no role filter needed
   const { data: outdatedForms } = useOutdatedFormKpis(""); // TODO: Get agency ID properly
 
   const handleRename = async (kpiId: string, newLabel: string) => {

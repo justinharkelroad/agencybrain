@@ -25,14 +25,15 @@ interface KPIsResponse {
   kpis: KPI[];
 }
 
-// New hook for direct RPC call to list_agency_kpis
-export function useAgencyKpis(agencyId: string) {
+// New hook for direct RPC call to list_agency_kpis with optional role filtering
+export function useAgencyKpis(agencyId: string, role?: string) {
   return useQuery({
-    queryKey: ["agency-kpis", agencyId],
+    queryKey: ["agency-kpis", agencyId, role],
     enabled: !!agencyId,
     queryFn: async (): Promise<AgencyKPI[]> => {
-      const { data, error } = await supabase.rpc('list_agency_kpis', {
-        _agency: agencyId
+      const { data, error } = await supabase.rpc('list_agency_kpis_by_role', {
+        _agency: agencyId,
+        _role: role || null
       });
       
       if (error) throw new Error(error.message);

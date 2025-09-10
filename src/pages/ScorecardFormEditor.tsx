@@ -102,8 +102,8 @@ export default function ScorecardFormEditor() {
   const outdatedBinding = formBindings?.find(binding => binding.kpi_versions.valid_to !== null);
   const { data: currentKpiVersion } = useCurrentKpiVersion(outdatedBinding?.kpi_versions.kpi_id || "");
   
-  // Load agency KPIs for dropdown
-  const { data: agencyKpis = [] } = useAgencyKpis(agencyId);
+  // Load agency KPIs for dropdown - pass role from formSchema for filtering
+  const { data: agencyKpis = [] } = useAgencyKpis(agencyId, formSchema?.role);
 
   useEffect(() => {
     if (formId && user?.id) {

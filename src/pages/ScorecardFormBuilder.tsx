@@ -152,8 +152,8 @@ export default function ScorecardFormBuilder() {
     }
   });
 
-  // Load KPIs and scorecard rules
-  const { data: agencyKpis = [], isLoading: kpisLoading, error: kpisError, refetch } = useAgencyKpis(agencyId);
+  // Load KPIs and scorecard rules with role filtering
+  const { data: agencyKpis = [], isLoading: kpisLoading, error: kpisError, refetch } = useAgencyKpis(agencyId, formSchema.role);
   
   // Load scorecard rules for preselected KPIs
   const [scorecardRules, setScorecardRules] = useState<{ selected_metrics?: string[] } | null>(null);
