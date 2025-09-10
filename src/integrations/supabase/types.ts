@@ -2324,14 +2324,6 @@ export type Database = {
         }
         Returns: Json
       }
-      get_versioned_dashboard_data_test: {
-        Args: {
-          p_agency_slug: string
-          p_consolidate_versions?: boolean
-          p_role: string
-        }
-        Returns: Json
-      }
       gtrgm_compress: {
         Args: { "": unknown }
         Returns: unknown
