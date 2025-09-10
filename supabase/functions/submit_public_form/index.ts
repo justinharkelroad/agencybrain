@@ -4,13 +4,51 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "3.1-POSTGREST-FIXED";
-const DEPLOYMENT_ID = "deploy-20250904-1250";
+const FUNCTION_VERSION = "3.2-GATE-E-OBSERVABILITY";
+const DEPLOYMENT_ID = "deploy-20250910-gatee";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
+
+// Gate E: Structured logging helper
+function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data: Record<string, any>) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    event_type: eventType,
+    function_version: FUNCTION_VERSION,
+    deployment_id: DEPLOYMENT_ID,
+    ...data
+  };
+  
+  if (level === 'error') {
+    console.error(`[${level.toUpperCase()}] ${eventType}:`, JSON.stringify(logEntry));
+  } else if (level === 'warn') {
+    console.warn(`[${level.toUpperCase()}] ${eventType}:`, JSON.stringify(logEntry));
+  } else {
+    console.info(`[${level.toUpperCase()}] ${eventType}:`, JSON.stringify(logEntry));
+  }
+}
+
+// Gate E: Friendly error responses
+function errorResponse(status: number, errorType: string, errorId?: string) {
+  const body = errorId 
+    ? { error: errorType, id: errorId }
+    : { error: errorType };
+    
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+      ...corsHeaders
+    }
+  });
 }
 
 function json(status: number, body: any) {
@@ -26,6 +64,26 @@ function json(status: number, body: any) {
   });
 }
 
+// Gate E: Timeout wrapper for DB calls
+async function withTimeout<T>(
+  promise: Promise<T>, 
+  timeoutMs: number = 5000,
+  operation: string
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      logStructured('error', 'database_timeout', {
+        operation,
+        timeout_ms: timeoutMs,
+        error_id: crypto.randomUUID()
+      });
+      reject(new Error(`Database operation timeout: ${operation}`));
+    }, timeoutMs);
+  });
+  
+  return Promise.race([promise, timeoutPromise]);
+}
+
 type Body = {
   agencySlug: string;
   formSlug: string;
@@ -37,19 +95,29 @@ type Body = {
 };
 
 serve(async (req) => {
-  console.log(`🚀 submit_public_form ${FUNCTION_VERSION} started`, new Date().toISOString());
-  console.log(`📦 Deployment ID: ${DEPLOYMENT_ID}`);
+  const startTime = performance.now();
+  const requestId = crypto.randomUUID();
+  
+  logStructured('info', 'request_start', {
+    request_id: requestId,
+    method: req.method,
+    user_agent: req.headers.get('user-agent'),
+    origin: req.headers.get('origin')
+  });
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log("✅ CORS preflight handled");
+    logStructured('info', 'cors_preflight', { request_id: requestId });
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     if (req.method !== "POST") {
-      console.log("❌ Method not allowed:", req.method);
-      return json(405, { error: 'METHOD_NOT_ALLOWED', detail: 'Only POST method allowed' });
+      logStructured('warn', 'invalid_method', {
+        request_id: requestId,
+        method: req.method
+      });
+      return errorResponse(405, "method_not_allowed");
     }
     
     const supabase = createClient(
@@ -58,31 +126,33 @@ serve(async (req) => {
     );
 
     const body = await req.json() as Body;
-    console.log('📥 Received submission request:', { 
-      agencySlug: body.agencySlug, 
-      formSlug: body.formSlug,
-      teamMemberId: body.teamMemberId,
-      submissionDate: body.submissionDate,
-      workDate: body.workDate
-    });
-
-    console.log("resolve input", {
-      agencySlug: body.agencySlug,
-      formSlug: body.formSlug,
-      token: (body.token || "").slice(0, 8)
+    
+    logStructured('info', 'request_parsed', {
+      request_id: requestId,
+      agency_slug: body.agencySlug,
+      form_slug: body.formSlug,
+      team_member_id: body.teamMemberId,
+      submission_date: body.submissionDate,
+      work_date: body.workDate,
+      has_values: !!body.values
     });
     
     const { agencySlug, formSlug, token } = body;
     if (!agencySlug || !formSlug || !token) {
-      console.log('❌ Bad request - missing basic parameters');
-      return json(400, { error: 'BAD_REQUEST', detail: 'Missing agencySlug, formSlug, or token' });
+      logStructured('warn', 'validation_failed', {
+        request_id: requestId,
+        error_type: 'missing_agency',
+        missing_fields: { agencySlug: !agencySlug, formSlug: !formSlug, token: !token }
+      });
+      return errorResponse(400, "missing_agency");
     }
     if (!body.teamMemberId || !body.submissionDate) {
-      console.log('❌ Missing required fields:', { 
-        teamMemberId: !!body.teamMemberId, 
-        submissionDate: !!body.submissionDate 
+      logStructured('warn', 'validation_failed', {
+        request_id: requestId,
+        error_type: 'invalid_payload',
+        missing_fields: { teamMemberId: !body.teamMemberId, submissionDate: !body.submissionDate }
       });
-      return json(400, { error: 'MISSING_FIELDS', detail: 'Missing teamMemberId or submissionDate' });
+      return errorResponse(400, "invalid_payload");
     }
 
     // resolve link with plain fetches to bypass PostgREST embedding
@@ -91,15 +161,26 @@ serve(async (req) => {
     console.log("SELECT_V3_FIXED_DEPLOYED");
     
     // 1) fetch link only
-    const { data: link, error: e1 } = await supabase
-      .from('form_links')
-      .select('id, token, enabled, expires_at, form_template_id, agency_id')
-      .eq('token', token)
-      .single();
+    const { data: link, error: e1 } = await withTimeout(
+      supabase
+        .from('form_links')
+        .select('id, token, enabled, expires_at, form_template_id, agency_id')
+        .eq('token', token)
+        .single(),
+      5000,
+      'form_links_lookup'
+    );
       
     if (e1 || !link) {
-      console.log("❌ Database error during link fetch:", e1);
-      return json(500, { error: 'DB_ERROR_LINK', details: e1 });
+      const errorId = crypto.randomUUID();
+      logStructured('error', 'database_error', {
+        request_id: requestId,
+        error_id: errorId,
+        operation: 'form_links_lookup',
+        error_message: e1?.message,
+        stack: e1?.stack
+      });
+      return errorResponse(500, "internal_error", errorId);
     }
 
     console.log("✅ Link found:", {
@@ -111,26 +192,43 @@ serve(async (req) => {
     });
 
     if (!link.enabled) {
-      console.log("❌ Form link is disabled");
-      return json(403, { error: 'FORM_DISABLED' });
+      logStructured('warn', 'form_disabled', {
+        request_id: requestId,
+        form_link_id: link.id
+      });
+      return errorResponse(403, "unauthorized");
     }
 
     const now = new Date();
     if (link.expires_at && new Date(link.expires_at) < now) {
-      console.log("❌ Form link expired:", link.expires_at);
-      return json(410, { error: 'FORM_EXPIRED' });
+      logStructured('warn', 'form_expired', {
+        request_id: requestId,
+        form_link_id: link.id,
+        expires_at: link.expires_at
+      });
+      return errorResponse(410, "unauthorized");
     }
 
     // 2) fetch template by id
-    const { data: template, error: e2 } = await supabase
-      .from('form_templates')
-      .select('id, slug, status, settings_json, agency_id')
-      .eq('id', link.form_template_id)
-      .single();
+    const { data: template, error: e2 } = await withTimeout(
+      supabase
+        .from('form_templates')
+        .select('id, slug, status, settings_json, agency_id')
+        .eq('id', link.form_template_id)
+        .single(),
+      5000,
+      'form_template_lookup'
+    );
       
     if (e2 || !template) {
-      console.log("❌ Template fetch error:", e2);
-      return json(404, { error: 'NOT_FOUND_TEMPLATE', details: e2 });
+      const errorId = crypto.randomUUID();
+      logStructured('error', 'database_error', {
+        request_id: requestId,
+        error_id: errorId,
+        operation: 'form_template_lookup',
+        error_message: e2?.message
+      });
+      return errorResponse(500, "internal_error", errorId);
     }
 
     console.log("✅ Template found:", {
@@ -707,13 +805,23 @@ serve(async (req) => {
 
     const quotedDetailsCount = (body.values.quotedDetails as any[])?.length || parseInt(String(body.values.quoted_count || '0'));
     const soldDetailsCount = (body.values.soldDetails as any[])?.length || parseInt(String(body.values.sold_items || '0'));
+    
+    const duration = performance.now() - startTime;
 
-    console.log("✅ Form submission completed successfully:", {
-      submissionId: ins.id,
-      quotedProspectsProcessed: quotedDetailsCount,
-      soldPoliciesProcessed: soldDetailsCount,
-      isLate,
-      finalDate
+    // Gate E: Structured success logging
+    logStructured('info', 'submission_success', {
+      submission_id: ins.id,
+      team_member_id: body.teamMemberId,
+      agency_id: agency.id,
+      kpi_version_id: kpiVersionId,
+      label_at_submit: labelAtSubmit,
+      status: 'success',
+      duration_ms: Math.round(duration),
+      request_id: requestId,
+      quoted_prospects: quotedDetailsCount,
+      sold_policies: soldDetailsCount,
+      is_late: isLate,
+      work_date: finalDate
     });
 
     return json(200, { 
@@ -724,7 +832,18 @@ serve(async (req) => {
       isLate
     });
   } catch (e) {
-    console.error("💥 Server error in submit_public_form:", e);
-    return json(500, { error: 'SERVER_ERROR', detail: 'Internal server error' });
+    const errorId = crypto.randomUUID();
+    const duration = performance.now() - startTime;
+    
+    logStructured('error', 'submission_failed', {
+      request_id: requestId,
+      error_id: errorId,
+      status: 'error',
+      duration_ms: Math.round(duration),
+      error_message: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined
+    });
+    
+    return errorResponse(500, "internal_error", errorId);
   }
 });
