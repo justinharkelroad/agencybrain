@@ -5,14 +5,14 @@ if (typeof window !== "undefined" && window.customElements) {
   const definedElements = new Set<string>();
   const onceKey = "__MCE_AUTOSIZE_DEFINED__";
 
-  // Pre-define mce-autosize-textarea to prevent conflicts
-  if (!ce.get("mce-autosize-textarea")) {
+  // Pre-define mce-autosize-textarea to prevent conflicts - with lock
+  if (!ce.get("mce-autosize-textarea") && !(window as any)[onceKey]) {
     ce.define("mce-autosize-textarea", class extends HTMLElement {});
     (window as any)[onceKey] = true;
     console.log("🛡️ Pre-defined mce-autosize-textarea to prevent conflicts");
   } else {
     (window as any)[onceKey] = true;
-    console.log("🛡️ mce-autosize-textarea already exists");
+    console.log("🛡️ mce-autosize-textarea already exists or locked");
   }
   
   ce.define = (name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {
@@ -42,16 +42,20 @@ if (typeof window !== "undefined" && window.customElements) {
   console.log("🛡️ Custom elements guard initialized with mce-autosize-textarea protection");
 }
 
-// Singleton overlay loader to prevent multiple loads
-let overlayLoaded = false;
-export async function loadOverlayOnce() {
-  if (overlayLoaded) {
-    console.log("🛡️ Overlay already loaded, skipping");
-    return;
+// Singleflight overlay loader to prevent multiple loads
+let overlayPromise: Promise<any> | null = null;
+export async function loadOverlayOnce(): Promise<any> {
+  if (overlayPromise) {
+    console.log("🛡️ Overlay already loading/loaded, reusing promise");
+    return overlayPromise;
   }
-  overlayLoaded = true;
-  console.log("📦 Loading overlay bundle once...");
   
-  // Note: Add actual overlay import here when needed
-  // await import("@/editor/overlay_bundle");
+  overlayPromise = (async () => {
+    console.log("📦 Loading overlay bundle once...");
+    // Note: Add actual overlay import here when needed
+    // await import("@/editor/overlay_bundle");
+    return {};
+  })();
+  
+  return overlayPromise;
 }
