@@ -50,16 +50,19 @@ interface VersionedDashboardResult {
 export function useVersionedDashboardData(
   agencySlug: string,
   role: "Sales" | "Service",
+  startDate: Date,
+  endDate: Date,
   options: DashboardOptions = {}
 ) {
   return useQuery({
-    queryKey: ["versioned-dashboard", agencySlug, role, options],
+    queryKey: ["versioned-dashboard", agencySlug, role, startDate.toISOString(), endDate.toISOString(), options],
     queryFn: async (): Promise<VersionedDashboardResult> => {
-      // Get dashboard data with versioned KPI information
+      // Get dashboard data with versioned KPI information using date range
       const { data, error } = await supabase.rpc('get_versioned_dashboard_data', {
         p_agency_slug: agencySlug,
         p_role: role,
-        p_consolidate_versions: options.consolidateVersions || false
+        p_start: startDate.toISOString().slice(0, 10), // YYYY-MM-DD format
+        p_end: endDate.toISOString().slice(0, 10)
       });
 
       if (error) throw new Error(error.message);
@@ -107,20 +110,16 @@ export function useVersionedDashboardData(
 export function useDashboardDataWithFallback(
   agencySlug: string,
   role: "Sales" | "Service",
-  options: DashboardOptions = {},
-  selectedDate: Date = new Date()
+  startDate: Date,
+  endDate: Date,
+  options: DashboardOptions = {}
 ) {
-  const versionedQuery = useVersionedDashboardData(agencySlug, role, options);
+  const versionedQuery = useVersionedDashboardData(agencySlug, role, startDate, endDate, options);
   
-  // Fallback query using the existing hook structure with proper date window  
+  // Fallback query using the existing hook structure with date range
   const fallbackQuery = useQuery({
-    queryKey: ["dashboard-fallback", agencySlug, role, selectedDate.toISOString()],
+    queryKey: ["dashboard-fallback", agencySlug, role, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
-      // Create a 7-day window ending on the selected date
-      const endDate = new Date(selectedDate);
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - 6); // 7 days total (including end date)
-      
       const { data, error } = await supabase.functions.invoke('get_dashboard', {
         body: {
           agencySlug,

@@ -2317,11 +2317,18 @@ export type Database = {
         }[]
       }
       get_versioned_dashboard_data: {
-        Args: {
-          p_agency_slug: string
-          p_consolidate_versions?: boolean
-          p_role: string
-        }
+        Args:
+          | {
+              p_agency_slug: string
+              p_consolidate_versions?: boolean
+              p_role: string
+            }
+          | {
+              p_agency_slug: string
+              p_end: string
+              p_role: string
+              p_start: string
+            }
         Returns: Json
       }
       gtrgm_compress: {

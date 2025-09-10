@@ -89,8 +89,9 @@ export default function MetricsDashboard() {
   } = useDashboardDataWithFallback(
     agencyProfile?.agencySlug || "",
     role,
-    { consolidateVersions: false },
-    selectedDate
+    selectedDate, // start date
+    selectedDate, // end date (same day for "today" view)
+    { consolidateVersions: false }
   );
 
   // Load KPIs for the current agency - temporarily disabled to prevent 404s
@@ -306,7 +307,7 @@ export default function MetricsDashboard() {
               Column names reflect KPI labels from most recent submissions • Renamed KPIs update after next submission
             </p>
           </CardHeader>
-          <CardContent>
+           <CardContent>
             <div className="overflow-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b border-border">
@@ -324,28 +325,40 @@ export default function MetricsDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, index) => (
-                    <tr key={`${r.team_member_id}-${r.date || index}`} className="border-b border-border/50">
-                      <Td className="font-medium">{r.team_member_name}</Td>
-                      {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
-                      {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
-                      {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Td>{r.quoted_count}</Td>}
-                      {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Td>{r.sold_items}</Td>}
-                      {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
-                      {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
-                      <Td>
-                        <Badge variant={r.pass_days > 0 ? "default" : "secondary"}>
-                          {r.pass_days}
-                        </Badge>
-                      </Td>
-                      <Td>{r.score_sum}</Td>
-                      <Td>
-                        <Badge variant={r.streak > 0 ? "default" : "secondary"}>
-                          {r.streak}
-                        </Badge>
-                      </Td>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="text-4xl opacity-50">📝</div>
+                          <div className="text-lg font-medium">No submissions for selected date</div>
+                          <div className="text-sm">Select a different date or check back after team members submit their scorecards.</div>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    rows.map((r, index) => (
+                      <tr key={`${r.team_member_id}-${r.date || index}`} className="border-b border-border/50">
+                        <Td className="font-medium">{r.team_member_name}</Td>
+                        {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
+                        {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
+                        {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Td>{r.quoted_count}</Td>}
+                        {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Td>{r.sold_items}</Td>}
+                        {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
+                        {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
+                        <Td>
+                          <Badge variant={r.pass_days > 0 ? "default" : "secondary"}>
+                            {r.pass_days}
+                          </Badge>
+                        </Td>
+                        <Td>{r.score_sum}</Td>
+                        <Td>
+                          <Badge variant={r.streak > 0 ? "default" : "secondary"}>
+                            {r.streak}
+                          </Badge>
+                        </Td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
           </div>
