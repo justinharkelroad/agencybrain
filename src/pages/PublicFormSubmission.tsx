@@ -195,6 +195,29 @@ export default function PublicFormSubmission() {
     try {
       console.log('✅ Required fields check passed');
 
+      // Sanitize submission to prevent 500 errors
+      function sanitizeSubmission(values: any) {
+        const hasCamel = Array.isArray(values.quotedDetails);
+        const hasSnake = Array.isArray(values.quoted_details);
+
+        // Prefer camelCase → snake_case; drop empty rows
+        const details = (hasCamel ? values.quotedDetails : values.quoted_details) || [];
+        const cleaned = details
+          .map((r: any) => ({
+            prospect_name: r.prospect_name ?? r.name ?? null,
+            lead_source: r.lead_source ?? r.lead_source_id ?? null,
+            detailed_notes: r.detailed_notes ?? r.notes ?? null,
+          }))
+          .filter((r: any) => r.prospect_name || r.lead_source || r.detailed_notes);
+
+        // Write only snake_case for server
+        const v = { ...values };
+        delete v.quotedDetails;
+        v.quoted_details = cleaned;
+
+        return v;
+      }
+
       const payload = {
         agencySlug,
         formSlug: formSlug,
@@ -202,7 +225,7 @@ export default function PublicFormSubmission() {
         teamMemberId: values.team_member_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
-        values,
+        values: sanitizeSubmission(values),
       };
 
       console.log('📤 POST to submit_public_form...');

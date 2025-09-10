@@ -394,11 +394,11 @@ serve(async (req) => {
     // 2) Process metrics with KPI version data
     console.log("📊 Processing metrics with KPI version data...");
     
-    // Call the existing metrics processing function with additional version data
+    // Call the existing metrics processing function with additional version data - ensure unambiguous parameters
     const { error: metricsError } = await supabase.rpc('upsert_metrics_from_submission', {
       p_submission: ins.id,
-      p_kpi_version_id: kpiVersionId,
-      p_label_at_submit: labelAtSubmit,
+      p_kpi_version_id: kpiVersionId ?? null,
+      p_label_at_submit: labelAtSubmit ?? null,
       p_submitted_at: new Date().toISOString()
     });
     
@@ -409,14 +409,18 @@ serve(async (req) => {
       console.log("✅ Metrics processed successfully with KPI version data");
     }
 
-    // Phase 1: Handle multiple prospects from quotedDetails array
+    // Phase 1: Handle multiple prospects from quotedDetails array - defensive parsing
     console.log("📋 Processing quoted details from submission...");
     
     // DEBUG: Log the entire body.values to understand the actual structure
     console.log("🔍 DEBUG: Complete body.values structure:", JSON.stringify(body.values, null, 2));
     
-    const quotedDetailsArray = body.values.quotedDetails as any[] || [];
-    const leadSourceRaw = body.values.leadSource as string || null;
+    // Defensive parsing - handle both camelCase and snake_case
+    const v = body.values || {};
+    const details = Array.isArray(v.quoted_details) ? v.quoted_details : 
+                   Array.isArray(v.quotedDetails) ? v.quotedDetails : [];
+    const quotedDetailsArray = details.filter((d: any) => d && (d.prospect_name || d.lead_source || d.detailed_notes));
+    const leadSourceRaw = v.leadSource as string || v.lead_source as string || null;
     
     // DEBUG: Log specific extraction attempts
     console.log("🔍 DEBUG: quotedDetailsArray length:", quotedDetailsArray.length);
