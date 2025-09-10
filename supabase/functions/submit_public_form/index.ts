@@ -336,21 +336,34 @@ serve(async (req) => {
       });
     }
 
-    // Process metrics with explicit null coalescing
+    // FAIL-FAST: Return 400 if KPI binding is missing to prevent constraint violations
+    if (!kpiVersionId || !labelAtSubmit) {
+      logStructured('warn', 'missing_kpi_binding', {
+        request_id: requestId,
+        template_id: template.id,
+        kpi_version_id: kpiVersionId,
+        label_at_submit: labelAtSubmit
+      });
+      return errorResponse(400, "invalid_kpi_binding");
+    }
+
+    // Process metrics only with valid KPI version data
     const { error: metricsError } = await supabase.rpc('upsert_metrics_from_submission', {
       p_submission: ins.id,
-      p_kpi_version_id: kpiVersionId ?? null,
-      p_label_at_submit: labelAtSubmit ?? null,
+      p_kpi_version_id: kpiVersionId,
+      p_label_at_submit: labelAtSubmit,
       p_submitted_at: new Date().toISOString()
     });
     
     if (metricsError) {
-      logStructured('warn', 'metrics_processing_failed', {
+      const errorId = crypto.randomUUID();
+      logStructured('error', 'metrics_processing_failed', {
         request_id: requestId,
+        error_id: errorId,
         submission_id: ins.id,
         error: metricsError.message
       });
-      // Don't fail submission for metrics errors
+      return errorResponse(500, "internal_error", errorId);
     }
 
     const duration = performance.now() - startTime;
