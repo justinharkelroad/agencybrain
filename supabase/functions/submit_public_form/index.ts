@@ -51,6 +51,16 @@ function errorResponse(status: number, errorType: string, errorId?: string) {
   });
 }
 
+function j(status: number, obj: any) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: {
+      "content-type": "application/json",
+      ...corsHeaders
+    }
+  });
+}
+
 function json(status: number, body: any) {
   return new Response(JSON.stringify(body), {
     status,
@@ -387,18 +397,27 @@ serve(async (req) => {
     });
 
   } catch (e) {
-    const errorId = crypto.randomUUID();
+    const err_id = crypto.randomUUID();
+    // Structured log stays for observability
     const duration = performance.now() - startTime;
-    
     logStructured('error', 'submission_failed', {
       request_id: requestId,
-      error_id: errorId,
+      error_id: err_id,
       status: 'error',
       duration_ms: Math.round(duration),
       error_message: e instanceof Error ? e.message : String(e),
       stack: e instanceof Error ? e.stack : undefined
     });
-    
-    return errorResponse(500, "internal_error", errorId);
+
+    // TEMP: raw JSON log for quick diagnosis
+    console.error(JSON.stringify({
+      err_id,
+      scope: "submit_public_form",
+      msg: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+    }));
+
+    // TEMP: include error message in response body (non-prod aid)
+    return j(500, { error: "internal_error", id: err_id, message: e instanceof Error ? e.message : String(e) });
   }
 });
