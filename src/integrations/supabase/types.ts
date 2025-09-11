@@ -2225,6 +2225,15 @@ export type Database = {
         Args: { p_form: string }
         Returns: undefined
       }
+      check_form_kpi_versions: {
+        Args: { p_form_id: string }
+        Returns: {
+          bound_label: string
+          bound_version_id: string
+          current_label: string
+          kpi_id: string
+        }[]
+      }
       compute_is_late: {
         Args: {
           p_agency_id: string
