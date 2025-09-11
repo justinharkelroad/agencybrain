@@ -279,12 +279,32 @@ serve(async (req) => {
 
     // If no active binding, return 400 (never 500)
     if (bindingError || !kpiBinding) {
+      // Get any binding (even expired) for error details
+      const { data: anyBinding } = await supabase
+        .from('forms_kpi_bindings')
+        .select(`
+          kpi_version_id,
+          kpi_versions!inner (
+            id,
+            label,
+            valid_to
+          )
+        `)
+        .eq('form_template_id', template.id)
+        .single();
+
       logStructured('warn', 'invalid_kpi_binding', {
         request_id: requestId,
         form_template_id: template.id,
         binding_error: bindingError?.message
       });
-      return j(400, { error: "invalid_kpi_binding" });
+      
+      return j(400, { 
+        error: "invalid_kpi_binding", 
+        form_template_id: template.id, 
+        kpi_version_id: anyBinding?.kpi_version_id ?? null, 
+        valid_to: anyBinding?.kpi_versions?.valid_to ?? null 
+      });
     }
 
     const kpiVersionId = kpiBinding.kpi_version_id;
