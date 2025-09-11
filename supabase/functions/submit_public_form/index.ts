@@ -262,14 +262,91 @@ serve(async (req) => {
       is_late: isLate
     });
 
-    // Supersede previous final submissions
+    // CRITICAL: Resolve active KPI binding FIRST - require valid_to IS NULL
+    const { data: kpiBinding, error: bindingError } = await supabase
+      .from('forms_kpi_bindings')
+      .select(`
+        kpi_version_id,
+        kpi_versions!inner (
+          id,
+          label,
+          valid_to
+        )
+      `)
+      .eq('form_template_id', template.id)
+      .is('kpi_versions.valid_to', null)  // MUST be active binding
+      .single();
+
+    // If no active binding, return 400 (never 500)
+    if (bindingError || !kpiBinding) {
+      logStructured('warn', 'invalid_kpi_binding', {
+        request_id: requestId,
+        form_template_id: template.id,
+        binding_error: bindingError?.message
+      });
+      return j(400, { error: "invalid_kpi_binding" });
+    }
+
+    const kpiVersionId = kpiBinding.kpi_version_id;
+    const labelAtSubmit = kpiBinding.kpi_versions.label;
+
+    logStructured('info', 'active_kpi_binding_resolved', {
+      request_id: requestId,
+      kpi_version_id: kpiVersionId,
+      label_at_submit: labelAtSubmit
+    });
+
+    // Step 1: Insert submission with final=false (bypasses trigger)
+    const { data: ins, error: insErr } = await supabase
+      .from("submissions")
+      .insert({
+        form_template_id: template.id,
+        team_member_id: body.teamMemberId,
+        submission_date: body.submissionDate,
+        work_date: body.workDate ?? null,
+        late: isLate,
+        final: false,  // Critical: start as false to bypass trigger
+        payload_json: v // Use normalized values
+      })
+      .select("id")
+      .single();
+
+    if (insErr) {
+      const errorId = crypto.randomUUID();
+      logStructured('error', 'submission_insert_failed', {
+        request_id: requestId,
+        error_id: errorId,
+        error: insErr.message
+      });
+      return j(500, { error: "internal_error", id: errorId, message: insErr.message });
+    }
+
+    // Step 2: Update to final=true (lets trigger run safely with active binding)
+    const { error: finalizeError } = await supabase
+      .from("submissions")
+      .update({ final: true })
+      .eq("id", ins.id);
+
+    if (finalizeError) {
+      const errorId = crypto.randomUUID();
+      logStructured('error', 'finalization_failed', {
+        request_id: requestId,
+        error_id: errorId,
+        submission_id: ins.id,
+        error: finalizeError.message
+      });
+      return j(500, { error: "internal_error", id: errorId, message: finalizeError.message });
+    }
+
+    // Step 3: Supersede any other final submissions for this member and date
     const { data: prev } = await supabase
       .from("submissions")
       .select("id")
       .eq("form_template_id", template.id)
       .eq("team_member_id", body.teamMemberId)
       .or(`work_date.eq.${finalDate},and(work_date.is.null,submission_date.eq.${finalDate})`)
-      .eq("final", true);
+      .eq("final", true)
+      .neq("id", ins.id);  // Don't supersede ourselves
 
     if (prev?.length) {
       logStructured('info', 'superseding_submissions', {
@@ -283,106 +360,17 @@ serve(async (req) => {
         .in("id", prev.map((r: any) => r.id));
     }
 
-    // Insert new submission
-    const { data: ins, error: insErr } = await supabase
-      .from("submissions")
-      .insert({
-        form_template_id: template.id,
-        team_member_id: body.teamMemberId,
-        submission_date: body.submissionDate,
-        work_date: body.workDate ?? null,
-        late: isLate,
-        final: true,
-        payload_json: v // Use normalized values
-      })
-      .select("id")
-      .single();
-
-    if (insErr) {
-      const errorId = crypto.randomUUID();
-      logStructured('error', 'submission_insert_failed', {
-        request_id: requestId,
-        error_id: errorId,
-        error: insErr.message
-      });
-      return errorResponse(500, "internal_error", errorId);
-    }
-
     logStructured('info', 'submission_created', {
       request_id: requestId,
       submission_id: ins.id
     });
 
-    // Resolve KPI version for metrics
-    const { data: kpiBinding } = await supabase
-      .from('forms_kpi_bindings')
-      .select(`
-        kpi_version_id,
-        kpi_versions!inner(
-          id,
-          label,
-          kpi_id,
-          kpis!inner(
-            id,
-            key,
-            agency_id
-          )
-        )
-      `)
-      .eq('form_template_id', template.id)
-      .maybeSingle();
-
-    let kpiVersionId = null;
-    let labelAtSubmit = null;
-
-    if (kpiBinding?.kpi_versions) {
-      kpiVersionId = kpiBinding.kpi_version_id;
-      labelAtSubmit = kpiBinding.kpi_versions.label;
-      
-      logStructured('info', 'kpi_version_resolved', {
-        request_id: requestId,
-        kpi_version_id: kpiVersionId,
-        label: labelAtSubmit
-      });
-    }
-
-    // FAIL-FAST: Return 400 if KPI binding is missing to prevent constraint violations
-    if (!kpiVersionId || !labelAtSubmit) {
-      logStructured('warn', 'missing_kpi_binding', {
-        request_id: requestId,
-        template_id: template.id,
-        kpi_version_id: kpiVersionId,
-        label_at_submit: labelAtSubmit
-      });
-      return errorResponse(400, "invalid_kpi_binding");
-    }
-
-    // Process metrics only with valid KPI version data
-    const { error: metricsError } = await supabase.rpc('upsert_metrics_from_submission', {
-      p_submission: ins.id,
-      p_kpi_version_id: kpiVersionId,
-      p_label_at_submit: labelAtSubmit,
-      p_submitted_at: new Date().toISOString()
-    });
-    
-    if (metricsError) {
-      const errorId = crypto.randomUUID();
-      logStructured('error', 'metrics_processing_failed', {
-        request_id: requestId,
-        error_id: errorId,
-        submission_id: ins.id,
-        error: metricsError.message
-      });
-      return errorResponse(500, "internal_error", errorId);
-    }
-
     const duration = performance.now() - startTime;
 
-    // Success logging
+    // Success logging with required artifacts
     logStructured('info', 'submission_success', {
       submission_id: ins.id,
       team_member_id: body.teamMemberId,
-      agency_id: agency.id,
       kpi_version_id: kpiVersionId,
       label_at_submit: labelAtSubmit,
       status: 'ok',
@@ -390,10 +378,8 @@ serve(async (req) => {
       request_id: requestId
     });
 
-    return json(200, { 
-      ok: true, 
-      submissionId: ins.id,
-      isLate
+    return j(200, { 
+      submission_id: ins.id
     });
 
   } catch (e) {
