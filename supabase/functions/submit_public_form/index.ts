@@ -262,8 +262,8 @@ serve(async (req) => {
       is_late: isLate
     });
 
-    // CRITICAL: Resolve active KPI binding FIRST - require valid_to IS NULL
-    const { data: kpiBinding, error: bindingError } = await supabase
+    // CRITICAL: Resolve active KPI bindings - require valid_to IS NULL
+    const { data: kpiBindings, error: bindingError } = await supabase
       .from('forms_kpi_bindings')
       .select(`
         kpi_version_id,
@@ -274,13 +274,12 @@ serve(async (req) => {
         )
       `)
       .eq('form_template_id', template.id)
-      .is('kpi_versions.valid_to', null)  // MUST be active binding
-      .single();
+      .is('kpi_versions.valid_to', null);  // MUST be active bindings
 
-    // If no active binding, return 400 (never 500)
-    if (bindingError || !kpiBinding) {
+    // If no active bindings, return 400 (never 500)
+    if (bindingError || !kpiBindings || kpiBindings.length === 0) {
       // Get any binding (even expired) for error details
-      const { data: anyBinding } = await supabase
+      const { data: anyBindings } = await supabase
         .from('forms_kpi_bindings')
         .select(`
           kpi_version_id,
@@ -290,25 +289,30 @@ serve(async (req) => {
             valid_to
           )
         `)
-        .eq('form_template_id', template.id)
-        .single();
+        .eq('form_template_id', template.id);
 
       logStructured('warn', 'invalid_kpi_binding', {
         request_id: requestId,
         form_template_id: template.id,
-        binding_error: bindingError?.message
+        binding_error: bindingError?.message,
+        active_bindings_count: kpiBindings?.length ?? 0
       });
       
       return j(400, { 
         error: "invalid_kpi_binding", 
         form_template_id: template.id, 
-        kpi_version_id: anyBinding?.kpi_version_id ?? null, 
-        valid_to: anyBinding?.kpi_versions?.valid_to ?? null 
+        active_bindings_count: kpiBindings?.length ?? 0,
+        total_bindings: anyBindings?.length ?? 0,
+        sample_binding: anyBindings?.[0] ? {
+          kpi_version_id: anyBindings[0].kpi_version_id,
+          valid_to: anyBindings[0].kpi_versions?.valid_to
+        } : null
       });
     }
 
-    const kpiVersionId = kpiBinding.kpi_version_id;
-    const labelAtSubmit = kpiBinding.kpi_versions.label;
+    // Use first active binding for metrics (all should be active anyway)
+    const kpiVersionId = kpiBindings[0].kpi_version_id;
+    const labelAtSubmit = kpiBindings[0].kpi_versions.label;
 
     logStructured('info', 'active_kpi_binding_resolved', {
       request_id: requestId,
