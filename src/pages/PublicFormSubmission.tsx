@@ -144,27 +144,22 @@ export default function PublicFormSubmission() {
       });
     }
     
-    // Validate required fields in repeater sections
-    if (form?.schema?.repeaterSections) {
-      Object.entries(form.schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
-        if (!section.enabled || !section.fields) return;
-        
-        const triggerValue = values[section.triggerKPI];
-        const rows: any[] = values[sectionKey] || [];
-        
-        // Only validate if the section is triggered and has rows
-        if (triggerValue && triggerValue > 0 && rows.length > 0) {
-          rows.forEach((row, rowIndex) => {
-            section.fields.forEach((field: any) => {
-              if (field.required) {
-                const fieldValue = row[field.key];
-                if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
-                  const errorKey = `${sectionKey}.${rowIndex}.${field.key}`;
-                  errors[errorKey] = `${field.label} is required for ${section.title.slice(0, -1)} #${rowIndex + 1}`;
-                }
-              }
-            });
-          });
+    // Validate required fields in repeater sections (snake_case normalized)
+    const quotedDetails = values.quoted_details || [];
+    const quotedCount = values.quoted_count || 0;
+    
+    // Only validate if quoted_count > 0 and we have rows
+    if (quotedCount > 0 && quotedDetails.length > 0) {
+      quotedDetails.forEach((row: any, rowIndex: number) => {
+        // Check required keys: prospect_name, lead_source, detailed_notes
+        if (!row.prospect_name || row.prospect_name.trim() === '') {
+          errors[`quoted_details.${rowIndex}.prospect_name`] = `Prospect name is required for household #${rowIndex + 1}`;
+        }
+        if (!row.lead_source || row.lead_source.trim() === '') {
+          errors[`quoted_details.${rowIndex}.lead_source`] = `Lead source is required for household #${rowIndex + 1}`;
+        }
+        if (!row.detailed_notes || row.detailed_notes.trim() === '') {
+          errors[`quoted_details.${rowIndex}.detailed_notes`] = `Detailed notes are required for household #${rowIndex + 1}`;
         }
       });
     }
@@ -195,28 +190,16 @@ export default function PublicFormSubmission() {
     try {
       console.log('✅ Required fields check passed');
 
-      // Sanitize submission to prevent 500 errors
-      function sanitizeSubmission(values: any) {
-        const hasCamel = Array.isArray(values.quotedDetails);
-        const hasSnake = Array.isArray(values.quoted_details);
-
-        // Prefer camelCase → snake_case; drop empty rows
-        const details = (hasCamel ? values.quotedDetails : values.quoted_details) || [];
-        const cleaned = details
-          .map((r: any) => ({
-            prospect_name: r.prospect_name ?? r.name ?? null,
-            lead_source: r.lead_source ?? r.lead_source_id ?? null,
-            detailed_notes: r.detailed_notes ?? r.notes ?? null,
-          }))
-          .filter((r: any) => r.prospect_name || r.lead_source || r.detailed_notes);
-
-        // Write only snake_case for server
-        const v = { ...values };
-        delete v.quotedDetails;
-        v.quoted_details = cleaned;
-
-        return v;
+      // Normalize to snake_case before validation and submission
+      console.log('🔧 Pre-normalization values:', values);
+      
+      // Convert quotedDetails to quoted_details (normalize from UI state)
+      if (values.quotedDetails && !values.quoted_details) {
+        values.quoted_details = values.quotedDetails;
+        delete values.quotedDetails;
       }
+      
+      console.log('🔧 Post-normalization values:', values);
 
       const payload = {
         agencySlug,
@@ -225,7 +208,7 @@ export default function PublicFormSubmission() {
         teamMemberId: values.team_member_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
-        values: sanitizeSubmission(values),
+        values: values, // Already normalized above
       };
 
       console.log('📤 POST to submit_public_form...');
@@ -427,14 +410,33 @@ export default function PublicFormSubmission() {
                     <label className="text-sm font-medium text-foreground">
                       {field.label}{field.required && <span className="text-destructive"> *</span>}
                     </label>
-                    {(field.type === "textarea" || field.type === "longtext") ? (
-                      <textarea 
-                        value={values[field.key] ?? ""} 
-                        onChange={e=>onChange(field.key, e.target.value)}
-                        rows={4}
-                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
-                      />
-                    ) : field.type === "select" ? (
+                     {(field.type === "textarea" || field.type === "longtext") ? (
+                       <textarea 
+                         value={values[field.key] ?? ""} 
+                         onChange={e=>onChange(field.key, e.target.value)}
+                         rows={4}
+                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
+                       />
+                     ) : field.type === "text" ? (
+                       <input 
+                         type="text"
+                         value={values[field.key] ?? ""} 
+                         onChange={e=>onChange(field.key, e.target.value)}
+                         className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                           fieldErrors[field.key] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                         }`}
+                       />
+                     ) : field.type === "checkbox" ? (
+                       <label className="flex items-center space-x-2">
+                         <input
+                           type="checkbox"
+                           checked={values[field.key] === "yes" || values[field.key] === true}
+                           onChange={e => onChange(field.key, e.target.checked ? "yes" : "no")}
+                           className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0"
+                         />
+                         <span className="text-sm text-foreground">Yes</span>
+                       </label>
+                     ) : field.type === "dropdown" ? (
                       <select 
                         value={values[field.key] ?? ""} 
                         onChange={e=>onChange(field.key, e.target.value)}
@@ -551,7 +553,28 @@ export default function PublicFormSubmission() {
                                   <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                 )}
                               </div>
-                            ) : (
+                             ) : field.type === "checkbox" ? (
+                               <div className="space-y-1">
+                                 <label className="flex items-center space-x-2">
+                                   <input
+                                     type="checkbox"
+                                     checked={row[field.key] === "yes" || row[field.key] === true}
+                                     onChange={e => {
+                                       const v = e.target.checked ? "yes" : "no";
+                                       setValues(prev => {
+                                         const currentArray = [...(prev[sectionKey] || [])];
+                                         const currentItem = { ...(currentArray[i] || {}) };
+                                         currentItem[field.key] = v;
+                                         currentArray[i] = currentItem;
+                                         return { ...prev, [sectionKey]: currentArray };
+                                       });
+                                     }}
+                                     className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0"
+                                   />
+                                   <span className="text-sm text-foreground">Yes</span>
+                                 </label>
+                               </div>
+                             ) : (
                               <div className="space-y-1">
                                 <input
                                   type={field.type === "number" ? "number" : "text"}

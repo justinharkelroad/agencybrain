@@ -86,18 +86,18 @@ export default function KPIFieldManager({
                     </SelectTrigger>
                     <SelectContent>
                       {availableKpis.map(availKpi => (
-                        <SelectItem key={availKpi.kpi_id} value={availKpi.kpi_id}>
-                          {availKpi.label} ({availKpi.slug})
-                        </SelectItem>
+                     <SelectItem key={availKpi.kpi_id} value={availKpi.kpi_id}>
+                       {availKpi.label}
+                     </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <Input
-                  value={kpi.label}
-                  onChange={(e) => onUpdateLabel(index, e.target.value)}
-                  placeholder="Display Label (optional override)"
-                />
+                 <Input
+                   value={kpi.label}
+                   onChange={(e) => onUpdateLabel(index, e.target.value)}
+                   placeholder="Display Label"
+                 />
                 <div className="flex items-center gap-2">
                   <Select 
                     value={kpi.type} 
