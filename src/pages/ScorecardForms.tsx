@@ -20,10 +20,10 @@ export default function ScorecardForms() {
   const [activeTab, setActiveTab] = useState("metrics");
 const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
 
-  // TEMP: Phase 3 Batch 2 CI Gate - KPI smoke test
+  // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test
   useEffect(() => {
     try {
-      const FLAG = 'batch2_test_done';
+      const FLAG = 'batch5_test_done';
       if (sessionStorage.getItem(FLAG)) return;
 
       const today = new Date().toISOString().slice(0, 10);
@@ -44,28 +44,28 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
           quoted_count: 4,
           sold_items: 2,
           quoted_details: [
-            { prospect_name: 'Batch2 Test A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 2 CI gate' },
-            { prospect_name: 'Batch2 Test B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 2 CI gate' },
-            { prospect_name: 'Batch2 Test C', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 2 CI gate' },
-            { prospect_name: 'Batch2 Test D', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 2 CI gate' },
+            { prospect_name: 'Batch5 Test A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
+            { prospect_name: 'Batch5 Test B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
+            { prospect_name: 'Batch5 Test C', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
+            { prospect_name: 'Batch5 Test D', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
           ],
         },
       } as const;
 
       (async () => {
-        console.log('🚀 BATCH 2 CI GATE submitting...', payload);
+        console.log('🚀 BATCH 5 CI GATE submitting...', payload);
         const { data, error } = await supabase.functions.invoke('submit_public_form', { body: payload });
         if (error) {
-          console.error('❌ BATCH 2 CI GATE failed:', error);
-          toast.error(`Batch 2 CI gate failed: ${error.message || 'unknown error'}`);
+          console.error('❌ BATCH 5 CI GATE failed:', error);
+          toast.error(`Batch 5 CI gate failed: ${error.message || 'unknown error'}`);
           return;
         }
-        console.log('✅ BATCH 2 CI GATE success:', data);
+        console.log('✅ BATCH 5 CI GATE success:', data);
         sessionStorage.setItem(FLAG, '1');
-        toast.success(`Batch 2 CI gate: ${data?.submission_id?.slice(0,8) || 'unknown'}...`);
+        toast.success(`Batch 5 CI gate: ${data?.submission_id?.slice(0,8) || 'unknown'}...`);
       })();
     } catch (e) {
-      console.error('❌ BATCH 2 CI GATE exception:', e);
+      console.error('❌ BATCH 5 CI GATE exception:', e);
     }
   }, []);
 
