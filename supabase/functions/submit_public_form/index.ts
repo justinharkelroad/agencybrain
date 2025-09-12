@@ -155,15 +155,6 @@ serve(async (req) => {
     v.quoted_details = cleaned;
     delete v.quotedDetails; // Remove camelCase version
     
-    // KPI normalization: flatten preselected_kpi_N_<slug> -> <slug>
-    for (const k of Object.keys(v)) {
-      const m = /^preselected_kpi_\d+_(.+)$/.exec(k);
-      if (m && m[1]) {
-        v[m[1]] = v[k];       // e.g., 'outbound_calls' = 134
-        delete v[k];
-      }
-    }
-    
     logStructured('info', 'payload_normalized', {
       request_id: requestId,
       quoted_details_count: cleaned.length
@@ -328,6 +319,16 @@ serve(async (req) => {
       kpi_version_id: kpiVersionId,
       label_at_submit: labelAtSubmit
     });
+
+    // --- KPI normalization: strip preselected_kpi_N_<slug> -> <slug>
+    for (const key of Object.keys(v)) {
+      const m = /^preselected_kpi_\d+_(.+)$/.exec(key);
+      if (m && m[1]) {
+        v[m[1]] = v[key];   // e.g., outbound_calls = 128
+        delete v[key];      // remove prefixed key
+      }
+    }
+    // keep quoted_details normalization after this, as already implemented
 
     // Step 1: Insert submission with final=false (bypasses trigger)
     const { data: ins, error: insErr } = await supabase
