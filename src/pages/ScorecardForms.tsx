@@ -20,10 +20,10 @@ export default function ScorecardForms() {
   const [activeTab, setActiveTab] = useState("metrics");
 const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
 
-  // TEMP: Autotest public submission to verify KPI normalization. Remove after verification.
+  // TEMP: Phase 3 Batch 1 CI Gate - KPI smoke test
   useEffect(() => {
     try {
-      const FLAG = 'autotest_v1_done';
+      const FLAG = 'batch1_test_done';
       if (sessionStorage.getItem(FLAG)) return;
 
       const today = new Date().toISOString().slice(0, 10);
@@ -39,31 +39,32 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
           team_member_id: '518a5ac1-53c4-4dc9-ba8d-21a6c8d98316',
           submission_date: today,
           work_date: today,
-          outbound_calls: 23,
-          talk_minutes: 45,
-          quoted_count: 2,
+          outbound_calls: 25,
+          talk_minutes: 47,
+          quoted_count: 3,
           sold_items: 1,
           quoted_details: [
-            { prospect_name: 'Autotest A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Autotest run' },
-            { prospect_name: 'Autotest B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Autotest run' },
+            { prospect_name: 'Batch1 Test A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 1 CI gate' },
+            { prospect_name: 'Batch1 Test B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 1 CI gate' },
+            { prospect_name: 'Batch1 Test C', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 1 CI gate' },
           ],
         },
       } as const;
 
       (async () => {
-        console.log('🔬 AUTOTEST submitting public form...', payload);
+        console.log('🚀 BATCH 1 CI GATE submitting...', payload);
         const { data, error } = await supabase.functions.invoke('submit_public_form', { body: payload });
         if (error) {
-          console.error('❌ AUTOTEST failed:', error);
-          toast.error(`Autotest failed: ${error.message || 'unknown error'}`);
+          console.error('❌ BATCH 1 CI GATE failed:', error);
+          toast.error(`Batch 1 CI gate failed: ${error.message || 'unknown error'}`);
           return;
         }
-        console.log('✅ AUTOTEST success:', data);
+        console.log('✅ BATCH 1 CI GATE success:', data);
         sessionStorage.setItem(FLAG, '1');
-        toast.success(`Autotest submitted: ${data?.submission_id?.slice(0,8) || 'unknown'}...`);
+        toast.success(`Batch 1 CI gate: ${data?.submission_id?.slice(0,8) || 'unknown'}...`);
       })();
     } catch (e) {
-      console.error('❌ AUTOTEST exception:', e);
+      console.error('❌ BATCH 1 CI GATE exception:', e);
     }
   }, []);
 
