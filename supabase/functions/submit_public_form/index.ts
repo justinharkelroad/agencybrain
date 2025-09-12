@@ -155,6 +155,15 @@ serve(async (req) => {
     v.quoted_details = cleaned;
     delete v.quotedDetails; // Remove camelCase version
     
+    // KPI normalization: flatten preselected_kpi_N_<slug> -> <slug>
+    for (const k of Object.keys(v)) {
+      const m = /^preselected_kpi_\d+_(.+)$/.exec(k);
+      if (m && m[1]) {
+        v[m[1]] = v[k];       // e.g., 'outbound_calls' = 134
+        delete v[k];
+      }
+    }
+    
     logStructured('info', 'payload_normalized', {
       request_id: requestId,
       quoted_details_count: cleaned.length
