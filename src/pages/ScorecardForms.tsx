@@ -23,7 +23,7 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
   // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test
   useEffect(() => {
     try {
-      const FLAG = 'batch5_test_done';
+      const FLAG = 'phase4_final_test_done';
       if (sessionStorage.getItem(FLAG)) return;
 
       const today = new Date().toISOString().slice(0, 10);
@@ -39,15 +39,15 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
           team_member_id: '518a5ac1-53c4-4dc9-ba8d-21a6c8d98316',
           submission_date: today,
           work_date: today,
-          outbound_calls: 35,
-          talk_minutes: 62,
-          quoted_count: 4,
-          sold_items: 2,
+          outbound_calls: 100,
+          talk_minutes: 240,
+          quoted_count: 6,
+          sold_items: 3,
           quoted_details: [
-            { prospect_name: 'Batch5 Test A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
-            { prospect_name: 'Batch5 Test B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
-            { prospect_name: 'Batch5 Test C', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
-            { prospect_name: 'Batch5 Test D', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 3 Batch 5 CI gate' },
+            { prospect_name: 'Phase4 Final Test A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 4 final smoke test - all 17 functions restored' },
+            { prospect_name: 'Phase4 Final Test B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 4 final smoke test - deploy gates enforced' },
+            { prospect_name: 'Phase4 Final Test C', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 4 final smoke test - nightly regression enabled' },
+            { prospect_name: 'Phase4 Final Test D', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Phase 4 final smoke test - v-functions-restored tag ready' },
           ],
         },
       } as const;

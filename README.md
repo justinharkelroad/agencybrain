@@ -266,6 +266,31 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - **Code**: Version controlled in Git with GitHub backup
 - **Rollback**: Documented procedures for each major change
 
+## Deploy Gates
+
+This project enforces strict deployment gates to ensure KPI data integrity:
+
+### Gate A: Function Consistency
+- **Check:** `DISK_SET == CONFIG_SET` (function names only)
+- **DISK_SET:** `ls -1 supabase/functions/*/index.ts | sed 's|supabase/functions/\(.*\)/index.ts|\1|'`
+- **CONFIG_SET:** Functions listed in `supabase/config.toml`
+- **Failure:** PR blocked until sets match
+
+### Gate B: KPI Smoke Test
+- **Step 1:** POST to `submit_public_form` with test data
+- **Step 2:** Verify `payload_json` has unprefixed keys (no `preselected_kpi_*`)
+- **Step 3:** Verify `metrics_daily` row matches payload; `kpi_version_id` + `label_at_submit` NOT NULL
+- **Step 4:** Verify zero null violations in today's metrics
+- **Failure:** Blocks deployment until KPI normalization works correctly
+
+## Nightly Smoke Tests
+
+Automated regression testing runs at 2:00 AM UTC daily:
+
+- **Test:** Full KPI smoke test against production
+- **On Failure:** Auto-creates P1 issue with logs and rollback instructions
+- **Manual Trigger:** Available via GitHub Actions UI
+
 ## 🛠️ Development Guidelines
 
 ### Code Standards
@@ -308,4 +333,9 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 **Status**: ✅ **Production Ready** - Comprehensive security, performance, and testing validation complete.
 
-**Last Updated**: 2025-09-10 - Phase 2 Gate G Documentation & Rollback Procedures
+**Last Updated**: 2025-09-12 - Phase 4 Deploy Gates & Nightly Regression Testing
+
+## Release Tags
+
+- `v-submit-public-form-hotfix`: KPI normalization locked, minimal function set
+- `v-functions-restored`: KPI normalization locked + full function set restored

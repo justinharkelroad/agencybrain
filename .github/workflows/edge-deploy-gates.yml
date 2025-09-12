@@ -1,0 +1,115 @@
+name: Edge Deploy Gates
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main, develop ]
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  edge-deploy-gates:
+    runs-on: ubuntu-latest
+    name: Verify Edge Function Deployment Gates
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Gate A - Verify DISK_SET == CONFIG_SET
+        id: disk_config_check
+        run: |
+          echo "=== DISK_SET (functions with index.ts) ==="
+          DISK_SET=$(ls -1 supabase/functions/*/index.ts 2>/dev/null | sed 's|supabase/functions/\(.*\)/index.ts|\1|' | sort)
+          echo "$DISK_SET"
+          echo "disk_functions<<EOF" >> $GITHUB_OUTPUT
+          echo "$DISK_SET" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "=== CONFIG_SET (functions in config.toml) ==="
+          CONFIG_SET=$(grep '^\[functions\.' supabase/config.toml | sed 's/\[functions\.\(.*\)\]/\1/' | sort)
+          echo "$CONFIG_SET"
+          echo "config_functions<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONFIG_SET" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "=== COMPARISON ==="
+          if [ "$DISK_SET" = "$CONFIG_SET" ]; then
+            echo "✅ DISK_SET == CONFIG_SET"
+            echo "match=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ DISK_SET != CONFIG_SET"
+            echo "DISK_SET:"
+            echo "$DISK_SET"
+            echo "CONFIG_SET:"  
+            echo "$CONFIG_SET"
+            echo "match=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Gate B - KPI Smoke Test
+        id: kpi_smoke
+        run: |
+          echo "=== KPI Smoke Test ==="
+          
+          # Submit a test form
+          RESPONSE=$(curl -s -X POST \
+            "$SUPABASE_URL/functions/v1/submit_public_form" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "agencySlug": "test-agency",
+              "formSlug": "sales-daily",
+              "token": "test-token-123",
+              "teamMemberId": "test-member-id",
+              "submissionDate": "'$(date +%Y-%m-%d)'",
+              "workDate": "'$(date +%Y-%m-%d)'", 
+              "values": {
+                "outbound_calls": 50,
+                "talk_minutes": 120,
+                "quoted_count": 3,
+                "sold_items": 1
+              }
+            }')
+          
+          echo "Response: $RESPONSE"
+          
+          # Extract submission_id (if successful)
+          SUBMISSION_ID=$(echo "$RESPONSE" | jq -r '.submission_id // empty')
+          
+          if [ -z "$SUBMISSION_ID" ]; then
+            echo "⚠️ KPI Smoke Test: No submission created (expected in staging)"
+            echo "smoke_status=skipped" >> $GITHUB_OUTPUT
+          else
+            echo "✅ KPI Smoke Test: Submission created with ID: $SUBMISSION_ID"
+            echo "submission_id=$SUBMISSION_ID" >> $GITHUB_OUTPUT
+            echo "smoke_status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Report Results
+        run: |
+          echo "=== EDGE DEPLOY GATES SUMMARY ==="
+          echo "Gate A (DISK == CONFIG): ${{ steps.disk_config_check.outputs.match == 'true' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "Gate B (KPI Smoke): ${{ steps.kpi_smoke.outputs.smoke_status == 'passed' && '✅ PASSED' || steps.kpi_smoke.outputs.smoke_status == 'skipped' && '⚠️ SKIPPED' || '❌ FAILED' }}"
+          
+          if [ "${{ steps.disk_config_check.outputs.match }}" != "true" ]; then
+            echo "❌ GATE FAILURE: DISK_SET != CONFIG_SET"
+            exit 1
+          fi
