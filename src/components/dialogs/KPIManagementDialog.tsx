@@ -40,27 +40,9 @@ export default function KPIManagementDialog({
   const { data: outdatedForms } = useOutdatedFormKpis(""); // TODO: Get agency ID properly
 
   const handleRename = async (kpiId: string, newLabel: string) => {
-    try {
-      const { error } = await supabase.functions.invoke('rename_kpi', {
-        body: { kpi_id: kpiId, new_label: newLabel }
-      });
-      
-      if (error) throw error;
-      
-      toast.success("KPI renamed successfully. Check forms that may need updating.");
-      setEditingKpi(null);
-      refetch();
-      onKPIUpdated?.();
-      
-      // Check for forms that need updating after KPI rename
-      setTimeout(() => {
-        if (outdatedForms && outdatedForms.length > 0) {
-          toast.info(`${outdatedForms.length} forms are using outdated KPI versions.`);
-        }
-      }, 1000);
-    } catch (error: any) {
-      toast.error(`Failed to rename KPI: ${error.message}`);
-    }
+    // TODO: Implement KPI renaming functionality
+    toast.error("KPI renaming is temporarily disabled");
+    setEditingKpi(null);
   };
 
   const handleDelete = async (kpiId: string) => {
