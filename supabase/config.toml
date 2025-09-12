@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.repair_explorer_data]
 verify_jwt = true
+
+[functions.query-transcripts]
+verify_jwt = true
