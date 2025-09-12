@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,60 @@ import MetricsDashboard from "@/pages/MetricsDashboard";
 import Explorer from "@/pages/Explorer";
 import { UnifiedSettingsDialog } from "@/components/dialogs/UnifiedSettingsDialog";
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
-  const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+
+  // TEMP: Autotest public submission to verify KPI normalization. Remove after verification.
+  useEffect(() => {
+    try {
+      const FLAG = 'autotest_v1_done';
+      if (sessionStorage.getItem(FLAG)) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      const payload = {
+        agencySlug: 'hfi-inc',
+        formSlug: 'sales-scorecard-new',
+        token: 'f5124452-c71b-43fc-b422-1703e8795347',
+        teamMemberId: '518a5ac1-53c4-4dc9-ba8d-21a6c8d98316',
+        submissionDate: today,
+        workDate: today,
+        values: {
+          team_member_id: '518a5ac1-53c4-4dc9-ba8d-21a6c8d98316',
+          submission_date: today,
+          work_date: today,
+          outbound_calls: 23,
+          talk_minutes: 45,
+          quoted_count: 2,
+          sold_items: 1,
+          quoted_details: [
+            { prospect_name: 'Autotest A', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Autotest run' },
+            { prospect_name: 'Autotest B', lead_source: '1262c038-c548-42be-aae0-9c99e2cacb0a', detailed_notes: 'Autotest run' },
+          ],
+        },
+      } as const;
+
+      (async () => {
+        console.log('🔬 AUTOTEST submitting public form...', payload);
+        const { data, error } = await supabase.functions.invoke('submit_public_form', { body: payload });
+        if (error) {
+          console.error('❌ AUTOTEST failed:', error);
+          toast.error(`Autotest failed: ${error.message || 'unknown error'}`);
+          return;
+        }
+        console.log('✅ AUTOTEST success:', data);
+        sessionStorage.setItem(FLAG, '1');
+        toast.success(`Autotest submitted: ${data?.submission_id?.slice(0,8) || 'unknown'}...`);
+      })();
+    } catch (e) {
+      console.error('❌ AUTOTEST exception:', e);
+    }
+  }, []);
 
   const handleDeleteForm = async (formId: string) => {
     await deleteForm(formId);
