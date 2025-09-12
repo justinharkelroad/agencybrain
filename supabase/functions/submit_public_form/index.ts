@@ -4,8 +4,8 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "3.3-PUBLIC-NO-AUTH";
-const DEPLOYMENT_ID = "deploy-20250910-public";
+const FUNCTION_VERSION = "3.4-PUBLIC-NO-AUTH";
+const DEPLOYMENT_ID = "deploy-20250912-r1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
