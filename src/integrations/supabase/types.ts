@@ -2338,7 +2338,19 @@ export type Database = {
               p_role: string
               p_start: string
             }
-        Returns: Json
+        Returns: {
+          daily_score: number
+          date: string
+          hits: number
+          is_late: boolean
+          kpi_key: string
+          kpi_label: string
+          kpi_version_id: string
+          pass: boolean
+          team_member_id: string
+          team_member_name: string
+          value: number
+        }[]
       }
       gtrgm_compress: {
         Args: { "": unknown }
