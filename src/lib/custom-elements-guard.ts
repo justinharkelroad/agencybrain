@@ -5,14 +5,19 @@ if (typeof window !== "undefined" && window.customElements) {
   const definedElements = new Set<string>();
   const onceKey = "__MCE_AUTOSIZE_DEFINED__";
 
-  // Pre-define mce-autosize-textarea to prevent conflicts - with lock
-  if (!ce.get("mce-autosize-textarea") && !(window as any)[onceKey]) {
-    ce.define("mce-autosize-textarea", class extends HTMLElement {});
-    (window as any)[onceKey] = true;
-    console.log("🛡️ Pre-defined mce-autosize-textarea to prevent conflicts");
+  // Enhanced guard: Pre-define mce-autosize-textarea to prevent conflicts
+  if (!customElements.get('mce-autosize-textarea')) {
+    try {
+      customElements.define('mce-autosize-textarea', class extends HTMLElement {});
+      (window as any)[onceKey] = true;
+      console.log("🛡️ Pre-defined mce-autosize-textarea to prevent conflicts");
+    } catch (e) {
+      console.log("🛡️ mce-autosize-textarea definition blocked (already exists):", e);
+      (window as any)[onceKey] = true;
+    }
   } else {
     (window as any)[onceKey] = true;
-    console.log("🛡️ mce-autosize-textarea already exists or locked");
+    console.log("🛡️ mce-autosize-textarea already exists");
   }
   
   ce.define = (name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {

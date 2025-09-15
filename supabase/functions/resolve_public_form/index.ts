@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "rp-1.1";
+const FUNCTION_VERSION = "rp-1.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,7 +62,7 @@ serve(async (req) => {
         agency:agencies(*)
       `)
       .eq('token', token)
-      .eq('is_enabled', true)
+      .eq('enabled', true)
       .single();
 
     if (linkError || !linkData) {
@@ -76,7 +76,7 @@ serve(async (req) => {
     }
 
     // Check expiration
-    if (linkData.expire_at && new Date(linkData.expire_at) < new Date()) {
+    if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) {
       return new Response(
         JSON.stringify({ error: 'Form link has expired' }),
         { 
@@ -104,7 +104,7 @@ serve(async (req) => {
         link: {
           id: linkData.id,
           token: linkData.token,
-          expire_at: linkData.expire_at
+          expire_at: linkData.expires_at
         }
       }),
       { 

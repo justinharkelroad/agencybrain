@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "3.6-NORMALIZED-KPI-KEYS";
+const FUNCTION_VERSION = "3.7-SAFE-FINALIZATION";
 const DEPLOYMENT_ID = "deploy-20250915-r3-normalized";
 
 const corsHeaders = {
@@ -147,17 +147,29 @@ serve(async (req) => {
       return errorResponse(400, "invalid_payload");
     }
 
-    // NORMALIZE PAYLOAD SERVER-SIDE
-    const v = body.values ?? {};
-    const details = Array.isArray(v.quoted_details) ? v.quoted_details : 
-                   (Array.isArray(v.quotedDetails) ? v.quotedDetails : []);
-    const cleaned = details.filter((d: any) => d && (d.prospect_name || d.lead_source || d.detailed_notes));
-    v.quoted_details = cleaned;
-    delete v.quotedDetails; // Remove camelCase version
-    
+    // Build payload
+    const raw = (body && body.values) ? body.values : {};
+    const v = { ...raw }; // this is the object inserted into payload_json
+
+    // Strip preselected_kpi_N_<slug> -> <slug>
+    for (const key of Object.keys(v)) {
+      if (/^preselected_kpi_\d+_/.test(key)) {
+        const nk = key.replace(/^preselected_kpi_\d+_/, '');
+        v[nk] = v[key];
+        delete v[key];
+      }
+    }
+
+    // quotedDetails -> quoted_details
+    if (Array.isArray(raw.quotedDetails)) {
+      v.quoted_details = raw.quotedDetails;
+      delete v.quotedDetails;
+    }
+
     logStructured('info', 'payload_normalized', {
       request_id: requestId,
-      quoted_details_count: cleaned.length
+      has_quoted_details: Array.isArray(v.quoted_details),
+      quoted_details_count: Array.isArray(v.quoted_details) ? v.quoted_details.length : 0
     });
 
     // TOKEN VALIDATION - public, no user auth required
@@ -319,16 +331,6 @@ serve(async (req) => {
       kpi_version_id: kpiVersionId,
       label_at_submit: labelAtSubmit
     });
-
-    // --- KPI normalization: strip preselected_kpi_N_<slug> -> <slug>
-    for (const key of Object.keys(v)) {
-      const m = /^preselected_kpi_\d+_(.+)$/.exec(key);
-      if (m && m[1]) {
-        v[m[1]] = v[key];   // e.g., outbound_calls = 128
-        delete v[key];      // remove prefixed key
-      }
-    }
-    // keep quoted_details normalization after this, as already implemented
 
     // Step 1: Insert submission with final=false (bypasses trigger)
     const { data: ins, error: insErr } = await supabase
