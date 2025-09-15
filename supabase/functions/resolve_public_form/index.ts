@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const FUNCTION_VERSION = "rp-1.1";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -14,19 +16,36 @@ serve(async (req) => {
   }
 
   try {
+    // --- get params (POST JSON first, then query fallback; support token alias "t")
     const url = new URL(req.url);
-    const agencySlug = url.searchParams.get('agencySlug');
-    const formSlug = url.searchParams.get('formSlug');
-    const token = url.searchParams.get('token');
+    const qp = url.searchParams;
+
+    let agencySlug: string | null = null;
+    let formSlug: string | null = null;
+    let token: string | null = null;
+
+    try {
+      if (req.method === "POST" && req.headers.get("content-type")?.includes("application/json")) {
+        const body = await req.json().catch(() => ({} as any));
+        agencySlug = body.agencySlug ?? body.agency_slug ?? qp.get("agencySlug") ?? qp.get("agency_slug");
+        formSlug   = body.formSlug   ?? body.form_slug   ?? qp.get("formSlug")   ?? qp.get("form_slug");
+        token      = body.token      ?? body.t           ?? qp.get("token")      ?? qp.get("t");
+      } else {
+        agencySlug = qp.get("agencySlug") ?? qp.get("agency_slug");
+        formSlug   = qp.get("formSlug")   ?? qp.get("form_slug");
+        token      = qp.get("token")      ?? qp.get("t");
+      }
+    } catch (e) {
+      return new Response(JSON.stringify({ error: "bad_request", message: String(e) }), {
+        status: 400, headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
 
     if (!agencySlug || !formSlug || !token) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return new Response(JSON.stringify({
+        error: "missing_params",
+        agencySlug, formSlug, tokenPresent: Boolean(token)
+      }), { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } });
     }
 
     const supabase = createClient(
