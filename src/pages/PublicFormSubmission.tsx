@@ -31,8 +31,9 @@ export default function PublicFormSubmission() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
   
-  // Conditional logger - only log in development
-  const log = import.meta.env.DEV ? console.log : () => {};
+  // Conditional logger - only for admin diagnostics
+  const log = (import.meta.env.DEV || import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true') ? console.log : () => {};
+  const logError = console.error; // Always log errors
 
   // Check auth session on load (for debugging)
   useEffect(() => {
@@ -54,13 +55,13 @@ export default function PublicFormSubmission() {
         });
         
         if (error) {
-          console.error('Form resolution failed:', error);
+          logError('Form resolution failed:', error);
           setErr(error.message || "FORM_NOT_FOUND");
           return;
         }
         
         if (!data?.form) {
-          console.error('No form data returned');
+          logError('No form data returned');
           setErr("FORM_NOT_FOUND");
           return;
         }
@@ -77,7 +78,7 @@ export default function PublicFormSubmission() {
         
         log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
       } catch (error) {
-        console.error('Form resolution error:', error);
+        logError('Form resolution error:', error);
         setErr("NETWORK_ERROR");
       }
     })();
@@ -261,7 +262,7 @@ export default function PublicFormSubmission() {
       const today = getCurrentLocalDate();
       setValues({ submission_date: today, work_date: today });
     } catch (error: any) {
-      console.error('❌ Network/catch error:', error);
+      logError('❌ Network/catch error:', error);
       let errorMessage = "Network error. Please check your connection and try again.";
       
       if (error.name === 'TypeError' && error.message.includes('fetch')) {

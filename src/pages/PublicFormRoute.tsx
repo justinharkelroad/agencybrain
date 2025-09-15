@@ -13,10 +13,13 @@ export default function PublicFormRoute() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
 
+  // Track page view for analytics (admin only)
   useEffect(() => {
-    // Track page view for analytics
     if (agencySlug && formSlug && token) {
-      console.log(`Form accessed: ${agencySlug}/${formSlug} with token: ${token.substring(0, 8)}...`);
+      // Only log for admin diagnostics
+      if (import.meta.env.DEV || (import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true')) {
+        console.log(`Form accessed: ${agencySlug}/${formSlug} with token: ${token.substring(0, 8)}...`);
+      }
     }
   }, [agencySlug, formSlug, token]);
 

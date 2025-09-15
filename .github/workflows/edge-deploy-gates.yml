@@ -64,21 +64,60 @@ jobs:
         with:
           version: latest
 
-      - name: Gate B - KPI Smoke Test
+      - name: Gate B - Resolve Function Schema Test
+        id: resolve_test
+        run: |
+          echo "=== Resolve Function Schema Test ==="
+          
+          # Test resolve_public_form returns 200 with required schema
+          RESOLVE_RESPONSE=$(curl -s -w "%{http_code}" -X POST \
+            "$SUPABASE_URL/functions/v1/resolve_public_form" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "agencySlug": "hfi-inc",
+              "formSlug": "sales-scorecard-new",
+              "token": "rp-1.4-test-token"
+            }')
+          
+          HTTP_CODE="${RESOLVE_RESPONSE: -3}"
+          RESPONSE_BODY="${RESOLVE_RESPONSE%???}"
+          
+          echo "HTTP Code: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            # Validate required schema fields
+            SCHEMA_CHECK=$(echo "$RESPONSE_BODY" | jq -e '.form.schema and .form.settings and .form.team_members and .form.lead_sources')
+            if [ $? -eq 0 ]; then
+              echo "✅ Resolve Test: 200 with valid schema"
+              echo "resolve_status=passed" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Resolve Test: 200 but missing required fields"
+              echo "resolve_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "❌ Resolve Test: HTTP $HTTP_CODE"
+            echo "resolve_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Gate C - KPI Smoke Test
         id: kpi_smoke
         run: |
           echo "=== KPI Smoke Test ==="
           
           # Submit a test form
-          RESPONSE=$(curl -s -X POST \
+          RESPONSE=$(curl -s -w "%{http_code}" -X POST \
             "$SUPABASE_URL/functions/v1/submit_public_form" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "Content-Type: application/json" \
             -d '{
-              "agencySlug": "test-agency",
-              "formSlug": "sales-daily",
-              "token": "test-token-123",
-              "teamMemberId": "test-member-id",
+              "agencySlug": "hfi-inc",
+              "formSlug": "sales-scorecard-new",
+              "token": "rp-1.4-test-token",
+              "teamMemberId": "518a5ac1-53c4-4dc9-ba8d-21a6c8d98316",
               "submissionDate": "'$(date +%Y-%m-%d)'",
               "workDate": "'$(date +%Y-%m-%d)'", 
               "values": {
@@ -89,27 +128,42 @@ jobs:
               }
             }')
           
-          echo "Response: $RESPONSE"
+          HTTP_CODE="${RESPONSE: -3}"
+          RESPONSE_BODY="${RESPONSE%???}"
           
-          # Extract submission_id (if successful)
-          SUBMISSION_ID=$(echo "$RESPONSE" | jq -r '.submission_id // empty')
+          echo "HTTP Code: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
           
-          if [ -z "$SUBMISSION_ID" ]; then
-            echo "⚠️ KPI Smoke Test: No submission created (expected in staging)"
-            echo "smoke_status=skipped" >> $GITHUB_OUTPUT
+          if [ "$HTTP_CODE" = "200" ]; then
+            SUBMISSION_ID=$(echo "$RESPONSE_BODY" | jq -r '.submission_id // empty')
+            if [ -n "$SUBMISSION_ID" ]; then
+              echo "✅ KPI Smoke Test: 200 + SID $SUBMISSION_ID"
+              echo "submission_id=$SUBMISSION_ID" >> $GITHUB_OUTPUT
+              echo "smoke_status=passed" >> $GITHUB_OUTPUT
+            else
+              echo "❌ KPI Smoke Test: 200 but no submission_id"
+              echo "smoke_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
           else
-            echo "✅ KPI Smoke Test: Submission created with ID: $SUBMISSION_ID"
-            echo "submission_id=$SUBMISSION_ID" >> $GITHUB_OUTPUT
-            echo "smoke_status=passed" >> $GITHUB_OUTPUT
+            echo "❌ KPI Smoke Test: HTTP $HTTP_CODE"
+            echo "smoke_status=failed" >> $GITHUB_OUTPUT
+            exit 1
           fi
 
       - name: Report Results
         run: |
           echo "=== EDGE DEPLOY GATES SUMMARY ==="
           echo "Gate A (DISK == CONFIG): ${{ steps.disk_config_check.outputs.match == 'true' && '✅ PASSED' || '❌ FAILED' }}"
-          echo "Gate B (KPI Smoke): ${{ steps.kpi_smoke.outputs.smoke_status == 'passed' && '✅ PASSED' || steps.kpi_smoke.outputs.smoke_status == 'skipped' && '⚠️ SKIPPED' || '❌ FAILED' }}"
+          echo "Gate B (Resolve Schema): ${{ steps.resolve_test.outputs.resolve_status == 'passed' && '✅ PASSED' || '❌ FAILED' }}"
+          echo "Gate C (KPI Smoke): ${{ steps.kpi_smoke.outputs.smoke_status == 'passed' && '✅ PASSED' || '❌ FAILED' }}"
           
-          if [ "${{ steps.disk_config_check.outputs.match }}" != "true" ]; then
-            echo "❌ GATE FAILURE: DISK_SET != CONFIG_SET"
+          if [ "${{ steps.disk_config_check.outputs.match }}" != "true" ] || \
+             [ "${{ steps.resolve_test.outputs.resolve_status }}" != "passed" ] || \
+             [ "${{ steps.kpi_smoke.outputs.smoke_status }}" != "passed" ]; then
+            echo "❌ GATE FAILURE: One or more gates failed"
+            echo "ROLLBACK REQUIRED: Deploy tag v-public-form-pipeline-green immediately"
             exit 1
           fi
+          
+          echo "✅ ALL GATES PASSED: Public form pipeline is healthy and guarded"
