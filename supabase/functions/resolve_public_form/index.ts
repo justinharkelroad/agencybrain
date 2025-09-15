@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "rp-1.3";
+const FUNCTION_VERSION = "rp-1.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,19 +97,46 @@ serve(async (req) => {
       );
     }
 
+    // Get agency ID for additional queries
+    const agencyId = linkData.form_template.agency_id;
+
+    // Query team_members and lead_sources
+    const { data: teamMembers, error: tmErr } = await supabase
+      .from('team_members')
+      .select('id,name')
+      .eq('agency_id', agencyId)
+      .eq('status', 'active');
+
+    const { data: leadSources, error: lsErr } = await supabase
+      .from('lead_sources')
+      .select('id,name')
+      .eq('agency_id', agencyId);
+
+    // Transform DB fields → UI fields
+    const ft = linkData.form_template;
+
+    // schema_json *already* contains schema + nested settings in this project.
+    // settings_json contains legacy settings. Prefer nested settings first.
+    const schemaObj = ft.schema_json ?? {};
+    const settingsObj = schemaObj.settings ?? ft.settings_json ?? {};
+
+    const form = {
+      id: ft.id,
+      slug: ft.slug,
+      agency_id: ft.agency_id,
+      title: schemaObj.title ?? ft.title ?? '',
+      role: schemaObj.role ?? 'Sales',
+      schema: schemaObj,        // full schema object (kpis, customFields, repeaterSections, etc.)
+      settings: settingsObj,      // extracted settings
+      team_members: teamMembers ?? [],
+      lead_sources: leadSources ?? [],
+    };
+
     return new Response(
-      JSON.stringify({
-        form: linkData.form_template,
-        agency: linkData.agency,
-        link: {
-          id: linkData.id,
-          token: linkData.token,
-          expire_at: linkData.expires_at
-        }
-      }),
+      JSON.stringify({ form }),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'x-function-version': FUNCTION_VERSION } 
+        headers: { ...corsHeaders, 'content-type': 'application/json' } 
       }
     );
 

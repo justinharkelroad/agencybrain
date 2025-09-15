@@ -65,7 +65,12 @@ export default function PublicFormSubmission() {
           return;
         }
         
-        setForm(data.form);
+        // Defensive mapping for in-flight deploys
+        const form = data.form;
+        if (!form.schema && form.schema_json) form.schema = form.schema_json;
+        if (!form.settings) form.settings = form.schema?.settings ?? form.settings_json ?? {};
+        
+        setForm(form);
         // seed defaults - both submission_date and work_date default to today (submission_date will be locked)
         const today = getCurrentLocalDate();
         setValues(v => ({ ...v, submission_date: today, work_date: today }));
