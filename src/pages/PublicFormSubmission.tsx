@@ -30,13 +30,16 @@ export default function PublicFormSubmission() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
+  
+  // Conditional logger - only log in development
+  const log = import.meta.env.DEV ? console.log : () => {};
 
   // Check auth session on load (for debugging)
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      console.log("🔐 Auth session present?", Boolean(data.session));
+      log("🔐 Auth session present?", Boolean(data.session));
     });
-  }, []);
+  }, [log]);
 
   useEffect(() => {
     if (!agencySlug || !formSlug || !token) { setErr("Missing link parameters."); return; }
@@ -67,7 +70,7 @@ export default function PublicFormSubmission() {
         const today = getCurrentLocalDate();
         setValues(v => ({ ...v, submission_date: today, work_date: today }));
         
-        console.log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
+        log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
       } catch (error) {
         console.error('Form resolution error:', error);
         setErr("NETWORK_ERROR");
@@ -172,26 +175,26 @@ export default function PublicFormSubmission() {
     setIsSubmitting(true);
     setErr(null);
     
-    console.log('🚀 Form submission started');
-    console.log('🔧 Environment check:');
-    console.log('  VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-    console.log('  VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
-    console.log('📋 Form values:', values);
-    console.log('✅ Required fields check...');
+    log('🚀 Form submission started');
+    log('🔧 Environment check:');
+    log('  VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+    log('  VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
+    log('📋 Form values:', values);
+    log('✅ Required fields check...');
     
     // Enhanced validation with user feedback
     if (!validateRequired()) {
-      console.log('❌ Validation failed - missing required fields');
+      log('❌ Validation failed - missing required fields');
       setErr("Please fill in all required fields");
       setIsSubmitting(false);
       return;
     }
     
     try {
-      console.log('✅ Required fields check passed');
+      log('✅ Required fields check passed');
 
       // Normalize to snake_case before validation and submission
-      console.log('🔧 Pre-normalization values:', values);
+      log('🔧 Pre-normalization values:', values);
       
       // Convert quotedDetails to quoted_details (normalize from UI state)
       if (values.quotedDetails && !values.quoted_details) {
@@ -199,7 +202,7 @@ export default function PublicFormSubmission() {
         delete values.quotedDetails;
       }
       
-      console.log('🔧 Post-normalization values:', values);
+      log('🔧 Post-normalization values:', values);
 
       const payload = {
         agencySlug,
@@ -211,13 +214,13 @@ export default function PublicFormSubmission() {
         values: values, // Already normalized above
       };
 
-      console.log('📤 POST to submit_public_form...');
-      console.log('📋 Payload being sent:', JSON.stringify(payload, null, 2));
+      log('📤 POST to submit_public_form...');
+      log('📋 Payload being sent:', JSON.stringify(payload, null, 2));
       
       const { data, error } = await supabase.functions.invoke("submit_public_form", { body: payload });
       
       if (error) { 
-        console.log('❌ Submission error details:', {
+        log('❌ Submission error details:', {
           error,
           errorMessage: error.message,
           errorCode: error.code,
@@ -244,8 +247,8 @@ export default function PublicFormSubmission() {
         return; 
       }
       
-      console.log('✅ 200 OK - Form submitted successfully!');
-      console.log('📋 Response data:', data);
+      log('✅ 200 OK - Form submitted successfully!');
+      log('📋 Response data:', data);
       setErr(null);
       toast.success("Form submitted successfully!");
       

@@ -14,14 +14,21 @@ import { UnifiedSettingsDialog } from "@/components/dialogs/UnifiedSettingsDialo
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
-const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+  const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+  const { isAdmin } = useAuth();
+  
+  // Check if diagnostics should be shown
+  const showDiagnostics = import.meta.env.DEV || (isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS !== 'false');
 
-  // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test
+  // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test (only run in dev/admin diagnostic mode)
   useEffect(() => {
+    if (!showDiagnostics) return; // Don't run smoke test in production for non-admins
+    
     try {
       const FLAG = 'phase4_final_test_done';
       if (sessionStorage.getItem(FLAG)) return;
@@ -67,7 +74,7 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
     } catch (e) {
       console.error('❌ BATCH 5 CI GATE exception:', e);
     }
-  }, []);
+  }, [showDiagnostics]);
 
   const handleDeleteForm = async (formId: string) => {
     await deleteForm(formId);
@@ -89,34 +96,36 @@ const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
           </div>
         </div>
 
-        {/* GO-LIVE STATUS */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 p-6 rounded-lg border border-green-200 dark:border-green-800 mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <h2 className="text-lg font-semibold text-green-800 dark:text-green-200">🚀 GO-LIVE READY - All Systems Operational</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
-              <p className="font-medium text-green-700 dark:text-green-300">✅ Functions Deployed</p>
-              <p className="text-muted-foreground">17/17 DISK=CONFIG</p>
+        {/* GO-LIVE STATUS - Only show in dev mode or for admins with diagnostics enabled */}
+        {showDiagnostics && (
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 p-6 rounded-lg border border-green-200 dark:border-green-800 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <h2 className="text-lg font-semibold text-green-800 dark:text-green-200">🚀 GO-LIVE READY - All Systems Operational</h2>
             </div>
-            <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
-              <p className="font-medium text-blue-700 dark:text-blue-300">✅ CI Gates Active</p>
-              <p className="text-muted-foreground">Required on main</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
+                <p className="font-medium text-green-700 dark:text-green-300">✅ Functions Deployed</p>
+                <p className="text-muted-foreground">17/17 DISK=CONFIG</p>
+              </div>
+              <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
+                <p className="font-medium text-blue-700 dark:text-blue-300">✅ CI Gates Active</p>
+                <p className="text-muted-foreground">Required on main</p>
+              </div>
+              <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
+                <p className="font-medium text-purple-700 dark:text-purple-300">✅ KPI Smoke Passing</p>
+                <p className="text-muted-foreground">0 null violations</p>
+              </div>
             </div>
-            <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded">
-              <p className="font-medium text-purple-700 dark:text-purple-300">✅ KPI Smoke Passing</p>
-              <p className="text-muted-foreground">0 null violations</p>
+            <div className="mt-4 text-xs text-green-600 dark:text-green-400 flex items-center gap-2">
+              <span>Tag: v-functions-restored</span>
+              <span>•</span>
+              <span>Nightly tests: 2:00 AM UTC</span>
+              <span>•</span>
+              <span>Structured logging: ACTIVE</span>
             </div>
           </div>
-          <div className="mt-4 text-xs text-green-600 dark:text-green-400 flex items-center gap-2">
-            <span>Tag: v-functions-restored</span>
-            <span>•</span>
-            <span>Nightly tests: 2:00 AM UTC</span>
-            <span>•</span>
-            <span>Structured logging: ACTIVE</span>
-          </div>
-        </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5">
