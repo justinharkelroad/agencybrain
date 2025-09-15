@@ -355,44 +355,30 @@ serve(async (req) => {
       return j(500, { error: "internal_error", id: errorId, message: insErr.message });
     }
 
-    // Step 2: Update to final=true (lets trigger run safely with active binding)
-    const { error: finalizeError } = await supabase
-      .from("submissions")
+    // after the INSERT (which MUST use payload_json: v and final=false)
+    const sid = ins.id;
+
+    // Use the submission's work_date (or submission_date if work_date is null)
+    const { data: sRow } = await supabase
+      .from('submissions')
+      .select('team_member_id, work_date, submission_date')
+      .eq('id', sid)
+      .single();
+    const workDate = sRow.work_date ?? sRow.submission_date;
+
+    // 1) Clear any existing finals for same TM + date
+    await supabase
+      .from('submissions')
+      .update({ final: false })
+      .eq('team_member_id', sRow.team_member_id)
+      .or(`work_date.eq.${workDate},and(work_date.is.null,submission_date.eq.${workDate})`)
+      .eq('final', true);
+
+    // 2) Finalize this submission (lets trigger fire exactly once)
+    await supabase
+      .from('submissions')
       .update({ final: true })
-      .eq("id", ins.id);
-
-    if (finalizeError) {
-      const errorId = crypto.randomUUID();
-      logStructured('error', 'finalization_failed', {
-        request_id: requestId,
-        error_id: errorId,
-        submission_id: ins.id,
-        error: finalizeError.message
-      });
-      return j(500, { error: "internal_error", id: errorId, message: finalizeError.message });
-    }
-
-    // Step 3: Supersede any other final submissions for this member and date
-    const { data: prev } = await supabase
-      .from("submissions")
-      .select("id")
-      .eq("form_template_id", template.id)
-      .eq("team_member_id", body.teamMemberId)
-      .or(`work_date.eq.${finalDate},and(work_date.is.null,submission_date.eq.${finalDate})`)
-      .eq("final", true)
-      .neq("id", ins.id);  // Don't supersede ourselves
-
-    if (prev?.length) {
-      logStructured('info', 'superseding_submissions', {
-        request_id: requestId,
-        count: prev.length
-      });
-      
-      await supabase
-        .from("submissions")
-        .update({ final: false, superseded_at: new Date().toISOString() })
-        .in("id", prev.map((r: any) => r.id));
-    }
+      .eq('id', sid);
 
     logStructured('info', 'submission_created', {
       request_id: requestId,
