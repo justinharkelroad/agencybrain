@@ -23,7 +23,7 @@ export default function ScorecardForms() {
   const { isAdmin } = useAuth();
   
   // Check if diagnostics should be shown
-  const showDiagnostics = import.meta.env.DEV || (isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS !== 'false');
+  const showDiagnostics = isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true';
 
   // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test (only run in dev/admin diagnostic mode)
   useEffect(() => {
