@@ -4,7 +4,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "3.7-SAFE-FINALIZATION";
+const FUNCTION_VERSION = "3.8-SAFE-FINALIZATION";
 const DEPLOYMENT_ID = "deploy-20250915-r3-normalized";
 
 const corsHeaders = {
@@ -69,6 +69,7 @@ function json(status: number, body: any) {
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "referrer-policy": "no-referrer",
+      "x-function-version": FUNCTION_VERSION,
       ...corsHeaders
     }
   });

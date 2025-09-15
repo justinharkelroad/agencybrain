@@ -1,4 +1,3 @@
-import "@/lib/custom-elements-guard"; // MUST be first - prevent custom element conflicts
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import PublicFormSubmission from './PublicFormSubmission';
