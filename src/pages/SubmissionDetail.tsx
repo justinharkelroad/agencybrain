@@ -43,23 +43,50 @@ function buildSchemaLookups(schema: Record<string, any> | undefined) {
   const labelMap = new Map<string, string>();
   const optionMap = new Map<string, Map<string, string>>();
 
-  if (!schema?.customFields) return { labelMap, optionMap };
+  const addField = (field: any) => {
+    if (!field) return;
+    const key = field.key ?? field.id;
+    if (!key) return;
 
-  for (const field of schema.customFields) {
-    if (field.id && field.label) {
-      labelMap.set(field.id, field.label);
-      labelMap.set(`field_${field.id}`, field.label);
-    }
+    const label = field.label ?? field.name ?? "Custom Field";
+    const keyStr = String(key);
 
-    if (field.id && field.options && Array.isArray(field.options)) {
+    // Map labels for both raw key and field_ prefixed key (used in payload_json root)
+    labelMap.set(keyStr, label);
+    labelMap.set(`field_${keyStr}`, label);
+
+    // Options can be an array of strings or array of { value, label }
+    const options = field.options;
+    if (Array.isArray(options)) {
       const opts = new Map<string, string>();
-      for (const opt of field.options) {
-        if (opt.value && opt.label) {
-          opts.set(opt.value, opt.label);
+      for (const opt of options) {
+        if (typeof opt === "string") {
+          opts.set(opt, opt);
+        } else if (opt && typeof opt === "object") {
+          const value = opt.value ?? opt.key ?? opt.id;
+          const lab = opt.label ?? String(value ?? "");
+          if (value != null) {
+            opts.set(String(value), lab);
+          }
         }
       }
-      optionMap.set(field.id, opts);
+      if (opts.size > 0) optionMap.set(keyStr, opts);
     }
+  };
+
+  // Root-level custom fields
+  if (Array.isArray(schema?.customFields)) {
+    for (const field of schema!.customFields) addField(field);
+  }
+
+  // Repeater section fields (e.g., quotedDetails, soldDetails)
+  const repeater = schema?.repeaterSections;
+  if (repeater && typeof repeater === "object") {
+    Object.values(repeater).forEach((section: any) => {
+      if (Array.isArray(section?.fields)) {
+        section.fields.forEach(addField);
+      }
+    });
   }
 
   return { labelMap, optionMap };
