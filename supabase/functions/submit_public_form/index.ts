@@ -161,6 +161,25 @@ serve(async (req) => {
       }
     }
 
+    // --- enrich quoted_details with lead_source_label when only an id is provided
+    if (Array.isArray(v.quoted_details)) {
+      for (const r of v.quoted_details) {
+        const id = r.lead_source_id ?? r.lead_source;
+        if (id && !r.lead_source_label) {
+          const { data: ls } = await supabase
+            .from("lead_sources")
+            .select("id,name")
+            .eq("id", id)
+            .single();
+          if (ls) {
+            r.lead_source_id = ls.id;
+            r.lead_source_label = ls.name;
+            delete r.lead_source; // keep a single, consistent field
+          }
+        }
+      }
+    }
+
     // quotedDetails -> quoted_details
     if (Array.isArray(raw.quotedDetails)) {
       v.quoted_details = raw.quotedDetails;

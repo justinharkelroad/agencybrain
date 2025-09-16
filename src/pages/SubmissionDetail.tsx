@@ -35,6 +35,56 @@ interface LeadSource {
   name: string;
 }
 
+// --- helpers for quoted details rendering
+type QuotedRow = Record<string, any>;
+
+function normalizeQuotedRows(
+  submission: any,
+  leadSources: LeadSource[] = []
+) {
+  const rows: QuotedRow[] = Array.isArray(submission?.payload_json?.quoted_details)
+    ? submission.payload_json.quoted_details
+    : [];
+
+  const lsMap = new Map(leadSources.map((ls) => [ls.id, ls.name]));
+
+  return rows.map((row) => {
+    const prospect =
+      row.prospect_name ?? row.name ?? row.prospect ?? "";
+
+    const leadSourceId =
+      row.lead_source_id ?? row.lead_source ?? row.leadSourceId ?? row.leadSource ?? "";
+
+    const leadSourceLabel =
+      row.lead_source_label ??
+      (leadSourceId ? lsMap.get(String(leadSourceId)) : "") ??
+      ""; // last resort, empty string
+
+    const notes = row.detailed_notes ?? row.notes ?? "";
+
+    const zip =
+      row.zip ?? row.zip_code ?? row.postal ?? "";
+
+    const email = row.email ?? "";
+    const phone = row.phone ?? row.phone_number ?? "";
+
+    // Any extra custom fields the agency added (except noisy field_* keys)
+    const EXCLUDE = new Set([
+      "prospect_name","name","prospect",
+      "lead_source","lead_source_id","leadSource","leadSourceId",
+      "lead_source_label",
+      "detailed_notes","notes",
+      "zip","zip_code","postal",
+      "email","phone","phone_number"
+    ]);
+    const extras = Object.entries(row)
+      .filter(([k]) => !EXCLUDE.has(k) && !k.startsWith("field_") && row[k] != null && row[k] !== "")
+      .map(([k,v]) => ({ key: k, value: String(v) }));
+
+    return { prospect, leadSourceLabel, notes, zip, email, phone, extras };
+  });
+}
+
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
@@ -105,11 +155,7 @@ export default function SubmissionDetail() {
     );
   }
 
-  const resolveLeadSource = (leadSourceId?: string) => {
-    if (!leadSourceId) return null;
-    const leadSource = leadSources.find(ls => ls.id === leadSourceId);
-    return leadSource?.name || leadSourceId;
-  };
+  const quoted = normalizeQuotedRows(submission, leadSources);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -175,76 +221,101 @@ export default function SubmissionDetail() {
             <CardTitle>Form Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Render quoted details first */}
+              {quoted.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-primary mb-3 block">
+                    Quoted Details
+                  </span>
+                  <div className="space-y-4">
+                    {quoted.map((q, i) => (
+                      <div key={i} className="rounded-md bg-muted/50 p-4 border border-border">
+                        {q.prospect && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Prospect:</span> {q.prospect}
+                          </div>
+                        )}
+                        {q.leadSourceLabel && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Lead Source:</span> {q.leadSourceLabel}
+                          </div>
+                        )}
+                        {q.email && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Email:</span> {q.email}
+                          </div>
+                        )}
+                        {q.phone && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Phone:</span> {q.phone}
+                          </div>
+                        )}
+                        {q.zip && (
+                          <div className="text-sm">
+                            <span className="font-semibold">ZIP:</span> {q.zip}
+                          </div>
+                        )}
+                        {q.notes && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Notes:</span> {q.notes}
+                          </div>
+                        )}
+                        {q.extras.length > 0 && (
+                          <div className="mt-2">
+                            <div className="text-xs uppercase tracking-wide text-muted-foreground">Additional</div>
+                            <ul className="mt-1 list-disc pl-4">
+                              {q.extras.map((e) => (
+                                <li key={e.key} className="text-sm">
+                                  <span className="font-semibold">{e.key}:</span> {e.value}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Render other form fields */}
               {submission.payload_json && typeof submission.payload_json === 'object' ? (
-                Object.entries(submission.payload_json).map(([key, value]) => {
-                  // Handle quoted details - check both possible locations
-                  if (key === 'quoted_details' || (key === 'repeaterData' && typeof value === 'object' && value !== null && (value as any).quotedDetails)) {
-                    const quotedDetails = key === 'quoted_details' 
-                      ? (Array.isArray(value) ? value : [])
-                      : (value as any).quotedDetails;
-                    
-                    if (Array.isArray(quotedDetails) && quotedDetails.length > 0) {
-                      return (
-                        <div key={key} className="border rounded-md p-3">
-                          <span className="text-sm font-medium text-primary mb-3 block">
-                            Quoted Details
-                          </span>
-                          <ul className="space-y-3">
-                            {quotedDetails.map((detail: any, index: number) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <span className="text-muted-foreground mt-1">•</span>
-                                <div className="flex-1 space-y-1">
-                                  <div>
-                                    <span className="font-medium">Prospect:</span> {detail.prospect_name || detail.household_name || 'N/A'}
-                                  </div>
-                                  {(detail.lead_source_id || detail.lead_source) && (
-                                    <div>
-                                      <span className="font-medium">Lead Source:</span> {resolveLeadSource(detail.lead_source_id) || detail.lead_source}
-                                    </div>
-                                  )}
-                                  {detail.detailed_notes && (
-                                    <div>
-                                      <span className="font-medium">Notes:</span> {detail.detailed_notes}
-                                    </div>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
+                <div className="space-y-3">
+                  {Object.entries(submission.payload_json).map(([key, value]) => {
+                    // Skip quoted_details as we render it above
+                    if (key === 'quoted_details' || key === 'repeaterData') {
+                      return null;
                     }
-                  }
-                  
-                  // Skip repeaterData and quoted_details from regular field display
-                  if (key === 'repeaterData' || key === 'quoted_details') {
-                    return null;
-                  }
-                  
-                  // Skip internal fields and field_ prefixed keys
-                  if (key.includes('team_member_id') || 
-                      key.includes('submission_date') || 
-                      key.includes('work_date') ||
-                      key.startsWith('field_')) {
-                    return null;
-                  }
-                  
-                  return (
-                    <div key={key} className="border-b pb-2 last:border-b-0">
-                      <span className="text-sm text-muted-foreground capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
-                      </span>
-                      <p className="font-medium">
-                        {typeof value === 'object' && value !== null
-                          ? JSON.stringify(value, null, 2) 
-                          : String(value || '—')}
-                      </p>
-                    </div>
-                  );
-                }).filter(Boolean)
-              ) : (
+                    
+                    // Skip internal fields and field_ prefixed keys
+                    if (key.includes('team_member_id') || 
+                        key.includes('submission_date') || 
+                        key.includes('work_date') ||
+                        key.startsWith('field_')) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div key={key} className="border-b pb-2 last:border-b-0">
+                        <span className="text-sm text-muted-foreground capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                        </span>
+                        <p className="font-medium">
+                          {typeof value === 'object' && value !== null
+                            ? JSON.stringify(value, null, 2) 
+                            : String(value || '—')}
+                        </p>
+                      </div>
+                    );
+                  }).filter(Boolean)}
+                </div>
+              ) : quoted.length === 0 ? (
                 <p className="text-muted-foreground">No data available</p>
+              ) : null}
+
+              {quoted.length === 0 && (
+                <div className="text-sm text-muted-foreground">No quoted households on this submission.</div>
               )}
             </div>
           </CardContent>
