@@ -259,7 +259,6 @@ export default function SubmissionDetail() {
     );
   }
 
-  const quoted = normalizeQuotedRows(submission, leadSources, submission.form_templates?.schema_json);
   const rootCustoms = getRootCustomFields(submission, submission.form_templates?.schema_json);
 
   return (
@@ -327,59 +326,40 @@ export default function SubmissionDetail() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Render quoted details first */}
-              {quoted.length > 0 && (
+              {/* Render quoted details as clean bulleted list */}
+              {Array.isArray(submission?.payload_json?.quoted_details) && submission.payload_json.quoted_details.length > 0 && (
                 <div>
                   <span className="text-sm font-medium text-primary mb-3 block">
                     Quoted Details
                   </span>
-                  <div className="space-y-4">
-                    {quoted.map((q, i) => (
-                      <div key={i} className="rounded-md bg-muted/50 p-4 border border-border">
-                        {q.prospect && (
-                          <div className="text-sm">
-                            <span className="font-semibold">Prospect:</span> {q.prospect}
+                  <div className="rounded-md bg-muted/50 p-4 border border-border">
+                    <ul className="space-y-3 list-disc pl-5">
+                      {submission.payload_json.quoted_details.map((detail: any, i: number) => (
+                        <li key={i} className="text-sm">
+                          <div className="space-y-1">
+                            {detail.prospect_name && (
+                              <div>
+                                <span className="font-semibold">Prospect:</span> {detail.prospect_name}
+                              </div>
+                            )}
+                            {(detail.lead_source_id || detail.lead_source) && (
+                              <div>
+                                <span className="font-semibold">Lead Source:</span> {
+                                  detail.lead_source_id 
+                                    ? leadSources.find(ls => ls.id === detail.lead_source_id)?.name || detail.lead_source_id
+                                    : detail.lead_source || 'Unknown'
+                                }
+                              </div>
+                            )}
+                            {detail.detailed_notes && (
+                              <div>
+                                <span className="font-semibold">Notes:</span> {detail.detailed_notes}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {q.leadSourceLabel && (
-                          <div className="text-sm">
-                            <span className="font-semibold">Lead Source:</span> {q.leadSourceLabel}
-                          </div>
-                        )}
-                        {q.email && (
-                          <div className="text-sm">
-                            <span className="font-semibold">Email:</span> {q.email}
-                          </div>
-                        )}
-                        {q.phone && (
-                          <div className="text-sm">
-                            <span className="font-semibold">Phone:</span> {q.phone}
-                          </div>
-                        )}
-                        {q.zip && (
-                          <div className="text-sm">
-                            <span className="font-semibold">ZIP:</span> {q.zip}
-                          </div>
-                        )}
-                        {q.notes && (
-                          <div className="text-sm">
-                            <span className="font-semibold">Notes:</span> {q.notes}
-                          </div>
-                        )}
-                        {q.extras.length > 0 && (
-                          <div className="mt-2">
-                            <div className="text-xs uppercase tracking-wide text-muted-foreground">Additional</div>
-                            <ul className="mt-1 list-disc pl-4">
-                              {q.extras.map((e) => (
-                                <li key={e.key} className="text-sm">
-                                  <span className="font-semibold">{e.key}:</span> {e.value}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}
@@ -433,11 +413,11 @@ export default function SubmissionDetail() {
                     );
                   }).filter(Boolean)}
                 </div>
-              ) : quoted.length === 0 ? (
+              ) : !Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0 ? (
                 <p className="text-muted-foreground">No data available</p>
               ) : null}
 
-              {quoted.length === 0 && (
+              {(!Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0) && (
                 <div className="text-sm text-muted-foreground">No quoted households on this submission.</div>
               )}
             </div>
