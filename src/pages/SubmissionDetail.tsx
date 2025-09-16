@@ -94,13 +94,15 @@ function buildSchemaLookups(schema: Record<string, any> | undefined) {
 
 function normalizeQuotedRows(
   submission: any,
-  leadSources: LeadSource[] = []
+  leadSources: LeadSource[] = [],
+  schema: Record<string, any> | undefined = undefined
 ) {
   const rows: QuotedRow[] = Array.isArray(submission?.payload_json?.quoted_details)
     ? submission.payload_json.quoted_details
     : [];
 
   const lsMap = new Map(leadSources.map((ls) => [ls.id, ls.name]));
+  const { labelMap, optionMap } = buildSchemaLookups(schema);
 
   return rows.map((row) => {
     const prospect =
@@ -122,7 +124,7 @@ function normalizeQuotedRows(
     const email = row.email ?? "";
     const phone = row.phone ?? row.phone_number ?? "";
 
-    // Any extra custom fields the agency added (except noisy field_* keys)
+    // Any extra custom fields the agency added
     const EXCLUDE = new Set([
       "prospect_name","name","prospect",
       "lead_source","lead_source_id","leadSource","leadSourceId",
@@ -132,8 +134,27 @@ function normalizeQuotedRows(
       "email","phone","phone_number"
     ]);
     const extras = Object.entries(row)
-      .filter(([k]) => !EXCLUDE.has(k) && !k.startsWith("field_") && row[k] != null && row[k] !== "")
-      .map(([k,v]) => ({ key: k, value: String(v) }));
+      .filter(([k]) => !EXCLUDE.has(k) && row[k] != null && row[k] !== "")
+      .map(([k, v]) => {
+        // field_123… → "123…" id for optionMap
+        const fieldId = k.startsWith("field_") ? k.slice("field_".length) : k;
+        const label =
+          labelMap.get(fieldId)     // schema id-based
+          ?? labelMap.get(k)        // schema key-based
+          ?? k.replace(/_/g, " ");  // readable fallback
+
+        const opt = optionMap.get(fieldId); // Map(value->label) if dropdown
+        let value: string;
+        if (opt) {
+          const vv = String(v);
+          value = opt.get(vv) ?? vv;
+        } else if (typeof v === "boolean") {
+          value = v ? "Yes" : "No";
+        } else {
+          value = String(v);
+        }
+        return { key: label, value };
+      });
 
     return { prospect, leadSourceLabel, notes, zip, email, phone, extras };
   });
@@ -247,7 +268,7 @@ export default function SubmissionDetail() {
     );
   }
 
-  const quoted = normalizeQuotedRows(submission, leadSources);
+  const quoted = normalizeQuotedRows(submission, leadSources, submission.form_templates?.schema_json);
   const rootCustoms = getRootCustomFields(submission, submission.form_templates?.schema_json);
 
   return (
