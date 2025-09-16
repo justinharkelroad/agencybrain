@@ -23,6 +23,7 @@ interface Submission {
     name: string;
     slug: string;
     agency_id: string;
+    schema_json?: any;
   };
   team_members?: {
     name: string;
@@ -37,6 +38,32 @@ interface LeadSource {
 
 // --- helpers for quoted details rendering
 type QuotedRow = Record<string, any>;
+
+function buildSchemaLookups(schema: Record<string, any> | undefined) {
+  const labelMap = new Map<string, string>();
+  const optionMap = new Map<string, Map<string, string>>();
+
+  if (!schema?.customFields) return { labelMap, optionMap };
+
+  for (const field of schema.customFields) {
+    if (field.id && field.label) {
+      labelMap.set(field.id, field.label);
+      labelMap.set(`field_${field.id}`, field.label);
+    }
+
+    if (field.id && field.options && Array.isArray(field.options)) {
+      const opts = new Map<string, string>();
+      for (const opt of field.options) {
+        if (opt.value && opt.label) {
+          opts.set(opt.value, opt.label);
+        }
+      }
+      optionMap.set(field.id, opts);
+    }
+  }
+
+  return { labelMap, optionMap };
+}
 
 function normalizeQuotedRows(
   submission: any,
@@ -85,6 +112,44 @@ function normalizeQuotedRows(
   });
 }
 
+// --- helper to extract form-level custom fields from the submission root
+type CustomDisplayRow = { label: string; value: string };
+
+function getRootCustomFields(
+  submission: any,
+  schema: Record<string, any> | undefined
+): CustomDisplayRow[] {
+  const payload = submission?.payload_json ?? {};
+  const { labelMap, optionMap } = buildSchemaLookups(schema);
+
+  const rows: CustomDisplayRow[] = [];
+  for (const [key, rawVal] of Object.entries(payload)) {
+    if (!key.startsWith("field_")) continue;
+    if (rawVal == null || rawVal === "") continue;
+
+    const id = key.slice("field_".length);           // e.g., field_17576... -> 17576...
+    const label =
+      labelMap.get(id) ??
+      labelMap.get(key) ??
+      "Custom Field";
+
+    // dropdown / option set → map stored "value" to human label
+    const optMap = optionMap.get(id);
+    let value: string;
+    if (optMap) {
+      const v = String(rawVal);
+      value = optMap.get(v) ?? v;
+    } else if (typeof rawVal === "boolean") {
+      value = rawVal ? "Yes" : "No";
+    } else {
+      value = String(rawVal);
+    }
+
+    rows.push({ label, value });
+  }
+  return rows;
+}
+
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
@@ -102,7 +167,7 @@ export default function SubmissionDetail() {
         .from('submissions')
         .select(`
           *,
-          form_templates(name, slug, agency_id),
+          form_templates(name, slug, agency_id, schema_json),
           team_members(name, email)
         `)
         .eq('id', submissionId)
@@ -156,6 +221,7 @@ export default function SubmissionDetail() {
   }
 
   const quoted = normalizeQuotedRows(submission, leadSources);
+  const rootCustoms = getRootCustomFields(submission, submission.form_templates?.schema_json);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -275,6 +341,24 @@ export default function SubmissionDetail() {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Render form-level custom fields */}
+              {rootCustoms.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-primary mb-3 block">
+                    Custom Fields
+                  </span>
+                  <div className="rounded-md bg-muted/50 p-4 border border-border">
+                    <div className="space-y-2">
+                      {rootCustoms.map((c, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-semibold">{c.label}:</span> {c.value}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
