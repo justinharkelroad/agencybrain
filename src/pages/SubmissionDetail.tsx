@@ -22,6 +22,7 @@ interface Submission {
   form_templates?: {
     name: string;
     slug: string;
+    agency_id: string;
   };
   team_members?: {
     name: string;
@@ -29,10 +30,16 @@ interface Submission {
   };
 }
 
+interface LeadSource {
+  id: string;
+  name: string;
+}
+
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,11 +48,11 @@ export default function SubmissionDetail() {
 
   const fetchSubmission = async () => {
     try {
-      const { data, error } = await supa
+      const { data, error } = await supabase
         .from('submissions')
         .select(`
           *,
-          form_templates(name, slug),
+          form_templates(name, slug, agency_id),
           team_members(name, email)
         `)
         .eq('id', submissionId)
@@ -53,6 +60,17 @@ export default function SubmissionDetail() {
 
       if (error) throw error;
       setSubmission(data);
+
+      // Fetch lead sources for the form's agency
+      if (data?.form_templates?.agency_id) {
+        const { data: leadSourcesData } = await supabase
+          .from('lead_sources')
+          .select('id, name')
+          .eq('agency_id', data.form_templates.agency_id)
+          .eq('is_active', true);
+        
+        setLeadSources(leadSourcesData || []);
+      }
     } catch (error: any) {
       console.error('Error fetching submission:', error);
       toast.error('Failed to load submission details');
@@ -86,6 +104,12 @@ export default function SubmissionDetail() {
       </div>
     );
   }
+
+  const resolveLeadSource = (leadSourceId?: string) => {
+    if (!leadSourceId) return null;
+    const leadSource = leadSources.find(ls => ls.id === leadSourceId);
+    return leadSource?.name || leadSourceId;
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -154,62 +178,55 @@ export default function SubmissionDetail() {
             <div className="space-y-3">
               {submission.payload_json && typeof submission.payload_json === 'object' ? (
                 Object.entries(submission.payload_json).map(([key, value]) => {
-                  // Handle repeater data from the correct path: payload_json.repeaterData.quotedDetails  
-                  if (key === 'repeaterData' && typeof value === 'object' && value !== null) {
-                    const quotedDetails = (value as any).quotedDetails;
+                  // Handle quoted details - check both possible locations
+                  if (key === 'quoted_details' || (key === 'repeaterData' && typeof value === 'object' && value !== null && (value as any).quotedDetails)) {
+                    const quotedDetails = key === 'quoted_details' 
+                      ? (Array.isArray(value) ? value : [])
+                      : (value as any).quotedDetails;
+                    
                     if (Array.isArray(quotedDetails) && quotedDetails.length > 0) {
                       return (
                         <div key={key} className="border rounded-md p-3">
-                          <span className="text-sm font-medium text-primary mb-2 block">
-                            Quoted Household Details
+                          <span className="text-sm font-medium text-primary mb-3 block">
+                            Quoted Details
                           </span>
-                          <div className="space-y-3">
-                            {quotedDetails.map((household: any, index: number) => (
-                              <div key={index} className="bg-muted/50 rounded p-3 border border-border/50">
-                                <div className="text-xs text-muted-foreground mb-2 font-medium">
-                                  Household {index + 1}
-                                </div>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  {household.household_name && (
+                          <ul className="space-y-3">
+                            {quotedDetails.map((detail: any, index: number) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="text-muted-foreground mt-1">•</span>
+                                <div className="flex-1 space-y-1">
+                                  <div>
+                                    <span className="font-medium">Prospect:</span> {detail.prospect_name || detail.household_name || 'N/A'}
+                                  </div>
+                                  {(detail.lead_source_id || detail.lead_source) && (
                                     <div>
-                                      <span className="text-xs text-muted-foreground">Household Name:</span>
-                                      <div className="font-medium">{household.household_name}</div>
+                                      <span className="font-medium">Lead Source:</span> {resolveLeadSource(detail.lead_source_id) || detail.lead_source}
                                     </div>
                                   )}
-                                  {household.lead_source && (
+                                  {detail.detailed_notes && (
                                     <div>
-                                      <span className="text-xs text-muted-foreground">Lead Source:</span>
-                                      <div className="font-medium">{household.lead_source}</div>
-                                    </div>
-                                  )}
-                                  {household.zip_code && (
-                                    <div>
-                                      <span className="text-xs text-muted-foreground">ZIP Code:</span>
-                                      <div className="font-medium">{household.zip_code}</div>
-                                    </div>
-                                  )}
-                                  {household.notes && (
-                                    <div className="sm:col-span-2">
-                                      <span className="text-xs text-muted-foreground">Notes:</span>
-                                      <div className="font-medium">{household.notes}</div>
+                                      <span className="font-medium">Notes:</span> {detail.detailed_notes}
                                     </div>
                                   )}
                                 </div>
-                              </div>
+                              </li>
                             ))}
-                          </div>
+                          </ul>
                         </div>
                       );
                     }
                   }
                   
-                  // Skip repeaterData if no quotedDetails to avoid showing empty object
-                  if (key === 'repeaterData') {
+                  // Skip repeaterData and quoted_details from regular field display
+                  if (key === 'repeaterData' || key === 'quoted_details') {
                     return null;
                   }
                   
-                  // Handle regular form fields - skip internal fields
-                  if (key.includes('team_member_id') || key.includes('submission_date') || key.includes('work_date')) {
+                  // Skip internal fields and field_ prefixed keys
+                  if (key.includes('team_member_id') || 
+                      key.includes('submission_date') || 
+                      key.includes('work_date') ||
+                      key.startsWith('field_')) {
                     return null;
                   }
                   
