@@ -39,56 +39,44 @@ interface LeadSource {
 // --- helpers for quoted details rendering
 type QuotedRow = Record<string, any>;
 
-function buildSchemaLookups(schema: Record<string, any> | undefined) {
-  const labelMap = new Map<string, string>();
-  const optionMap = new Map<string, Map<string, string>>();
+function buildSchemaLookups(schema: any | undefined) {
+  const labelMap: Map<string, string> = new Map();
+  const optionMap: Map<string, Map<string, string>> = new Map();
 
-  const addField = (field: any) => {
-    if (!field) return;
-    const key = field.key ?? field.id;
-    if (!key) return;
+  const addField = (keyLike: string, label: string, options?: any[]) => {
+    // keyLike may be "field_1757…" or "1757…"
+    const fullKey = keyLike.startsWith("field_") ? keyLike : `field_${keyLike}`;
+    const idOnly = keyLike.startsWith("field_") ? keyLike.slice(6) : keyLike;
 
-    const label = field.label ?? field.name ?? "Custom Field";
-    const keyStr = String(key);
+    // Map BOTH to label so lookups by k ("field_…") or idOnly ("…") succeed
+    labelMap.set(fullKey, label);
+    labelMap.set(idOnly, label);
 
-    // Map labels for both raw key and field_ prefixed key (used in payload_json root)
-    labelMap.set(keyStr, label);
-    labelMap.set(`field_${keyStr}`, label);
-
-    // Options can be an array of strings or array of { value, label }
-    const options = field.options;
-    if (Array.isArray(options)) {
-      const opts = new Map<string, string>();
+    if (Array.isArray(options) && options.length) {
+      const m = new Map<string, string>();
       for (const opt of options) {
-        if (typeof opt === "string") {
-          opts.set(opt, opt);
-        } else if (opt && typeof opt === "object") {
-          const value = opt.value ?? opt.key ?? opt.id;
-          const lab = opt.label ?? String(value ?? "");
-          if (value != null) {
-            opts.set(String(value), lab);
-          }
-        }
+        const v = String(opt?.value ?? "");
+        const l = String(opt?.label ?? v);
+        m.set(v, l);
       }
-      if (opts.size > 0) optionMap.set(keyStr, opts);
+      optionMap.set(fullKey, m);
+      optionMap.set(idOnly, m);
     }
   };
 
-  // Root-level custom fields
-  if (Array.isArray(schema?.customFields)) {
-    for (const field of schema!.customFields) addField(field);
-  }
+  const walk = (n: any) => {
+    if (!n || typeof n !== "object") return;
 
-  // Repeater section fields (e.g., quotedDetails, soldDetails)
-  const repeater = schema?.repeaterSections;
-  if (repeater && typeof repeater === "object") {
-    Object.values(repeater).forEach((section: any) => {
-      if (Array.isArray(section?.fields)) {
-        section.fields.forEach(addField);
-      }
-    });
-  }
+    // Common shapes
+    if (n.key && n.label) addField(String(n.key), String(n.label), n.options);
+    if (n.id && n.label) addField(String(n.id), String(n.label), n.options);
 
+    for (const v of Object.values(n)) {
+      if (v && typeof v === "object") walk(v);
+    }
+  };
+
+  walk(schema);
   return { labelMap, optionMap };
 }
 
@@ -136,18 +124,21 @@ function normalizeQuotedRows(
     const extras = Object.entries(row)
       .filter(([k]) => !EXCLUDE.has(k) && row[k] != null && row[k] !== "")
       .map(([k, v]) => {
-        // field_123… → "123…" id for optionMap
-        const fieldId = k.startsWith("field_") ? k.slice("field_".length) : k;
+        const fieldId = k.startsWith("field_") ? k.slice("field_".length) : k; // "1757…" id
+        // Try full key first, then id-only
         const label =
-          labelMap.get(fieldId)     // schema id-based
-          ?? labelMap.get(k)        // schema key-based
-          ?? k.replace(/_/g, " ");  // readable fallback
+          labelMap.get(k) ??
+          labelMap.get(fieldId) ??
+          k.replace(/_/g, " ");
 
-        const opt = optionMap.get(fieldId); // Map(value->label) if dropdown
+        const optMap =
+          optionMap.get(k) ??
+          optionMap.get(fieldId);
+
         let value: string;
-        if (opt) {
+        if (optMap) {
           const vv = String(v);
-          value = opt.get(vv) ?? vv;
+          value = optMap.get(vv) ?? vv;
         } else if (typeof v === "boolean") {
           value = v ? "Yes" : "No";
         } else {
