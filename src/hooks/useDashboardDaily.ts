@@ -9,11 +9,14 @@ interface DailyMetric {
   talk_minutes: number;
   quoted_count: number;
   sold_items: number;
+  cross_sells_uncovered: number;
+  mini_reviews: number;
   kpi_version_id?: string;
   label_at_submit?: string;
+  daily_score: number;
+  hits: number;
+  pass: boolean;
   // Additional fields for compatibility
-  cross_sells_uncovered?: number;
-  mini_reviews?: number;
   pass_days?: number;
   score_sum?: number;
   streak?: number;
@@ -81,11 +84,9 @@ export function useDashboardDaily(
       // Transform metrics to include computed fields for table compatibility
       const tableData = metrics.map(metric => ({
         ...metric,
-        pass_days: 0, // These would need to be calculated from actual pass/fail logic
-        score_sum: 0,
-        streak: 0,
-        cross_sells_uncovered: 0,
-        mini_reviews: 0,
+        pass_days: metric.pass ? 1 : 0, // Use the calculated pass status
+        score_sum: metric.daily_score, // Use the calculated daily score
+        streak: 0, // Streak calculation would need separate logic
       }));
       
       return {

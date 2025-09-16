@@ -2301,10 +2301,15 @@ export type Database = {
           p_start: string
         }
         Returns: {
+          cross_sells_uncovered: number
+          daily_score: number
           date: string
+          hits: number
           kpi_version_id: string
           label_at_submit: string
+          mini_reviews: number
           outbound_calls: number
+          pass: boolean
           quoted_count: number
           sold_items: number
           talk_minutes: number
