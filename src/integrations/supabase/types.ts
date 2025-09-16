@@ -2293,6 +2293,25 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_dashboard_daily: {
+        Args: {
+          p_agency_slug: string
+          p_end: string
+          p_role: string
+          p_start: string
+        }
+        Returns: {
+          date: string
+          kpi_version_id: string
+          label_at_submit: string
+          outbound_calls: number
+          quoted_count: number
+          sold_items: number
+          talk_minutes: number
+          team_member_id: string
+          team_member_name: string
+        }[]
+      }
       get_sticky_fields_for_section: {
         Args: { p_section_type: string }
         Returns: {
