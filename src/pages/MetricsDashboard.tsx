@@ -16,6 +16,7 @@ import { DashboardError } from "@/components/DashboardError";
 import { useDashboardDaily } from "@/hooks/useDashboardDaily";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpis } from "@/hooks/useKpis";
+import { RING_LABELS } from "@/components/rings/colors";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -157,9 +158,9 @@ export default function MetricsDashboard() {
       });
     }
     
-    // Get KPI label from versioned data first, fallback to slug
+    // Get KPI label from versioned data first, fallback to RING_LABELS, then slug
     const getKpiLabel = (slug: string) => {
-      return labelMap.get(slug) || slug;
+      return labelMap.get(slug) || RING_LABELS[slug] || slug;
     };
     
     return {
