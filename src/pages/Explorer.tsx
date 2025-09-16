@@ -195,7 +195,7 @@ export default function Explorer() {
 
       try {
         // Get user's agency
-        const { data: profile } = await supa
+        const { data: profile } = await supabase
           .from('profiles')
           .select('agency_id')
           .eq('id', user.id)
@@ -206,7 +206,7 @@ export default function Explorer() {
           setAgencyIdForModal(profile.agency_id);
 
           // Get team members
-          const { data: members } = await supa
+          const { data: members } = await supabase
             .from('team_members')
             .select('id, name')
             .eq('agency_id', profile.agency_id)
@@ -215,7 +215,7 @@ export default function Explorer() {
           setTeamMembers(members || []);
 
           // Get lead sources
-          const { data: sources } = await supa
+          const { data: sources } = await supabase
             .from('lead_sources')
             .select('id, name')
             .eq('agency_id', profile.agency_id)
