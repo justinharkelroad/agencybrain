@@ -13,7 +13,7 @@ import TeamPerformanceRings from "@/components/rings/TeamPerformanceRings";
 import { Link } from "react-router-dom";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardError } from "@/components/DashboardError";
-import { useDashboardDataWithFallback } from "@/hooks/useVersionedDashboardData";
+import { useDashboardDaily } from "@/hooks/useDashboardDaily";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpis } from "@/hooks/useKpis";
 
@@ -79,19 +79,17 @@ export default function MetricsDashboard() {
     error: agencyError,
   } = useAgencyProfile(user?.id, role);
 
-  // Load dashboard data
+  // Load dashboard data for the selected date only
   const {
     data: dashboardData,
     isLoading: dashboardLoading,
     error: dashboardError,
     refetch: refetchDashboard,
     isFetching: dashboardFetching,
-  } = useDashboardDataWithFallback(
+  } = useDashboardDaily(
     agencyProfile?.agencySlug || "",
     role,
-    selectedDate, // start date
-    selectedDate, // end date (same day for "today" view)
-    { consolidateVersions: false }
+    selectedDate
   );
 
   // Load KPIs for the current agency - temporarily disabled to prevent 404s
@@ -271,13 +269,6 @@ export default function MetricsDashboard() {
         )}
 
         {/* Tiles - Dynamic based on role */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>📊 Metric labels reflect the names used in the last submission</span>
-            <span>•</span>
-            <span>Renamed KPIs will update after next form submission</span>
-          </div>
-        </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metricConfig.selectedMetrics.includes('outbound_calls') && (
             <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />

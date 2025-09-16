@@ -156,18 +156,32 @@ export default function TeamPerformanceRings({
           .eq('role', role as 'Sales' | 'Service') // Type assertion for role
           .single();
 
+        // Get agency slug for the RPC call
+        const { data: agencyData } = await supabase
+          .from('agencies')
+          .select('slug')
+          .eq('id', agencyId)
+          .single();
+
+        const agencySlug = agencyData?.slug;
+        
+        if (!agencySlug) {
+          throw new Error('Agency slug not found');
+        }
+
         const metrics = rules?.ring_metrics || (role === 'Sales' 
           ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
         setRingMetrics(metrics);
         setNRequired(rules?.n_required || 2);
 
-        // Get team metrics for the date
+        // Get team metrics for the date using get_dashboard_daily
         const { data: teamMetrics } = await supabase
-          .rpc('get_team_metrics_for_day', {
-            p_agency: agencyId,
+          .rpc('get_dashboard_daily', {
+            p_agency_slug: agencySlug,
             p_role: role,
-            p_date: date
+            p_start: date,
+            p_end: date
           });
 
         // Get targets for each member and metric
