@@ -2197,6 +2197,38 @@ export type Database = {
           },
         ]
       }
+      vw_submission_metrics: {
+        Row: {
+          outbound_calls: number | null
+          quoted_count: number | null
+          sold_items: number | null
+          submission_id: string | null
+          talk_minutes: number | null
+        }
+        Insert: {
+          outbound_calls?: number | null
+          quoted_count?: number | null
+          sold_items?: number | null
+          submission_id?: string | null
+          talk_minutes?: number | null
+        }
+        Update: {
+          outbound_calls?: number | null
+          quoted_count?: number | null
+          sold_items?: number | null
+          submission_id?: string | null
+          talk_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _nz_int: {

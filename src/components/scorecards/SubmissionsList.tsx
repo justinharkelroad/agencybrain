@@ -8,7 +8,7 @@ import { Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function SubmissionsList() {
-  const { submissions, loading } = useSubmissions();
+  const { submissions, loading, getSubmissionMetrics } = useSubmissions();
   const navigate = useNavigate();
 
   if (loading) {
@@ -98,24 +98,29 @@ export function SubmissionsList() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm">
-                    {submission.payload_json && typeof submission.payload_json === 'object' ? (
-                      <div className="space-y-1">
-                        {Object.entries(submission.payload_json).slice(0, 3).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-muted-foreground capitalize">
-                              {key.replace(/([A-Z])/g, ' $1').trim()}:
-                            </span>
-                            <span className="font-mono text-xs">
-                              {typeof value === 'object' ? JSON.stringify(value).slice(0, 20) + '...' : String(value)}
-                            </span>
-                          </div>
-                        ))}
+                  {(() => {
+                    const metrics = getSubmissionMetrics(submission);
+                    return (
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Calls:</span>
+                          <span className="font-mono text-xs">{metrics.outbound_calls}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Minutes:</span>
+                          <span className="font-mono text-xs">{metrics.talk_minutes}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Quoted:</span>
+                          <span className="font-mono text-xs">{metrics.quoted_count}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Sold:</span>
+                          <span className="font-mono text-xs">{metrics.sold_items}</span>
+                        </div>
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground">No data</span>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </TableCell>
               </TableRow>
             ))}
