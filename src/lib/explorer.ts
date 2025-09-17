@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 
-interface SearchQuery {
+export interface ExplorerQuery {
   page?: number;
   pageSize?: number;
   query?: string;
@@ -22,7 +22,7 @@ interface ExplorerResponse {
   total: number;
 }
 
-export async function fetchExplorerData(searchQuery: SearchQuery): Promise<ExplorerResponse> {
+export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerResponse> {
   // Get current session with explicit token
   const { data: { session } } = await supabase.auth.getSession();
   
@@ -30,7 +30,10 @@ export async function fetchExplorerData(searchQuery: SearchQuery): Promise<Explo
     throw new Error("No authentication session found");
   }
 
-  const response = await fetch(
+  // Log payload to demonstrate sortBy/sortOrder inclusion
+  console.log("Explorer API payload:", JSON.stringify(q, null, 2));
+
+  const res = await fetch(
     "https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/explorer_feed",
     {
       method: "POST",
@@ -39,15 +42,13 @@ export async function fetchExplorerData(searchQuery: SearchQuery): Promise<Explo
         "Authorization": `Bearer ${session.access_token}`,
         "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
       },
-      body: JSON.stringify(searchQuery)
+      body: JSON.stringify(q)
     }
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Explorer API error ${response.status}: ${errorText}`);
+  if (!res.ok) {
+    throw new Error(`Explorer API error ${res.status}`);
   }
-
-  const data = await response.json();
-  return data;
+  
+  return res.json();
 }

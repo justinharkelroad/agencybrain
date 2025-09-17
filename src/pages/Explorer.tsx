@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
-import { fetchExplorerData } from "@/lib/explorer";
+import { fetchExplorerData, ExplorerQuery } from "@/lib/explorer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,8 @@ interface SearchFilters {
   finalOnly: boolean;
   includeSuperseded: boolean;
   lateOnly: boolean;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 interface SortState {
