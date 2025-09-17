@@ -1,0 +1,90 @@
+-- Update flattener to normalize blanks and use fallbacks
+CREATE OR REPLACE FUNCTION public.flatten_quoted_household_details(p_submission uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  s     RECORD;
+  row   jsonb;
+  idx   int := 0;
+  name_text text;
+  ls_id   uuid;
+  ls_label text;
+  items_q int;
+  pols_q  int;
+  prem_c  bigint;
+BEGIN
+  SELECT id, agency_id, team_member_id, role, work_date, submission_date, payload_json
+  INTO s
+  FROM public.submissions
+  WHERE id = p_submission;
+
+  IF s.id IS NULL THEN RETURN; END IF;
+
+  DELETE FROM public.quoted_household_details WHERE submission_id = s.id;
+
+  FOR idx IN SELECT generate_series(0, coalesce(jsonb_array_length(s.payload_json->'quoted_details')-1, -1))
+  LOOP
+    row := (s.payload_json->'quoted_details')->idx;
+    IF row IS NULL THEN CONTINUE; END IF;
+
+    -- Normalize blanks to NULL and add top-level fallbacks
+    name_text := coalesce(
+      nullif(row->>'prospect_name',''),
+      nullif(row->>'household_name',''),
+      nullif(s.payload_json->>'prospect_name',''),
+      nullif(s.payload_json->>'household','')
+    );
+
+    items_q := NULLIF(row->>'items_quoted','')::int;
+    pols_q  := NULLIF(row->>'policies_quoted','')::int;
+    prem_c  := NULLIF(row->>'premium_potential_cents','')::bigint;
+
+    -- Skip "empty" line-items (no name and no business values)
+    IF name_text IS NULL AND COALESCE(items_q,0)=0 AND COALESCE(pols_q,0)=0 AND COALESCE(prem_c,0)=0 THEN
+      CONTINUE;
+    END IF;
+
+    -- Lead source id/label normalization
+    ls_id    := NULLIF(row->>'lead_source_id','')::uuid;
+    ls_label := NULLIF(row->>'lead_source_label','');
+    IF ls_label IS NULL AND ls_id IS NOT NULL THEN
+      SELECT name INTO ls_label FROM public.lead_sources WHERE id = ls_id;
+    END IF;
+    IF ls_label IS NULL THEN ls_label := 'Undefined'; END IF;
+
+    INSERT INTO public.quoted_household_details(
+      submission_id, agency_id, team_member_id, role, created_at, work_date,
+      household_name, lead_source_id, lead_source_label,
+      items_quoted, policies_quoted, premium_potential_cents, extras
+    ) VALUES (
+      s.id, s.agency_id, s.team_member_id, s.role,
+      now(), COALESCE(s.work_date, s.submission_date),
+      COALESCE(name_text, 'Unknown'),
+      ls_id, ls_label,
+      items_q, pols_q, prem_c, row
+    );
+  END LOOP;
+END;
+$$;
+
+-- Targeted cleanup backfill for recent submissions with blank/noisy rows
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT DISTINCT q.submission_id
+    FROM public.quoted_household_details q
+    JOIN public.submissions s ON s.id = q.submission_id
+    WHERE s.submission_date >= (CURRENT_DATE - INTERVAL '30 days')
+      AND (
+        q.household_name IS NULL OR q.household_name='' OR
+        (COALESCE(q.items_quoted,0)=0 AND COALESCE(q.policies_quoted,0)=0 AND COALESCE(q.premium_potential_cents,0)=0)
+      )
+  LOOP
+    DELETE FROM public.quoted_household_details WHERE submission_id = r.submission_id;
+    PERFORM public.flatten_quoted_household_details(r.submission_id);
+  END LOOP;
+END$$;
