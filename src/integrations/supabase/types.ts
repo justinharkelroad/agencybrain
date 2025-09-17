@@ -2292,6 +2292,10 @@ export type Database = {
         Args: { p_submission: string }
         Returns: undefined
       }
+      flatten_quoted_household_details: {
+        Args: { p_submission: string }
+        Returns: undefined
+      }
       get_agency_dates_now: {
         Args: { p_agency_id: string }
         Returns: Json
