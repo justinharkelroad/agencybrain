@@ -1557,42 +1557,57 @@ export type Database = {
       }
       quoted_household_details: {
         Row: {
+          agency_id: string | null
           created_at: string
           extras: Json | null
           household_name: string
           id: string
           items_quoted: number | null
           lead_source_id: string | null
+          lead_source_label: string | null
           policies_quoted: number | null
           policy_type: string | null
           premium_potential_cents: number | null
+          role: Database["public"]["Enums"]["app_member_role"] | null
           submission_id: string
+          team_member_id: string | null
+          work_date: string | null
           zip_code: string | null
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string
           extras?: Json | null
           household_name: string
           id?: string
           items_quoted?: number | null
           lead_source_id?: string | null
+          lead_source_label?: string | null
           policies_quoted?: number | null
           policy_type?: string | null
           premium_potential_cents?: number | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           submission_id: string
+          team_member_id?: string | null
+          work_date?: string | null
           zip_code?: string | null
         }
         Update: {
+          agency_id?: string | null
           created_at?: string
           extras?: Json | null
           household_name?: string
           id?: string
           items_quoted?: number | null
           lead_source_id?: string | null
+          lead_source_label?: string | null
           policies_quoted?: number | null
           policy_type?: string | null
           premium_potential_cents?: number | null
+          role?: Database["public"]["Enums"]["app_member_role"] | null
           submission_id?: string
+          team_member_id?: string | null
+          work_date?: string | null
           zip_code?: string | null
         }
         Relationships: [
