@@ -77,7 +77,7 @@ serve(async (req) => {
           form_templates!inner(agency_id)
         ),
         lead_sources(name)
-      `)
+      `, { count: 'exact' })
       .eq("submissions.form_templates.agency_id", agencyId);
 
     // Apply filters
