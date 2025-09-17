@@ -474,8 +474,8 @@ export default function Explorer() {
                           row.lead_source_label || "—"
                         )}
                       </td>
-                      <td className="p-3">{row.items_quoted || 0}</td>
-                      <td className="p-3">{row.policies_quoted || 0}</td>
+                      <td className="p-3">{row.items_quoted ?? "—"}</td>
+                      <td className="p-3">{row.policies_quoted ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
