@@ -179,15 +179,24 @@ export default function Explorer() {
     setFilters(prev => ({ ...prev, [key]: apiValue }));
   };
 
-  const SortHeader = ({ field, label }: { field: string; label: string }) => {
-    const active = sortBy === field;
+  // Column to database field mapping
+  const SORT_FIELDS = {
+    date: "created_at",           // Date column shows created_at
+    household: "household_name",
+    items: "items_quoted",
+    policies: "policies_quoted",
+    premium: "premium_potential_cents",
+  } as const;
+
+  const SortHeader = ({ field, label }: { field: keyof typeof SORT_FIELDS; label: string }) => {
+    const dbField = SORT_FIELDS[field];
+    const active = sortBy === dbField;
     const dirIcon = !active ? null : sortOrder === "desc" ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />;
     const onClick = () => {
       if (active) setSortOrder(sortOrder === "desc" ? "asc" : "desc");
-      else { setSortBy(field); setSortOrder("desc"); } // default desc on new field
-      // Reset to page 1 and search with new sort
+      else { setSortBy(dbField); setSortOrder("desc"); } // default desc on new field
+      // Reset to page 1 - search will be triggered by useEffect
       setCurrentPage(1);
-      search(1);
     };
     return (
       <th onClick={onClick} className="cursor-pointer select-none p-3 hover:bg-muted/30">
@@ -264,7 +273,7 @@ export default function Explorer() {
 
   // Refetch when sort changes
   useEffect(() => {
-    if (user) {
+    if (user && (sortBy !== "created_at" || sortOrder !== "desc")) {
       search(1);
       setCurrentPage(1);
     }
@@ -427,12 +436,12 @@ export default function Explorer() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-3 font-medium w-12">Edit</th>
-                    <SortHeader field="created_at" label="Date" />
+                    <SortHeader field="date" label="Date" />
                     <th className="text-left p-3 font-medium">Staff</th>
-                    <SortHeader field="prospect_name" label="Household" />
+                    <SortHeader field="household" label="Household" />
                     <th className="text-left p-3 font-medium">Lead Source</th>
-                    <SortHeader field="items_quoted" label="#Items" />
-                    <SortHeader field="policies_quoted" label="#Policies" />
+                    <SortHeader field="items" label="#Items" />
+                    <SortHeader field="policies" label="#Policies" />
                   </tr>
                 </thead>
                 <tbody>
@@ -451,7 +460,7 @@ export default function Explorer() {
                           <EditIcon className="h-4 w-4" />
                         </Button>
                       </td>
-                      <td className="p-3">{row.work_date || row.created_at?.split('T')[0] || "—"}</td>
+                      <td className="p-3">{row.created_at?.split('T')[0] || "—"}</td>
                       <td className="p-3">
                         {row.staff_member_name || "Unknown"}
                       </td>

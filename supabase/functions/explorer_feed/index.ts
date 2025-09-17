@@ -61,18 +61,17 @@ serve(async (req) => {
     let queryBuilder = sb
       .from("quoted_household_details")
       .select(`
-        id, 
-        created_at, 
+        id,
+        submission_id,
+        created_at,
+        work_date,
         household_name,
-        zip_code,
         items_quoted,
         policies_quoted,
         premium_potential_cents,
-        submission_id,
         submissions!inner(
           form_template_id,
           team_member_id,
-          work_date,
           team_members(name),
           form_templates!inner(agency_id)
         ),
@@ -87,15 +86,19 @@ serve(async (req) => {
 
     // Apply sorting with whitelist validation
     const VALID_SORT_FIELDS = [
-      "created_at",
-      "household_name", 
-      "items_quoted",
-      "policies_quoted",
-      "premium_potential_cents"
+      "created_at",               // ISO timestamptz
+      "work_date",                // date
+      "household_name",           // text
+      "items_quoted",             // int
+      "policies_quoted",          // int  
+      "premium_potential_cents"   // bigint
     ];
     
     const sortField = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : "created_at";
     const ascending = sortOrder === "asc";
+    
+    // Log resolved sortField for debugging (48h cleanup)
+    console.log(`Explorer sort: field=${sortField}, order=${sortOrder}, requested=${sortBy}`);
     
     // Apply ORDER BY with deterministic tiebreaker
     queryBuilder = queryBuilder.order(sortField, { ascending });
@@ -120,24 +123,24 @@ serve(async (req) => {
       );
     }
 
-    // Transform data to match expected format
+    // Transform data to match expected format - preserve numeric types
     const transformedRows = (data || []).map(row => ({
       id: row.id,
       submission_id: row.submission_id,
       form_template_id: row.submissions?.form_template_id,
       team_member_id: row.submissions?.team_member_id,
-      work_date: row.submissions?.work_date,
+      work_date: row.work_date,
       created_at: row.created_at,
       prospect_name: row.household_name,
       staff_member_name: row.submissions?.team_members?.name,
       lead_source_label: row.lead_sources?.name || "Undefined",
-      zip: row.zip_code,
+      zip: null,
       notes: null,
       email: null,
       phone: null,
-      items_quoted: row.items_quoted || 0,
-      policies_quoted: row.policies_quoted || 0,
-      premium_potential_cents: row.premium_potential_cents || 0,
+      items_quoted: row.items_quoted,           // Keep as integer
+      policies_quoted: row.policies_quoted,     // Keep as integer
+      premium_potential_cents: row.premium_potential_cents, // Keep as bigint
       status: "final"
     }));
 
