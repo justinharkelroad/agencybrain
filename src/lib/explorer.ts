@@ -11,6 +11,8 @@ interface SearchQuery {
   finalOnly?: boolean;    // default true
   includeSuperseded?: boolean; // default false
   lateOnly?: boolean;     // default false
+  sortBy?: string;        // sort field
+  sortOrder?: "asc" | "desc"; // sort direction
 }
 
 interface ExplorerResponse {

@@ -26,7 +26,12 @@ serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { agency_slug, start, end, query, staffId, leadSource, page = 1, pageSize = 50 } = body;
+    const { 
+      agency_slug, start, end, query, staffId, leadSource, 
+      page = 1, pageSize = 50,
+      sortBy = "created_at", 
+      sortOrder = "desc" 
+    } = body;
 
     // Get agency by slug or user's agency
     let agencyId = null;
@@ -80,11 +85,27 @@ serve(async (req) => {
     if (end) queryBuilder = queryBuilder.lte("created_at", end + "T23:59:59");
     if (query) queryBuilder = queryBuilder.ilike("household_name", `%${query}%`);
 
+    // Apply sorting with whitelist validation
+    const VALID_SORT_FIELDS = [
+      "created_at",
+      "household_name", 
+      "items_quoted",
+      "policies_quoted",
+      "premium_potential_cents"
+    ];
+    
+    const sortField = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : "created_at";
+    const ascending = sortOrder === "asc";
+    
+    // Apply ORDER BY with deterministic tiebreaker
+    queryBuilder = queryBuilder.order(sortField, { ascending });
+    if (sortField !== "created_at") {
+      queryBuilder = queryBuilder.order("created_at", { ascending: false });
+    }
+
     // Apply pagination
     const offset = (page - 1) * pageSize;
-    queryBuilder = queryBuilder
-      .order("created_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+    queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
 
     const { data, error, count } = await queryBuilder;
 
