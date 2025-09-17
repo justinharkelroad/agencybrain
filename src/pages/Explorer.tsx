@@ -45,11 +45,6 @@ interface SearchFilters {
   sortOrder?: "asc" | "desc";
 }
 
-interface SortState {
-  field: string;
-  direction: "asc" | "desc";
-}
-
 export default function Explorer() {
   const { user } = useAuth();
 
@@ -84,10 +79,8 @@ export default function Explorer() {
   const [selectedHousehold, setSelectedHousehold] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [agencyIdForModal, setAgencyIdForModal] = useState<string>("");
-  const [sortState, setSortState] = useState<SortState>({
-    field: "created_at",
-    direction: "desc"
-  });
+  const [sortBy, setSortBy] = useState<string>("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const search = async (page: number = 1) => {
     if (!user) return;
@@ -107,8 +100,8 @@ export default function Explorer() {
         finalOnly: filters.finalOnly,
         includeSuperseded: filters.includeSuperseded,
         lateOnly: filters.lateOnly,
-        sortBy: sortState.field,
-        sortOrder: sortState.direction
+        sortBy: sortBy,
+        sortOrder: sortOrder
       });
 
       if (page === 1) {
@@ -186,21 +179,21 @@ export default function Explorer() {
     setFilters(prev => ({ ...prev, [key]: apiValue }));
   };
 
-  const handleSort = (field: string) => {
-    setSortState(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc"
-    }));
-    // Reset to page 1 and search with new sort
-    setCurrentPage(1);
-    search(1);
-  };
-
-  const getSortIcon = (field: string) => {
-    if (sortState.field !== field) return null;
-    return sortState.direction === "desc" ? 
-      <ChevronDown className="h-4 w-4 inline ml-1" /> : 
-      <ChevronUp className="h-4 w-4 inline ml-1" />;
+  const SortHeader = ({ field, label }: { field: string; label: string }) => {
+    const active = sortBy === field;
+    const dirIcon = !active ? null : sortOrder === "desc" ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />;
+    const onClick = () => {
+      if (active) setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+      else { setSortBy(field); setSortOrder("desc"); } // default desc on new field
+      // Reset to page 1 and search with new sort
+      setCurrentPage(1);
+      search(1);
+    };
+    return (
+      <th onClick={onClick} className="cursor-pointer select-none p-3 hover:bg-muted/30">
+        <div className="flex items-center gap-1">{label}{dirIcon}</div>
+      </th>
+    );
   };
 
   // Convert API data format to modal format
@@ -268,6 +261,14 @@ export default function Explorer() {
       setCurrentPage(1);
     }
   }, [user]);
+
+  // Refetch when sort changes
+  useEffect(() => {
+    if (user) {
+      search(1);
+      setCurrentPage(1);
+    }
+  }, [sortBy, sortOrder]);
 
   if (!user) {
     return (
@@ -426,32 +427,12 @@ export default function Explorer() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-3 font-medium w-12">Edit</th>
-                    <th 
-                      className="text-left p-3 font-medium cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort("created_at")}
-                    >
-                      Date {getSortIcon("created_at")}
-                    </th>
+                    <SortHeader field="created_at" label="Date" />
                     <th className="text-left p-3 font-medium">Staff</th>
-                    <th 
-                      className="text-left p-3 font-medium cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort("household_name")}
-                    >
-                      Household {getSortIcon("household_name")}
-                    </th>
+                    <SortHeader field="prospect_name" label="Household" />
                     <th className="text-left p-3 font-medium">Lead Source</th>
-                    <th 
-                      className="text-left p-3 font-medium cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort("items_quoted")}
-                    >
-                      #Items {getSortIcon("items_quoted")}
-                    </th>
-                    <th 
-                      className="text-left p-3 font-medium cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort("policies_quoted")}
-                    >
-                      #Policies {getSortIcon("policies_quoted")}
-                    </th>
+                    <SortHeader field="items_quoted" label="#Items" />
+                    <SortHeader field="policies_quoted" label="#Policies" />
                   </tr>
                 </thead>
                 <tbody>
