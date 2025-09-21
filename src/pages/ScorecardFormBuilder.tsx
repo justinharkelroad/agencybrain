@@ -544,6 +544,17 @@ export default function ScorecardFormBuilder() {
                 }}
               />
 
+              <QuotedDetailsMapping
+                schema={formSchema}
+                value={formSchema.fieldMappings || {}}
+                onChange={(mappings) => {
+                  setFormSchema(prev => ({
+                    ...prev,
+                    fieldMappings: mappings
+                  }));
+                }}
+              />
+
               <RepeaterSectionManager
                 section={formSchema.repeaterSections?.soldDetails || {
                   enabled: false,
