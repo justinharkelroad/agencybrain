@@ -2320,6 +2320,10 @@ export type Database = {
           kpi_id: string
         }[]
       }
+      cleanup_field_mapping_audit_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       compute_is_late: {
         Args: {
           p_agency_id: string
