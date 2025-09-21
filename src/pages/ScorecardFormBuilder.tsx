@@ -11,6 +11,7 @@ import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
+import { QuotedDetailsMapping } from "@/components/FormBuilder/QuotedDetailsMapping";
 import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
   import { useAgencyKpis } from "@/hooks/useKpis";
@@ -70,6 +71,15 @@ interface FormSchema {
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;
+  };
+  fieldMappings?: {
+    repeater?: {
+      quotedDetails?: {
+        items_quoted?: string;
+        policies_quoted?: string;
+        premium_potential_cents?: string;
+      }
+    };
   };
   settings: {
     dueBy: string;
@@ -141,6 +151,15 @@ export default function ScorecardFormBuilder() {
         description: 'Track household details and policy information for each sale',
         triggerKPI: 'sold_items',
         fields: []
+      }
+    },
+    fieldMappings: {
+      repeater: {
+        quotedDetails: {
+          items_quoted: undefined,
+          policies_quoted: undefined,
+          premium_potential_cents: undefined
+        }
       }
     },
     settings: {
@@ -258,6 +277,7 @@ export default function ScorecardFormBuilder() {
           role: formSchema.role,
           schema_json: formSchema as any,
           settings_json: formSchema.settings as any,
+          field_mappings: formSchema.fieldMappings as any,
         })
         .select()
         .single();

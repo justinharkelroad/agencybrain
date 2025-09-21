@@ -649,6 +649,42 @@ export type Database = {
         }
         Relationships: []
       }
+      field_mapping_audit: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          form_template_id: string
+          id: string
+          items_extracted: number | null
+          mappings_used: boolean
+          policies_extracted: number | null
+          premium_extracted: number | null
+          submission_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          form_template_id: string
+          id?: string
+          items_extracted?: number | null
+          mappings_used?: boolean
+          policies_extracted?: number | null
+          premium_extracted?: number | null
+          submission_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          form_template_id?: string
+          id?: string
+          items_extracted?: number | null
+          mappings_used?: boolean
+          policies_extracted?: number | null
+          premium_extracted?: number | null
+          submission_id?: string
+        }
+        Relationships: []
+      }
       form_fields: {
         Row: {
           builtin: boolean
@@ -817,6 +853,7 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
+          field_mappings: Json | null
           form_kpi_version: number
           id: string
           is_active: boolean | null
@@ -832,6 +869,7 @@ export type Database = {
         Insert: {
           agency_id: string
           created_at?: string
+          field_mappings?: Json | null
           form_kpi_version?: number
           id?: string
           is_active?: boolean | null
@@ -847,6 +885,7 @@ export type Database = {
         Update: {
           agency_id?: string
           created_at?: string
+          field_mappings?: Json | null
           form_kpi_version?: number
           id?: string
           is_active?: boolean | null
