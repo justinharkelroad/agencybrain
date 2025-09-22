@@ -17,6 +17,7 @@ import { useDashboardDaily } from "@/hooks/useDashboardDaily";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpis } from "@/hooks/useKpis";
 import { RING_LABELS } from "@/components/rings/colors";
+import { AutoFieldMappingSetup } from "@/components/AutoFieldMappingSetup";
 
 type Role = "Sales" | "Service";
 type Tiles = {
@@ -212,6 +213,9 @@ export default function MetricsDashboard() {
       {/* Remove TopNav since this component is embedded in ScorecardForms which already has TopNav */}
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* Auto setup component - fix dashboard data issues automatically */}
+        <AutoFieldMappingSetup />
+        
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
             <TrendingUp className="h-4 w-4" />
