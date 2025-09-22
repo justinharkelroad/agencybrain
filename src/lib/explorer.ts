@@ -50,5 +50,18 @@ export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerRespo
     throw new Error(`Explorer API error ${res.status}`);
   }
   
-  return res.json();
+  const response = await res.json();
+  
+  // Transform the rows to extract notes from extras
+  if (response.rows) {
+    response.rows = response.rows.map((row: any) => ({
+      ...row,
+      notes: row.extras?.notes || row.notes || null,
+      items_quoted: row.items_quoted || 0,
+      policies_quoted: row.policies_quoted || 0,
+      premium_potential_cents: row.premium_potential_cents || 0,
+    }));
+  }
+  
+  return response;
 }

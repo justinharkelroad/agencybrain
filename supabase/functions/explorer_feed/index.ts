@@ -123,26 +123,26 @@ serve(async (req) => {
       );
     }
 
-    // Transform data to match expected format - preserve numeric types
-    const transformedRows = (data || []).map(row => ({
-      id: row.id,
-      submission_id: row.submission_id,
-      form_template_id: row.submissions?.form_template_id,
-      team_member_id: row.submissions?.team_member_id,
-      work_date: row.work_date,
-      created_at: row.created_at,
-      prospect_name: row.household_name,
-      staff_member_name: row.submissions?.team_members?.name,
-      lead_source_label: row.lead_sources?.name || "Undefined",
-      zip: null,
-      notes: null,
-      email: null,
-      phone: null,
-      items_quoted: row.items_quoted,           // Keep as integer
-      policies_quoted: row.policies_quoted,     // Keep as integer
-      premium_potential_cents: row.premium_potential_cents, // Keep as bigint
-      status: "final"
-    }));
+      // Transform data to match expected format - preserve numeric types and extract notes
+      const transformedRows = (data || []).map(row => ({
+        id: row.id,
+        submission_id: row.submission_id,
+        form_template_id: row.submissions?.form_template_id,
+        team_member_id: row.submissions?.team_member_id,
+        work_date: row.work_date,
+        created_at: row.created_at,
+        prospect_name: row.household_name,
+        staff_member_name: row.submissions?.team_members?.name,
+        lead_source_label: row.lead_sources?.name || "Undefined",
+        zip: row.zip_code || null,
+        notes: row.extras?.notes || null, // Extract notes from extras JSON
+        email: null,
+        phone: null,
+        items_quoted: row.items_quoted || 0,           // Keep as integer with fallback
+        policies_quoted: row.policies_quoted || 0,     // Keep as integer with fallback
+        premium_potential_cents: row.premium_potential_cents || 0, // Keep as bigint with fallback
+        status: "final"
+      }));
 
     return new Response(
       JSON.stringify({ 

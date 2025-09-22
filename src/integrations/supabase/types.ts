@@ -2221,32 +2221,54 @@ export type Database = {
       vw_metrics_with_team: {
         Row: {
           agency_id: string | null
+          created_at: string | null
           cross_sells_uncovered: number | null
           daily_score: number | null
           date: string | null
+          final_submission_id: string | null
           hits: number | null
+          id: string | null
           is_counted_day: boolean | null
           is_late: boolean | null
+          kpi_version_id: string | null
+          label_at_submit: string | null
+          metric_slug: string | null
           mini_reviews: number | null
           outbound_calls: number | null
           pass: boolean | null
           quoted_count: number | null
           quoted_entity: string | null
+          rep_name: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
           sold_items: number | null
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
+          submitted_at: string | null
           talk_minutes: number | null
           team_member_id: string | null
-          team_member_name: string | null
+          updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_metrics_daily_team_member_id"
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_kpi_version_id_fkey"
+            columns: ["kpi_version_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -2307,6 +2329,10 @@ export type Database = {
         Args: { p_agency: string; p_days: number }
         Returns: undefined
       }
+      backfill_quoted_details_for_agency: {
+        Args: { p_agency_id: string; p_days_back?: number }
+        Returns: Json
+      }
       bind_form_kpis: {
         Args: { p_form: string }
         Returns: undefined
@@ -2354,6 +2380,10 @@ export type Database = {
         Args: { p_submission: string }
         Returns: undefined
       }
+      flatten_quoted_household_details_enhanced: {
+        Args: { p_submission_id: string }
+        Returns: undefined
+      }
       get_agency_dates_now: {
         Args: { p_agency_id: string }
         Returns: Json
@@ -2388,12 +2418,14 @@ export type Database = {
         Returns: string
       }
       get_dashboard_daily: {
-        Args: {
-          p_agency_slug: string
-          p_end: string
-          p_role: string
-          p_start: string
-        }
+        Args:
+          | { p_agency_id: string; p_work_date: string }
+          | {
+              p_agency_slug: string
+              p_end: string
+              p_role: string
+              p_start: string
+            }
         Returns: {
           cross_sells_uncovered: number
           daily_score: number

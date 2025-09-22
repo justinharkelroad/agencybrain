@@ -134,11 +134,37 @@ export default function MetricsDashboard() {
   };
   
   const rows = dashboardData?.table || [];
-  const contest = dashboardData?.contest || [];
-  const contestEnabled = !!dashboardData?.meta?.contest_board_enabled;
-  const agencyName = agencyProfile?.agencyName || dashboardData?.meta?.agencyName || "";
+  const contest = [];
+  const contestEnabled = false;
+  const agencyName = agencyProfile?.agencyName || "";
   const agencyId = agencyProfile?.agencyId || "";
   const scorecardRules = agencyProfile?.scorecardRules;
+
+  // Transform tiles array to object format for backward compatibility
+  const tilesObject = (dashboardData?.tiles || []).reduce((acc, tile) => {
+    switch(tile.title) {
+      case 'Outbound Calls':
+        acc.outbound_calls = tile.value;
+        break;
+      case 'Talk Minutes':
+        acc.talk_minutes = tile.value;
+        break;
+      case 'Quoted':
+        acc.quoted = tile.value;
+        break;
+      case 'Sold Items':
+        acc.sold_items = tile.value;
+        break;
+    }
+    return acc;
+  }, {
+    outbound_calls: 0,
+    talk_minutes: 0,
+    quoted: 0,
+    sold_items: 0,
+    cross_sells_uncovered: 0,
+    mini_reviews: 0,
+  });
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -150,11 +176,15 @@ export default function MetricsDashboard() {
     
     // Create label map from versioned metrics data (uses label_at_submit)
     const labelMap = new Map<string, string>();
-    if (dashboardData?.metrics) {
-      dashboardData.metrics.forEach((metric: any) => {
-        if (metric.kpi_key && metric.kpi_label) {
-          labelMap.set(metric.kpi_key, metric.kpi_label);
-        }
+    if (dashboardData?.rows) {
+      dashboardData.rows.forEach((metric: any) => {
+        // Map known metrics to labels
+        if (metric.outbound_calls) labelMap.set('outbound_calls', 'Outbound Calls');
+        if (metric.talk_minutes) labelMap.set('talk_minutes', 'Talk Minutes');
+        if (metric.quoted_count) labelMap.set('quoted_count', 'Quoted');
+        if (metric.sold_items) labelMap.set('sold_items', 'Sold Items');
+        if (metric.cross_sells_uncovered) labelMap.set('cross_sells_uncovered', 'Cross Sells');
+        if (metric.mini_reviews) labelMap.set('mini_reviews', 'Mini Reviews');
       });
     }
     
@@ -272,22 +302,22 @@ export default function MetricsDashboard() {
         {/* Tiles - Dynamic based on role */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metricConfig.selectedMetrics.includes('outbound_calls') && (
-            <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tiles.outbound_calls} icon={<Target className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tilesObject.outbound_calls} icon={<Target className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('talk_minutes') && (
-            <MetricTile title={metricConfig.getKpiLabel('talk_minutes')} value={tiles.talk_minutes} icon={<Users className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.getKpiLabel('talk_minutes')} value={tilesObject.talk_minutes} icon={<Users className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && (
-            <MetricTile title={metricConfig.quotedTitle} value={tiles.quoted} icon={<TrendingUp className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.quotedTitle} value={tilesObject.quoted} icon={<TrendingUp className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && (
-            <MetricTile title={metricConfig.soldTitle} value={tiles.sold_items} icon={<Award className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.soldTitle} value={tilesObject.sold_items} icon={<Award className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tiles.cross_sells_uncovered !== undefined && (
-            <MetricTile title={metricConfig.quotedTitle} value={tiles.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
+          {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tilesObject.cross_sells_uncovered !== undefined && (
+            <MetricTile title={metricConfig.quotedTitle} value={tilesObject.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tiles.mini_reviews !== undefined && (
-            <MetricTile title={metricConfig.soldTitle} value={tiles.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
+          {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tilesObject.mini_reviews !== undefined && (
+            <MetricTile title={metricConfig.soldTitle} value={tilesObject.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
           )}
         </div>
 
@@ -330,7 +360,7 @@ export default function MetricsDashboard() {
                   ) : (
                     rows.map((r, index) => (
                       <tr key={`${r.team_member_id}-${r.date || index}`} className="border-b border-border/50">
-                        <Td className="font-medium">{r.team_member_name}</Td>
+                        <Td className="font-medium">{r.name || r.rep_name}</Td>
                         {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
                         {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
                         {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Td>{r.quoted_count}</Td>}
@@ -338,14 +368,14 @@ export default function MetricsDashboard() {
                         {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
                         {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
                         <Td>
-                          <Badge variant={r.pass_days > 0 ? "default" : "secondary"}>
-                            {r.pass_days}
+                          <Badge variant={r.pass ? "default" : "secondary"}>
+                            {r.pass ? 1 : 0}
                           </Badge>
                         </Td>
-                        <Td>{r.score_sum}</Td>
+                        <Td>{r.daily_score}</Td>
                         <Td>
-                          <Badge variant={r.streak > 0 ? "default" : "secondary"}>
-                            {r.streak}
+                          <Badge variant="secondary">
+                            0
                           </Badge>
                         </Td>
                       </tr>
