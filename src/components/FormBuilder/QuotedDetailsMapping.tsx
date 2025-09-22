@@ -185,12 +185,12 @@ function FieldMap({ label, description, value, options, preferNumeric, onChange 
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value} onValueChange={(v) => onChange(v === "__none__" ? "" : v)}>
         <SelectTrigger className={isNonNumericSelected ? "border-yellow-500" : ""}>
           <SelectValue placeholder="— Not Mapped —" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">— Not Mapped —</SelectItem>
+          <SelectItem value="__none__">— Not Mapped —</SelectItem>
           
           {numericOptions.length > 0 && (
             <>
@@ -203,7 +203,7 @@ function FieldMap({ label, description, value, options, preferNumeric, onChange 
           )}
           
           {otherOptions.length > 0 && numericOptions.length > 0 && (
-            <SelectItem value="" disabled className="text-xs text-muted-foreground">
+            <SelectItem value="__divider__" disabled className="text-xs text-muted-foreground">
               — Non-numeric fields —
             </SelectItem>
           )}

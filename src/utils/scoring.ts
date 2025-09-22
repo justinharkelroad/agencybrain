@@ -42,8 +42,22 @@ export function buildTargetsMap(
     if (r.team_member_id) {
       map.byMember[r.team_member_id] ||= {};
       map.byMember[r.team_member_id][key] = Number(r.value_number ?? 0);
+      // Alias sold_policies to sold_items for ring compatibility
+      if (key === "sold_items" && !map.byMember[r.team_member_id]["sold_policies"]) {
+        map.byMember[r.team_member_id]["sold_policies"] = Number(r.value_number ?? 0);
+      }
+      if (key === "sold_policies" && !map.byMember[r.team_member_id]["sold_items"]) {
+        map.byMember[r.team_member_id]["sold_items"] = Number(r.value_number ?? 0);
+      }
     } else {
       map.defaults[key] = Number(r.value_number ?? 0);
+      // Alias sold_policies to sold_items for ring compatibility
+      if (key === "sold_items" && !map.defaults["sold_policies"]) {
+        map.defaults["sold_policies"] = Number(r.value_number ?? 0);
+      }
+      if (key === "sold_policies" && !map.defaults["sold_items"]) {
+        map.defaults["sold_items"] = Number(r.value_number ?? 0);
+      }
     }
   }
   return map;

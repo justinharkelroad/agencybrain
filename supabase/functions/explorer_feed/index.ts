@@ -137,12 +137,12 @@ serve(async (req) => {
         staff_member_name: row.submissions?.team_members?.name,
         lead_source_label: row.lead_sources?.name || "Undefined",
         zip: row.zip_code || null,
-        notes: row.extras?.notes || null, // Extract notes from extras JSON
+        notes: row.extras?.detailed_notes || row.extras?.notes || null, // Extract notes from extras JSON
         email: null,
         phone: null,
-        items_quoted: row.items_quoted || 0,           // Keep as integer with fallback
-        policies_quoted: row.policies_quoted || 0,     // Keep as integer with fallback
-        premium_potential_cents: row.premium_potential_cents || 0, // Keep as bigint with fallback
+        items_quoted: row.items_quoted,           // Keep as is, allow null
+        policies_quoted: row.policies_quoted,     // Keep as is, allow null
+        premium_potential_cents: row.premium_potential_cents, // Keep as is, allow null
         status: "final"
       }));
 
