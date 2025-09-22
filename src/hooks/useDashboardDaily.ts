@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseClient";
 import { computeWeightedScore, buildTargetsMap, DEFAULT_WEIGHTS } from "@/utils/scoring";
+import { format } from "date-fns";
 
 interface DailyMetric {
   team_member_id: string;
@@ -44,8 +45,8 @@ export function useDashboardDaily(
     queryFn: async (): Promise<DashboardDailyResult> => {
       console.log("useDashboardDaily: Fetching data", { agencySlug, role, selectedDate });
       
-      // Format date as YYYY-MM-DD for the API
-      const workDate = selectedDate.toISOString().split('T')[0];
+      // Format date as YYYY-MM-DD for the API (use local timezone, not UTC)
+      const workDate = format(selectedDate, "yyyy-MM-dd");
       
       console.log("Fetching daily data for date:", workDate);
 

@@ -66,6 +66,8 @@ serve(async (req) => {
         created_at,
         work_date,
         household_name,
+        zip_code,
+        extras,
         items_quoted,
         policies_quoted,
         premium_potential_cents,
