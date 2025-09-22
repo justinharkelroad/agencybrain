@@ -4,6 +4,7 @@ export type MetricKey =
   | "talk_minutes"
   | "quoted_count"
   | "sold_items"
+  | "sold_policies"
   | "cross_sells_uncovered"
   | "mini_reviews";
 
@@ -12,6 +13,7 @@ export const METRIC_KEYS: MetricKey[] = [
   "talk_minutes",
   "quoted_count",
   "sold_items",
+  "sold_policies",
   "cross_sells_uncovered",
   "mini_reviews",
 ];
