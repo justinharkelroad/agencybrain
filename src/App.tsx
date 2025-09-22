@@ -36,6 +36,7 @@ import AdminTeam from "./pages/admin/AdminTeam";
 import AdminMember from "./pages/admin/AdminMember";
 import AdminChecklists from "./pages/admin/AdminChecklists";
 import ClientDetail from "./pages/admin/ClientDetail";
+import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
@@ -187,6 +188,11 @@ const App = () => (
             <Route path="/admin/checklists" element={
               <ProtectedRoute requireAdmin>
                 <AdminChecklists />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/field-mapping-setup" element={
+              <ProtectedRoute requireAdmin>
+                <FieldMappingSetup />
               </ProtectedRoute>
             } />
             <Route path="/admin/team/:memberId" element={

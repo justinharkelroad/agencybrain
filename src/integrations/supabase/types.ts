@@ -2429,18 +2429,20 @@ export type Database = {
         Returns: {
           cross_sells_uncovered: number
           daily_score: number
-          date: string
           hits: number
-          kpi_version_id: string
-          label_at_submit: string
+          is_late: boolean
           mini_reviews: number
           outbound_calls: number
           pass: boolean
           quoted_count: number
+          rep_name: string
           sold_items: number
+          sold_policies: number
+          sold_premium_cents: number
+          status: string
           talk_minutes: number
           team_member_id: string
-          team_member_name: string
+          work_date: string
         }[]
       }
       get_sticky_fields_for_section: {
