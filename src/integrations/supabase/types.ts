@@ -1231,6 +1231,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
+          {
             foreignKeyName: "fk_metrics_daily_team_member_id"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -1664,6 +1671,13 @@ export type Database = {
             referencedRelation: "submissions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "qhd_submission_fk"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       quoted_households: {
@@ -1722,6 +1736,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_quoted_households_submission_id"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "fk_quoted_households_team_member_id"
@@ -1935,6 +1956,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_submissions_supersedes_id"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
+          {
             foreignKeyName: "fk_submissions_team_member_id"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -2123,36 +2151,6 @@ export type Database = {
           role: Database["public"]["Enums"]["app_member_role"] | null
           type: string | null
         }
-        Insert: {
-          agency_id?: string | null
-          archived_at?: string | null
-          color?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          key?: string | null
-          label?: string | null
-          role?: Database["public"]["Enums"]["app_member_role"] | null
-          type?: string | null
-        }
-        Update: {
-          agency_id?: string | null
-          archived_at?: string | null
-          color?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          effective_from?: string | null
-          effective_to?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          key?: string | null
-          label?: string | null
-          role?: Database["public"]["Enums"]["app_member_role"] | null
-          type?: string | null
-        }
         Relationships: []
       }
       vw_dashboard_weekly: {
@@ -2258,6 +2256,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
+          {
             foreignKeyName: "fk_metrics_daily_team_member_id"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -2282,28 +2287,20 @@ export type Database = {
           talk_minutes: number | null
         }
         Insert: {
-          outbound_calls?: number | null
-          quoted_count?: number | null
-          sold_items?: number | null
+          outbound_calls?: never
+          quoted_count?: never
+          sold_items?: never
           submission_id?: string | null
-          talk_minutes?: number | null
+          talk_minutes?: never
         }
         Update: {
-          outbound_calls?: number | null
-          quoted_count?: number | null
-          sold_items?: number | null
+          outbound_calls?: never
+          quoted_count?: never
+          sold_items?: never
           submission_id?: string | null
-          talk_minutes?: number | null
+          talk_minutes?: never
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_metrics_daily_final_submission_id"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "submissions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
