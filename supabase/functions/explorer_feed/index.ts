@@ -138,6 +138,7 @@ serve(async (req) => {
         lead_source_label: row.lead_sources?.name || "Undefined",
         zip: row.zip_code || null,
         notes: row.extras?.detailed_notes || row.extras?.notes || null, // Extract notes from extras JSON
+        custom_fields: row.extras?.custom_fields || {}, // Include custom fields with readable labels
         email: null,
         phone: null,
         items_quoted: row.items_quoted,           // Keep as is, allow null
