@@ -47,6 +47,7 @@ import SnapshotPlanner from "./pages/SnapshotPlanner";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
+import TestBackfill from "./pages/TestBackfill";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -238,6 +239,11 @@ const App = () => (
             <Route path="/run-repair" element={
               <ProtectedRoute requireAdmin>
                 <RunRepair />
+              </ProtectedRoute>
+            } />
+            <Route path="/test-backfill" element={
+              <ProtectedRoute requireAdmin>
+                <TestBackfill />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
