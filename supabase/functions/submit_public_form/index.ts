@@ -402,6 +402,49 @@ serve(async (req) => {
       .update({ final: true })
       .eq('id', sid);
 
+    // Background task: Automatically flatten quoted_household_details
+    // This runs asynchronously and doesn't block the response
+    if (Array.isArray(v.quoted_details) && v.quoted_details.length > 0) {
+      EdgeRuntime.waitUntil(
+        (async () => {
+          try {
+            logStructured('info', 'flatten_start', {
+              request_id: requestId,
+              submission_id: sid,
+              quoted_details_count: v.quoted_details.length
+            });
+
+            const { data: flattenResult, error: flattenError } = await supabase
+              .rpc('flatten_quoted_household_details_enhanced', {
+                p_submission_id: sid
+              });
+
+            if (flattenError) {
+              logStructured('error', 'flatten_failed', {
+                request_id: requestId,
+                submission_id: sid,
+                error: flattenError.message
+              });
+            } else {
+              const result = flattenResult as any;
+              logStructured('info', 'flatten_complete', {
+                request_id: requestId,
+                submission_id: sid,
+                success: result?.success,
+                records_created: result?.records_created
+              });
+            }
+          } catch (e) {
+            logStructured('error', 'flatten_exception', {
+              request_id: requestId,
+              submission_id: sid,
+              error: e instanceof Error ? e.message : String(e)
+            });
+          }
+        })()
+      );
+    }
+
     logStructured('info', 'submission_created', {
       request_id: requestId,
       submission_id: ins.id
