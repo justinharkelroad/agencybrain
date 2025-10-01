@@ -42,49 +42,118 @@ serve(async (req) => {
       });
     }
 
-    // Get recent submissions for this agency
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Parse request body for optional submission_ids
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const specificSubmissionIds = body.submission_ids as string[] | undefined;
 
-    const { data: submissions } = await sb
-      .from("submissions")
-      .select("id")
-      .eq("final", true)
-      .gte("submitted_at", thirtyDaysAgo.toISOString())
-      .in("form_template_id", sb
-        .from("form_templates")
-        .select("id")
-        .eq("agency_id", profile.agency_id)
+    console.log(`Starting backfill for agency ${profile.agency_id}`);
+    
+    let submissionIds: string[] = [];
+
+    if (specificSubmissionIds && specificSubmissionIds.length > 0) {
+      // Use specific submission IDs provided
+      console.log(`Processing ${specificSubmissionIds.length} specific submissions:`, specificSubmissionIds);
+      submissionIds = specificSubmissionIds;
+    } else {
+      // Default: get failed flattenings from vw_flattening_health
+      console.log('No specific submissions provided, fetching failed flattenings from vw_flattening_health');
+      
+      const { data: failedSubmissions, error: healthError } = await sb
+        .from("vw_flattening_health")
+        .select("submission_id")
+        .in("status", ["flattening_failed", "partial_flattening"]);
+
+      if (healthError) {
+        console.error('Error fetching failed submissions:', healthError);
+        return new Response(JSON.stringify({ error: "Failed to fetch submissions to backfill" }), { 
+          status: 500, 
+          headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" }
+        });
+      }
+
+      submissionIds = (failedSubmissions || []).map(s => s.submission_id);
+      console.log(`Found ${submissionIds.length} failed/partial flattenings to process`);
+    }
+
+    if (submissionIds.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: "No submissions to process",
+          processed: 0,
+          errors: 0,
+          total: 0,
+          results: []
+        }), 
+        { 
+          status: 200, 
+          headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" }
+        }
       );
+    }
 
+    // Process each submission
     let processed = 0;
     let errors = 0;
+    const results: any[] = [];
 
-    // Reprocess each submission with enhanced flattener
-    for (const submission of submissions || []) {
+    for (const submissionId of submissionIds) {
       try {
-        const { error } = await sb.rpc("flatten_quoted_household_details_enhanced", {
-          submission_id: submission.id
+        console.log(`Processing submission ${submissionId}...`);
+        
+        const { data: result, error: rpcError } = await sb.rpc("flatten_quoted_household_details_enhanced", {
+          p_submission_id: submissionId
         });
         
-        if (error) {
-          console.error(`Error processing submission ${submission.id}:`, error);
+        if (rpcError) {
+          console.error(`RPC error for submission ${submissionId}:`, rpcError);
           errors++;
+          results.push({
+            submission_id: submissionId,
+            success: false,
+            error: rpcError.message
+          });
         } else {
-          processed++;
+          const resultData = result as any;
+          if (resultData?.success) {
+            console.log(`✓ Successfully processed submission ${submissionId}, created ${resultData.records_created} records`);
+            processed++;
+            results.push({
+              submission_id: submissionId,
+              success: true,
+              records_created: resultData.records_created
+            });
+          } else {
+            console.error(`✗ Function returned failure for submission ${submissionId}:`, resultData?.error_message);
+            errors++;
+            results.push({
+              submission_id: submissionId,
+              success: false,
+              error: resultData?.error_message || "Unknown error",
+              sql_state: resultData?.sql_state
+            });
+          }
         }
       } catch (err) {
-        console.error(`Exception processing submission ${submission.id}:`, err);
+        console.error(`Exception processing submission ${submissionId}:`, err);
         errors++;
+        results.push({
+          submission_id: submissionId,
+          success: false,
+          error: err.message
+        });
       }
     }
+
+    console.log(`Backfill complete: ${processed} processed, ${errors} errors, ${submissionIds.length} total`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
         processed,
         errors,
-        total: (submissions || []).length
+        total: submissionIds.length,
+        results
       }), 
       { 
         status: 200, 
@@ -95,7 +164,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Backfill error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }), 
+      JSON.stringify({ error: error.message || "Internal server error" }), 
       { 
         status: 500, 
         headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" }
