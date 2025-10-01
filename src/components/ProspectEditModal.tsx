@@ -42,6 +42,14 @@ interface CustomField {
   options?: string[]; // For dropdown fields
 }
 
+interface FormCustomField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  options?: Array<{value: string; label: string}> | string[];
+}
+
 interface ProspectEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -63,7 +71,9 @@ export function ProspectEditModal({
 }: ProspectEditModalProps) {
   const { user } = useAuth();
   const [loading, setSaving] = useState(false);
+  const [loadingSchema, setLoadingSchema] = useState(false);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [formCustomFields, setFormCustomFields] = useState<FormCustomField[]>([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -80,6 +90,7 @@ export function ProspectEditModal({
   });
 
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [formCustomFieldValues, setFormCustomFieldValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (prospect && isOpen) {
@@ -97,8 +108,9 @@ export function ProspectEditModal({
         lead_source_raw: prospect.lead_source || ""
       });
 
-      // Load custom fields and their values
+      // Load both custom field types
       loadCustomFields();
+      loadFormCustomFields();
     }
   }, [prospect, isOpen, agencyId]);
 
@@ -107,7 +119,7 @@ export function ProspectEditModal({
 
     try {
       // Get custom field definitions
-      const { data: fields } = await supa
+      const { data: fields } = await supabase
         .from('prospect_custom_fields')
         .select('*')
         .eq('agency_id', agencyId)
@@ -117,7 +129,7 @@ export function ProspectEditModal({
 
       if (fields) {
         // Get existing values for this prospect
-        const { data: values } = await supa
+        const { data: values } = await supabase
           .from('prospect_custom_field_values')
           .select('field_id, value_text')
           .eq('quoted_household_detail_id', prospect?.id)
@@ -137,6 +149,60 @@ export function ProspectEditModal({
       }
     } catch (error) {
       console.error('Error loading custom fields:', error);
+    }
+  };
+
+  const loadFormCustomFields = async () => {
+    if (!prospect) return;
+
+    setLoadingSchema(true);
+    try {
+      // Get the submission and form template schema
+      const { data: submission, error: submissionError } = await supabase
+        .from('submissions')
+        .select(`
+          id,
+          form_templates(schema_json)
+        `)
+        .eq('id', prospect.submission_id)
+        .single();
+
+      if (submissionError) throw submissionError;
+
+      // Get the current extras values from quoted_household_details
+      const { data: qhd, error: qhdError } = await supabase
+        .from('quoted_household_details')
+        .select('extras')
+        .eq('id', prospect.id)
+        .single();
+
+      if (qhdError) throw qhdError;
+
+      const schema = submission?.form_templates?.schema_json;
+      const allFormFields: FormCustomField[] = [];
+      
+      // Extract root-level customFields
+      if (schema?.customFields && Array.isArray(schema.customFields)) {
+        allFormFields.push(...schema.customFields);
+      }
+
+      // Extract repeaterSections.quotedDetails.fields
+      if (schema?.repeaterSections?.quotedDetails?.fields && 
+          Array.isArray(schema.repeaterSections.quotedDetails.fields)) {
+        allFormFields.push(...schema.repeaterSections.quotedDetails.fields);
+      }
+
+      setFormCustomFields(allFormFields);
+
+      // Load existing values from extras.custom_fields
+      const existingValues = qhd?.extras?.custom_fields || {};
+      setFormCustomFieldValues(existingValues);
+
+    } catch (error) {
+      console.error('Error loading form custom fields:', error);
+      toast.error("Failed to load form fields");
+    } finally {
+      setLoadingSchema(false);
     }
   };
 
@@ -165,7 +231,7 @@ export function ProspectEditModal({
       };
 
       // Upsert prospect override
-      const { error: overrideError } = await supa
+      const { error: overrideError } = await supabase
         .from('prospect_overrides')
         .upsert(overrideData, {
           onConflict: 'agency_id,quoted_household_detail_id'
@@ -173,13 +239,13 @@ export function ProspectEditModal({
 
       if (overrideError) throw overrideError;
 
-      // Save custom field values
+      // Save prospect_custom_fields values
       for (const field of customFields) {
         const value = customFieldValues[field.id] || field.value || "";
         
         if (value.trim()) {
           // Insert or update custom field value
-          await supa
+          await supabase
             .from('prospect_custom_field_values')
             .upsert({
               agency_id: agencyId,
@@ -192,13 +258,36 @@ export function ProspectEditModal({
             });
         } else {
           // Delete if empty
-          await supa
+          await supabase
             .from('prospect_custom_field_values')
             .delete()
             .eq('quoted_household_detail_id', prospect.id)
             .eq('field_id', field.id)
             .eq('owner_user_id', user.id);
         }
+      }
+
+      // Update form custom fields in extras.custom_fields
+      if (formCustomFields.length > 0) {
+        // Get current extras
+        const { data: currentQhd } = await supabase
+          .from('quoted_household_details')
+          .select('extras')
+          .eq('id', prospect.id)
+          .single();
+
+        const updatedExtras = {
+          ...(currentQhd?.extras || {}),
+          custom_fields: formCustomFieldValues
+        };
+
+        // Update the extras JSON
+        const { error: extrasError } = await supabase
+          .from('quoted_household_details')
+          .update({ extras: updatedExtras })
+          .eq('id', prospect.id);
+
+        if (extrasError) throw extrasError;
       }
 
       toast.success("Prospect updated successfully");
@@ -217,6 +306,109 @@ export function ProspectEditModal({
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
     })}`;
+  };
+
+  const renderFormField = (field: FormCustomField, fieldKey: string, currentValue: string) => {
+    const handleChange = (value: string) => {
+      setFormCustomFieldValues(prev => ({
+        ...prev,
+        [fieldKey]: value
+      }));
+    };
+
+    switch (field.type) {
+      case 'select':
+      case 'dropdown':
+        const options = Array.isArray(field.options) 
+          ? field.options.map(opt => 
+              typeof opt === 'string' ? { value: opt, label: opt } : opt
+            )
+          : [];
+        
+        return (
+          <Select value={currentValue} onValueChange={handleChange}>
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.label}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+
+      case 'longtext':
+      case 'textarea':
+        return (
+          <Textarea
+            id={`form_${fieldKey}`}
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+            rows={3}
+          />
+        );
+
+      case 'number':
+        return (
+          <Input
+            id={`form_${fieldKey}`}
+            type="number"
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+          />
+        );
+
+      case 'email':
+        return (
+          <Input
+            id={`form_${fieldKey}`}
+            type="email"
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+          />
+        );
+
+      case 'phone':
+        return (
+          <Input
+            id={`form_${fieldKey}`}
+            type="tel"
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+          />
+        );
+
+      case 'currency':
+        return (
+          <Input
+            id={`form_${fieldKey}`}
+            type="number"
+            step="0.01"
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+          />
+        );
+
+      case 'text':
+      default:
+        return (
+          <Input
+            id={`form_${fieldKey}`}
+            type="text"
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={`Enter ${field.label}`}
+          />
+        );
+    }
   };
 
   if (!prospect) return null;
@@ -401,7 +593,7 @@ export function ProspectEditModal({
             </CardContent>
           </Card>
 
-          {/* Custom Fields */}
+          {/* Custom Fields from prospect_custom_fields */}
           {customFields.length > 0 && (
             <Card>
               <CardHeader>
@@ -463,6 +655,42 @@ export function ProspectEditModal({
                     )}
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Form Submission Details - Dynamic Custom Fields */}
+          {formCustomFields.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Form Submission Details</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Custom fields from the original form template
+                </p>
+              </CardHeader>
+              <CardContent>
+                {loadingSchema ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {formCustomFields.map((field) => {
+                      const fieldKey = field.key;
+                      const currentValue = formCustomFieldValues[fieldKey] || "";
+                      
+                      return (
+                        <div key={fieldKey} className="space-y-2">
+                          <Label htmlFor={`form_${fieldKey}`}>
+                            {field.label}
+                            {field.required && <span className="text-destructive ml-1">*</span>}
+                          </Label>
+                          {renderFormField(field, fieldKey, currentValue)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
