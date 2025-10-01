@@ -1234,6 +1234,13 @@ export type Database = {
             foreignKeyName: "fk_metrics_daily_final_submission_id"
             columns: ["final_submission_id"]
             isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
             referencedRelation: "vw_submission_metrics"
             referencedColumns: ["submission_id"]
           },
@@ -1675,6 +1682,13 @@ export type Database = {
             foreignKeyName: "qhd_submission_fk"
             columns: ["submission_id"]
             isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "qhd_submission_fk"
+            columns: ["submission_id"]
+            isOneToOne: false
             referencedRelation: "vw_submission_metrics"
             referencedColumns: ["submission_id"]
           },
@@ -1736,6 +1750,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_quoted_households_submission_id"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "fk_quoted_households_submission_id"
@@ -1954,6 +1975,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_submissions_supersedes_id"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "fk_submissions_supersedes_id"
@@ -2216,6 +2244,32 @@ export type Database = {
           },
         ]
       }
+      vw_flattening_health: {
+        Row: {
+          actual_records: number | null
+          expected_records: number | null
+          has_valid_quoted_details: boolean | null
+          status: string | null
+          submission_date: string | null
+          submission_id: string | null
+          work_date: string | null
+        }
+        Relationships: []
+      }
+      vw_flattening_summary: {
+        Row: {
+          failed_flattenings: number | null
+          no_quoted_details: number | null
+          partial_flattenings: number | null
+          submissions_with_quoted_details: number | null
+          success_rate_percent: number | null
+          successful_flattenings: number | null
+          total_actual_records: number | null
+          total_expected_records: number | null
+          total_submissions: number | null
+        }
+        Relationships: []
+      }
       vw_metrics_with_team: {
         Row: {
           agency_id: string | null
@@ -2254,6 +2308,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "fk_metrics_daily_final_submission_id"
@@ -2379,7 +2440,7 @@ export type Database = {
       }
       flatten_quoted_household_details_enhanced: {
         Args: { p_submission_id: string }
-        Returns: undefined
+        Returns: Json
       }
       get_agency_dates_now: {
         Args: { p_agency_id: string }
@@ -2426,20 +2487,18 @@ export type Database = {
         Returns: {
           cross_sells_uncovered: number
           daily_score: number
+          date: string
           hits: number
-          is_late: boolean
+          kpi_version_id: string
+          label_at_submit: string
           mini_reviews: number
           outbound_calls: number
           pass: boolean
           quoted_count: number
-          rep_name: string
           sold_items: number
-          sold_policies: number
-          sold_premium_cents: number
-          status: string
           talk_minutes: number
           team_member_id: string
-          work_date: string
+          team_member_name: string
         }[]
       }
       get_sticky_fields_for_section: {
