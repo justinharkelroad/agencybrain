@@ -116,14 +116,19 @@ serve(async (req) => {
       .from('profiles')
       .update({
         agency_id: agency.id,
-        coaching_mrr: coachingMrr || null,
+        mrr: coachingMrr || null,
       })
       .eq('id', newUser.user.id);
 
     if (profileError) {
       console.error('Profile update error:', profileError);
-      // Note: We don't roll back here as the user and agency are created
-      // The profile will just be missing agency_id and MRR
+      // Clean up user and agency since profile link is critical
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      await supabaseAdmin.from('agencies').delete().eq('id', agency.id);
+      return new Response(
+        JSON.stringify({ error: 'Failed to update profile: ' + profileError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Client created successfully:', {
