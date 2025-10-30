@@ -8,6 +8,7 @@ import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { enableMetrics } from "@/lib/featureFlags";
 
 export type TopNavProps = {
   title?: string;
@@ -48,9 +49,11 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
             <Link to="/process-vault" aria-label="Go to Process Vault">
               <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
             </Link>
-            <Link to="/metrics" aria-label="Go to Metrics">
-              <Button variant="glass" size="sm" className="rounded-full">Metrics</Button>
-            </Link>
+            {enableMetrics && (
+              <Link to="/metrics" aria-label="Go to Metrics">
+                <Button variant="glass" size="sm" className="rounded-full">Metrics</Button>
+              </Link>
+            )}
             <Link to="/settings" aria-label="Go to Settings">
               <Button variant="glass" size="sm" className="rounded-full">Settings</Button>
             </Link>
@@ -100,9 +103,11 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               <Link to="/process-vault" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
               </Link>
-              <Link to="/metrics" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Metrics</Button>
-              </Link>
+              {enableMetrics && (
+                <Link to="/metrics" onClick={() => setOpen(false)}>
+                  <Button variant="secondary" className="w-full justify-start">Metrics</Button>
+                </Link>
+              )}
               <Link to="/settings" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Settings</Button>
               </Link>

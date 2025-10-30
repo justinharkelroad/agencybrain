@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
+import { enableMetrics } from "@/lib/featureFlags";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
 import ProspectSettings from "./pages/ProspectSettings";
@@ -108,25 +109,29 @@ const App = () => (
               </ProtectedRoute>
             } />
             {/* Metrics Routes */}
-            <Route path="/metrics" element={
-              <ProtectedRoute>
-                <ScorecardForms />
-              </ProtectedRoute>
-            } />
-            <Route path="/scorecard-forms" element={<Navigate to="/metrics" replace />} />
-            <Route path="/metrics/builder" element={
-              <ProtectedRoute>
-                <ScorecardFormBuilder />
-              </ProtectedRoute>
-            } />
-            <Route path="/metrics/edit/:formId" element={
-              <ProtectedRoute>
-                <ScorecardFormEditor />
-              </ProtectedRoute>
-            } />
-            {/* Legacy scorecard-forms routes redirect to metrics */}
-            <Route path="/scorecard-forms/builder" element={<Navigate to="/metrics/builder" replace />} />
-            <Route path="/scorecard-forms/edit/:formId" element={<MetricsEditRedirect />} />
+            {enableMetrics && (
+              <>
+                <Route path="/metrics" element={
+                  <ProtectedRoute>
+                    <ScorecardForms />
+                  </ProtectedRoute>
+                } />
+                <Route path="/scorecard-forms" element={<Navigate to="/metrics" replace />} />
+                <Route path="/metrics/builder" element={
+                  <ProtectedRoute>
+                    <ScorecardFormBuilder />
+                  </ProtectedRoute>
+                } />
+                <Route path="/metrics/edit/:formId" element={
+                  <ProtectedRoute>
+                    <ScorecardFormEditor />
+                  </ProtectedRoute>
+                } />
+                {/* Legacy scorecard-forms routes redirect to metrics */}
+                <Route path="/scorecard-forms/builder" element={<Navigate to="/metrics/builder" replace />} />
+                <Route path="/scorecard-forms/edit/:formId" element={<MetricsEditRedirect />} />
+              </>
+            )}
             {/* Public form submission - no auth required */}
             <Route path="/f/:agencySlug/:formSlug" element={<PublicFormRoute />} />
             {/* Phase 2: Targets and Scorecard Settings */}

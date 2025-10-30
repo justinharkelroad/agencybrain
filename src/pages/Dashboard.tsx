@@ -13,6 +13,7 @@ import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { TopNav } from "@/components/TopNav";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
+import { enableMetrics } from "@/lib/featureFlags";
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -87,19 +88,21 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </section>
-          <section>
-            <Card className="glass-surface elevate rounded-2xl">
-              <CardHeader>
-                <CardTitle>Metrics Dashboard</CardTitle>
-                <CardDescription>View team performance and analytics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="gradient-glow" className="w-full" asChild>
-                  <Link to="/metrics">View Metrics Dashboard</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </section>
+          {enableMetrics && (
+            <section>
+              <Card className="glass-surface elevate rounded-2xl">
+                <CardHeader>
+                  <CardTitle>Metrics Dashboard</CardTitle>
+                  <CardDescription>View team performance and analytics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="gradient-glow" className="w-full" asChild>
+                    <Link to="/metrics">View Metrics Dashboard</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </section>
+          )}
         </div>
         <SharedInsights />
         <ReportingPeriods />
