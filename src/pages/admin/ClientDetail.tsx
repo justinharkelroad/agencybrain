@@ -957,44 +957,47 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
         </div>
       </div>
 
-      {/* Coaching MRR */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <DollarSign className="h-5 w-5 mr-2" />
-            Coaching MRR
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-3 max-w-md">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="coaching-mrr">Monthly Recurring Revenue</Label>
-              <Input
-                id="coaching-mrr"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                placeholder="0.00"
-                value={mrrInput}
-                onChange={(e) => setMrrInput(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
-            </div>
-            <Button variant="gradient-glow" onClick={handleSaveMRR} disabled={savingMRR}>
-              {savingMRR ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="periods" className="space-y-6">
         <TabsList>
           <TabsTrigger value="periods">Periods</TabsTrigger>
           <TabsTrigger value="uploads">Files</TabsTrigger>
           <TabsTrigger value="process-vault">Process Vault</TabsTrigger>
+          <TabsTrigger value="coaching">Coaching</TabsTrigger>
           <TabsTrigger value="analyze">Analyze</TabsTrigger>
           <TabsTrigger value="analyses">Results</TabsTrigger>
         </TabsList>
+
+        {/* Coaching Tab */}
+        <TabsContent value="coaching">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <DollarSign className="h-5 w-5 mr-2" />
+                Coaching MRR
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-3 max-w-md">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="coaching-mrr">Monthly Recurring Revenue</Label>
+                  <Input
+                    id="coaching-mrr"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={mrrInput}
+                    onChange={(e) => setMrrInput(e.target.value)}
+                  />
+                  <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
+                </div>
+                <Button variant="gradient-glow" onClick={handleSaveMRR} disabled={savingMRR}>
+                  {savingMRR ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Periods Tab */}
         <TabsContent value="periods">
