@@ -217,10 +217,8 @@ export default function Submit() {
   }, [user?.id, currentPeriod?.id]);
 
   const fetchCurrentPeriod = useCallback(async () => {
-    // Guard against concurrent calls
-    if (loading) return;
-    
     try {
+      setLoading(true);
       console.log('Fetching current period for user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
       
       // If mode is 'update' and we have a specific period ID, load that period
@@ -371,7 +369,7 @@ export default function Submit() {
       });
       setLoading(false);
     }
-  }, [user?.id, mode, periodIdParam, loading, toast, applySelectiveDataPersistence]);
+  }, [user?.id, mode, periodIdParam, applySelectiveDataPersistence]);
 
   useEffect(() => {
     if (user) {
