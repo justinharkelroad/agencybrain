@@ -432,44 +432,6 @@ export default function Submit() {
     setHasUnsavedChanges(true);
   };
 
-  const updatePeriodDates = async () => {
-    if (!currentPeriod || !startDate || !endDate) return;
-
-    try {
-      const { error } = await supa
-        .from('periods')
-        .update({
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', currentPeriod.id);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update period dates",
-          variant: "destructive",
-        });
-      } else {
-        setCurrentPeriod(prev => ({
-          ...prev,
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-        }));
-        toast({
-          title: "Success",
-          description: "Period dates updated successfully",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while updating dates",
-        variant: "destructive",
-      });
-    }
-  };
 
   const addLeadSource = () => {
     setFormData(prev => ({
@@ -1267,15 +1229,6 @@ export default function Submit() {
                   </PopoverContent>
                 </Popover>
               </div>
-              
-              <Button 
-                variant="glass"
-                onClick={updatePeriodDates} 
-                disabled={!startDate || !endDate}
-                className="mt-6 rounded-full"
-              >
-                Update Dates
-              </Button>
             </div>
           </div>
           <div className="flex gap-2">
