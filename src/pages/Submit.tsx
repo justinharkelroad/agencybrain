@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { supa } from '@/lib/supa';
@@ -159,58 +159,8 @@ export default function Submit() {
     }
   });
 
-  useEffect(() => {
-    if (user) {
-      console.log('useEffect triggered - user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
-      fetchCurrentPeriod();
-    }
-  }, [user, mode, periodIdParam]); // Added missing dependencies
-
-  // Handle browser navigation warning
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        event.preventDefault();
-        event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return event.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
-
-  // Block navigation if there are unsaved changes
-  useEffect(() => {
-    const handleNavigation = (e: PopStateEvent) => {
-      if (hasUnsavedChanges) {
-        const confirmLeave = window.confirm(
-          "You have unsaved changes. Are you sure you want to leave this page?"
-        );
-        if (!confirmLeave) {
-          e.preventDefault();
-          window.history.pushState(null, "", window.location.href);
-        }
-      }
-    };
-
-    if (hasUnsavedChanges) {
-      window.history.pushState(null, "", window.location.href);
-      window.addEventListener('popstate', handleNavigation);
-    }
-
-    return () => {
-      window.removeEventListener('popstate', handleNavigation);
-    };
-  }, [hasUnsavedChanges]);
-
-  // Calculate total lead source spend
-  const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
-  // Compute new revenue/commission totals (computed only, not stored)
-  const { totalRevenueFromLeadSources, totalEstimatedCommission } = computeTotals(formData.marketing.leadSources as any);
-
   // Apply selective data persistence from previous period
-  const applySelectiveDataPersistence = async () => {
+  const applySelectiveDataPersistence = useCallback(async () => {
     try {
       console.log('Applying selective data persistence...');
       
@@ -264,9 +214,12 @@ export default function Submit() {
     }
     
     return initialFormData;
-  };
+  }, [user?.id, currentPeriod?.id]);
 
-  const fetchCurrentPeriod = async () => {
+  const fetchCurrentPeriod = useCallback(async () => {
+    // Guard against concurrent calls
+    if (loading) return;
+    
     try {
       console.log('Fetching current period for user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
       
@@ -418,7 +371,58 @@ export default function Submit() {
       });
       setLoading(false);
     }
-  };
+  }, [user?.id, mode, periodIdParam, loading, toast, applySelectiveDataPersistence]);
+
+  useEffect(() => {
+    if (user) {
+      console.log('useEffect triggered - user:', user?.id, 'mode:', mode, 'periodId:', periodIdParam);
+      fetchCurrentPeriod();
+    }
+  }, [user, fetchCurrentPeriod]);
+
+  // Handle browser navigation warning
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return event.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Block navigation if there are unsaved changes
+  useEffect(() => {
+    const handleNavigation = (e: PopStateEvent) => {
+      if (hasUnsavedChanges) {
+        const confirmLeave = window.confirm(
+          "You have unsaved changes. Are you sure you want to leave this page?"
+        );
+        if (!confirmLeave) {
+          e.preventDefault();
+          window.history.pushState(null, "", window.location.href);
+        }
+      }
+    };
+
+    if (hasUnsavedChanges) {
+      window.history.pushState(null, "", window.location.href);
+      window.addEventListener('popstate', handleNavigation);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handleNavigation);
+    };
+  }, [hasUnsavedChanges]);
+
+  // Calculate total lead source spend
+  const totalLeadSourceSpend = formData.marketing.leadSources.reduce((total, source) => total + (source.spend || 0), 0);
+  // Compute new revenue/commission totals (computed only, not stored)
+  const { totalRevenueFromLeadSources, totalEstimatedCommission } = computeTotals(formData.marketing.leadSources as any);
+
 
 
   const updateFormData = (section: keyof FormData, field: string, value: any) => {
