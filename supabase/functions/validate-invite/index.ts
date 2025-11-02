@@ -14,35 +14,29 @@ serve(async (req) => {
   }
 
   try {
-    const { token } = await req.json();
+    const { code } = await req.json();
     
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
+    console.log('[validate-invite] Validating access code:', code ? '***' : 'missing');
 
-    // Validate the invitation token
-    const { data, error } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', token)
-      .gt('expires_at', new Date().toISOString())
-      .single();
-
-    if (error || !data) {
+    // Hardcoded access code validation
+    const VALID_ACCESS_CODE = '3148178';
+    
+    if (code === VALID_ACCESS_CODE) {
+      console.log('[validate-invite] Access code valid');
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired invitation' }),
+        JSON.stringify({ valid: true }),
         { 
-          status: 400, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
+    console.log('[validate-invite] Access code invalid');
     return new Response(
-      JSON.stringify({ valid: true, invitation: data }),
+      JSON.stringify({ error: 'Invalid access code' }),
       { 
-        status: 200, 
+        status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
