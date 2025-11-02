@@ -63,47 +63,37 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
-          {agencyName && (
-            <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
-              <span>{`${agencyName}${/[sS]$/.test(agencyName.trim()) ? "'" : "'s"}`}</span>
-              <span role="img" aria-label="brain">🧠</span>
-            </h2>
-          )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
+            {agencyName && (
+              <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
+                <span>{`${agencyName}${/[sS]$/.test(agencyName.trim()) ? "'" : "'s"}`}</span>
+                <span role="img" aria-label="brain">🧠</span>
+              </h2>
+            )}
+          </div>
+          <Button variant="gradient-glow" asChild>
+            <Link to="/submit?mode=new">Submit New 1:1 Coaching Call Form</Link>
+          </Button>
         </div>
         <PerformanceMetrics />
         <MonthOverMonthTrends />
-        <div className="grid gap-6 md:grid-cols-2">
+        {enableMetrics && (
           <section>
             <Card className="glass-surface elevate rounded-2xl">
               <CardHeader>
-                <CardTitle>Submit New Data for Coaching Call</CardTitle>
-                <CardDescription>Start a new submission</CardDescription>
+                <CardTitle>Metrics Dashboard</CardTitle>
+                <CardDescription>View team performance and analytics</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button variant="gradient-glow" className="w-full" asChild>
-                  <Link to="/submit?mode=new">Submit New Data for Coaching Call</Link>
+                  <Link to="/metrics">View Metrics Dashboard</Link>
                 </Button>
               </CardContent>
             </Card>
           </section>
-          {enableMetrics && (
-            <section>
-              <Card className="glass-surface elevate rounded-2xl">
-                <CardHeader>
-                  <CardTitle>Metrics Dashboard</CardTitle>
-                  <CardDescription>View team performance and analytics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="gradient-glow" className="w-full" asChild>
-                    <Link to="/metrics">View Metrics Dashboard</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </section>
-          )}
-        </div>
+        )}
         <SharedInsights />
         <ReportingPeriods />
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">

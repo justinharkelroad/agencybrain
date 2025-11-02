@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
+import { supa } from '@/lib/supa';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -106,6 +107,17 @@ const validateSubmitForm = (data: FormData): UniversalValidationResult => {
   };
 };
 
+// Helper function to get previous full month dates
+const getPreviousMonthDates = () => {
+  const today = new Date();
+  const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastDayOfPreviousMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+  return {
+    startDate: previousMonth,
+    endDate: lastDayOfPreviousMonth
+  };
+};
+
 export default function Submit() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -118,11 +130,17 @@ export default function Submit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentPeriod, setCurrentPeriod] = useState<any>(null);
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
+  
+  // Initialize dates with previous month
+  const previousMonthDates = useMemo(() => getPreviousMonthDates(), []);
+  const [startDate, setStartDate] = useState<Date>(previousMonthDates.startDate);
+  const [endDate, setEndDate] = useState<Date>(previousMonthDates.endDate);
+  
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showDataProtection, setShowDataProtection] = useState(false);
+  const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
+  const [incompleteSections, setIncompleteSections] = useState<string[]>([]);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -506,18 +524,42 @@ export default function Submit() {
     calculateNetProfit();
   }, [formData.cashFlow.compensation, formData.cashFlow.expenses]);
 
-  const saveForm = async () => {
+  // Check which sections are incomplete
+  const checkIncompleteSections = () => {
+    const incomplete: string[] = [];
+    
+    if (!formData.sales.premium && !formData.sales.policies) {
+      incomplete.push('Sales');
+    }
+    if (!formData.marketing.totalSpend && formData.marketing.leadSources.length === 0) {
+      incomplete.push('Marketing');
+    }
+    if (!formData.operations.currentAlrTotal && formData.operations.teamRoster.length === 0) {
+      incomplete.push('Bonus/Ops');
+    }
+    if (!formData.retention.numberTerminated && !formData.retention.currentRetentionPercent) {
+      incomplete.push('Retention');
+    }
+    if (!formData.cashFlow.compensation && !formData.cashFlow.expenses) {
+      incomplete.push('Cash Flow');
+    }
+    if (!formData.qualitative.biggestStress && !formData.qualitative.gutAction) {
+      incomplete.push('Current Reality');
+    }
+    
+    return incomplete;
+  };
+
+  // Save progress without validation - just saves and stays on form
+  const saveProgress = async () => {
     setSaving(true);
 
     // Create period if it doesn't exist
     let periodToUse = currentPeriod;
     if (!periodToUse) {
       try {
-        const startDateForPeriod = new Date();
-        startDateForPeriod.setDate(1); // Start of current month
-        const endDateForPeriod = new Date(startDateForPeriod);
-        endDateForPeriod.setMonth(endDateForPeriod.getMonth() + 1);
-        endDateForPeriod.setDate(0); // Last day of start month
+        const startDateForPeriod = startDate || new Date();
+        const endDateForPeriod = endDate || new Date();
 
         const { data: newPeriod, error: createError } = await supa
           .from('periods')
@@ -545,8 +587,90 @@ export default function Submit() {
 
         periodToUse = newPeriod;
         setCurrentPeriod(newPeriod);
-        setStartDate(startDateForPeriod);
-        setEndDate(endDateForPeriod);
+      } catch (error) {
+        console.error('Error creating period:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create period. Please try again.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+    }
+
+    // Use universal data protection for saving
+    const additionalFields = {
+      id: periodToUse.id,
+      title: periodToUse.title || `Period ${new Date().toLocaleDateString()}`,
+      start_date: startDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+      end_date: endDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+      status: 'draft'
+    };
+
+    const success = await dataProtection.saveWithProtection(additionalFields);
+    
+    if (success) {
+      setHasUnsavedChanges(false);
+      toast({
+        title: "Progress Saved",
+        description: "Your form progress has been saved successfully.",
+      });
+    }
+
+    setSaving(false);
+  };
+
+  // Submit completed form with validation
+  const submitCompletedForm = async () => {
+    const incomplete = checkIncompleteSections();
+    
+    if (incomplete.length > 0) {
+      setIncompleteSections(incomplete);
+      setShowIncompleteWarning(true);
+      return;
+    }
+    
+    // If complete, proceed with save and navigation
+    await saveForm();
+  };
+
+  const saveForm = async () => {
+    setSaving(true);
+
+    // Create period if it doesn't exist
+    let periodToUse = currentPeriod;
+    if (!periodToUse) {
+      try {
+        const startDateForPeriod = startDate || new Date();
+        const endDateForPeriod = endDate || new Date();
+
+        const { data: newPeriod, error: createError } = await supa
+          .from('periods')
+          .insert({
+            user_id: user?.id,
+            title: `Period ${endDateForPeriod.toLocaleDateString()}`,
+            start_date: startDateForPeriod.toISOString().split('T')[0],
+            end_date: endDateForPeriod.toISOString().split('T')[0],
+            status: 'draft',
+            form_data: null
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating period:', createError);
+          toast({
+            title: "Error",
+            description: "Failed to create period. Please try again.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+
+        periodToUse = newPeriod;
+        setCurrentPeriod(newPeriod);
       } catch (error) {
         console.error('Error creating period:', error);
         toast({
@@ -1154,18 +1278,21 @@ export default function Submit() {
               </Button>
             </div>
           </div>
-          <div>
+          <div className="flex gap-2">
             <Button 
               variant="glass" 
               size="sm" 
               onClick={() => setShowDataProtection(!showDataProtection)}
-              className="rounded-full mr-2"
+              className="rounded-full"
             >
               <Shield className="w-4 h-4 mr-2" />
               Data Protection
             </Button>
-            <Button variant="gradient-glow" className="rounded-full" onClick={saveForm} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Form'}
+            <Button variant="outline" className="rounded-full" onClick={saveProgress} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Progress'}
+            </Button>
+            <Button variant="gradient-glow" className="rounded-full" onClick={submitCompletedForm} disabled={saving}>
+              {saving ? 'Saving...' : 'Submit Completed Form'}
             </Button>
           </div>
         </div>
@@ -1269,13 +1396,20 @@ export default function Submit() {
 
       {/* Sticky Save Bar (mobile) */}
       <div className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
-        <div className="container mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            {hasUnsavedChanges ? "You have unsaved changes" : "All changes saved"}
-          </span>
-          <Button variant="gradient-glow" onClick={saveForm} disabled={saving} className="rounded-full">
-            {saving ? "Saving..." : "Save"}
-          </Button>
+        <div className="container mx-auto max-w-4xl px-4 py-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-xs text-muted-foreground">
+              {hasUnsavedChanges ? "You have unsaved changes" : "All changes saved"}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={saveProgress} disabled={saving} className="rounded-full flex-1" size="sm">
+              {saving ? "Saving..." : "Save Progress"}
+            </Button>
+            <Button variant="gradient-glow" onClick={submitCompletedForm} disabled={saving} className="rounded-full flex-1" size="sm">
+              {saving ? "Saving..." : "Submit"}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1301,6 +1435,40 @@ export default function Submit() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Incomplete Form Warning Dialog */}
+      <AlertDialog open={showIncompleteWarning} onOpenChange={setShowIncompleteWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Incomplete Form</AlertDialogTitle>
+            <AlertDialogDescription>
+              The following sections are missing data:
+              <ul className="mt-3 space-y-1">
+                {incompleteSections.map((section) => (
+                  <li key={section} className="text-destructive font-semibold">
+                    • {section}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3">Would you like to go back and complete these sections, or submit anyway?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowIncompleteWarning(false)}>
+              Go Back & Complete
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={async () => {
+                setShowIncompleteWarning(false);
+                await saveForm();
+              }}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Submit Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
