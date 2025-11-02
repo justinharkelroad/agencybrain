@@ -150,12 +150,19 @@ export class UniversalDataProtectionService {
         ...additionalFields
       };
 
-      const { error } = await supabase
-        .from(tableName as any) // Type assertion for dynamic table names
-        .upsert(payload, { onConflict: 'user_id' });
+      // If we have an ID in additionalFields, update the existing record
+      // Otherwise, this is a logic error since we should always have an ID
+      if (additionalFields.id) {
+        const { error } = await supabase
+          .from(tableName as any)
+          .update(payload)
+          .eq('id', additionalFields.id);
 
-      if (error) {
-        return { success: false, error: error.message };
+        if (error) {
+          return { success: false, error: error.message };
+        }
+      } else {
+        return { success: false, error: 'No record ID provided for update' };
       }
 
       return { success: true };
@@ -223,6 +230,9 @@ export class UniversalDataProtection<T = any> {
         // Add compression logic here if needed
       }
 
+      // Note: This class method assumes a unique user_id constraint exists
+      // For tables like 'periods' that allow multiple records per user,
+      // use the static saveToDatabase method instead with an explicit ID
       const { error } = await supabase
         .from(this.settings.tableName as any) // Type assertion for dynamic table names
         .upsert(payload, {
