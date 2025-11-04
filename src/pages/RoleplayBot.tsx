@@ -219,10 +219,7 @@ const RoleplayBot = () => {
             </div>
           </div>
         </Card>
-        </div>
 
-        {/* Right Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
           {/* Example Flow */}
           <Card className="p-6">
             <h2 className="text-xl font-semibold text-foreground mb-4">Example Flow To Begin</h2>
@@ -262,6 +259,10 @@ const RoleplayBot = () => {
               </div>
             </div>
           </Card>
+        </div>
+
+        {/* Right Sidebar - Transcript Only */}
+        <div className="lg:col-span-1">{" "}
 
           {/* Transcript */}
           {messages.length > 0 && (
