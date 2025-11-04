@@ -17,6 +17,78 @@ interface Message {
   timestamp: Date;
 }
 
+interface GradingSectionProps {
+  section: { key: string; title: string };
+  data: {
+    summary: string;
+    strengths?: string[];
+    improvements?: string[];
+    lowest_option_presented?: boolean;
+  };
+}
+
+const GradingSection = ({ section, data }: GradingSectionProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible key={section.key} open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+          <h4 className="font-semibold text-foreground">{section.title}</h4>
+          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-3 space-y-3">
+        {/* Summary */}
+        <p className="text-sm text-muted-foreground">{data.summary}</p>
+
+        {/* Strengths */}
+        {data.strengths?.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Strengths
+            </h5>
+            <ul className="space-y-1">
+              {data.strengths.map((strength: string, idx: number) => (
+                <li key={idx} className="text-sm text-foreground pl-6 relative">
+                  <span className="absolute left-0 top-1 text-green-600 dark:text-green-400">•</span>
+                  {strength}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Improvements */}
+        {data.improvements?.length > 0 && (
+          <div className="space-y-2">
+            <h5 className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Improvements
+            </h5>
+            <ul className="space-y-1">
+              {data.improvements.map((improvement: string, idx: number) => (
+                <li key={idx} className="text-sm text-foreground pl-6 relative">
+                  <span className="absolute left-0 top-1 text-amber-600 dark:text-amber-400">•</span>
+                  {improvement}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Special Lever Pulls indicator */}
+        {section.key === 'lever_pulls' && data.lowest_option_presented !== undefined && (
+          <Badge variant={data.lowest_option_presented ? "default" : "destructive"} className="mt-2">
+            Lowest State-Minimum Option: {data.lowest_option_presented ? 'Presented' : 'Not Presented'}
+          </Badge>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
+
 const RoleplayBot = () => {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -469,68 +541,13 @@ const RoleplayBot = () => {
                   { key: 'coverage_conversation', title: 'Coverage Conversation' },
                   { key: 'wrap_up', title: 'Wrap Up' },
                   { key: 'lever_pulls', title: 'Lever Pulls' }
-                ].map((section) => {
-                  const data = gradingReport[section.key];
-                  const [isOpen, setIsOpen] = useState(false);
-
-                  return (
-                    <Collapsible key={section.key} open={isOpen} onOpenChange={setIsOpen}>
-                      <CollapsibleTrigger className="w-full">
-                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                          <h4 className="font-semibold text-foreground">{section.title}</h4>
-                          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-3 space-y-3">
-                        {/* Summary */}
-                        <p className="text-sm text-muted-foreground">{data.summary}</p>
-
-                        {/* Strengths */}
-                        {data.strengths?.length > 0 && (
-                          <div className="space-y-2">
-                            <h5 className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Strengths
-                            </h5>
-                            <ul className="space-y-1">
-                              {data.strengths.map((strength: string, idx: number) => (
-                                <li key={idx} className="text-sm text-foreground pl-6 relative">
-                                  <span className="absolute left-0 top-1 text-green-600 dark:text-green-400">•</span>
-                                  {strength}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Improvements */}
-                        {data.improvements?.length > 0 && (
-                          <div className="space-y-2">
-                            <h5 className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4" />
-                              Improvements
-                            </h5>
-                            <ul className="space-y-1">
-                              {data.improvements.map((improvement: string, idx: number) => (
-                                <li key={idx} className="text-sm text-foreground pl-6 relative">
-                                  <span className="absolute left-0 top-1 text-amber-600 dark:text-amber-400">•</span>
-                                  {improvement}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Special Lever Pulls indicator */}
-                        {section.key === 'lever_pulls' && data.lowest_option_presented !== undefined && (
-                          <Badge variant={data.lowest_option_presented ? "default" : "destructive"} className="mt-2">
-                            Lowest State-Minimum Option: {data.lowest_option_presented ? 'Presented' : 'Not Presented'}
-                          </Badge>
-                        )}
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
+                ].map((section) => (
+                  <GradingSection
+                    key={section.key}
+                    section={section}
+                    data={gradingReport[section.key]}
+                  />
+                ))}
 
                 {/* Export PDF Button */}
                 <Button
