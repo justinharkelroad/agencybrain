@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useConversation } from '@11labs/react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,11 +6,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Mic, MicOff, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
 
 const RoleplayBot = () => {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const { toast } = useToast();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -37,8 +46,25 @@ const RoleplayBot = () => {
     },
     onMessage: (message) => {
       console.log('Message:', message);
+      
+      // Add message to transcript
+      if (message.message && typeof message.message === 'string') {
+        const role = message.source === 'ai' ? 'assistant' : 'user';
+        setMessages(prev => [...prev, {
+          role,
+          content: message.message,
+          timestamp: new Date()
+        }]);
+      }
     },
   });
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   useEffect(() => {
     // Fetch signed URL on component mount
@@ -78,6 +104,9 @@ const RoleplayBot = () => {
 
     setIsLoading(true);
     try {
+      // Clear previous messages
+      setMessages([]);
+      
       // Request microphone access
       await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -200,6 +229,37 @@ const RoleplayBot = () => {
               and the AI will respond as a prospect.
             </AlertDescription>
           </Alert>
+
+          {/* Transcript */}
+          {messages.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Conversation Transcript</h2>
+              <ScrollArea className="h-[400px] pr-4">
+                <div ref={scrollRef} className="space-y-3">
+                  {messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg ${
+                        msg.role === 'assistant'
+                          ? 'bg-primary/10 text-foreground'
+                          : 'bg-muted text-foreground'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <span className="text-xs font-medium">
+                          {msg.role === 'assistant' ? 'AI Trainer' : 'You'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {msg.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </Card>
+          )}
         </div>
 
         {/* Example Flow - Right Side */}
