@@ -408,6 +408,28 @@ const RoleplayBot = () => {
         <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
       </div>
 
+      {/* Staff Link Generation - Always visible */}
+      <Card className="max-w-7xl mx-auto p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-foreground">Staff Access</h3>
+            <p className="text-sm text-muted-foreground">
+              Generate a secure link to share with your staff members for roleplay practice.
+            </p>
+          </div>
+          <Button
+            onClick={handleGenerateLink}
+            disabled={isGeneratingLink}
+            variant="outline"
+            size="lg"
+            className="gap-2 md:min-w-[200px]"
+          >
+            <Share2 className="h-4 w-4" />
+            {isGeneratingLink ? 'Generating...' : 'Generate Staff Link'}
+          </Button>
+        </div>
+      </Card>
+
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - Left Side */}
         <div className="lg:col-span-2 space-y-6">
@@ -557,27 +579,14 @@ const RoleplayBot = () => {
 
           {/* Grade Button */}
           {messages.length > 0 && !isConnected && (
-            <div className="space-y-2">
-              <Button
-                onClick={handleGrade}
-                disabled={isGrading || hasBeenGraded}
-                className="w-full"
-                size="lg"
-              >
-                {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
-              </Button>
-              
-              <Button
-                onClick={handleGenerateLink}
-                disabled={isGeneratingLink}
-                variant="outline"
-                className="w-full"
-                size="lg"
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                {isGeneratingLink ? 'Generating...' : 'Generate Staff Link'}
-              </Button>
-            </div>
+            <Button
+              onClick={handleGrade}
+              disabled={isGrading || hasBeenGraded}
+              className="w-full"
+              size="lg"
+            >
+              {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
+            </Button>
           )}
 
           {/* Grading Results */}
