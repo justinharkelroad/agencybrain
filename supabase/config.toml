@@ -67,4 +67,4 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.roleplay-config]
-verify_jwt = true
+verify_jwt = false
