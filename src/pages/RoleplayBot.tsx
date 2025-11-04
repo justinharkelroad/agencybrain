@@ -153,9 +153,23 @@ const RoleplayBot = () => {
       });
     } catch (error: any) {
       console.error('Grading error:', error);
+      
+      let errorMessage = "Failed to grade the conversation. Please try again.";
+      
+      // Parse specific error messages from the response
+      if (error?.message) {
+        if (error.message.includes('Rate limit exceeded') || error.message.includes('429')) {
+          errorMessage = "Rate limit exceeded. Please wait and try again.";
+        } else if (error.message.includes('AI credits exhausted') || error.message.includes('402')) {
+          errorMessage = "AI credits exhausted. Please add credits to your workspace.";
+        } else if (error.message.includes('unauthorized') || error.message.includes('not configured') || error.message.includes('401')) {
+          errorMessage = "AI is not configured yet. Please try again shortly.";
+        }
+      }
+      
       toast({
         title: "Grading Failed",
-        description: error.message || "Failed to grade the conversation.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -22,6 +20,16 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Messages array is required and must not be empty' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check for API key
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -151,6 +159,13 @@ Use the grade_sales_call tool to provide your structured analysis.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Lovable AI API error:', response.status, errorText);
+      
+      if (response.status === 401) {
+        return new Response(
+          JSON.stringify({ error: 'Lovable AI unauthorized: missing or invalid API key' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       
       if (response.status === 429) {
         return new Response(
