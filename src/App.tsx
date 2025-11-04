@@ -49,6 +49,7 @@ import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
 import TestBackfill from "./pages/TestBackfill";
+import RoleplayBot from "./pages/RoleplayBot";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -249,6 +250,11 @@ const App = () => (
             <Route path="/test-backfill" element={
               <ProtectedRoute requireAdmin>
                 <TestBackfill />
+              </ProtectedRoute>
+            } />
+            <Route path="/roleplaybot" element={
+              <ProtectedRoute>
+                <RoleplayBot />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
