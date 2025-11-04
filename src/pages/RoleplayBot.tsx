@@ -154,7 +154,7 @@ const RoleplayBot = () => {
           <Card className="p-8">
           <div className="space-y-6">
             {/* Avatar Container - ElevenLabs widget will render here */}
-            <div className="flex justify-center items-center min-h-[400px] bg-muted/30 rounded-lg">
+            <div className="flex justify-center items-center min-h-[250px] bg-muted/30 rounded-lg">
               {isConnected ? (
                 <div className="flex flex-col items-center gap-4">
                   {conversation.isSpeaking ? (
@@ -219,52 +219,12 @@ const RoleplayBot = () => {
             </div>
           </div>
         </Card>
-
-          {/* Instructions */}
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>How it works:</strong> Click "Start Session" and allow microphone access. 
-              The AI will greet you and you can start your roleplay practice. Speak naturally 
-              and the AI will respond as a prospect.
-            </AlertDescription>
-          </Alert>
-
-          {/* Transcript */}
-          {messages.length > 0 && (
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Conversation Transcript</h2>
-              <ScrollArea className="h-[400px] pr-4">
-                <div ref={scrollRef} className="space-y-3">
-                  {messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg ${
-                        msg.role === 'assistant'
-                          ? 'bg-primary/10 text-foreground'
-                          : 'bg-muted text-foreground'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-1">
-                        <span className="text-xs font-medium">
-                          {msg.role === 'assistant' ? 'AI Trainer' : 'You'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {msg.timestamp.toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-sm">{msg.content}</p>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </Card>
-          )}
         </div>
 
-        {/* Example Flow - Right Side */}
-        <div className="lg:col-span-1">
-          <Card className="p-6 sticky top-6">
+        {/* Right Sidebar */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Example Flow */}
+          <Card className="p-6">
             <h2 className="text-xl font-semibold text-foreground mb-4">Example Flow To Begin</h2>
             <div className="space-y-4 text-sm">
               <div>
@@ -302,6 +262,37 @@ const RoleplayBot = () => {
               </div>
             </div>
           </Card>
+
+          {/* Transcript */}
+          {messages.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Conversation Transcript</h2>
+              <ScrollArea className="h-[500px] pr-4">
+                <div ref={scrollRef} className="space-y-3">
+                  {messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg ${
+                        msg.role === 'assistant'
+                          ? 'bg-primary/10 text-foreground'
+                          : 'bg-muted text-foreground'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <span className="text-xs font-medium">
+                          {msg.role === 'assistant' ? 'AI Trainer' : 'You'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {msg.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-sm">{msg.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </Card>
+          )}
         </div>
       </div>
     </div>
