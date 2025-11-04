@@ -3,13 +3,11 @@ import { supaFromReq } from "../_shared/client.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify user is authenticated
     const supabase = supaFromReq(req);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -23,15 +21,10 @@ serve(async (req) => {
       );
     }
 
-    // Get secrets from environment
     const elevenApiKey = Deno.env.get('ELEVEN_API_KEY');
     const elevenAgentId = Deno.env.get('ELEVEN_AGENT_ID');
-    const elevenVoiceId = Deno.env.get('ELEVEN_VOICE_ID');
-    const heygenEmbedToken = Deno.env.get('HEYGEN_EMBED_TOKEN');
-    const heygenAvatarId = Deno.env.get('HEYGEN_AVATAR_ID');
 
-    // Validate all secrets are present
-    if (!elevenApiKey || !elevenAgentId || !elevenVoiceId || !heygenEmbedToken || !heygenAvatarId) {
+    if (!elevenApiKey || !elevenAgentId) {
       console.error('Missing required environment variables');
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
@@ -42,21 +35,33 @@ serve(async (req) => {
       );
     }
 
-    // Return configuration object (secrets proxied through backend)
-    const config = {
-      elevenlabs: {
-        apiKey: elevenApiKey,
-        agentId: elevenAgentId,
-        voiceId: elevenVoiceId,
-      },
-      heygen: {
-        embedToken: heygenEmbedToken,
-        avatarId: heygenAvatarId,
-      },
-    };
+    // Generate signed URL for ElevenLabs Conversational AI
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${elevenAgentId}`,
+      {
+        method: "GET",
+        headers: {
+          "xi-api-key": elevenApiKey,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('ElevenLabs API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate signed URL' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    const data = await response.json();
 
     return new Response(
-      JSON.stringify(config),
+      JSON.stringify({ signedUrl: data.signed_url }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

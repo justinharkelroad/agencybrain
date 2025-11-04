@@ -1,249 +1,206 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useConversation } from '@11labs/react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { ElevenLabsRealtimeService } from '@/services/elevenLabsRealtime';
-import { HeyGenAvatarService } from '@/services/heygenAvatar';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-type Status = 'idle' | 'loading' | 'connected' | 'live' | 'error';
-
-export default function RoleplayBot() {
+const RoleplayBot = () => {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const [status, setStatus] = useState<Status>('idle');
-  const [transcript, setTranscript] = useState<Array<{ role: string; text: string; timestamp: number }>>([]);
-  const avatarContainerRef = useRef<HTMLDivElement>(null);
-  const elevenLabsRef = useRef<ElevenLabsRealtimeService | null>(null);
-  const heygenRef = useRef<HeyGenAvatarService | null>(null);
+
+  const conversation = useConversation({
+    onConnect: () => {
+      console.log('Connected to ElevenLabs');
+      toast({
+        title: "Connected",
+        description: "Roleplay session started. Start speaking!",
+      });
+    },
+    onDisconnect: () => {
+      console.log('Disconnected from ElevenLabs');
+      toast({
+        title: "Disconnected",
+        description: "Roleplay session ended.",
+      });
+    },
+    onError: (error) => {
+      console.error('ElevenLabs error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred with the voice session.",
+        variant: "destructive",
+      });
+    },
+    onMessage: (message) => {
+      console.log('Message:', message);
+    },
+  });
 
   useEffect(() => {
-    return () => {
-      // Cleanup on unmount
-      elevenLabsRef.current?.disconnect();
-      heygenRef.current?.cleanup();
+    // Fetch signed URL on component mount
+    const fetchConfig = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('roleplay-config');
+        
+        if (error) throw error;
+        
+        if (data?.signedUrl) {
+          setSignedUrl(data.signedUrl);
+        } else {
+          throw new Error('No signed URL received');
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch configuration:', error);
+        toast({
+          title: "Configuration Error",
+          description: error.message || "Failed to load roleplay configuration.",
+          variant: "destructive",
+        });
+      }
     };
-  }, []);
+
+    fetchConfig();
+  }, [toast]);
 
   const handleStart = async () => {
+    if (!signedUrl) {
+      toast({
+        title: "Configuration Missing",
+        description: "Please wait for configuration to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      setStatus('loading');
+      // Request microphone access
+      await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Fetch configuration from edge function
-      const { data: config, error } = await supabase.functions.invoke('roleplay-config');
-      
-      if (error || !config) {
-        throw new Error('Failed to load configuration');
-      }
-
-      // Initialize HeyGen avatar
-      if (!avatarContainerRef.current) {
-        throw new Error('Avatar container not found');
-      }
-
-      heygenRef.current = new HeyGenAvatarService(
-        config.heygen.embedToken,
-        config.heygen.avatarId
-      );
-      
-      await heygenRef.current.initialize(avatarContainerRef.current);
-      
-      // Initialize ElevenLabs
-      elevenLabsRef.current = new ElevenLabsRealtimeService({
-        apiKey: config.elevenlabs.apiKey,
-        agentId: config.elevenlabs.agentId,
-        voiceId: config.elevenlabs.voiceId,
-        onAudioChunk: async (audioData: ArrayBuffer) => {
-          // Route audio to HeyGen for lip-sync
-          await heygenRef.current?.setAudioInput(audioData);
-        },
-        onTranscript: (role: string, text: string) => {
-          setTranscript(prev => [...prev, { role, text, timestamp: Date.now() }]);
-        },
-        onStatusChange: (newStatus: string) => {
-          if (newStatus === 'connected') setStatus('connected');
-          if (newStatus === 'live') setStatus('live');
-        },
-        onError: (error: Error) => {
-          console.error('ElevenLabs error:', error);
-          toast({
-            title: 'Connection Error',
-            description: error.message,
-            variant: 'destructive',
-          });
-          setStatus('error');
-        }
-      });
-
-      await elevenLabsRef.current.connect();
-      
-      toast({
-        title: 'Connected',
-        description: 'Roleplay session is now live. Start speaking!',
-      });
-
-    } catch (error) {
+      // Start the conversation with the signed URL
+      await conversation.startSession({ url: signedUrl });
+    } catch (error: any) {
       console.error('Failed to start session:', error);
-      setStatus('error');
       toast({
-        title: 'Failed to Start',
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-        variant: 'destructive',
+        title: "Session Error",
+        description: error.message || "Failed to start roleplay session.",
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStop = async () => {
     try {
-      elevenLabsRef.current?.disconnect();
-      heygenRef.current?.cleanup();
-      
-      setStatus('idle');
-      
+      await conversation.endSession();
+    } catch (error: any) {
+      console.error('Failed to stop session:', error);
       toast({
-        title: 'Session Ended',
-        description: 'Roleplay session has been stopped.',
+        title: "Error",
+        description: "Failed to stop session gracefully.",
+        variant: "destructive",
       });
-    } catch (error) {
-      console.error('Error stopping session:', error);
     }
   };
 
-  const getStatusText = () => {
-    switch (status) {
-      case 'idle': return 'Ready to start';
-      case 'loading': return 'Initializing...';
-      case 'connected': return 'Connected';
-      case 'live': return 'Live - Speak now';
-      case 'error': return 'Error occurred';
-      default: return 'Unknown';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (status) {
-      case 'idle': return 'text-muted-foreground';
-      case 'loading': return 'text-primary animate-pulse';
-      case 'connected': return 'text-primary';
-      case 'live': return 'text-green-500';
-      case 'error': return 'text-destructive';
-      default: return 'text-muted-foreground';
-    }
-  };
+  const isConnected = conversation.status === 'connected';
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Sales Roleplay Trainer</h1>
-            <p className="text-muted-foreground mt-1">
-              Practice your sales skills with an AI prospect
-            </p>
-          </div>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-foreground">Sales Roleplay Trainer</h1>
+          <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
-          {/* Avatar Container */}
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <div
-                ref={avatarContainerRef}
-                className="w-full aspect-video bg-black rounded-lg flex items-center justify-center"
-              >
-                {status === 'idle' && (
-                  <p className="text-white/60">Avatar will appear here</p>
-                )}
-                {status === 'loading' && (
-                  <div className="flex items-center gap-2 text-white">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <p>Loading avatar...</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Control Panel */}
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <span className={`text-sm font-semibold ${getStatusColor()}`}>
-                    {getStatusText()}
-                  </span>
+        {/* Main Card */}
+        <Card className="p-8">
+          <div className="space-y-6">
+            {/* Avatar Container - ElevenLabs widget will render here */}
+            <div className="flex justify-center items-center min-h-[400px] bg-muted/30 rounded-lg">
+              {isConnected ? (
+                <div className="flex flex-col items-center gap-4">
+                  {conversation.isSpeaking ? (
+                    <div className="flex items-center gap-2 text-primary">
+                      <Mic className="h-6 w-6 animate-pulse" />
+                      <span className="text-sm font-medium">AI is speaking...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MicOff className="h-6 w-6" />
+                      <span className="text-sm font-medium">Listening...</span>
+                    </div>
+                  )}
                 </div>
-
-                <div className="space-y-2">
-                  <Button
-                    onClick={handleStart}
-                    disabled={status !== 'idle'}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {status === 'loading' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="h-4 w-4 mr-2" />
-                        Start Session
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={handleStop}
-                    disabled={status === 'idle'}
-                    variant="destructive"
-                    className="w-full"
-                    size="lg"
-                  >
-                    <MicOff className="h-4 w-4 mr-2" />
-                    End Session
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Transcript Display */}
-            {transcript.length > 0 && (
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="text-sm font-semibold mb-3">Transcript</h3>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {transcript.map((entry, idx) => (
-                      <div key={idx} className="text-sm">
-                        <span className="font-medium">
-                          {entry.role === 'user' ? 'You' : 'Prospect'}:
-                        </span>{' '}
-                        <span className="text-muted-foreground">{entry.text}</span>
-                      </div>
-                    ))}
+              ) : (
+                <div className="text-center space-y-2">
+                  <div className="w-32 h-32 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                    <Mic className="h-16 w-16 text-primary/50" />
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                  <p className="text-muted-foreground">Click "Start Session" to begin</p>
+                </div>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="flex justify-center gap-4">
+              {!isConnected ? (
+                <Button
+                  onClick={handleStart}
+                  disabled={isLoading || !signedUrl}
+                  size="lg"
+                  className="gap-2"
+                >
+                  <Mic className="h-5 w-5" />
+                  {isLoading ? 'Starting...' : 'Start Session'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleStop}
+                  variant="destructive"
+                  size="lg"
+                  className="gap-2"
+                >
+                  <MicOff className="h-5 w-5" />
+                  End Session
+                </Button>
+              )}
+            </div>
+
+            {/* Status */}
+            <div className="text-center">
+              <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                isConnected 
+                  ? 'bg-green-500/10 text-green-700 dark:text-green-400' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  isConnected ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'
+                }`} />
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
           </div>
-        </div>
+        </Card>
 
         {/* Instructions */}
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-semibold mb-2">How to use:</h3>
-            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Click "Start Session" to initialize the AI prospect and avatar</li>
-              <li>Allow microphone access when prompted</li>
-              <li>Begin the conversation with: "Ring ring, let's do a quote in [STATE]"</li>
-              <li>Practice your sales pitch with the AI prospect</li>
-              <li>Click "End Session" when finished</li>
-            </ol>
-          </CardContent>
-        </Card>
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>How it works:</strong> Click "Start Session" and allow microphone access. 
+            The AI will greet you and you can start your roleplay practice. Speak naturally 
+            and the AI will respond as a prospect.
+          </AlertDescription>
+        </Alert>
       </div>
     </div>
   );
-}
+};
+
+export default RoleplayBot;
