@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
@@ -14,12 +13,59 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, token } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(
         JSON.stringify({ error: 'Messages array is required and must not be empty' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Authorization: Check for either authenticated user OR valid token
+    let isAuthorized = false;
+
+    if (token) {
+      // Validate token for staff access
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!
+      );
+
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('roleplay_access_tokens')
+        .select('*')
+        .eq('token', token)
+        .eq('used', true)
+        .eq('invalidated', false)
+        .single();
+
+      if (!tokenError && tokenData && new Date(tokenData.expires_at) > new Date()) {
+        isAuthorized = true;
+        console.log(`Staff access authorized via token for: ${tokenData.staff_name}`);
+      }
+    } else {
+      // Check for authenticated user
+      const authHeader = req.headers.get('authorization');
+      if (authHeader) {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_ANON_KEY')!,
+          { global: { headers: { authorization: authHeader } } }
+        );
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!userError && user) {
+          isAuthorized = true;
+          console.log(`Authenticated user access: ${user.id}`);
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

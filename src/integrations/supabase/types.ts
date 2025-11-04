@@ -1781,6 +1781,65 @@ export type Database = {
           },
         ]
       }
+      roleplay_access_tokens: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          invalidated: boolean
+          invalidated_at: string | null
+          invalidated_reason: string | null
+          session_id: string | null
+          staff_email: string | null
+          staff_name: string | null
+          token: string
+          used: boolean
+          used_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          invalidated?: boolean
+          invalidated_at?: string | null
+          invalidated_reason?: string | null
+          session_id?: string | null
+          staff_email?: string | null
+          staff_name?: string | null
+          token: string
+          used?: boolean
+          used_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          invalidated?: boolean
+          invalidated_at?: string | null
+          invalidated_reason?: string | null
+          session_id?: string | null
+          staff_email?: string | null
+          staff_name?: string | null
+          token?: string
+          used?: boolean
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roleplay_access_tokens_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scorecard_rules: {
         Row: {
           agency_id: string

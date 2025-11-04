@@ -50,6 +50,7 @@ import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
 import TestBackfill from "./pages/TestBackfill";
 import RoleplayBot from "./pages/RoleplayBot";
+import RoleplayStaff from "./pages/RoleplayStaff";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -257,6 +258,7 @@ const App = () => (
                 <RoleplayBot />
               </ProtectedRoute>
             } />
+            <Route path="/roleplay-staff" element={<RoleplayStaff />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

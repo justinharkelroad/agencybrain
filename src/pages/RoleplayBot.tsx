@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, AlertCircle, Download, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, Download, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import jsPDF from 'jspdf';
 
 interface Message {
@@ -97,6 +99,9 @@ const RoleplayBot = () => {
   const [gradingReport, setGradingReport] = useState<any>(null);
   const [showGrading, setShowGrading] = useState(false);
   const [hasBeenGraded, setHasBeenGraded] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -203,6 +208,44 @@ const RoleplayBot = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateLink = async () => {
+    setIsGeneratingLink(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-roleplay-link', {
+        body: {}
+      });
+      
+      if (error) throw error;
+      
+      setGeneratedLink(data.url);
+      setShowLinkDialog(true);
+      
+      toast({
+        title: "Link Generated",
+        description: "Share this link with your staff member.",
+      });
+    } catch (error: any) {
+      console.error('Link generation error:', error);
+      toast({
+        title: "Failed to Generate Link",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (generatedLink) {
+      navigator.clipboard.writeText(generatedLink);
+      toast({
+        title: "Link Copied",
+        description: "Share this link with your staff member.",
+      });
     }
   };
 
@@ -514,14 +557,27 @@ const RoleplayBot = () => {
 
           {/* Grade Button */}
           {messages.length > 0 && !isConnected && (
-            <Button
-              onClick={handleGrade}
-              disabled={isGrading || hasBeenGraded}
-              className="w-full"
-              size="lg"
-            >
-              {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={handleGrade}
+                disabled={isGrading || hasBeenGraded}
+                className="w-full"
+                size="lg"
+              >
+                {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
+              </Button>
+              
+              <Button
+                onClick={handleGenerateLink}
+                disabled={isGeneratingLink}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                {isGeneratingLink ? 'Generating...' : 'Generate Staff Link'}
+              </Button>
+            </div>
           )}
 
           {/* Grading Results */}
@@ -563,6 +619,30 @@ const RoleplayBot = () => {
           )}
         </div>
       </div>
+
+      {/* Staff Link Dialog */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Staff Access Link Generated</DialogTitle>
+            <DialogDescription>
+              Share this link with your staff member. It expires in 24 hours and can only be used once. After they refresh the page, they'll need a new link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input 
+                value={generatedLink || ''} 
+                readOnly 
+                className="font-mono text-sm"
+              />
+              <Button onClick={handleCopyLink} size="sm">
+                Copy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
