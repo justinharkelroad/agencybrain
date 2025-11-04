@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, Download, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
+import jsPDF from 'jspdf';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,6 +21,10 @@ const RoleplayBot = () => {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isGrading, setIsGrading] = useState(false);
+  const [gradingReport, setGradingReport] = useState<any>(null);
+  const [showGrading, setShowGrading] = useState(false);
+  const [hasBeenGraded, setHasBeenGraded] = useState(false);
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -104,8 +111,11 @@ const RoleplayBot = () => {
 
     setIsLoading(true);
     try {
-      // Clear previous messages
+      // Clear previous messages and grading state
       setMessages([]);
+      setHasBeenGraded(false);
+      setGradingReport(null);
+      setShowGrading(false);
       
       // Request microphone access
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -122,6 +132,128 @@ const RoleplayBot = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGrade = async () => {
+    setIsGrading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('grade-roleplay', {
+        body: { messages }
+      });
+      
+      if (error) throw error;
+      
+      setGradingReport(data);
+      setShowGrading(true);
+      setHasBeenGraded(true);
+      
+      toast({
+        title: "Grading Complete",
+        description: "Your performance has been analyzed.",
+      });
+    } catch (error: any) {
+      console.error('Grading error:', error);
+      toast({
+        title: "Grading Failed",
+        description: error.message || "Failed to grade the conversation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!gradingReport) return;
+    
+    const doc = new jsPDF();
+    let yPosition = 20;
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text('Sales Roleplay Grading Report', 20, yPosition);
+    yPosition += 15;
+    
+    // Date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, yPosition);
+    yPosition += 15;
+    
+    // Overall Score
+    doc.setFontSize(14);
+    doc.text(`Overall Score: ${gradingReport.overall_score}`, 20, yPosition);
+    yPosition += 15;
+    
+    // Each section
+    const sections = [
+      { key: 'information_verification', title: 'Information Verification' },
+      { key: 'rapport', title: 'Rapport' },
+      { key: 'coverage_conversation', title: 'Coverage Conversation' },
+      { key: 'wrap_up', title: 'Wrap Up' },
+      { key: 'lever_pulls', title: 'Lever Pulls' }
+    ];
+    
+    sections.forEach(section => {
+      const data = gradingReport[section.key];
+      
+      // Section title
+      doc.setFontSize(12);
+      doc.text(section.title, 20, yPosition);
+      yPosition += 8;
+      
+      // Summary
+      doc.setFontSize(10);
+      const summaryLines = doc.splitTextToSize(data.summary, 170);
+      doc.text(summaryLines, 25, yPosition);
+      yPosition += summaryLines.length * 5 + 5;
+      
+      // Strengths
+      if (data.strengths?.length > 0) {
+        doc.text('Strengths:', 25, yPosition);
+        yPosition += 5;
+        data.strengths.forEach((strength: string) => {
+          const lines = doc.splitTextToSize(`• ${strength}`, 165);
+          doc.text(lines, 30, yPosition);
+          yPosition += lines.length * 5;
+        });
+        yPosition += 3;
+      }
+      
+      // Improvements
+      if (data.improvements?.length > 0) {
+        doc.text('Improvements:', 25, yPosition);
+        yPosition += 5;
+        data.improvements.forEach((improvement: string) => {
+          const lines = doc.splitTextToSize(`• ${improvement}`, 165);
+          doc.text(lines, 30, yPosition);
+          yPosition += lines.length * 5;
+        });
+        yPosition += 3;
+      }
+      
+      // Page break if needed
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      yPosition += 5;
+    });
+    
+    // Special callout for lowest option
+    if (gradingReport.lever_pulls?.lowest_option_presented !== undefined) {
+      doc.setFontSize(11);
+      const presented = gradingReport.lever_pulls.lowest_option_presented ? 'YES' : 'NO';
+      doc.text(`Lowest State-Minimum Option Presented: ${presented}`, 20, yPosition);
+    }
+    
+    // Save
+    doc.save(`roleplay-grade-${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    toast({
+      title: "PDF Exported",
+      description: "Your grading report has been downloaded.",
+    });
   };
 
   const handleStop = async () => {
@@ -261,9 +393,8 @@ const RoleplayBot = () => {
           </Card>
         </div>
 
-        {/* Right Sidebar - Transcript Only */}
-        <div className="lg:col-span-1">{" "}
-
+        {/* Right Sidebar - Transcript and Grading */}
+        <div className="lg:col-span-1 space-y-6">
           {/* Transcript */}
           {messages.length > 0 && (
             <Card className="p-6">
@@ -292,6 +423,111 @@ const RoleplayBot = () => {
                   ))}
                 </div>
               </ScrollArea>
+            </Card>
+          )}
+
+          {/* Grade Button */}
+          {messages.length > 0 && !isConnected && (
+            <Button
+              onClick={handleGrade}
+              disabled={isGrading || hasBeenGraded}
+              className="w-full"
+              size="lg"
+            >
+              {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
+            </Button>
+          )}
+
+          {/* Grading Results */}
+          {showGrading && gradingReport && (
+            <Card className="p-6">
+              <div className="space-y-6">
+                {/* Overall Score */}
+                <div className="text-center pb-4 border-b border-border">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Overall Score</h3>
+                  <p className="text-3xl font-bold text-primary">{gradingReport.overall_score}</p>
+                </div>
+
+                {/* Sections */}
+                {[
+                  { key: 'information_verification', title: 'Information Verification' },
+                  { key: 'rapport', title: 'Rapport' },
+                  { key: 'coverage_conversation', title: 'Coverage Conversation' },
+                  { key: 'wrap_up', title: 'Wrap Up' },
+                  { key: 'lever_pulls', title: 'Lever Pulls' }
+                ].map((section) => {
+                  const data = gradingReport[section.key];
+                  const [isOpen, setIsOpen] = useState(false);
+
+                  return (
+                    <Collapsible key={section.key} open={isOpen} onOpenChange={setIsOpen}>
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                          <h4 className="font-semibold text-foreground">{section.title}</h4>
+                          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-3 space-y-3">
+                        {/* Summary */}
+                        <p className="text-sm text-muted-foreground">{data.summary}</p>
+
+                        {/* Strengths */}
+                        {data.strengths?.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Strengths
+                            </h5>
+                            <ul className="space-y-1">
+                              {data.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-sm text-foreground pl-6 relative">
+                                  <span className="absolute left-0 top-1 text-green-600 dark:text-green-400">•</span>
+                                  {strength}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Improvements */}
+                        {data.improvements?.length > 0 && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              Improvements
+                            </h5>
+                            <ul className="space-y-1">
+                              {data.improvements.map((improvement: string, idx: number) => (
+                                <li key={idx} className="text-sm text-foreground pl-6 relative">
+                                  <span className="absolute left-0 top-1 text-amber-600 dark:text-amber-400">•</span>
+                                  {improvement}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Special Lever Pulls indicator */}
+                        {section.key === 'lever_pulls' && data.lowest_option_presented !== undefined && (
+                          <Badge variant={data.lowest_option_presented ? "default" : "destructive"} className="mt-2">
+                            Lowest State-Minimum Option: {data.lowest_option_presented ? 'Presented' : 'Not Presented'}
+                          </Badge>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+
+                {/* Export PDF Button */}
+                <Button
+                  onClick={handleExportPDF}
+                  variant="secondary"
+                  className="w-full gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export as PDF
+                </Button>
+              </div>
             </Card>
           )}
         </div>

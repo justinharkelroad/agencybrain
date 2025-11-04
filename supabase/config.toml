@@ -1,5 +1,8 @@
 project_id = "wjqyccbytctqwceuhzhk"
 
+[functions.grade-roleplay]
+verify_jwt = true
+
 [functions.submit_public_form]
 verify_jwt = false
 
