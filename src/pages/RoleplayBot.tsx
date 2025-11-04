@@ -112,15 +112,17 @@ const RoleplayBot = () => {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-foreground">Sales Roleplay Trainer</h1>
-          <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
-        </div>
+      {/* Header */}
+      <div className="text-center space-y-2 mb-6">
+        <h1 className="text-4xl font-bold text-foreground">Sales Roleplay Trainer</h1>
+        <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
+      </div>
 
-        {/* Main Card */}
-        <Card className="p-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - Left Side */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Main Card */}
+          <Card className="p-8">
           <div className="space-y-6">
             {/* Avatar Container - ElevenLabs widget will render here */}
             <div className="flex justify-center items-center min-h-[400px] bg-muted/30 rounded-lg">
@@ -189,15 +191,58 @@ const RoleplayBot = () => {
           </div>
         </Card>
 
-        {/* Instructions */}
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>How it works:</strong> Click "Start Session" and allow microphone access. 
-            The AI will greet you and you can start your roleplay practice. Speak naturally 
-            and the AI will respond as a prospect.
-          </AlertDescription>
-        </Alert>
+          {/* Instructions */}
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>How it works:</strong> Click "Start Session" and allow microphone access. 
+              The AI will greet you and you can start your roleplay practice. Speak naturally 
+              and the AI will respond as a prospect.
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        {/* Example Flow - Right Side */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 sticky top-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">Example Flow To Begin</h2>
+            <div className="space-y-4 text-sm">
+              <div>
+                <p className="font-medium text-primary mb-1">AI Trainer:</p>
+                <p className="text-muted-foreground pl-4">
+                  Say "I want to practice in the state of...(insert state)."
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-medium text-foreground mb-1">Sales Agent:</p>
+                <p className="text-muted-foreground pl-4">
+                  "I want to practice in the state of Indiana"
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-medium text-primary mb-1">AI Trainer:</p>
+                <p className="text-muted-foreground pl-4">
+                  Great, I will play a prospect from the state of Indiana. Let's act like I just said "Hello?"
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-medium text-foreground mb-1">Sales Agent:</p>
+                <p className="text-muted-foreground pl-4">
+                  "Hi this is Susie at Allstate. Is this ____?"
+                </p>
+              </div>
+              
+              <div className="pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground italic">
+                  Continue from there...
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
