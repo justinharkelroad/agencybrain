@@ -82,7 +82,7 @@ const RoleplayBot = () => {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       
       // Start the conversation with the signed URL
-      await conversation.startSession({ url: signedUrl } as any);
+      await conversation.startSession({ signedUrl });
     } catch (error: any) {
       console.error('Failed to start session:', error);
       toast({
