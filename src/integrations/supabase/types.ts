@@ -99,7 +99,7 @@ export type Database = {
           agency_id: string
           created_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           user_agent: string | null
           user_id: string
         }
@@ -109,7 +109,7 @@ export type Database = {
           agency_id: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           user_agent?: string | null
           user_id: string
         }
@@ -119,7 +119,7 @@ export type Database = {
           agency_id?: string
           created_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           user_agent?: string | null
           user_id?: string
         }
@@ -736,7 +736,7 @@ export type Database = {
           form_link_id: string
           form_submitted: boolean | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           referer: string | null
           submission_id: string | null
           user_agent: string | null
@@ -747,7 +747,7 @@ export type Database = {
           form_link_id: string
           form_submitted?: boolean | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           referer?: string | null
           submission_id?: string | null
           user_agent?: string | null
@@ -758,7 +758,7 @@ export type Database = {
           form_link_id?: string
           form_submitted?: boolean | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           referer?: string | null
           submission_id?: string | null
           user_agent?: string | null
@@ -2161,6 +2161,63 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles_audit: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          new_role: Database["public"]["Enums"]["app_role"] | null
+          old_role: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          new_role?: Database["public"]["Enums"]["app_role"] | null
+          old_role?: Database["public"]["Enums"]["app_role"] | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          new_role?: Database["public"]["Enums"]["app_role"] | null
+          old_role?: Database["public"]["Enums"]["app_role"] | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_active_kpis: {
@@ -2365,14 +2422,8 @@ export type Database = {
       }
     }
     Functions: {
-      _nz_int: {
-        Args: { v: Json }
-        Returns: number
-      }
-      _nz_num: {
-        Args: { v: Json }
-        Returns: number
-      }
+      _nz_int: { Args: { v: Json }; Returns: number }
+      _nz_num: { Args: { v: Json }; Returns: number }
       admin_create_user: {
         Args: {
           p_agency_id: string
@@ -2391,10 +2442,7 @@ export type Database = {
         Args: { p_agency_id: string; p_days_back?: number }
         Returns: Json
       }
-      bind_form_kpis: {
-        Args: { p_form: string }
-        Returns: undefined
-      }
+      bind_form_kpis: { Args: { p_form: string }; Returns: undefined }
       check_form_kpi_versions: {
         Args: { p_form_id: string }
         Returns: {
@@ -2404,10 +2452,7 @@ export type Database = {
           kpi_id: string
         }[]
       }
-      cleanup_field_mapping_audit_logs: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_field_mapping_audit_logs: { Args: never; Returns: undefined }
       compute_is_late: {
         Args: {
           p_agency_id: string
@@ -2442,14 +2487,8 @@ export type Database = {
         Args: { p_submission_id: string }
         Returns: Json
       }
-      get_agency_dates_now: {
-        Args: { p_agency_id: string }
-        Returns: Json
-      }
-      get_agency_id_by_slug: {
-        Args: { p_slug: string }
-        Returns: string
-      }
+      get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
+      get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
       get_agency_safe: {
         Args: { agency_id_param: string }
         Returns: {
@@ -2471,36 +2510,53 @@ export type Database = {
           updated_at: string
         }[]
       }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_dashboard_daily: {
-        Args:
-          | { p_agency_id: string; p_work_date: string }
-          | {
+      get_current_user_role: { Args: never; Returns: string }
+      get_dashboard_daily:
+        | {
+            Args: {
               p_agency_slug: string
               p_end: string
               p_role: string
               p_start: string
             }
-        Returns: {
-          cross_sells_uncovered: number
-          daily_score: number
-          date: string
-          hits: number
-          kpi_version_id: string
-          label_at_submit: string
-          mini_reviews: number
-          outbound_calls: number
-          pass: boolean
-          quoted_count: number
-          sold_items: number
-          talk_minutes: number
-          team_member_id: string
-          team_member_name: string
-        }[]
-      }
+            Returns: {
+              cross_sells_uncovered: number
+              daily_score: number
+              date: string
+              hits: number
+              kpi_version_id: string
+              label_at_submit: string
+              mini_reviews: number
+              outbound_calls: number
+              pass: boolean
+              quoted_count: number
+              sold_items: number
+              talk_minutes: number
+              team_member_id: string
+              team_member_name: string
+            }[]
+          }
+        | {
+            Args: { p_agency_id: string; p_work_date: string }
+            Returns: {
+              cross_sells_uncovered: number
+              daily_score: number
+              hits: number
+              is_late: boolean
+              mini_reviews: number
+              outbound_calls: number
+              pass: boolean
+              quoted_count: number
+              rep_name: string
+              sold_items: number
+              sold_policies: number
+              sold_premium_cents: number
+              status: string
+              talk_minutes: number
+              team_member_id: string
+              work_date: string
+            }[]
+          }
       get_sticky_fields_for_section: {
         Args: { p_section_type: string }
         Returns: {
@@ -2533,55 +2589,45 @@ export type Database = {
           team_member_id: string
         }[]
       }
-      get_versioned_dashboard_data: {
-        Args:
-          | {
-              p_agency_slug: string
-              p_consolidate_versions?: boolean
-              p_role: string
-            }
-          | {
+      get_versioned_dashboard_data:
+        | {
+            Args: {
               p_agency_slug: string
               p_end: string
               p_role: string
               p_start: string
             }
-        Returns: {
-          daily_score: number
-          date: string
-          hits: number
-          is_late: boolean
-          kpi_key: string
-          kpi_label: string
-          kpi_version_id: string
-          pass: boolean
-          team_member_id: string
-          team_member_name: string
-          value: number
-        }[]
-      }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
+            Returns: {
+              daily_score: number
+              date: string
+              hits: number
+              is_late: boolean
+              kpi_key: string
+              kpi_label: string
+              kpi_version_id: string
+              pass: boolean
+              team_member_id: string
+              team_member_name: string
+              value: number
+            }[]
+          }
+        | {
+            Args: {
+              p_agency_slug: string
+              p_consolidate_versions?: boolean
+              p_role: string
+            }
+            Returns: Json
+          }
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
       is_now_agency_time: {
@@ -2589,7 +2635,7 @@ export type Database = {
         Returns: Json
       }
       list_agencies_safe: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           description: string
@@ -2621,18 +2667,8 @@ export type Database = {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
       }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       upsert_metrics_from_submission: {
         Args: {
           p_kpi_version_id?: string
@@ -2647,6 +2683,7 @@ export type Database = {
       app_employment_type: "Full-time" | "Part-time"
       app_member_role: "Sales" | "Service" | "Hybrid" | "Manager"
       app_member_status: "active" | "inactive"
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2777,6 +2814,7 @@ export const Constants = {
       app_employment_type: ["Full-time", "Part-time"],
       app_member_role: ["Sales", "Service", "Hybrid", "Manager"],
       app_member_status: ["active", "inactive"],
+      app_role: ["admin", "user"],
     },
   },
 } as const

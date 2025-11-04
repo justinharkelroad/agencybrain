@@ -23,12 +23,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkUserRole = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_roles')
         .select('role')
-        .eq('id', userId)
-        .single();
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
         
-      if (!error && data?.role === 'admin') {
+      if (!error && data) {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);
