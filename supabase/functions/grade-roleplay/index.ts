@@ -46,12 +46,12 @@ serve(async (req) => {
       }
     } else {
       // Check for authenticated user
-      const authHeader = req.headers.get('authorization');
+      const authHeader = req.headers.get('Authorization');
       if (authHeader) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_ANON_KEY')!,
-          { global: { headers: { authorization: authHeader } } }
+          { global: { headers: { Authorization: authHeader } } }
         );
 
         const { data: { user }, error: userError } = await supabase.auth.getUser();
