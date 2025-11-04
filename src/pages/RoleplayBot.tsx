@@ -31,7 +31,7 @@ const RoleplayBot = () => {
       console.error('ElevenLabs error:', error);
       toast({
         title: "Error",
-        description: error.message || "An error occurred with the voice session.",
+        description: typeof error === 'string' ? error : "An error occurred with the voice session.",
         variant: "destructive",
       });
     },
@@ -82,12 +82,12 @@ const RoleplayBot = () => {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       
       // Start the conversation with the signed URL
-      await conversation.startSession({ url: signedUrl });
+      await conversation.startSession({ url: signedUrl } as any);
     } catch (error: any) {
       console.error('Failed to start session:', error);
       toast({
         title: "Session Error",
-        description: error.message || "Failed to start roleplay session.",
+        description: typeof error === 'string' ? error : (error?.message || "Failed to start roleplay session."),
         variant: "destructive",
       });
     } finally {
