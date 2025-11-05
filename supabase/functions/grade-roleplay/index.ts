@@ -36,7 +36,7 @@ serve(async (req) => {
         .from('roleplay_access_tokens')
         .select('*')
         .eq('token', token)
-        .eq('used', true)
+        .eq('used', false)
         .eq('invalidated', false)
         .single();
 
