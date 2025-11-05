@@ -36,6 +36,7 @@ import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import AdminTeam from "./pages/admin/AdminTeam";
 import AdminMember from "./pages/admin/AdminMember";
 import AdminChecklists from "./pages/admin/AdminChecklists";
+import RoleplayReports from "./pages/admin/RoleplayReports";
 import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import Agency from "./pages/Agency";
@@ -186,6 +187,11 @@ const App = () => (
             <Route path="/admin/process-vault-types" element={
               <ProtectedRoute requireAdmin>
                 <AdminProcessVaultTypes />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/roleplay-reports" element={
+              <ProtectedRoute requireAdmin>
+                <RoleplayReports />
               </ProtectedRoute>
             } />
             <Route path="/admin/team" element={

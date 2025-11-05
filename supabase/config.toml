@@ -3,6 +3,9 @@ project_id = "wjqyccbytctqwceuhzhk"
 [functions.grade-roleplay]
 verify_jwt = false
 
+[functions.save-roleplay-session]
+verify_jwt = false
+
 [functions.generate-roleplay-link]
 verify_jwt = true
 

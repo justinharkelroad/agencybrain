@@ -1791,6 +1791,7 @@ export type Database = {
           invalidated: boolean
           invalidated_at: string | null
           invalidated_reason: string | null
+          session_completed: boolean | null
           session_id: string | null
           staff_email: string | null
           staff_name: string | null
@@ -1807,6 +1808,7 @@ export type Database = {
           invalidated?: boolean
           invalidated_at?: string | null
           invalidated_reason?: string | null
+          session_completed?: boolean | null
           session_id?: string | null
           staff_email?: string | null
           staff_name?: string | null
@@ -1823,6 +1825,7 @@ export type Database = {
           invalidated?: boolean
           invalidated_at?: string | null
           invalidated_reason?: string | null
+          session_completed?: boolean | null
           session_id?: string | null
           staff_email?: string | null
           staff_name?: string | null
@@ -1836,6 +1839,72 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roleplay_sessions: {
+        Row: {
+          agency_id: string
+          completed_at: string
+          conversation_transcript: Json
+          created_at: string
+          created_by: string
+          grading_data: Json
+          id: string
+          overall_score: string
+          pdf_file_path: string | null
+          staff_email: string
+          staff_name: string
+          started_at: string | null
+          token_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          completed_at?: string
+          conversation_transcript: Json
+          created_at?: string
+          created_by: string
+          grading_data: Json
+          id?: string
+          overall_score: string
+          pdf_file_path?: string | null
+          staff_email: string
+          staff_name: string
+          started_at?: string | null
+          token_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          completed_at?: string
+          conversation_transcript?: Json
+          created_at?: string
+          created_by?: string
+          grading_data?: Json
+          id?: string
+          overall_score?: string
+          pdf_file_path?: string | null
+          staff_email?: string
+          staff_name?: string
+          started_at?: string | null
+          token_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roleplay_sessions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roleplay_sessions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "roleplay_access_tokens"
             referencedColumns: ["id"]
           },
         ]

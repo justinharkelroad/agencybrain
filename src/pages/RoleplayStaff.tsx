@@ -316,6 +316,27 @@ const RoleplayStaff = () => {
       setShowGrading(true);
       setHasBeenGraded(true);
       
+      // Auto-save session to agency account
+      try {
+        const { data: saveData, error: saveError } = await supabase.functions.invoke('save-roleplay-session', {
+          body: {
+            token,
+            messages,
+            gradingData: data
+          }
+        });
+        
+        if (!saveError && saveData?.sessionId) {
+          toast({
+            title: "Results Saved",
+            description: "Your performance report has been saved to your agency account.",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to auto-save session:', error);
+        // Don't block user - just log it
+      }
+      
       toast({
         title: "Grading Complete",
         description: "Your performance has been analyzed.",

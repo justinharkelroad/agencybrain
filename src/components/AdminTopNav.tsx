@@ -51,6 +51,9 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
             <Link to="/admin/process-vault-types" aria-label="Process Vault Types">
               <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
             </Link>
+            <Link to="/admin/roleplay-reports" aria-label="Roleplay Reports">
+              <Button variant="glass" size="sm" className="rounded-full">Roleplay Reports</Button>
+            </Link>
             <Link to="/agency" aria-label="My Agency">
               <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
             </Link>
@@ -91,6 +94,9 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
               </Link>
               <Link to="/admin/process-vault-types" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
+              </Link>
+              <Link to="/admin/roleplay-reports" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start">Roleplay Reports</Button>
               </Link>
               <Link to="/agency" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start">My Agency</Button>
