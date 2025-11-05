@@ -126,11 +126,22 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
           </CardContent>
         </Card>
+        <Card className={cardBase} role="button" onClick={() => onPick("producer_dashboard")} aria-label="Open Producer Quote Details Dashboard">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" /> Producer Quote Details Dashboard
+            </CardTitle>
+            <CardDescription>One quick upload and get some valuable insights.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "producer_dashboard" && <span className="text-xs text-muted-foreground">Last used</span>}
+          </CardContent>
+        </Card>
       </div>
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "producer_dashboard";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -154,7 +165,7 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto glass-surface backdrop-blur-md rounded-2xl border border-border/60">
         <DialogHeader>
-          <DialogTitle>ROI Tools</DialogTitle>
+          <DialogTitle>Tools</DialogTitle>
           <DialogDescription>Choose Your Weapon</DialogDescription>
           <Badge variant="outline" className="w-fit mt-2 px-3 py-1 text-xs font-medium bg-muted/50 text-muted-foreground border-muted-foreground/20">
             EXPERIENCE BUILT FOR DESKTOP
@@ -182,6 +193,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
             <TransferForm onBack={() => setMode(null)} />
           </div>
         )}
+        {mode === "producer_dashboard" && (
+          <div className="animate-enter">
+            <ProducerDashboardView onBack={() => setMode(null)} />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -195,6 +211,23 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h3 className="text-base font-medium text-muted-foreground">{title}</h3>
+      </div>
+    </div>
+  );
+}
+
+// ========== Producer Dashboard View ==========
+function ProducerDashboardView({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      <BackHeader title="Producer Quote Details Dashboard" onBack={onBack} />
+      <div className="relative w-full rounded-lg overflow-hidden border border-border" style={{ paddingBottom: '56.25%' }}>
+        <iframe 
+          src="https://quickquote-reality.lovable.app/" 
+          className="absolute top-0 left-0 w-full h-full border-0"
+          title="Producer Performance Dashboard"
+          allow="clipboard-read; clipboard-write"
+        />
       </div>
     </div>
   );
