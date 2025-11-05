@@ -9,7 +9,17 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const token = url.searchParams.get('token');
+    let token = url.searchParams.get('token');
+    
+    // If not in query params, try body
+    if (!token && req.method === 'POST') {
+      try {
+        const body = await req.json();
+        token = body?.token;
+      } catch {
+        // Body parsing failed, token remains null
+      }
+    }
     
     // Allow either authenticated users OR valid token
     const supabase = supaFromReq(req);
@@ -27,9 +37,9 @@ serve(async (req) => {
         );
       }
 
-      // Validate token from staff_roleplay_links table
+      // Validate token from roleplay_access_tokens table
       const { data: tokenData, error: tokenError } = await supabase
-        .from('staff_roleplay_links')
+        .from('roleplay_access_tokens')
         .select('*')
         .eq('token', token)
         .single();
@@ -44,8 +54,8 @@ serve(async (req) => {
         );
       }
 
-      // Check token hasn't expired
-      if (new Date(tokenData.expire_at) < new Date()) {
+      // Check expiration
+      if (new Date(tokenData.expires_at) < new Date()) {
         return new Response(
           JSON.stringify({ error: 'Token expired' }),
           { 
@@ -55,10 +65,21 @@ serve(async (req) => {
         );
       }
 
-      // Check token is validated (identity submitted)
-      if (!tokenData.validated) {
+      // Check if invalidated
+      if (tokenData.invalidated) {
         return new Response(
-          JSON.stringify({ error: 'Token not validated - identity required' }),
+          JSON.stringify({ error: 'Token has been revoked' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Check if identity submitted (validated state)
+      if (!tokenData.used || !tokenData.staff_name || !tokenData.staff_email) {
+        return new Response(
+          JSON.stringify({ error: 'Identity required - please submit your information first' }),
           { 
             status: 403, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

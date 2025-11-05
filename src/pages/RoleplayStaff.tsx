@@ -159,24 +159,13 @@ const RoleplayStaff = () => {
       if (!isValidated) return;
 
       try {
-        const url = new URL('https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/roleplay-config');
-        if (token) {
-          url.searchParams.append('token', token);
-        }
-
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        const { data, error } = await supabase.functions.invoke('roleplay-config', {
+          body: { token }
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch configuration');
+        if (error) {
+          throw new Error(error.message || 'Failed to fetch configuration');
         }
-
-        const data = await response.json();
         
         if (data?.signedUrl) {
           setSignedUrl(data.signedUrl);
