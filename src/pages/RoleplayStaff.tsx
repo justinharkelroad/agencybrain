@@ -9,6 +9,7 @@ import { Mic, MicOff, Download, CheckCircle2, AlertTriangle, ChevronDown, Chevro
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import { IdentityModal } from '@/components/IdentityModal';
 import jsPDF from 'jspdf';
 
 interface Message {
@@ -101,6 +102,9 @@ const RoleplayStaff = () => {
   const [gradingReport, setGradingReport] = useState<any>(null);
   const [showGrading, setShowGrading] = useState(false);
   const [hasBeenGraded, setHasBeenGraded] = useState(false);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [isSubmittingIdentity, setIsSubmittingIdentity] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -191,13 +195,21 @@ const RoleplayStaff = () => {
         if (error) throw error;
 
         if (data.valid) {
-          setIsValidated(true);
+          // Check if identity is required
+          if (data.requires_identity) {
+            setShowIdentityModal(true);
+            setIsValidating(false);
+          } else {
+            setIsValidated(true);
+            setIsValidating(false);
+          }
         } else {
           toast({
             title: "Invalid Link",
-            description: "This link is invalid or has expired.",
+            description: data.error || "This link is invalid or has expired.",
             variant: "destructive",
           });
+          setIsValidating(false);
         }
       } catch (error: any) {
         console.error('Token validation error:', error);
@@ -206,13 +218,49 @@ const RoleplayStaff = () => {
           description: "Failed to validate access link.",
           variant: "destructive",
         });
-      } finally {
         setIsValidating(false);
       }
     };
 
     validateToken();
   }, [token, toast]);
+
+  const handleIdentitySubmit = async (name: string, email: string) => {
+    setIsSubmittingIdentity(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-staff-identity', {
+        body: {
+          token,
+          staff_name: name,
+          staff_email: email,
+          session_id: sessionId
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setShowIdentityModal(false);
+        setIsValidated(true);
+        toast({
+          title: "Identity Confirmed",
+          description: `Welcome, ${name}!`,
+        });
+      } else {
+        throw new Error('Failed to submit identity');
+      }
+    } catch (error: any) {
+      console.error('Identity submission error:', error);
+      toast({
+        title: "Submission Error",
+        description: error.message || "Failed to submit your information. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingIdentity(false);
+    }
+  };
 
   const handleStart = async () => {
     if (!signedUrl) {
@@ -641,6 +689,13 @@ const RoleplayStaff = () => {
           )}
         </div>
       </div>
+
+      {/* Identity Modal */}
+      <IdentityModal 
+        open={showIdentityModal}
+        onSubmit={handleIdentitySubmit}
+        isSubmitting={isSubmittingIdentity}
+      />
     </div>
   );
 };
