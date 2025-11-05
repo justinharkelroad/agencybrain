@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,6 +32,8 @@ interface RoleplaySession {
 export default function RoleplaySessionsCard() {
   const { user } = useAuth();
   const [selectedSession, setSelectedSession] = useState<RoleplaySession | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
@@ -42,8 +52,24 @@ export default function RoleplaySessionsCard() {
     enabled: !!user?.id
   });
 
+  const { data: totalCount } = useQuery({
+    queryKey: ['roleplay-sessions-count', profile?.agency_id],
+    queryFn: async () => {
+      if (!profile?.agency_id) throw new Error('No agency ID');
+      
+      const { count, error } = await supabase
+        .from('roleplay_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', profile.agency_id);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!profile?.agency_id
+  });
+
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['roleplay-sessions-dashboard', profile?.agency_id],
+    queryKey: ['roleplay-sessions-dashboard', profile?.agency_id, currentPage],
     queryFn: async () => {
       if (!profile?.agency_id) throw new Error('No agency ID');
 
@@ -52,13 +78,19 @@ export default function RoleplaySessionsCard() {
         .select('*')
         .eq('agency_id', profile.agency_id)
         .order('completed_at', { ascending: false })
-        .limit(5);
+        .range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
 
       if (error) throw error;
       return data as RoleplaySession[];
     },
     enabled: !!profile?.agency_id
   });
+
+  const totalPages = Math.ceil((totalCount || 0) / ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [profile?.agency_id]);
 
   const handleDownloadPDF = async (session: RoleplaySession) => {
     try {
@@ -156,6 +188,40 @@ export default function RoleplaySessionsCard() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 No completed sessions yet. Generate a roleplay link to get started.
+              </div>
+            )}
+            
+            {totalPages > 1 && (
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>
