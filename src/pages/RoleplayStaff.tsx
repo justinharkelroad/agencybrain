@@ -466,8 +466,8 @@ const RoleplayStaff = () => {
     );
   }
 
-  // Access denied state
-  if (!isValidated) {
+  // Access denied state (only when identity is NOT being collected)
+  if (!isValidated && !showIdentityModal) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="max-w-md p-8 text-center space-y-4">
@@ -528,7 +528,7 @@ const RoleplayStaff = () => {
               {!isConnected ? (
                 <Button
                   onClick={handleStart}
-                  disabled={isLoading || !signedUrl}
+                  disabled={isLoading || !signedUrl || !isValidated}
                   size="lg"
                   className="gap-2"
                 >
@@ -642,7 +642,7 @@ const RoleplayStaff = () => {
           {messages.length > 0 && !isConnected && (
             <Button
               onClick={handleGrade}
-              disabled={isGrading || hasBeenGraded}
+              disabled={isGrading || hasBeenGraded || !isValidated}
               className="w-full"
               size="lg"
             >
