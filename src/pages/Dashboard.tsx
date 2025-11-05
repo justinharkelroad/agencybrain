@@ -7,6 +7,7 @@ import SharedInsights from '@/components/client/SharedInsights';
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
+import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
@@ -79,6 +80,7 @@ const Dashboard = () => {
         </div>
         <PerformanceMetrics />
         <MonthOverMonthTrends />
+        <RoleplaySessionsCard />
         {enableMetrics && (
           <section>
             <Card className="glass-surface elevate rounded-2xl">
