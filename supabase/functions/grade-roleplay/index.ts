@@ -24,6 +24,7 @@ serve(async (req) => {
 
     // Authorization: Check for either authenticated user OR valid token
     let isAuthorized = false;
+    let unauthorizedReason = 'missing_token_or_auth';
 
     if (token) {
       // Validate token for staff access
@@ -36,14 +37,34 @@ serve(async (req) => {
         .from('roleplay_access_tokens')
         .select('*')
         .eq('token', token)
-        .eq('used', false)
         .eq('invalidated', false)
         .single();
 
-      if (!tokenError && tokenData && new Date(tokenData.expires_at) > new Date()) {
-        isAuthorized = true;
-        console.log(`Staff access authorized via token for: ${tokenData.staff_name}`);
+      if (tokenError || !tokenData) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: token not found' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+
+      // Expiration check
+      if (!tokenData.expires_at || new Date(tokenData.expires_at) <= new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: token expired' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Extra safety: invalidated check even though we filtered
+      if (tokenData.invalidated) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: token invalidated' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      isAuthorized = true;
+      console.log(`Staff access authorized via token for: ${tokenData.staff_name || 'unknown'}`);
     } else {
       // Check for authenticated user
       const authHeader = req.headers.get('Authorization');
@@ -58,13 +79,17 @@ serve(async (req) => {
         if (!userError && user) {
           isAuthorized = true;
           console.log(`Authenticated user access: ${user.id}`);
+        } else {
+          unauthorizedReason = 'invalid_auth_token';
         }
+      } else {
+        unauthorizedReason = 'missing_token_or_auth';
       }
     }
 
     if (!isAuthorized) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: `Unauthorized: ${unauthorizedReason}` }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

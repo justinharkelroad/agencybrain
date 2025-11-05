@@ -273,12 +273,18 @@ const RoleplayStaff = () => {
       
       // Parse specific error messages from the response
       if (error?.message) {
-        if (error.message.includes('Rate limit exceeded') || error.message.includes('429')) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('429') || msg.includes('rate limit')) {
           errorMessage = "Rate limit exceeded. Please wait and try again.";
-        } else if (error.message.includes('AI credits exhausted') || error.message.includes('402')) {
+        } else if (msg.includes('402') || msg.includes('credits')) {
           errorMessage = "AI credits exhausted. Please add credits to your workspace.";
-        } else if (error.message.includes('unauthorized') || error.message.includes('not configured') || error.message.includes('401')) {
-          errorMessage = "AI is not configured yet. Please try again shortly.";
+        } else if (msg.includes('401') || msg.includes('unauthorized')) {
+          // Distinguish token/auth issues from AI config issues
+          if (msg.includes('lovable ai unauthorized') || msg.includes('not configured')) {
+            errorMessage = "AI is not configured yet. Please try again shortly.";
+          } else {
+            errorMessage = "Invalid or expired link (or it was revoked). Please request a new link.";
+          }
         }
       }
       
