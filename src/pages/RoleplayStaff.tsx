@@ -154,12 +154,29 @@ const RoleplayStaff = () => {
   }, [messages]);
 
   useEffect(() => {
-    // Fetch signed URL on component mount
+    // Fetch signed URL only when validated (identity submitted)
     const fetchConfig = async () => {
+      if (!isValidated) return;
+
       try {
-        const { data, error } = await supabase.functions.invoke('roleplay-config');
-        
-        if (error) throw error;
+        const url = new URL('https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/roleplay-config');
+        if (token) {
+          url.searchParams.append('token', token);
+        }
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch configuration');
+        }
+
+        const data = await response.json();
         
         if (data?.signedUrl) {
           setSignedUrl(data.signedUrl);
@@ -177,7 +194,7 @@ const RoleplayStaff = () => {
     };
 
     fetchConfig();
-  }, [toast]);
+  }, [isValidated, token, toast]);
 
   useEffect(() => {
     // Validate token on mount

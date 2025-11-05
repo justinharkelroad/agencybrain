@@ -8,17 +8,63 @@ serve(async (req) => {
   }
 
   try {
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token');
+    
+    // Allow either authenticated users OR valid token
     const supabase = supaFromReq(req);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+    // If not authenticated, validate token
+    if (!user) {
+      if (!token) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: No user or token provided' }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Validate token from staff_roleplay_links table
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('staff_roleplay_links')
+        .select('*')
+        .eq('token', token)
+        .single();
+
+      if (tokenError || !tokenData) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid token' }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Check token hasn't expired
+      if (new Date(tokenData.expire_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'Token expired' }),
+          { 
+            status: 410, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Check token is validated (identity submitted)
+      if (!tokenData.validated) {
+        return new Response(
+          JSON.stringify({ error: 'Token not validated - identity required' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
 
     const elevenApiKey = Deno.env.get('ELEVEN_API_KEY');
