@@ -109,11 +109,11 @@ serve(async (req) => {
 
     // Grading Sections
     const sections = [
-      { key: 'greeting', title: 'Greeting & Introduction' },
-      { key: 'needs_discovery', title: 'Needs Discovery' },
-      { key: 'product_knowledge', title: 'Product Knowledge' },
-      { key: 'objection_handling', title: 'Objection Handling' },
-      { key: 'closing', title: 'Closing Technique' }
+      { key: 'rapport', title: 'Rapport Building' },
+      { key: 'information_verification', title: 'Information Verification' },
+      { key: 'coverage_conversation', title: 'Coverage Conversation' },
+      { key: 'lever_pulls', title: 'Lever Pulls & Pricing Strategy' },
+      { key: 'wrap_up', title: 'Wrap-Up & Closing' }
     ];
 
     for (const section of sections) {
@@ -130,9 +130,16 @@ serve(async (req) => {
       doc.text(section.title, margin, yPosition);
       yPosition += 8;
 
+      // Add summary if available
+      if (sectionData.summary) {
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        const summaryLines = doc.splitTextToSize(sectionData.summary, pageWidth - margin * 2 - 5);
+        doc.text(summaryLines, margin + 5, yPosition);
+        yPosition += summaryLines.length * 4 + 3;
+      }
+
       doc.setFontSize(10);
-      doc.text(`Score: ${sectionData.score}/5`, margin + 5, yPosition);
-      yPosition += 6;
 
       if (sectionData.strengths && sectionData.strengths.length > 0) {
         doc.setTextColor(34, 197, 94);
