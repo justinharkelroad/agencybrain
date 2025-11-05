@@ -91,7 +91,7 @@ const GradingSection = ({ section, data }: GradingSectionProps) => {
 
 const RoleplayStaff = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get('t') || searchParams.get('token');
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isValidated, setIsValidated] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
