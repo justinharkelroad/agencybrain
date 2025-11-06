@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useConversation } from '@11labs/react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Mic, MicOff, AlertCircle, Download, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, Download, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, Share2, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -103,6 +104,7 @@ const RoleplayBot = () => {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const conversation = useConversation({
@@ -403,9 +405,23 @@ const RoleplayBot = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       {/* Header */}
-      <div className="text-center space-y-2 mb-6">
-        <h1 className="text-4xl font-bold text-foreground">Sales Roleplay Trainer</h1>
-        <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            onClick={() => navigate('/dashboard')}
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to App
+          </Button>
+          <div className="flex-1" />
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-foreground">Sales Roleplay Trainer</h1>
+          <p className="text-muted-foreground">Practice your sales pitch with an AI prospect</p>
+        </div>
       </div>
 
       {/* Staff Link Generation - Always visible */}
