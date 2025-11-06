@@ -126,22 +126,25 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
           </CardContent>
         </Card>
-        <Card className={cardBase} role="button" onClick={() => onPick("producer_dashboard")} aria-label="Open Producer Quote Details Dashboard">
+        <Card 
+          className={cardBase} 
+          role="button" 
+          onClick={() => window.open('https://quickquote-reality.lovable.app/', '_blank', 'noopener,noreferrer')} 
+          aria-label="Open Producer Quote Details Dashboard"
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" /> Producer Quote Details Dashboard
+              <ExternalLink className="h-4 w-4" />
             </CardTitle>
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
           </CardHeader>
-          <CardContent>
-            {last === "producer_dashboard" && <span className="text-xs text-muted-foreground">Last used</span>}
-          </CardContent>
         </Card>
       </div>
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "producer_dashboard";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -193,11 +196,6 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
             <TransferForm onBack={() => setMode(null)} />
           </div>
         )}
-        {mode === "producer_dashboard" && (
-          <div className="animate-enter">
-            <ProducerDashboardView onBack={() => setMode(null)} />
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
@@ -216,53 +214,6 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
   );
 }
 
-// ========== Producer Dashboard View ==========
-function ProducerDashboardView({ onBack }: { onBack: () => void }) {
-  const handleOpenInNewTab = () => {
-    window.open('https://quickquote-reality.lovable.app/', '_blank', 'noopener,noreferrer');
-  };
-
-  return (
-    <div className="space-y-4">
-      <BackHeader title="Producer Quote Details Dashboard" onBack={onBack} />
-      
-      {/* Notice and CTA */}
-      <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
-          <div className="space-y-2 flex-1">
-            <p className="text-sm text-foreground">
-              <strong>File uploads work best in a new tab.</strong> Drag-and-drop doesn't work in embedded previews due to browser security.
-            </p>
-            <Button 
-              onClick={handleOpenInNewTab}
-              className="w-full sm:w-auto"
-              size="sm"
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open Full Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Preview iframe */}
-      <div className="relative w-full rounded-lg overflow-hidden border border-border opacity-75" style={{ paddingBottom: '56.25%' }}>
-        <iframe 
-          src="https://quickquote-reality.lovable.app/" 
-          className="absolute top-0 left-0 w-full h-full border-0 pointer-events-none"
-          title="Producer Performance Dashboard Preview"
-          allow="clipboard-read; clipboard-write"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-background/5 pointer-events-none">
-          <span className="text-xs text-muted-foreground font-medium px-3 py-1.5 bg-background/90 rounded-full border border-border">
-            Preview Only
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ========== Data Lead Form ==========
 function DataLeadForm({ onBack }: { onBack: () => void }) {
