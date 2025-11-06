@@ -8,6 +8,7 @@ import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
+import RoleplayStatsCards from '@/components/client/RoleplayStatsCards';
 import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
@@ -80,6 +81,7 @@ const Dashboard = () => {
         </div>
         <PerformanceMetrics />
         <MonthOverMonthTrends />
+        <RoleplayStatsCards />
         <RoleplaySessionsCard />
         {enableMetrics && (
           <section>
