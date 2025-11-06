@@ -108,6 +108,80 @@ const RoleplayStaff = () => {
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Auto-grade and save function
+  const autoGradeAndSave = async () => {
+    // Prevent double-grading
+    if (hasBeenGraded) return;
+    
+    setIsGrading(true);
+    setHasBeenGraded(true); // Set immediately to prevent duplicates
+    
+    try {
+      console.log('Auto-grading session...');
+      
+      // Grade the session
+      const { data: gradeData, error: gradeError } = await supabase.functions.invoke('grade-roleplay', {
+        body: { messages, token }
+      });
+      
+      if (gradeError) throw gradeError;
+      
+      setGradingReport(gradeData);
+      
+      // Save to database (with PDF generation)
+      const { data: saveData, error: saveError } = await supabase.functions.invoke('save-roleplay-session', {
+        body: {
+          token,
+          messages,
+          gradingData: gradeData
+        }
+      });
+      
+      if (saveError) throw saveError;
+      
+      // Clean up localStorage backup
+      if (token) {
+        localStorage.removeItem(`roleplay-backup-${token}`);
+      }
+      
+      toast({
+        title: "Session Saved ✓",
+        description: "Your performance report is available on the dashboard.",
+      });
+      
+      // Show the grading results
+      setShowGrading(true);
+      
+    } catch (error: any) {
+      console.error('Auto-grading failed:', error);
+      
+      // Don't reset hasBeenGraded - we tried once, don't retry automatically
+      // User can still manually click "Grade My Performance" button
+      
+      let errorMessage = "Click 'Grade My Performance' to try again.";
+      
+      if (error?.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('429') || msg.includes('rate limit')) {
+          errorMessage = "Rate limit exceeded. Please wait and try again.";
+        } else if (msg.includes('402') || msg.includes('credits')) {
+          errorMessage = "AI credits exhausted. Please contact your administrator.";
+        }
+      }
+      
+      toast({
+        title: "Auto-Save Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      // Reset flag so manual grading can be attempted
+      setHasBeenGraded(false);
+    } finally {
+      setIsGrading(false);
+    }
+  };
+
   const conversation = useConversation({
     onConnect: () => {
       console.log('Connected to ElevenLabs');
@@ -118,10 +192,24 @@ const RoleplayStaff = () => {
     },
     onDisconnect: () => {
       console.log('Disconnected from ElevenLabs');
-      toast({
-        title: "Disconnected",
-        description: "Roleplay session ended.",
-      });
+      
+      // Auto-grade if not already graded
+      if (messages.length > 0 && !hasBeenGraded) {
+        console.log('Auto-grading session on disconnect...');
+        
+        toast({
+          title: "Processing Session",
+          description: "Analyzing your performance...",
+        });
+        
+        // Trigger grading in background
+        autoGradeAndSave();
+      } else {
+        toast({
+          title: "Disconnected",
+          description: "Roleplay session ended.",
+        });
+      }
     },
     onError: (error) => {
       console.error('ElevenLabs error:', error);
@@ -152,6 +240,51 @@ const RoleplayStaff = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Browser close warning - Layer 1 protection
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Show warning if:
+      // 1. Conversation is active
+      // 2. OR there are messages but session hasn't been graded yet
+      const isConnected = conversation.status === 'connected';
+      if (isConnected || (messages.length > 0 && !hasBeenGraded)) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return 'You have an active roleplay session. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [conversation.status, messages.length, hasBeenGraded]);
+
+  // Periodic transcript backup - Layer 4 protection
+  useEffect(() => {
+    const isConnected = conversation.status === 'connected';
+    if (messages.length > 0 && isConnected && token) {
+      // Save to localStorage every 10 seconds
+      const backupInterval = setInterval(() => {
+        localStorage.setItem(`roleplay-backup-${token}`, JSON.stringify({
+          messages,
+          timestamp: Date.now()
+        }));
+        console.log('Transcript backed up locally');
+      }, 10000); // 10 seconds
+      
+      return () => clearInterval(backupInterval);
+    }
+  }, [messages, conversation.status, token]);
+
+  // Clean up localStorage on successful grade
+  useEffect(() => {
+    if (hasBeenGraded && token) {
+      localStorage.removeItem(`roleplay-backup-${token}`);
+    }
+  }, [hasBeenGraded, token]);
 
   useEffect(() => {
     // Fetch signed URL only when validated (identity submitted)
@@ -667,14 +800,27 @@ const RoleplayStaff = () => {
 
           {/* Grade Button */}
           {messages.length > 0 && !isConnected && (
-            <Button
-              onClick={handleGrade}
-              disabled={isGrading || hasBeenGraded || !isValidated}
-              className="w-full"
-              size="lg"
-            >
-              {isGrading ? 'Grading...' : hasBeenGraded ? 'Already Graded' : 'Grade My Performance'}
-            </Button>
+            <>
+              {!hasBeenGraded ? (
+                <Button
+                  onClick={handleGrade}
+                  disabled={isGrading || !isValidated}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isGrading ? 'Analyzing...' : 'Grade My Performance'}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setShowGrading(!showGrading)}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  {showGrading ? 'Hide Results' : 'View My Results'}
+                </Button>
+              )}
+            </>
           )}
 
           {/* Grading Results */}
