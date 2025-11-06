@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Eye, Search, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { AdminTopNav } from "@/components/AdminTopNav";
 
 interface RoleplaySession {
   id: string;
@@ -116,15 +117,17 @@ export default function RoleplayReports() {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Roleplay Reports</h1>
-          <p className="text-muted-foreground">
-            View completed sales roleplay sessions and performance reports
-          </p>
+    <>
+      <AdminTopNav title="Roleplay Reports" />
+      <div className="container mx-auto py-8 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Roleplay Reports</h1>
+            <p className="text-muted-foreground">
+              View completed sales roleplay sessions and performance reports
+            </p>
+          </div>
         </div>
-      </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -324,6 +327,7 @@ export default function RoleplayReports() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
