@@ -22,6 +22,7 @@ import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
 import { AdminTopNav } from '@/components/AdminTopNav';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface Agency {
@@ -85,6 +86,10 @@ const [uploadUserIds, setUploadUserIds] = useState<Set<string>>(new Set());
 // Admin actions state
 const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 const [isDeleting, setIsDeleting] = useState(false);
+
+// Edit tier state
+const [editingClient, setEditingClient] = useState<Profile | null>(null);
+const [newTier, setNewTier] = useState<string>('1:1 Coaching');
 
 // Pagination
 const [currentPage, setCurrentPage] = useState(1);
@@ -226,13 +231,13 @@ setCoachingRevenue(totalMRR);
       setIsDeleting(true);
       
       // Ensure we have a fresh session
-      const { data: { session }, error: sessionError } = await supa.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
         throw new Error('Authentication session expired. Please refresh the page and try again.');
       }
       
       // Attempt deletion with explicit authorization header
-      const { data, error } = await supa.functions.invoke('admin-delete-user', {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: { userId: selectedUserId },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -278,6 +283,34 @@ setCoachingRevenue(totalMRR);
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleUpdateTier = async () => {
+    if (!editingClient) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ membership_tier: newTier })
+        .eq('id', editingClient.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tier updated successfully",
+        description: `${editingClient.agency?.name || 'Client'} is now on ${newTier}`,
+      });
+
+      setEditingClient(null);
+      await fetchAdminData();
+    } catch (error) {
+      console.error('Error updating tier:', error);
+      toast({
+        title: "Failed to update tier",
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -545,12 +578,24 @@ const getSubmissionStatus = (profile: Profile) => {
                       </div>
                       <div className="flex items-center space-x-3">
                         {getSubmissionStatus(client)}
-                        <Link to={`/admin/client/${client.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </Button>
-                        </Link>
+                  <div className="flex gap-2">
+                    <Link to={`/admin/client/${client.id}`}>
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setEditingClient(client);
+                        setNewTier(client.membership_tier || '1:1 Coaching');
+                      }}
+                    >
+                      Edit Tier
+                    </Button>
+                  </div>
                       </div>
                     </div>
                   ))}
@@ -631,6 +676,57 @@ const getSubmissionStatus = (profile: Profile) => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Edit Tier Dialog */}
+        <Dialog open={editingClient !== null} onOpenChange={(open) => !open && setEditingClient(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Membership Tier</DialogTitle>
+              <DialogDescription>
+                Change the membership tier for {editingClient?.agency?.name || 'this client'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Current Tier</label>
+                <Badge className={editingClient?.membership_tier === 'Boardroom' ? 'bg-red-500' : 'bg-blue-500'}>
+                  {editingClient?.membership_tier || '1:1 Coaching'}
+                </Badge>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">New Tier</label>
+                <Select value={newTier} onValueChange={setNewTier}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1:1 Coaching">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-blue-500">1:1 Coaching</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Boardroom">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-red-500">Boardroom</Badge>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingClient(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateTier}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
