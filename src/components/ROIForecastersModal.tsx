@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -58,7 +58,11 @@ function InputAffix({ children, prefix, suffix }: { children: React.ReactNode; p
   );
 }
 
-function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
+function SelectorView({ onPick, navigate, onOpenChange }: { 
+  onPick: (k: CalcKey) => void;
+  navigate: any;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [last, setLast] = useState<CalcKey | null>(null);
   useEffect(() => {
     try {
@@ -82,10 +86,8 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             <CardDescription>Verify vendor performance and ROI</CardDescription>
           </CardHeader>
           <CardContent>
-            {last === "vendor" ? (
+            {last === "vendor" && (
               <span className="text-xs text-muted-foreground">Last used</span>
-            ) : (
-              <span className="text-xs text-muted-foreground">New</span>
             )}
           </CardContent>
         </Card>
@@ -140,6 +142,22 @@ function SelectorView({ onPick }: { onPick: (k: CalcKey) => void }) {
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
           </CardHeader>
         </Card>
+        <Card 
+          className={cardBase} 
+          role="button" 
+          onClick={() => {
+            onOpenChange(false);
+            navigate("/roleplaybot");
+          }} 
+          aria-label="Open AI Sales Roleplay Trainer"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mic className="h-5 w-5" /> AI Sales Roleplay Trainer
+            </CardTitle>
+            <CardDescription>AI voice bot that trains and scores your team members.</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
   );
 }
@@ -175,7 +193,7 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
           </Badge>
         </DialogHeader>
 
-        {!mode && <SelectorView onPick={handlePick} />}
+        {!mode && <SelectorView onPick={handlePick} navigate={navigate} onOpenChange={onOpenChange} />}
         {mode === "vendor" && (
           <div className="animate-enter">
             <VendorVerifierForm onBack={() => setMode(null)} />
