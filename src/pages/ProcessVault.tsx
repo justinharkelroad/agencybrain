@@ -45,6 +45,7 @@ const ProcessVault: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState<UserVault | null>(null);
   const [selectedVaultFiles, setSelectedVaultFiles] = useState<VaultFileRow[]>([]);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   // SEO basics
   useEffect(() => {
@@ -138,16 +139,37 @@ const ProcessVault: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  const generateSignedUrls = async (files: VaultFileRow[]) => {
+    const urls: Record<string, string> = {};
+    for (const file of files) {
+      const { data, error } = await supabase.storage
+        .from('uploads')
+        .createSignedUrl(file.upload_file_path, 3600); // 1 hour expiry
+      
+      if (!error && data) {
+        urls[file.id] = data.signedUrl;
+      } else if (error) {
+        console.error('Failed to generate signed URL:', error);
+      }
+    }
+    setSignedUrls(urls);
+  };
+
   const openVault = async (vault: UserVault) => {
     setSelectedVault(vault);
     setDialogOpen(true);
+    setSignedUrls({});
     // load existing files
     const { data, error } = await supa
       .from("process_vault_files")
       .select("id,user_vault_id,upload_file_path,created_at")
       .eq("user_vault_id", vault.id)
       .order("created_at", { ascending: false });
-    if (!error) setSelectedVaultFiles((data || []) as VaultFileRow[]);
+    if (!error && data) {
+      const files = data as VaultFileRow[];
+      setSelectedVaultFiles(files);
+      await generateSignedUrls(files);
+    }
   };
 
   const onUploadComplete = async (files: { id: string }[]) => {
@@ -165,7 +187,9 @@ const ProcessVault: React.FC = () => {
         .select("id,user_vault_id,upload_file_path,created_at")
         .eq("user_vault_id", selectedVault.id)
         .order("created_at", { ascending: false });
-      setSelectedVaultFiles((data || []) as VaultFileRow[]);
+      const vaultFiles = (data || []) as VaultFileRow[];
+      setSelectedVaultFiles(vaultFiles);
+      await generateSignedUrls(vaultFiles);
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "Couldn't add files to vault.", variant: "destructive" });
@@ -286,14 +310,19 @@ const ProcessVault: React.FC = () => {
                     {selectedVaultFiles.map((f) => (
                       <li key={f.id} className="text-sm flex items-center justify-between border rounded p-2">
                         <span className="truncate mr-2">{f.upload_file_path.split('/').pop()}</span>
-                        <a
-                          className="text-primary underline underline-offset-2"
-                          href={supa.storage.from('uploads').getPublicUrl(f.upload_file_path).data.publicUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Download
-                        </a>
+                        {signedUrls[f.id] ? (
+                          <a
+                            className="text-primary underline underline-offset-2"
+                            href={signedUrls[f.id]}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                          >
+                            Download
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Loading...</span>
+                        )}
                       </li>
                     ))}
                   </ul>
