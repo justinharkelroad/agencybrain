@@ -1367,6 +1367,7 @@ export type Database = {
           agency_id: string | null
           created_at: string
           id: string
+          membership_tier: Database["public"]["Enums"]["membership_tier"]
           mrr: number | null
           role: string
           updated_at: string
@@ -1375,6 +1376,7 @@ export type Database = {
           agency_id?: string | null
           created_at?: string
           id: string
+          membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
           role?: string
           updated_at?: string
@@ -1383,6 +1385,7 @@ export type Database = {
           agency_id?: string | null
           created_at?: string
           id?: string
+          membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
           role?: string
           updated_at?: string
@@ -2812,6 +2815,7 @@ export type Database = {
       app_member_role: "Sales" | "Service" | "Hybrid" | "Manager"
       app_member_status: "active" | "inactive"
       app_role: "admin" | "user"
+      membership_tier: "1:1 Coaching" | "Boardroom"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2943,6 +2947,7 @@ export const Constants = {
       app_member_role: ["Sales", "Service", "Hybrid", "Manager"],
       app_member_status: ["active", "inactive"],
       app_role: ["admin", "user"],
+      membership_tier: ["1:1 Coaching", "Boardroom"],
     },
   },
 } as const

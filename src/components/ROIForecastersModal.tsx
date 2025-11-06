@@ -31,6 +31,8 @@ import {
 } from "@/utils/marketingCalculator";
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from '@/lib/auth';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export type ROIForecastersModalProps = {
   open: boolean;
@@ -64,6 +66,9 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   onOpenChange: (open: boolean) => void;
 }) {
   const [last, setLast] = useState<CalcKey | null>(null);
+  const { hasTierAccess } = useAuth();
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  
   useEffect(() => {
     try {
       const v = localStorage.getItem(LAST_USED_KEY) as CalcKey | null;
@@ -71,7 +76,44 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
     } catch {}
   }, []);
   const cardBase = "glass-surface elevate rounded-2xl hover-scale transition-shadow shadow-md hover:shadow-lg";
+  
+  // Restricted card component for Boardroom users
+  const RestrictedCard = ({ 
+    icon: Icon, 
+    title, 
+    description,
+    last: isLast
+  }: {
+    icon: any;
+    title: string;
+    description: string;
+    last?: boolean;
+  }) => (
+    <Card 
+      className={`${cardBase} opacity-75 relative overflow-hidden`}
+      role="button"
+      onClick={() => setShowUpgradeDialog(true)}
+      aria-label={`${title} - Restricted`}
+    >
+      <div className="absolute top-2 right-2 z-10">
+        <Badge variant="destructive" className="text-xs">
+          1:1 Only
+        </Badge>
+      </div>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-muted-foreground">
+          <Icon className="h-5 w-5" /> {title}
+        </CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLast && <span className="text-xs text-muted-foreground">Last used</span>}
+      </CardContent>
+    </Card>
+  );
+  
   return (
+    <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
         <Card
           className={cardBase}
@@ -119,15 +161,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             {last === "transfer" && <span className="text-xs text-muted-foreground">Last used</span>}
           </CardContent>
         </Card>
-        <Card className={cardBase} role="button" onClick={() => onPick("allstate_bonus_grid")} aria-label="Open Allstate Bonus Grid">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Allstate Bonus Grid</CardTitle>
-            <CardDescription>Enter your baseline and production to see bonus, daily points, and items</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
-          </CardContent>
-        </Card>
+        {hasTierAccess('bonus-grid') ? (
+          <Card className={cardBase} role="button" onClick={() => onPick("allstate_bonus_grid")} aria-label="Open Allstate Bonus Grid">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Allstate Bonus Grid</CardTitle>
+              <CardDescription>Enter your baseline and production to see bonus, daily points, and items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
+            </CardContent>
+          </Card>
+        ) : (
+          <RestrictedCard
+            icon={Calculator}
+            title="Allstate Bonus Grid"
+            description="Enter your baseline and production to see bonus, daily points, and items"
+            last={last === "allstate_bonus_grid"}
+          />
+        )}
         <Card 
           className={cardBase} 
           role="button" 
@@ -142,23 +193,50 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
           </CardHeader>
         </Card>
-        <Card 
-          className={cardBase} 
-          role="button" 
-          onClick={() => {
-            onOpenChange(false);
-            navigate("/roleplaybot");
-          }} 
-          aria-label="Open AI Sales Roleplay Trainer"
-        >
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mic className="h-5 w-5" /> AI Sales Roleplay Trainer
-            </CardTitle>
-            <CardDescription>AI voice bot that trains and scores your team members.</CardDescription>
-          </CardHeader>
-        </Card>
+        {hasTierAccess('roleplay-trainer') ? (
+          <Card 
+            className={cardBase} 
+            role="button" 
+            onClick={() => {
+              onOpenChange(false);
+              navigate("/roleplaybot");
+            }} 
+            aria-label="Open AI Sales Roleplay Trainer"
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mic className="h-5 w-5" /> AI Sales Roleplay Trainer
+              </CardTitle>
+              <CardDescription>AI voice bot that trains and scores your team members.</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <RestrictedCard
+            icon={Mic}
+            title="AI Sales Roleplay Trainer"
+            description="AI voice bot that trains and scores your team members."
+          />
+        )}
       </div>
+      
+      {/* Upgrade Dialog for Restricted Access */}
+      <AlertDialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>1:1 Coaching Access Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              This tool is accessible to "1:1 Coaching" clients only. 
+              Please contact info@standardplaybook.com for more help.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowUpgradeDialog(false)}>
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

@@ -38,6 +38,7 @@ interface Profile {
   created_at: string;
   agency: Agency;
   mrr?: string | number;
+  membership_tier?: string;
 }
 
 interface Period {
@@ -64,6 +65,7 @@ const AdminDashboard = () => {
   const [recentSubmissions, setRecentSubmissions] = useState<Period[]>([]);
   const [recentUploads, setRecentUploads] = useState<Upload[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [tierFilter, setTierFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 const [stats, setStats] = useState({
   totalClients: 0,
@@ -139,7 +141,8 @@ const { toast } = useToast();
         .from('profiles')
         .select(`
           *,
-          agency:agencies(*)
+          agency:agencies(*),
+          membership_tier
         `)
         .neq('role', 'admin')
         .order('created_at', { ascending: false });
@@ -294,9 +297,11 @@ const getSubmissionStatus = (profile: Profile) => {
   }
 };
 
-  const filteredClients = clients.filter(client =>
-    client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTier = tierFilter === 'all' || client.membership_tier === tierFilter;
+    return matchesSearch && matchesTier;
+  });
 
   // Reset to first page when searching
   useEffect(() => {
@@ -429,6 +434,26 @@ const getSubmissionStatus = (profile: Profile) => {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="w-full md:w-48">
+                  <Select value={tierFilter} onValueChange={setTierFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Members</SelectItem>
+                      <SelectItem value="1:1 Coaching">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-500">1:1 Coaching</Badge>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Boardroom">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-red-500">Boardroom</Badge>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="w-full md:w-64">
                   <Select value={selectedUserId ?? ''} onValueChange={(v) => setSelectedUserId(v)}>
                     <SelectTrigger>
@@ -504,11 +529,18 @@ const getSubmissionStatus = (profile: Profile) => {
                         <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                           <Users className="w-5 h-5 text-primary" />
                         </div>
-                        <div>
-                          <h3 className="font-semibold">{client.agency?.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Joined {new Date(client.created_at).toLocaleDateString()}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <h3 className="font-semibold">{client.agency?.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Joined {new Date(client.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {client.membership_tier === '1:1 Coaching' ? (
+                            <Badge className="bg-blue-500 hover:bg-blue-600">1:1</Badge>
+                          ) : (
+                            <Badge className="bg-red-500 hover:bg-red-600">Boardroom</Badge>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">

@@ -12,6 +12,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +32,8 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
     lastName: '',
     agencyName: '',
     agencyDescription: '',
-    mrr: ''
+    mrr: '',
+    membershipTier: '1:1 Coaching'
   });
   const { toast } = useToast();
 
@@ -54,7 +57,8 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
           firstName: formData.firstName,
           lastName: formData.lastName,
           agencyName: formData.agencyName,
-          agencyDescription: formData.agencyDescription
+          agencyDescription: formData.agencyDescription,
+          membershipTier: formData.membershipTier
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -93,7 +97,8 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
         lastName: '',
         agencyName: '',
         agencyDescription: '',
-        mrr: ''
+        mrr: '',
+        membershipTier: '1:1 Coaching'
       });
       setOpen(false);
       onClientCreated();
@@ -212,6 +217,32 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
               placeholder="Brief description of the agency..."
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="membershipTier">Membership Level</Label>
+            <Select 
+              value={formData.membershipTier} 
+              onValueChange={(value) => setFormData(prev => ({ ...prev, membershipTier: value }))}
+            >
+              <SelectTrigger id="membershipTier">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1:1 Coaching">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-blue-500">1:1 Coaching</Badge>
+                    <span className="text-sm">Full Access</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="Boardroom">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-red-500">Boardroom</Badge>
+                    <span className="text-sm">Standard Access</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

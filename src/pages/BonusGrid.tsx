@@ -12,6 +12,7 @@ import { NewBusinessTable } from "../bonus_grid_web_spec/NewBusinessTable";
 import { GrowthBonusFactorsCard } from "../bonus_grid_web_spec/GrowthBonusFactorsCard";
 import { InputsForm } from "../bonus_grid_web_spec/InputsForm";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -33,8 +34,22 @@ const PPI_DEFAULTS: Record<CellAddr, number> = {
 
 
 export default function BonusGridPage(){
-  const { toast } = useToast();
+  const { hasTierAccess } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Tier access check
+  useEffect(() => {
+    if (!hasTierAccess('bonus-grid')) {
+      toast({
+        title: "Access Restricted",
+        description: "This tool is accessible to '1:1 Coaching' clients only. Contact info@standardplaybook.com for help.",
+        variant: "destructive",
+      });
+      navigate('/dashboard');
+    }
+  }, [hasTierAccess, navigate, toast]);
+  
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);

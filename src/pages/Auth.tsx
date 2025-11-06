@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 import { supabase } from '@/lib/supabaseClient';
@@ -16,29 +18,39 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
+  const [membershipTier, setMembershipTier] = useState('1:1 Coaching');
   const [inviteCode, setInviteCode] = useState('');
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
 
+  // Redirect if already logged in
   if (user) {
-    return <Navigate to="/dashboard" />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
-    
-    if (error) {
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        toast({
+          title: "Sign In Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -46,17 +58,8 @@ export default function Auth() {
     
     if (password !== confirmPassword) {
       toast({
-        title: "Error",
+        title: "Password Mismatch",
         description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!inviteCode.trim()) {
-      toast({
-        title: "Access code required",
-        description: "Please enter your access code to continue.",
         variant: "destructive",
       });
       return;
@@ -65,38 +68,40 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('validate-invite', {
-        body: { code: inviteCode.trim() },
+      // Validate invite code
+      const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-invite', {
+        body: { code: inviteCode }
       });
 
-      if (error || !data?.valid) {
+      if (validationError || !validationData?.valid) {
         toast({
-          title: "Invalid access code",
-          description: "Please check your code and try again.",
+          title: "Invalid Access Code",
+          description: validationData?.message || "Please check your access code and try again",
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
 
-      const { error: signUpError } = await signUp(email, password, agencyName);
+      // If validation passes, proceed with signup
+      const { error } = await signUp(email, password, agencyName, membershipTier);
       
-      if (signUpError) {
+      if (error) {
         toast({
-          title: "Error",
-          description: signUpError.message,
+          title: "Sign Up Failed",
+          description: error.message,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Success",
-          description: "Account created successfully! Please check your email to verify your account.",
+          title: "Account Created!",
+          description: "Please check your email to verify your account.",
         });
       }
-    } catch (err: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: err?.message || 'Something went wrong',
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -105,21 +110,26 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6 font-inter">
-      <Card className="w-full max-w-md glass-surface elevate rounded-2xl">
-        <CardHeader className="text-center">
-          <div className="flex justify-center"><AgencyBrainBadge size="lg" /></div>
-          <CardDescription>Insurance Agency Performance Platform</CardDescription>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <AgencyBrainBadge />
+          </div>
+          <CardTitle className="text-2xl text-center">Insurance Agency Performance Platform</CardTitle>
+          <CardDescription className="text-center">
+            Transform your agency with AI-powered insights
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 glass-surface rounded-full p-1">
-              <TabsTrigger value="signin" className="rounded-full">Enter HQ</TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-full">Create Account</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="signin-email">Email</Label>
                   <Input
@@ -149,7 +159,7 @@ export default function Auth() {
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="agency-name">Agency Name</Label>
                   <Input
@@ -160,6 +170,31 @@ export default function Auth() {
                     onChange={(e) => setAgencyName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="membershipTier">Membership Level</Label>
+                  <Select value={membershipTier} onValueChange={setMembershipTier}>
+                    <SelectTrigger id="membershipTier">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1:1 Coaching">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-500">1:1 Coaching</Badge>
+                          <span className="text-sm">Full Access</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Boardroom">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-red-500">Boardroom</Badge>
+                          <span className="text-sm">Standard Access</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select your coaching level. Contact us if you're unsure.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>

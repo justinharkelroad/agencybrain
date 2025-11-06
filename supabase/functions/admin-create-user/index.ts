@@ -51,7 +51,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, firstName, lastName, agencyName, agencyDescription, coachingMrr } = await req.json();
+    const { email, password, firstName, lastName, agencyName, agencyDescription, coachingMrr, membershipTier } = await req.json();
 
     if (!email || !password || !firstName || !lastName || !agencyName) {
       return new Response(
@@ -111,12 +111,13 @@ serve(async (req) => {
 
     console.log('Agency created:', agency.id);
 
-    // Update profile with agency and MRR
+    // Update profile with agency, MRR, and membership tier
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
         agency_id: agency.id,
         mrr: coachingMrr || null,
+        membership_tier: membershipTier || '1:1 Coaching',
       })
       .eq('id', newUser.user.id);
 

@@ -6,10 +6,12 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, agencyName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, agencyName: string, membershipTier?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  membershipTier: string | null;
+  hasTierAccess: (feature: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [membershipTier, setMembershipTier] = useState<string | null>(null);
 
   const checkUserRole = useCallback(async (userId: string) => {
     try {
@@ -40,6 +43,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const checkMembershipTier = useCallback(async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('membership_tier')
+        .eq('id', userId)
+        .maybeSingle();
+        
+      if (!error && data) {
+        setMembershipTier(data.membership_tier);
+      } else {
+        setMembershipTier(null);
+      }
+    } catch (error) {
+      console.error('Error checking membership tier:', error);
+      setMembershipTier(null);
+    }
+  }, []);
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -48,11 +70,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        // Check if user is admin (synchronously set state)
+        // Defer Supabase calls to prevent deadlock
         if (session?.user) {
-          checkUserRole(session.user.id);
+          setTimeout(() => {
+            checkUserRole(session.user.id);
+            checkMembershipTier(session.user.id);
+          }, 0);
         } else {
           setIsAdmin(false);
+          setMembershipTier(null);
         }
       }
     );
@@ -65,14 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (session?.user) {
         checkUserRole(session.user.id);
+        checkMembershipTier(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [checkUserRole]);
+  }, [checkUserRole, checkMembershipTier]);
 
 
-  const signUp = async (email: string, password: string, agencyName: string) => {
+  const signUp = async (email: string, password: string, agencyName: string, membershipTier: string = '1:1 Coaching') => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -82,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           agency_name: agencyName,
+          membership_tier: membershipTier,
         }
       }
     });
@@ -104,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
       setIsAdmin(false);
+      setMembershipTier(null);
       
       // Then attempt to sign out from Supabase
       await supabase.auth.signOut();
@@ -111,6 +140,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error signing out:', error);
       // Even if Supabase signOut fails, we've cleared local state
     }
+  };
+
+  const hasTierAccess = (feature: string): boolean => {
+    if (!membershipTier) return false;
+    
+    // AI Roleplay and Bonus Grid only for 1:1 Coaching
+    if (feature === 'roleplay-trainer' || feature === 'bonus-grid') {
+      return membershipTier === '1:1 Coaching';
+    }
+    
+    // All other features available to both tiers
+    return true;
   };
 
   const value = {
@@ -121,6 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     isAdmin,
+    membershipTier,
+    hasTierAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
