@@ -425,6 +425,21 @@ const RoleplayBot = () => {
         </div>
       </div>
 
+      {/* Coaching Client Notice */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="relative rounded-lg border border-red-500/50 bg-gradient-to-br from-red-500/20 via-red-600/15 to-red-500/10 backdrop-blur-sm p-6 shadow-lg">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm leading-relaxed text-foreground">
+              <p className="font-medium mb-2">1:1 Coaching Client Access</p>
+              <p>
+                You have access to this tool because you are a 1:1 Coaching Client. You have freedom to use this with your teams as much as you'd like. Each generation link sent will create an access token for your team to use the tool. Each time they want to use it, you will need to generate a new token. Their result will be saved to your dashboard inside of AgencyBrain upon completion.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Staff Link Generation - Always visible */}
       <Card className="max-w-7xl mx-auto p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
