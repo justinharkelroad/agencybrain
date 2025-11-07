@@ -15,7 +15,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, TrendingUp, Award, ThumbsUp, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -64,6 +64,22 @@ export default function RoleplaySessionsCard() {
       
       if (error) throw error;
       return count || 0;
+    },
+    enabled: !!profile?.agency_id
+  });
+
+  const { data: allSessions } = useQuery({
+    queryKey: ['roleplay-sessions-all', profile?.agency_id],
+    queryFn: async () => {
+      if (!profile?.agency_id) throw new Error('No agency ID');
+
+      const { data, error } = await supabase
+        .from('roleplay_sessions')
+        .select('overall_score')
+        .eq('agency_id', profile.agency_id);
+
+      if (error) throw error;
+      return data;
     },
     enabled: !!profile?.agency_id
   });
@@ -126,6 +142,13 @@ export default function RoleplaySessionsCard() {
     }
   };
 
+  const stats = {
+    total: allSessions?.length || 0,
+    excellent: allSessions?.filter(s => s.overall_score === 'Excellent').length || 0,
+    good: allSessions?.filter(s => s.overall_score === 'Good').length || 0,
+    needsImprovement: allSessions?.filter(s => s.overall_score === 'Needs Improvement').length || 0,
+  };
+
   return (
     <>
       <section aria-labelledby="roleplay-sessions">
@@ -134,7 +157,40 @@ export default function RoleplaySessionsCard() {
             <CardTitle id="roleplay-sessions">Completed Roleplay Sessions</CardTitle>
             <CardDescription>Recent sales training roleplay performance</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Excellent</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.excellent}</p>
+                </div>
+                <Award className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Good</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.good}</p>
+                </div>
+                <ThumbsUp className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Needs Work</p>
+                  <p className="text-2xl font-bold text-amber-600">{stats.needsImprovement}</p>
+                </div>
+                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </div>
+
+            {/* Sessions Table */}
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>
             ) : sessions && sessions.length > 0 ? (
