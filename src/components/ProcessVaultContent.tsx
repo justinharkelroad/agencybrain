@@ -86,7 +86,10 @@ export const ProcessVaultContent: React.FC = () => {
     try {
       const typesData = await fetchActiveProcessVaultTypes();
       const { data: vaultsData } = await supabase
-        .from("user_process_vaults").select("id,user_id,title,vault_type_id,created_at").order("created_at", { ascending: true });
+        .from("user_process_vaults")
+        .select("id,user_id,title,vault_type_id,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
 
       const safeTypes = typesData as ProcessVaultType[];
       const safeVaults = (vaultsData || []) as UserVault[];
@@ -95,6 +98,7 @@ export const ProcessVaultContent: React.FC = () => {
       const { data: vaultsAfter } = await supabase
         .from("user_process_vaults")
         .select("id,user_id,title,vault_type_id,created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: true });
 
       const finalVaults = (vaultsAfter || []) as UserVault[];
