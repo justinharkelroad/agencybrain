@@ -39,6 +39,7 @@ import AdminChecklists from "./pages/admin/AdminChecklists";
 import RoleplayReports from "./pages/admin/RoleplayReports";
 import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
+import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
@@ -207,6 +208,11 @@ const App = () => (
             <Route path="/admin/field-mapping-setup" element={
               <ProtectedRoute requireAdmin>
                 <FieldMappingSetup />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/focus-management" element={
+              <ProtectedRoute requireAdmin>
+                <AdminFocusManagement />
               </ProtectedRoute>
             } />
             <Route path="/admin/team/:memberId" element={
