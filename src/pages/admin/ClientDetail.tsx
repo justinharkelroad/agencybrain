@@ -1010,7 +1010,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center">
                   <Target className="h-5 w-5 mr-2" />
-                  Client Focus Board
+                  Focus Targets
                 </CardTitle>
                 <Button onClick={() => setCreateFocusDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -1035,7 +1035,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                         key={status}
                         id={status as ColumnStatus}
                         title={
-                          status === "backlog" ? "Backlog" :
+                          status === "backlog" ? "Focus List" :
                           status === "within_1_week" ? "Within 1 Week" :
                           status === "within_2_weeks" ? "Within 2 Weeks" :
                           status === "before_next_call" ? "Before Next Call" :

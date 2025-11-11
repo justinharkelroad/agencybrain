@@ -21,7 +21,7 @@ import { EditFocusItemDialog } from "./EditFocusItemDialog";
 import { useFocusItems, type FocusItem, type ColumnStatus } from "@/hooks/useFocusItems";
 
 const columns: { id: ColumnStatus; title: string }[] = [
-  { id: "backlog", title: "Focus Items Backlog" },
+  { id: "backlog", title: "Focus List" },
   { id: "week1", title: "Within 1 Week" },
   { id: "week2", title: "Within 2 Weeks" },
   { id: "next_call", title: "Before Next Booked Call" },
@@ -117,7 +117,7 @@ export function MyCurrentFocus() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            My Current Focus
+            Focus Targets
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -136,7 +136,7 @@ export function MyCurrentFocus() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              My Current Focus
+              Focus Targets
             </CardTitle>
             <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
