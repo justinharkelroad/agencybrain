@@ -142,12 +142,31 @@ export function useFocusItems() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
+    onMutate: async ({ id, column_status, column_order }) => {
+      await queryClient.cancelQueries({ queryKey: ["focus-items"] });
+      
+      const previousItems = queryClient.getQueryData<FocusItem[]>(["focus-items"]);
+      
+      queryClient.setQueryData<FocusItem[]>(["focus-items"], (old) => {
+        if (!old) return old;
+        return old.map((item) =>
+          item.id === id
+            ? { ...item, column_status, column_order, updated_at: new Date().toISOString() }
+            : item
+        );
+      });
+      
+      return { previousItems };
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      if (context?.previousItems) {
+        queryClient.setQueryData(["focus-items"], context.previousItems);
+      }
       toast.error("Failed to move focus item");
       console.error("Move focus item error:", error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
     },
   });
 
