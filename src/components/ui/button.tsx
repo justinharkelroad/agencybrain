@@ -47,8 +47,22 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, showIcon = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
-    const hasGradientEffect = variant === "default" || variant === undefined
+    const hasGradientEffect = !asChild && (variant === "default" || variant === undefined)
     
+    // When asChild is true, render children directly to satisfy Slot's single-child requirement
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Comp>
+      )
+    }
+    
+    // Regular button with gradient effect
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
