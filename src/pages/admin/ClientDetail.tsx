@@ -19,6 +19,12 @@ import { FormViewer } from '@/components/FormViewer';
 import { getCategoryGradient } from '@/utils/categoryStyles';
 // Types removed - using generic any types for now
 import { fetchActiveProcessVaultTypes } from '@/lib/dataFetchers';
+import { DndContext, DragEndEvent, DragOverEvent, closestCorners } from "@dnd-kit/core";
+import { FocusColumn } from "@/components/focus/FocusColumn";
+import { AdminCreateFocusItemDialog } from "@/components/focus/AdminCreateFocusItemDialog";
+import { EditFocusItemDialog } from "@/components/focus/EditFocusItemDialog";
+import { useAdminFocusItems } from "@/hooks/useAdminFocusItems";
+import type { ColumnStatus, FocusItem } from "@/hooks/useFocusItems";
 
 interface Client {
   id: string;
@@ -103,6 +109,11 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
   const [activeVaultFiles, setActiveVaultFiles] = useState<VaultFileRow[]>([]);
   const [selectedUploadId, setSelectedUploadId] = useState<string>('');
   const [newVaultTitle, setNewVaultTitle] = useState<string>('');
+
+  // Focus board state
+  const [createFocusDialogOpen, setCreateFocusDialogOpen] = useState(false);
+  const [editingFocusItem, setEditingFocusItem] = useState<FocusItem | null>(null);
+  const { items: focusItems, isLoading: focusLoading, createItem, updateItem, deleteItem, moveItem } = useAdminFocusItems(clientId);
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -898,6 +909,30 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
     });
   };
 
+  const handleDragOver = (event: DragOverEvent) => {
+    // Optional: Add visual feedback during drag
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeItem = focusItems.find((item) => item.id === active.id);
+    if (!activeItem) return;
+
+    const newColumnStatus = over.id as ColumnStatus;
+    const itemsInColumn = focusItems.filter((item) => item.column_status === newColumnStatus);
+    const newColumnOrder = itemsInColumn.length;
+
+    if (activeItem.column_status !== newColumnStatus || activeItem.column_order !== newColumnOrder) {
+      moveItem.mutate({
+        id: activeItem.id,
+        column_status: newColumnStatus,
+        column_order: newColumnOrder,
+      });
+    }
+  };
+
   const handleSaveMRR = async () => {
     const value = Number(mrrInput);
     if (Number.isNaN(value)) {
@@ -962,10 +997,86 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
           <TabsTrigger value="periods">Periods</TabsTrigger>
           <TabsTrigger value="uploads">Files</TabsTrigger>
           <TabsTrigger value="process-vault">Process Vault</TabsTrigger>
+          <TabsTrigger value="focus">Focus</TabsTrigger>
           <TabsTrigger value="coaching">Coaching</TabsTrigger>
           <TabsTrigger value="analyze">Analyze</TabsTrigger>
           <TabsTrigger value="analyses">Results</TabsTrigger>
         </TabsList>
+
+        {/* Focus Tab */}
+        <TabsContent value="focus">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center">
+                  <Target className="h-5 w-5 mr-2" />
+                  Client Focus Board
+                </CardTitle>
+                <Button onClick={() => setCreateFocusDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Focus Item
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {focusLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-lg">Loading focus items...</div>
+                </div>
+              ) : (
+                <DndContext
+                  collisionDetection={closestCorners}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                    {["backlog", "within_1_week", "within_2_weeks", "before_next_call", "completed"].map((status) => (
+                      <FocusColumn
+                        key={status}
+                        id={status as ColumnStatus}
+                        title={
+                          status === "backlog" ? "Backlog" :
+                          status === "within_1_week" ? "Within 1 Week" :
+                          status === "within_2_weeks" ? "Within 2 Weeks" :
+                          status === "before_next_call" ? "Before Next Call" :
+                          "COMPLETED"
+                        }
+                        items={focusItems.filter((item) => item.column_status === status)}
+                        onEdit={setEditingFocusItem}
+                        onDelete={(id) => deleteItem.mutate(id)}
+                      />
+                    ))}
+                  </div>
+                </DndContext>
+              )}
+            </CardContent>
+          </Card>
+
+          <AdminCreateFocusItemDialog
+            open={createFocusDialogOpen}
+            onOpenChange={setCreateFocusDialogOpen}
+            onCreate={(data) => {
+              createItem.mutate({
+                ...data,
+                target_user_id: clientId!,
+              });
+              setCreateFocusDialogOpen(false);
+            }}
+            targetUserName={agencyName}
+          />
+
+          {editingFocusItem && (
+            <EditFocusItemDialog
+              item={editingFocusItem}
+              open={!!editingFocusItem}
+              onOpenChange={(open) => !open && setEditingFocusItem(null)}
+              onUpdate={(id, updates) => {
+                updateItem.mutate({ id, updates });
+                setEditingFocusItem(null);
+              }}
+            />
+          )}
+        </TabsContent>
 
         {/* Coaching Tab */}
         <TabsContent value="coaching">
