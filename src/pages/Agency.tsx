@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { TopNav } from "@/components/TopNav";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +14,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Edit, Plus, Trash2, ArrowRight } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Settings } from "lucide-react";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { ROIForecastersModal } from "@/components/ROIForecastersModal";
+import { UploadsContent } from "@/components/UploadsContent";
+import { ProcessVaultContent } from "@/components/ProcessVaultContent";
+import { SettingsContent } from "@/components/SettingsContent";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -29,6 +33,9 @@ type MemberStatus = (typeof MEMBER_STATUS)[number];
 export default function Agency() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  const activeTab = searchParams.get('tab') || 'info';
 
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -214,11 +221,41 @@ export default function Agency() {
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setSearchParams({ tab: value });
+  };
+
   return (
     <div className="min-h-screen">
       <TopNav title="My Agency" onOpenROI={() => setRoiOpen(true)} />
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-4 py-6">
         <h1 className="sr-only">My Agency</h1>
+        
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="info" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Agency Info
+            </TabsTrigger>
+            <TabsTrigger value="team" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Team
+            </TabsTrigger>
+            <TabsTrigger value="files" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Files
+            </TabsTrigger>
+            <TabsTrigger value="vault" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Process Vault
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="info" className="space-y-6">
 
         <Card>
           <CardHeader>
@@ -244,48 +281,51 @@ export default function Agency() {
           </CardContent>
         </Card>
 
-        <AgencyTemplatesManager />
+            <AgencyTemplatesManager />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Scorecard Forms</CardTitle>
-            <CardDescription>Manage client scorecard forms and submissions</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">Create custom forms for client evaluations and collect structured feedback.</p>
-            <div className="flex flex-wrap gap-3">
-              <Link to="/scorecard-forms">
-                <Button variant="default" className="rounded-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Manage Forms
-                </Button>
-              </Link>
-              <Link to="/scorecard-forms">
-                <Button variant="outline" className="rounded-full">
-                  View Submissions
-                </Button>
-              </Link>
-              <Link to="/scorecard-forms">
-                <Button variant="outline" className="rounded-full">
-                  View Dashboards
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Scorecard Forms</CardTitle>
+                <CardDescription>Manage client scorecard forms and submissions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">Create custom forms for client evaluations and collect structured feedback.</p>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/scorecard-forms">
+                    <Button variant="default" className="rounded-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Manage Forms
+                    </Button>
+                  </Link>
+                  <Link to="/scorecard-forms">
+                    <Button variant="outline" className="rounded-full">
+                      View Submissions
+                    </Button>
+                  </Link>
+                  <Link to="/scorecard-forms">
+                    <Button variant="outline" className="rounded-full">
+                      View Dashboards
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Team</CardTitle>
-              <CardDescription>Manage your roster</CardDescription>
-            </div>
-            <Dialog open={memberDialogOpen} onOpenChange={(o) => { setMemberDialogOpen(o); if (!o) setEditingId(null); }}>
-              <DialogTrigger asChild>
-                <Button className="rounded-full" onClick={startCreate} disabled={!agencyId}>
-                  <Plus className="h-4 w-4 mr-2" /> Add Member
-                </Button>
-              </DialogTrigger>
+          <TabsContent value="team" className="space-y-6">
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Team</CardTitle>
+                  <CardDescription>Manage your roster</CardDescription>
+                </div>
+                <Dialog open={memberDialogOpen} onOpenChange={(o) => { setMemberDialogOpen(o); if (!o) setEditingId(null); }}>
+                  <DialogTrigger asChild>
+                    <Button className="rounded-full" onClick={startCreate} disabled={!agencyId}>
+                      <Plus className="h-4 w-4 mr-2" /> Add Member
+                    </Button>
+                  </DialogTrigger>
               <DialogContent className="glass-surface">
                 <DialogHeader>
                   <DialogTitle>{editingId ? "Edit Member" : "Add Member"}</DialogTitle>
@@ -426,8 +466,22 @@ export default function Agency() {
             </Table>
           </CardContent>
         </Card>
-      </main>
-      <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
-    </div>
-  );
+      </TabsContent>
+
+      <TabsContent value="files" className="space-y-6">
+        <UploadsContent />
+      </TabsContent>
+
+      <TabsContent value="vault" className="space-y-6">
+        <ProcessVaultContent />
+      </TabsContent>
+
+      <TabsContent value="settings" className="space-y-6">
+        <SettingsContent />
+      </TabsContent>
+    </Tabs>
+  </main>
+  <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
+</div>
+);
 }

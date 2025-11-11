@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,11 @@ export type TopNavProps = {
 
 export function TopNav({ title, onOpenROI, className }: TopNavProps) {
   const { signOut, isAdmin, user } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
+  
+  const isOnDashboard = location.pathname === '/dashboard';
+  const isOnAgency = location.pathname === '/agency';
 
   const closeAnd = useCallback((fn?: () => void) => {
     setOpen(false);
@@ -40,40 +44,32 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-4">
           <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
-            <Link to="/dashboard" aria-label="Go to Dashboard">
-              <Button variant="glass" size="sm" className="rounded-full">Dashboard</Button>
-            </Link>
-            <Link to="/uploads" aria-label="Go to Files">
-              <Button variant="glass" size="sm" className="rounded-full">Files</Button>
-            </Link>
-            <Link to="/process-vault" aria-label="Go to Process Vault">
-              <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
-            </Link>
-            {enableMetrics && (
-              <Link to="/metrics" aria-label="Go to Metrics">
-                <Button variant="glass" size="sm" className="rounded-full">Metrics</Button>
+            {!isOnDashboard && (
+              <Link to="/dashboard" aria-label="Go to Dashboard">
+                <Button variant="glass" size="sm" className="rounded-full">Dashboard</Button>
               </Link>
             )}
-            <Link to="/settings" aria-label="Go to Settings">
-              <Button variant="glass" size="sm" className="rounded-full">Settings</Button>
-            </Link>
             {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
               <Link to="/admin" aria-label="Go to Admin Portal">
                 <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
               </Link>
             )}
-            <Link to="/agency" aria-label="Go to My Agency">
-              <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
-            </Link>
-            <Button
-              variant="glass"
-              size="sm"
-              className="rounded-full"
-              onClick={() => onOpenROI?.()}
-              aria-label="Open Tools"
-            >
-              Tools
-            </Button>
+            {!isOnAgency && (
+              <Link to="/agency" aria-label="Go to My Agency">
+                <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
+              </Link>
+            )}
+            {onOpenROI && (
+              <Button
+                variant="glass"
+                size="sm"
+                className="rounded-full"
+                onClick={() => onOpenROI()}
+                aria-label="Open Tools"
+              >
+                Tools
+              </Button>
+            )}
           </nav>
           <Button
             variant="glass"
@@ -94,38 +90,30 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
-              <Link to="/dashboard" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Dashboard</Button>
-              </Link>
-              <Link to="/uploads" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Files</Button>
-              </Link>
-              <Link to="/process-vault" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
-              </Link>
-              {enableMetrics && (
-                <Link to="/metrics" onClick={() => setOpen(false)}>
-                  <Button variant="secondary" className="w-full justify-start">Metrics</Button>
+              {!isOnDashboard && (
+                <Link to="/dashboard" onClick={() => setOpen(false)}>
+                  <Button variant="secondary" className="w-full justify-start">Dashboard</Button>
                 </Link>
               )}
-              <Link to="/settings" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Settings</Button>
-              </Link>
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin" onClick={() => setOpen(false)}>
                   <Button variant="secondary" className="w-full justify-start">Admin Portal</Button>
                 </Link>
               )}
-              <Link to="/agency" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">My Agency</Button>
-              </Link>
-              <Button
-                variant="secondary"
-                className="w-full justify-start"
-                onClick={() => closeAnd(onOpenROI)}
-              >
-                Tools
-              </Button>
+              {!isOnAgency && (
+                <Link to="/agency" onClick={() => setOpen(false)}>
+                  <Button variant="secondary" className="w-full justify-start">My Agency</Button>
+                </Link>
+              )}
+              {onOpenROI && (
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  onClick={() => closeAnd(onOpenROI)}
+                >
+                  Tools
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 className="w-full justify-start"
