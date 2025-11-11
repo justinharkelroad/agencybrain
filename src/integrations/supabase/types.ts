@@ -685,6 +685,56 @@ export type Database = {
         }
         Relationships: []
       }
+      focus_items: {
+        Row: {
+          agency_id: string | null
+          column_order: number
+          column_status: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          priority_level: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agency_id?: string | null
+          column_order?: number
+          column_status?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority_level: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string | null
+          column_order?: number
+          column_status?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority_level?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       form_fields: {
         Row: {
           builtin: boolean
