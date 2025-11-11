@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
+import { ArrowUpRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -9,7 +10,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-elegant",
+        default: "relative overflow-hidden bg-zinc-900 dark:bg-zinc-100 transition-all duration-200 group shadow-elegant",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -40,17 +41,28 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  showIcon?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, showIcon = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    const hasGradientEffect = variant === "default" || variant === undefined
+    
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-      />
+      >
+        {hasGradientEffect && (
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-40 group-hover:opacity-80 blur transition-opacity duration-500" />
+        )}
+        <div className={cn("relative flex items-center justify-center gap-2", hasGradientEffect && "text-white dark:text-zinc-900")}>
+          {children}
+          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
+        </div>
+      </Comp>
     )
   }
 )
