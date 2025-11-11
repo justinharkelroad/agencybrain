@@ -1030,15 +1030,15 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                   onDragEnd={handleDragEnd}
                 >
                   <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                    {["backlog", "within_1_week", "within_2_weeks", "before_next_call", "completed"].map((status) => (
+                    {["backlog", "week1", "week2", "next_call", "completed"].map((status) => (
                       <FocusColumn
                         key={status}
                         id={status as ColumnStatus}
                         title={
                           status === "backlog" ? "Focus List" :
-                          status === "within_1_week" ? "Within 1 Week" :
-                          status === "within_2_weeks" ? "Within 2 Weeks" :
-                          status === "before_next_call" ? "Before Next Call" :
+                          status === "week1" ? "Within 1 Week" :
+                          status === "week2" ? "Within 2 Weeks" :
+                          status === "next_call" ? "Before Next Call" :
                           "COMPLETED"
                         }
                         items={focusItems.filter((item) => item.column_status === status)}

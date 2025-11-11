@@ -15,12 +15,6 @@ export interface AdminFocusItem {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
-  user?: {
-    id: string;
-    agency?: {
-      name: string;
-    };
-  };
 }
 
 export function useAdminFocusItems(targetUserId?: string) {
@@ -31,13 +25,7 @@ export function useAdminFocusItems(targetUserId?: string) {
     queryFn: async () => {
       let query = supabase
         .from("focus_items")
-        .select(`
-          *,
-          user:profiles!user_id(
-            id,
-            agency:agencies(name)
-          )
-        `)
+        .select('*')
         .order("column_order", { ascending: true });
 
       if (targetUserId) {

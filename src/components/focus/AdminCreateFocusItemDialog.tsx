@@ -21,7 +21,7 @@ interface AdminCreateFocusItemDialogProps {
 }
 
 const columns: { value: ColumnStatus; label: string }[] = [
-  { value: "backlog", label: "Focus Items Backlog" },
+  { value: "backlog", label: "Focus List" },
   { value: "week1", label: "Within 1 Week" },
   { value: "week2", label: "Within 2 Weeks" },
   { value: "next_call", label: "Before Next Booked Call" },
