@@ -49,25 +49,51 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, showIcon = false, isHeaderButton = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
-    // Gradient classes for non-header buttons - neutralize variant styles and enforce unified appearance
-    const gradientClasses = !isHeaderButton
-      ? "bg-transparent border-0 rounded-full shadow-elegant before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500 before:opacity-40 group-hover:before:opacity-80 before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
-      : ""
+    // For header buttons: use existing variant system
+    if (isHeaderButton) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size }), className)}
+          ref={ref}
+          {...props}
+        >
+          {children}
+          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
+        </Comp>
+      )
+    }
     
-    // Content color classes applied to inner span for non-header buttons
-    const contentColorClasses = !isHeaderButton ? "text-white dark:text-zinc-900" : ""
+    // For non-header buttons: unified gradient pill style (bypass variants entirely)
+    const pillBaseClasses = cn(
+      // Base utilities (layout, focus, disabled, group)
+      "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium",
+      "ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "disabled:pointer-events-none disabled:opacity-50",
+      "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      // Unified pill appearance
+      "rounded-full bg-transparent border-0 shadow-elegant",
+      "relative overflow-hidden group",
+      // Gradient pseudo-element
+      "before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500",
+      "before:opacity-40 group-hover:before:opacity-80",
+      "before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
+    )
+    
+    // Map size to pill dimensions
+    const sizeClasses = {
+      default: "h-10 px-4 py-2",
+      sm: "h-9 px-3",
+      lg: "h-11 px-8",
+      icon: "h-10 w-10"
+    }[size || "default"]
     
     return (
       <Comp
-        className={cn(
-          buttonVariants({ variant, size }),
-          gradientClasses,
-          className
-        )}
+        className={cn(pillBaseClasses, sizeClasses, className)}
         ref={ref}
         {...props}
       >
-        <span className={cn("relative flex items-center justify-center gap-2", contentColorClasses)}>
+        <span className="relative flex items-center justify-center gap-2 text-zinc-900 dark:text-zinc-900 font-medium">
           {children}
           {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
         </span>

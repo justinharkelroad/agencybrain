@@ -52,7 +52,7 @@ export const PeriodDeleteDialog: React.FC<PeriodDeleteDialogProps> = ({
   const hasFormData = period?.form_data && Object.keys(period.form_data).length > 0;
 
   const defaultTrigger = (
-    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+    <Button variant="outline" size="sm">
       <Trash2 className="w-4 h-4 mr-2" />
       Delete
     </Button>
