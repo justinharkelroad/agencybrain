@@ -282,34 +282,6 @@ export default function Agency() {
         </Card>
 
             <AgencyTemplatesManager />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Scorecard Forms</CardTitle>
-                <CardDescription>Manage client scorecard forms and submissions</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">Create custom forms for client evaluations and collect structured feedback.</p>
-                <div className="flex flex-wrap gap-3">
-                  <Link to="/scorecard-forms">
-                    <Button variant="default" className="rounded-full">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Manage Forms
-                    </Button>
-                  </Link>
-                  <Link to="/scorecard-forms">
-                    <Button variant="outline" className="rounded-full">
-                      View Submissions
-                    </Button>
-                  </Link>
-                  <Link to="/scorecard-forms">
-                    <Button variant="outline" className="rounded-full">
-                      View Dashboards
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6">
