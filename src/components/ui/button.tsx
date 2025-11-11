@@ -69,7 +69,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium",
       "ring-offset-background transition-all duration-200",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      "disabled:pointer-events-none disabled:opacity-50",
+      "disabled:cursor-not-allowed disabled:bg-white disabled:text-black disabled:opacity-100",
       "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       // White background with black text
       "rounded-full bg-white text-black shadow-sm hover:shadow-md",
