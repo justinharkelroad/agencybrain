@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Folder, FolderOpen, ShieldCheck, UploadCloud } from "lucide-react";
+import { Folder, FolderOpen, ShieldCheck, UploadCloud, AlertCircle, RefreshCw } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
@@ -44,6 +44,8 @@ export const ProcessVaultContent: React.FC = () => {
   const [selectedVault, setSelectedVault] = useState<UserVault | null>(null);
   const [selectedVaultFiles, setSelectedVaultFiles] = useState<VaultFileRow[]>([]);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [urlErrors, setUrlErrors] = useState<Record<string, string>>({});
+  const [generatingUrls, setGeneratingUrls] = useState(false);
   const [newVaultName, setNewVaultName] = useState("");
 
   const ensureDefaultVaults = async (t: ProcessVaultType[], v: UserVault[]) => {
@@ -120,26 +122,97 @@ export const ProcessVaultContent: React.FC = () => {
     }
   }, [user?.id]);
 
-  const generateSignedUrls = async (files: VaultFileRow[]) => {
+  const generateSignedUrls = async (files: VaultFileRow[], showToast = false) => {
+    if (files.length === 0) return;
+    
+    setGeneratingUrls(true);
     const urls: Record<string, string> = {};
+    const errors: Record<string, string> = {};
+    let successCount = 0;
+    let failCount = 0;
+
+    console.log('[ProcessVault] Generating signed URLs for', files.length, 'files');
+    console.log('[ProcessVault] User ID:', user?.id);
+
     for (const file of files) {
+      console.log('[ProcessVault] Accessing file:', file.upload_file_path);
+      
       const { data, error } = await supabase.storage
         .from('uploads')
         .createSignedUrl(file.upload_file_path, 3600);
       
       if (!error && data) {
         urls[file.id] = data.signedUrl;
+        successCount++;
+        console.log('[ProcessVault] ✓ Generated URL for:', file.upload_file_path);
       } else if (error) {
-        console.error('Failed to generate signed URL:', error);
+        failCount++;
+        const errorMsg = error.message || 'Unknown error';
+        errors[file.id] = errorMsg;
+        console.error('[ProcessVault] ✗ Failed to generate signed URL:', {
+          path: file.upload_file_path,
+          error: errorMsg,
+          fileId: file.id
+        });
       }
     }
+    
     setSignedUrls(urls);
+    setUrlErrors(errors);
+    setGeneratingUrls(false);
+
+    console.log('[ProcessVault] Results:', { successCount, failCount, total: files.length });
+
+    if (showToast) {
+      if (failCount > 0) {
+        toast({
+          title: "Download Links",
+          description: `${successCount} ready, ${failCount} failed. Check console for details.`,
+          variant: failCount === files.length ? "destructive" : "default"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "All download links refreshed."
+        });
+      }
+    }
+  };
+
+  const retrySignedUrl = async (file: VaultFileRow) => {
+    console.log('[ProcessVault] Retrying signed URL for:', file.upload_file_path);
+    
+    const { data, error } = await supabase.storage
+      .from('uploads')
+      .createSignedUrl(file.upload_file_path, 3600);
+    
+    if (!error && data) {
+      setSignedUrls(prev => ({ ...prev, [file.id]: data.signedUrl }));
+      setUrlErrors(prev => {
+        const updated = { ...prev };
+        delete updated[file.id];
+        return updated;
+      });
+      console.log('[ProcessVault] ✓ Retry successful');
+      toast({ title: "Success", description: "Download link ready." });
+    } else {
+      console.error('[ProcessVault] ✗ Retry failed:', error);
+      toast({ 
+        title: "Failed", 
+        description: error?.message || "Couldn't generate download link.", 
+        variant: "destructive" 
+      });
+    }
   };
 
   const openVault = async (vault: UserVault) => {
     setSelectedVault(vault);
     setDialogOpen(true);
     setSignedUrls({});
+    setUrlErrors({});
+    
+    console.log('[ProcessVault] Opening vault:', { vaultId: vault.id, title: vault.title, userId: vault.user_id });
+    
     const { data, error } = await supabase
       .from("process_vault_files")
       .select("id,user_vault_id,upload_file_path,created_at")
@@ -147,9 +220,18 @@ export const ProcessVaultContent: React.FC = () => {
       .order("created_at", { ascending: false });
     if (!error && data) {
       const files = data as VaultFileRow[];
+      console.log('[ProcessVault] Found', files.length, 'files in vault');
       setSelectedVaultFiles(files);
       await generateSignedUrls(files);
+    } else {
+      console.error('[ProcessVault] Failed to fetch vault files:', error);
     }
+  };
+
+  const refreshDownloads = async () => {
+    if (selectedVaultFiles.length === 0) return;
+    console.log('[ProcessVault] Manual refresh requested');
+    await generateSignedUrls(selectedVaultFiles, true);
   };
 
   const onUploadComplete = async (files: { id: string }[]) => {
@@ -266,26 +348,59 @@ export const ProcessVaultContent: React.FC = () => {
 
               {selectedVaultFiles.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Stored Files</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Stored Files</div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshDownloads}
+                      disabled={generatingUrls}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${generatingUrls ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  </div>
                   <ul className="space-y-1">
-                    {selectedVaultFiles.map((f) => (
-                      <li key={f.id} className="text-sm flex items-center justify-between border rounded p-2">
-                        <span className="truncate mr-2">{f.upload_file_path.split('/').pop()}</span>
-                        {signedUrls[f.id] ? (
-                          <a
-                            className="text-primary underline underline-offset-2"
-                            href={signedUrls[f.id]}
-                            target="_blank"
-                            rel="noreferrer"
-                            download
-                          >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Loading...</span>
-                        )}
-                      </li>
-                    ))}
+                    {selectedVaultFiles.map((f) => {
+                      const hasUrl = signedUrls[f.id];
+                      const hasError = urlErrors[f.id];
+                      const fileName = f.upload_file_path.split('/').pop();
+                      
+                      return (
+                        <li key={f.id} className="text-sm flex items-center justify-between border rounded p-2">
+                          <span className="truncate mr-2 flex items-center gap-2">
+                            {hasError && <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />}
+                            {fileName}
+                          </span>
+                          {hasUrl ? (
+                            <a
+                              className="text-primary underline underline-offset-2 flex-shrink-0"
+                              href={signedUrls[f.id]}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              Download
+                            </a>
+                          ) : hasError ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => retrySignedUrl(f)}
+                              className="gap-1 flex-shrink-0"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Retry
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs flex-shrink-0">
+                              {generatingUrls ? 'Loading...' : 'Processing...'}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : (
