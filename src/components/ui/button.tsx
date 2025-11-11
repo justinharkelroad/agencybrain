@@ -84,16 +84,28 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       icon: "h-10 w-10"
     }[size || "default"]
     
+    // When asChild=true, Slot requires a single React element child (no fragments)
+    // to properly clone and apply className. showIcon is ignored in this mode.
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(pillBaseClasses, sizeClasses, className)}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Comp>
+      )
+    }
+    
     return (
       <Comp
         className={cn(pillBaseClasses, sizeClasses, className)}
         ref={ref}
         {...props}
       >
-        <>
-          {children}
-          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
-        </>
+        {children}
+        {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
       </Comp>
     )
   }
