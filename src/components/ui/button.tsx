@@ -49,35 +49,25 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, showIcon = false, isHeaderButton = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
-    // Gradient classes for non-header buttons (using pseudo-element to avoid extra children)
+    // Gradient classes for non-header buttons - neutralize variant styles and enforce unified appearance
     const gradientClasses = !isHeaderButton
-      ? "before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500 before:opacity-40 group-hover:before:opacity-80 before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
+      ? "bg-transparent border-0 rounded-full shadow-elegant before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500 before:opacity-40 group-hover:before:opacity-80 before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
       : ""
     
-    // Text color classes for readability over gradient
-    const textColorClasses = !isHeaderButton
-      ? cn(
-          (variant === "default" || variant === "gradient-glow" || variant === undefined) && "text-white dark:text-zinc-900",
-          variant === "outline" && "text-foreground",
-          variant === "ghost" && "text-foreground",
-          variant === "glass" && "text-foreground",
-          variant === "secondary" && "text-secondary-foreground",
-          variant === "destructive" && "text-destructive-foreground"
-        )
-      : ""
+    // Content color classes applied to inner span for non-header buttons
+    const contentColorClasses = !isHeaderButton ? "text-white dark:text-zinc-900" : ""
     
     return (
       <Comp
         className={cn(
           buttonVariants({ variant, size }),
           gradientClasses,
-          textColorClasses,
           className
         )}
         ref={ref}
         {...props}
       >
-        <span className="relative flex items-center justify-center gap-2">
+        <span className={cn("relative flex items-center justify-center gap-2", contentColorClasses)}>
           {children}
           {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
         </span>
