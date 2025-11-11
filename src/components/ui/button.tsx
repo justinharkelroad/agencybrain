@@ -90,8 +90,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         {...props}
       >
-        {children}
-        {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
+        <>
+          {children}
+          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
+        </>
       </Comp>
     )
   }
