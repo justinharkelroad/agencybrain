@@ -63,20 +63,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       )
     }
     
-    // For non-header buttons: unified gradient pill style (bypass variants entirely)
+    // For non-header buttons: white pill style (bypass variants entirely)
     const pillBaseClasses = cn(
       // Base utilities (layout, focus, disabled, group)
       "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium",
-      "ring-offset-background transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "ring-offset-background transition-all duration-200",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       "disabled:pointer-events-none disabled:opacity-50",
       "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-      // Unified pill appearance
-      "rounded-full bg-transparent border-0 shadow-elegant",
-      "relative overflow-hidden group",
-      // Gradient pseudo-element
-      "before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500",
-      "before:opacity-40 group-hover:before:opacity-80",
-      "before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
+      // White background with black text
+      "rounded-full bg-white text-black shadow-sm hover:shadow-md",
+      "border border-gray-200"
     )
     
     // Map size to pill dimensions
@@ -93,10 +90,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         {...props}
       >
-        <span className="relative flex items-center justify-center gap-2 text-zinc-900 dark:text-zinc-900 font-medium">
-          {children}
-          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
-        </span>
+        {children}
+        {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
       </Comp>
     )
   }
