@@ -46,17 +46,17 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
           <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
             {!isOnDashboard && (
               <Link to="/dashboard" aria-label="Go to Dashboard">
-                <Button variant="glass" size="sm" className="rounded-full">Dashboard</Button>
+                <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Dashboard</Button>
               </Link>
             )}
             {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
               <Link to="/admin" aria-label="Go to Admin Portal">
-                <Button variant="glass" size="sm" className="rounded-full">Admin Portal</Button>
+                <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Admin Portal</Button>
               </Link>
             )}
             {!isOnAgency && (
               <Link to="/agency" aria-label="Go to My Agency">
-                <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
+                <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>My Agency</Button>
               </Link>
             )}
             {onOpenROI && (
@@ -66,6 +66,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                 className="rounded-full"
                 onClick={() => onOpenROI()}
                 aria-label="Open Tools"
+                isHeaderButton
               >
                 Tools
               </Button>
@@ -76,6 +77,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
             className="rounded-full"
             onClick={() => signOut()}
             aria-label="Sign out"
+            isHeaderButton
           >
             Sign Out
           </Button>
@@ -85,24 +87,24 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
         <div className="md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="glass" size="icon" className="rounded-full" aria-label="Open navigation menu">
+              <Button variant="glass" size="icon" className="rounded-full" aria-label="Open navigation menu" isHeaderButton>
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
               {!isOnDashboard && (
                 <Link to="/dashboard" onClick={() => setOpen(false)}>
-                  <Button variant="secondary" className="w-full justify-start">Dashboard</Button>
+                  <Button variant="secondary" className="w-full justify-start" isHeaderButton>Dashboard</Button>
                 </Link>
               )}
               {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
                 <Link to="/admin" onClick={() => setOpen(false)}>
-                  <Button variant="secondary" className="w-full justify-start">Admin Portal</Button>
+                  <Button variant="secondary" className="w-full justify-start" isHeaderButton>Admin Portal</Button>
                 </Link>
               )}
               {!isOnAgency && (
                 <Link to="/agency" onClick={() => setOpen(false)}>
-                  <Button variant="secondary" className="w-full justify-start">My Agency</Button>
+                  <Button variant="secondary" className="w-full justify-start" isHeaderButton>My Agency</Button>
                 </Link>
               )}
               {onOpenROI && (
@@ -110,6 +112,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                   variant="secondary"
                   className="w-full justify-start"
                   onClick={() => closeAnd(onOpenROI)}
+                  isHeaderButton
                 >
                   Tools
                 </Button>
@@ -118,6 +121,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
                 variant="destructive"
                 className="w-full justify-start"
                 onClick={() => closeAnd(() => { void signOut(); })}
+                isHeaderButton
               >
                 Sign Out
               </Button>

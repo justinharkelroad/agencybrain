@@ -42,46 +42,45 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
   showIcon?: boolean
+  isHeaderButton?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, showIcon = false, children, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, showIcon = false, isHeaderButton = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
-    // When asChild is true, render children directly to satisfy Slot's single-child requirement
-    if (asChild) {
-      return (
-        <Comp
-          className={cn(buttonVariants({ variant, size, className }))}
-          ref={ref}
-          {...props}
-        >
-          {children}
-        </Comp>
-      )
-    }
+    // Gradient classes for non-header buttons (using pseudo-element to avoid extra children)
+    const gradientClasses = !isHeaderButton
+      ? "before:absolute before:inset-0 before:bg-gradient-to-r before:from-indigo-500 before:via-purple-500 before:to-pink-500 before:opacity-40 group-hover:before:opacity-80 before:blur before:transition-opacity before:duration-500 before:pointer-events-none"
+      : ""
     
-    // Regular button - ALL variants get gradient effect
-    return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
-        ref={ref}
-        {...props}
-      >
-        {/* Gradient background for ALL buttons */}
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-40 group-hover:opacity-80 blur transition-opacity duration-500" />
-        
-        {/* Content wrapper - text color varies by variant */}
-        <div className={cn(
-          "relative flex items-center justify-center gap-2",
+    // Text color classes for readability over gradient
+    const textColorClasses = !isHeaderButton
+      ? cn(
           (variant === "default" || variant === "gradient-glow" || variant === undefined) && "text-white dark:text-zinc-900",
           variant === "outline" && "text-foreground",
           variant === "ghost" && "text-foreground",
-          variant === "glass" && "text-foreground"
-        )}>
+          variant === "glass" && "text-foreground",
+          variant === "secondary" && "text-secondary-foreground",
+          variant === "destructive" && "text-destructive-foreground"
+        )
+      : ""
+    
+    return (
+      <Comp
+        className={cn(
+          buttonVariants({ variant, size }),
+          gradientClasses,
+          textColorClasses,
+          className
+        )}
+        ref={ref}
+        {...props}
+      >
+        <span className="relative flex items-center justify-center gap-2">
           {children}
           {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
-        </div>
+        </span>
       </Comp>
     )
   }

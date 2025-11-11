@@ -40,34 +40,35 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
         <div className="hidden md:flex items-center gap-4">
           <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
             <Link to="/admin" aria-label="Admin Dashboard">
-              <Button variant="glass" size="sm" className="rounded-full">Dashboard</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Dashboard</Button>
             </Link>
             <Link to="/admin/analysis" aria-label="AI Analysis">
-              <Button variant="glass" size="sm" className="rounded-full">Analysis</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Analysis</Button>
             </Link>
             <Link to="/admin/prompts" aria-label="Prompt Management">
-              <Button variant="glass" size="sm" className="rounded-full">Prompts</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Prompts</Button>
             </Link>
             <Link to="/admin/process-vault-types" aria-label="Process Vault Types">
-              <Button variant="glass" size="sm" className="rounded-full">Process Vault</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Process Vault</Button>
             </Link>
             <Link to="/admin/roleplay-reports" aria-label="Roleplay Reports">
-              <Button variant="glass" size="sm" className="rounded-full">Roleplay Reports</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Roleplay Reports</Button>
             </Link>
             <Link to="/agency" aria-label="My Agency">
-              <Button variant="glass" size="sm" className="rounded-full">My Agency</Button>
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>My Agency</Button>
             </Link>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link to="/dashboard">
-              <Button variant="glass" className="rounded-full" aria-label="Back to App">Back to App</Button>
+              <Button variant="glass" className="rounded-full" aria-label="Back to App" isHeaderButton>Back to App</Button>
             </Link>
             <Button
               variant="glass"
               className="rounded-full"
               onClick={() => signOut()}
               aria-label="Sign out"
+              isHeaderButton
             >
               Sign Out
             </Button>
@@ -78,36 +79,37 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
         <div className="md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="glass" size="icon" className="rounded-full" aria-label="Open navigation menu">
+              <Button variant="glass" size="icon" className="rounded-full" aria-label="Open navigation menu" isHeaderButton>
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
               <Link to="/admin" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Dashboard</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Dashboard</Button>
               </Link>
               <Link to="/admin/analysis" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Analysis</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Analysis</Button>
               </Link>
               <Link to="/admin/prompts" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Prompts</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Prompts</Button>
               </Link>
               <Link to="/admin/process-vault-types" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Process Vault</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Process Vault</Button>
               </Link>
               <Link to="/admin/roleplay-reports" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Roleplay Reports</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Roleplay Reports</Button>
               </Link>
               <Link to="/agency" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">My Agency</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>My Agency</Button>
               </Link>
               <Link to="/dashboard" onClick={() => setOpen(false)}>
-                <Button variant="secondary" className="w-full justify-start">Back to App</Button>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Back to App</Button>
               </Link>
               <Button
                 variant="destructive"
                 className="w-full justify-start"
                 onClick={() => closeAnd(() => { void signOut(); })}
+                isHeaderButton
               >
                 Sign Out
               </Button>
