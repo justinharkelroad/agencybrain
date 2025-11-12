@@ -8,6 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
+import { SidebarLayout } from "@/components/SidebarLayout";
 import { enableMetrics } from "@/lib/featureFlags";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
@@ -79,37 +80,51 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Dashboard />
+                <SidebarLayout>
+                  <Dashboard />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/explorer" element={
               <ProtectedRoute>
-                <ScorecardForms />
+                <SidebarLayout>
+                  <ScorecardForms />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/submit" element={
               <ProtectedRoute>
-                <Submit />
+                <SidebarLayout>
+                  <Submit />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/uploads" element={
               <ProtectedRoute>
-                <Uploads />
+                <SidebarLayout>
+                  <Uploads />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/uploads/select" element={
               <ProtectedRoute>
-                <UploadSelection />
+                <SidebarLayout>
+                  <UploadSelection />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/file-processor" element={
               <ProtectedRoute>
-                <FileProcessor />
+                <SidebarLayout>
+                  <FileProcessor />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/process-vault" element={
               <ProtectedRoute>
-                <ProcessVault />
+                <SidebarLayout>
+                  <ProcessVault />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             {/* Metrics Routes */}
@@ -117,18 +132,24 @@ const App = () => (
               <>
                 <Route path="/metrics" element={
                   <ProtectedRoute>
-                    <ScorecardForms />
+                    <SidebarLayout>
+                      <ScorecardForms />
+                    </SidebarLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/scorecard-forms" element={<Navigate to="/metrics" replace />} />
                 <Route path="/metrics/builder" element={
                   <ProtectedRoute>
-                    <ScorecardFormBuilder />
+                    <SidebarLayout>
+                      <ScorecardFormBuilder />
+                    </SidebarLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/metrics/edit/:formId" element={
                   <ProtectedRoute>
-                    <ScorecardFormEditor />
+                    <SidebarLayout>
+                      <ScorecardFormEditor />
+                    </SidebarLayout>
                   </ProtectedRoute>
                 } />
                 {/* Legacy scorecard-forms routes redirect to metrics */}
@@ -141,133 +162,185 @@ const App = () => (
             {/* Phase 2: Targets and Scorecard Settings */}
             <Route path="/targets" element={
               <ProtectedRoute>
-                <Targets />
+                <SidebarLayout>
+                  <Targets />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute>
-                <Settings />
+                <SidebarLayout>
+                  <Settings />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/scorecard-settings" element={<Navigate to="/settings" replace />} />
             <Route path="/prospect-settings" element={
               <ProtectedRoute>
-                <ProspectSettings />
+                <SidebarLayout>
+                  <ProspectSettings />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={
               <ProtectedRoute>
-                <Analytics />
+                <SidebarLayout>
+                  <Analytics />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/team-rings" element={
               <ProtectedRoute>
-                <TeamRingsGrid />
+                <SidebarLayout>
+                  <TeamRingsGrid />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
-                <AdminDashboard />
+                <SidebarLayout>
+                  <AdminDashboard />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/client/:clientId" element={
               <ProtectedRoute requireAdmin>
-                <ClientDetail />
+                <SidebarLayout>
+                  <ClientDetail />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/analysis" element={
               <ProtectedRoute requireAdmin>
-                <AdminAnalysis />
+                <SidebarLayout>
+                  <AdminAnalysis />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/prompts" element={
               <ProtectedRoute requireAdmin>
-                <AdminPrompts />
+                <SidebarLayout>
+                  <AdminPrompts />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/process-vault-types" element={
               <ProtectedRoute requireAdmin>
-                <AdminProcessVaultTypes />
+                <SidebarLayout>
+                  <AdminProcessVaultTypes />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/roleplay-reports" element={
               <ProtectedRoute requireAdmin>
-                <RoleplayReports />
+                <SidebarLayout>
+                  <RoleplayReports />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/team" element={
               <ProtectedRoute requireAdmin>
-                <AdminTeam />
+                <SidebarLayout>
+                  <AdminTeam />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/checklists" element={
               <ProtectedRoute requireAdmin>
-                <AdminChecklists />
+                <SidebarLayout>
+                  <AdminChecklists />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/field-mapping-setup" element={
               <ProtectedRoute requireAdmin>
-                <FieldMappingSetup />
+                <SidebarLayout>
+                  <FieldMappingSetup />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/focus-management" element={
               <ProtectedRoute requireAdmin>
-                <AdminFocusManagement />
+                <SidebarLayout>
+                  <AdminFocusManagement />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/team/:memberId" element={
               <ProtectedRoute requireAdmin>
-                <AdminMember />
+                <SidebarLayout>
+                  <AdminMember />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/agency" element={
               <ProtectedRoute>
-                <Agency />
+                <SidebarLayout>
+                  <Agency />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/agency/team/:memberId" element={
               <ProtectedRoute>
-                <AgencyMember />
+                <SidebarLayout>
+                  <AgencyMember />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/health" element={
               <ProtectedRoute requireAdmin>
-                <Health />
+                <SidebarLayout>
+                  <Health />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/bonus-grid" element={
               <ProtectedRoute>
-                <BonusGrid />
+                <SidebarLayout>
+                  <BonusGrid />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/snapshot-planner" element={
               <ProtectedRoute>
-                <SnapshotPlanner />
+                <SidebarLayout>
+                  <SnapshotPlanner />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/submissions/:submissionId" element={
               <ProtectedRoute>
-                <SubmissionDetail />
+                <SidebarLayout>
+                  <SubmissionDetail />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/repair-explorer" element={
               <ProtectedRoute requireAdmin>
-                <RepairExplorer />
+                <SidebarLayout>
+                  <RepairExplorer />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/run-repair" element={
               <ProtectedRoute requireAdmin>
-                <RunRepair />
+                <SidebarLayout>
+                  <RunRepair />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/test-backfill" element={
               <ProtectedRoute requireAdmin>
-                <TestBackfill />
+                <SidebarLayout>
+                  <TestBackfill />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/roleplaybot" element={
               <ProtectedRoute>
-                <RoleplayBot />
+                <SidebarLayout>
+                  <RoleplayBot />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/roleplay-staff" element={<RoleplayStaff />} />

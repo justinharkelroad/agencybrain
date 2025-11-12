@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
-import { TopNav } from "@/components/TopNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomFieldsManager } from "@/components/CustomFieldsManager";
@@ -210,7 +209,6 @@ export default function Settings() {
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <p className="text-muted-foreground">Please log in to access settings.</p>
@@ -223,7 +221,6 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -233,7 +230,6 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold flex items-center gap-3">

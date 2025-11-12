@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { TopNav } from "@/components/TopNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -269,7 +268,6 @@ export default function AgencyMember() {
 
   return (
     <div className="min-h-screen">
-      <TopNav title="My Agency" />
       <main className="container mx-auto px-4 py-6">
         <article className="space-y-6">
           <header className="flex items-center justify-between">

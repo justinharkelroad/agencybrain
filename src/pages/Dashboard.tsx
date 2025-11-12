@@ -11,8 +11,6 @@ import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { MyCurrentFocus } from '@/components/focus/MyCurrentFocus';
 import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
-import { ROIForecastersModal } from "@/components/ROIForecastersModal";
-import { TopNav } from "@/components/TopNav";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
@@ -30,7 +28,6 @@ const Dashboard = () => {
   };
 
   const [agencyName, setAgencyName] = useState<string | null>(null);
-  const [roiOpen, setRoiOpen] = useState(false);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
 
   const fetchAgencyName = async () => {
@@ -61,8 +58,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <TopNav onOpenROI={() => setRoiOpen(true)} />
-
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
         <div className="flex items-center justify-between gap-4">
@@ -104,7 +99,6 @@ const Dashboard = () => {
           Version: {versionLabel}
         </div>
       </main>
-      <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
     </div>
   );
 };

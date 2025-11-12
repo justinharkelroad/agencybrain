@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AdminTopNav } from "@/components/AdminTopNav";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
@@ -137,7 +136,6 @@ export default function AdminChecklists() {
 
   return (
     <div>
-      <AdminTopNav title="Onboarding Checklists" />
       <main className="container mx-auto px-4 py-6">
         <article className="space-y-6">
           <header className="flex items-center justify-between">

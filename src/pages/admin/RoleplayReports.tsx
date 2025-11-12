@@ -11,7 +11,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Eye, Search, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { AdminTopNav } from "@/components/AdminTopNav";
 
 interface RoleplaySession {
   id: string;
@@ -118,7 +117,6 @@ export default function RoleplayReports() {
 
   return (
     <>
-      <AdminTopNav title="Roleplay Reports" />
       <div className="container mx-auto py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>

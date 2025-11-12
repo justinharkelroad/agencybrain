@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
-import { LogOut, Shield, Trash2, Plus } from "lucide-react";
-import { AdminTopNav } from "@/components/AdminTopNav";
+import { Trash2, Plus } from "lucide-react";
 import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
 
 interface ProcessVaultType {
@@ -83,8 +82,6 @@ const AdminProcessVaultTypes: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminTopNav title="Process Vault Types" />
-
       <main className="container mx-auto px-4 py-6 space-y-6">
         <section>
           <Card className="shadow-elegant">

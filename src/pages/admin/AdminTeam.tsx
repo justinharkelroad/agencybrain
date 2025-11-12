@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabaseClient";
-import { AdminTopNav } from "@/components/AdminTopNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -177,7 +175,6 @@ const [form, setForm] = useState<FormState>({
 
   return (
     <div>
-      <AdminTopNav title="Team Members" />
       <main className="container mx-auto px-4 py-6">
         <article className="space-y-6">
           <header className="flex items-center justify-between">

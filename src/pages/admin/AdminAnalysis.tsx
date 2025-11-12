@@ -28,7 +28,6 @@ import {
 import { fetchActivePromptsOnly } from "@/lib/dataFetchers";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
-import { AdminTopNav } from "@/components/AdminTopNav";
 
 interface Agency {
   id: string;
@@ -481,8 +480,6 @@ const AdminAnalysis = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminTopNav title="AI Analysis" />
-
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">AI Performance Analysis</h1>

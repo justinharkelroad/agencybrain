@@ -16,7 +16,6 @@ import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
   import { useAgencyKpis } from "@/hooks/useKpis";
   import { toast } from "sonner";
-  import TopNav from "@/components/TopNav";
   import { supabase } from '@/lib/supabaseClient';
   import { useAuth } from "@/lib/auth";
 
@@ -396,7 +395,6 @@ export default function ScorecardFormBuilder() {
   if (kpisLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto p-6">
           <div className="flex items-center gap-2 justify-center mt-20">
             <LoadingSpinner />
@@ -410,7 +408,6 @@ export default function ScorecardFormBuilder() {
   if (kpisError) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto p-6">
           <div className="text-destructive text-center mt-20">
             Error loading KPIs: {kpisError.message}
@@ -422,8 +419,6 @@ export default function ScorecardFormBuilder() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" onClick={() => navigate('/scorecard-forms')}>

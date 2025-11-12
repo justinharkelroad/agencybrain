@@ -17,9 +17,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link, Navigate } from 'react-router-dom';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { CreateClientDialog } from '@/components/admin/CreateClientDialog';
-import { AdminTopNav } from '@/components/AdminTopNav';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -365,8 +363,6 @@ const getSubmissionStatus = (profile: Profile) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminTopNav title="Admin Dashboard" />
-
       <main className="container mx-auto px-4 py-8">
 <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
   <div>

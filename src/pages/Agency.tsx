@@ -1,6 +1,5 @@
 
 import React, { useEffect, useMemo, useState } from "react";
-import { TopNav } from "@/components/TopNav";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from '@/lib/supabaseClient';
@@ -17,7 +16,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Settings } from "lucide-react";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
-import { ROIForecastersModal } from "@/components/ROIForecastersModal";
 import { UploadsContent } from "@/components/UploadsContent";
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SettingsContent } from "@/components/SettingsContent";
@@ -39,7 +37,6 @@ export default function Agency() {
 
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [roiOpen, setRoiOpen] = useState(false);
 
   // Agency form state
   const [agencyName, setAgencyName] = useState("");
@@ -227,7 +224,6 @@ export default function Agency() {
 
   return (
     <div className="min-h-screen">
-      <TopNav title="My Agency" onOpenROI={() => setRoiOpen(true)} />
       <main className="container mx-auto px-4 py-6">
         <h1 className="sr-only">My Agency</h1>
         
@@ -453,7 +449,6 @@ export default function Agency() {
       </TabsContent>
     </Tabs>
   </main>
-  <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
 </div>
 );
 }

@@ -8,7 +8,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { TopNav } from "@/components/TopNav";
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
 import { Settings } from "lucide-react";
 
@@ -191,7 +190,6 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -201,7 +199,6 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Card>
           <CardHeader>

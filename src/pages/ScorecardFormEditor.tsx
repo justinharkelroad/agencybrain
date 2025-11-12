@@ -16,7 +16,6 @@ import { QuotedDetailsMapping } from "@/components/FormBuilder/QuotedDetailsMapp
 import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
 import { useAgencyKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
-import TopNav from "@/components/TopNav";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 
@@ -316,8 +315,6 @@ export default function ScorecardFormEditor() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" onClick={() => navigate('/scorecard-forms')}>

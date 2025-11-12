@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
-import { TopNav } from "@/components/TopNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -220,7 +219,6 @@ export default function TeamRingsGrid() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading team rings...</div>
         </div>
@@ -230,7 +228,6 @@ export default function TeamRingsGrid() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>

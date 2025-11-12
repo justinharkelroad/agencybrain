@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Target } from "lucide-react";
-import { AdminTopNav } from "@/components/AdminTopNav";
 import { FocusColumn } from "@/components/focus/FocusColumn";
 import { FocusItemCard } from "@/components/focus/FocusItemCard";
 import { AdminCreateFocusItemDialog } from "@/components/focus/AdminCreateFocusItemDialog";
@@ -161,8 +160,6 @@ export default function AdminFocusManagement() {
 
   return (
     <>
-      <AdminTopNav title="Client Focus Management" />
-
       <main className="container mx-auto px-4 py-8">
         <Card className="glass-surface elevate">
           <CardHeader className="border-b border-border/50">

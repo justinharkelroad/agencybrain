@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { TopNav } from "@/components/TopNav";
 
 const METRICS = [
   { key: "outbound_calls", label: "Outbound Calls" },
@@ -139,7 +138,6 @@ export default function Targets() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <TopNav />
         <div className="container mx-auto px-4 py-8">
           <div className="animate-pulse">Loading...</div>
         </div>
@@ -149,7 +147,6 @@ export default function Targets() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav />
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
