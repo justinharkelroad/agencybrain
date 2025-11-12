@@ -29,17 +29,14 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
       to={asLink ? to : undefined}
       aria-label="Agency Brain"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full glass-surface elevate hover:scale-105 active:scale-95 select-none",
-        "border border-border/60 shadow-elegant",
-        sizeClasses,
+        "inline-flex items-center justify-center",
         className
       )}
     >
       <img
         src="/lovable-uploads/agencybrain-logo.png"
         alt="AgencyBrain logo"
-        className={cn(imageHeight, "w-auto")}
-        height={32}
+        className="w-full h-auto max-h-12 object-contain"
       />
     </Comp>
   );

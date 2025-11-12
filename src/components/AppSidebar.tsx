@@ -63,11 +63,11 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     >
       <div className="flex flex-col h-full">
         {/* Logo Section - Fixed at top */}
-        <div className="p-4 flex items-center justify-center border-b border-border">
+        <div className="px-4 py-6 flex items-center justify-center border-b border-border">
           <AgencyBrainBadge 
-            size={sidebarOpen ? "md" : "sm"} 
             asLink 
-            to="/dashboard" 
+            to="/dashboard"
+            className="w-full px-2"
           />
         </div>
 
