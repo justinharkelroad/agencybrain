@@ -60,7 +60,7 @@ const Dashboard = () => {
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-6 space-y-6">
         <h1 className="sr-only">Client Dashboard</h1>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
             {agencyName && (
@@ -70,8 +70,11 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          <Button variant="gradient-glow" asChild>
-            <Link to="/submit?mode=new">Submit New 1:1 Coaching Call Form</Link>
+          <Button variant="gradient-glow" asChild className="w-full sm:w-auto">
+            <Link to="/submit?mode=new">
+              <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
+              <span className="sm:hidden">Submit New Form</span>
+            </Link>
           </Button>
         </div>
         <PerformanceMetrics />
