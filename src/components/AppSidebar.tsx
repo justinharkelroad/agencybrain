@@ -57,7 +57,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     <Sidebar
       collapsible="icon"
       className={cn(
-        "border-r border-border bg-background",
+        "border-r border-border",
         sidebarOpen ? "w-60" : "w-14"
       )}
     >
