@@ -62,7 +62,7 @@ export default function Landing() {
             {/* Center glass logo card */}
             <div className="mx-auto max-w-md rounded-2xl border border-border/60 bg-card/60 p-6 shadow-elegant backdrop-blur-sm sm:p-8">
               <img
-                src="/lovable-uploads/brand-logo.png"
+                src="/lovable-uploads/agencybrain-logo.png"
                 alt="AgencyBrain logo"
                 className="mx-auto h-20 w-auto sm:h-24"
                 height={96}
@@ -72,7 +72,7 @@ export default function Landing() {
                 }}
               />
               <div className="mt-6">
-                <Button asChild size="lg" variant="premium" className="rounded-full px-8 text-base sm:text-lg shadow-elegant text-accent-foreground">
+                <Button asChild size="lg" className="rounded-full px-8 text-base sm:text-lg shadow-elegant bg-white text-black hover:bg-white/90">
                   <Link to="/auth" aria-label="Enter AgencyBrain">
                     ENTER YOUR 🧠 →
                   </Link>
