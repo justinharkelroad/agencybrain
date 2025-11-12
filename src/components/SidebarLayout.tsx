@@ -16,12 +16,6 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         <AppSidebar onOpenROI={() => setRoiOpen(true)} />
         
         <main className="flex-1 flex flex-col">
-          <header className="sticky top-0 z-10 h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex h-full items-center px-4">
-              <SidebarTrigger />
-            </div>
-          </header>
-          
           <div className="flex-1">
             {children}
           </div>
