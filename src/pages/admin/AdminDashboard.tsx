@@ -364,7 +364,7 @@ const getSubmissionStatus = (profile: Profile) => {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-8">
-<div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+<div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
   <div>
     <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
     <p className="text-muted-foreground">
@@ -372,7 +372,7 @@ const getSubmissionStatus = (profile: Profile) => {
     </p>
   </div>
   <Card
-    className="gradient-primary shadow-elegant md:w-auto cursor-pointer hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+    className="gradient-primary shadow-elegant w-full sm:w-auto cursor-pointer hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
     role="button"
     tabIndex={0}
     aria-label="Reveal coaching revenue"
