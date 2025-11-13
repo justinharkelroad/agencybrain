@@ -1,21 +1,70 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmartBackButton } from "@/components/SmartBackButton";
 import { Progress } from "@/components/ui/progress";
 import { useThetaStore } from "@/lib/thetaTrackStore";
 import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
+import { ThetaToneSelector } from "@/components/ThetaToneSelector";
+import { ThetaAffirmationsApproval } from "@/components/ThetaAffirmationsApproval";
 import { getOrCreateSessionId } from "@/lib/sessionUtils";
+import { useGenerateAffirmations, useSaveAffirmations } from "@/hooks/useThetaAffirmations";
+import { toast } from "sonner";
 
 export default function ThetaTalkTrackCreate() {
-  const { currentStep, sessionId, setSessionId } = useThetaStore();
+  const { 
+    currentStep, 
+    sessionId, 
+    setSessionId, 
+    setCurrentStep,
+    targets,
+    affirmations,
+    setAffirmations
+  } = useThetaStore();
+  
+  const [selectedTone, setSelectedTone] = useState('inspiring');
+  const [generatedAffirmations, setGeneratedAffirmations] = useState<any>(null);
+  
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
+
+  const generateMutation = useGenerateAffirmations();
+  const saveMutation = useSaveAffirmations();
 
   useEffect(() => {
     if (!sessionId) {
       setSessionId(getOrCreateSessionId());
     }
   }, [sessionId, setSessionId]);
+
+  const handleGenerateAffirmations = async () => {
+    try {
+      const result = await generateMutation.mutateAsync({
+        targets,
+        tone: selectedTone
+      });
+      setGeneratedAffirmations(result);
+      toast.success('Affirmations generated successfully!');
+    } catch (error) {
+      console.error('Generation failed:', error);
+    }
+  };
+
+  const handleApproveAffirmations = async (approvedAffirmations: any) => {
+    try {
+      await saveMutation.mutateAsync({
+        sessionId,
+        affirmations: approvedAffirmations
+      });
+      setAffirmations(approvedAffirmations);
+      setCurrentStep(3);
+    } catch (error) {
+      console.error('Save failed:', error);
+    }
+  };
+
+  const handleRegenerate = () => {
+    setGeneratedAffirmations(null);
+  };
 
   const stepTitles = [
     "Enter Your 4B Targets",
@@ -67,11 +116,36 @@ export default function ThetaTalkTrackCreate() {
             </CardHeader>
             <CardContent>
               {currentStep === 1 && <ThetaTargetsInput />}
+              
               {currentStep === 2 && (
-                <div className="text-center py-16 text-muted-foreground">
-                  AI Affirmations (Gate 3)
+                <div className="space-y-6">
+                  {!generatedAffirmations ? (
+                    <>
+                      <ThetaToneSelector
+                        selectedTone={selectedTone}
+                        onToneChange={setSelectedTone}
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleGenerateAffirmations}
+                          disabled={generateMutation.isPending}
+                          className="px-6 py-2 bg-white text-black border border-gray-200 rounded-md shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                        >
+                          {generateMutation.isPending ? 'Generating...' : 'Generate Affirmations'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <ThetaAffirmationsApproval
+                      affirmations={generatedAffirmations}
+                      onApprove={handleApproveAffirmations}
+                      onRegenerate={handleRegenerate}
+                      isRegenerating={generateMutation.isPending}
+                    />
+                  )}
                 </div>
               )}
+
               {currentStep === 3 && (
                 <div className="text-center py-16 text-muted-foreground">
                   Voice Studio (Gate 4)
