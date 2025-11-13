@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmartBackButton } from "@/components/SmartBackButton";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 import { useThetaStore } from "@/lib/thetaTrackStore";
 import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
 import { ThetaToneSelector } from "@/components/ThetaToneSelector";
 import { ThetaAffirmationsApproval } from "@/components/ThetaAffirmationsApproval";
 import { ThetaVoiceStudioSelector } from "@/components/ThetaVoiceStudioSelector";
 import { ThetaBinauralComposer } from "@/components/ThetaBinauralComposer";
-import { getOrCreateSessionId } from "@/lib/sessionUtils";
+import { ThetaStartOverDialog } from "@/components/ThetaStartOverDialog";
+import { getOrCreateSessionId, clearSessionId } from "@/lib/sessionUtils";
 import { useGenerateAffirmations, useSaveAffirmations } from "@/hooks/useThetaAffirmations";
 import { toast } from "sonner";
 
@@ -22,11 +25,13 @@ export default function ThetaTalkTrackCreate() {
     affirmations,
     setAffirmations,
     selectedVoice,
-    setSelectedVoice
+    setSelectedVoice,
+    resetSession
   } = useThetaStore();
   
   const [selectedTone, setSelectedTone] = useState('inspiring');
   const [generatedAffirmations, setGeneratedAffirmations] = useState<any>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
@@ -71,6 +76,23 @@ export default function ThetaTalkTrackCreate() {
     setGeneratedAffirmations(null);
   };
 
+  const handleStartOver = () => {
+    resetSession();
+    clearSessionId();
+    setGeneratedAffirmations(null);
+    setSelectedTone('inspiring');
+    setShowResetDialog(false);
+    toast.success('Session reset. Starting over...');
+  };
+
+  const handleStartOverClick = () => {
+    if (currentStep > 1) {
+      setShowResetDialog(true);
+    } else {
+      handleStartOver();
+    }
+  };
+
   const stepTitles = [
     "Enter Your 4B Targets",
     "AI-Generated Affirmations",
@@ -85,7 +107,15 @@ export default function ThetaTalkTrackCreate() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <SmartBackButton />
           <h1 className="text-xl font-semibold">Create Theta Talk Track</h1>
-          <div className="w-24" /> {/* Spacer */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleStartOverClick}
+            className="gap-2"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span className="hidden sm:inline">Start Over</span>
+          </Button>
         </div>
       </header>
 
@@ -169,6 +199,12 @@ export default function ThetaTalkTrackCreate() {
           </Card>
         </div>
       </div>
+
+      <ThetaStartOverDialog
+        open={showResetDialog}
+        onOpenChange={setShowResetDialog}
+        onConfirm={handleStartOver}
+      />
     </div>
   );
 }
