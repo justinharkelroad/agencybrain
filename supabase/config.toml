@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.generate_voice_sample]
 verify_jwt = false
+
+[functions.generate_theta_track]
+verify_jwt = false
