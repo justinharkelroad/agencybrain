@@ -347,6 +347,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/roleplay-staff" element={<RoleplayStaff />} />
+            
+            {/* Public Theta Talk Track Routes */}
+            <Route path="/theta-talk-track" element={<ThetaTalkTrack />} />
+            <Route path="/theta-talk-track/create" element={<ThetaTalkTrackCreate />} />
+            <Route path="/theta-talk-track/download" element={<ThetaTalkTrackDownload />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
