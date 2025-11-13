@@ -108,16 +108,33 @@ serve(async (req) => {
           }
         }
 
-        console.log('All audio segments generated, creating mock final track');
+        console.log('All audio segments generated, creating 21-minute track');
 
-        // For now, we'll use the first segment as the "final" track
-        // In a production system, you would:
-        // 1. Generate theta binaural beats (21 minutes of audio)
-        // 2. Mix the narration segments with the binaural beats
-        // 3. Space out affirmations across the 21-minute duration
-        // 4. Upload to Supabase Storage
+        // Calculate spacing: 21 minutes = 1260 seconds
+        // 20 affirmations = ~63 seconds between each
+        const totalDuration = 1260; // 21 minutes in seconds
+        const silenceDuration = Math.floor(totalDuration / allAffirmations.length);
         
-        const mockFinalAudio = audioSegments[0]; // Use first segment as demo
+        console.log(`Spacing affirmations: ${silenceDuration}s between each`);
+
+        // Generate silence buffer (empty MP3 frame for spacing)
+        // This is a minimal MP3 silence frame that can be repeated
+        const createSilenceFrame = (durationSeconds: number): string => {
+          // MP3 silence frame (base64 encoded minimal silence)
+          const silenceFrame = "//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD/////////////////////////////////////////////8AAAAATGF2YzU4LjM1AAAAAAAAAAAAAAAAJAAAAAAAAAAABIQnCwWnAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+          return silenceFrame.repeat(Math.ceil(durationSeconds / 0.026)); // ~26ms per frame
+        };
+
+        // Build final track with spaced affirmations
+        let finalTrack = '';
+        for (let i = 0; i < audioSegments.length; i++) {
+          finalTrack += audioSegments[i];
+          if (i < audioSegments.length - 1) {
+            finalTrack += createSilenceFrame(silenceDuration);
+          }
+        }
+
+        console.log('Final 21-minute track created with spaced affirmations');
 
         // Upload to storage
         const fileName = `${track.id}.mp3`;
@@ -125,7 +142,7 @@ serve(async (req) => {
           .storage
           .from('theta-tracks')
           .upload(fileName, 
-            Uint8Array.from(atob(mockFinalAudio), c => c.charCodeAt(0)), 
+            Uint8Array.from(atob(finalTrack), c => c.charCodeAt(0)), 
             {
               contentType: 'audio/mpeg',
               upsert: true
