@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Wrench,
   LogOut,
+  Brain,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -132,6 +133,14 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             {sidebarOpen && <SidebarGroupLabel>Actions</SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/theta-talk-track" className="flex items-center gap-2">
+                      <Brain className="h-4 w-4" />
+                      {sidebarOpen && <span>Theta Talk Track</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {onOpenROI && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
