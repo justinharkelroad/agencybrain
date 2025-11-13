@@ -6,6 +6,7 @@ import { useThetaStore } from "@/lib/thetaTrackStore";
 import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
 import { ThetaToneSelector } from "@/components/ThetaToneSelector";
 import { ThetaAffirmationsApproval } from "@/components/ThetaAffirmationsApproval";
+import { ThetaVoiceStudioSelector } from "@/components/ThetaVoiceStudioSelector";
 import { getOrCreateSessionId } from "@/lib/sessionUtils";
 import { useGenerateAffirmations, useSaveAffirmations } from "@/hooks/useThetaAffirmations";
 import { toast } from "sonner";
@@ -18,7 +19,9 @@ export default function ThetaTalkTrackCreate() {
     setCurrentStep,
     targets,
     affirmations,
-    setAffirmations
+    setAffirmations,
+    selectedVoice,
+    setSelectedVoice
   } = useThetaStore();
   
   const [selectedTone, setSelectedTone] = useState('inspiring');
@@ -147,9 +150,11 @@ export default function ThetaTalkTrackCreate() {
               )}
 
               {currentStep === 3 && (
-                <div className="text-center py-16 text-muted-foreground">
-                  Voice Studio (Gate 4)
-                </div>
+                <ThetaVoiceStudioSelector
+                  selectedVoice={selectedVoice}
+                  onVoiceSelect={setSelectedVoice}
+                  onContinue={() => setCurrentStep(4)}
+                />
               )}
               {currentStep === 4 && (
                 <div className="text-center py-16 text-muted-foreground">
