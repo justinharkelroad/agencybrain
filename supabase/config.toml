@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.init_theta_storage]
 verify_jwt = false
+
+[functions.generate_affirmations]
+verify_jwt = false
