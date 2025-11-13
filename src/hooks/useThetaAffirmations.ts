@@ -2,6 +2,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export type Tone = 'inspiring' | 'motivational' | 'calm' | 'energizing';
+
 interface AffirmationSet {
   body: string[];
   being: string[];
@@ -50,10 +52,12 @@ export function useSaveAffirmations() {
   return useMutation({
     mutationFn: async ({
       sessionId,
-      affirmations
+      affirmations,
+      tone
     }: {
       sessionId: string;
       affirmations: AffirmationSet;
+      tone: Tone;
     }) => {
       // Flatten affirmations into individual records
       const records = Object.entries(affirmations).flatMap(([category, texts]) =>
@@ -61,7 +65,8 @@ export function useSaveAffirmations() {
           session_id: sessionId,
           category,
           text,
-          order_index: index
+          order_index: index,
+          tone
         }))
       );
 

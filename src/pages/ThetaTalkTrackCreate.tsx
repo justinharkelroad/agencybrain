@@ -57,7 +57,8 @@ export default function ThetaTalkTrackCreate() {
     try {
       await saveMutation.mutateAsync({
         sessionId,
-        affirmations: approvedAffirmations
+        affirmations: approvedAffirmations,
+        tone: selectedTone as 'inspiring' | 'motivational' | 'calm' | 'energizing'
       });
       setAffirmations(approvedAffirmations);
       setCurrentStep(3);
