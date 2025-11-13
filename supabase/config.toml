@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.roleplay-config]
 verify_jwt = false
+
+[functions.init_theta_storage]
+verify_jwt = false
