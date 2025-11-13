@@ -3,23 +3,8 @@ if (typeof window !== "undefined" && window.customElements) {
   const ce = window.customElements;
   const orig = ce.define.bind(ce);
   const definedElements = new Set<string>();
-  const onceKey = "__MCE_AUTOSIZE_DEFINED__";
-
-  // Enhanced guard: Pre-define mce-autosize-textarea to prevent conflicts
-  if (!customElements.get('mce-autosize-textarea')) {
-    try {
-      customElements.define('mce-autosize-textarea', class extends HTMLElement {});
-      (window as any)[onceKey] = true;
-      console.log("🛡️ Pre-defined mce-autosize-textarea to prevent conflicts");
-    } catch (e) {
-      console.log("🛡️ mce-autosize-textarea definition blocked (already exists):", e);
-      (window as any)[onceKey] = true;
-    }
-  } else {
-    (window as any)[onceKey] = true;
-    console.log("🛡️ mce-autosize-textarea already exists");
-  }
   
+  // Idempotent wrapper - NO pre-definition
   ce.define = (name: string, ctor: CustomElementConstructor, opts?: ElementDefinitionOptions) => {
     // Idempotent define with enhanced protection
     if (definedElements.has(name) || ce.get(name)) {
@@ -35,16 +20,27 @@ if (typeof window !== "undefined" && window.customElements) {
     } catch (e: any) {
       const errorMsg = String(e);
       if (errorMsg.includes("already been defined") || errorMsg.includes("already defined")) {
-        console.log(`🛡️ Custom element '${name}' definition blocked (already exists):`, errorMsg);
+        console.log(`🛡️ Custom element '${name}' definition blocked (already exists)`);
         definedElements.add(name);
-        return;
+        return; // Suppress error
       }
       console.error(`❌ Failed to define custom element '${name}':`, e);
-      throw e;
+      throw e; // Re-throw unexpected errors
     }
   };
   
-  console.log("🛡️ Custom elements guard initialized with mce-autosize-textarea protection");
+  console.log("🛡️ Custom elements guard initialized");
+}
+
+// Global error suppression for known custom element conflicts
+if (typeof window !== "undefined") {
+  window.addEventListener('error', (event) => {
+    const errorMsg = event.message || '';
+    if (errorMsg.includes('custom element') && errorMsg.includes('already been defined')) {
+      console.log('🛡️ Suppressed known custom element redefinition error:', errorMsg);
+      event.preventDefault(); // Suppress the error from console
+    }
+  }, true); // Use capture phase to catch early
 }
 
 // Singleflight overlay loader to prevent multiple loads
