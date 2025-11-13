@@ -7,6 +7,7 @@ import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
 import { ThetaToneSelector } from "@/components/ThetaToneSelector";
 import { ThetaAffirmationsApproval } from "@/components/ThetaAffirmationsApproval";
 import { ThetaVoiceStudioSelector } from "@/components/ThetaVoiceStudioSelector";
+import { ThetaBinauralComposer } from "@/components/ThetaBinauralComposer";
 import { getOrCreateSessionId } from "@/lib/sessionUtils";
 import { useGenerateAffirmations, useSaveAffirmations } from "@/hooks/useThetaAffirmations";
 import { toast } from "sonner";
@@ -157,9 +158,11 @@ export default function ThetaTalkTrackCreate() {
                 />
               )}
               {currentStep === 4 && (
-                <div className="text-center py-16 text-muted-foreground">
-                  Binaural Composer (Gate 5)
-                </div>
+                <ThetaBinauralComposer
+                  sessionId={sessionId}
+                  voiceId={selectedVoice || ''}
+                  affirmations={affirmations}
+                />
               )}
             </CardContent>
           </Card>
