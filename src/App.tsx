@@ -54,6 +54,9 @@ import RunRepair from "./pages/RunRepair";
 import TestBackfill from "./pages/TestBackfill";
 import RoleplayBot from "./pages/RoleplayBot";
 import RoleplayStaff from "./pages/RoleplayStaff";
+import ThetaTalkTrack from "./pages/ThetaTalkTrack";
+import ThetaTalkTrackCreate from "./pages/ThetaTalkTrackCreate";
+import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 
 const queryClient = new QueryClient({
   defaultOptions: {
