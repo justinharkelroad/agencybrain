@@ -1,15 +1,24 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SmartBackButton } from "@/components/SmartBackButton";
 import { Progress } from "@/components/ui/progress";
+import { useThetaStore } from "@/lib/thetaTrackStore";
+import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
+import { getOrCreateSessionId } from "@/lib/sessionUtils";
 
 export default function ThetaTalkTrackCreate() {
-  const [currentStep, setCurrentStep] = useState(1);
+  const { currentStep, sessionId, setSessionId } = useThetaStore();
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
 
+  useEffect(() => {
+    if (!sessionId) {
+      setSessionId(getOrCreateSessionId());
+    }
+  }, [sessionId, setSessionId]);
+
   const stepTitles = [
-    "Enter Your 4F Targets",
+    "Enter Your 4B Targets",
     "AI-Generated Affirmations",
     "Voice Studio Selection",
     "Binaural Composer"
@@ -50,16 +59,29 @@ export default function ThetaTalkTrackCreate() {
             <CardHeader>
               <CardTitle>{stepTitles[currentStep - 1]}</CardTitle>
               <CardDescription>
-                {currentStep === 1 && "Define your Faith, Family, Fitness, and Finance goals"}
+                {currentStep === 1 && "Define your Body, Being, Balance, and Business goals"}
                 {currentStep === 2 && "Review and customize your AI-generated affirmations"}
                 {currentStep === 3 && "Choose your preferred voice narrator"}
                 {currentStep === 4 && "Generate your binaural theta brainwave track"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-16 text-muted-foreground">
-                Step {currentStep} content will be implemented in Gate 2-5
-              </div>
+              {currentStep === 1 && <ThetaTargetsInput />}
+              {currentStep === 2 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  AI Affirmations (Gate 3)
+                </div>
+              )}
+              {currentStep === 3 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  Voice Studio (Gate 4)
+                </div>
+              )}
+              {currentStep === 4 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  Binaural Composer (Gate 5)
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
