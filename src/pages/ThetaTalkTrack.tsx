@@ -51,7 +51,7 @@ export default function ThetaTalkTrack() {
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Custom affirmations generated for your Faith, Family, Fitness, and Finance goals
+                Custom affirmations generated for your Body, Being, Balance, and Business goals
               </CardDescription>
             </CardContent>
           </Card>
@@ -81,7 +81,7 @@ export default function ThetaTalkTrack() {
                   1
                 </span>
                 <div>
-                  <strong>Enter Your 4F Targets:</strong> Define your Faith, Family, Fitness, and Finance goals
+                  <strong>Enter Your 4B Targets:</strong> Define your Body, Being, Balance, and Business goals
                 </div>
               </li>
               <li className="flex gap-3">
