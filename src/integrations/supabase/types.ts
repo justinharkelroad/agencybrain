@@ -2271,6 +2271,276 @@ export type Database = {
           },
         ]
       }
+      theta_affirmations: {
+        Row: {
+          approved: boolean
+          category: string
+          created_at: string
+          edited: boolean
+          id: string
+          order_index: number | null
+          session_id: string
+          target_id: string | null
+          text: string
+          tone: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          approved?: boolean
+          category: string
+          created_at?: string
+          edited?: boolean
+          id?: string
+          order_index?: number | null
+          session_id: string
+          target_id?: string | null
+          text: string
+          tone: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          approved?: boolean
+          category?: string
+          created_at?: string
+          edited?: boolean
+          id?: string
+          order_index?: number | null
+          session_id?: string
+          target_id?: string | null
+          text?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theta_affirmations_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "theta_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theta_final_tracks: {
+        Row: {
+          audio_url: string
+          created_at: string
+          download_count: number
+          duration_seconds: number
+          file_size_bytes: number | null
+          id: string
+          last_downloaded_at: string | null
+          session_id: string
+          target_id: string | null
+          user_id: string | null
+          voice_track_id: string | null
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          download_count?: number
+          duration_seconds?: number
+          file_size_bytes?: number | null
+          id?: string
+          last_downloaded_at?: string | null
+          session_id: string
+          target_id?: string | null
+          user_id?: string | null
+          voice_track_id?: string | null
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          download_count?: number
+          duration_seconds?: number
+          file_size_bytes?: number | null
+          id?: string
+          last_downloaded_at?: string | null
+          session_id?: string
+          target_id?: string | null
+          user_id?: string | null
+          voice_track_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theta_final_tracks_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "theta_targets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "theta_final_tracks_voice_track_id_fkey"
+            columns: ["voice_track_id"]
+            isOneToOne: false
+            referencedRelation: "theta_voice_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theta_targets: {
+        Row: {
+          balance: string | null
+          being: string | null
+          body: string | null
+          business: string | null
+          created_at: string
+          id: string
+          session_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          balance?: string | null
+          being?: string | null
+          body?: string | null
+          business?: string | null
+          created_at?: string
+          id?: string
+          session_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          balance?: string | null
+          being?: string | null
+          body?: string | null
+          business?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      theta_track_leads: {
+        Row: {
+          created_at: string
+          email: string
+          final_track_id: string | null
+          full_name: string
+          id: string
+          opt_in_challenge: boolean
+          opt_in_tips: boolean
+          phone: string | null
+          session_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          final_track_id?: string | null
+          full_name: string
+          id?: string
+          opt_in_challenge?: boolean
+          opt_in_tips?: boolean
+          phone?: string | null
+          session_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          final_track_id?: string | null
+          full_name?: string
+          id?: string
+          opt_in_challenge?: boolean
+          opt_in_tips?: boolean
+          phone?: string | null
+          session_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theta_track_leads_final_track_id_fkey"
+            columns: ["final_track_id"]
+            isOneToOne: false
+            referencedRelation: "theta_final_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      theta_tracks: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          duration_minutes: number | null
+          error_message: string | null
+          id: string
+          session_id: string
+          status: string
+          voice_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          error_message?: string | null
+          id?: string
+          session_id: string
+          status: string
+          voice_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          error_message?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
+      theta_voice_tracks: {
+        Row: {
+          audio_url: string
+          created_at: string
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          id: string
+          session_id: string
+          target_id: string | null
+          user_id: string | null
+          voice_type: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          session_id: string
+          target_id?: string | null
+          user_id?: string | null
+          voice_type: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          session_id?: string
+          target_id?: string | null
+          user_id?: string | null
+          voice_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theta_voice_tracks_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "theta_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uploads: {
         Row: {
           category: string
