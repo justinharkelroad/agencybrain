@@ -115,6 +115,46 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+        <Card 
+          className={cardBase} 
+          role="button" 
+          onClick={() => {
+            onOpenChange(false);
+            navigate('/theta-talk-track');
+          }} 
+          aria-label="Open Manifest Your 90 Day Targets"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" /> Manifest Your 90 Day Targets
+            </CardTitle>
+            <CardDescription>Create your own 90 day affirmation audio designed w/ binaural audio</CardDescription>
+          </CardHeader>
+        </Card>
+        {hasTierAccess('roleplay-trainer') ? (
+          <Card 
+            className={cardBase} 
+            role="button" 
+            onClick={() => {
+              onOpenChange(false);
+              navigate("/roleplaybot");
+            }} 
+            aria-label="Open AI Sales Roleplay Trainer"
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mic className="h-5 w-5" /> AI Sales Roleplay Trainer
+              </CardTitle>
+              <CardDescription>AI voice bot that trains and scores your team members.</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <RestrictedCard
+            icon={Mic}
+            title="AI Sales Roleplay Trainer"
+            description="AI voice bot that trains and scores your team members."
+          />
+        )}
         <Card
           className={cardBase}
           role="button"
@@ -193,46 +233,6 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
           </CardHeader>
         </Card>
-        <Card 
-          className={cardBase} 
-          role="button" 
-          onClick={() => {
-            onOpenChange(false);
-            navigate('/theta-talk-track');
-          }} 
-          aria-label="Open Manifest Your 90 Day Targets"
-        >
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" /> Manifest Your 90 Day Targets
-            </CardTitle>
-            <CardDescription>Create your own 90 day affirmation audio designed w/ binaural audio</CardDescription>
-          </CardHeader>
-        </Card>
-        {hasTierAccess('roleplay-trainer') ? (
-          <Card 
-            className={cardBase} 
-            role="button" 
-            onClick={() => {
-              onOpenChange(false);
-              navigate("/roleplaybot");
-            }} 
-            aria-label="Open AI Sales Roleplay Trainer"
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mic className="h-5 w-5" /> AI Sales Roleplay Trainer
-              </CardTitle>
-              <CardDescription>AI voice bot that trains and scores your team members.</CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <RestrictedCard
-            icon={Mic}
-            title="AI Sales Roleplay Trainer"
-            description="AI voice bot that trains and scores your team members."
-          />
-        )}
       </div>
       
       {/* Upgrade Dialog for Restricted Access */}
