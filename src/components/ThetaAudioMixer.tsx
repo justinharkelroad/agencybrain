@@ -124,6 +124,7 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
 
       // Loop affirmations continuously until 21 minutes
       let currentTime = 20; // Start voice at 20 seconds
+      console.log(`Voice track starting at ${currentTime} seconds (20s intro of binaural beats only)`);
       let loopCount = 0;
 
       while (currentTime < duration) {
