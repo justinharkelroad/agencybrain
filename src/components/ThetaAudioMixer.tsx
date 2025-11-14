@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import * as lamejs from "lamejs";
+import lamejs from "lamejs";
 
 interface AudioSegment {
   text: string;
