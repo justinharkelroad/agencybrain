@@ -101,27 +101,51 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
       const duration = 21 * 60; // 21 minutes
       const offlineContext = new OfflineAudioContext(2, sampleRate * duration, sampleRate);
 
-      // Setup background track
+      // Create master gain node for the final 30s fade out
+      const masterGain = offlineContext.createGain();
+      masterGain.gain.value = 1.0; // Full volume until fade
+      
+      // Schedule fade out in last 30 seconds (starts at 20:30, ends at 21:00)
+      const fadeOutStart = duration - 30; // 1230 seconds
+      masterGain.gain.setValueAtTime(1.0, fadeOutStart);
+      masterGain.gain.linearRampToValueAtTime(0, duration);
+      
+      // Connect master gain to destination
+      masterGain.connect(offlineContext.destination);
+
+      // Setup background track at 50% volume
       const bgSource = offlineContext.createBufferSource();
       bgSource.buffer = backgroundBuffer;
       const bgGain = offlineContext.createGain();
-      bgGain.gain.value = 0.6;
+      bgGain.gain.value = 0.5; // 50% volume for background music
       bgSource.connect(bgGain);
-      bgGain.connect(offlineContext.destination);
+      bgGain.connect(masterGain); // Route through master gain for final fade
       bgSource.start(0);
 
-      // Schedule affirmations at intervals
-      const segmentSpacing = duration / segments.length;
+      // Loop affirmations continuously until 21 minutes
+      let currentTime = 0;
+      let loopCount = 0;
 
-      for (let i = 0; i < affirmationBuffers.length; i++) {
-        const source = offlineContext.createBufferSource();
-        source.buffer = affirmationBuffers[i];
-        const gainNode = offlineContext.createGain();
-        gainNode.gain.value = 1.0;
-        source.connect(gainNode);
-        gainNode.connect(offlineContext.destination);
-        source.start(i * segmentSpacing);
+      while (currentTime < duration) {
+        for (let i = 0; i < affirmationBuffers.length; i++) {
+          const buffer = affirmationBuffers[i];
+          
+          // Stop scheduling if we've exceeded 21 minutes
+          if (currentTime >= duration) break;
+          
+          const source = offlineContext.createBufferSource();
+          source.buffer = buffer;
+          
+          // Connect voice directly to master gain (full volume, no individual fades)
+          source.connect(masterGain);
+          source.start(currentTime);
+          
+          currentTime += buffer.duration;
+        }
+        loopCount++;
       }
+
+      console.log(`Affirmations looped ${loopCount} times, total voice duration: ${currentTime.toFixed(1)}s`);
 
       setProgress(60);
 
