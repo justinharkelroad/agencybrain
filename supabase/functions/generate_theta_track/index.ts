@@ -65,49 +65,86 @@ serve(async (req) => {
 
         console.log(`Processing ${allAffirmations.length} affirmations`);
 
-        // Generate narration for all affirmations (client will mix them)
+        // Generate narration for all affirmations in parallel (faster, avoids timeout)
         const audioSegments: Array<{ text: string; audio_base64: string }> = [];
         
-        for (let i = 0; i < allAffirmations.length; i++) {
-          const affirmation = allAffirmations[i];
-          console.log(`Generating audio for affirmation ${i + 1}/${allAffirmations.length}`);
+        // Helper function to generate audio with retry logic
+        const generateAudioWithRetry = async (affirmation: string, maxRetries = 3): Promise<{ text: string; audio_base64: string }> => {
+          let lastError: Error | null = null;
           
-          const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-            {
-              method: 'POST',
-              headers: {
-                'Accept': 'audio/mpeg',
-                'Content-Type': 'application/json',
-                'xi-api-key': ELEVEN_API_KEY,
-              },
-              body: JSON.stringify({
-                text: affirmation,
-                model_id: 'eleven_multilingual_v2',
-                output_format: 'mp3_44100_128',
-                voice_settings: {
-                  stability: 0.6,
-                  similarity_boost: 0.8,
-                  style: 0.2,
-                  use_speaker_boost: true
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              const response = await fetch(
+                `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Accept': 'audio/mpeg',
+                    'Content-Type': 'application/json',
+                    'xi-api-key': ELEVEN_API_KEY,
+                  },
+                  body: JSON.stringify({
+                    text: affirmation,
+                    model_id: 'eleven_multilingual_v2',
+                    output_format: 'mp3_44100_128',
+                    voice_settings: {
+                      stability: 0.6,
+                      similarity_boost: 0.8,
+                      style: 0.2,
+                      use_speaker_boost: true
+                    }
+                  }),
                 }
-              }),
+              );
+
+              if (!response.ok) {
+                throw new Error(`ElevenLabs API error: ${response.status}`);
+              }
+
+              const arrayBuffer = await response.arrayBuffer();
+              
+              // More efficient base64 encoding using Uint8Array directly
+              const uint8Array = new Uint8Array(arrayBuffer);
+              let binary = '';
+              const chunkSize = 8192;
+              for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+                binary += String.fromCharCode.apply(null, Array.from(chunk));
+              }
+              const base64Audio = btoa(binary);
+              
+              return { text: affirmation, audio_base64: base64Audio };
+            } catch (error) {
+              lastError = error as Error;
+              console.error(`Attempt ${attempt}/${maxRetries} failed for affirmation:`, affirmation, error);
+              
+              if (attempt < maxRetries) {
+                // Exponential backoff: 1s, 2s, 4s
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000));
+              }
             }
-          );
-
-          if (!response.ok) {
-            throw new Error(`ElevenLabs error: ${response.status}`);
           }
+          
+          throw lastError || new Error('Failed to generate audio after retries');
+        };
 
-          const arrayBuffer = await response.arrayBuffer();
-          const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-          audioSegments.push({ text: affirmation, audio_base64: base64Audio });
-
-          // Small delay to avoid rate limits
-          if (i < allAffirmations.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+        // Generate all affirmations in parallel (batch of 5 at a time to avoid rate limits)
+        const batchSize = 5;
+        for (let i = 0; i < allAffirmations.length; i += batchSize) {
+          const batch = allAffirmations.slice(i, i + batchSize);
+          const batchPromises = batch.map(affirmation => generateAudioWithRetry(affirmation));
+          
+          const batchResults = await Promise.all(batchPromises);
+          audioSegments.push(...batchResults);
+          
+          console.log(`Generated ${Math.min(i + batchSize, allAffirmations.length)}/${allAffirmations.length} affirmations`);
+          
+          // Small delay between batches to respect rate limits
+          if (i + batchSize < allAffirmations.length) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
+
 
         console.log('All audio segments generated, returning for client-side mixing');
 
