@@ -65,8 +65,8 @@ serve(async (req) => {
 
         console.log(`Processing ${allAffirmations.length} affirmations`);
 
-        // Generate narration for all affirmations
-        const audioSegments: string[] = [];
+        // Generate narration for all affirmations (client will mix them)
+        const audioSegments: Array<{ text: string; audio_base64: string }> = [];
         
         for (let i = 0; i < allAffirmations.length; i++) {
           const affirmation = allAffirmations[i];
@@ -84,6 +84,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 text: affirmation,
                 model_id: 'eleven_multilingual_v2',
+                output_format: 'mp3_44100_128',
                 voice_settings: {
                   stability: 0.6,
                   similarity_boost: 0.8,
@@ -100,7 +101,7 @@ serve(async (req) => {
 
           const arrayBuffer = await response.arrayBuffer();
           const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-          audioSegments.push(base64Audio);
+          audioSegments.push({ text: affirmation, audio_base64: base64Audio });
 
           // Small delay to avoid rate limits
           if (i < allAffirmations.length - 1) {
@@ -108,70 +109,26 @@ serve(async (req) => {
           }
         }
 
-        console.log('All audio segments generated, creating 21-minute track');
+        console.log('All audio segments generated, returning for client-side mixing');
 
-        // Calculate spacing: 21 minutes = 1260 seconds
-        // 20 affirmations = ~63 seconds between each
-        const totalDuration = 1260; // 21 minutes in seconds
-        const silenceDuration = Math.floor(totalDuration / allAffirmations.length);
-        
-        console.log(`Spacing affirmations: ${silenceDuration}s between each`);
-
-        // Generate silence buffer (empty MP3 frame for spacing)
-        // This is a minimal MP3 silence frame that can be repeated
-        const createSilenceFrame = (durationSeconds: number): string => {
-          // MP3 silence frame (base64 encoded minimal silence)
-          const silenceFrame = "//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADhADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD/////////////////////////////////////////////8AAAAATGF2YzU4LjM1AAAAAAAAAAAAAAAAJAAAAAAAAAAABIQnCwWnAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
-          return silenceFrame.repeat(Math.ceil(durationSeconds / 0.026)); // ~26ms per frame
-        };
-
-        // Build final track with spaced affirmations
-        let finalTrack = '';
-        for (let i = 0; i < audioSegments.length; i++) {
-          finalTrack += audioSegments[i];
-          if (i < audioSegments.length - 1) {
-            finalTrack += createSilenceFrame(silenceDuration);
-          }
-        }
-
-        console.log('Final 21-minute track created with spaced affirmations');
-
-        // Upload to storage
-        const fileName = `${track.id}.mp3`;
-        const { error: uploadError } = await supabase
-          .storage
-          .from('theta-tracks')
-          .upload(fileName, 
-            Uint8Array.from(atob(finalTrack), c => c.charCodeAt(0)), 
-            {
-              contentType: 'audio/mpeg',
-              upsert: true
-            }
-          );
-
-        if (uploadError) {
-          throw new Error(`Upload failed: ${uploadError.message}`);
-        }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase
-          .storage
-          .from('theta-tracks')
-          .getPublicUrl(fileName);
-
-        console.log('Track uploaded successfully:', publicUrl);
-
-        // Update track record with completion
+        // Update track record with completion (no storage upload)
         await supabase
           .from('theta_tracks')
           .update({
             status: 'completed',
-            audio_url: publicUrl,
             completed_at: new Date().toISOString()
           })
           .eq('id', track.id);
 
         console.log('Track generation completed:', track.id);
+
+        // Return segments for client-side mixing
+        return {
+          trackId: track.id,
+          status: 'completed',
+          segments: audioSegments,
+          background_track_url: 'binaural-beats/theta-21min-background.mp3'
+        };
 
       } catch (error) {
         console.error('Background task error:', error);
@@ -184,19 +141,17 @@ serve(async (req) => {
             error_message: error instanceof Error ? error.message : 'Unknown error'
           })
           .eq('id', track.id);
+
+        throw error;
       }
     };
 
-    // Start background task without awaiting
-    EdgeRuntime.waitUntil(generateAudio());
+    // Execute generation and wait for result
+    const result = await generateAudio();
 
-    // Return immediate response with track ID
+    // Return response with segments for client-side mixing
     return new Response(
-      JSON.stringify({ 
-        trackId: track.id,
-        status: 'pending',
-        message: 'Track generation started'
-      }),
+      JSON.stringify(result),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
