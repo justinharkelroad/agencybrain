@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -191,6 +191,22 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
               <ExternalLink className="h-4 w-4" />
             </CardTitle>
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
+          </CardHeader>
+        </Card>
+        <Card 
+          className={cardBase} 
+          role="button" 
+          onClick={() => {
+            onOpenChange(false);
+            navigate('/theta-talk-track');
+          }} 
+          aria-label="Open Manifest Your 90 Day Targets"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" /> Manifest Your 90 Day Targets
+            </CardTitle>
+            <CardDescription>Create your own 90 day affirmation audio designed w/ binaural audio</CardDescription>
           </CardHeader>
         </Card>
         {hasTierAccess('roleplay-trainer') ? (
