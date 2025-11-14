@@ -60,127 +60,85 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
       setProgress(50);
       setStatus('mixing');
 
-      // Create offline context for mixing (21 minutes at 44.1kHz)
-      const duration = 21 * 60; // 21 minutes in seconds
-      const offlineContext = new OfflineAudioContext(
-        2, // stereo
-        duration * audioContext.sampleRate,
-        audioContext.sampleRate
-      );
+      // Decode all affirmation segments first
+      const affirmationBuffers: AudioBuffer[] = [];
+      for (let i = 0; i < segments.length; i++) {
+        const arrayBuffer = base64ToArrayBuffer(segments[i].audio_base64);
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        affirmationBuffers.push(audioBuffer);
+        setProgress(50 + (i / segments.length) * 20);
+      }
 
-      // Add background track
-      const bgSource = offlineContext.createBufferSource();
+      setProgress(70);
+
+      // Create MediaStreamDestination for recording
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Setup background track
+      const bgSource = audioContext.createBufferSource();
       bgSource.buffer = backgroundBuffer;
-      
-      // Reduce background volume to 60% to let affirmations stand out
-      const bgGain = offlineContext.createGain();
-      bgGain.gain.value = 0.6;
+      const bgGain = audioContext.createGain();
+      bgGain.gain.value = 0.6; // Reduce background volume
       bgSource.connect(bgGain);
-      bgGain.connect(offlineContext.destination);
+      bgGain.connect(destination);
       bgSource.start(0);
 
-      setProgress(60);
+      // Schedule affirmations at intervals
+      const duration = 21 * 60; // 21 minutes
+      const segmentSpacing = duration / segments.length; // ~63 seconds
 
-      // Decode and overlay affirmations
-      const segmentSpacing = duration / segments.length; // ~63 seconds between each
-
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        const arrayBuffer = base64ToArrayBuffer(segment.audio_base64);
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-        const source = offlineContext.createBufferSource();
-        source.buffer = audioBuffer;
-
-        // Affirmations at full volume
-        const gainNode = offlineContext.createGain();
+      for (let i = 0; i < affirmationBuffers.length; i++) {
+        const source = audioContext.createBufferSource();
+        source.buffer = affirmationBuffers[i];
+        const gainNode = audioContext.createGain();
         gainNode.gain.value = 1.0;
-
         source.connect(gainNode);
-        gainNode.connect(offlineContext.destination);
-
-        const startTime = i * segmentSpacing;
-        source.start(startTime);
-
-        setProgress(60 + (i / segments.length) * 30);
+        gainNode.connect(destination);
+        source.start(audioContext.currentTime + i * segmentSpacing);
       }
 
-      setProgress(90);
+      setProgress(80);
 
-      // Render the mixed audio
-      const renderedBuffer = await offlineContext.startRendering();
+      // Use MediaRecorder to capture compressed audio
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
 
-      setProgress(95);
+      const mediaRecorder = new MediaRecorder(destination.stream, {
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
 
-      // Convert to WAV blob (browsers natively support WAV encoding)
-      const wavBlob = bufferToWave(renderedBuffer, renderedBuffer.length);
-      const url = URL.createObjectURL(wavBlob);
+      const chunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
 
-      setMixedAudioUrl(url);
-      setProgress(100);
-      setStatus('ready');
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setMixedAudioUrl(url);
+        setProgress(100);
+        setStatus('ready');
+        audioContext.close();
+        toast.success('Audio track ready for download! (~15 MB)');
+      };
 
-      toast.success("Your theta track is ready to download!");
+      mediaRecorder.start();
+      setProgress(85);
 
-    } catch (error) {
-      console.error('Audio mixing error:', error);
+      // Stop recording after 21 minutes
+      setTimeout(() => {
+        mediaRecorder.stop();
+        bgSource.stop();
+      }, (duration + 1) * 1000); // +1 second buffer
+
+    } catch (error: any) {
+      console.error('Error mixing audio:', error);
+      setErrorMessage(error.message || 'Failed to mix audio');
       setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to mix audio');
-      toast.error("Failed to create audio track");
-    }
-  };
-
-  const bufferToWave = (abuffer: AudioBuffer, len: number): Blob => {
-    const numOfChan = abuffer.numberOfChannels;
-    const length = len * numOfChan * 2 + 44;
-    const buffer = new ArrayBuffer(length);
-    const view = new DataView(buffer);
-    const channels = [];
-    let offset = 0;
-    let pos = 0;
-
-    // Write WAV header
-    setUint32(0x46464952); // "RIFF"
-    setUint32(length - 8); // file length - 8
-    setUint32(0x45564157); // "WAVE"
-
-    setUint32(0x20746d66); // "fmt " chunk
-    setUint32(16); // length = 16
-    setUint16(1); // PCM (uncompressed)
-    setUint16(numOfChan);
-    setUint32(abuffer.sampleRate);
-    setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-    setUint16(numOfChan * 2); // block-align
-    setUint16(16); // 16-bit
-
-    setUint32(0x61746164); // "data" - chunk
-    setUint32(length - pos - 4); // chunk length
-
-    // Write interleaved data
-    for (let i = 0; i < abuffer.numberOfChannels; i++) {
-      channels.push(abuffer.getChannelData(i));
-    }
-
-    while (pos < len) {
-      for (let i = 0; i < numOfChan; i++) {
-        let sample = Math.max(-1, Math.min(1, channels[i][pos]));
-        sample = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-        view.setInt16(offset, sample, true);
-        offset += 2;
-      }
-      pos++;
-    }
-
-    return new Blob([buffer], { type: 'audio/wav' });
-
-    function setUint16(data: number) {
-      view.setUint16(offset, data, true);
-      offset += 2;
-    }
-
-    function setUint32(data: number) {
-      view.setUint32(offset, data, true);
-      offset += 4;
+      toast.error('Failed to mix audio track');
     }
   };
 
@@ -189,7 +147,7 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
 
     const a = document.createElement('a');
     a.href = mixedAudioUrl;
-    a.download = `theta-track-${trackId}.wav`;
+    a.download = `theta-track-${trackId}.webm`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -220,7 +178,7 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
           <div>
             <h3 className="text-lg font-semibold">Your Theta Track is Ready!</h3>
             <p className="text-muted-foreground text-sm mt-2">
-              21-minute personalized theta binaural beats with your affirmations
+              21-minute personalized theta binaural beats with your affirmations (~15 MB)
             </p>
           </div>
           <div className="flex gap-3 justify-center">
@@ -240,20 +198,18 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
   return (
     <Card className="p-6">
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        </div>
+        <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
         <div>
           <h3 className="text-lg font-semibold">
-            {status === 'loading' ? 'Loading Audio Components...' : 'Mixing Your Track...'}
+            {status === 'loading' ? 'Loading Audio...' : 'Mixing Your Track...'}
           </h3>
           <p className="text-muted-foreground text-sm mt-2">
-            Combining your personalized affirmations with theta binaural beats
+            This will take about 21 minutes. Please keep this tab open.
           </p>
         </div>
         <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
-          <p className="text-xs text-muted-foreground">{Math.round(progress)}%</p>
+          <Progress value={progress} className="w-full" />
+          <p className="text-sm text-muted-foreground">{progress}%</p>
         </div>
       </div>
     </Card>

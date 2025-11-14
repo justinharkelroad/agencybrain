@@ -127,7 +127,7 @@ serve(async (req) => {
           trackId: track.id,
           status: 'completed',
           segments: audioSegments,
-          background_track_url: 'binaural-beats/theta-21min-background.mp3'
+          background_track_url: '21m.mp3'
         };
 
       } catch (error) {
