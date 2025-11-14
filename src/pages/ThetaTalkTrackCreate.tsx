@@ -94,7 +94,7 @@ export default function ThetaTalkTrackCreate() {
   };
 
   const stepTitles = [
-    "Enter Your 4B Targets",
+    "Enter Your 90 Day Targets",
     "AI-Generated Affirmations",
     "Voice Studio Selection",
     "Binaural Composer"

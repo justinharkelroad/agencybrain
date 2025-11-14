@@ -87,7 +87,7 @@ export function ThetaTargetsInput() {
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-semibold mb-2">Define Your 4B Targets</h2>
+        <h2 className="text-2xl font-semibold mb-2">Define Your 90 Day Targets</h2>
         <p className="text-muted-foreground">
           Enter at least 2 areas to continue. Each target will be transformed into personalized affirmations.
         </p>
