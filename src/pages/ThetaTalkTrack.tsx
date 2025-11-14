@@ -81,7 +81,7 @@ export default function ThetaTalkTrack() {
                   1
                 </span>
                 <div>
-                  <strong>Enter Your 4B Targets:</strong> Define your Body, Being, Balance, and Business goals
+                  <strong>Enter Your Targets:</strong> Define your Body, Being, Balance, and Business goals
                 </div>
               </li>
               <li className="flex gap-3">
@@ -105,7 +105,7 @@ export default function ThetaTalkTrack() {
                   4
                 </span>
                 <div>
-                  <strong>Download Your Track:</strong> Get your custom 21-minute theta brainwave audio file
+                  <strong>Download Your Track:</strong> Get your custom 21-minute theta brainwave audio file so you can manifest them daily.
                 </div>
               </li>
             </ol>
