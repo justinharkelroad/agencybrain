@@ -17,9 +17,9 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         <AppSidebar onOpenROI={() => setRoiOpen(true)} />
         
         {/* Mobile Header with Hamburger Menu - Only visible on mobile */}
-        <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border flex items-center px-4">
-          <SidebarTrigger className="h-10 w-10" />
-          <div className="flex-1 flex justify-center">
+        <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background border-b border-border flex items-center px-4 gap-3">
+          <SidebarTrigger className="shrink-0" />
+          <div className="flex-1 flex justify-center min-w-0">
             <AgencyBrainBadge asLink to="/dashboard" />
           </div>
         </div>

@@ -72,10 +72,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           />
         </div>
 
-        {/* Trigger Button */}
-        <div className="p-2 flex justify-end">
-          <SidebarTrigger />
-        </div>
+      {/* Trigger Button - Desktop only */}
+      <div className="hidden md:block p-2 flex justify-end">
+        <SidebarTrigger />
+      </div>
 
         <SidebarContent className="flex-1">
           {/* Main Navigation */}
