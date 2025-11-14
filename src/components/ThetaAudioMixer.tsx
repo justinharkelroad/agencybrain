@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import lamejs from "lamejs";
+import lameJsUrl from "lamejs/lame.min.js?url";
 
 interface AudioSegment {
   text: string;
@@ -17,6 +17,30 @@ interface ThetaAudioMixerProps {
   backgroundTrackPath: string;
   trackId: string;
 }
+
+// Helper to load lamejs UMD build dynamically
+const ensureLameLoaded = (): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if (window.lamejs?.Mp3Encoder) {
+      console.debug("lamejs already loaded");
+      resolve(window.lamejs);
+      return;
+    }
+    
+    const script = document.createElement("script");
+    script.src = lameJsUrl;
+    script.onload = () => {
+      if (window.lamejs?.Mp3Encoder) {
+        console.debug("lamejs loaded successfully");
+        resolve(window.lamejs);
+      } else {
+        reject(new Error("lamejs loaded but Mp3Encoder not found"));
+      }
+    };
+    script.onerror = () => reject(new Error("Failed to load lamejs script"));
+    document.head.appendChild(script);
+  });
+};
 
 export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: ThetaAudioMixerProps) {
   const [progress, setProgress] = useState(0);
@@ -108,7 +132,8 @@ export function ThetaAudioMixer({ segments, backgroundTrackPath, trackId }: Thet
       setStatus('encoding');
 
       // Convert to MP3 using lamejs
-      const mp3Encoder = new lamejs.Mp3Encoder(2, sampleRate, 128); // stereo, 44.1kHz, 128kbps
+      const lame = await ensureLameLoaded();
+      const mp3Encoder = new lame.Mp3Encoder(2, sampleRate, 128); // stereo, 44.1kHz, 128kbps
       const mp3Data: Uint8Array[] = [];
 
       const leftChannel = renderedBuffer.getChannelData(0);

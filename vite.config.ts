@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => ({
       overlay: false
     }
   },
+  optimizeDeps: {
+    exclude: ["lamejs"]
+  },
   plugins: [
     react(),
     mode === 'development' &&
