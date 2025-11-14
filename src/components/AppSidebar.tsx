@@ -137,7 +137,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                   <SidebarMenuButton asChild>
                     <Link to="/theta-talk-track" className="flex items-center gap-2">
                       <Brain className="h-4 w-4" />
-                      {sidebarOpen && <span>Theta Talk Track</span>}
+                      {sidebarOpen && <span>Manifest Targets</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
