@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,7 +56,7 @@ import TestBackfill from "./pages/TestBackfill";
 import RoleplayBot from "./pages/RoleplayBot";
 import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
-import ThetaTalkTrackCreate from "./pages/ThetaTalkTrackCreate";
+const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 
 const queryClient = new QueryClient({
@@ -350,7 +351,11 @@ const App = () => (
             
             {/* Public Theta Talk Track Routes */}
             <Route path="/theta-talk-track" element={<ThetaTalkTrack />} />
-            <Route path="/theta-talk-track/create" element={<ThetaTalkTrackCreate />} />
+            <Route path="/theta-talk-track/create" element={
+              <Suspense fallback={<div>Loading...</div>}>
+                <ThetaTalkTrackCreate />
+              </Suspense>
+            } />
             <Route path="/theta-talk-track/download" element={<ThetaTalkTrackDownload />} />
 
             <Route path="*" element={<NotFound />} />
