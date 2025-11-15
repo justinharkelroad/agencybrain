@@ -45,24 +45,42 @@ serve(async (req) => {
     const systemPrompt = `You are an expert life coach specializing in goal-setting and SMART criteria.
 Analyze each target item and provide:
 1. A clarity score (0-10) based on how specific, measurable, achievable, and relevant it is
-2. A rewritten version that is MORE clear, specific, and measurable
+2. A rewritten version that is MORE clear, specific, and MEASURABLE with actual numbers
 
-CRITICAL: Do NOT add dates, quarters, years, or timeframes unless they are ALREADY PRESENT in the original target.
-CRITICAL: Do NOT invent information. Only improve clarity of what's already stated.
+CRITICAL: These are QUARTERLY targets (90-day timeframe). Add specific measurability:
+- For recurring activities: suggest realistic frequency (e.g., "1-2x per week = 12-24 times this quarter")
+- For quantities: suggest specific numbers, percentages, or minimum thresholds
+- For vague goals: add countable metrics (e.g., "at least X", "minimum Y per week", "increase by Z%")
+
+CRITICAL: MEASURABLE means countable/verifiable at the end of 90 days. Words like "regular", "consistent", "more" are NOT measurable unless paired with specific numbers.
+
+CRITICAL: Do NOT add calendar dates, quarters, or years (e.g., "by Q4 2023" or "in December") - but DO add quantities and frequencies.
+
 Return ONLY valid JSON with no markdown formatting.`;
 
-    const userPrompt = `Analyze these quarterly targets for measurability. For EACH item in EACH domain, provide clarity_score and rewritten_target:
+    const userPrompt = `Analyze these QUARTERLY (90-day) targets for measurability. For EACH item in EACH domain, provide clarity_score and rewritten_target with SPECIFIC NUMBERS:
 
 BODY: ${JSON.stringify(targets.body || [])}
 BEING: ${JSON.stringify(targets.being || [])}
 BALANCE: ${JSON.stringify(targets.balance || [])}
 BUSINESS: ${JSON.stringify(targets.business || [])}
 
-CRITICAL RULES:
-1. Do NOT add dates, quarters, or timeframes unless already in the original
-2. Do NOT invent new information or metrics
-3. Only clarify and make more specific what is already stated
-4. Example: "Lose 20#" → "Lose 20 pounds" NOT "Lose 20 pounds by Q4 2023"
+CRITICAL RULES FOR MEASURABILITY:
+1. ADD specific numbers, frequencies, or percentages to make targets countable
+2. For recurring activities, suggest realistic frequencies for 90 days:
+   - "Date my wife" → "Have at least 12 date nights with my wife (1x per week)" 
+   - "Exercise" → "Complete 40+ workout sessions (3-4x per week)"
+   - "Pray" → "Spend 15 minutes in prayer daily (90 sessions)"
+3. For business/financial goals, suggest quantities or percentages:
+   - "Sell more insurance" → "Increase quarterly premium sales by 20%"
+   - "Sell more insurance" → "Close at least 15 new insurance policies"
+   - "Grow revenue" → "Add $50,000 in new quarterly revenue"
+4. For weight/fitness, use specific measurements:
+   - "Lose weight" → "Lose 15-20 pounds"
+   - "Get stronger" → "Increase bench press by 20 pounds"
+5. Use measurable language: "at least X", "minimum Y per week", "X-Y range", "increase by Z%", "X+ times"
+6. AVOID leaving targets vague: "regular", "consistent", "more", "better" are NOT measurable alone
+7. DO NOT add calendar dates or timeframes (no "by March" or "in Q2") - but DO add frequencies and quantities
 
 Return JSON in this EXACT format:
 {
@@ -70,7 +88,7 @@ Return JSON in this EXACT format:
     {
       "original": "the original target text",
       "clarity_score": 7,
-      "rewritten_target": "More specific and measurable version"
+      "rewritten_target": "Specific measurable version with numbers"
     }
   ],
   "being": [...],
