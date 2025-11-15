@@ -1,11 +1,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Lightbulb } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Lightbulb, Check } from "lucide-react";
 import type { MonthlyMissionsOutput, DomainMissions } from "@/hooks/useMonthlyMissions";
+
+interface TargetTexts {
+  [domain: string]: {
+    target1?: string;
+    target2?: string;
+  };
+}
+
+interface PrimarySelections {
+  [domain: string]: boolean;
+}
 
 interface MonthlyMissionsTimelineProps {
   missions: MonthlyMissionsOutput;
   selectedDomain?: string;
+  targetTexts?: TargetTexts | null;
+  primarySelections?: PrimarySelections;
+  onLockIn?: (domain: string, isTarget1: boolean) => void;
 }
 
 const DOMAINS = [
@@ -45,25 +60,66 @@ function DomainMissions({
   domainKey, 
   label, 
   color, 
-  domainMissions 
+  domainMissions,
+  targetTexts,
+  primarySelections,
+  onLockIn
 }: { 
   domainKey: string;
   label: string;
   color: string;
   domainMissions: DomainMissions;
+  targetTexts?: TargetTexts | null;
+  primarySelections?: PrimarySelections;
+  onLockIn?: (domain: string, isTarget1: boolean) => void;
 }) {
   const hasTarget1 = domainMissions.target1 && Object.keys(domainMissions.target1).length > 0;
   const hasTarget2 = domainMissions.target2 && Object.keys(domainMissions.target2).length > 0;
 
   if (!hasTarget1 && !hasTarget2) return null;
 
+  const hasBothTargets = hasTarget1 && hasTarget2;
+  const target1Text = targetTexts?.[domainKey]?.target1;
+  const target2Text = targetTexts?.[domainKey]?.target2;
+  const isTarget1Primary = primarySelections?.[domainKey];
+  const isTarget2Primary = primarySelections?.[domainKey] === false;
+
+  // Target 1 is greyed out if Target 2 is locked
+  const target1GreyedOut = hasBothTargets && isTarget2Primary;
+  // Target 2 is greyed out if Target 1 is locked
+  const target2GreyedOut = hasBothTargets && isTarget1Primary;
+
   return (
     <div className="space-y-4">
       <h3 className={`text-lg font-semibold ${color}`}>{label}</h3>
       
       {hasTarget1 && (
-        <div className="space-y-3">
-          {domainMissions.target2 && <p className="text-sm font-medium text-muted-foreground">Target 1</p>}
+        <div className={`space-y-3 transition-opacity ${target1GreyedOut ? 'opacity-40' : ''}`}>
+          {hasBothTargets && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">
+                {target1Text || 'Target 1'}
+              </p>
+              {onLockIn && (
+                <div>
+                  {isTarget1Primary ? (
+                    <Badge variant="default" className="gap-1">
+                      <Check className="h-3 w-3" />
+                      Locked
+                    </Badge>
+                  ) : !isTarget2Primary ? (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onLockIn(domainKey, true)}
+                    >
+                      Lock in
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid gap-3 md:grid-cols-3">
             {Object.entries(domainMissions.target1!).map(([month, data]) => (
               <MissionCard
@@ -78,8 +134,30 @@ function DomainMissions({
       )}
 
       {hasTarget2 && (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">Target 2</p>
+        <div className={`space-y-3 transition-opacity ${target2GreyedOut ? 'opacity-40' : ''}`}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">
+              {target2Text || 'Target 2'}
+            </p>
+            {onLockIn && (
+              <div>
+                {isTarget2Primary ? (
+                  <Badge variant="default" className="gap-1">
+                    <Check className="h-3 w-3" />
+                    Locked
+                  </Badge>
+                ) : !isTarget1Primary ? (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => onLockIn(domainKey, false)}
+                  >
+                    Lock in
+                  </Button>
+                ) : null}
+              </div>
+            )}
+          </div>
           <div className="grid gap-3 md:grid-cols-3">
             {Object.entries(domainMissions.target2!).map(([month, data]) => (
               <MissionCard
@@ -98,7 +176,10 @@ function DomainMissions({
 
 export function MonthlyMissionsTimeline({ 
   missions, 
-  selectedDomain 
+  selectedDomain,
+  targetTexts,
+  primarySelections,
+  onLockIn
 }: MonthlyMissionsTimelineProps) {
   const hasAnyMissions = DOMAINS.some(
     domain => missions[domain.key as keyof MonthlyMissionsOutput]
@@ -138,6 +219,9 @@ export function MonthlyMissionsTimeline({
               label={domain.label}
               color={domain.color}
               domainMissions={domainMissions}
+              targetTexts={targetTexts}
+              primarySelections={primarySelections}
+              onLockIn={onLockIn}
             />
           );
         })}
