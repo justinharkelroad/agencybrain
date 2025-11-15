@@ -78,6 +78,24 @@ export default function LifeTargets() {
 
   const steps = [
     {
+      id: 'brainstorm',
+      title: 'Brain Dump',
+      description: 'Enter all your potential targets for the quarter',
+      icon: Target,
+      status: targetsSet > 0 ? 'complete' : 'current',
+      onClick: () => navigate('/life-targets/brainstorm'),
+      badge: undefined,
+    },
+    {
+      id: 'selection',
+      title: 'Select Top 2',
+      description: 'Review AI analysis and choose your best targets',
+      icon: Target,
+      status: targetsSet > 0 ? 'complete' : 'locked',
+      onClick: () => targetsSet > 0 ? navigate('/life-targets/selection') : null,
+      badge: targetsSet > 0 ? `${targetsSet} selected` : undefined,
+    },
+    {
       id: 'targets',
       title: 'Set Quarterly Targets',
       description: 'Define your goals for Body, Being, Balance, and Business',
