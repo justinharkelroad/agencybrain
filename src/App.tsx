@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
 import { SidebarLayout } from "@/components/SidebarLayout";
+import { LifeTargetsGuard } from "@/components/LifeTargetsGuard";
 import { enableMetrics } from "@/lib/featureFlags";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
@@ -197,20 +198,24 @@ const App = () => (
             } />
             <Route path="/life-targets/missions" element={
               <ProtectedRoute>
-                <SidebarLayout>
-                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-                    <LifeTargetsMissions />
-                  </Suspense>
-                </SidebarLayout>
+                <LifeTargetsGuard requiredStep="missions">
+                  <SidebarLayout>
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                      <LifeTargetsMissions />
+                    </Suspense>
+                  </SidebarLayout>
+                </LifeTargetsGuard>
               </ProtectedRoute>
             } />
             <Route path="/life-targets/daily" element={
               <ProtectedRoute>
-                <SidebarLayout>
-                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-                    <LifeTargetsDaily />
-                  </Suspense>
-                </SidebarLayout>
+                <LifeTargetsGuard requiredStep="actions">
+                  <SidebarLayout>
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                      <LifeTargetsDaily />
+                    </Suspense>
+                  </SidebarLayout>
+                </LifeTargetsGuard>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

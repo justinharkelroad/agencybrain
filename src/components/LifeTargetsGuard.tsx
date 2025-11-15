@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLifeTargetsStore } from '@/lib/lifeTargetsStore';
 import { useQuarterlyTargets } from '@/hooks/useQuarterlyTargets';
+import { toast } from 'sonner';
 
 interface LifeTargetsGuardProps {
   children: React.ReactNode;
@@ -47,10 +48,13 @@ export function LifeTargetsGuard({ children, requiredStep }: LifeTargetsGuardPro
 
     // Enforce sequential flow
     if (requiredStep === 'missions' && targetsSet === 0) {
+      toast.error('Please set your quarterly targets first');
       navigate('/life-targets', { replace: true });
     } else if (requiredStep === 'primary' && !hasMissions) {
+      toast.error('Please generate monthly missions first');
       navigate('/life-targets', { replace: true });
     } else if (requiredStep === 'actions' && (!hasMissions || !hasPrimarySelections)) {
+      toast.error('Please generate missions and select primary targets first');
       navigate('/life-targets', { replace: true });
     }
   }, [targets, requiredStep, navigate, location.pathname, currentQuarter]);
