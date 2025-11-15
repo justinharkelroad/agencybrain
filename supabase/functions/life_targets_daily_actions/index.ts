@@ -4,49 +4,99 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+interface DomainInput {
+  target?: string;
+  monthlyMissions?: Record<string, any>;
+  narrative?: string;
+}
+
+interface BatchInput {
+  body?: DomainInput;
+  being?: DomainInput;
+  balance?: DomainInput;
+  business?: DomainInput;
+}
+
+interface DailyActionsOutput {
+  body: string[];
+  being: string[];
+  balance: string[];
+  business: string[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { domain, target, narrative, monthlyMissions } = await req.json();
+    const input: BatchInput = await req.json();
 
     if (!openAIApiKey) {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    if (!domain || !target) {
-      throw new Error('Domain and target are required');
-    }
-
-    console.log('Generating daily action for:', domain);
+    console.log('Generating daily actions for batch:', JSON.stringify(input, null, 2));
 
     const systemPrompt = `You are an expert life coach specializing in creating sustainable daily habits.
-Generate ONE simple, repeatable daily action that will help achieve the target.
+For each domain provided, generate 10 SIMPLE daily action options that support the quarterly target.
 
-The daily action should:
+Each action should:
 - Be something they can do EVERY day
 - Take 5-30 minutes
 - Be specific and concrete
 - Build momentum toward the target
 - Be sustainable long-term
 
-Return ONLY valid JSON with no markdown formatting.`;
+Return ONLY valid JSON with no markdown formatting. Each action should be a simple string (no objects, no metadata).`;
 
-    const userPrompt = `Generate a daily action for this quarterly target:
+    // Build the input list for the prompt
+    const domainInputs: string[] = [];
+    const domains = ['body', 'being', 'balance', 'business'] as const;
+    
+    for (const domain of domains) {
+      const domainData = input[domain];
+      if (domainData && domainData.target) {
+        let domainText = `${domain.toUpperCase()}:\n`;
+        domainText += `Target: ${domainData.target}\n`;
+        if (domainData.narrative) {
+          domainText += `Context: ${domainData.narrative}\n`;
+        }
+        if (domainData.monthlyMissions) {
+          domainText += `Monthly Missions: ${JSON.stringify(domainData.monthlyMissions, null, 2)}\n`;
+        }
+        domainInputs.push(domainText);
+      }
+    }
 
-DOMAIN: ${domain.toUpperCase()}
-QUARTERLY TARGET: ${target}
-${narrative ? `CONTEXT: ${narrative}` : ''}
-${monthlyMissions ? `MONTHLY MISSIONS: ${JSON.stringify(monthlyMissions)}` : ''}
+    const userPrompt = `Generate 10 daily action options for EACH of these domains:
 
-Return JSON in this exact format:
+${domainInputs.join('\n\n')}
+
+Return JSON in this EXACT format - just arrays of simple strings:
 {
-  "daily_action": "Clear, specific daily action in 1-2 sentences",
-  "why": "Brief explanation of how this builds toward the target",
-  "tips": ["Tip 1 for consistency", "Tip 2 for success"]
-}`;
+  "body": [
+    "Walk 10,000 steps every day",
+    "Do 20 push-ups in the morning",
+    "Drink 8 glasses of water",
+    "Stretch for 10 minutes before bed",
+    "Take the stairs instead of elevator",
+    "Do a 5-minute plank",
+    "Practice yoga poses for 15 minutes",
+    "Track daily protein intake",
+    "Meditate for 5 minutes after waking",
+    "Journal about physical sensations for 5 minutes"
+  ],
+  "being": [...10 actions...],
+  "balance": [...10 actions...],
+  "business": [...10 actions...]
+}
+
+IMPORTANT: 
+- Return EXACTLY 10 actions per domain
+- Each action should be a simple string (no objects)
+- Make actions diverse and varied
+- Only include domains that were provided in the input`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -60,8 +110,8 @@ Return JSON in this exact format:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 500,
+        temperature: 0.8,
+        max_tokens: 2500,
       }),
     });
 
@@ -76,27 +126,37 @@ Return JSON in this exact format:
     
     console.log('OpenAI raw response:', content);
 
-    let dailyAction;
+    let dailyActions: Partial<DailyActionsOutput>;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      dailyAction = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      dailyActions = JSON.parse(jsonMatch ? jsonMatch[0] : content);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      throw new Error('Failed to parse daily action from AI response');
+      throw new Error('Failed to parse daily actions from AI response');
     }
 
     // Validate structure
-    if (!dailyAction.daily_action || 
-        typeof dailyAction.daily_action !== 'string' ||
-        !dailyAction.why ||
-        !Array.isArray(dailyAction.tips)) {
-      throw new Error('Invalid daily action structure');
+    for (const domain of domains) {
+      const actions = dailyActions[domain];
+      if (actions) {
+        if (!Array.isArray(actions)) {
+          throw new Error(`${domain} must be an array`);
+        }
+        if (actions.length !== 10) {
+          throw new Error(`${domain} must have exactly 10 actions, got ${actions.length}`);
+        }
+        for (const action of actions) {
+          if (typeof action !== 'string') {
+            throw new Error(`All actions in ${domain} must be strings`);
+          }
+        }
+      }
     }
 
-    console.log('Successfully generated daily action');
+    console.log('Successfully generated daily actions');
 
     return new Response(
-      JSON.stringify({ dailyAction }),
+      JSON.stringify({ dailyActions }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
@@ -105,7 +165,7 @@ Return JSON in this exact format:
     console.error('Error in life_targets_daily_actions function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error generating daily action' 
+        error: error instanceof Error ? error.message : 'Unknown error generating daily actions' 
       }),
       {
         status: 500,

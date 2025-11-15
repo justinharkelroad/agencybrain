@@ -4,60 +4,117 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+interface DomainTargets {
+  target1?: string;
+  target2?: string;
+  narrative?: string;
+}
+
+interface BatchInput {
+  body?: DomainTargets;
+  being?: DomainTargets;
+  balance?: DomainTargets;
+  business?: DomainTargets;
+  quarter: string; // e.g., "Q1 2025"
+}
+
+interface MonthlyMission {
+  mission: string;
+  why: string;
+}
+
+interface TargetMissions {
+  [month: string]: MonthlyMission; // e.g., "January", "February", "March"
+}
+
+interface DomainMissions {
+  target1?: TargetMissions;
+  target2?: TargetMissions;
+}
+
+interface MissionsOutput {
+  body?: DomainMissions;
+  being?: DomainMissions;
+  balance?: DomainMissions;
+  business?: DomainMissions;
+}
+
+const getMonthsForQuarter = (quarter: string): string[] => {
+  const q = quarter.toUpperCase();
+  if (q.includes('Q1')) return ['January', 'February', 'March'];
+  if (q.includes('Q2')) return ['April', 'May', 'June'];
+  if (q.includes('Q3')) return ['July', 'August', 'September'];
+  if (q.includes('Q4')) return ['October', 'November', 'December'];
+  return ['Month 1', 'Month 2', 'Month 3'];
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { domain, target, narrative, quarter } = await req.json();
+    const input: BatchInput = await req.json();
 
     if (!openAIApiKey) {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    if (!domain || !target) {
-      throw new Error('Domain and target are required');
+    if (!input.quarter) {
+      throw new Error('Quarter is required');
     }
 
-    console.log('Generating monthly missions for:', { domain, quarter });
+    console.log('Generating monthly missions for batch:', JSON.stringify(input, null, 2));
 
-    // Parse quarter to get month names (e.g., "Q1 2025" -> Jan, Feb, Mar)
-    const quarterMatch = quarter?.match(/Q(\d)/);
-    const quarterNum = quarterMatch ? parseInt(quarterMatch[1]) : 1;
-    const monthNames = [
-      ['Jan', 'Feb', 'Mar'],
-      ['Apr', 'May', 'Jun'],
-      ['Jul', 'Aug', 'Sep'],
-      ['Oct', 'Nov', 'Dec']
-    ][quarterNum - 1] || ['Month 1', 'Month 2', 'Month 3'];
+    const months = getMonthsForQuarter(input.quarter);
 
-    const systemPrompt = `You are an expert life coach specializing in breaking down quarterly goals into actionable monthly missions.
-Generate 3 progressive monthly missions that build toward the quarterly target.
+    const systemPrompt = `You are an expert life coach specializing in breaking down quarterly goals into progressive monthly missions.
+For each target provided, generate 3 monthly missions that build upon each other.
 
 Each mission should:
 - Be specific and actionable
-- Build progressively (Month 1 → Month 2 → Month 3)
-- Be achievable within one month
-- Directly contribute to the quarterly target
+- Build toward the quarterly target
+- Progress logically from month to month
+- Include a brief "why" explaining its importance
 
 Return ONLY valid JSON with no markdown formatting.`;
 
-    const userPrompt = `Generate monthly missions for this quarterly target:
+    // Build the targets list for the prompt
+    const targetsList: string[] = [];
+    const domains = ['body', 'being', 'balance', 'business'] as const;
+    
+    for (const domain of domains) {
+      const domainData = input[domain];
+      if (domainData) {
+        if (domainData.target1) {
+          targetsList.push(`${domain.toUpperCase()}_TARGET1: ${domainData.target1}${domainData.narrative ? ` (Context: ${domainData.narrative})` : ''}`);
+        }
+        if (domainData.target2) {
+          targetsList.push(`${domain.toUpperCase()}_TARGET2: ${domainData.target2}${domainData.narrative ? ` (Context: ${domainData.narrative})` : ''}`);
+        }
+      }
+    }
 
-DOMAIN: ${domain.toUpperCase()}
-QUARTERLY TARGET: ${target}
-${narrative ? `CONTEXT: ${narrative}` : ''}
-QUARTER: ${quarter || 'Current Quarter'}
+    const userPrompt = `Generate monthly missions for ${input.quarter} (${months.join(', ')}) for ALL these targets:
 
-The three months are: ${monthNames.join(', ')}
+${targetsList.join('\n\n')}
 
-Return JSON in this exact format:
+Return JSON in this EXACT format:
 {
-  "${monthNames[0]}": ["Mission 1 for ${monthNames[0]}", "Mission 2 for ${monthNames[0]}", "Mission 3 for ${monthNames[0]}"],
-  "${monthNames[1]}": ["Mission 1 for ${monthNames[1]}", "Mission 2 for ${monthNames[1]}", "Mission 3 for ${monthNames[1]}"],
-  "${monthNames[2]}": ["Mission 1 for ${monthNames[2]}", "Mission 2 for ${monthNames[2]}", "Mission 3 for ${monthNames[2]}"]
-}`;
+  "body": {
+    "target1": {
+      "${months[0]}": { "mission": "...", "why": "..." },
+      "${months[1]}": { "mission": "...", "why": "..." },
+      "${months[2]}": { "mission": "...", "why": "..." }
+    },
+    "target2": { ... }
+  },
+  "being": { ... },
+  "balance": { ... },
+  "business": { ... }
+}
+
+IMPORTANT: Only include domains and targets that were provided in the input. If a domain has only target1, don't include target2.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -71,8 +128,8 @@ Return JSON in this exact format:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.8,
-        max_tokens: 1000,
+        temperature: 0.7,
+        max_tokens: 3500,
       }),
     });
 
@@ -87,7 +144,7 @@ Return JSON in this exact format:
     
     console.log('OpenAI raw response:', content);
 
-    let missions;
+    let missions: MissionsOutput;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       missions = JSON.parse(jsonMatch ? jsonMatch[0] : content);
@@ -97,9 +154,20 @@ Return JSON in this exact format:
     }
 
     // Validate structure
-    for (const month of monthNames) {
-      if (!Array.isArray(missions[month]) || missions[month].length !== 3) {
-        throw new Error(`Invalid missions structure for month: ${month}`);
+    for (const domain of domains) {
+      const domainMissions = missions[domain];
+      if (!domainMissions) continue;
+
+      for (const targetKey of ['target1', 'target2'] as const) {
+        const targetMissions = domainMissions[targetKey];
+        if (!targetMissions) continue;
+
+        for (const month of months) {
+          const monthMission = targetMissions[month];
+          if (!monthMission || !monthMission.mission || !monthMission.why) {
+            throw new Error(`Invalid mission structure for ${domain}.${targetKey}.${month}`);
+          }
+        }
       }
     }
 
