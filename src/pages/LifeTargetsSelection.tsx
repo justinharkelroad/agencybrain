@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,16 @@ function getScoreLabel(score: number | null): string {
 
 export default function LifeTargetsSelection() {
   const navigate = useNavigate();
-  const { currentQuarter, currentSessionId } = useLifeTargetsStore();
+  const [searchParams] = useSearchParams();
+  const { currentQuarter, currentSessionId, setCurrentSessionId } = useLifeTargetsStore();
+  
+  // Sync session from URL if present
+  useEffect(() => {
+    const sessionFromUrl = searchParams.get('session');
+    if (sessionFromUrl && sessionFromUrl !== currentSessionId) {
+      setCurrentSessionId(sessionFromUrl);
+    }
+  }, [searchParams, currentSessionId, setCurrentSessionId]);
   
   const { data: brainstormTargets, isLoading } = useBrainstormTargets(currentQuarter, currentSessionId);
   const updateMutation = useUpdateBrainstormTarget();
@@ -158,14 +167,35 @@ export default function LifeTargetsSelection() {
     );
   }
 
+  // Handle missing session
+  if (!currentSessionId) {
+    return (
+      <div className="container max-w-4xl py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>No Active Brainstorm Session</CardTitle>
+            <CardDescription>
+              Start a Brain Dump session to begin analyzing your life targets.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate('/life-targets/brainstorm')}>
+              Start Brain Dump
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!brainstormTargets || brainstormTargets.length === 0) {
     return (
       <div className="container max-w-4xl py-8">
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">No targets found. Please start with brainstorming.</p>
+            <p className="text-muted-foreground">No analyzed targets in this session. Go back and add targets.</p>
             <Button onClick={() => navigate('/life-targets/brainstorm')} className="mt-4">
-              Go to Brain Dump
+              Back to Brain Dump
             </Button>
           </CardContent>
         </Card>
