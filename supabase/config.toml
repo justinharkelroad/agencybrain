@@ -83,3 +83,12 @@ verify_jwt = false
 
 [functions.generate_theta_track]
 verify_jwt = false
+
+[functions.life_targets_measurability]
+verify_jwt = true
+
+[functions.life_targets_monthly_missions]
+verify_jwt = true
+
+[functions.life_targets_daily_actions]
+verify_jwt = true
