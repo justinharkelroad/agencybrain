@@ -1139,6 +1139,102 @@ export type Database = {
         }
         Relationships: []
       }
+      life_targets_quarterly: {
+        Row: {
+          agency_id: string
+          balance_daily_habit: string | null
+          balance_monthly_missions: Json | null
+          balance_narrative: string | null
+          balance_target: string | null
+          being_daily_habit: string | null
+          being_monthly_missions: Json | null
+          being_narrative: string | null
+          being_target: string | null
+          body_daily_habit: string | null
+          body_monthly_missions: Json | null
+          body_narrative: string | null
+          body_target: string | null
+          business_daily_habit: string | null
+          business_monthly_missions: Json | null
+          business_narrative: string | null
+          business_target: string | null
+          created_at: string
+          created_by: string
+          id: string
+          quarter: string
+          raw_session_data: Json | null
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          balance_daily_habit?: string | null
+          balance_monthly_missions?: Json | null
+          balance_narrative?: string | null
+          balance_target?: string | null
+          being_daily_habit?: string | null
+          being_monthly_missions?: Json | null
+          being_narrative?: string | null
+          being_target?: string | null
+          body_daily_habit?: string | null
+          body_monthly_missions?: Json | null
+          body_narrative?: string | null
+          body_target?: string | null
+          business_daily_habit?: string | null
+          business_monthly_missions?: Json | null
+          business_narrative?: string | null
+          business_target?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          quarter: string
+          raw_session_data?: Json | null
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          balance_daily_habit?: string | null
+          balance_monthly_missions?: Json | null
+          balance_narrative?: string | null
+          balance_target?: string | null
+          being_daily_habit?: string | null
+          being_monthly_missions?: Json | null
+          being_narrative?: string | null
+          being_target?: string | null
+          body_daily_habit?: string | null
+          body_monthly_missions?: Json | null
+          body_narrative?: string | null
+          body_target?: string | null
+          business_daily_habit?: string | null
+          business_monthly_missions?: Json | null
+          business_narrative?: string | null
+          business_target?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          quarter?: string
+          raw_session_data?: Json | null
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "life_targets_quarterly_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "life_targets_quarterly_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_checklist_items: {
         Row: {
           attachments_count: number
