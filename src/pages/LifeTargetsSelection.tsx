@@ -116,6 +116,7 @@ export default function LifeTargetsSelection() {
       await updateMutation.mutateAsync({
         id: targetId,
         target_text: rewrittenText,
+        clarity_score: 8, // Mark as high quality after applying AI suggestion
       });
       toast.success('Applied AI suggestion');
     } catch (error) {
