@@ -7,6 +7,14 @@ import { DailyActionsManager } from "./DailyActionsManager";
 import { useSaveQuarterlyTargets, QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { toast } from "sonner";
 
+// Month ordering by quarter
+const QUARTER_MONTHS = {
+  'Q1': ['January', 'February', 'March'],
+  'Q2': ['April', 'May', 'June'],
+  'Q3': ['July', 'August', 'September'],
+  'Q4': ['October', 'November', 'December'],
+};
+
 interface DomainCascadeCardProps {
   domainKey: string;
   domainLabel: string;
@@ -106,6 +114,22 @@ export function DomainCascadeCard({
     });
   };
 
+  // Sort missions by chronological order
+  const getSortedMissions = () => {
+    if (!monthlyMissions) return [];
+    
+    // Extract quarter number from quarter string (e.g., "2026-Q1" -> "Q1")
+    const quarterMatch = quarter.match(/Q[1-4]/);
+    const quarterKey = quarterMatch ? quarterMatch[0] : 'Q1';
+    const monthOrder = QUARTER_MONTHS[quarterKey as keyof typeof QUARTER_MONTHS] || QUARTER_MONTHS.Q1;
+    
+    return Object.entries(monthlyMissions).sort(([monthA], [monthB]) => {
+      const indexA = monthOrder.indexOf(monthA);
+      const indexB = monthOrder.indexOf(monthB);
+      return indexA - indexB;
+    });
+  };
+
   return (
     <Card className={`border-2 ${color}`}>
       <CardHeader>
@@ -199,7 +223,7 @@ export function DomainCascadeCard({
               Monthly Missions
             </h3>
             <div className="space-y-2">
-              {Object.entries(monthlyMissions).map(([month, missionData]: [string, any]) => (
+              {getSortedMissions().map(([month, missionData]: [string, any]) => (
                 <div key={month} className="border-l-2 border-muted pl-3 py-1">
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="font-semibold text-sm min-w-[60px]">
