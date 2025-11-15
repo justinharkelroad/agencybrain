@@ -157,11 +157,11 @@ export default function LifeTargets() {
     <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-3xl font-bold">Life Targets</h1>
+          <h1 className="text-3xl font-bold">Create Your Targets</h1>
           <QuarterSelector />
         </div>
         <p className="text-muted-foreground mb-4">
-          Plan and track your quarterly life goals across four key domains
+          Plan your entire 90 days target action map. Set the big quarterly, choose how to break it down monthly and then select as many daily habits to utilize as you need
         </p>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
@@ -188,6 +188,15 @@ export default function LifeTargets() {
               onClick={!isLocked ? step.onClick : undefined}
             >
               <CardContent className="p-6">
+                {(step.id === 'brainstorm' || step.id === 'targets') && (
+                  <div className="mb-3">
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {step.id === 'brainstorm' 
+                        ? 'Start here if you need guidance on your 90 day targets'
+                        : 'Start here if you are certain your 90 day targets are ready'}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-start gap-4">
                   <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                     isComplete ? 'bg-primary text-primary-foreground' :
