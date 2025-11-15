@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, CheckCircle2 } from "lucide-react";
@@ -8,15 +8,37 @@ interface DailyActionsManagerProps {
   domainKey: string;
   dailyActions: string[];
   textColor: string;
+  onSave?: (actions: string[]) => void;
 }
 
 export function DailyActionsManager({
   domainKey,
   dailyActions,
   textColor,
+  onSave,
 }: DailyActionsManagerProps) {
   const { selectedDailyActions, setSelectedDailyActions } = useLifeTargetsStore();
   const [newAction, setNewAction] = useState('');
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Debounced save: trigger onSave 500ms after last change
+  useEffect(() => {
+    if (!onSave) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      onSave(dailyActions);
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [dailyActions, onSave]);
 
   const handleAdd = () => {
     if (!newAction.trim()) return;

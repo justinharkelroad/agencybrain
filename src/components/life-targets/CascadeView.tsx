@@ -68,6 +68,8 @@ export function CascadeView({ targets, selectedDailyActions, quarter }: CascadeV
               narrative={primaryNarrative as string}
               monthlyMissions={targets[`${domain.key}_monthly_missions` as keyof QuarterlyTargets] as any}
               dailyActions={selectedDailyActions[domain.key] || []}
+              currentTargets={targets}
+              quarter={quarter}
             />
           );
         })}
