@@ -41,19 +41,31 @@ export function QuarterlyTargetsForm({
   const [formData, setFormData] = useState<QuarterlyTargets>({
     quarter: initialData?.quarter || 'Q1',
     body_target: initialData?.body_target || '',
+    body_target2: initialData?.body_target2 || '',
     body_narrative: initialData?.body_narrative || '',
+    body_narrative2: initialData?.body_narrative2 || '',
+    body_primary_is_target1: initialData?.body_primary_is_target1,
     body_daily_habit: initialData?.body_daily_habit || null,
     body_monthly_missions: initialData?.body_monthly_missions || null,
     being_target: initialData?.being_target || '',
+    being_target2: initialData?.being_target2 || '',
     being_narrative: initialData?.being_narrative || '',
+    being_narrative2: initialData?.being_narrative2 || '',
+    being_primary_is_target1: initialData?.being_primary_is_target1,
     being_daily_habit: initialData?.being_daily_habit || null,
     being_monthly_missions: initialData?.being_monthly_missions || null,
     balance_target: initialData?.balance_target || '',
+    balance_target2: initialData?.balance_target2 || '',
     balance_narrative: initialData?.balance_narrative || '',
+    balance_narrative2: initialData?.balance_narrative2 || '',
+    balance_primary_is_target1: initialData?.balance_primary_is_target1,
     balance_daily_habit: initialData?.balance_daily_habit || null,
     balance_monthly_missions: initialData?.balance_monthly_missions || null,
     business_target: initialData?.business_target || '',
+    business_target2: initialData?.business_target2 || '',
     business_narrative: initialData?.business_narrative || '',
+    business_narrative2: initialData?.business_narrative2 || '',
+    business_primary_is_target1: initialData?.business_primary_is_target1,
     business_daily_habit: initialData?.business_daily_habit || null,
     business_monthly_missions: initialData?.business_monthly_missions || null,
   });
@@ -135,44 +147,92 @@ export function QuarterlyTargetsForm({
                 <p className="text-sm text-muted-foreground">{domain.description}</p>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor={`${domain.key}_target`}>Target</Label>
-                <Input
-                  id={`${domain.key}_target`}
-                  value={(formData[`${domain.key}_target` as keyof QuarterlyTargets] as string) || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    [`${domain.key}_target`]: e.target.value
-                  })}
-                  placeholder={`What do you want to achieve in ${domain.label}?`}
-                  className="h-11"
-                  aria-describedby={`${domain.key}-target-desc`}
-                  maxLength={500}
-                />
-                <span id={`${domain.key}-target-desc`} className="sr-only">
-                  Enter your {domain.label.toLowerCase()} target for this quarter
-                </span>
+              {/* Target 1 */}
+              <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Target #1</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor={`${domain.key}_target`}>Target</Label>
+                  <Input
+                    id={`${domain.key}_target`}
+                    value={(formData[`${domain.key}_target` as keyof QuarterlyTargets] as string) || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      [`${domain.key}_target`]: e.target.value
+                    })}
+                    placeholder={`What do you want to achieve in ${domain.label}?`}
+                    className="h-11"
+                    aria-describedby={`${domain.key}-target-desc`}
+                    maxLength={500}
+                  />
+                  <span id={`${domain.key}-target-desc`} className="sr-only">
+                    Enter your {domain.label.toLowerCase()} target for this quarter
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`${domain.key}_narrative`}>
+                    Context (Optional)
+                  </Label>
+                  <Textarea
+                    id={`${domain.key}_narrative`}
+                    value={(formData[`${domain.key}_narrative` as keyof QuarterlyTargets] as string) || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      [`${domain.key}_narrative`]: e.target.value
+                    })}
+                    placeholder="Why is this important? What's the context?"
+                    className="min-h-[80px] resize-none"
+                    aria-describedby={`${domain.key}-narrative-desc`}
+                    maxLength={2000}
+                  />
+                  <span id={`${domain.key}-narrative-desc`} className="sr-only">
+                    Provide context for your {domain.label.toLowerCase()} target
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor={`${domain.key}_narrative`}>
-                  Context (Optional)
-                </Label>
-                <Textarea
-                  id={`${domain.key}_narrative`}
-                  value={(formData[`${domain.key}_narrative` as keyof QuarterlyTargets] as string) || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    [`${domain.key}_narrative`]: e.target.value
-                  })}
-                  placeholder="Why is this important? What's the context?"
-                  rows={2}
-                  aria-describedby={`${domain.key}-narrative-desc`}
-                  maxLength={1000}
-                />
-                <span id={`${domain.key}-narrative-desc`} className="sr-only">
-                  Optional context explaining why this {domain.label.toLowerCase()} target is important
-                </span>
+              {/* Target 2 */}
+              <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Target #2 (Optional)</Label>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor={`${domain.key}_target2`}>Target</Label>
+                  <Input
+                    id={`${domain.key}_target2`}
+                    value={(formData[`${domain.key}_target2` as keyof QuarterlyTargets] as string) || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      [`${domain.key}_target2`]: e.target.value
+                    })}
+                    placeholder={`Second ${domain.label.toLowerCase()} goal for this quarter (optional)`}
+                    className="h-11"
+                    maxLength={500}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`${domain.key}_narrative2`}>
+                    Context (Optional)
+                  </Label>
+                  <Textarea
+                    id={`${domain.key}_narrative2`}
+                    value={(formData[`${domain.key}_narrative2` as keyof QuarterlyTargets] as string) || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      [`${domain.key}_narrative2`]: e.target.value
+                    })}
+                    placeholder="Why is this second target important?"
+                    className="min-h-[80px] resize-none"
+                    maxLength={2000}
+                  />
+                </div>
               </div>
             </div>
           ))}

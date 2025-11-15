@@ -43,24 +43,28 @@ export default function LifeTargetsMissions() {
     if (targets.body_target) {
       params.body = {
         target1: targets.body_target,
+        target2: targets.body_target2 || undefined,
         narrative: targets.body_narrative || undefined,
       };
     }
     if (targets.being_target) {
       params.being = {
         target1: targets.being_target,
+        target2: targets.being_target2 || undefined,
         narrative: targets.being_narrative || undefined,
       };
     }
     if (targets.balance_target) {
       params.balance = {
         target1: targets.balance_target,
+        target2: targets.balance_target2 || undefined,
         narrative: targets.balance_narrative || undefined,
       };
     }
     if (targets.business_target) {
       params.business = {
         target1: targets.business_target,
+        target2: targets.business_target2 || undefined,
         narrative: targets.business_narrative || undefined,
       };
     }
@@ -86,9 +90,13 @@ export default function LifeTargetsMissions() {
 
   const hasTargets = targets && [
     targets.body_target,
+    targets.body_target2,
     targets.being_target,
+    targets.being_target2,
     targets.balance_target,
+    targets.balance_target2,
     targets.business_target,
+    targets.business_target2,
   ].some(Boolean);
 
   return (
