@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -115,6 +115,22 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
+        <Card 
+          className={cardBase} 
+          role="button" 
+          onClick={() => {
+            onOpenChange(false);
+            navigate('/life-targets');
+          }} 
+          aria-label="Open Set Your Quarterly Targets"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" /> Set Your Quarterly Targets
+            </CardTitle>
+            <CardDescription>Use the power of AI to get CLEAR on your next 90 day game in all areas of your life!</CardDescription>
+          </CardHeader>
+        </Card>
         <Card 
           className={cardBase} 
           role="button" 
