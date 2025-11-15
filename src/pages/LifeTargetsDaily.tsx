@@ -36,33 +36,61 @@ export default function LifeTargetsDaily() {
 
     const params: any = {};
 
-    if (targets.body_target) {
-      params.body = {
-        target: targets.body_target,
-        monthlyMissions: targets.body_monthly_missions || undefined,
-        narrative: targets.body_narrative || undefined,
-      };
+    // Use primary target based on selection (default to target1 if not set)
+    if (targets.body_target || targets.body_target2) {
+      const isPrimaryTarget1 = targets.body_primary_is_target1 ?? true;
+      const primaryTarget = isPrimaryTarget1 ? targets.body_target : targets.body_target2;
+      const primaryNarrative = isPrimaryTarget1 ? targets.body_narrative : targets.body_narrative2;
+      
+      if (primaryTarget) {
+        params.body = {
+          target: primaryTarget,
+          monthlyMissions: targets.body_monthly_missions || undefined,
+          narrative: primaryNarrative || undefined,
+        };
+      }
     }
-    if (targets.being_target) {
-      params.being = {
-        target: targets.being_target,
-        monthlyMissions: targets.being_monthly_missions || undefined,
-        narrative: targets.being_narrative || undefined,
-      };
+
+    if (targets.being_target || targets.being_target2) {
+      const isPrimaryTarget1 = targets.being_primary_is_target1 ?? true;
+      const primaryTarget = isPrimaryTarget1 ? targets.being_target : targets.being_target2;
+      const primaryNarrative = isPrimaryTarget1 ? targets.being_narrative : targets.being_narrative2;
+      
+      if (primaryTarget) {
+        params.being = {
+          target: primaryTarget,
+          monthlyMissions: targets.being_monthly_missions || undefined,
+          narrative: primaryNarrative || undefined,
+        };
+      }
     }
-    if (targets.balance_target) {
-      params.balance = {
-        target: targets.balance_target,
-        monthlyMissions: targets.balance_monthly_missions || undefined,
-        narrative: targets.balance_narrative || undefined,
-      };
+
+    if (targets.balance_target || targets.balance_target2) {
+      const isPrimaryTarget1 = targets.balance_primary_is_target1 ?? true;
+      const primaryTarget = isPrimaryTarget1 ? targets.balance_target : targets.balance_target2;
+      const primaryNarrative = isPrimaryTarget1 ? targets.balance_narrative : targets.balance_narrative2;
+      
+      if (primaryTarget) {
+        params.balance = {
+          target: primaryTarget,
+          monthlyMissions: targets.balance_monthly_missions || undefined,
+          narrative: primaryNarrative || undefined,
+        };
+      }
     }
-    if (targets.business_target) {
-      params.business = {
-        target: targets.business_target,
-        monthlyMissions: targets.business_monthly_missions || undefined,
-        narrative: targets.business_narrative || undefined,
-      };
+
+    if (targets.business_target || targets.business_target2) {
+      const isPrimaryTarget1 = targets.business_primary_is_target1 ?? true;
+      const primaryTarget = isPrimaryTarget1 ? targets.business_target : targets.business_target2;
+      const primaryNarrative = isPrimaryTarget1 ? targets.business_narrative : targets.business_narrative2;
+      
+      if (primaryTarget) {
+        params.business = {
+          target: primaryTarget,
+          monthlyMissions: targets.business_monthly_missions || undefined,
+          narrative: primaryNarrative || undefined,
+        };
+      }
     }
 
     try {

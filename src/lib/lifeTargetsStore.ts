@@ -6,9 +6,11 @@ import type { MonthlyMissionsOutput } from '@/hooks/useMonthlyMissions';
 import type { DailyActionsOutput } from '@/hooks/useDailyActions';
 
 type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+type FlowStep = 'targets' | 'missions' | 'primary' | 'actions' | 'complete';
 
 interface LifeTargetsState {
   currentQuarter: Quarter;
+  currentStep: FlowStep;
   targets: QuarterlyTargets | null;
   measurabilityResults: MeasurabilityAnalysis | null;
   monthlyMissions: MonthlyMissionsOutput | null;
@@ -17,6 +19,7 @@ interface LifeTargetsState {
 
   // Actions
   setCurrentQuarter: (quarter: Quarter) => void;
+  setCurrentStep: (step: FlowStep) => void;
   setTargets: (targets: QuarterlyTargets | null) => void;
   setMeasurabilityResults: (results: MeasurabilityAnalysis | null) => void;
   setMonthlyMissions: (missions: MonthlyMissionsOutput | null) => void;
@@ -37,6 +40,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
   persist(
     (set) => ({
       currentQuarter: getCurrentQuarter(),
+      currentStep: 'targets',
       targets: null,
       measurabilityResults: null,
       monthlyMissions: null,
@@ -44,12 +48,14 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       isLoading: false,
 
       setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
+      setCurrentStep: (step) => set({ currentStep: step }),
       setTargets: (targets) => set({ targets }),
       setMeasurabilityResults: (results) => set({ measurabilityResults: results }),
       setMonthlyMissions: (missions) => set({ monthlyMissions: missions }),
       setDailyActions: (actions) => set({ dailyActions: actions }),
       setIsLoading: (loading) => set({ isLoading: loading }),
       reset: () => set({
+        currentStep: 'targets',
         targets: null,
         measurabilityResults: null,
         monthlyMissions: null,
@@ -61,6 +67,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       name: 'life-targets-storage',
       partialize: (state) => ({
         currentQuarter: state.currentQuarter,
+        currentStep: state.currentStep,
         targets: state.targets,
         measurabilityResults: state.measurabilityResults,
         monthlyMissions: state.monthlyMissions,
