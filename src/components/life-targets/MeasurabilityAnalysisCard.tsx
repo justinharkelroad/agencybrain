@@ -1,12 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertCircle, Check } from "lucide-react";
 import type { MeasurabilityAnalysis, ItemAnalysis } from "@/hooks/useTargetMeasurability";
 
 interface MeasurabilityAnalysisCardProps {
   analysis: MeasurabilityAnalysis;
   onApplySuggestion?: (domain: string, index: number, rewrittenTarget: string) => void;
+  appliedSuggestions?: Set<string>;
 }
 
 const DOMAINS = [
@@ -32,12 +33,14 @@ function AnalysisItem({
   item, 
   domain, 
   index, 
-  onApply 
+  onApply,
+  isApplied
 }: { 
   item: ItemAnalysis; 
   domain: string; 
   index: number;
   onApply?: (domain: string, index: number, rewrittenTarget: string) => void;
+  isApplied: boolean;
 }) {
   return (
     <div 
@@ -69,16 +72,29 @@ function AnalysisItem({
         </div>
 
         {onApply && item.clarity_score < 8 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onApply(domain, index, item.rewritten_target)}
-            className="w-full hover-scale"
-            aria-label={`Apply suggestion for ${domain} target`}
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />
-            Apply This Suggestion
-          </Button>
+          isApplied ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled
+              className="w-full bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+              aria-label={`Suggestion applied for ${domain} target`}
+            >
+              <Check className="mr-2 h-4 w-4" aria-hidden="true" />
+              ✓ Applied
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onApply(domain, index, item.rewritten_target)}
+              className="w-full hover-scale"
+              aria-label={`Apply suggestion for ${domain} target`}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              Apply This Suggestion
+            </Button>
+          )
         )}
       </div>
     </div>
@@ -87,7 +103,8 @@ function AnalysisItem({
 
 export function MeasurabilityAnalysisCard({ 
   analysis, 
-  onApplySuggestion 
+  onApplySuggestion,
+  appliedSuggestions = new Set()
 }: MeasurabilityAnalysisCardProps) {
   const hasAnyAnalysis = DOMAINS.some(
     domain => analysis[domain.key as keyof MeasurabilityAnalysis]?.length > 0
@@ -111,7 +128,7 @@ export function MeasurabilityAnalysisCard({
       <CardHeader>
         <CardTitle>Measurability Analysis</CardTitle>
         <CardDescription>
-          Review clarity scores and suggestions for your targets
+          Apply suggestions below, then click "Save Targets" to finalize your changes
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -129,15 +146,21 @@ export function MeasurabilityAnalysisCard({
             >
               <h3 id={`${domain.key}-analysis-heading`} className="text-lg font-semibold">{domain.label}</h3>
               <div className="space-y-3">
-                {items.map((item, index) => (
-                  <AnalysisItem
-                    key={index}
-                    item={item}
-                    domain={domain.key}
-                    index={index}
-                    onApply={onApplySuggestion}
-                  />
-                ))}
+                {items.map((item, index) => {
+                  const suggestionKey = `${domain.key}-${index}`;
+                  const isApplied = appliedSuggestions.has(suggestionKey);
+                  
+                  return (
+                    <AnalysisItem
+                      key={index}
+                      item={item}
+                      domain={domain.key}
+                      index={index}
+                      onApply={onApplySuggestion}
+                      isApplied={isApplied}
+                    />
+                  );
+                })}
               </div>
             </div>
           );
