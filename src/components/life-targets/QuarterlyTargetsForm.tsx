@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -60,25 +60,25 @@ export function QuarterlyTargetsForm({
     domain => formData[`${domain.key}_target` as keyof QuarterlyTargets]
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     onSave({ ...formData, id: initialData?.id });
-  };
+  }, [formData, initialData?.id, onSave]);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = useCallback(() => {
     if (onAnalyze && hasAnyTarget) {
       onAnalyze({ ...formData, id: initialData?.id });
     }
-  };
+  }, [formData, hasAnyTarget, initialData?.id, onAnalyze]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in" aria-label="Quarterly targets form">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
+                <Target className="h-5 w-5" aria-hidden="true" />
                 Quarterly Life Targets
               </CardTitle>
               <CardDescription>
@@ -88,6 +88,7 @@ export function QuarterlyTargetsForm({
             <Select
               value={formData.quarter}
               onValueChange={(value) => setFormData({ ...formData, quarter: value })}
+              aria-label="Select quarter"
             >
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -102,10 +103,16 @@ export function QuarterlyTargetsForm({
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          {DOMAINS.map((domain) => (
-            <div key={domain.key} className="space-y-4 pb-6 border-b last:border-b-0">
+          {DOMAINS.map((domain, index) => (
+            <div 
+              key={domain.key} 
+              className="space-y-4 pb-6 border-b last:border-b-0 animate-scale-in hover:border-primary/30 transition-colors"
+              style={{ animationDelay: `${index * 0.1}s` }}
+              role="group"
+              aria-labelledby={`${domain.key}-heading`}
+            >
               <div>
-                <h3 className="text-lg font-semibold">{domain.label}</h3>
+                <h3 id={`${domain.key}-heading`} className="text-lg font-semibold">{domain.label}</h3>
                 <p className="text-sm text-muted-foreground">{domain.description}</p>
               </div>
               
@@ -120,7 +127,12 @@ export function QuarterlyTargetsForm({
                   })}
                   placeholder={`What do you want to achieve in ${domain.label}?`}
                   className="h-11"
+                  aria-describedby={`${domain.key}-target-desc`}
+                  maxLength={500}
                 />
+                <span id={`${domain.key}-target-desc`} className="sr-only">
+                  Enter your {domain.label.toLowerCase()} target for this quarter
+                </span>
               </div>
 
               <div className="space-y-2">
@@ -136,7 +148,12 @@ export function QuarterlyTargetsForm({
                   })}
                   placeholder="Why is this important? What's the context?"
                   rows={2}
+                  aria-describedby={`${domain.key}-narrative-desc`}
+                  maxLength={1000}
                 />
+                <span id={`${domain.key}-narrative-desc`} className="sr-only">
+                  Optional context explaining why this {domain.label.toLowerCase()} target is important
+                </span>
               </div>
             </div>
           ))}

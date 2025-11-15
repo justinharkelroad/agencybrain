@@ -58,10 +58,11 @@ import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
-import LifeTargets from "./pages/LifeTargets";
-import LifeTargetsQuarterly from "./pages/LifeTargetsQuarterly";
-import LifeTargetsMissions from "./pages/LifeTargetsMissions";
-import LifeTargetsDaily from "./pages/LifeTargetsDaily";
+// Lazy load Life Targets pages for better performance
+const LifeTargets = lazy(() => import("./pages/LifeTargets"));
+const LifeTargetsQuarterly = lazy(() => import("./pages/LifeTargetsQuarterly"));
+const LifeTargetsMissions = lazy(() => import("./pages/LifeTargetsMissions"));
+const LifeTargetsDaily = lazy(() => import("./pages/LifeTargetsDaily"));
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,26 +12,36 @@ export default function LifeTargets() {
   const { currentQuarter } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
 
-  const targetsSet = targets ? [
-    targets.body_target,
-    targets.being_target,
-    targets.balance_target,
-    targets.business_target,
-  ].filter(Boolean).length : 0;
+  // Memoize computed values for performance
+  const targetsSet = useMemo(() => 
+    targets ? [
+      targets.body_target,
+      targets.being_target,
+      targets.balance_target,
+      targets.business_target,
+    ].filter(Boolean).length : 0,
+    [targets]
+  );
 
-  const hasMissions = targets ? [
-    targets.body_monthly_missions,
-    targets.being_monthly_missions,
-    targets.balance_monthly_missions,
-    targets.business_monthly_missions,
-  ].some(m => m && Object.keys(m).length > 0) : false;
+  const hasMissions = useMemo(() => 
+    targets ? [
+      targets.body_monthly_missions,
+      targets.being_monthly_missions,
+      targets.balance_monthly_missions,
+      targets.business_monthly_missions,
+    ].some(m => m && Object.keys(m).length > 0) : false,
+    [targets]
+  );
 
-  const hasHabits = targets ? [
-    targets.body_daily_habit,
-    targets.being_daily_habit,
-    targets.balance_daily_habit,
-    targets.business_daily_habit,
-  ].filter(Boolean).length : 0;
+  const hasHabits = useMemo(() => 
+    targets ? [
+      targets.body_daily_habit,
+      targets.being_daily_habit,
+      targets.balance_daily_habit,
+      targets.business_daily_habit,
+    ].filter(Boolean).length : 0,
+    [targets]
+  );
 
   const actions = [
     {
@@ -70,7 +81,7 @@ export default function LifeTargets() {
   ];
 
   return (
-    <div className="container max-w-4xl py-8 space-y-8">
+    <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
       <div>
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold">Life Targets</h1>
@@ -147,17 +158,27 @@ export default function LifeTargets() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {actions.map((action) => {
+        {actions.map((action, index) => {
           const Icon = action.icon;
           return (
-            <Card key={action.title} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={action.title} 
+              className="hover:shadow-lg transition-all duration-300 hover-scale animate-scale-in"
+              style={{ animationDelay: `${index * 0.1}s` }}
+              role="article"
+              aria-label={action.title}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
+                    action.disabled ? 'bg-muted' : 'bg-primary/10'
+                  }`}>
+                    <Icon className={`h-5 w-5 ${
+                      action.disabled ? 'text-muted-foreground' : 'text-primary'
+                    }`} aria-hidden="true" />
                   </div>
                   {action.badge && (
-                    <Badge variant="secondary">{action.badge}</Badge>
+                    <Badge variant="secondary" className="animate-fade-in">{action.badge}</Badge>
                   )}
                 </div>
                 <CardTitle className="text-lg">{action.title}</CardTitle>

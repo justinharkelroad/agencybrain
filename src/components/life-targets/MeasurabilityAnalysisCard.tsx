@@ -40,24 +40,31 @@ function AnalysisItem({
   onApply?: (domain: string, index: number, rewrittenTarget: string) => void;
 }) {
   return (
-    <div className="space-y-3 p-4 rounded-lg border bg-card">
+    <div 
+      className="space-y-3 p-4 rounded-lg border bg-card animate-scale-in hover:border-primary/30 transition-all"
+      role="article"
+      aria-label={`Analysis for ${domain} target`}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <p className="text-sm font-medium mb-2">Current Target:</p>
           <p className="text-sm text-muted-foreground">{item.original}</p>
         </div>
-        <Badge variant={getScoreBadgeVariant(item.clarity_score)}>
+        <Badge 
+          variant={getScoreBadgeVariant(item.clarity_score)}
+          aria-label={`Clarity score: ${item.clarity_score} out of 10`}
+        >
           Score: {item.clarity_score}/10
         </Badge>
       </div>
 
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <ArrowRight className="h-4 w-4" />
+      <div className="flex items-center gap-2 text-muted-foreground" role="presentation">
+        <ArrowRight className="h-4 w-4" aria-hidden="true" />
         <span className="text-xs font-medium">Suggested Rewrite</span>
       </div>
 
       <div className="space-y-3">
-        <div className="p-3 rounded-md bg-muted/50">
+        <div className="p-3 rounded-md bg-muted/50 animate-fade-in">
           <p className="text-sm">{item.rewritten_target}</p>
         </div>
 
@@ -66,9 +73,10 @@ function AnalysisItem({
             size="sm"
             variant="outline"
             onClick={() => onApply(domain, index, item.rewritten_target)}
-            className="w-full"
+            className="w-full hover-scale"
+            aria-label={`Apply suggestion for ${domain} target`}
           >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
+            <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />
             Apply This Suggestion
           </Button>
         )}
@@ -99,7 +107,7 @@ export function MeasurabilityAnalysisCard({
   }
 
   return (
-    <Card>
+    <Card className="animate-fade-in">
       <CardHeader>
         <CardTitle>Measurability Analysis</CardTitle>
         <CardDescription>
@@ -107,13 +115,19 @@ export function MeasurabilityAnalysisCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {DOMAINS.map((domain) => {
+        {DOMAINS.map((domain, domainIndex) => {
           const items = analysis[domain.key as keyof MeasurabilityAnalysis];
           if (!items || items.length === 0) return null;
 
           return (
-            <div key={domain.key} className="space-y-3">
-              <h3 className="text-lg font-semibold">{domain.label}</h3>
+            <div 
+              key={domain.key} 
+              className="space-y-3 animate-scale-in"
+              style={{ animationDelay: `${domainIndex * 0.1}s` }}
+              role="region"
+              aria-labelledby={`${domain.key}-analysis-heading`}
+            >
+              <h3 id={`${domain.key}-analysis-heading`} className="text-lg font-semibold">{domain.label}</h3>
               <div className="space-y-3">
                 {items.map((item, index) => (
                   <AnalysisItem
