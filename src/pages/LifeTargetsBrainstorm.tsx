@@ -53,6 +53,12 @@ export default function LifeTargetsBrainstorm() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState<Record<Domain, boolean>>({
+    body: false,
+    being: false,
+    balance: false,
+    business: false,
+  });
 
   // Group targets by domain
   const targetsByDomain = useMemo(() => {
@@ -93,15 +99,24 @@ export default function LifeTargetsBrainstorm() {
       return;
     }
 
-    await saveMutation.mutateAsync({
-      quarter: currentQuarter,
-      domain,
-      target_text: text,
-      session_id: sessionId,
-    });
+    if (isSubmitting[domain]) {
+      return; // Prevent duplicate submissions
+    }
 
-    setInputs(prev => ({ ...prev, [domain]: '' }));
-    toast.success('Target added');
+    setIsSubmitting(prev => ({ ...prev, [domain]: true }));
+
+    try {
+      await saveMutation.mutateAsync({
+        quarter: currentQuarter,
+        domain,
+        target_text: text,
+        session_id: sessionId,
+      });
+
+      setInputs(prev => ({ ...prev, [domain]: '' }));
+    } finally {
+      setIsSubmitting(prev => ({ ...prev, [domain]: false }));
+    }
   };
 
   const handleStartEdit = (id: string, currentText: string) => {
@@ -221,10 +236,10 @@ export default function LifeTargetsBrainstorm() {
                 />
                 <Button 
                   onClick={() => handleAddTarget(key)}
-                  disabled={!inputs[key].trim() || saveMutation.isPending}
+                  disabled={!inputs[key].trim() || isSubmitting[key]}
                   size="icon"
                 >
-                  {saveMutation.isPending ? (
+                  {isSubmitting[key] ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Plus className="h-4 w-4" />

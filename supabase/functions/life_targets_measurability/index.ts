@@ -67,10 +67,11 @@ BUSINESS: ${JSON.stringify(targets.business || [])}
 
 CRITICAL RULES FOR MEASURABILITY:
 1. ADD specific numbers, frequencies, or percentages to make targets countable
-2. For recurring activities, suggest realistic frequencies for 90 days:
-   - "Date my wife" → "Have at least 12 date nights with my wife (1x per week)" 
-   - "Exercise" → "Complete 40+ workout sessions (3-4x per week)"
-   - "Pray" → "Spend 15 minutes in prayer daily (90 sessions)"
+2. For recurring activities, suggest REALISTIC frequencies that allow for life events (70-80% completion rates):
+   - "Date my wife" → "Have 10-12 date nights with my wife this quarter (aim for weekly)" 
+   - "Exercise" → "Complete 35-45 workout sessions (target 3-4x per week, ~70-80% adherence)"
+   - "Pray" → "Spend 15 minutes in prayer 70+ days this quarter (5-6 days/week)"
+   - "Read Bible daily" → "Read Scripture 65-75 days this quarter (allowing grace for travel, illness, etc.)"
 3. For business/financial goals, suggest quantities or percentages:
    - "Sell more insurance" → "Increase quarterly premium sales by 20%"
    - "Sell more insurance" → "Close at least 15 new insurance policies"
@@ -78,9 +79,10 @@ CRITICAL RULES FOR MEASURABILITY:
 4. For weight/fitness, use specific measurements:
    - "Lose weight" → "Lose 15-20 pounds"
    - "Get stronger" → "Increase bench press by 20 pounds"
-5. Use measurable language: "at least X", "minimum Y per week", "X-Y range", "increase by Z%", "X+ times"
-6. AVOID leaving targets vague: "regular", "consistent", "more", "better" are NOT measurable alone
-7. DO NOT add calendar dates or timeframes (no "by March" or "in Q2") - but DO add frequencies and quantities
+5. Use measurable language: "at least X", "70-80 out of 90 days", "5-6 days/week", "X-Y range", "increase by Z%"
+6. AVOID perfection language: Never suggest "daily for 90 days" or "100% completion" - build in grace
+7. AVOID leaving targets vague: "regular", "consistent", "more", "better" are NOT measurable alone
+8. DO NOT add calendar dates or timeframes (no "by March" or "in Q2") - but DO add frequencies and quantities
 
 Return JSON in this EXACT format:
 {

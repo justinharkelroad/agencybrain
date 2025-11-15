@@ -219,6 +219,10 @@ export default function LifeTargetsMissions() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <p className="text-sm text-muted-foreground mb-4">
+                  For domains with 2 targets, choose which one to prioritize for your daily actions.
+                  This helps you focus your energy where it matters most.
+                </p>
                 {domainsWithMultipleTargets.map(({ key, label, target1, target2 }) => (
                   <div key={key} className="space-y-3">
                     <h3 className="font-semibold text-lg">{label}</h3>

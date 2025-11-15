@@ -97,9 +97,14 @@ export function useSaveBrainstormTarget() {
       queryClient.invalidateQueries({ queryKey: ['brainstorm-targets'] });
       toast.success('Target added');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error saving brainstorm target:', error);
-      toast.error('Failed to save target');
+      // Check for unique constraint violation (duplicate target)
+      if (error?.code === '23505') {
+        toast.error('This target already exists. Try different wording.');
+      } else {
+        toast.error('Failed to save target. Please try again.');
+      }
     }
   });
 }
