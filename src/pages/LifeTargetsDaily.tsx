@@ -1,32 +1,24 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { DailyActionsSelector } from "@/components/life-targets/DailyActionsSelector";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
-import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useDailyActions } from "@/hooks/useDailyActions";
 import { toast } from "sonner";
 
 export default function LifeTargetsDaily() {
   const navigate = useNavigate();
-  const { currentQuarter, dailyActions, setDailyActions } = useLifeTargetsStore();
+  const { 
+    currentQuarter, 
+    dailyActions, 
+    selectedDailyActions,
+    setDailyActions,
+    setSelectedDailyActions 
+  } = useLifeTargetsStore();
   const { data: targets } = useQuarterlyTargets(currentQuarter);
   const generateActions = useDailyActions();
-  const saveTargets = useSaveQuarterlyTargets();
-
-  const [savedHabits, setSavedHabits] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (targets) {
-      setSavedHabits({
-        body: targets.body_daily_habit || '',
-        being: targets.being_daily_habit || '',
-        balance: targets.balance_daily_habit || '',
-        business: targets.business_daily_habit || '',
-      });
-    }
-  }, [targets]);
 
   const handleGenerate = async () => {
     if (!targets) {
@@ -101,48 +93,49 @@ export default function LifeTargetsDaily() {
     }
   };
 
-  const handleSaveHabit = async (domain: string, action: string) => {
-    if (!targets) return;
-
-    const updatedTargets = {
-      ...targets,
-      [`${domain}_daily_habit`]: action,
-    };
-
     try {
-      await saveTargets.mutateAsync(updatedTargets);
-      setSavedHabits((prev) => ({ ...prev, [domain]: action }));
+      const results = await generateActions.mutateAsync(params);
+      setDailyActions(results);
+      toast.success('Daily actions generated successfully!');
     } catch (error) {
-      console.error('Failed to save habit:', error);
+      console.error('Failed to generate daily actions:', error);
+      toast.error('Failed to generate daily actions');
     }
   };
 
-  const hasTargets = targets && [
-    targets.body_target,
-    targets.being_target,
-    targets.balance_target,
-    targets.business_target,
-  ].some(Boolean);
+  const handleContinue = () => {
+    // GATE 3: Navigate to cascade view instead of saving
+    navigate('/life-targets/cascade');
+  };
+
+  const hasGeneratedActions = dailyActions && Object.values(dailyActions).some(
+    actions => actions && actions.length > 0
+  );
 
   return (
-    <div className="container max-w-6xl py-8 space-y-8">
+    <div className="container max-w-5xl mx-auto py-8 px-4 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/life-targets')}>
-            <ArrowLeft className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/life-targets/missions')}
+          >
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Daily Actions</h1>
-            <p className="text-muted-foreground">
-              Choose daily habits to support your quarterly targets
+            <h1 className="text-3xl font-bold">Step 4: Daily Actions</h1>
+            <p className="text-muted-foreground mt-1">
+              Select the daily habits that will drive your quarterly targets
             </p>
           </div>
         </div>
 
         <Button
           onClick={handleGenerate}
-          disabled={!hasTargets || generateActions.isPending}
-          variant={dailyActions ? "outline" : "default"}
+          disabled={generateActions.isPending || !targets}
+          variant="outline"
         >
           {generateActions.isPending ? (
             <>
@@ -152,27 +145,26 @@ export default function LifeTargetsDaily() {
           ) : (
             <>
               <RefreshCw className="mr-2 h-4 w-4" />
-              {dailyActions ? 'Refresh Suggestions' : 'Generate Actions'}
+              {hasGeneratedActions ? 'Regenerate' : 'Generate'} Actions
             </>
           )}
         </Button>
       </div>
 
-      {!hasTargets && (
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="mb-4">Please set your quarterly targets first</p>
-          <Button onClick={() => navigate('/life-targets/quarterly')}>
-            Set Targets
-          </Button>
-        </div>
-      )}
-
-      {dailyActions && (
+      {/* Actions Selector */}
+      {hasGeneratedActions && dailyActions ? (
         <DailyActionsSelector
           actions={dailyActions}
-          onSaveHabit={handleSaveHabit}
-          savedHabits={savedHabits}
+          selectedActions={selectedDailyActions}
+          onSelectionsChange={setSelectedDailyActions}
+          onContinue={handleContinue}
         />
+      ) : (
+        <div className="text-center py-12 space-y-4">
+          <p className="text-muted-foreground">
+            Click "Generate Actions" to get AI-powered daily habit suggestions
+          </p>
+        </div>
       )}
     </div>
   );

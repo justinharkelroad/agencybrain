@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ArrowRight } from "lucide-react";
 import type { DailyActionsOutput } from "@/hooks/useDailyActions";
 
 interface DailyActionsSelectorProps {
   actions: DailyActionsOutput;
-  onSaveHabit?: (domain: string, action: string) => void;
-  savedHabits?: Record<string, string>;
+  selectedActions?: Record<string, string[]>;
+  onSelectionsChange?: (selections: Record<string, string[]>) => void;
+  onContinue?: () => void;
 }
 
 const DOMAINS = [
@@ -23,19 +24,15 @@ function DomainActions({
   label,
   color,
   actions,
-  selectedAction,
-  savedHabit,
-  onSelect,
-  onSave,
+  selectedActions,
+  onToggle,
 }: {
   domainKey: string;
   label: string;
   color: string;
   actions: string[];
-  selectedAction: string | null;
-  savedHabit?: string;
-  onSelect: (action: string) => void;
-  onSave?: () => void;
+  selectedActions: string[];
+  onToggle: (action: string) => void;
 }) {
   if (!actions || actions.length === 0) return null;
 
@@ -43,111 +40,100 @@ function DomainActions({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className={`text-lg font-semibold ${color}`}>{label}</h3>
-        {savedHabit && (
-          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>Habit saved</span>
+        {selectedActions.length > 0 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <span>{selectedActions.length} selected</span>
           </div>
         )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {actions.map((action, index) => {
-          const isSelected = selectedAction === action;
-          const isSaved = savedHabit === action;
+          const isSelected = selectedActions.includes(action);
 
           return (
             <div
               key={index}
-              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                 isSelected
                   ? 'border-primary bg-primary/5'
-                  : isSaved
-                  ? 'border-green-500/50 bg-green-500/5'
                   : 'border-border hover:border-muted-foreground/50'
               }`}
+              onClick={() => onToggle(action)}
             >
               <Checkbox
                 checked={isSelected}
-                onCheckedChange={() => onSelect(action)}
-                className="mt-0.5"
+                className="mt-0.5 pointer-events-none"
               />
               <p className="text-sm flex-1">{action}</p>
             </div>
           );
         })}
       </div>
-
-      {selectedAction && !savedHabit && onSave && (
-        <Button onClick={onSave} size="sm" className="w-full">
-          <CheckCircle2 className="mr-2 h-4 w-4" />
-          Set as Daily Habit
-        </Button>
-      )}
-
-      {savedHabit && (
-        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-          <p className="text-sm font-medium mb-1">Current Daily Habit:</p>
-          <p className="text-sm text-muted-foreground">{savedHabit}</p>
-        </div>
-      )}
     </div>
   );
 }
 
 export function DailyActionsSelector({
   actions,
-  onSaveHabit,
-  savedHabits = {},
+  selectedActions: externalSelections,
+  onSelectionsChange,
+  onContinue,
 }: DailyActionsSelectorProps) {
-  const [selectedActions, setSelectedActions] = useState<Record<string, string | null>>({
-    body: null,
-    being: null,
-    balance: null,
-    business: null,
-  });
-
-  const handleSelect = (domain: string, action: string) => {
-    setSelectedActions((prev) => ({
-      ...prev,
-      [domain]: prev[domain] === action ? null : action,
-    }));
-  };
-
-  const handleSave = (domain: string) => {
-    const action = selectedActions[domain];
-    if (action && onSaveHabit) {
-      onSaveHabit(domain, action);
-      setSelectedActions((prev) => ({ ...prev, [domain]: null }));
+  const [selectedActions, setSelectedActions] = useState<Record<string, string[]>>(
+    externalSelections || {
+      body: [],
+      being: [],
+      balance: [],
+      business: [],
     }
-  };
-
-  const hasAnyActions = DOMAINS.some(
-    (domain) => actions[domain.key as keyof DailyActionsOutput]?.length > 0
   );
 
-  if (!hasAnyActions) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">No daily actions available yet</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  useEffect(() => {
+    if (externalSelections) {
+      setSelectedActions(externalSelections);
+    }
+  }, [externalSelections]);
+
+  const handleToggle = (domain: string, action: string) => {
+    setSelectedActions((prev) => {
+      const domainSelections = prev[domain] || [];
+      const isSelected = domainSelections.includes(action);
+      
+      const newSelections = {
+        ...prev,
+        [domain]: isSelected
+          ? domainSelections.filter(a => a !== action)
+          : [...domainSelections, action]
+      };
+
+      onSelectionsChange?.(newSelections);
+      return newSelections;
+    });
+  };
+
+  const totalSelected = Object.values(selectedActions).reduce(
+    (sum, arr) => sum + arr.length,
+    0
+  );
+
+  const hasActiveTargets = DOMAINS.some(domain => 
+    actions[domain.key] && actions[domain.key].length > 0
+  );
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Daily Action Options</CardTitle>
+        <CardTitle>Select Your Daily Actions</CardTitle>
         <CardDescription>
-          Choose one daily habit from each domain to help achieve your targets
+          Choose one or more daily actions for each domain. These will form your daily habits to achieve your quarterly targets.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
         {DOMAINS.map((domain) => {
-          const domainActions = actions[domain.key as keyof DailyActionsOutput];
-          if (!domainActions) return null;
+          const domainActions = actions[domain.key];
+          if (!domainActions || domainActions.length === 0) return null;
 
           return (
             <DomainActions
@@ -156,13 +142,38 @@ export function DailyActionsSelector({
               label={domain.label}
               color={domain.color}
               actions={domainActions}
-              selectedAction={selectedActions[domain.key]}
-              savedHabit={savedHabits[domain.key]}
-              onSelect={(action) => handleSelect(domain.key, action)}
-              onSave={() => handleSave(domain.key)}
+              selectedActions={selectedActions[domain.key] || []}
+              onToggle={(action) => handleToggle(domain.key, action)}
             />
           );
         })}
+
+        {!hasActiveTargets && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No daily actions available. Please set your quarterly targets first.</p>
+          </div>
+        )}
+
+        {hasActiveTargets && onContinue && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {totalSelected === 0 
+                  ? 'Select at least one action to continue' 
+                  : `${totalSelected} action${totalSelected === 1 ? '' : 's'} selected`}
+              </p>
+            </div>
+            <Button
+              onClick={onContinue}
+              disabled={totalSelected === 0}
+              className="w-full"
+              size="lg"
+            >
+              Continue to Cascade View
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
