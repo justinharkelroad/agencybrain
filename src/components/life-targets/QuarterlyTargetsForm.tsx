@@ -14,6 +14,7 @@ interface QuarterlyTargetsFormProps {
   onAnalyze?: (targets: QuarterlyTargets) => void;
   isSaving?: boolean;
   isAnalyzing?: boolean;
+  hasUnsavedChanges?: boolean;
 }
 
 const DOMAINS = [
@@ -29,6 +30,7 @@ export function QuarterlyTargetsForm({
   onAnalyze,
   isSaving,
   isAnalyzing,
+  hasUnsavedChanges = false,
 }: QuarterlyTargetsFormProps) {
   const [formData, setFormData] = useState<QuarterlyTargets>({
     quarter: initialData?.quarter || 'Q1',
@@ -73,6 +75,17 @@ export function QuarterlyTargetsForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in" aria-label="Quarterly targets form">
+      {hasUnsavedChanges && (
+        <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 animate-fade-in" role="alert">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            <p className="text-sm font-medium">
+              You have unsaved changes. Click "Save Targets" below to finalize your updates.
+            </p>
+          </div>
+        </div>
+      )}
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -181,10 +194,15 @@ export function QuarterlyTargetsForm({
             )}
           </Button>
         )}
-        <Button type="submit" disabled={!hasAnyTarget || isSaving}>
+        <Button 
+          type="submit" 
+          disabled={!hasAnyTarget || isSaving}
+          className={`hover-scale ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
+          aria-label="Save targets"
+        >
           {isSaving ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
               Saving...
             </>
           ) : (

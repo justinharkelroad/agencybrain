@@ -8,6 +8,7 @@ import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useTargetMeasurability } from "@/hooks/useTargetMeasurability";
 import type { QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { toast } from "sonner";
 
 export default function LifeTargetsQuarterly() {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function LifeTargetsQuarterly() {
   const analyzeMeasurability = useTargetMeasurability();
 
   const [localTargets, setLocalTargets] = useState<QuarterlyTargets | null>(null);
+  const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const handleSave = async (formTargets: QuarterlyTargets) => {
     try {
@@ -54,9 +57,15 @@ export default function LifeTargetsQuarterly() {
     };
 
     setLocalTargets(updatedTargets);
+    setHasUnsavedChanges(true);
 
-    // Clear the analysis so user can re-analyze if needed
-    setMeasurabilityResults(null);
+    // Track this suggestion as applied
+    const suggestionKey = `${domain}-${_index}`;
+    setAppliedSuggestions(prev => new Set([...prev, suggestionKey]));
+
+    // Show success feedback
+    const domainLabel = domain.charAt(0).toUpperCase() + domain.slice(1);
+    toast.success(`✓ Applied improved target to ${domainLabel}`);
   };
 
   return (
@@ -79,12 +88,14 @@ export default function LifeTargetsQuarterly() {
         onAnalyze={handleAnalyze}
         isSaving={saveTargets.isPending}
         isAnalyzing={analyzeMeasurability.isPending}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
 
       {measurabilityResults && (
         <MeasurabilityAnalysisCard
           analysis={measurabilityResults}
           onApplySuggestion={handleApplySuggestion}
+          appliedSuggestions={appliedSuggestions}
         />
       )}
     </div>
