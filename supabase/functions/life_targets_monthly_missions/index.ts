@@ -68,14 +68,28 @@ serve(async (req) => {
 
     const months = getMonthsForQuarter(input.quarter);
 
-    const systemPrompt = `You are an expert life coach specializing in breaking down quarterly goals into progressive monthly missions.
-For each target provided, generate 3 monthly missions that build upon each other.
+    const systemPrompt = `You are an expert life coach specializing in breaking down quarterly goals into MEASURABLE, TRACKABLE monthly missions.
 
-Each mission should:
-- Be specific and actionable
-- Build toward the quarterly target
-- Progress logically from month to month
-- Include a brief "why" explaining its importance
+For each target, generate 3 monthly missions that build progressively toward the quarterly goal.
+
+CRITICAL REQUIREMENTS - Every mission MUST:
+1. Include a SPECIFIC NUMBER, FREQUENCY, or METRIC (e.g., "3 times per week", "track 5 metrics", "increase by 10%")
+2. Have CLEAR COMPLETION CRITERIA (user can definitively say "I did this" or "I didn't")
+3. Use REALISTIC RANGES - NEVER suggest "every day" or "daily for 90 days"
+   - Good: "5-6 days per week", "70-80% of days", "at least 20 out of 30 days"
+   - Bad: "daily", "every day", "90 consecutive days"
+4. Use ACTION VERBS with concrete outputs (track, complete, practice, measure, record, log, achieve)
+5. AVOID vague verbs: reflect, consider, think about, explore, contemplate
+
+EXAMPLES:
+❌ BAD: "Reflect on your workout achievements"
+✅ GOOD: "Track and log 3 key metrics (weight, reps, recovery time) for 20+ workouts this month"
+
+❌ BAD: "Improve your prayer practice"
+✅ GOOD: "Complete 15-minute prayer sessions 5-6 days per week (20-24 total sessions)"
+
+❌ BAD: "Work on better work-life balance"
+✅ GOOD: "Leave work by 6pm at least 18 out of 22 workdays, tracking departure times"
 
 Return ONLY valid JSON with no markdown formatting.`;
 
@@ -98,6 +112,9 @@ Return ONLY valid JSON with no markdown formatting.`;
     const userPrompt = `Generate monthly missions for ${input.quarter} (${months.join(', ')}) for ALL these targets:
 
 ${targetsList.join('\n\n')}
+
+For each target, create missions with SPECIFIC NUMBERS and CLEAR COMPLETION CRITERIA.
+Every mission must be measurable and trackable with concrete metrics.
 
 Return JSON in this EXACT format:
 {
