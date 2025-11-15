@@ -62,6 +62,8 @@ const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
+const LifeTargetsBrainstorm = lazy(() => import("./pages/LifeTargetsBrainstorm"));
+const LifeTargetsSelection = lazy(() => import("./pages/LifeTargetsSelection"));
 const LifeTargetsQuarterly = lazy(() => import("./pages/LifeTargetsQuarterly"));
 const LifeTargetsMissions = lazy(() => import("./pages/LifeTargetsMissions"));
 const LifeTargetsDaily = lazy(() => import("./pages/LifeTargetsDaily"));
@@ -185,6 +187,26 @@ const App = () => (
                     <LifeTargets />
                   </Suspense>
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/brainstorm" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargetsBrainstorm />
+                  </Suspense>
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/selection" element={
+              <ProtectedRoute>
+                <LifeTargetsGuard requiredStep="selection">
+                  <SidebarLayout>
+                    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                      <LifeTargetsSelection />
+                    </Suspense>
+                  </SidebarLayout>
+                </LifeTargetsGuard>
               </ProtectedRoute>
             } />
             <Route path="/life-targets/quarterly" element={

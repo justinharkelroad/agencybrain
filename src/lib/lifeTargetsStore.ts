@@ -6,11 +6,12 @@ import type { MonthlyMissionsOutput } from '@/hooks/useMonthlyMissions';
 import type { DailyActionsOutput } from '@/hooks/useDailyActions';
 
 type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
-type FlowStep = 'targets' | 'missions' | 'primary' | 'actions' | 'complete';
+type FlowStep = 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' | 'actions' | 'complete';
 
 interface LifeTargetsState {
   currentQuarter: Quarter;
   currentStep: FlowStep;
+  currentSessionId: string | null;
   targets: QuarterlyTargets | null;
   measurabilityResults: MeasurabilityAnalysis | null;
   monthlyMissions: MonthlyMissionsOutput | null;
@@ -20,6 +21,7 @@ interface LifeTargetsState {
   // Actions
   setCurrentQuarter: (quarter: Quarter) => void;
   setCurrentStep: (step: FlowStep) => void;
+  setCurrentSessionId: (sessionId: string | null) => void;
   setTargets: (targets: QuarterlyTargets | null) => void;
   setMeasurabilityResults: (results: MeasurabilityAnalysis | null) => void;
   setMonthlyMissions: (missions: MonthlyMissionsOutput | null) => void;
@@ -41,6 +43,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
     (set) => ({
       currentQuarter: getCurrentQuarter(),
       currentStep: 'targets',
+      currentSessionId: null,
       targets: null,
       measurabilityResults: null,
       monthlyMissions: null,
@@ -49,6 +52,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
 
       setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
       setCurrentStep: (step) => set({ currentStep: step }),
+      setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
       setTargets: (targets) => set({ targets }),
       setMeasurabilityResults: (results) => set({ measurabilityResults: results }),
       setMonthlyMissions: (missions) => set({ monthlyMissions: missions }),
@@ -56,6 +60,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       setIsLoading: (loading) => set({ isLoading: loading }),
       reset: () => set({
         currentStep: 'targets',
+        currentSessionId: null,
         targets: null,
         measurabilityResults: null,
         monthlyMissions: null,
@@ -68,6 +73,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       partialize: (state) => ({
         currentQuarter: state.currentQuarter,
         currentStep: state.currentStep,
+        currentSessionId: state.currentSessionId,
         targets: state.targets,
         measurabilityResults: state.measurabilityResults,
         monthlyMissions: state.monthlyMissions,

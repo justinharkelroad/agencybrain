@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 interface LifeTargetsGuardProps {
   children: React.ReactNode;
-  requiredStep: 'targets' | 'missions' | 'primary' | 'actions';
+  requiredStep: 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' | 'actions';
 }
 
 export function LifeTargetsGuard({ children, requiredStep }: LifeTargetsGuardProps) {
@@ -47,7 +47,10 @@ export function LifeTargetsGuard({ children, requiredStep }: LifeTargetsGuardPro
     ].some(p => p !== null && p !== undefined);
 
     // Enforce sequential flow
-    if (requiredStep === 'missions' && targetsSet === 0) {
+    if (requiredStep === 'selection' && targetsSet === 0) {
+      toast.error('Please complete brainstorming first');
+      navigate('/life-targets/brainstorm', { replace: true });
+    } else if (requiredStep === 'missions' && targetsSet === 0) {
       toast.error('Please set your quarterly targets first');
       navigate('/life-targets', { replace: true });
     } else if (requiredStep === 'primary' && !hasMissions) {
