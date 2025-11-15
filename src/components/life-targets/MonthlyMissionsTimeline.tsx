@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Lightbulb, Check } from "lucide-react";
+import { Calendar, Lightbulb, Check, Loader2 } from "lucide-react";
 import type { MonthlyMissionsOutput, DomainMissions } from "@/hooks/useMonthlyMissions";
 
 interface TargetTexts {
@@ -21,6 +21,7 @@ interface MonthlyMissionsTimelineProps {
   targetTexts?: TargetTexts | null;
   primarySelections?: PrimarySelections;
   onLockIn?: (domain: string, isTarget1: boolean) => void;
+  isLoading?: boolean;
 }
 
 const DOMAINS = [
@@ -179,17 +180,40 @@ export function MonthlyMissionsTimeline({
   selectedDomain,
   targetTexts,
   primarySelections,
-  onLockIn
+  onLockIn,
+  isLoading = false
 }: MonthlyMissionsTimelineProps) {
-  const hasAnyMissions = DOMAINS.some(
-    domain => missions[domain.key as keyof MonthlyMissionsOutput]
-  );
+  // Helper to check if missions have data
+  const hasMissionsData = (missions: any): boolean => {
+    if (!missions) return false;
+    return Object.values(missions).some(domain => {
+      if (!domain || typeof domain !== 'object') return false;
+      return Object.values(domain).some(target => {
+        if (!target || typeof target !== 'object') return false;
+        return Object.keys(target).length > 0;
+      });
+    });
+  };
 
-  if (!hasAnyMissions) {
+  // Show empty/loading state if no missions data
+  if (isLoading || !hasMissionsData(missions)) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">No missions generated yet</p>
+        <CardHeader>
+          <CardTitle>Monthly Missions Timeline</CardTitle>
+          <CardDescription>
+            Your quarterly targets broken down into actionable monthly missions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center py-8 text-muted-foreground">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <p>Generating missions...</p>
+            </div>
+          ) : (
+            <p>Missions will appear here after generation</p>
+          )}
         </CardContent>
       </Card>
     );

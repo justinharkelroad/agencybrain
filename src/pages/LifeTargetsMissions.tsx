@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { MonthlyMissionsTimeline } from "@/components/life-targets/MonthlyMissionsTimeline";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
@@ -24,6 +25,23 @@ export default function LifeTargetsMissions() {
     business: null,
   });
   const missionsRef = useRef<HTMLDivElement>(null);
+  const hasGeneratedRef = useRef(false);
+
+  // Helper function to check if missions data actually exists
+  const hasMissionsData = (missions: any): boolean => {
+    if (!missions) return false;
+    
+    // Check if any domain has actual mission data
+    return Object.values(missions).some(domain => {
+      if (!domain || typeof domain !== 'object') return false;
+      
+      // Check target1 and target2 for month data
+      return Object.values(domain).some(target => {
+        if (!target || typeof target !== 'object') return false;
+        return Object.keys(target).length > 0;
+      });
+    });
+  };
 
   // Prepare target texts for inline display
   const targetTexts = targets ? {
@@ -67,6 +85,14 @@ export default function LifeTargetsMissions() {
       });
     }
   }, [targets, setMonthlyMissions]);
+
+  // Auto-generate missions if user arrives from lock-in flow
+  useEffect(() => {
+    if (targets && !hasMissionsData(monthlyMissions) && !hasGeneratedRef.current) {
+      hasGeneratedRef.current = true;
+      handleGenerate();
+    }
+  }, [targets, monthlyMissions]);
 
   const handleGenerate = async () => {
     if (!targets) {
@@ -171,8 +197,10 @@ export default function LifeTargetsMissions() {
     { key: 'business', label: 'Business', target1: targets.business_target, target2: targets.business_target2 },
   ].filter(d => d.target1 && d.target2) : [];
 
-  const canContinue = domainsWithMultipleTargets.length === 0 || 
-    domainsWithMultipleTargets.every(d => primarySelections[d.key] !== null && primarySelections[d.key] !== undefined);
+  const canContinue = hasMissionsData(monthlyMissions) && (
+    domainsWithMultipleTargets.length === 0 || 
+    domainsWithMultipleTargets.every(d => primarySelections[d.key] !== null && primarySelections[d.key] !== undefined)
+  );
 
   return (
     <div className="container max-w-6xl py-8 space-y-8">
@@ -206,7 +234,7 @@ export default function LifeTargetsMissions() {
           <Button
             onClick={handleGenerate}
             disabled={!hasTargets || generateMissions.isPending}
-            variant={monthlyMissions ? "outline" : "default"}
+            variant={hasMissionsData(monthlyMissions) ? "outline" : "default"}
           >
             {generateMissions.isPending ? (
               <>
@@ -216,7 +244,7 @@ export default function LifeTargetsMissions() {
             ) : (
               <>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                {monthlyMissions ? 'Regenerate' : 'Generate Missions'}
+                {hasMissionsData(monthlyMissions) ? 'Regenerate' : 'Generate Missions'}
               </>
             )}
           </Button>
@@ -232,29 +260,43 @@ export default function LifeTargetsMissions() {
         </div>
       )}
 
-      {monthlyMissions && (
-        <div className="space-y-6" ref={missionsRef}>
-          <MonthlyMissionsTimeline
-            missions={monthlyMissions}
-            selectedDomain={selectedDomain === 'all' ? undefined : selectedDomain}
-            targetTexts={targetTexts}
-            primarySelections={primarySelections}
-            onLockIn={handleSavePrimary}
-          />
-          
+      <div className="space-y-6" ref={missionsRef}>
+        <MonthlyMissionsTimeline
+          missions={monthlyMissions || {}}
+          selectedDomain={selectedDomain === 'all' ? undefined : selectedDomain}
+          targetTexts={targetTexts}
+          primarySelections={primarySelections}
+          onLockIn={handleSavePrimary}
+          isLoading={generateMissions.isPending}
+        />
+        
+        {hasMissionsData(monthlyMissions) && (
           <div className="flex justify-end">
-            <Button 
-              onClick={handleContinue}
-              disabled={!canContinue}
-              size="lg"
-              className={canContinue ? "bg-green-600 hover:bg-green-700" : ""}
-            >
-              {canContinue && <CheckCircle2 className="mr-2 h-4 w-4" />}
-              Continue to Daily Actions
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={!canContinue ? "cursor-not-allowed inline-block" : ""}>
+                    <Button 
+                      onClick={handleContinue}
+                      disabled={!canContinue}
+                      size="lg"
+                      className={canContinue ? "bg-green-600 hover:bg-green-700" : ""}
+                    >
+                      {canContinue && <CheckCircle2 className="mr-2 h-4 w-4" />}
+                      Continue to Daily Actions
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canContinue && (
+                  <TooltipContent>
+                    Please select primary targets for domains with 2 targets
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
