@@ -5,6 +5,7 @@ import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { CascadeView } from "@/components/life-targets/CascadeView";
 import { toast } from "sonner";
+import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 
 export default function LifeTargetsCascade() {
   const navigate = useNavigate();
@@ -17,8 +18,18 @@ export default function LifeTargetsCascade() {
   };
 
   const handleExportPDF = () => {
-    // GATE 5: PDF export functionality
-    toast.info('PDF export coming soon!');
+    if (!targets) {
+      toast.error('No targets to export');
+      return;
+    }
+    
+    try {
+      exportLifeTargetsPDF(targets, selectedDailyActions, currentQuarter);
+      toast.success('PDF exported successfully!');
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to export PDF');
+    }
   };
 
   const handleSaveAllChanges = async () => {
