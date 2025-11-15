@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { MonthlyMissionsTimeline } from "@/components/life-targets/MonthlyMissionsTimeline";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
@@ -247,7 +247,9 @@ export default function LifeTargetsMissions() {
               onClick={handleContinue}
               disabled={!canContinue}
               size="lg"
+              className={canContinue ? "bg-green-600 hover:bg-green-700" : ""}
             >
+              {canContinue && <CheckCircle2 className="mr-2 h-4 w-4" />}
               Continue to Daily Actions
             </Button>
           </div>

@@ -53,15 +53,23 @@ export default function LifeTargets() {
     [targets]
   );
 
-  const hasPrimarySelections = useMemo(() => 
-    targets ? [
-      targets.body_primary_is_target1,
-      targets.being_primary_is_target1,
-      targets.balance_primary_is_target1,
-      targets.business_primary_is_target1,
-    ].some(p => p !== null && p !== undefined) : false,
-    [targets]
-  );
+  const hasPrimarySelections = useMemo(() => {
+    if (!targets) return false;
+    
+    // Get domains that have both targets
+    const domainsNeedingSelection = [
+      { key: 'body', hasMultiple: targets.body_target && targets.body_target2, selected: targets.body_primary_is_target1 },
+      { key: 'being', hasMultiple: targets.being_target && targets.being_target2, selected: targets.being_primary_is_target1 },
+      { key: 'balance', hasMultiple: targets.balance_target && targets.balance_target2, selected: targets.balance_primary_is_target1 },
+      { key: 'business', hasMultiple: targets.business_target && targets.business_target2, selected: targets.business_primary_is_target1 },
+    ].filter(d => d.hasMultiple);
+    
+    // If no domains have multiple targets, return true (nothing to select)
+    if (domainsNeedingSelection.length === 0) return true;
+    
+    // All domains with multiple targets must have a selection
+    return domainsNeedingSelection.every(d => d.selected !== null && d.selected !== undefined);
+  }, [targets]);
 
   // Auto-advance step based on completion
   useEffect(() => {
