@@ -88,14 +88,6 @@ export default function LifeTargetsDaily() {
     try {
       const results = await generateActions.mutateAsync(params);
       setDailyActions(results);
-    } catch (error) {
-      console.error('Failed to generate daily actions:', error);
-    }
-  };
-
-    try {
-      const results = await generateActions.mutateAsync(params);
-      setDailyActions(results);
       toast.success('Daily actions generated successfully!');
     } catch (error) {
       console.error('Failed to generate daily actions:', error);
