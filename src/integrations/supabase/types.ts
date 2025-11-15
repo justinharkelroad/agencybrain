@@ -1186,6 +1186,7 @@ export type Database = {
       }
       life_targets_quarterly: {
         Row: {
+          balance_daily_actions: Json | null
           balance_daily_habit: string | null
           balance_monthly_missions: Json | null
           balance_narrative: string | null
@@ -1193,6 +1194,7 @@ export type Database = {
           balance_primary_is_target1: boolean | null
           balance_target: string | null
           balance_target2: string | null
+          being_daily_actions: Json | null
           being_daily_habit: string | null
           being_monthly_missions: Json | null
           being_narrative: string | null
@@ -1200,6 +1202,7 @@ export type Database = {
           being_primary_is_target1: boolean | null
           being_target: string | null
           being_target2: string | null
+          body_daily_actions: Json | null
           body_daily_habit: string | null
           body_monthly_missions: Json | null
           body_narrative: string | null
@@ -1207,6 +1210,7 @@ export type Database = {
           body_primary_is_target1: boolean | null
           body_target: string | null
           body_target2: string | null
+          business_daily_actions: Json | null
           business_daily_habit: string | null
           business_monthly_missions: Json | null
           business_narrative: string | null
@@ -1222,6 +1226,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          balance_daily_actions?: Json | null
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
@@ -1229,6 +1234,7 @@ export type Database = {
           balance_primary_is_target1?: boolean | null
           balance_target?: string | null
           balance_target2?: string | null
+          being_daily_actions?: Json | null
           being_daily_habit?: string | null
           being_monthly_missions?: Json | null
           being_narrative?: string | null
@@ -1236,6 +1242,7 @@ export type Database = {
           being_primary_is_target1?: boolean | null
           being_target?: string | null
           being_target2?: string | null
+          body_daily_actions?: Json | null
           body_daily_habit?: string | null
           body_monthly_missions?: Json | null
           body_narrative?: string | null
@@ -1243,6 +1250,7 @@ export type Database = {
           body_primary_is_target1?: boolean | null
           body_target?: string | null
           body_target2?: string | null
+          business_daily_actions?: Json | null
           business_daily_habit?: string | null
           business_monthly_missions?: Json | null
           business_narrative?: string | null
@@ -1258,6 +1266,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          balance_daily_actions?: Json | null
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
@@ -1265,6 +1274,7 @@ export type Database = {
           balance_primary_is_target1?: boolean | null
           balance_target?: string | null
           balance_target2?: string | null
+          being_daily_actions?: Json | null
           being_daily_habit?: string | null
           being_monthly_missions?: Json | null
           being_narrative?: string | null
@@ -1272,6 +1282,7 @@ export type Database = {
           being_primary_is_target1?: boolean | null
           being_target?: string | null
           being_target2?: string | null
+          body_daily_actions?: Json | null
           body_daily_habit?: string | null
           body_monthly_missions?: Json | null
           body_narrative?: string | null
@@ -1279,6 +1290,7 @@ export type Database = {
           body_primary_is_target1?: boolean | null
           body_target?: string | null
           body_target2?: string | null
+          business_daily_actions?: Json | null
           business_daily_habit?: string | null
           business_monthly_missions?: Json | null
           business_narrative?: string | null
