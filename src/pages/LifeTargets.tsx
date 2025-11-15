@@ -1,18 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Target, Sparkles, Calendar, Zap, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Target, Calendar, Zap, CheckCircle2, Lock } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
 
-  // Memoize computed values for performance
   const targetsSet = useMemo(() => 
     targets ? [
       targets.body_target,
@@ -43,42 +43,82 @@ export default function LifeTargets() {
     [targets]
   );
 
-  const actions = [
+  const domainsWithMultipleTargets = useMemo(() => 
+    targets ? [
+      { target1: targets.body_target, target2: targets.body_target2 },
+      { target1: targets.being_target, target2: targets.being_target2 },
+      { target1: targets.balance_target, target2: targets.balance_target2 },
+      { target1: targets.business_target, target2: targets.business_target2 },
+    ].filter(d => d.target1 && d.target2).length : 0,
+    [targets]
+  );
+
+  const hasPrimarySelections = useMemo(() => 
+    targets ? [
+      targets.body_primary_is_target1,
+      targets.being_primary_is_target1,
+      targets.balance_primary_is_target1,
+      targets.business_primary_is_target1,
+    ].some(p => p !== null && p !== undefined) : false,
+    [targets]
+  );
+
+  // Auto-advance step based on completion
+  useEffect(() => {
+    if (!targets) return;
+
+    if (hasHabits > 0 && currentStep !== 'complete') {
+      setCurrentStep('complete');
+    } else if (domainsWithMultipleTargets > 0 && hasPrimarySelections && currentStep === 'primary') {
+      setCurrentStep('actions');
+    } else if (hasMissions && currentStep === 'targets') {
+      setCurrentStep(domainsWithMultipleTargets > 0 ? 'primary' : 'actions');
+    }
+  }, [targets, targetsSet, hasMissions, domainsWithMultipleTargets, hasPrimarySelections, hasHabits, currentStep, setCurrentStep]);
+
+  const steps = [
     {
+      id: 'targets',
       title: 'Set Quarterly Targets',
       description: 'Define your goals for Body, Being, Balance, and Business',
       icon: Target,
+      status: targetsSet > 0 ? 'complete' : 'current',
       onClick: () => navigate('/life-targets/quarterly'),
-      variant: 'default' as const,
       badge: targetsSet > 0 ? `${targetsSet}/4 set` : undefined,
     },
     {
-      title: 'Analyze Measurability',
-      description: 'Get clarity scores and improvement suggestions',
-      icon: Sparkles,
-      onClick: () => navigate('/life-targets/quarterly'),
-      variant: 'outline' as const,
-      disabled: targetsSet === 0,
-    },
-    {
+      id: 'missions',
       title: 'Generate Monthly Missions',
       description: 'Break down targets into 3-month action plans',
       icon: Calendar,
-      onClick: () => navigate('/life-targets/missions'),
-      variant: 'outline' as const,
-      disabled: targetsSet === 0,
+      status: hasMissions ? 'complete' : targetsSet > 0 ? 'current' : 'locked',
+      onClick: () => targetsSet > 0 && navigate('/life-targets/missions'),
       badge: hasMissions ? 'Generated' : undefined,
     },
     {
+      id: 'primary',
+      title: 'Select Primary Targets',
+      description: 'Choose which target to focus on for daily habits',
+      icon: Target,
+      status: hasPrimarySelections ? 'complete' : (hasMissions && domainsWithMultipleTargets > 0) ? 'current' : 'locked',
+      onClick: () => hasMissions && domainsWithMultipleTargets > 0 && navigate('/life-targets/missions'),
+      badge: domainsWithMultipleTargets === 0 ? 'Not needed' : hasPrimarySelections ? 'Selected' : undefined,
+      hidden: domainsWithMultipleTargets === 0,
+    },
+    {
+      id: 'actions',
       title: 'Get Daily Actions',
       description: 'Discover 10 actionable habits per domain',
       icon: Zap,
-      onClick: () => navigate('/life-targets/daily'),
-      variant: 'outline' as const,
-      disabled: targetsSet === 0,
+      status: hasHabits > 0 ? 'complete' : (hasMissions && (domainsWithMultipleTargets === 0 || hasPrimarySelections)) ? 'current' : 'locked',
+      onClick: () => (hasMissions && (domainsWithMultipleTargets === 0 || hasPrimarySelections)) && navigate('/life-targets/daily'),
       badge: hasHabits > 0 ? `${hasHabits} habits set` : undefined,
     },
   ];
+
+  const completedSteps = steps.filter(s => !s.hidden && s.status === 'complete').length;
+  const totalSteps = steps.filter(s => !s.hidden).length;
+  const progress = (completedSteps / totalSteps) * 100;
 
   return (
     <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
@@ -89,115 +129,84 @@ export default function LifeTargets() {
             {currentQuarter}
           </Badge>
         </div>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground mb-4">
           Plan and track your quarterly life goals across four key domains
         </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Progress</span>
+            <span className="font-medium">{completedSteps} of {totalSteps} steps complete</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
       </div>
 
-      {!isLoading && targets && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Quarter Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  targetsSet > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                }`}>
-                  <Target className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="font-semibold">{targetsSet} of 4 Targets</p>
-                  <p className="text-sm text-muted-foreground">Quarterly goals set</p>
-                </div>
-              </div>
+      <div className="space-y-4">
+        {steps.filter(s => !s.hidden).map((step, index) => {
+          const Icon = step.icon;
+          const isLocked = step.status === 'locked';
+          const isComplete = step.status === 'complete';
+          const isCurrent = step.status === 'current';
 
-              <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  hasMissions ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                }`}>
-                  <Calendar className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="font-semibold">{hasMissions ? 'Missions Generated' : 'No Missions Yet'}</p>
-                  <p className="text-sm text-muted-foreground">Monthly action plans</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  hasHabits > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                }`}>
-                  <Zap className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="font-semibold">{hasHabits} Daily Habits</p>
-                  <p className="text-sm text-muted-foreground">Active daily actions</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  targetsSet === 4 && hasMissions && hasHabits === 4 
-                    ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  <CheckCircle2 className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="font-semibold">
-                    {targetsSet === 4 && hasMissions && hasHabits === 4 ? 'Complete Setup' : 'Setup Incomplete'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Quarter planning status</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {actions.map((action, index) => {
-          const Icon = action.icon;
           return (
             <Card 
-              key={action.title} 
-              className="hover:shadow-lg transition-all duration-300 hover-scale animate-scale-in"
-              style={{ animationDelay: `${index * 0.1}s` }}
-              role="article"
-              aria-label={action.title}
+              key={step.id}
+              className={`transition-all ${
+                isLocked ? 'opacity-50' : 'hover:shadow-md cursor-pointer'
+              } ${isCurrent ? 'ring-2 ring-primary' : ''}`}
+              onClick={!isLocked ? step.onClick : undefined}
             >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
-                    action.disabled ? 'bg-muted' : 'bg-primary/10'
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isComplete ? 'bg-primary text-primary-foreground' :
+                    isCurrent ? 'bg-primary/10 text-primary' :
+                    'bg-muted text-muted-foreground'
                   }`}>
-                    <Icon className={`h-5 w-5 ${
-                      action.disabled ? 'text-muted-foreground' : 'text-primary'
-                    }`} aria-hidden="true" />
+                    {isComplete ? <CheckCircle2 className="h-6 w-6" /> :
+                     isLocked ? <Lock className="h-6 w-6" /> :
+                     <Icon className="h-6 w-6" />}
                   </div>
-                  {action.badge && (
-                    <Badge variant="secondary" className="animate-fade-in">{action.badge}</Badge>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg">{step.title}</h3>
+                      {step.badge && (
+                        <Badge variant={isComplete ? "default" : "secondary"}>
+                          {step.badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription>{step.description}</CardDescription>
+                  </div>
+                  {!isLocked && (
+                    <Button 
+                      variant={isCurrent ? "default" : "outline"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        step.onClick();
+                      }}
+                    >
+                      {isComplete ? 'Review' : isCurrent ? 'Continue' : 'Start'}
+                    </Button>
                   )}
                 </div>
-                <CardTitle className="text-lg">{action.title}</CardTitle>
-                <CardDescription>{action.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={action.onClick}
-                  variant={action.variant}
-                  disabled={action.disabled}
-                  className="w-full"
-                >
-                  Get Started
-                </Button>
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {progress === 100 && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-6 text-center">
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
+            <h3 className="text-xl font-semibold mb-2">Quarter Setup Complete!</h3>
+            <p className="text-muted-foreground">
+              You've completed all steps for {currentQuarter}. Keep building your daily habits!
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
