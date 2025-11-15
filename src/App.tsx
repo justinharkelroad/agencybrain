@@ -67,6 +67,7 @@ const LifeTargetsSelection = lazy(() => import("./pages/LifeTargetsSelection"));
 const LifeTargetsQuarterly = lazy(() => import("./pages/LifeTargetsQuarterly"));
 const LifeTargetsMissions = lazy(() => import("./pages/LifeTargetsMissions"));
 const LifeTargetsDaily = lazy(() => import("./pages/LifeTargetsDaily"));
+const LifeTargetsCascade = lazy(() => import("./pages/LifeTargetsCascade"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -238,6 +239,15 @@ const App = () => (
                     </Suspense>
                   </SidebarLayout>
                 </LifeTargetsGuard>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/cascade" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargetsCascade />
+                  </Suspense>
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
