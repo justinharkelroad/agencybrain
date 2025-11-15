@@ -37,11 +37,11 @@ export default function LifeTargets() {
 
   const hasHabits = useMemo(() => 
     targets ? [
-      targets.body_daily_habit,
-      targets.being_daily_habit,
-      targets.balance_daily_habit,
-      targets.business_daily_habit,
-    ].filter(Boolean).length : 0,
+      targets.body_daily_actions,
+      targets.being_daily_actions,
+      targets.balance_daily_actions,
+      targets.business_daily_actions,
+    ].filter(arr => Array.isArray(arr) && arr.length > 0).length : 0,
     [targets]
   );
 
