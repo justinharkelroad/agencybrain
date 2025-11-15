@@ -4,6 +4,26 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+interface TargetsInput {
+  body: string[];
+  being: string[];
+  balance: string[];
+  business: string[];
+}
+
+interface ItemAnalysis {
+  original: string;
+  clarity_score: number;
+  rewritten_target: string;
+}
+
+interface AnalysisOutput {
+  body: ItemAnalysis[];
+  being: ItemAnalysis[];
+  balance: ItemAnalysis[];
+  business: ItemAnalysis[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,38 +40,37 @@ serve(async (req) => {
       throw new Error('Invalid targets object');
     }
 
-    console.log('Analyzing measurability for targets:', targets);
+    console.log('Analyzing measurability for targets:', JSON.stringify(targets, null, 2));
 
-    const systemPrompt = `You are an expert life coach specializing in goal-setting and measurement frameworks.
-Analyze the user's quarterly targets and provide measurability analysis for each domain.
-
-For each domain (body, being, balance, business), return:
-- clarity_score: 0-10 (how clear and specific is the target?)
-- measurability_score: 0-10 (how measurable is the target?)
-- suggestions: array of 2-3 specific suggestions to make it more measurable
-- suggested_metrics: array of 1-3 specific metrics they could track
+    const systemPrompt = `You are an expert life coach specializing in goal-setting and SMART criteria.
+Analyze each target item and provide:
+1. A clarity score (0-10) based on how specific, measurable, achievable, relevant, and time-bound it is
+2. A rewritten version that is MORE measurable and specific
 
 Return ONLY valid JSON with no markdown formatting.`;
 
-    const userPrompt = `Analyze these quarterly targets for measurability:
+    const userPrompt = `Analyze these quarterly targets for measurability. For EACH item in EACH domain, provide clarity_score and rewritten_target:
 
-BODY: ${targets.body || 'Not specified'}
-BEING: ${targets.being || 'Not specified'}
-BALANCE: ${targets.balance || 'Not specified'}
-BUSINESS: ${targets.business || 'Not specified'}
+BODY: ${JSON.stringify(targets.body || [])}
+BEING: ${JSON.stringify(targets.being || [])}
+BALANCE: ${JSON.stringify(targets.balance || [])}
+BUSINESS: ${JSON.stringify(targets.business || [])}
 
-Return JSON in this exact format:
+Return JSON in this EXACT format:
 {
-  "body": {
-    "clarity_score": 8,
-    "measurability_score": 7,
-    "suggestions": ["Add specific weight or fitness metric", "Define workout frequency"],
-    "suggested_metrics": ["Weight in lbs", "Workout days per week"]
-  },
-  "being": { ... },
-  "balance": { ... },
-  "business": { ... }
-}`;
+  "body": [
+    {
+      "original": "the original target text",
+      "clarity_score": 7,
+      "rewritten_target": "More specific and measurable version"
+    }
+  ],
+  "being": [...],
+  "balance": [...],
+  "business": [...]
+}
+
+IMPORTANT: Return one analysis object for EACH item in EACH domain array. If a domain has 2 items, return 2 analysis objects for that domain.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -66,7 +85,7 @@ Return JSON in this exact format:
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 2000,
       }),
     });
 
@@ -81,7 +100,7 @@ Return JSON in this exact format:
     
     console.log('OpenAI raw response:', content);
 
-    let analysis;
+    let analysis: AnalysisOutput;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       analysis = JSON.parse(jsonMatch ? jsonMatch[0] : content);
@@ -91,14 +110,18 @@ Return JSON in this exact format:
     }
 
     // Validate structure
-    const domains = ['body', 'being', 'balance', 'business'];
+    const domains = ['body', 'being', 'balance', 'business'] as const;
     for (const domain of domains) {
-      if (!analysis[domain] || 
-          typeof analysis[domain].clarity_score !== 'number' ||
-          typeof analysis[domain].measurability_score !== 'number' ||
-          !Array.isArray(analysis[domain].suggestions) ||
-          !Array.isArray(analysis[domain].suggested_metrics)) {
-        throw new Error(`Invalid analysis structure for domain: ${domain}`);
+      if (!Array.isArray(analysis[domain])) {
+        throw new Error(`Invalid analysis structure: ${domain} must be an array`);
+      }
+      
+      for (const item of analysis[domain]) {
+        if (!item.original || 
+            typeof item.clarity_score !== 'number' ||
+            !item.rewritten_target) {
+          throw new Error(`Invalid item structure in domain: ${domain}`);
+        }
       }
     }
 
