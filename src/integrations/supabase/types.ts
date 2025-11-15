@@ -1149,6 +1149,7 @@ export type Database = {
           is_selected: boolean | null
           quarter: string
           rewritten_target: string | null
+          session_id: string | null
           target_text: string
           updated_at: string
           user_id: string
@@ -1162,6 +1163,7 @@ export type Database = {
           is_selected?: boolean | null
           quarter: string
           rewritten_target?: string | null
+          session_id?: string | null
           target_text: string
           updated_at?: string
           user_id: string
@@ -1175,6 +1177,7 @@ export type Database = {
           is_selected?: boolean | null
           quarter?: string
           rewritten_target?: string | null
+          session_id?: string | null
           target_text?: string
           updated_at?: string
           user_id?: string
