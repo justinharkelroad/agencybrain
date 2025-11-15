@@ -20,6 +20,7 @@ export default function LifeTargetsQuarterly() {
   const [localTargets, setLocalTargets] = useState<QuarterlyTargets | null>(null);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isLockedIn, setIsLockedIn] = useState(false);
 
   const handleSave = async (formTargets: QuarterlyTargets) => {
     try {
@@ -31,6 +32,7 @@ export default function LifeTargetsQuarterly() {
   };
 
   const handleAnalyze = async (formTargets: QuarterlyTargets) => {
+    setIsLockedIn(false);
     setLocalTargets(formTargets);
 
     const targetsArray = {
@@ -48,6 +50,11 @@ export default function LifeTargetsQuarterly() {
     }
   };
 
+  const handleLockIn = () => {
+    setIsLockedIn(true);
+    toast.success("✓ Targets locked in! Review your choices, then click 'Save Targets' to finalize.");
+  };
+
   const handleApplySuggestion = (domain: string, _index: number, rewrittenTarget: string) => {
     if (!localTargets) return;
 
@@ -58,6 +65,7 @@ export default function LifeTargetsQuarterly() {
 
     setLocalTargets(updatedTargets);
     setHasUnsavedChanges(true);
+    setIsLockedIn(false);
 
     // Track this suggestion as applied
     const suggestionKey = `${domain}-${_index}`;
@@ -86,9 +94,12 @@ export default function LifeTargetsQuarterly() {
         initialData={localTargets || targets}
         onSave={handleSave}
         onAnalyze={handleAnalyze}
+        onLockIn={handleLockIn}
         isSaving={saveTargets.isPending}
         isAnalyzing={analyzeMeasurability.isPending}
         hasUnsavedChanges={hasUnsavedChanges}
+        isLockedIn={isLockedIn}
+        hasAnalysis={!!measurabilityResults}
       />
 
       {measurabilityResults && (
