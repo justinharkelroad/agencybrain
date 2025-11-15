@@ -2,10 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, RefreshCw, Loader2, Target } from "lucide-react";
+import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { MonthlyMissionsTimeline } from "@/components/life-targets/MonthlyMissionsTimeline";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
@@ -26,6 +24,26 @@ export default function LifeTargetsMissions() {
     business: true,
   });
   const missionsRef = useRef<HTMLDivElement>(null);
+
+  // Prepare target texts for inline display
+  const targetTexts = targets ? {
+    body: {
+      target1: targets.body_target,
+      target2: targets.body_target2,
+    },
+    being: {
+      target1: targets.being_target,
+      target2: targets.being_target2,
+    },
+    balance: {
+      target1: targets.balance_target,
+      target2: targets.balance_target2,
+    },
+    business: {
+      target1: targets.business_target,
+      target2: targets.business_target2,
+    },
+  } : null;
 
   // Load missions from database if they exist
   useEffect(() => {
@@ -219,46 +237,10 @@ export default function LifeTargetsMissions() {
           <MonthlyMissionsTimeline
             missions={monthlyMissions}
             selectedDomain={selectedDomain === 'all' ? undefined : selectedDomain}
+            targetTexts={targetTexts}
+            primarySelections={primarySelections}
+            onLockIn={handleSavePrimary}
           />
-
-          {domainsWithMultipleTargets.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Select Primary Target for Daily Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-sm text-muted-foreground mb-4">
-                  For domains with 2 targets, choose which one to prioritize for your daily actions.
-                  This helps you focus your energy where it matters most.
-                </p>
-                {domainsWithMultipleTargets.map(({ key, label, target1, target2 }) => (
-                  <div key={key} className="space-y-3">
-                    <h3 className="font-semibold text-lg">{label}</h3>
-                    <RadioGroup
-                      value={primarySelections[key] ? 'target1' : 'target2'}
-                      onValueChange={(value) => handleSavePrimary(key, value === 'target1')}
-                    >
-                      <div className="flex items-start space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                        <RadioGroupItem value="target1" id={`${key}-1`} />
-                        <Label htmlFor={`${key}-1`} className="flex-1 cursor-pointer">
-                          <span className="font-medium">Target #1:</span> {target1}
-                        </Label>
-                      </div>
-                      <div className="flex items-start space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                        <RadioGroupItem value="target2" id={`${key}-2`} />
-                        <Label htmlFor={`${key}-2`} className="flex-1 cursor-pointer">
-                          <span className="font-medium">Target #2:</span> {target2}
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
           
           <div className="flex justify-end">
             <Button 
