@@ -55,7 +55,7 @@ Each action MUST:
 - Explicitly include an approximate time (for example: "for 10 minutes", "for 20 minutes", "for about 5 minutes")
 
 Must NOT contain these words or phrases:
-"weekly", "once a week", "every Sunday", "Sundays", "monthly", "once a month", "quarterly", "event", "meeting", "service project", "game night", "outing", "gathering", "every weekend", "bi-weekly", "semi-monthly"
+"weekly", "once a week", "every Sunday", "Sundays", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "monthly", "once a month", "quarterly", "event", "meeting", "service project", "game night", "outing", "gathering", "every weekend", "bi-weekly", "semi-monthly", "appointment", "session", "class", "workshop", "conference", "scheduled", "attend", "join", "participate in"
 
 Do not generate actions that:
 - Require a specific day of the week
@@ -66,11 +66,17 @@ Do not generate actions that:
 INVALID EXAMPLES (DO NOT GENERATE):
 ❌ "Attend youth group meetings once a week" (weekly, not daily + contains "meeting")
 ❌ "Plan a family outing monthly" (monthly, not daily + contains "outing")
-❌ "Schedule one-on-one time weekly" (weekly, not daily)
+❌ "Schedule one-on-one time weekly" (weekly, not daily + contains "scheduled")
 ❌ "Organize an event" (one-time, not repeatable + contains "event")
 ❌ "Go to church every Sunday" (weekly, not daily + contains "Sunday")
-❌ "Attend a short daily team huddle" (contains "meeting" concept, calendar-dependent)
-❌ "Host family game night" (scheduled event, not daily habit)
+❌ "Attend a short daily team huddle" (contains "attend" + "meeting" concept)
+❌ "Host family game night" (scheduled event + contains "game night")
+❌ "Join a weekly accountability call" (weekly + contains "join")
+❌ "Participate in team standup" (contains "participate in" + scheduled)
+❌ "Take a yoga class on Tuesdays" (specific day + contains "class")
+❌ "Schedule a coaching session" (contains "session" + "scheduled")
+❌ "Attend networking events" (contains "attend" + "events")
+❌ "Go to gym on weekdays" (specific days, not truly daily)
 
 VALID EXAMPLES (GENERATE LIKE THESE):
 ✅ "Read a devotional for 10 minutes every morning"
@@ -224,10 +230,53 @@ EVENT REJECTION RULE: If any suggestion even slightly resembles a scheduled even
       }
     }
 
-    console.log('Successfully generated daily actions');
+    // GATE 2: Post-processing validation to filter out any violations
+    const bannedWords = [
+      'weekly', 'once a week', 'every sunday', 'sundays', 'monday', 'tuesday', 'wednesday', 
+      'thursday', 'friday', 'saturday', 'monthly', 'once a month', 'quarterly', 'event', 
+      'meeting', 'service project', 'game night', 'outing', 'gathering', 'every weekend', 
+      'bi-weekly', 'semi-monthly', 'appointment', 'session', 'class', 'workshop', 
+      'conference', 'scheduled', 'attend', 'join', 'participate in'
+    ];
+    
+    const validateActions = (actions: string[], domain: string): string[] => {
+      return actions.filter(action => {
+        const lowerAction = action.toLowerCase();
+        
+        // Check for banned words
+        const hasBannedWord = bannedWords.some(word => lowerAction.includes(word));
+        if (hasBannedWord) {
+          console.warn(`❌ Filtered ${domain}: "${action}" (banned word detected)`);
+          return false;
+        }
+        
+        // Check for duration mention (must have "for X minutes" pattern)
+        const hasDuration = /for (\d+|about \d+|around \d+) minutes?/i.test(action);
+        if (!hasDuration) {
+          console.warn(`❌ Filtered ${domain}: "${action}" (missing duration)`);
+          return false;
+        }
+        
+        return true;
+      });
+    };
+    
+    // Apply validation and rebuild with filtered actions
+    const validated: Partial<DailyActionsOutput> = {};
+    for (const domain of domains) {
+      if (dailyActions[domain]) {
+        validated[domain] = validateActions(dailyActions[domain] as string[], domain);
+        const filtered = (dailyActions[domain] as string[]).length - (validated[domain] as string[]).length;
+        if (filtered > 0) {
+          console.log(`✅ ${domain}: Filtered ${filtered} invalid actions, kept ${validated[domain]?.length}`);
+        }
+      }
+    }
+
+    console.log('Successfully generated and validated daily actions');
 
     return new Response(
-      JSON.stringify({ dailyActions }),
+      JSON.stringify({ dailyActions: validated }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
