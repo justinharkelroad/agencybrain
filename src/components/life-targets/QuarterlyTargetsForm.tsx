@@ -5,16 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Target, Sparkles } from "lucide-react";
+import { Loader2, Target, Sparkles, CheckCircle } from "lucide-react";
 import type { QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 
 interface QuarterlyTargetsFormProps {
   initialData?: QuarterlyTargets | null;
   onSave: (targets: QuarterlyTargets) => void;
   onAnalyze?: (targets: QuarterlyTargets) => void;
+  onLockIn?: () => void;
   isSaving?: boolean;
   isAnalyzing?: boolean;
   hasUnsavedChanges?: boolean;
+  isLockedIn?: boolean;
+  hasAnalysis?: boolean;
 }
 
 const DOMAINS = [
@@ -28,9 +31,12 @@ export function QuarterlyTargetsForm({
   initialData,
   onSave,
   onAnalyze,
+  onLockIn,
   isSaving,
   isAnalyzing,
   hasUnsavedChanges = false,
+  isLockedIn = false,
+  hasAnalysis = false,
 }: QuarterlyTargetsFormProps) {
   const [formData, setFormData] = useState<QuarterlyTargets>({
     quarter: initialData?.quarter || 'Q1',
@@ -179,7 +185,7 @@ export function QuarterlyTargetsForm({
             type="button"
             variant="outline"
             onClick={handleAnalyze}
-            disabled={!hasAnyTarget || isAnalyzing}
+            disabled={!hasAnyTarget || isAnalyzing || isLockedIn}
           >
             {isAnalyzing ? (
               <>
@@ -194,9 +200,22 @@ export function QuarterlyTargetsForm({
             )}
           </Button>
         )}
+        
+        {onLockIn && hasAnalysis && !isLockedIn && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onLockIn}
+            className="hover-scale"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            Lock In Targets
+          </Button>
+        )}
+        
         <Button 
           type="submit" 
-          disabled={!hasAnyTarget || isSaving}
+          disabled={!hasAnyTarget || !isLockedIn || isSaving}
           className={`hover-scale ${hasUnsavedChanges ? 'animate-pulse' : ''}`}
           aria-label="Save targets"
         >
