@@ -52,10 +52,13 @@ export function useQuarterlyTargets(quarter: string) {
   return useQuery({
     queryKey: ['quarterly-targets', quarter],
     queryFn: async () => {
+      // Normalize quarter format for backward compatibility (Q1 → 2025-Q1)
+      const normalizedQuarter = quarter.includes('-') ? quarter : `${new Date().getFullYear()}-${quarter}`;
+      
       const { data, error } = await supabase
         .from('life_targets_quarterly')
         .select('*')
-        .eq('quarter', quarter)
+        .eq('quarter', normalizedQuarter)
         .maybeSingle();
 
       if (error) throw error;

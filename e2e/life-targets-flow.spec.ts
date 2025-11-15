@@ -19,7 +19,7 @@ test.describe('Life Targets - Complete User Flow', () => {
     await page.goto('/life-targets');
     await expect(page.locator('h1')).toContainText('Life Targets');
     
-    // Verify current quarter badge is visible
+    // Verify quarter selector is visible with new YYYY-QX format
     await expect(page.locator('text=/Q[1-4] 202[0-9]/')).toBeVisible();
 
     // Step 2: Navigate to Set Quarterly Targets

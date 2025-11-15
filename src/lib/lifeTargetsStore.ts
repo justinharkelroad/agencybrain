@@ -4,8 +4,9 @@ import type { QuarterlyTargets } from '@/hooks/useQuarterlyTargets';
 import type { MeasurabilityAnalysis } from '@/hooks/useTargetMeasurability';
 import type { MonthlyMissionsOutput } from '@/hooks/useMonthlyMissions';
 import type { DailyActionsOutput } from '@/hooks/useDailyActions';
+import { getCurrentQuarter as getQuarterFromUtils, migrateOldFormat } from './quarterUtils';
 
-type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
+type Quarter = string; // YYYY-QX format (e.g., "2026-Q1")
 type FlowStep = 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' | 'actions' | 'complete';
 
 interface LifeTargetsState {
@@ -32,18 +33,12 @@ interface LifeTargetsState {
   reset: () => void;
 }
 
-const getCurrentQuarter = (): Quarter => {
-  const month = new Date().getMonth() + 1;
-  if (month <= 3) return 'Q1';
-  if (month <= 6) return 'Q2';
-  if (month <= 9) return 'Q3';
-  return 'Q4';
-};
+// No longer needed - using quarterUtils.getCurrentQuarter()
 
 export const useLifeTargetsStore = create<LifeTargetsState>()(
   persist(
-    (set) => ({
-      currentQuarter: getCurrentQuarter(),
+    (set, get) => ({
+      currentQuarter: getQuarterFromUtils(),
       currentStep: 'targets',
       currentSessionId: null,
       targets: null,
@@ -75,6 +70,14 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
     }),
     {
       name: 'life-targets-storage',
+      version: 1,
+      migrate: (persistedState: any, version: number) => {
+        // Migrate old quarter format to new format
+        if (version === 0 && persistedState?.currentQuarter) {
+          persistedState.currentQuarter = migrateOldFormat(persistedState.currentQuarter);
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         currentQuarter: state.currentQuarter,
         currentStep: state.currentStep,

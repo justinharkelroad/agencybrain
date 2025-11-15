@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, CheckCircle2, AlertCircle, Sparkles, Lock } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
+import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
 import { 
   useBrainstormTargets, 
   useUpdateBrainstormTarget,
@@ -208,10 +209,12 @@ export default function LifeTargetsSelection() {
     <div className="container max-w-6xl py-8 space-y-8">
       {/* Header */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Select Your Top 2</h1>
-          <Badge variant="outline" className="ml-2">{currentQuarter} 2025</Badge>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Select Your Top 2</h1>
+          </div>
+          <QuarterSelector />
         </div>
         <p className="text-muted-foreground">
           Review the AI analysis and select your top 1-2 targets per domain. You can apply AI suggestions to improve clarity.

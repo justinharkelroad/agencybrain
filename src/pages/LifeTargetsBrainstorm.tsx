@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2, Edit2, Sparkles, Brain, ArrowRight } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
+import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { 
   useBrainstormTargets, 
   useSaveBrainstormTarget, 
@@ -28,8 +30,8 @@ export default function LifeTargetsBrainstorm() {
   const navigate = useNavigate();
   const { currentQuarter, currentSessionId, setCurrentSessionId, setCurrentStep } = useLifeTargetsStore();
   
-  // Generate session ID if not present, persist it in store
-  const sessionId = useMemo(() => currentSessionId ?? crypto.randomUUID(), [currentSessionId]);
+  // Generate session ID if not present, persist it in store (include quarter for uniqueness)
+  const sessionId = useMemo(() => currentSessionId ?? `${currentQuarter}_${crypto.randomUUID()}`, [currentSessionId, currentQuarter]);
   
   useEffect(() => {
     if (!currentSessionId) {
@@ -187,10 +189,12 @@ export default function LifeTargetsBrainstorm() {
     <div className="container max-w-6xl py-8 space-y-8">
       {/* Header */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Brain className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Brain Dump</h1>
-          <Badge variant="outline" className="ml-2">{currentQuarter} 2025</Badge>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Brain className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Brain Dump</h1>
+          </div>
+          <QuarterSelector />
         </div>
         <p className="text-muted-foreground">
           Enter as many potential targets as you want for each domain. The AI will analyze them all and help you select the best 2.
