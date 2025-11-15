@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -179,28 +180,36 @@ const App = () => (
             <Route path="/life-targets" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <LifeTargets />
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargets />
+                  </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/life-targets/quarterly" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <LifeTargetsQuarterly />
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargetsQuarterly />
+                  </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/life-targets/missions" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <LifeTargetsMissions />
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargetsMissions />
+                  </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/life-targets/daily" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <LifeTargetsDaily />
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <LifeTargetsDaily />
+                  </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
             } />
