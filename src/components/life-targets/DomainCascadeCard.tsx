@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Edit2, Save, X } from "lucide-react";
 import { DailyActionsManager } from "./DailyActionsManager";
+import { useSaveQuarterlyTargets, QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { toast } from "sonner";
 
 interface DomainCascadeCardProps {
   domainKey: string;
@@ -14,6 +16,8 @@ interface DomainCascadeCardProps {
   narrative: string | null;
   monthlyMissions: any;
   dailyActions: string[];
+  currentTargets: QuarterlyTargets;
+  quarter: string;
 }
 
 export function DomainCascadeCard({
@@ -25,15 +29,33 @@ export function DomainCascadeCard({
   narrative,
   monthlyMissions,
   dailyActions,
+  currentTargets,
+  quarter,
 }: DomainCascadeCardProps) {
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [editedTarget, setEditedTarget] = useState(quarterlyTarget);
   const [isEditingNarrative, setIsEditingNarrative] = useState(false);
   const [editedNarrative, setEditedNarrative] = useState(narrative || '');
+  const saveMutation = useSaveQuarterlyTargets();
 
-  const handleSaveTarget = () => {
-    // TODO: Save to database in future enhancement
-    setIsEditingTarget(false);
+  const handleSaveTarget = async () => {
+    const fieldKey = `${domainKey}_target`;
+    const updatedTargets = {
+      ...currentTargets,
+      quarter,
+      [fieldKey]: editedTarget,
+    };
+
+    saveMutation.mutate(updatedTargets, {
+      onSuccess: () => {
+        toast.success('Target updated');
+        setIsEditingTarget(false);
+      },
+      onError: (error) => {
+        console.error('Failed to save target:', error);
+        toast.error('Failed to save target');
+      },
+    });
   };
 
   const handleCancelTarget = () => {
@@ -41,14 +63,47 @@ export function DomainCascadeCard({
     setIsEditingTarget(false);
   };
 
-  const handleSaveNarrative = () => {
-    // TODO: Save to database in future enhancement
-    setIsEditingNarrative(false);
+  const handleSaveNarrative = async () => {
+    const fieldKey = `${domainKey}_narrative`;
+    const updatedTargets = {
+      ...currentTargets,
+      quarter,
+      [fieldKey]: editedNarrative,
+    };
+
+    saveMutation.mutate(updatedTargets, {
+      onSuccess: () => {
+        toast.success('Narrative updated');
+        setIsEditingNarrative(false);
+      },
+      onError: (error) => {
+        console.error('Failed to save narrative:', error);
+        toast.error('Failed to save narrative');
+      },
+    });
   };
 
   const handleCancelNarrative = () => {
     setEditedNarrative(narrative || '');
     setIsEditingNarrative(false);
+  };
+
+  const handleSaveDailyActions = (actions: string[]) => {
+    const fieldKey = `${domainKey}_daily_actions`;
+    const updatedTargets = {
+      ...currentTargets,
+      quarter,
+      [fieldKey]: actions,
+    };
+
+    saveMutation.mutate(updatedTargets, {
+      onSuccess: () => {
+        // Silent save - no toast to avoid spam
+      },
+      onError: (error) => {
+        console.error('Failed to save daily actions:', error);
+      },
+    });
   };
 
   return (
@@ -161,6 +216,7 @@ export function DomainCascadeCard({
           domainKey={domainKey}
           dailyActions={dailyActions}
           textColor={textColor}
+          onSave={handleSaveDailyActions}
         />
       </CardContent>
     </Card>
