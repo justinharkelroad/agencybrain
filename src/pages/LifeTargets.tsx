@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Target, Calendar, Zap, CheckCircle2, Lock } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 
 export default function LifeTargets() {
   const navigate = useNavigate();
@@ -151,9 +153,7 @@ export default function LifeTargets() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold">Life Targets</h1>
-          <Badge variant="outline" className="text-lg px-3 py-1">
-            {currentQuarter}
-          </Badge>
+          <QuarterSelector />
         </div>
         <p className="text-muted-foreground mb-4">
           Plan and track your quarterly life goals across four key domains
@@ -228,7 +228,7 @@ export default function LifeTargets() {
             <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
             <h3 className="text-xl font-semibold mb-2">Quarter Setup Complete!</h3>
             <p className="text-muted-foreground">
-              You've completed all steps for {currentQuarter}. Keep building your daily habits!
+              You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
             </p>
           </CardContent>
         </Card>
