@@ -1,6 +1,6 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Save } from "lucide-react";
+import { ArrowLeft, Download, Save, History } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { CascadeView } from "@/components/life-targets/CascadeView";
@@ -9,12 +9,21 @@ import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 
 export default function LifeTargetsCascade() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentQuarter, selectedDailyActions } = useLifeTargetsStore();
-  const { data: targets } = useQuarterlyTargets(currentQuarter);
+  
+  // Use quarter from URL if present, otherwise use currentQuarter from store
+  const quarter = searchParams.get('quarter') || currentQuarter;
+  const { data: targets } = useQuarterlyTargets(quarter);
   const saveMutation = useSaveQuarterlyTargets();
+  const isHistoricalView = !!searchParams.get('quarter');
 
   const handleBack = () => {
-    navigate('/life-targets/daily');
+    if (isHistoricalView) {
+      navigate('/life-targets/history');
+    } else {
+      navigate('/life-targets/daily');
+    }
   };
 
   const handleExportPDF = () => {
@@ -24,7 +33,7 @@ export default function LifeTargetsCascade() {
     }
     
     try {
-      exportLifeTargetsPDF(targets, selectedDailyActions, currentQuarter);
+      exportLifeTargetsPDF(targets, selectedDailyActions, quarter);
       toast.success('PDF exported successfully!');
     } catch (error) {
       console.error('PDF export error:', error);
@@ -37,7 +46,7 @@ export default function LifeTargetsCascade() {
 
     const updatedTargets = {
       ...targets,
-      quarter: currentQuarter,
+      quarter: quarter,
       body_daily_actions: selectedDailyActions.body || [],
       being_daily_actions: selectedDailyActions.being || [],
       balance_daily_actions: selectedDailyActions.balance || [],
@@ -47,7 +56,7 @@ export default function LifeTargetsCascade() {
     saveMutation.mutate({ data: updatedTargets, showToast: true }, {
       onSuccess: () => {
         toast.success('All changes saved successfully!');
-        navigate('/dashboard');
+        navigate(isHistoricalView ? '/life-targets/history' : '/dashboard');
       },
       onError: (error) => {
         console.error('Failed to save changes:', error);
@@ -93,6 +102,12 @@ export default function LifeTargetsCascade() {
 
         {/* Right: Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
+          {!isHistoricalView && (
+            <Button onClick={() => navigate('/life-targets/history')} variant="outline" size="sm">
+              <History className="mr-2 h-4 w-4" />
+              View History
+            </Button>
+          )}
           <Button onClick={handleExportPDF} variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Export PDF
@@ -112,7 +127,7 @@ export default function LifeTargetsCascade() {
       <CascadeView
         targets={targets}
         selectedDailyActions={selectedDailyActions}
-        quarter={currentQuarter}
+        quarter={quarter}
       />
     </div>
   );
