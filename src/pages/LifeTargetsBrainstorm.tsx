@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,17 @@ type Domain = typeof DOMAINS[number]['key'];
 
 export default function LifeTargetsBrainstorm() {
   const navigate = useNavigate();
-  const { currentQuarter } = useLifeTargetsStore();
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const { currentQuarter, currentSessionId, setCurrentSessionId, setCurrentStep } = useLifeTargetsStore();
+  
+  // Generate session ID if not present, persist it in store
+  const sessionId = useMemo(() => currentSessionId ?? crypto.randomUUID(), [currentSessionId]);
+  
+  useEffect(() => {
+    if (!currentSessionId) {
+      setCurrentSessionId(sessionId);
+    }
+    setCurrentStep('brainstorm');
+  }, [currentSessionId, sessionId, setCurrentSessionId, setCurrentStep]);
   
   const { data: brainstormTargets, isLoading } = useBrainstormTargets(currentQuarter, sessionId);
   const saveMutation = useSaveBrainstormTarget();
@@ -139,14 +148,17 @@ export default function LifeTargetsBrainstorm() {
         sessionId,
       });
       
-      toast.success('Analysis complete! Redirecting to selection...');
-      setTimeout(() => {
-        navigate('/life-targets/selection');
-      }, 1000);
+      // Persist session and step before navigation
+      setCurrentSessionId(sessionId);
+      setCurrentStep('selection');
+      
+      toast.success('Analysis complete! Review your targets.');
+      navigate(`/life-targets/selection?session=${sessionId}`);
     } catch (error) {
       // Error already handled by mutation
     }
   };
+
 
   if (isLoading) {
     return (
