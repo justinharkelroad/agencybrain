@@ -1,19 +1,24 @@
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Target, Calendar, Zap, CheckCircle2, Lock } from "lucide-react";
+import { Target, Calendar, Zap, CheckCircle2, Lock, Download, Eye, Archive } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { useQuarterlyTargetsHistory } from "@/hooks/useQuarterlyTargetsHistory";
 import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
 import { formatQuarterDisplay } from "@/lib/quarterUtils";
+import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
+import { toast } from "sonner";
 
 export default function LifeTargets() {
   const navigate = useNavigate();
   const { currentQuarter, currentStep, setCurrentStep } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
+  const { data: historyTargets } = useQuarterlyTargetsHistory();
+  const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
 
   const targetsSet = useMemo(() => 
     targets ? [
@@ -230,6 +235,88 @@ export default function LifeTargets() {
             <p className="text-muted-foreground">
               You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {progress === 100 && historyTargets && historyTargets.length > 0 && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Archive className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-lg font-semibold">Past Quarters Archive</h3>
+            </div>
+            <div className="space-y-3">
+              {historyTargets
+                .filter(t => t.quarter !== currentQuarter)
+                .slice(0, 3)
+                .map((quarterData) => {
+                  const isDownloading = downloadingQuarter === quarterData.quarter;
+                  
+                  // Get selected daily actions
+                  const selectedActions = {
+                    body: Array.isArray(quarterData.body_daily_actions) ? quarterData.body_daily_actions : [],
+                    being: Array.isArray(quarterData.being_daily_actions) ? quarterData.being_daily_actions : [],
+                    balance: Array.isArray(quarterData.balance_daily_actions) ? quarterData.balance_daily_actions : [],
+                    business: Array.isArray(quarterData.business_daily_actions) ? quarterData.business_daily_actions : [],
+                  };
+
+                  const handleDownload = async () => {
+                    setDownloadingQuarter(quarterData.quarter);
+                    try {
+                      exportLifeTargetsPDF(quarterData, selectedActions, quarterData.quarter);
+                      toast.success('PDF downloaded successfully');
+                    } catch (error) {
+                      console.error('PDF generation error:', error);
+                      toast.error('Failed to generate PDF');
+                    } finally {
+                      setDownloadingQuarter(null);
+                    }
+                  };
+
+                  return (
+                    <div 
+                      key={quarterData.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium">{formatQuarterDisplay(quarterData.quarter)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Last updated: {new Date(quarterData.updated_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownload}
+                          disabled={isDownloading}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {isDownloading ? 'Generating...' : 'Download PDF'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate('/life-targets/cascade')}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Plan
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            {historyTargets.filter(t => t.quarter !== currentQuarter).length > 3 && (
+              <Button
+                variant="ghost"
+                className="w-full mt-4"
+                onClick={() => navigate('/life-targets/history')}
+              >
+                View All History →
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
