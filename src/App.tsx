@@ -58,6 +58,10 @@ import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
+import LifeTargets from "./pages/LifeTargets";
+import LifeTargetsQuarterly from "./pages/LifeTargetsQuarterly";
+import LifeTargetsMissions from "./pages/LifeTargetsMissions";
+import LifeTargetsDaily from "./pages/LifeTargetsDaily";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -168,6 +172,34 @@ const App = () => (
               <ProtectedRoute>
                 <SidebarLayout>
                   <Targets />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <LifeTargets />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/quarterly" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <LifeTargetsQuarterly />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/missions" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <LifeTargetsMissions />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/life-targets/daily" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <LifeTargetsDaily />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

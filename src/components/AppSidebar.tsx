@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Wrench,
   LogOut,
+  Target,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -35,6 +36,7 @@ type AppSidebarProps = {
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "My Agency", url: "/agency", icon: Building2 },
+  { title: "Life Targets", url: "/life-targets", icon: Target },
 ];
 
 const adminItems = [
