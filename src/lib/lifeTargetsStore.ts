@@ -16,6 +16,7 @@ interface LifeTargetsState {
   measurabilityResults: MeasurabilityAnalysis | null;
   monthlyMissions: MonthlyMissionsOutput | null;
   dailyActions: DailyActionsOutput | null;
+  selectedDailyActions: Record<string, string[]>; // GATE 3: Temporary multi-select storage
   isLoading: boolean;
 
   // Actions
@@ -26,6 +27,7 @@ interface LifeTargetsState {
   setMeasurabilityResults: (results: MeasurabilityAnalysis | null) => void;
   setMonthlyMissions: (missions: MonthlyMissionsOutput | null) => void;
   setDailyActions: (actions: DailyActionsOutput | null) => void;
+  setSelectedDailyActions: (selected: Record<string, string[]>) => void;
   setIsLoading: (loading: boolean) => void;
   reset: () => void;
 }
@@ -48,6 +50,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       measurabilityResults: null,
       monthlyMissions: null,
       dailyActions: null,
+      selectedDailyActions: { body: [], being: [], balance: [], business: [] }, // GATE 3
       isLoading: false,
 
       setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
@@ -57,6 +60,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       setMeasurabilityResults: (results) => set({ measurabilityResults: results }),
       setMonthlyMissions: (missions) => set({ monthlyMissions: missions }),
       setDailyActions: (actions) => set({ dailyActions: actions }),
+      setSelectedDailyActions: (selected) => set({ selectedDailyActions: selected }),
       setIsLoading: (loading) => set({ isLoading: loading }),
       reset: () => set({
         currentStep: 'targets',
@@ -65,6 +69,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
         measurabilityResults: null,
         monthlyMissions: null,
         dailyActions: null,
+        selectedDailyActions: { body: [], being: [], balance: [], business: [] },
         isLoading: false,
       }),
     }),
@@ -78,6 +83,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
         measurabilityResults: state.measurabilityResults,
         monthlyMissions: state.monthlyMissions,
         dailyActions: state.dailyActions,
+        selectedDailyActions: state.selectedDailyActions, // GATE 3
       }),
     }
   )
