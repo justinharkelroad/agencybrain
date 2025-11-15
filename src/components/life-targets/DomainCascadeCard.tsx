@@ -46,7 +46,7 @@ export function DomainCascadeCard({
       [fieldKey]: editedTarget,
     };
 
-    saveMutation.mutate(updatedTargets, {
+    saveMutation.mutate({ data: updatedTargets, showToast: true }, {
       onSuccess: () => {
         toast.success('Target updated');
         setIsEditingTarget(false);
@@ -71,7 +71,7 @@ export function DomainCascadeCard({
       [fieldKey]: editedNarrative,
     };
 
-    saveMutation.mutate(updatedTargets, {
+    saveMutation.mutate({ data: updatedTargets, showToast: true }, {
       onSuccess: () => {
         toast.success('Narrative updated');
         setIsEditingNarrative(false);
@@ -96,7 +96,7 @@ export function DomainCascadeCard({
       [fieldKey]: actions,
     };
 
-    saveMutation.mutate(updatedTargets, {
+    saveMutation.mutate({ data: updatedTargets, showToast: false }, {
       onSuccess: () => {
         // Silent save - no toast to avoid spam
       },

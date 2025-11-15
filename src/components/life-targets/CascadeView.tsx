@@ -1,5 +1,6 @@
 import { DomainCascadeCard } from "./DomainCascadeCard";
 import type { QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 
 interface CascadeViewProps {
   targets: QuarterlyTargets;
@@ -40,7 +41,7 @@ export function CascadeView({ targets, selectedDailyActions, quarter }: CascadeV
       {/* Quarter Info */}
       <div className="bg-muted/50 rounded-lg p-4 border">
         <h2 className="text-lg font-semibold mb-1">Planning Period</h2>
-        <p className="text-muted-foreground">{quarter} 2025 - Your 90-Day Focus</p>
+        <p className="text-muted-foreground">{formatQuarterDisplay(quarter)} - Your 90-Day Focus</p>
       </div>
 
       {/* Domain Cards */}
@@ -54,6 +55,10 @@ export function CascadeView({ targets, selectedDailyActions, quarter }: CascadeV
             ? targets[`${domain.key}_narrative` as keyof QuarterlyTargets]
             : targets[`${domain.key}_narrative2` as keyof QuarterlyTargets];
 
+          // Extract the correct missions subset (target1 or target2)
+          const monthlyAll = targets[`${domain.key}_monthly_missions` as keyof QuarterlyTargets] as any;
+          const selectedMissions = monthlyAll ? (primaryIsTarget1 ? monthlyAll.target1 : monthlyAll.target2) : null;
+
           // Skip if no primary target
           if (!primaryTarget) return null;
 
@@ -66,7 +71,7 @@ export function CascadeView({ targets, selectedDailyActions, quarter }: CascadeV
               textColor={domain.textColor}
               quarterlyTarget={primaryTarget as string}
               narrative={primaryNarrative as string}
-              monthlyMissions={targets[`${domain.key}_monthly_missions` as keyof QuarterlyTargets] as any}
+              monthlyMissions={selectedMissions}
               dailyActions={selectedDailyActions[domain.key] || []}
               currentTargets={targets}
               quarter={quarter}
