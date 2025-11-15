@@ -72,27 +72,40 @@ export default function LifeTargetsCascade() {
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleBack}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Cascading Targets View</h1>
-            <p className="text-muted-foreground mt-1">
-              Review and edit your complete quarterly plan
-            </p>
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: Back Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+
+        {/* Center: Title */}
+        <div className="flex-1 text-center">
+          <h1 className="text-3xl font-bold">Cascading Targets View</h1>
+          <p className="text-muted-foreground mt-1">
+            Review and edit your complete quarterly plan
+          </p>
         </div>
 
-        <Button onClick={handleExportPDF} variant="outline">
-          <Download className="mr-2 h-4 w-4" />
-          Export PDF
-        </Button>
+        {/* Right: Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={handleExportPDF} variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Export PDF
+          </Button>
+          <Button 
+            onClick={handleSaveAllChanges} 
+            disabled={saveMutation.isPending}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saveMutation.isPending ? 'Saving...' : 'Save & Exit'}
+          </Button>
+        </div>
       </div>
 
       {/* Cascade View */}
