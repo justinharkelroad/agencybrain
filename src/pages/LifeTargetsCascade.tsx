@@ -33,7 +33,7 @@ export default function LifeTargetsCascade() {
       business_daily_actions: selectedDailyActions.business || [],
     };
 
-    saveMutation.mutate(updatedTargets, {
+    saveMutation.mutate({ data: updatedTargets, showToast: true }, {
       onSuccess: () => {
         toast.success('All changes saved successfully!');
         navigate('/dashboard');

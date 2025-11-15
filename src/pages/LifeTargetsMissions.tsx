@@ -144,7 +144,7 @@ export default function LifeTargetsMissions() {
         business_monthly_missions: results.business,
       };
 
-      await saveTargets.mutateAsync(updatedTargets);
+      await saveTargets.mutateAsync({ data: updatedTargets, showToast: false });
       setCurrentStep('primary');
       
       // Auto-scroll to missions after generation
@@ -165,7 +165,7 @@ export default function LifeTargetsMissions() {
     };
 
     try {
-      await saveTargets.mutateAsync(updatedTargets);
+      await saveTargets.mutateAsync({ data: updatedTargets, showToast: true });
       setPrimarySelections(prev => ({ ...prev, [domain]: isPrimaryTarget1 }));
       toast.success('Primary target saved');
     } catch (error) {

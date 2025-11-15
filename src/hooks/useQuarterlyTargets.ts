@@ -68,11 +68,17 @@ export function useQuarterlyTargets(quarter: string) {
   });
 }
 
+interface SaveQuarterlyTargetsVariables {
+  data: QuarterlyTargets;
+  showToast?: boolean;
+}
+
 export function useSaveQuarterlyTargets() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (targets: QuarterlyTargets) => {
+    mutationFn: async (variables: SaveQuarterlyTargetsVariables) => {
+      const targets = variables.data;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -134,9 +140,11 @@ export function useSaveQuarterlyTargets() {
         return data;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['quarterly-targets'] });
-      toast.success('Targets saved successfully');
+      if (variables.showToast !== false) {
+        toast.success('Targets saved successfully');
+      }
     },
     onError: (error) => {
       console.error('Save targets error:', error);

@@ -24,7 +24,7 @@ export default function LifeTargetsQuarterly() {
 
   const handleSave = async (formTargets: QuarterlyTargets) => {
     try {
-      await saveTargets.mutateAsync(formTargets);
+      await saveTargets.mutateAsync({ data: formTargets, showToast: true });
       navigate('/life-targets');
     } catch (error) {
       console.error('Failed to save targets:', error);
