@@ -1141,7 +1141,6 @@ export type Database = {
       }
       life_targets_quarterly: {
         Row: {
-          agency_id: string
           balance_daily_habit: string | null
           balance_monthly_missions: Json | null
           balance_narrative: string | null
@@ -1159,15 +1158,13 @@ export type Database = {
           business_narrative: string | null
           business_target: string | null
           created_at: string
-          created_by: string
           id: string
           quarter: string
           raw_session_data: Json | null
-          team_member_id: string
           updated_at: string
+          user_id: string
         }
         Insert: {
-          agency_id: string
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
@@ -1185,15 +1182,13 @@ export type Database = {
           business_narrative?: string | null
           business_target?: string | null
           created_at?: string
-          created_by: string
           id?: string
           quarter: string
           raw_session_data?: Json | null
-          team_member_id: string
           updated_at?: string
+          user_id: string
         }
         Update: {
-          agency_id?: string
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
@@ -1211,29 +1206,13 @@ export type Database = {
           business_narrative?: string | null
           business_target?: string | null
           created_at?: string
-          created_by?: string
           id?: string
           quarter?: string
           raw_session_data?: Json | null
-          team_member_id?: string
           updated_at?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "life_targets_quarterly_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "life_targets_quarterly_team_member_id_fkey"
-            columns: ["team_member_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       member_checklist_items: {
         Row: {
