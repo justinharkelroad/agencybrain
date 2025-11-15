@@ -14,7 +14,7 @@ interface DomainCascadeCardProps {
   textColor: string;
   quarterlyTarget: string;
   narrative: string | null;
-  monthlyMissions: any;
+  monthlyMissions: Record<string, { mission: string; why: string }> | null;
   dailyActions: string[];
   currentTargets: QuarterlyTargets;
   quarter: string;
@@ -199,12 +199,21 @@ export function DomainCascadeCard({
               Monthly Missions
             </h3>
             <div className="space-y-2">
-              {Object.entries(monthlyMissions).map(([month, mission]: [string, any]) => (
-                <div key={month} className="flex gap-2">
-                  <span className="font-medium text-sm min-w-[60px]">
-                    {month}:
-                  </span>
-                  <span className="text-sm text-foreground">{mission}</span>
+              {Object.entries(monthlyMissions).map(([month, missionData]: [string, any]) => (
+                <div key={month} className="border-l-2 border-muted pl-3 py-1">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="font-semibold text-sm min-w-[60px]">
+                      {month}:
+                    </span>
+                    <span className="text-sm text-foreground">
+                      {missionData?.mission || 'No mission set'}
+                    </span>
+                  </div>
+                  {missionData?.why && (
+                    <p className="text-xs text-muted-foreground italic ml-[68px]">
+                      Why: {missionData.why}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
