@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ export default function LifeTargetsMissions() {
     balance: true,
     business: true,
   });
+  const missionsRef = useRef<HTMLDivElement>(null);
 
   // Load missions from database if they exist
   useEffect(() => {
@@ -101,6 +102,11 @@ export default function LifeTargetsMissions() {
 
       await saveTargets.mutateAsync(updatedTargets);
       setCurrentStep('primary');
+      
+      // Auto-scroll to missions after generation
+      setTimeout(() => {
+        missionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } catch (error) {
       console.error('Failed to generate missions:', error);
     }
@@ -209,7 +215,12 @@ export default function LifeTargetsMissions() {
       )}
 
       {monthlyMissions && (
-        <div className="space-y-6">
+        <div className="space-y-6" ref={missionsRef}>
+          <MonthlyMissionsTimeline
+            missions={monthlyMissions}
+            selectedDomain={selectedDomain === 'all' ? undefined : selectedDomain}
+          />
+
           {domainsWithMultipleTargets.length > 0 && (
             <Card>
               <CardHeader>
@@ -248,23 +259,16 @@ export default function LifeTargetsMissions() {
               </CardContent>
             </Card>
           )}
-
-          <MonthlyMissionsTimeline
-            missions={monthlyMissions}
-            selectedDomain={selectedDomain === 'all' ? undefined : selectedDomain}
-          />
           
-          {domainsWithMultipleTargets.length > 0 && (
-            <div className="flex justify-end">
-              <Button 
-                onClick={handleContinue}
-                disabled={!canContinue}
-                size="lg"
-              >
-                Continue to Daily Actions
-              </Button>
-            </div>
-          )}
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleContinue}
+              disabled={!canContinue}
+              size="lg"
+            >
+              Continue to Daily Actions
+            </Button>
+          </div>
         </div>
       )}
     </div>
