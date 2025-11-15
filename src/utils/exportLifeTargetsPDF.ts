@@ -35,23 +35,26 @@ export function exportLifeTargetsPDF(
 
   // Cover Page
   doc.setFontSize(20);
-  doc.text('Quarterly Life Targets Plan', pageWidth / 2, yPosition, { align: 'center' });
+  const yearMatch = quarter.match(/^(\d{4})/);
+  const year = yearMatch?.[1] || new Date().getFullYear();
+  const quarterMatch = quarter.match(/Q[1-4]/);
+  const quarterKey = quarterMatch?.[0] || 'Q1';
+  const quarterNum = quarterKey.replace('Q', '');
+  doc.text(`Your ${year} Quarter ${quarterNum} Targets`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 12;
 
   doc.setFontSize(14);
-  const quarterMatch = quarter.match(/Q[1-4]/);
-  const quarterKey = quarterMatch?.[0] || 'Q1';
   const monthRange = QUARTER_MONTHS[quarterKey as keyof typeof QUARTER_MONTHS]?.join(' - ') || '';
-  doc.text(`${quarter}: ${monthRange}`, pageWidth / 2, yPosition, { align: 'center' });
+  doc.text(monthRange, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 10;
 
   doc.setFontSize(10);
   const generatedDate = new Date().toLocaleDateString();
-  doc.text(`Generated: ${generatedDate}`, pageWidth / 2, yPosition, { align: 'center' });
+  doc.text(`Date Committed: ${generatedDate}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 8;
 
   doc.setFontSize(12);
-  doc.text('Your 90-Day Holistic Growth Plan', pageWidth / 2, yPosition, { align: 'center' });
+  doc.text('Your 90 Day Action Map', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 20;
 
   // Render each domain
