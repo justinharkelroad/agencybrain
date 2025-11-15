@@ -1139,24 +1139,78 @@ export type Database = {
         }
         Relationships: []
       }
+      life_targets_brainstorm: {
+        Row: {
+          clarity_score: number | null
+          created_at: string
+          domain: string
+          id: string
+          is_primary: boolean | null
+          is_selected: boolean | null
+          quarter: string
+          rewritten_target: string | null
+          target_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clarity_score?: number | null
+          created_at?: string
+          domain: string
+          id?: string
+          is_primary?: boolean | null
+          is_selected?: boolean | null
+          quarter: string
+          rewritten_target?: string | null
+          target_text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clarity_score?: number | null
+          created_at?: string
+          domain?: string
+          id?: string
+          is_primary?: boolean | null
+          is_selected?: boolean | null
+          quarter?: string
+          rewritten_target?: string | null
+          target_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       life_targets_quarterly: {
         Row: {
           balance_daily_habit: string | null
           balance_monthly_missions: Json | null
           balance_narrative: string | null
+          balance_narrative2: string | null
+          balance_primary_is_target1: boolean | null
           balance_target: string | null
+          balance_target2: string | null
           being_daily_habit: string | null
           being_monthly_missions: Json | null
           being_narrative: string | null
+          being_narrative2: string | null
+          being_primary_is_target1: boolean | null
           being_target: string | null
+          being_target2: string | null
           body_daily_habit: string | null
           body_monthly_missions: Json | null
           body_narrative: string | null
+          body_narrative2: string | null
+          body_primary_is_target1: boolean | null
           body_target: string | null
+          body_target2: string | null
           business_daily_habit: string | null
           business_monthly_missions: Json | null
           business_narrative: string | null
+          business_narrative2: string | null
+          business_primary_is_target1: boolean | null
           business_target: string | null
+          business_target2: string | null
           created_at: string
           id: string
           quarter: string
@@ -1168,19 +1222,31 @@ export type Database = {
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
+          balance_narrative2?: string | null
+          balance_primary_is_target1?: boolean | null
           balance_target?: string | null
+          balance_target2?: string | null
           being_daily_habit?: string | null
           being_monthly_missions?: Json | null
           being_narrative?: string | null
+          being_narrative2?: string | null
+          being_primary_is_target1?: boolean | null
           being_target?: string | null
+          being_target2?: string | null
           body_daily_habit?: string | null
           body_monthly_missions?: Json | null
           body_narrative?: string | null
+          body_narrative2?: string | null
+          body_primary_is_target1?: boolean | null
           body_target?: string | null
+          body_target2?: string | null
           business_daily_habit?: string | null
           business_monthly_missions?: Json | null
           business_narrative?: string | null
+          business_narrative2?: string | null
+          business_primary_is_target1?: boolean | null
           business_target?: string | null
+          business_target2?: string | null
           created_at?: string
           id?: string
           quarter: string
@@ -1192,19 +1258,31 @@ export type Database = {
           balance_daily_habit?: string | null
           balance_monthly_missions?: Json | null
           balance_narrative?: string | null
+          balance_narrative2?: string | null
+          balance_primary_is_target1?: boolean | null
           balance_target?: string | null
+          balance_target2?: string | null
           being_daily_habit?: string | null
           being_monthly_missions?: Json | null
           being_narrative?: string | null
+          being_narrative2?: string | null
+          being_primary_is_target1?: boolean | null
           being_target?: string | null
+          being_target2?: string | null
           body_daily_habit?: string | null
           body_monthly_missions?: Json | null
           body_narrative?: string | null
+          body_narrative2?: string | null
+          body_primary_is_target1?: boolean | null
           body_target?: string | null
+          body_target2?: string | null
           business_daily_habit?: string | null
           business_monthly_missions?: Json | null
           business_narrative?: string | null
+          business_narrative2?: string | null
+          business_primary_is_target1?: boolean | null
           business_target?: string | null
+          business_target2?: string | null
           created_at?: string
           id?: string
           quarter?: string
