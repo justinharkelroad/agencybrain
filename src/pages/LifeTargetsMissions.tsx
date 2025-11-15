@@ -17,11 +17,11 @@ export default function LifeTargetsMissions() {
   const generateMissions = useMonthlyMissions();
   const saveTargets = useSaveQuarterlyTargets();
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
-  const [primarySelections, setPrimarySelections] = useState<Record<string, boolean>>({
-    body: true,
-    being: true,
-    balance: true,
-    business: true,
+  const [primarySelections, setPrimarySelections] = useState<Record<string, boolean | null>>({
+    body: null,
+    being: null,
+    balance: null,
+    business: null,
   });
   const missionsRef = useRef<HTMLDivElement>(null);
 
@@ -60,10 +60,10 @@ export default function LifeTargetsMissions() {
 
       // Load primary selections from database
       setPrimarySelections({
-        body: targets.body_primary_is_target1 ?? true,
-        being: targets.being_primary_is_target1 ?? true,
-        balance: targets.balance_primary_is_target1 ?? true,
-        business: targets.business_primary_is_target1 ?? true,
+        body: targets.body_primary_is_target1,
+        being: targets.being_primary_is_target1,
+        balance: targets.balance_primary_is_target1,
+        business: targets.business_primary_is_target1,
       });
     }
   }, [targets, setMonthlyMissions]);
@@ -172,7 +172,7 @@ export default function LifeTargetsMissions() {
   ].filter(d => d.target1 && d.target2) : [];
 
   const canContinue = domainsWithMultipleTargets.length === 0 || 
-    domainsWithMultipleTargets.every(d => primarySelections[d.key] !== undefined);
+    domainsWithMultipleTargets.every(d => primarySelections[d.key] !== null && primarySelections[d.key] !== undefined);
 
   return (
     <div className="container max-w-6xl py-8 space-y-8">
