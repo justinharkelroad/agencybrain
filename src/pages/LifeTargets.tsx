@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Target, Calendar, Zap, CheckCircle2, Lock, Download, Eye, Archive } from "lucide-react";
+import { Target, Calendar, Zap, CheckCircle2, Lock, Download, Eye, Archive, RotateCcw } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useQuarterlyTargetsHistory } from "@/hooks/useQuarterlyTargetsHistory";
@@ -12,13 +12,34 @@ import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
 import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 import { toast } from "sonner";
+import { useResetQuarter } from "@/hooks/useResetQuarter";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
   const { data: historyTargets } = useQuarterlyTargetsHistory();
   const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
+  const resetQuarter = useResetQuarter();
+
+  const handleReset = () => {
+    resetQuarter.mutate({
+      quarter: currentQuarter,
+      quarterlyTargetId: targets?.id || null,
+      sessionId: currentSessionId,
+    });
+  };
 
   const handleDownloadPDF = async () => {
     if (!targets) return;
@@ -261,7 +282,7 @@ export default function LifeTargets() {
                 You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
               </p>
             </div>
-            <div className="flex gap-3 justify-center pt-2">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Button
                 variant="default"
                 onClick={() => navigate('/life-targets/cascade')}
@@ -277,6 +298,33 @@ export default function LifeTargets() {
                 <Download className="h-4 w-4 mr-2" />
                 {downloadingQuarter === currentQuarter ? 'Generating...' : 'Download PDF'}
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive">
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Start Over This Quarter
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Start Over This Quarter?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete your {formatQuarterDisplay(currentQuarter)} plan 
+                      and all associated data. You'll start with a fresh slate. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleReset} 
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      disabled={resetQuarter.isPending}
+                    >
+                      {resetQuarter.isPending ? 'Resetting...' : 'Yes, Start Over'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
