@@ -15,10 +15,25 @@ import { toast } from "sonner";
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter, currentStep, setCurrentStep } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
   const { data: historyTargets } = useQuarterlyTargetsHistory();
   const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
+
+  const handleDownloadPDF = async () => {
+    if (!targets) return;
+    
+    setDownloadingQuarter(currentQuarter);
+    try {
+      exportLifeTargetsPDF(targets, selectedDailyActions, currentQuarter);
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setDownloadingQuarter(null);
+    }
+  };
 
   const targetsSet = useMemo(() => 
     targets ? [
@@ -238,28 +253,57 @@ export default function LifeTargets() {
 
       {progress === 100 && (
         <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-6 text-center">
-            <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
-            <h3 className="text-xl font-semibold mb-2">Quarter Setup Complete!</h3>
-            <p className="text-muted-foreground">
-              You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
-            </p>
+          <CardContent className="p-6 text-center space-y-4">
+            <CheckCircle2 className="h-12 w-12 text-primary mx-auto" />
+            <div>
+              <h3 className="text-xl font-semibold mb-2">Quarter Setup Complete!</h3>
+              <p className="text-muted-foreground">
+                You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center pt-2">
+              <Button
+                variant="default"
+                onClick={() => navigate('/life-targets/cascade')}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Your Plan
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadPDF}
+                disabled={downloadingQuarter === currentQuarter}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloadingQuarter === currentQuarter ? 'Generating...' : 'Download PDF'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {progress === 100 && historyTargets && historyTargets.length > 0 && (
+      {progress === 100 && (
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Archive className="h-5 w-5 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Past Quarters Archive</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-muted-foreground" />
+                <h3 className="text-lg font-semibold">Past Quarters Archive</h3>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/life-targets/history')}
+              >
+                View All History
+              </Button>
             </div>
-            <div className="space-y-3">
-              {historyTargets
-                .filter(t => t.quarter !== currentQuarter)
-                .slice(0, 3)
-                .map((quarterData) => {
+            {historyTargets && historyTargets.length > 0 ? (
+              <div className="space-y-3">
+                {historyTargets
+                  .filter(t => t.quarter !== currentQuarter)
+                  .slice(0, 3)
+                  .map((quarterData) => {
                   const isDownloading = downloadingQuarter === quarterData.quarter;
                   
                   // Get selected daily actions
@@ -315,16 +359,12 @@ export default function LifeTargets() {
                       </div>
                     </div>
                   );
-                })}
-            </div>
-            {historyTargets.filter(t => t.quarter !== currentQuarter).length > 3 && (
-              <Button
-                variant="ghost"
-                className="w-full mt-4"
-                onClick={() => navigate('/life-targets/history')}
-              >
-                View All History →
-              </Button>
+                  })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No past quarters yet. This will be your first!
+              </p>
             )}
           </CardContent>
         </Card>
