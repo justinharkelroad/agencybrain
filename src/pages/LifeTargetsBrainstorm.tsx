@@ -13,9 +13,12 @@ import {
   useSaveBrainstormTarget, 
   useUpdateBrainstormTarget,
   useDeleteBrainstormTarget,
-  useBatchAnalyzeBrainstorm
+  useBatchAnalyzeBrainstorm,
+  useClearBrainstormSession
 } from "@/hooks/useBrainstormTargets";
 import { toast } from "sonner";
+import { isValidUUID } from "@/lib/utils";
+
 
 const DOMAINS = [
   { key: 'body', label: 'Body', icon: '💪', color: 'hsl(var(--primary))' },
@@ -31,10 +34,10 @@ export default function LifeTargetsBrainstorm() {
   const { currentQuarter, currentSessionId, setCurrentSessionId, setCurrentStep } = useLifeTargetsStore();
   
   // Generate session ID if not present, persist it in store
-  const sessionId = useMemo(() => currentSessionId ?? crypto.randomUUID(), [currentSessionId]);
+  const sessionId = useMemo(() => (isValidUUID(currentSessionId) ? currentSessionId! : crypto.randomUUID()), [currentSessionId]);
   
   useEffect(() => {
-    if (!currentSessionId) {
+    if (!isValidUUID(currentSessionId)) {
       setCurrentSessionId(sessionId);
     }
     setCurrentStep('brainstorm');
@@ -45,6 +48,7 @@ export default function LifeTargetsBrainstorm() {
   const updateMutation = useUpdateBrainstormTarget();
   const deleteMutation = useDeleteBrainstormTarget();
   const analyzeMutation = useBatchAnalyzeBrainstorm();
+  const clearMutation = useClearBrainstormSession();
 
   const [inputs, setInputs] = useState<Record<Domain, string>>({
     body: '',
@@ -194,7 +198,28 @@ export default function LifeTargetsBrainstorm() {
             <Brain className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold">Brain Dump</h1>
           </div>
-          <QuarterSelector />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                const confirmed = window.confirm('This will delete brainstorm ideas for this session and quarter only. Continue?');
+                if (!confirmed) return;
+                try {
+                  await clearMutation.mutateAsync({ quarter: currentQuarter, sessionId });
+                  const newId = crypto.randomUUID();
+                  setCurrentSessionId(newId);
+                  setInputs({ body: '', being: '', balance: '', business: '' });
+                  toast.success('Session reset. Start fresh.');
+                } catch (e) {
+                  // handled in mutation
+                }
+              }}
+            >
+              Start Over
+            </Button>
+            <QuarterSelector />
+          </div>
         </div>
         <p className="text-muted-foreground">
           Enter as many potential targets as you want for each domain. The AI will analyze them all and help you select the best 2.
