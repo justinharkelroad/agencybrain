@@ -91,8 +91,8 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
         </div>
       )}
 
-      {!isCompleted && (
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border/30">
+      <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border/30">
+        {!isCompleted && (
           <Button
             variant="ghost"
             size="sm"
@@ -104,19 +104,19 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
           >
             <Edit2 className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(item.id);
-            }}
-            className="h-7 px-2 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      )}
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+          className="h-7 px-2 text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
     </div>
   );
 }
