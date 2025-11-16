@@ -22,6 +22,7 @@ interface MonthlyMissionsTimelineProps {
   primarySelections?: PrimarySelections;
   onLockIn?: (domain: string, isTarget1: boolean) => void;
   isLoading?: boolean;
+  quarter: string;
 }
 
 const DOMAINS = [
@@ -30,6 +31,23 @@ const DOMAINS = [
   { key: 'balance', label: 'Balance', color: 'text-green-600 dark:text-green-400' },
   { key: 'business', label: 'Business', color: 'text-orange-600 dark:text-orange-400' },
 ] as const;
+
+const QUARTER_MONTHS: Record<string, string[]> = {
+  'Q1': ['January', 'February', 'March'],
+  'Q2': ['April', 'May', 'June'],
+  'Q3': ['July', 'August', 'September'],
+  'Q4': ['October', 'November', 'December'],
+};
+
+function sortMonthEntries(entries: [string, any][], quarter: string): [string, any][] {
+  const quarterPart = quarter.split('-')[1] as keyof typeof QUARTER_MONTHS;
+  const orderedMonths = QUARTER_MONTHS[quarterPart] || [];
+  return entries.sort((a, b) => {
+    const indexA = orderedMonths.indexOf(a[0]);
+    const indexB = orderedMonths.indexOf(b[0]);
+    return indexA - indexB;
+  });
+}
 
 function MissionCard({ 
   month, 
@@ -64,7 +82,8 @@ function DomainMissions({
   domainMissions,
   targetTexts,
   primarySelections,
-  onLockIn
+  onLockIn,
+  quarter
 }: { 
   domainKey: string;
   label: string;
@@ -73,6 +92,7 @@ function DomainMissions({
   targetTexts?: TargetTexts | null;
   primarySelections?: PrimarySelections;
   onLockIn?: (domain: string, isTarget1: boolean) => void;
+  quarter: string;
 }) {
   const hasTarget1 = domainMissions.target1 && Object.keys(domainMissions.target1).length > 0;
   const hasTarget2 = domainMissions.target2 && Object.keys(domainMissions.target2).length > 0;
@@ -122,7 +142,7 @@ function DomainMissions({
             </div>
           )}
           <div className="grid gap-3 md:grid-cols-3">
-            {Object.entries(domainMissions.target1!).map(([month, data]) => (
+            {sortMonthEntries(Object.entries(domainMissions.target1!), quarter).map(([month, data]) => (
               <MissionCard
                 key={month}
                 month={month}
@@ -160,7 +180,7 @@ function DomainMissions({
             )}
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            {Object.entries(domainMissions.target2!).map(([month, data]) => (
+            {sortMonthEntries(Object.entries(domainMissions.target2!), quarter).map(([month, data]) => (
               <MissionCard
                 key={month}
                 month={month}
@@ -181,7 +201,8 @@ export function MonthlyMissionsTimeline({
   targetTexts,
   primarySelections,
   onLockIn,
-  isLoading = false
+  isLoading = false,
+  quarter
 }: MonthlyMissionsTimelineProps) {
   // Helper to check if missions have data
   const hasMissionsData = (missions: any): boolean => {
@@ -246,6 +267,7 @@ export function MonthlyMissionsTimeline({
               targetTexts={targetTexts}
               primarySelections={primarySelections}
               onLockIn={onLockIn}
+              quarter={quarter}
             />
           );
         })}

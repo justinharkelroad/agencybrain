@@ -268,6 +268,7 @@ export default function LifeTargetsMissions() {
           primarySelections={primarySelections}
           onLockIn={handleSavePrimary}
           isLoading={generateMissions.isPending}
+          quarter={currentQuarter}
         />
         
         {hasMissionsData(monthlyMissions) && (
