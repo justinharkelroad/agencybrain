@@ -103,7 +103,8 @@ export function useSaveBrainstormTarget() {
       if (error?.code === '23505') {
         toast.error('This target already exists. Try different wording.');
       } else {
-        toast.error('Failed to save target. Please try again.');
+        const details = (error?.message || error?.details || '').toString();
+        toast.error(`Failed to save target${details ? `: ${details}` : ''}`);
       }
     }
   });

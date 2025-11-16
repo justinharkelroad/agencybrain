@@ -5,6 +5,8 @@ import type { MeasurabilityAnalysis } from '@/hooks/useTargetMeasurability';
 import type { MonthlyMissionsOutput } from '@/hooks/useMonthlyMissions';
 import type { DailyActionsOutput } from '@/hooks/useDailyActions';
 import { getCurrentQuarter as getQuarterFromUtils, migrateOldFormat } from './quarterUtils';
+import { isValidUUID } from '@/lib/utils';
+
 
 type Quarter = string; // YYYY-QX format (e.g., "2026-Q1")
 type FlowStep = 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' | 'actions' | 'complete';
@@ -70,11 +72,16 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
     }),
     {
       name: 'life-targets-storage',
-      version: 1,
+      version: 2,
       migrate: (persistedState: any, version: number) => {
-        // Migrate old quarter format to new format
-        if (version === 0 && persistedState?.currentQuarter) {
+        // v1 -> v2: ensure valid session id and migrate quarter format
+        if (!persistedState) return persistedState;
+        if (version < 1 && persistedState?.currentQuarter) {
           persistedState.currentQuarter = migrateOldFormat(persistedState.currentQuarter);
+        }
+        const sid = persistedState?.currentSessionId as string | null | undefined;
+        if (sid && !isValidUUID(sid)) {
+          persistedState.currentSessionId = null;
         }
         return persistedState;
       },
