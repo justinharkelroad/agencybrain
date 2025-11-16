@@ -30,8 +30,8 @@ export default function LifeTargetsBrainstorm() {
   const navigate = useNavigate();
   const { currentQuarter, currentSessionId, setCurrentSessionId, setCurrentStep } = useLifeTargetsStore();
   
-  // Generate session ID if not present, persist it in store (include quarter for uniqueness)
-  const sessionId = useMemo(() => currentSessionId ?? `${currentQuarter}_${crypto.randomUUID()}`, [currentSessionId, currentQuarter]);
+  // Generate session ID if not present, persist it in store
+  const sessionId = useMemo(() => currentSessionId ?? crypto.randomUUID(), [currentSessionId]);
   
   useEffect(() => {
     if (!currentSessionId) {
