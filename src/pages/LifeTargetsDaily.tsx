@@ -151,6 +151,11 @@ export default function LifeTargetsDaily() {
           onSelectionsChange={setSelectedDailyActions}
           onContinue={handleContinue}
         />
+      ) : generateActions.isPending ? (
+        <div className="text-center py-12 space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Generating your daily actions...</p>
+        </div>
       ) : (
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">
