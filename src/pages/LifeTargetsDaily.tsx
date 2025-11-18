@@ -95,6 +95,10 @@ export default function LifeTargetsDaily() {
     }
   };
 
+  const handleActionsChange = (updatedActions: typeof dailyActions) => {
+    setDailyActions(updatedActions);
+  };
+
   const handleContinue = () => {
     // GATE 3: Navigate to cascade view instead of saving
     navigate('/life-targets/cascade');
@@ -145,12 +149,13 @@ export default function LifeTargetsDaily() {
 
       {/* Actions Selector */}
       {hasGeneratedActions && dailyActions ? (
-        <DailyActionsSelector
-          actions={dailyActions}
-          selectedActions={selectedDailyActions}
-          onSelectionsChange={setSelectedDailyActions}
-          onContinue={handleContinue}
-        />
+          <DailyActionsSelector
+            actions={dailyActions}
+            selectedActions={selectedDailyActions}
+            onSelectionsChange={setSelectedDailyActions}
+            onActionsChange={handleActionsChange}
+            onContinue={handleContinue}
+          />
       ) : generateActions.isPending ? (
         <div className="text-center py-12 space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />

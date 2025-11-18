@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, ArrowRight, Pencil, Plus, X } from "lucide-react";
 import type { DailyActionsOutput } from "@/hooks/useDailyActions";
+import { toast } from "sonner";
 
 interface DailyActionsSelectorProps {
   actions: DailyActionsOutput;
   selectedActions?: Record<string, string[]>;
   onSelectionsChange?: (selections: Record<string, string[]>) => void;
+  onActionsChange?: (actions: DailyActionsOutput) => void;
   onContinue?: () => void;
 }
 
@@ -26,6 +29,18 @@ function DomainActions({
   actions,
   selectedActions,
   onToggle,
+  editingAction,
+  editText,
+  onEditStart,
+  onEditSave,
+  onEditCancel,
+  onEditTextChange,
+  addingCustom,
+  customText,
+  onAddCustomStart,
+  onAddCustomSave,
+  onAddCustomCancel,
+  onCustomTextChange,
 }: {
   domainKey: string;
   label: string;
@@ -33,6 +48,18 @@ function DomainActions({
   actions: string[];
   selectedActions: string[];
   onToggle: (action: string) => void;
+  editingAction: { domain: string; index: number } | null;
+  editText: string;
+  onEditStart: (domain: string, index: number, text: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  onEditTextChange: (text: string) => void;
+  addingCustom: string | null;
+  customText: string;
+  onAddCustomStart: (domain: string) => void;
+  onAddCustomSave: (domain: string) => void;
+  onAddCustomCancel: () => void;
+  onCustomTextChange: (text: string) => void;
 }) {
   if (!actions || actions.length === 0) return null;
 
@@ -51,26 +78,88 @@ function DomainActions({
       <div className="grid gap-3 sm:grid-cols-2">
         {actions.map((action, index) => {
           const isSelected = selectedActions.includes(action);
+          const isEditing = editingAction?.domain === domainKey && editingAction?.index === index;
 
           return (
             <div
               key={index}
-              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors group ${
+                isEditing ? 'ring-2 ring-primary' :
                 isSelected
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-muted-foreground/50'
               }`}
-              onClick={() => onToggle(action)}
             >
-              <Checkbox
-                checked={isSelected}
-                className="mt-0.5 pointer-events-none"
-              />
-              <p className="text-sm flex-1">{action}</p>
+              {!isEditing && (
+                <Checkbox
+                  checked={isSelected}
+                  className="mt-0.5"
+                  onClick={() => onToggle(action)}
+                />
+              )}
+              {isEditing ? (
+                <div className="flex-1 space-y-2">
+                  <Input
+                    value={editText}
+                    onChange={(e) => onEditTextChange(e.target.value)}
+                    className="text-sm"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={onEditSave}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={onEditCancel}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm flex-1 cursor-pointer" onClick={() => onToggle(action)}>{action}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 p-0 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditStart(domainKey, index, action);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Add Custom Action */}
+      {addingCustom === domainKey ? (
+        <div className="flex gap-2 items-center p-3 border rounded-lg">
+          <Input
+            placeholder="Enter custom action..."
+            value={customText}
+            onChange={(e) => onCustomTextChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onAddCustomSave(domainKey);
+              if (e.key === 'Escape') onAddCustomCancel();
+            }}
+            autoFocus
+          />
+          <Button size="sm" onClick={() => onAddCustomSave(domainKey)}>Add</Button>
+          <Button size="sm" variant="ghost" onClick={onAddCustomCancel}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onAddCustomStart(domainKey)}
+          className="w-full"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Custom Action
+        </Button>
+      )}
     </div>
   );
 }
@@ -79,6 +168,7 @@ export function DailyActionsSelector({
   actions,
   selectedActions: externalSelections,
   onSelectionsChange,
+  onActionsChange,
   onContinue,
 }: DailyActionsSelectorProps) {
   const [selectedActions, setSelectedActions] = useState<Record<string, string[]>>(
@@ -89,6 +179,10 @@ export function DailyActionsSelector({
       business: [],
     }
   );
+  const [editingAction, setEditingAction] = useState<{ domain: string; index: number } | null>(null);
+  const [editText, setEditText] = useState('');
+  const [addingToDomain, setAddingToDomain] = useState<string | null>(null);
+  const [newActionText, setNewActionText] = useState('');
 
   useEffect(() => {
     if (externalSelections) {
@@ -111,6 +205,60 @@ export function DailyActionsSelector({
       onSelectionsChange?.(newSelections);
       return newSelections;
     });
+  };
+
+  const handleEditAction = () => {
+    if (!editText.trim()) {
+      toast.error('Action cannot be empty');
+      return;
+    }
+    if (!editingAction) return;
+
+    const { domain, index } = editingAction;
+    const updatedActions = {
+      ...actions,
+      [domain]: [...(actions[domain] || [])],
+    };
+    updatedActions[domain][index] = editText;
+
+    // Update selection if the old action was selected
+    const oldAction = actions[domain]?.[index];
+    if (oldAction && selectedActions[domain]?.includes(oldAction)) {
+      const newSelections = {
+        ...selectedActions,
+        [domain]: selectedActions[domain].map(a => a === oldAction ? editText : a)
+      };
+      setSelectedActions(newSelections);
+      onSelectionsChange?.(newSelections);
+    }
+
+    onActionsChange?.(updatedActions as DailyActionsOutput);
+    setEditingAction(null);
+    setEditText('');
+    toast.success('Action updated');
+  };
+
+  const handleAddCustom = (domain: string) => {
+    if (!newActionText.trim()) return;
+
+    const updatedActions = {
+      ...actions,
+      [domain]: [...(actions[domain] || []), newActionText.trim()],
+    };
+
+    // Auto-select the new custom action
+    const newSelections = {
+      ...selectedActions,
+      [domain]: [...(selectedActions[domain] || []), newActionText.trim()]
+    };
+
+    setSelectedActions(newSelections);
+    onSelectionsChange?.(newSelections);
+    onActionsChange?.(updatedActions as DailyActionsOutput);
+
+    setNewActionText('');
+    setAddingToDomain(null);
+    toast.success('Custom action added');
   };
 
   const totalSelected = Object.values(selectedActions).reduce(
@@ -144,6 +292,27 @@ export function DailyActionsSelector({
               actions={domainActions}
               selectedActions={selectedActions[domain.key] || []}
               onToggle={(action) => handleToggle(domain.key, action)}
+              editingAction={editingAction}
+              editText={editText}
+              onEditStart={(d, i, t) => {
+                setEditingAction({ domain: d, index: i });
+                setEditText(t);
+              }}
+              onEditSave={handleEditAction}
+              onEditCancel={() => {
+                setEditingAction(null);
+                setEditText('');
+              }}
+              onEditTextChange={setEditText}
+              addingCustom={addingToDomain}
+              customText={newActionText}
+              onAddCustomStart={setAddingToDomain}
+              onAddCustomSave={handleAddCustom}
+              onAddCustomCancel={() => {
+                setAddingToDomain(null);
+                setNewActionText('');
+              }}
+              onCustomTextChange={setNewActionText}
             />
           );
         })}

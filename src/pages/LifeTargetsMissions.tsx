@@ -174,6 +174,37 @@ export default function LifeTargetsMissions() {
     }
   };
 
+  const handleEditMission = async (
+    domain: string,
+    targetType: 'target1' | 'target2',
+    month: string,
+    newMission: string,
+    newWhy: string
+  ) => {
+    if (!targets) return;
+
+    const updatedMissions = {
+      ...monthlyMissions,
+      [domain]: {
+        ...monthlyMissions[domain],
+        [targetType]: {
+          ...monthlyMissions[domain]?.[targetType],
+          [month]: { mission: newMission, why: newWhy }
+        }
+      }
+    };
+
+    setMonthlyMissions(updatedMissions as any);
+
+    await saveTargets.mutateAsync({
+      data: {
+        ...targets,
+        [`${domain}_monthly_missions`]: updatedMissions[domain]
+      },
+      showToast: true
+    });
+  };
+
   const handleContinue = () => {
     setCurrentStep('actions');
     navigate('/life-targets/daily');
@@ -267,6 +298,7 @@ export default function LifeTargetsMissions() {
           targetTexts={targetTexts}
           primarySelections={primarySelections}
           onLockIn={handleSavePrimary}
+          onEditMission={handleEditMission}
           isLoading={generateMissions.isPending}
           quarter={currentQuarter}
         />
