@@ -1,18 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { QuarterlyTargetsForm } from "@/components/life-targets/QuarterlyTargetsForm";
 import { MeasurabilityAnalysisCard } from "@/components/life-targets/MeasurabilityAnalysisCard";
+import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
+import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useTargetMeasurability } from "@/hooks/useTargetMeasurability";
 import type { QuarterlyTargets } from "@/hooks/useQuarterlyTargets";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 
 export default function LifeTargetsQuarterly() {
   const navigate = useNavigate();
-  const { currentQuarter, measurabilityResults, setMeasurabilityResults } = useLifeTargetsStore();
+  const queryClient = useQueryClient();
+  const { currentQuarter, measurabilityResults, setMeasurabilityResults, changeQuarter } = useLifeTargetsStore();
   const { data: targets } = useQuarterlyTargets(currentQuarter);
   const saveTargets = useSaveQuarterlyTargets();
   const analyzeMeasurability = useTargetMeasurability();
@@ -21,6 +26,7 @@ export default function LifeTargetsQuarterly() {
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLockedIn, setIsLockedIn] = useState(false);
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
 
   const handleSave = async (formTargets: QuarterlyTargets) => {
     try {
@@ -76,17 +82,36 @@ export default function LifeTargetsQuarterly() {
     toast.success(`✓ Applied improved target to ${domainLabel}`);
   };
 
+  const handleQuarterChange = (newQuarter: string) => {
+    changeQuarter(newQuarter);
+    setLocalTargets(null);
+    setHasUnsavedChanges(false);
+    setIsLockedIn(false);
+    setMeasurabilityResults(null);
+    setAppliedSuggestions(new Set());
+    queryClient.invalidateQueries({ queryKey: ['quarterly-targets', newQuarter] });
+    toast.success(`Quarter updated to ${formatQuarterDisplay(newQuarter)}`);
+  };
+
   return (
     <div className="container max-w-4xl py-8 space-y-8">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate('/life-targets')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Set Quarterly Targets</h1>
-          <p className="text-muted-foreground">
-            Define your goals and analyze their clarity
-          </p>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Set Quarterly Targets</h1>
+              <p className="text-muted-foreground">
+                Define your goals and analyze their clarity
+              </p>
+            </div>
+            <QuarterDisplay
+              quarter={currentQuarter}
+              onEditClick={() => setShowChangeDialog(true)}
+            />
+          </div>
         </div>
       </div>
 
@@ -109,6 +134,14 @@ export default function LifeTargetsQuarterly() {
           appliedSuggestions={appliedSuggestions}
         />
       )}
+
+      <ChangeQuarterDialog
+        open={showChangeDialog}
+        onOpenChange={setShowChangeDialog}
+        currentQuarter={currentQuarter}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onConfirm={handleQuarterChange}
+      />
     </div>
   );
 }

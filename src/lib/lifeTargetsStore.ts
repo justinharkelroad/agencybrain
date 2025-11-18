@@ -24,6 +24,7 @@ interface LifeTargetsState {
 
   // Actions
   setCurrentQuarter: (quarter: Quarter) => void;
+  changeQuarter: (quarter: Quarter) => void;
   setCurrentStep: (step: FlowStep) => void;
   setCurrentSessionId: (sessionId: string | null) => void;
   setTargets: (targets: QuarterlyTargets | null) => void;
@@ -50,8 +51,9 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       selectedDailyActions: { body: [], being: [], balance: [], business: [] }, // GATE 3
       isLoading: false,
 
-      setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
-      setCurrentStep: (step) => set({ currentStep: step }),
+  setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
+  changeQuarter: (quarter) => set({ currentQuarter: quarter }), // Relabel only, keep all data
+  setCurrentStep: (step) => set({ currentStep: step }),
       setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
       setTargets: (targets) => set({ targets }),
       setMeasurabilityResults: (results) => set({ measurabilityResults: results }),
