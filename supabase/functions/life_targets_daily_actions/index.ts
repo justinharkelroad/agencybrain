@@ -53,9 +53,10 @@ Each action MUST:
 - Describe a repeatable personal behavior, not an appointment, not a scheduled event, and not something that depends on a calendar
 - Be something the person can initiate on their own, even if others may or may not participate
 - Explicitly include an approximate time (for example: "for 10 minutes", "for 20 minutes", "for about 5 minutes")
+- Be SUPPORTING ACTIONS that build toward the target, NOT the target itself (Think: "What small daily behavior helps me achieve my bigger goal?" not "Do my bigger goal daily")
 
 Must NOT contain these words or phrases:
-"weekly", "once a week", "every Sunday", "Sundays", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "monthly", "once a month", "quarterly", "event", "meeting", "service project", "game night", "outing", "gathering", "every weekend", "bi-weekly", "semi-monthly", "appointment", "session", "class", "workshop", "conference", "scheduled", "attend", "join", "participate in"
+"daily", "every day", "each day", "per day", "weekly", "once a week", "every Sunday", "Sundays", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "monthly", "once a month", "quarterly", "event", "meeting", "service project", "game night", "outing", "gathering", "every weekend", "bi-weekly", "semi-monthly", "appointment", "session", "class", "workshop", "conference", "scheduled", "attend", "join", "participate in"
 
 Do not generate actions that:
 - Require a specific day of the week
@@ -89,6 +90,16 @@ VALID EXAMPLES (GENERATE LIKE THESE):
 ✅ "Write down 3 things you're grateful for (5 minutes)"
 ✅ "Pray or reflect for 10 minutes in the morning"
 ✅ "Practice a new skill for 20 minutes"
+
+KEY PRINCIPLE - SUPPORTING ACTIONS vs LITERAL TARGETS:
+❌ Target: "Spend 30 min with kids weekly" → Don't suggest: "Spend 30 min with kids daily"
+✅ Target: "Spend 30 min with kids weekly" → Do suggest: "Ask one child about their day for 10 minutes"
+
+❌ Target: "Exercise 3x/week" → Don't suggest: "Exercise for 30 minutes daily"
+✅ Target: "Exercise 3x/week" → Do suggest: "Do 10 squats and stretches for 5 minutes"
+
+❌ Target: "Read 2 books this quarter" → Don't suggest: "Read a book for 1 hour daily"  
+✅ Target: "Read 2 books this quarter" → Do suggest: "Read for 15 minutes before bed"
 
 VALIDATION CHECK:
 Before including an action, ask yourself: "Can someone literally do this 365 days per year, including weekends, holidays, sick days, and days when their schedule changes unexpectedly?"
@@ -134,14 +145,14 @@ ${domainInputs.join('\n\n')}
 Return JSON in this EXACT format - just arrays of simple strings:
 {
   "body": [
-    "Walk 10,000 steps every day",
-    "Do 20 push-ups in the morning",
-    "Drink 8 glasses of water",
+    "Walk for 20 minutes after dinner",
+    "Do 20 push-ups in the morning for 5 minutes",
+    "Drink 8 glasses of water throughout the day",
     "Stretch for 10 minutes before bed",
-    "Take the stairs instead of elevator",
-    "Do a 5-minute plank",
+    "Take the stairs for 5 minutes",
+    "Hold a plank for 5 minutes",
     "Practice yoga poses for 15 minutes",
-    "Track daily protein intake",
+    "Track protein intake for 5 minutes",
     "Meditate for 5 minutes after waking",
     "Journal about physical sensations for 5 minutes"
   ],
@@ -232,6 +243,7 @@ EVENT REJECTION RULE: If any suggestion even slightly resembles a scheduled even
 
     // GATE 2: Post-processing validation to filter out any violations
     const bannedWords = [
+      'daily', 'every day', 'each day', 'per day',
       'weekly', 'once a week', 'every sunday', 'sundays', 'monday', 'tuesday', 'wednesday', 
       'thursday', 'friday', 'saturday', 'monthly', 'once a month', 'quarterly', 'event', 
       'meeting', 'service project', 'game night', 'outing', 'gathering', 'every weekend', 
