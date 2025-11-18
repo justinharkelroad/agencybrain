@@ -1,24 +1,32 @@
 import { useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { DailyActionsSelector } from "@/components/life-targets/DailyActionsSelector";
+import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
+import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useDailyActions } from "@/hooks/useDailyActions";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 
 export default function LifeTargetsDaily() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { 
     currentQuarter, 
     dailyActions, 
     selectedDailyActions,
     setDailyActions,
-    setSelectedDailyActions 
+    setSelectedDailyActions,
+    changeQuarter 
   } = useLifeTargetsStore();
   const { data: targets } = useQuarterlyTargets(currentQuarter);
   const generateActions = useDailyActions();
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
 
   const handleGenerate = async () => {
     if (!targets) {
@@ -104,6 +112,12 @@ export default function LifeTargetsDaily() {
     navigate('/life-targets/cascade');
   };
 
+  const handleQuarterChange = (newQuarter: string) => {
+    changeQuarter(newQuarter);
+    queryClient.invalidateQueries({ queryKey: ['quarterly-targets', newQuarter] });
+    toast.success(`Quarter updated to ${formatQuarterDisplay(newQuarter)}`);
+  };
+
   const hasGeneratedActions = dailyActions && Object.values(dailyActions).some(
     actions => actions && actions.length > 0
   );
@@ -112,21 +126,27 @@ export default function LifeTargetsDaily() {
     <div className="container max-w-5xl mx-auto py-8 px-4 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/life-targets/missions')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Step 4: Daily Actions</h1>
-            <p className="text-muted-foreground mt-1">
-              Select the daily habits that will drive your quarterly targets
-            </p>
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/life-targets/missions')}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <div className="flex items-center gap-4 mb-1">
+            <h1 className="text-3xl font-bold">Daily Actions</h1>
+            <QuarterDisplay
+              quarter={currentQuarter}
+              onEditClick={() => setShowChangeDialog(true)}
+            />
           </div>
+          <p className="text-muted-foreground">
+            Generate daily habits to support your quarterly targets
+          </p>
         </div>
+      </div>
 
         <Button
           onClick={handleGenerate}
@@ -168,6 +188,14 @@ export default function LifeTargetsDaily() {
           </p>
         </div>
       )}
+
+      <ChangeQuarterDialog
+        open={showChangeDialog}
+        onOpenChange={setShowChangeDialog}
+        currentQuarter={currentQuarter}
+        hasUnsavedChanges={false}
+        onConfirm={handleQuarterChange}
+      />
     </div>
   );
 }

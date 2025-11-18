@@ -1,23 +1,29 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ArrowLeft, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { MonthlyMissionsTimeline } from "@/components/life-targets/MonthlyMissionsTimeline";
+import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
+import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useMonthlyMissions } from "@/hooks/useMonthlyMissions";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 
 export default function LifeTargetsMissions() {
   const navigate = useNavigate();
-  const { currentQuarter, monthlyMissions, setMonthlyMissions, setCurrentStep } = useLifeTargetsStore();
+  const queryClient = useQueryClient();
+  const { currentQuarter, monthlyMissions, setMonthlyMissions, setCurrentStep, changeQuarter } = useLifeTargetsStore();
   const { data: targets } = useQuarterlyTargets(currentQuarter);
   const generateMissions = useMonthlyMissions();
   const saveTargets = useSaveQuarterlyTargets();
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
   const [primarySelections, setPrimarySelections] = useState<Record<string, boolean | null>>({
     body: null,
     being: null,
@@ -210,6 +216,12 @@ export default function LifeTargetsMissions() {
     navigate('/life-targets/daily');
   };
 
+  const handleQuarterChange = (newQuarter: string) => {
+    changeQuarter(newQuarter);
+    queryClient.invalidateQueries({ queryKey: ['quarterly-targets', newQuarter] });
+    toast.success(`Quarter updated. Months now reflect ${formatQuarterDisplay(newQuarter)}`);
+  };
+
   const hasTargets = targets && [
     targets.body_target,
     targets.body_target2,
@@ -241,7 +253,13 @@ export default function LifeTargetsMissions() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Monthly Missions</h1>
+            <div className="flex items-center gap-4 mb-1">
+              <h1 className="text-3xl font-bold">Monthly Missions</h1>
+              <QuarterDisplay
+                quarter={currentQuarter}
+                onEditClick={() => setShowChangeDialog(true)}
+              />
+            </div>
             <p className="text-muted-foreground">
               Your quarterly targets broken into monthly action plans
             </p>
@@ -330,6 +348,14 @@ export default function LifeTargetsMissions() {
           </div>
         )}
       </div>
+
+      <ChangeQuarterDialog
+        open={showChangeDialog}
+        onOpenChange={setShowChangeDialog}
+        currentQuarter={currentQuarter}
+        hasUnsavedChanges={false}
+        onConfirm={handleQuarterChange}
+      />
     </div>
   );
 }

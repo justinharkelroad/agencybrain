@@ -1,22 +1,29 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Save, History } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { CascadeView } from "@/components/life-targets/CascadeView";
+import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
+import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
+import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 
 export default function LifeTargetsCascade() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const { currentQuarter, selectedDailyActions } = useLifeTargetsStore();
+  const { currentQuarter, selectedDailyActions, changeQuarter } = useLifeTargetsStore();
   
   // Use quarter from URL if present, otherwise use currentQuarter from store
   const quarter = searchParams.get('quarter') || currentQuarter;
   const { data: targets } = useQuarterlyTargets(quarter);
   const saveMutation = useSaveQuarterlyTargets();
   const isHistoricalView = !!searchParams.get('quarter');
+  const [showChangeDialog, setShowChangeDialog] = useState(false);
 
   const handleBack = () => {
     if (isHistoricalView) {
@@ -65,6 +72,13 @@ export default function LifeTargetsCascade() {
     });
   };
 
+  const handleQuarterChange = (newQuarter: string) => {
+    changeQuarter(newQuarter);
+    queryClient.invalidateQueries({ queryKey: ['quarterly-targets', newQuarter] });
+    navigate('/life-targets/cascade');
+    toast.success(`Quarter updated to ${formatQuarterDisplay(newQuarter)}`);
+  };
+
   if (!targets) {
     return (
       <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -94,7 +108,16 @@ export default function LifeTargetsCascade() {
 
         {/* Center: Title */}
         <div className="flex-1 text-center">
-          <h1 className="text-3xl font-bold">Cascading Targets View</h1>
+          <div className="flex items-center justify-center gap-4 mb-1">
+            <h1 className="text-3xl font-bold">Cascading Targets View</h1>
+            {!isHistoricalView && (
+              <QuarterDisplay
+                quarter={currentQuarter}
+                onEditClick={() => setShowChangeDialog(true)}
+                showEdit={!isHistoricalView}
+              />
+            )}
+          </div>
           <p className="text-muted-foreground mt-1">
             Review and edit your complete quarterly plan
           </p>
@@ -128,6 +151,14 @@ export default function LifeTargetsCascade() {
         targets={targets}
         selectedDailyActions={selectedDailyActions}
         quarter={quarter}
+      />
+
+      <ChangeQuarterDialog
+        open={showChangeDialog}
+        onOpenChange={setShowChangeDialog}
+        currentQuarter={currentQuarter}
+        hasUnsavedChanges={false}
+        onConfirm={handleQuarterChange}
       />
     </div>
   );
