@@ -63,9 +63,6 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
   setSelectedDailyActions: (selected) => set({ selectedDailyActions: selected }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   clearTransientData: () => set({
-    monthlyMissions: null,
-    dailyActions: null,
-    selectedDailyActions: { body: [], being: [], balance: [], business: [] },
     measurabilityResults: null,
   }),
   reset: () => set({

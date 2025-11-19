@@ -31,7 +31,6 @@ export default function LifeTargetsMissions() {
     business: null,
   });
   const missionsRef = useRef<HTMLDivElement>(null);
-  const hasGeneratedRef = useRef(false);
 
   // Helper function to check if missions data actually exists
   const hasMissionsData = (missions: any): boolean => {
@@ -92,10 +91,16 @@ export default function LifeTargetsMissions() {
     }
   }, [targets, setMonthlyMissions]);
 
-  // Auto-generate missions if user arrives from lock-in flow
+  // Auto-generate missions if database has no missions
   useEffect(() => {
-    if (targets && !hasMissionsData(monthlyMissions) && !hasGeneratedRef.current) {
-      hasGeneratedRef.current = true;
+    const dbHasMissions = targets && (
+      (targets.body_monthly_missions && Object.keys(targets.body_monthly_missions).length > 0) ||
+      (targets.being_monthly_missions && Object.keys(targets.being_monthly_missions).length > 0) ||
+      (targets.balance_monthly_missions && Object.keys(targets.balance_monthly_missions).length > 0) ||
+      (targets.business_monthly_missions && Object.keys(targets.business_monthly_missions).length > 0)
+    );
+    
+    if (targets && !dbHasMissions && !hasMissionsData(monthlyMissions)) {
       handleGenerate();
     }
   }, [targets, monthlyMissions]);

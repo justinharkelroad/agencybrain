@@ -28,6 +28,28 @@ export default function LifeTargetsDaily() {
   const generateActions = useDailyActions();
   const [showChangeDialog, setShowChangeDialog] = useState(false);
 
+  // Load daily actions from database if they exist
+  useEffect(() => {
+    if (targets) {
+      const hasDbActions = 
+        (targets.body_daily_actions && Array.isArray(targets.body_daily_actions) && targets.body_daily_actions.length > 0) ||
+        (targets.being_daily_actions && Array.isArray(targets.being_daily_actions) && targets.being_daily_actions.length > 0) ||
+        (targets.balance_daily_actions && Array.isArray(targets.balance_daily_actions) && targets.balance_daily_actions.length > 0) ||
+        (targets.business_daily_actions && Array.isArray(targets.business_daily_actions) && targets.business_daily_actions.length > 0);
+      
+      if (hasDbActions) {
+        const actions = {
+          body: targets.body_daily_actions || [],
+          being: targets.being_daily_actions || [],
+          balance: targets.balance_daily_actions || [],
+          business: targets.business_daily_actions || [],
+        };
+        setDailyActions(actions as any);
+        setSelectedDailyActions(actions as any);
+      }
+    }
+  }, [targets, setDailyActions, setSelectedDailyActions]);
+
   const handleGenerate = async () => {
     if (!targets) {
       toast.error('Please set your quarterly targets first');
