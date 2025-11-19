@@ -18,10 +18,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { normalizeCommissionRate, computeEstimatedCommissionPerRow, computeTotals } from '@/utils/leadSourceCommission';
+import { computeEstimatedCommissionPerRow, computeTotals } from '@/utils/leadSourceCommission';
 import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
 import { UniversalDataProtectionPanel } from '@/components/UniversalDataProtectionPanel';
 import type { UniversalValidationResult } from '@/lib/universalDataProtection';
+import { PercentInput } from '@/components/ui/percent-input';
 
 interface FormData {
   sales: {
@@ -801,26 +802,16 @@ export default function Submit() {
                   </div>
                   <div>
                     <Label className="text-xs">Commission Avg (%)</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="e.g., 12% or 0.12"
-                      value={
-                        typeof source.commissionRate === 'number'
-                          ? (() => {
-                              const pct = source.commissionRate * 100;
-                              return Number.isInteger(pct) ? String(pct) : pct.toFixed(2);
-                            })()
-                          : ''
-                      }
-                      onChange={(e) => {
+                    <PercentInput
+                      value={source.commissionRate}
+                      onChange={(normalized) => {
                         const newSources = [...formData.marketing.leadSources];
-                        const normalized = normalizeCommissionRate(e.target.value);
                         newSources[index].commissionRate = normalized;
                         updateFormData('marketing', 'leadSources', newSources);
                       }}
+                      placeholder="e.g., 12"
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">Enter percent or decimal. 12% = 0.12</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Enter as percent (12 = 12%)</p>
                   </div>
                   <div className="flex flex-col justify-end">
                     <Label className="text-xs">Est. Commission ($)</Label>
