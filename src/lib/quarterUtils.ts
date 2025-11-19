@@ -118,3 +118,49 @@ export function migrateOldFormat(quarter: string): string {
   const year = new Date().getFullYear();
   return `${year}-${quarter}`;
 }
+
+/**
+ * Get months for a quarter string (e.g., "2026-Q1" or "Q1")
+ */
+function getMonthsForQuarter(quarter: string): string[] {
+  const q = quarter.toUpperCase();
+  if (q.includes('Q1')) return ['January', 'February', 'March'];
+  if (q.includes('Q2')) return ['April', 'May', 'June'];
+  if (q.includes('Q3')) return ['July', 'August', 'September'];
+  if (q.includes('Q4')) return ['October', 'November', 'December'];
+  return ['Month 1', 'Month 2', 'Month 3'];
+}
+
+/**
+ * Remap monthly missions from one quarter's months to another
+ */
+export function remapMonthlyMissions(
+  missions: any,
+  fromQuarter: string,
+  toQuarter: string
+): any {
+  if (!missions || typeof missions !== 'object') return missions;
+  
+  const fromMonths = getMonthsForQuarter(fromQuarter);
+  const toMonths = getMonthsForQuarter(toQuarter);
+  
+  // If quarters have same months, no remapping needed
+  if (fromMonths[0] === toMonths[0]) return missions;
+  
+  const remapped: any = {};
+  
+  // For each target (target1, target2)
+  Object.keys(missions).forEach(targetKey => {
+    if (missions[targetKey] && typeof missions[targetKey] === 'object') {
+      remapped[targetKey] = {};
+      
+      // Remap month keys
+      Object.keys(missions[targetKey]).forEach((monthKey, index) => {
+        const newMonthKey = toMonths[index] || monthKey;
+        remapped[targetKey][newMonthKey] = missions[targetKey][monthKey];
+      });
+    }
+  });
+  
+  return remapped;
+}
