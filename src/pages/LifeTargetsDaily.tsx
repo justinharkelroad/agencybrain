@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -7,9 +7,11 @@ import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { DailyActionsSelector } from "@/components/life-targets/DailyActionsSelector";
 import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
 import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
+import { DataStatusIndicator } from "@/components/life-targets/DataStatusIndicator";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useDailyActions } from "@/hooks/useDailyActions";
+import { useSaveDailyActions } from "@/hooks/useSaveDailyActions";
 import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 
@@ -26,7 +28,9 @@ export default function LifeTargetsDaily() {
   } = useLifeTargetsStore();
   const { data: targets } = useQuarterlyTargets(currentQuarter);
   const generateActions = useDailyActions();
+  const saveDailyActions = useSaveDailyActions();
   const [showChangeDialog, setShowChangeDialog] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Load daily actions from database if they exist
   useEffect(() => {
@@ -125,6 +129,43 @@ export default function LifeTargetsDaily() {
     }
   };
 
+  // Debounced auto-save: save 2 seconds after last change
+  const handleSelectionsChange = useCallback((selections: Record<string, string[]>) => {
+    setSelectedDailyActions(selections);
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Set new timeout to save after 2 seconds of inactivity
+    saveTimeoutRef.current = setTimeout(() => {
+      console.log('🔄 Auto-saving daily actions after 2s debounce...');
+      saveDailyActions.mutate({
+        quarter: currentQuarter,
+        selectedActions: selections,
+        showToast: false, // Silent auto-save
+      });
+    }, 2000);
+  }, [currentQuarter, setSelectedDailyActions, saveDailyActions]);
+
+  // Save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleActionsChange = (updatedActions: typeof dailyActions) => {
     setDailyActions(updatedActions);
   };
@@ -189,12 +230,15 @@ export default function LifeTargetsDaily() {
         </Button>
       </div>
 
+      {/* Data status indicator - shows unsaved changes warning */}
+      <DataStatusIndicator />
+
       {/* Actions Selector */}
       {hasGeneratedActions && dailyActions ? (
           <DailyActionsSelector
             actions={dailyActions}
             selectedActions={selectedDailyActions}
-            onSelectionsChange={setSelectedDailyActions}
+            onSelectionsChange={handleSelectionsChange}
             onActionsChange={handleActionsChange}
             onContinue={handleContinue}
           />
