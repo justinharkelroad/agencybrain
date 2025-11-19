@@ -13,6 +13,7 @@ type FlowStep = 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' 
 
 interface LifeTargetsState {
   currentQuarter: Quarter;
+  lastViewedQuarter: Quarter | null; // Track last viewed quarter for better persistence
   currentStep: FlowStep;
   currentSessionId: string | null;
   targets: QuarterlyTargets | null;
@@ -43,6 +44,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
   persist(
     (set, get) => ({
       currentQuarter: getQuarterFromUtils(),
+      lastViewedQuarter: null,
       currentStep: 'targets',
       currentSessionId: null,
       targets: null,
@@ -52,7 +54,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       selectedDailyActions: { body: [], being: [], balance: [], business: [] }, // GATE 3
       isLoading: false,
 
-  setCurrentQuarter: (quarter) => set({ currentQuarter: quarter }),
+  setCurrentQuarter: (quarter) => set({ currentQuarter: quarter, lastViewedQuarter: quarter }),
   changeQuarter: (quarter) => set({ currentQuarter: quarter }), // Relabel only, keep all data
   setCurrentStep: (step) => set({ currentStep: step }),
       setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
@@ -93,6 +95,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       },
       partialize: (state) => ({
         currentQuarter: state.currentQuarter,
+        lastViewedQuarter: state.lastViewedQuarter,
         currentStep: state.currentStep,
         currentSessionId: state.currentSessionId,
         targets: state.targets,

@@ -9,7 +9,9 @@ import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useQuarterlyTargetsHistory } from "@/hooks/useQuarterlyTargetsHistory";
 import { QuarterSelector } from "@/components/life-targets/QuarterSelector";
+import { QuarterStatusAlert } from "@/components/life-targets/QuarterStatusAlert";
 import { formatQuarterDisplay } from "@/lib/quarterUtils";
+import { useQuarterAutoSwitch } from "@/hooks/useQuarterAutoSwitch";
 import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 import { toast } from "sonner";
 import { useResetQuarter } from "@/hooks/useResetQuarter";
@@ -36,6 +38,9 @@ export default function LifeTargets() {
   const [showMoveQuarterDialog, setShowMoveQuarterDialog] = useState(false);
   const resetQuarter = useResetQuarter();
   const changeQuarterLabel = useChangeQuarterLabel();
+
+  // Auto-switch to quarter with data if current quarter is empty
+  useQuarterAutoSwitch(!!targets, isLoading);
 
   const handleReset = () => {
     resetQuarter.mutate({
@@ -202,6 +207,14 @@ export default function LifeTargets() {
   const totalSteps = steps.filter(s => !s.hidden).length;
   const progress = (completedSteps / totalSteps) * 100;
 
+  // Get quarters that have data (excluding current quarter)
+  const availableQuarters = useMemo(() => {
+    if (!historyTargets) return [];
+    return historyTargets
+      .filter(h => h.quarter !== currentQuarter)
+      .map(h => h.quarter);
+  }, [historyTargets, currentQuarter]);
+
   return (
     <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
       <div>
@@ -220,6 +233,14 @@ export default function LifeTargets() {
           <Progress value={progress} className="h-2" />
         </div>
       </div>
+
+      {/* Show alert if current quarter has no data but other quarters do */}
+      {!targets && !isLoading && availableQuarters.length > 0 && (
+        <QuarterStatusAlert 
+          currentQuarter={currentQuarter} 
+          availableQuarters={availableQuarters} 
+        />
+      )}
 
       <div className="space-y-4">
         {steps.filter(s => !s.hidden).map((step, index) => {
