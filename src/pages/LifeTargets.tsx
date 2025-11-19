@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Target, Calendar, Zap, CheckCircle2, Lock, Download, Eye, Archive, RotateCcw } from "lucide-react";
+import { Target, Calendar, Zap, CheckCircle2, Lock, Download, Eye, Archive, RotateCcw, Calendar as CalendarIcon } from "lucide-react";
 import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { useQuarterlyTargets } from "@/hooks/useQuarterlyTargets";
 import { useQuarterlyTargetsHistory } from "@/hooks/useQuarterlyTargetsHistory";
@@ -13,6 +13,8 @@ import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 import { toast } from "sonner";
 import { useResetQuarter } from "@/hooks/useResetQuarter";
+import { useChangeQuarterLabel } from "@/hooks/useChangeQuarterLabel";
+import { MoveQuarterDialog } from "@/components/life-targets/MoveQuarterDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,11 +29,13 @@ import {
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId, changeQuarter } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
   const { data: historyTargets } = useQuarterlyTargetsHistory();
   const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
+  const [showMoveQuarterDialog, setShowMoveQuarterDialog] = useState(false);
   const resetQuarter = useResetQuarter();
+  const changeQuarterLabel = useChangeQuarterLabel();
 
   const handleReset = () => {
     resetQuarter.mutate({
@@ -54,6 +58,15 @@ export default function LifeTargets() {
     } finally {
       setDownloadingQuarter(null);
     }
+  };
+
+  const handleMoveQuarter = async (newQuarter: string) => {
+    await changeQuarterLabel.mutateAsync({ 
+      fromQuarter: currentQuarter, 
+      toQuarter: newQuarter 
+    });
+    changeQuarter(newQuarter);
+    setShowMoveQuarterDialog(false);
   };
 
   const targetsSet = useMemo(() => 
@@ -298,6 +311,13 @@ export default function LifeTargets() {
                 <Download className="h-4 w-4 mr-2" />
                 {downloadingQuarter === currentQuarter ? 'Generating...' : 'Download PDF'}
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowMoveQuarterDialog(true)}
+              >
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Move to Different Quarter
+              </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" className="text-destructive hover:text-destructive">
@@ -329,6 +349,14 @@ export default function LifeTargets() {
           </CardContent>
         </Card>
       )}
+
+      <MoveQuarterDialog
+        open={showMoveQuarterDialog}
+        onOpenChange={setShowMoveQuarterDialog}
+        currentQuarter={currentQuarter}
+        onConfirm={handleMoveQuarter}
+        isPending={changeQuarterLabel.isPending}
+      />
 
       {progress === 100 && (
         <Card>
