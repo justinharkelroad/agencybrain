@@ -14,6 +14,7 @@ type FlowStep = 'brainstorm' | 'selection' | 'targets' | 'missions' | 'primary' 
 interface LifeTargetsState {
   currentQuarter: Quarter;
   lastViewedQuarter: Quarter | null; // Track last viewed quarter for better persistence
+  hasAutoSwitchedThisSession: boolean; // Prevent multiple auto-switches
   currentStep: FlowStep;
   currentSessionId: string | null;
   targets: QuarterlyTargets | null;
@@ -34,6 +35,7 @@ interface LifeTargetsState {
   setDailyActions: (actions: DailyActionsOutput | null) => void;
   setSelectedDailyActions: (selected: Record<string, string[]>) => void;
   setIsLoading: (loading: boolean) => void;
+  setHasAutoSwitchedThisSession: (switched: boolean) => void;
   clearTransientData: () => void;
   reset: () => void;
 }
@@ -45,6 +47,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
     (set, get) => ({
       currentQuarter: getQuarterFromUtils(),
       lastViewedQuarter: null,
+      hasAutoSwitchedThisSession: false,
       currentStep: 'targets',
       currentSessionId: null,
       targets: null,
@@ -64,6 +67,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       setDailyActions: (actions) => set({ dailyActions: actions }),
   setSelectedDailyActions: (selected) => set({ selectedDailyActions: selected }),
   setIsLoading: (loading) => set({ isLoading: loading }),
+  setHasAutoSwitchedThisSession: (switched) => set({ hasAutoSwitchedThisSession: switched }),
   clearTransientData: () => set({
     measurabilityResults: null,
   }),
