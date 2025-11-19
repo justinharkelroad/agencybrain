@@ -29,7 +29,7 @@ import {
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId, changeQuarter } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId, changeQuarter, clearTransientData } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
   const { data: historyTargets } = useQuarterlyTargetsHistory();
   const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
@@ -65,6 +65,7 @@ export default function LifeTargets() {
       fromQuarter: currentQuarter, 
       toQuarter: newQuarter 
     });
+    clearTransientData();
     changeQuarter(newQuarter);
     setShowMoveQuarterDialog(false);
   };
