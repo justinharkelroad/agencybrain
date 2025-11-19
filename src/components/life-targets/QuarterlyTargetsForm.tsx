@@ -39,7 +39,7 @@ export function QuarterlyTargetsForm({
   hasAnalysis = false,
 }: QuarterlyTargetsFormProps) {
   const [formData, setFormData] = useState<QuarterlyTargets>({
-    quarter: initialData?.quarter || 'Q1',
+    quarter: initialData?.quarter || '',
     body_target: initialData?.body_target || '',
     body_target2: initialData?.body_target2 || '',
     body_narrative: initialData?.body_narrative || '',
@@ -106,32 +106,13 @@ export function QuarterlyTargetsForm({
       
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" aria-hidden="true" />
-                Quarterly Life Targets
-              </CardTitle>
-              <CardDescription>
-                Set your goals across the four key life domains
-              </CardDescription>
-            </div>
-            <Select
-              value={formData.quarter}
-              onValueChange={(value) => setFormData({ ...formData, quarter: value })}
-              aria-label="Select quarter"
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Q1">Q1 (Jan-Mar)</SelectItem>
-                <SelectItem value="Q2">Q2 (Apr-Jun)</SelectItem>
-                <SelectItem value="Q3">Q3 (Jul-Sep)</SelectItem>
-                <SelectItem value="Q4">Q4 (Oct-Dec)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" aria-hidden="true" />
+            Quarterly Life Targets
+          </CardTitle>
+          <CardDescription>
+            Set your goals across the four key life domains
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
           {DOMAINS.map((domain, index) => (
