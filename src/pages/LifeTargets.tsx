@@ -16,6 +16,7 @@ import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
 import { toast } from "sonner";
 import { useResetQuarter } from "@/hooks/useResetQuarter";
 import { useChangeQuarterLabel } from "@/hooks/useChangeQuarterLabel";
+import { useFixQuarterMonths } from "@/hooks/useFixQuarterMonths";
 import { MoveQuarterDialog } from "@/components/life-targets/MoveQuarterDialog";
 import {
   AlertDialog,
@@ -38,6 +39,7 @@ export default function LifeTargets() {
   const [showMoveQuarterDialog, setShowMoveQuarterDialog] = useState(false);
   const resetQuarter = useResetQuarter();
   const changeQuarterLabel = useChangeQuarterLabel();
+  const fixQuarterMonths = useFixQuarterMonths();
 
   // Auto-switch to quarter with data if current quarter is empty
   useQuarterAutoSwitch(!!targets, isLoading);

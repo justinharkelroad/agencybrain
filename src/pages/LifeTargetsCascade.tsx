@@ -8,6 +8,7 @@ import { useQuarterlyTargets, useSaveQuarterlyTargets } from "@/hooks/useQuarter
 import { CascadeView } from "@/components/life-targets/CascadeView";
 import { QuarterDisplay } from "@/components/life-targets/QuarterDisplay";
 import { ChangeQuarterDialog } from "@/components/life-targets/ChangeQuarterDialog";
+import { WrongMonthsAlert } from "@/components/life-targets/WrongMonthsAlert";
 import { formatQuarterDisplay } from "@/lib/quarterUtils";
 import { toast } from "sonner";
 import { exportLifeTargetsPDF } from "@/utils/exportLifeTargetsPDF";
@@ -145,6 +146,17 @@ export default function LifeTargetsCascade() {
           </Button>
         </div>
       </div>
+
+      {/* Wrong Months Alert - shows if month labels are incorrect */}
+      <WrongMonthsAlert 
+        quarter={quarter} 
+        missions={{
+          body: targets.body_monthly_missions,
+          being: targets.being_monthly_missions,
+          balance: targets.balance_monthly_missions,
+          business: targets.business_monthly_missions,
+        }}
+      />
 
       {/* Cascade View */}
       <CascadeView

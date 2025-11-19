@@ -133,6 +133,8 @@ function getMonthsForQuarter(quarter: string): string[] {
 
 /**
  * Remap monthly missions from one quarter's months to another
+ * This function ensures missions are mapped to the correct months based on position,
+ * not the existing month keys (which might be wrong)
  */
 export function remapMonthlyMissions(
   missions: any,
@@ -154,10 +156,24 @@ export function remapMonthlyMissions(
     if (missions[targetKey] && typeof missions[targetKey] === 'object') {
       remapped[targetKey] = {};
       
-      // Remap month keys
-      Object.keys(missions[targetKey]).forEach((monthKey, index) => {
-        const newMonthKey = toMonths[index] || monthKey;
-        remapped[targetKey][newMonthKey] = missions[targetKey][monthKey];
+      // Get all month entries and sort them by their position in the expected months
+      const monthEntries = Object.entries(missions[targetKey]);
+      
+      // Sort by the position in fromMonths to preserve chronological order
+      const sortedEntries = monthEntries.sort((a, b) => {
+        const indexA = fromMonths.indexOf(a[0]);
+        const indexB = fromMonths.indexOf(b[0]);
+        // If month not found in expected list, use original order
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+      
+      // Map to new months in order
+      sortedEntries.forEach(([_, value], index) => {
+        if (index < toMonths.length) {
+          remapped[targetKey][toMonths[index]] = value;
+        }
       });
     }
   });
