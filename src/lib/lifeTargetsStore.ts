@@ -33,6 +33,7 @@ interface LifeTargetsState {
   setDailyActions: (actions: DailyActionsOutput | null) => void;
   setSelectedDailyActions: (selected: Record<string, string[]>) => void;
   setIsLoading: (loading: boolean) => void;
+  clearTransientData: () => void;
   reset: () => void;
 }
 
@@ -59,9 +60,15 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       setMeasurabilityResults: (results) => set({ measurabilityResults: results }),
       setMonthlyMissions: (missions) => set({ monthlyMissions: missions }),
       setDailyActions: (actions) => set({ dailyActions: actions }),
-      setSelectedDailyActions: (selected) => set({ selectedDailyActions: selected }),
-      setIsLoading: (loading) => set({ isLoading: loading }),
-      reset: () => set({
+  setSelectedDailyActions: (selected) => set({ selectedDailyActions: selected }),
+  setIsLoading: (loading) => set({ isLoading: loading }),
+  clearTransientData: () => set({
+    monthlyMissions: null,
+    dailyActions: null,
+    selectedDailyActions: { body: [], being: [], balance: [], business: [] },
+    measurabilityResults: null,
+  }),
+  reset: () => set({
         currentStep: 'targets',
         currentSessionId: null,
         targets: null,
