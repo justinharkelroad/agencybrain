@@ -25,6 +25,7 @@ import { AdminCreateFocusItemDialog } from "@/components/focus/AdminCreateFocusI
 import { EditFocusItemDialog } from "@/components/focus/EditFocusItemDialog";
 import { useAdminFocusItems } from "@/hooks/useAdminFocusItems";
 import type { ColumnStatus, FocusItem } from "@/hooks/useFocusItems";
+import { PeriodVersionHistory } from "@/components/client/PeriodVersionHistory";
 
 interface Client {
   id: string;
@@ -80,6 +81,7 @@ export default function ClientDetail() {
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [agencyName, setAgencyName] = useState<string>('Client');
+  const [selectedPeriodForHistory, setSelectedPeriodForHistory] = useState<string | null>(null);
   
   // Form states
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
@@ -1136,7 +1138,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                         {new Date(period.start_date).toLocaleDateString()} - {new Date(period.end_date).toLocaleDateString()}
                       </p>
                       
-                      <div className="flex justify-start">
+                      <div className="flex justify-start gap-2">
                         <FormViewer 
                           period={period} 
                           triggerButton={
@@ -1146,7 +1148,24 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                             </Button>
                           } 
                         />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setSelectedPeriodForHistory(
+                            selectedPeriodForHistory === period.id ? null : period.id
+                          )}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          {selectedPeriodForHistory === period.id ? 'Hide' : 'View'} History
+                        </Button>
                       </div>
+                      
+                      {/* Version History */}
+                      {selectedPeriodForHistory === period.id && (
+                        <div className="mt-4">
+                          <PeriodVersionHistory periodId={period.id} />
+                        </div>
+                      )}
                     </Card>
                   ))}
                 </div>
