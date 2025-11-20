@@ -1478,6 +1478,159 @@ export type Database = {
           },
         ]
       }
+      period_backups: {
+        Row: {
+          backup_type: string
+          created_at: string
+          form_data: Json
+          id: string
+          metadata: Json | null
+          period_id: string
+          user_id: string
+        }
+        Insert: {
+          backup_type?: string
+          created_at?: string
+          form_data: Json
+          id?: string
+          metadata?: Json | null
+          period_id: string
+          user_id: string
+        }
+        Update: {
+          backup_type?: string
+          created_at?: string
+          form_data?: Json
+          id?: string
+          metadata?: Json | null
+          period_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_backups_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      period_edit_sessions: {
+        Row: {
+          created_at: string
+          device_fingerprint: string
+          ended_at: string | null
+          id: string
+          ip_address: unknown
+          last_heartbeat: string
+          period_id: string
+          started_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fingerprint: string
+          ended_at?: string | null
+          id?: string
+          ip_address?: unknown
+          last_heartbeat?: string
+          period_id: string
+          started_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fingerprint?: string
+          ended_at?: string | null
+          id?: string
+          ip_address?: unknown
+          last_heartbeat?: string
+          period_id?: string
+          started_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_edit_sessions_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      period_versions: {
+        Row: {
+          change_source: string | null
+          changed_by: string | null
+          created_at: string
+          data_completeness_score: number | null
+          device_fingerprint: string | null
+          end_date: string
+          form_data: Json | null
+          has_meaningful_data: boolean | null
+          id: string
+          ip_address: unknown
+          period_id: string
+          start_date: string
+          status: string
+          title: string
+          user_agent: string | null
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          change_source?: string | null
+          changed_by?: string | null
+          created_at?: string
+          data_completeness_score?: number | null
+          device_fingerprint?: string | null
+          end_date: string
+          form_data?: Json | null
+          has_meaningful_data?: boolean | null
+          id?: string
+          ip_address?: unknown
+          period_id: string
+          start_date: string
+          status: string
+          title: string
+          user_agent?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          change_source?: string | null
+          changed_by?: string | null
+          created_at?: string
+          data_completeness_score?: number | null
+          device_fingerprint?: string | null
+          end_date?: string
+          form_data?: Json | null
+          has_meaningful_data?: boolean | null
+          id?: string
+          ip_address?: unknown
+          period_id?: string
+          start_date?: string
+          status?: string
+          title?: string
+          user_agent?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_versions_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       periods: {
         Row: {
           created_at: string
@@ -3062,6 +3215,7 @@ export type Database = {
         Returns: Json
       }
       bind_form_kpis: { Args: { p_form: string }; Returns: undefined }
+      calculate_data_completeness: { Args: { data: Json }; Returns: number }
       check_form_kpi_versions: {
         Args: { p_form_id: string }
         Returns: {
@@ -3071,6 +3225,7 @@ export type Database = {
           kpi_id: string
         }[]
       }
+      check_meaningful_data: { Args: { data: Json }; Returns: boolean }
       cleanup_field_mapping_audit_logs: { Args: never; Returns: undefined }
       compute_is_late: {
         Args: {

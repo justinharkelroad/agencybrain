@@ -23,6 +23,11 @@ import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
 import { UniversalDataProtectionPanel } from '@/components/UniversalDataProtectionPanel';
 import type { UniversalValidationResult } from '@/lib/universalDataProtection';
 import { PercentInput } from '@/components/ui/percent-input';
+import { usePeriodConflictDetection } from '@/hooks/usePeriodConflictDetection';
+import { usePeriodEditSession } from '@/hooks/usePeriodEditSession';
+import { usePeriodBackup } from '@/hooks/usePeriodBackup';
+import { ConflictWarningAlert } from '@/components/client/ConflictWarningAlert';
+import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 
 interface FormData {
   sales: {
@@ -145,6 +150,16 @@ export default function Submit() {
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
+
+  // Device fingerprint for session tracking
+  const [deviceFingerprint] = useState(() => generateDeviceFingerprint());
+  
+  // Conflict detection and edit session tracking
+  const conflictInfo = usePeriodConflictDetection(currentPeriod?.id, deviceFingerprint);
+  usePeriodEditSession(currentPeriod?.id, deviceFingerprint);
+  
+  // Backup functionality
+  const { createBackup } = usePeriodBackup();
 
   // Initialize Universal Data Protection
   const dataProtection = useUniversalDataProtection({
@@ -519,6 +534,11 @@ export default function Submit() {
   const saveProgress = async () => {
     setSaving(true);
 
+    // Create pre-save backup
+    if (currentPeriod?.id) {
+      await createBackup(currentPeriod.id, formData, 'pre_save');
+    }
+
     // Create period if it doesn't exist
     let periodToUse = currentPeriod;
     if (!periodToUse) {
@@ -602,6 +622,11 @@ export default function Submit() {
 
   const saveForm = async () => {
     setSaving(true);
+
+    // Create pre-save backup
+    if (currentPeriod?.id) {
+      await createBackup(currentPeriod.id, formData, 'pre_save');
+    }
 
     // Create period if it doesn't exist
     let periodToUse = currentPeriod;
@@ -1242,6 +1267,9 @@ export default function Submit() {
             </Button>
           </div>
         </div>
+
+        {/* Conflict Warning */}
+        <ConflictWarningAlert otherDevices={conflictInfo.otherDevices} />
 
         {/* Data Protection Panel */}
         {showDataProtection && (
