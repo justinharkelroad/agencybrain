@@ -32,7 +32,7 @@ import {
 
 export default function LifeTargets() {
   const navigate = useNavigate();
-  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId, changeQuarter } = useLifeTargetsStore();
+  const { currentQuarter, currentStep, setCurrentStep, selectedDailyActions, currentSessionId, changeQuarter, selectionSource } = useLifeTargetsStore();
   const { data: targets, isLoading } = useQuarterlyTargets(currentQuarter);
   const { data: historyTargets } = useQuarterlyTargetsHistory();
   const [downloadingQuarter, setDownloadingQuarter] = useState<string | null>(null);
@@ -237,11 +237,26 @@ export default function LifeTargets() {
       </div>
 
       {/* Show alert if current quarter has no data but other quarters do */}
-      {!targets && !isLoading && availableQuarters.length > 0 && (
+      {!targets && !isLoading && availableQuarters.length > 0 && selectionSource !== 'manual' && (
         <QuarterStatusAlert 
           currentQuarter={currentQuarter} 
           availableQuarters={availableQuarters} 
         />
+      )}
+
+      {/* Show create plan message if user manually selected empty quarter */}
+      {!targets && !isLoading && selectionSource === 'manual' && (
+        <div className="rounded-lg border bg-card p-6 space-y-3">
+          <div className="flex items-start gap-3">
+            <Target className="h-5 w-5 text-primary mt-0.5" />
+            <div className="space-y-1">
+              <h3 className="font-semibold">No Plan Exists for {formatQuarterDisplay(currentQuarter)}</h3>
+              <p className="text-sm text-muted-foreground">
+                You've selected an empty quarter. Start by setting your quarterly targets below to create a new 90-day plan.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="space-y-4">

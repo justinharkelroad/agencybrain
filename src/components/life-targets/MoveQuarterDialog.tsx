@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAvailableQuarters, formatQuarterDisplay } from "@/lib/quarterUtils";
+import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 
 interface MoveQuarterDialogProps {
   open: boolean;
@@ -34,10 +35,12 @@ export function MoveQuarterDialog({
   isPending = false,
 }: MoveQuarterDialogProps) {
   const [selectedQuarter, setSelectedQuarter] = useState<string>("");
+  const { setCurrentQuarterWithSource } = useLifeTargetsStore();
   const availableQuarters = getAvailableQuarters().filter(q => q !== currentQuarter);
 
   const handleConfirm = () => {
     if (selectedQuarter) {
+      setCurrentQuarterWithSource(selectedQuarter, 'manual');
       onConfirm(selectedQuarter);
       setSelectedQuarter("");
     }

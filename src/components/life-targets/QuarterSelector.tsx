@@ -6,7 +6,7 @@ import { getAvailableQuarters, formatQuarterDisplay, getCurrentQuarter } from "@
 import { useQuarterlyTargetsHistory } from "@/hooks/useQuarterlyTargetsHistory";
 
 export function QuarterSelector() {
-  const { currentQuarter, setCurrentQuarter } = useLifeTargetsStore();
+  const { currentQuarter, setCurrentQuarterWithSource } = useLifeTargetsStore();
   const { data: history } = useQuarterlyTargetsHistory();
   const availableQuarters = getAvailableQuarters();
   const currentActualQuarter = getCurrentQuarter();
@@ -15,7 +15,7 @@ export function QuarterSelector() {
   const quartersWithData = history?.map(h => h.quarter) || [];
 
   return (
-    <Select value={currentQuarter} onValueChange={setCurrentQuarter}>
+    <Select value={currentQuarter} onValueChange={(q) => setCurrentQuarterWithSource(q, 'manual')}>
       <SelectTrigger className="w-[200px]">
         <Calendar className="mr-2 h-4 w-4" />
         <SelectValue />

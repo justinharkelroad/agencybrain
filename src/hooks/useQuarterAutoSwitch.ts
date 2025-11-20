@@ -9,7 +9,7 @@ import { formatQuarterDisplay } from "@/lib/quarterUtils";
  * Only auto-switches ONCE per session to prevent race conditions.
  */
 export function useQuarterAutoSwitch(currentQuarterHasData: boolean, isLoading: boolean) {
-  const { currentQuarter, setCurrentQuarter, hasAutoSwitchedThisSession, setHasAutoSwitchedThisSession } = useLifeTargetsStore();
+  const { currentQuarter, setCurrentQuarterWithSource, hasAutoSwitchedThisSession, setHasAutoSwitchedThisSession, selectionSource } = useLifeTargetsStore();
   const { data: history } = useQuarterlyTargetsHistory();
   const currentQuarterRef = useRef(currentQuarter);
 
@@ -21,6 +21,12 @@ export function useQuarterAutoSwitch(currentQuarterHasData: boolean, isLoading: 
   useEffect(() => {
     // GATE: Only auto-switch once per session
     if (hasAutoSwitchedThisSession) {
+      return;
+    }
+
+    // GATE: Don't auto-switch if user manually selected this quarter
+    if (selectionSource === 'manual') {
+      console.log('Skipping auto-switch: user manually selected quarter');
       return;
     }
 
@@ -37,7 +43,7 @@ export function useQuarterAutoSwitch(currentQuarterHasData: boolean, isLoading: 
         
         console.log(`Auto-switching from ${currentQuarterRef.current} (empty) to ${mostRecentQuarter} (has data)`);
         
-        setCurrentQuarter(mostRecentQuarter);
+        setCurrentQuarterWithSource(mostRecentQuarter, 'auto');
         setHasAutoSwitchedThisSession(true);
         
         toast.info(
@@ -47,5 +53,5 @@ export function useQuarterAutoSwitch(currentQuarterHasData: boolean, isLoading: 
       }
     }
     // Intentionally NOT including currentQuarter in deps to prevent race condition
-  }, [currentQuarterHasData, isLoading, history, setCurrentQuarter, hasAutoSwitchedThisSession, setHasAutoSwitchedThisSession]);
+  }, [currentQuarterHasData, isLoading, history, setCurrentQuarterWithSource, hasAutoSwitchedThisSession, setHasAutoSwitchedThisSession, selectionSource]);
 }

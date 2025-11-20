@@ -15,6 +15,7 @@ interface LifeTargetsState {
   currentQuarter: Quarter;
   lastViewedQuarter: Quarter | null; // Track last viewed quarter for better persistence
   hasAutoSwitchedThisSession: boolean; // Prevent multiple auto-switches
+  selectionSource: 'auto' | 'manual' | null; // Track how quarter was selected
   currentStep: FlowStep;
   currentSessionId: string | null;
   targets: QuarterlyTargets | null;
@@ -26,6 +27,7 @@ interface LifeTargetsState {
 
   // Actions
   setCurrentQuarter: (quarter: Quarter) => void;
+  setCurrentQuarterWithSource: (quarter: Quarter, source: 'auto' | 'manual') => void;
   changeQuarter: (quarter: Quarter) => void;
   setCurrentStep: (step: FlowStep) => void;
   setCurrentSessionId: (sessionId: string | null) => void;
@@ -48,6 +50,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       currentQuarter: getQuarterFromUtils(),
       lastViewedQuarter: null,
       hasAutoSwitchedThisSession: false,
+      selectionSource: null,
       currentStep: 'targets',
       currentSessionId: null,
       targets: null,
@@ -58,6 +61,11 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       isLoading: false,
 
   setCurrentQuarter: (quarter) => set({ currentQuarter: quarter, lastViewedQuarter: quarter }),
+  setCurrentQuarterWithSource: (quarter, source) => set({ 
+    currentQuarter: quarter, 
+    lastViewedQuarter: quarter, 
+    selectionSource: source 
+  }),
   changeQuarter: (quarter) => set({ currentQuarter: quarter }), // Relabel only, keep all data
   setCurrentStep: (step) => set({ currentStep: step }),
       setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
@@ -100,6 +108,7 @@ export const useLifeTargetsStore = create<LifeTargetsState>()(
       partialize: (state) => ({
         currentQuarter: state.currentQuarter,
         lastViewedQuarter: state.lastViewedQuarter,
+        selectionSource: state.selectionSource,
         currentStep: state.currentStep,
         currentSessionId: state.currentSessionId,
         targets: state.targets,
