@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getAvailableQuarters, formatQuarterDisplay, getCurrentQuarter } from "@/lib/quarterUtils";
+import { useLifeTargetsStore } from "@/lib/lifeTargetsStore";
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
@@ -29,11 +30,13 @@ export function ChangeQuarterDialog({
   onConfirm,
 }: ChangeQuarterDialogProps) {
   const [selectedQuarter, setSelectedQuarter] = useState(currentQuarter);
+  const { setCurrentQuarterWithSource } = useLifeTargetsStore();
   const availableQuarters = getAvailableQuarters();
   const currentActualQuarter = getCurrentQuarter();
 
   const handleConfirm = () => {
     if (selectedQuarter !== currentQuarter) {
+      setCurrentQuarterWithSource(selectedQuarter, 'manual');
       onConfirm(selectedQuarter);
     }
     onOpenChange(false);
