@@ -27,7 +27,10 @@ import { usePeriodConflictDetection } from '@/hooks/usePeriodConflictDetection';
 import { usePeriodEditSession } from '@/hooks/usePeriodEditSession';
 import { usePeriodBackup } from '@/hooks/usePeriodBackup';
 import { ConflictWarningAlert } from '@/components/client/ConflictWarningAlert';
+import { SaveStatusIndicator } from '@/components/client/SaveStatusIndicator';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
+
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface FormData {
   sales: {
@@ -147,6 +150,8 @@ export default function Submit() {
   const [showDataProtection, setShowDataProtection] = useState(false);
   const [showIncompleteWarning, setShowIncompleteWarning] = useState(false);
   const [incompleteSections, setIncompleteSections] = useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -533,6 +538,7 @@ export default function Submit() {
   // Save progress without validation - just saves and stays on form
   const saveProgress = async () => {
     setSaving(true);
+    setSaveStatus('saving');
 
     // Create pre-save backup
     if (currentPeriod?.id) {
@@ -567,6 +573,7 @@ export default function Submit() {
             variant: "destructive",
           });
           setSaving(false);
+          setSaveStatus('error');
           return;
         }
 
@@ -580,6 +587,7 @@ export default function Submit() {
           variant: "destructive",
         });
         setSaving(false);
+        setSaveStatus('error');
         return;
       }
     }
@@ -597,10 +605,14 @@ export default function Submit() {
     
     if (success) {
       setHasUnsavedChanges(false);
+      setSaveStatus('saved');
+      setLastSaved(new Date());
       toast({
         title: "Progress Saved",
         description: "Your form progress has been saved successfully.",
       });
+    } else {
+      setSaveStatus('error');
     }
 
     setSaving(false);
@@ -622,6 +634,7 @@ export default function Submit() {
 
   const saveForm = async () => {
     setSaving(true);
+    setSaveStatus('saving');
 
     // Create pre-save backup
     if (currentPeriod?.id) {
@@ -656,6 +669,7 @@ export default function Submit() {
             variant: "destructive",
           });
           setSaving(false);
+          setSaveStatus('error');
           return;
         }
 
@@ -669,6 +683,7 @@ export default function Submit() {
           variant: "destructive",
         });
         setSaving(false);
+        setSaveStatus('error');
         return;
       }
     }
@@ -686,8 +701,12 @@ export default function Submit() {
     
     if (success) {
       setHasUnsavedChanges(false);
+      setSaveStatus('saved');
+      setLastSaved(new Date());
       // Redirect to upload selection page
       navigate('/uploads/select');
+    } else {
+      setSaveStatus('error');
     }
 
     setSaving(false);
@@ -1250,6 +1269,13 @@ export default function Submit() {
             </div>
           </div>
           <div className="flex gap-2">
+            <SaveStatusIndicator 
+              status={saveStatus} 
+              lastSaved={lastSaved} 
+              hasUnsavedChanges={hasUnsavedChanges} 
+            />
+          </div>
+          <div className="flex gap-2">
             <Button 
               variant="glass" 
               size="sm" 
@@ -1372,9 +1398,11 @@ export default function Submit() {
       <div className="fixed bottom-0 inset-x-0 z-40 md:hidden bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
         <div className="container mx-auto max-w-4xl px-4 py-3">
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className="text-xs text-muted-foreground">
-              {hasUnsavedChanges ? "You have unsaved changes" : "All changes saved"}
-            </span>
+            <SaveStatusIndicator 
+              status={saveStatus} 
+              lastSaved={lastSaved} 
+              hasUnsavedChanges={hasUnsavedChanges} 
+            />
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={saveProgress} disabled={saving} className="rounded-full flex-1" size="sm">
