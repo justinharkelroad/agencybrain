@@ -45,6 +45,7 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import AdminTraining from "./pages/admin/AdminTraining";
+import TestTrainingComponents from "./pages/TestTrainingComponents";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
@@ -366,6 +367,11 @@ const App = () => (
                 <SidebarLayout>
                   <AdminTraining />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/test-training-components" element={
+              <ProtectedRoute requireAdmin>
+                <TestTrainingComponents />
               </ProtectedRoute>
             } />
             <Route path="/admin/team/:memberId" element={
