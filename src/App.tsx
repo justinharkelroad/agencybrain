@@ -60,6 +60,7 @@ import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
+import TestTrainingHooks from "./pages/TestTrainingHooks";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
 const LifeTargetsBrainstorm = lazy(() => import("./pages/LifeTargetsBrainstorm"));
@@ -446,7 +447,15 @@ const App = () => (
               </Suspense>
             } />
             <Route path="/theta-talk-track/download" element={<ThetaTalkTrackDownload />} />
-
+            
+            <Route path="/test-training-hooks" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <TestTrainingHooks />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
