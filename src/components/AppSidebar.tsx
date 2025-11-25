@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Wrench,
   LogOut,
+  GraduationCap,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -43,6 +44,7 @@ const adminItems = [
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
+  { title: "Training System", url: "/admin/training", icon: GraduationCap },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {

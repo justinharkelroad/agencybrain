@@ -1,7 +1,46 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { TrainingLesson, TrainingLessonInsert, TrainingLessonUpdate } from '@/types/training';
 import { toast } from 'sonner';
+
+export interface TrainingLesson {
+  id: string;
+  agency_id: string;
+  module_id: string;
+  name: string;
+  description: string | null;
+  video_url: string | null;
+  video_platform: string | null;
+  content_html: string | null;
+  sort_order: number | null;
+  is_active: boolean | null;
+  estimated_duration_minutes: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingLessonInsert {
+  agency_id: string;
+  module_id: string;
+  name: string;
+  description?: string | null;
+  video_url?: string | null;
+  video_platform?: string | null;
+  content_html?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+  estimated_duration_minutes?: number | null;
+}
+
+export interface TrainingLessonUpdate {
+  name?: string;
+  description?: string | null;
+  video_url?: string | null;
+  video_platform?: string | null;
+  content_html?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+  estimated_duration_minutes?: number | null;
+}
 
 export function useTrainingLessons(categoryId?: string) {
   const queryClient = useQueryClient();

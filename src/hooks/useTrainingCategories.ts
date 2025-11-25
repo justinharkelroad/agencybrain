@@ -1,7 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { TrainingCategory, TrainingCategoryInsert, TrainingCategoryUpdate } from '@/types/training';
 import { toast } from 'sonner';
+
+export interface TrainingCategory {
+  id: string;
+  agency_id: string;
+  name: string;
+  description: string | null;
+  sort_order: number | null;
+  is_active: boolean | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingCategoryInsert {
+  agency_id: string;
+  name: string;
+  description?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+}
+
+export interface TrainingCategoryUpdate {
+  name?: string;
+  description?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+}
 
 export function useTrainingCategories(agencyId?: string) {
   const queryClient = useQueryClient();
