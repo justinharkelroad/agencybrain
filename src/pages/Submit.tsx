@@ -30,6 +30,10 @@ import { ConflictWarningAlert } from '@/components/client/ConflictWarningAlert';
 import { SaveStatusIndicator } from '@/components/client/SaveStatusIndicator';
 import { PeriodBackupManager } from '@/components/client/PeriodBackupManager';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
+import { ConflictResolutionDialog } from '@/components/client/ConflictResolutionDialog';
+import { ValidationErrorDialog } from '@/components/client/ValidationErrorDialog';
+import { DataValidator } from '@/lib/dataValidation';
+import type { ValidationResult } from '@/lib/dataValidation';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -154,6 +158,10 @@ export default function Submit() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<Date | null>(null);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [pendingSaveAction, setPendingSaveAction] = useState<(() => void) | null>(null);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -553,8 +561,30 @@ export default function Submit() {
     return incomplete;
   };
 
-  // Save progress without validation - just saves and stays on form
-  const saveProgress = async () => {
+  // Validate form data before save
+  const validateFormData = (): ValidationResult => {
+    // Convert FormData to grid data format for validation
+    const gridData: Record<string, any> = {
+      'sales_premium': formData.sales.premium,
+      'sales_items': formData.sales.items,
+      'sales_policies': formData.sales.policies,
+      'marketing_total_spend': formData.marketing.totalSpend,
+      'operations_alr_total': formData.operations.currentAlrTotal,
+      'retention_percent': formData.retention.currentRetentionPercent,
+      'cashflow_compensation': formData.cashFlow.compensation,
+      'cashflow_expenses': formData.cashFlow.expenses,
+    };
+
+    return DataValidator.validateGridData(gridData);
+  };
+
+  // Check for conflicts before save
+  const checkForConflicts = (): boolean => {
+    return conflictInfo.hasConflict && conflictInfo.otherDevices.length > 0;
+  };
+
+  // Perform actual save operation
+  const performSave = async (isDraft: boolean = true) => {
     setSaving(true);
     setSaveStatus('saving');
 
@@ -592,7 +622,7 @@ export default function Submit() {
           });
           setSaving(false);
           setSaveStatus('error');
-          return;
+          return false;
         }
 
         periodToUse = newPeriod;
@@ -606,7 +636,7 @@ export default function Submit() {
         });
         setSaving(false);
         setSaveStatus('error');
-        return;
+        return false;
       }
     }
 
@@ -616,7 +646,7 @@ export default function Submit() {
       title: periodToUse.title || `Period ${new Date().toLocaleDateString()}`,
       start_date: startDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
       end_date: endDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-      status: 'draft'
+      status: isDraft ? 'draft' : 'active'
     };
 
     const success = await dataProtection.saveWithProtection(additionalFields);
@@ -626,18 +656,61 @@ export default function Submit() {
       setSaveStatus('saved');
       setLastSaved(new Date());
       setLastBackupTime(new Date());
-      toast({
-        title: "Progress Saved",
-        description: "Your form progress has been saved successfully.",
-      });
+      
+      if (!isDraft) {
+        // Redirect to upload selection page for final submission
+        navigate('/uploads/select');
+      } else {
+        toast({
+          title: "Progress Saved",
+          description: "Your form progress has been saved successfully.",
+        });
+      }
     } else {
       setSaveStatus('error');
     }
 
     setSaving(false);
+    return success;
   };
 
-  // Submit completed form with validation
+  // Save progress with validation and conflict checks
+  const saveProgress = async () => {
+    // Run validation
+    const validation = validateFormData();
+    
+    // If there are errors, show validation dialog
+    if (!validation.isValid || validation.warnings.length > 0) {
+      setValidationResult(validation);
+      setPendingSaveAction(() => async () => {
+        // Check for conflicts
+        if (checkForConflicts()) {
+          setShowConflictDialog(true);
+          setPendingSaveAction(() => async () => {
+            await performSave(true);
+          });
+          return;
+        }
+        await performSave(true);
+      });
+      setShowValidationDialog(true);
+      return;
+    }
+
+    // Check for conflicts
+    if (checkForConflicts()) {
+      setShowConflictDialog(true);
+      setPendingSaveAction(() => async () => {
+        await performSave(true);
+      });
+      return;
+    }
+
+    // No issues, proceed with save
+    await performSave(true);
+  };
+
+  // Submit completed form with validation and conflict checks
   const submitCompletedForm = async () => {
     const incomplete = checkIncompleteSections();
     
@@ -647,89 +720,45 @@ export default function Submit() {
       return;
     }
     
-    // If complete, proceed with save and navigation
-    await saveForm();
-  };
-
-  const saveForm = async () => {
-    setSaving(true);
-    setSaveStatus('saving');
-
-    // Create pre-save backup
-    if (currentPeriod?.id) {
-      await createBackup(currentPeriod.id, formData, 'pre_save');
+    // Run validation
+    const validation = validateFormData();
+    
+    // If there are critical errors, show validation dialog
+    if (!validation.isValid) {
+      setValidationResult(validation);
+      setShowValidationDialog(true);
+      return;
     }
-
-    // Create period if it doesn't exist
-    let periodToUse = currentPeriod;
-    if (!periodToUse) {
-      try {
-        const startDateForPeriod = startDate || new Date();
-        const endDateForPeriod = endDate || new Date();
-
-        const { data: newPeriod, error: createError } = await supa
-          .from('periods')
-          .insert({
-            user_id: user?.id,
-            title: `Period ${endDateForPeriod.toLocaleDateString()}`,
-            start_date: startDateForPeriod.toISOString().split('T')[0],
-            end_date: endDateForPeriod.toISOString().split('T')[0],
-            status: 'draft',
-            form_data: null
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating period:', createError);
-          toast({
-            title: "Error",
-            description: "Failed to create period. Please try again.",
-            variant: "destructive",
+    
+    // If there are warnings, show validation dialog with option to continue
+    if (validation.warnings.length > 0) {
+      setValidationResult(validation);
+      setPendingSaveAction(() => async () => {
+        // Check for conflicts
+        if (checkForConflicts()) {
+          setShowConflictDialog(true);
+          setPendingSaveAction(() => async () => {
+            await performSave(false);
           });
-          setSaving(false);
-          setSaveStatus('error');
           return;
         }
-
-        periodToUse = newPeriod;
-        setCurrentPeriod(newPeriod);
-      } catch (error) {
-        console.error('Error creating period:', error);
-        toast({
-          title: "Error",
-          description: "Failed to create period. Please try again.",
-          variant: "destructive",
-        });
-        setSaving(false);
-        setSaveStatus('error');
-        return;
-      }
+        await performSave(false);
+      });
+      setShowValidationDialog(true);
+      return;
     }
 
-    // Use universal data protection for saving
-    const additionalFields = {
-      id: periodToUse.id,
-      title: periodToUse.title || `Period ${new Date().toLocaleDateString()}`,
-      start_date: startDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-      end_date: endDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-      status: 'active'
-    };
-
-    const success = await dataProtection.saveWithProtection(additionalFields);
-    
-    if (success) {
-      setHasUnsavedChanges(false);
-      setSaveStatus('saved');
-      setLastSaved(new Date());
-      setLastBackupTime(new Date());
-      // Redirect to upload selection page
-      navigate('/uploads/select');
-    } else {
-      setSaveStatus('error');
+    // Check for conflicts
+    if (checkForConflicts()) {
+      setShowConflictDialog(true);
+      setPendingSaveAction(() => async () => {
+        await performSave(false);
+      });
+      return;
     }
 
-    setSaving(false);
+    // No issues, proceed with final save
+    await performSave(false);
   };
 
   // Shared section components for Tabs (desktop) and Accordion (mobile)
@@ -1499,7 +1528,7 @@ export default function Submit() {
             <AlertDialogAction 
               onClick={async () => {
                 setShowIncompleteWarning(false);
-                await saveForm();
+                await performSave(false);
               }}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
@@ -1508,6 +1537,46 @@ export default function Submit() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Conflict Resolution Dialog */}
+      <ConflictResolutionDialog
+        open={showConflictDialog}
+        onOpenChange={setShowConflictDialog}
+        onForceSave={async () => {
+          setShowConflictDialog(false);
+          if (pendingSaveAction) {
+            await pendingSaveAction();
+            setPendingSaveAction(null);
+          }
+        }}
+        onCancel={() => {
+          setShowConflictDialog(false);
+          setPendingSaveAction(null);
+          setSaving(false);
+        }}
+        otherDevices={conflictInfo.otherDevices}
+      />
+
+      {/* Validation Error Dialog */}
+      {validationResult && (
+        <ValidationErrorDialog
+          open={showValidationDialog}
+          onOpenChange={setShowValidationDialog}
+          onContinueAnyway={async () => {
+            setShowValidationDialog(false);
+            if (pendingSaveAction) {
+              await pendingSaveAction();
+              setPendingSaveAction(null);
+            }
+          }}
+          onCancel={() => {
+            setShowValidationDialog(false);
+            setPendingSaveAction(null);
+            setSaving(false);
+          }}
+          validationResult={validationResult}
+        />
+      )}
     </div>
   );
 }
