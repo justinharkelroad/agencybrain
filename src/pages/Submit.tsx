@@ -152,6 +152,7 @@ export default function Submit() {
   const [incompleteSections, setIncompleteSections] = useState<string[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [lastBackupTime, setLastBackupTime] = useState<Date | null>(null);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -399,6 +400,22 @@ export default function Submit() {
     }
   }, [user, fetchCurrentPeriod]);
 
+  // Automatic backup system - every 3 minutes if there are unsaved changes
+  useEffect(() => {
+    if (!currentPeriod?.id) return;
+
+    const autoBackupInterval = setInterval(async () => {
+      if (hasUnsavedChanges && formData) {
+        console.log('🔄 Creating automatic backup...');
+        await createBackup(currentPeriod.id, formData, 'auto');
+        setLastBackupTime(new Date());
+        console.log('✅ Automatic backup created');
+      }
+    }, 3 * 60 * 1000); // 3 minutes
+
+    return () => clearInterval(autoBackupInterval);
+  }, [currentPeriod?.id, hasUnsavedChanges, formData, createBackup]);
+
   // Handle browser navigation warning
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -607,6 +624,7 @@ export default function Submit() {
       setHasUnsavedChanges(false);
       setSaveStatus('saved');
       setLastSaved(new Date());
+      setLastBackupTime(new Date());
       toast({
         title: "Progress Saved",
         description: "Your form progress has been saved successfully.",
@@ -703,6 +721,7 @@ export default function Submit() {
       setHasUnsavedChanges(false);
       setSaveStatus('saved');
       setLastSaved(new Date());
+      setLastBackupTime(new Date());
       // Redirect to upload selection page
       navigate('/uploads/select');
     } else {
