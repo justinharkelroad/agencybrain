@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  adminLoading: boolean;
   signUp: (email: string, password: string, agencyName: string, membershipTier?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminLoading, setAdminLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -42,6 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error checking user role:', error);
       setIsAdmin(false);
+    } finally {
+      setAdminLoading(false);
     }
   }, []);
 
@@ -80,14 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        // Defer Supabase calls to prevent deadlock
+        // Check roles immediately
         if (session?.user) {
-          setTimeout(() => {
-            checkUserRole(session.user.id);
-            checkMembershipTier(session.user.id);
-          }, 0);
+          checkUserRole(session.user.id);
+          checkMembershipTier(session.user.id);
         } else {
           setIsAdmin(false);
+          setAdminLoading(false);
           setMembershipTier(null);
         }
       }
@@ -168,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     session,
     loading,
+    adminLoading,
     signUp,
     signIn,
     signOut,
