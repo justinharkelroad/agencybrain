@@ -152,7 +152,6 @@ export default function Submit() {
   const [incompleteSections, setIncompleteSections] = useState<string[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
