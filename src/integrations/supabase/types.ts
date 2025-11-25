@@ -2420,6 +2420,50 @@ export type Database = {
           },
         ]
       }
+      staff_users: {
+        Row: {
+          agency_id: string
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean | null
+          last_login_at: string | null
+          password_hash: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          password_hash: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          password_hash?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_users_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           created_at: string
@@ -2858,6 +2902,505 @@ export type Database = {
             columns: ["target_id"]
             isOneToOne: false
             referencedRelation: "theta_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_assignments: {
+        Row: {
+          agency_id: string
+          assigned_at: string
+          assigned_by: string | null
+          due_date: string | null
+          id: string
+          module_id: string
+          staff_user_id: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          due_date?: string | null
+          id?: string
+          module_id: string
+          staff_user_id: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          due_date?: string | null
+          id?: string
+          module_id?: string
+          staff_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_attachments: {
+        Row: {
+          agency_id: string
+          created_at: string
+          file_size_bytes: number | null
+          file_type: string
+          file_url: string
+          id: string
+          is_external_link: boolean | null
+          lesson_id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          file_size_bytes?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          is_external_link?: boolean | null
+          lesson_id: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          is_external_link?: boolean | null
+          lesson_id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_attachments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_attachments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "training_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_categories: {
+        Row: {
+          agency_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_categories_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_lesson_progress: {
+        Row: {
+          agency_id: string
+          completed_at: string | null
+          id: string
+          is_completed: boolean | null
+          lesson_id: string
+          staff_user_id: string
+          started_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          lesson_id: string
+          staff_user_id: string
+          started_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          lesson_id?: string
+          staff_user_id?: string
+          started_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lesson_progress_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "training_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_lesson_progress_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_lessons: {
+        Row: {
+          agency_id: string
+          content_html: string | null
+          created_at: string
+          description: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_active: boolean | null
+          module_id: string
+          name: string
+          sort_order: number | null
+          updated_at: string
+          video_platform: string | null
+          video_url: string | null
+        }
+        Insert: {
+          agency_id: string
+          content_html?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          module_id: string
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+          video_platform?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          agency_id?: string
+          content_html?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_duration_minutes?: number | null
+          id?: string
+          is_active?: boolean | null
+          module_id?: string
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+          video_platform?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lessons_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_modules: {
+        Row: {
+          agency_id: string
+          category_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          category_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_modules_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_modules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "training_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_quiz_attempts: {
+        Row: {
+          agency_id: string
+          answers_json: Json
+          completed_at: string
+          correct_answers: number
+          id: string
+          quiz_id: string
+          score_percent: number
+          staff_user_id: string
+          started_at: string
+          total_questions: number
+        }
+        Insert: {
+          agency_id: string
+          answers_json: Json
+          completed_at: string
+          correct_answers: number
+          id?: string
+          quiz_id: string
+          score_percent: number
+          staff_user_id: string
+          started_at: string
+          total_questions: number
+        }
+        Update: {
+          agency_id?: string
+          answers_json?: Json
+          completed_at?: string
+          correct_answers?: number
+          id?: string
+          quiz_id?: string
+          score_percent?: number
+          staff_user_id?: string
+          started_at?: string
+          total_questions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_quiz_attempts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "training_quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_quiz_attempts_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_quiz_options: {
+        Row: {
+          id: string
+          is_correct: boolean | null
+          option_text: string
+          question_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          id?: string
+          is_correct?: boolean | null
+          option_text: string
+          question_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          id?: string
+          is_correct?: boolean | null
+          option_text?: string
+          question_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_quiz_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "training_quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_quiz_questions: {
+        Row: {
+          created_at: string
+          id: string
+          question_text: string
+          question_type: string
+          quiz_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_text: string
+          question_type: string
+          quiz_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_text?: string
+          question_type?: string
+          quiz_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "training_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_quizzes: {
+        Row: {
+          agency_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          lesson_id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          lesson_id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          lesson_id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_quizzes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "training_lessons"
             referencedColumns: ["id"]
           },
         ]
@@ -3407,6 +3950,10 @@ export type Database = {
       is_now_agency_time: {
         Args: { p_agency_id: string; p_hhmm: string }
         Returns: Json
+      }
+      is_staff_assigned_to_module: {
+        Args: { p_module_id: string; p_staff_user_id: string }
+        Returns: boolean
       }
       list_agencies_safe: {
         Args: never
