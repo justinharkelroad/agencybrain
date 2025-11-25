@@ -16,7 +16,7 @@ export function useTrainingCategories(agencyId?: string) {
         .from('training_categories')
         .select('*')
         .eq('agency_id', agencyId)
-        .order('display_order', { ascending: true });
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as TrainingCategory[];

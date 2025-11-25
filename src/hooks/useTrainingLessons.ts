@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 export function useTrainingLessons(categoryId?: string) {
   const queryClient = useQueryClient();
 
-  // Fetch lessons for a category
+  // Fetch all lessons for a module (category)
   const { data: lessons, isLoading, error } = useQuery({
     queryKey: ['training-lessons', categoryId],
     queryFn: async () => {
@@ -15,8 +15,8 @@ export function useTrainingLessons(categoryId?: string) {
       const { data, error } = await supabase
         .from('training_lessons')
         .select('*')
-        .eq('category_id', categoryId)
-        .order('display_order', { ascending: true });
+        .eq('module_id', categoryId)
+        .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as TrainingLesson[];
