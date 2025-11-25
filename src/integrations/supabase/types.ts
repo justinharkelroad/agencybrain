@@ -2420,6 +2420,41 @@ export type Database = {
           },
         ]
       }
+      staff_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          is_valid: boolean
+          session_token: string
+          staff_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_valid?: boolean
+          session_token: string
+          staff_user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_valid?: boolean
+          session_token?: string
+          staff_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_sessions_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_users: {
         Row: {
           agency_id: string
@@ -3769,6 +3804,7 @@ export type Database = {
         }[]
       }
       check_meaningful_data: { Args: { data: Json }; Returns: boolean }
+      cleanup_expired_staff_sessions: { Args: never; Returns: undefined }
       cleanup_field_mapping_audit_logs: { Args: never; Returns: undefined }
       compute_is_late: {
         Args: {

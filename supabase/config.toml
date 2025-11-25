@@ -92,3 +92,15 @@ verify_jwt = true
 
 [functions.life_targets_daily_actions]
 verify_jwt = true
+
+[functions.staff_login]
+verify_jwt = false
+
+[functions.staff_verify_session]
+verify_jwt = false
+
+[functions.submit_quiz_attempt]
+verify_jwt = false
+
+[functions.staff_logout]
+verify_jwt = false
