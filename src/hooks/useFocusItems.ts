@@ -36,8 +36,18 @@ export interface UpdateFocusItemData {
 export function useFocusItems() {
   const queryClient = useQueryClient();
 
+  // Get current user for cache key isolation
+  const { data: currentUser } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+    staleTime: Infinity,
+  });
+
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["focus-items"],
+    queryKey: ["focus-items", currentUser?.id],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -51,6 +61,7 @@ export function useFocusItems() {
       if (error) throw error;
       return data as FocusItem[];
     },
+    enabled: !!currentUser?.id,
   });
 
   const createItem = useMutation({
@@ -73,7 +84,7 @@ export function useFocusItems() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
+      queryClient.invalidateQueries({ queryKey: ["focus-items", currentUser?.id] });
       toast.success("Focus item created");
     },
     onError: (error) => {
@@ -95,7 +106,7 @@ export function useFocusItems() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
+      queryClient.invalidateQueries({ queryKey: ["focus-items", currentUser?.id] });
     },
     onError: (error) => {
       toast.error("Failed to update focus item");
@@ -113,7 +124,7 @@ export function useFocusItems() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
+      queryClient.invalidateQueries({ queryKey: ["focus-items", currentUser?.id] });
       toast.success("Focus item deleted");
     },
     onError: (error) => {
@@ -143,11 +154,11 @@ export function useFocusItems() {
       return data;
     },
     onMutate: async ({ id, column_status, column_order }) => {
-      await queryClient.cancelQueries({ queryKey: ["focus-items"] });
+      await queryClient.cancelQueries({ queryKey: ["focus-items", currentUser?.id] });
       
-      const previousItems = queryClient.getQueryData<FocusItem[]>(["focus-items"]);
+      const previousItems = queryClient.getQueryData<FocusItem[]>(["focus-items", currentUser?.id]);
       
-      queryClient.setQueryData<FocusItem[]>(["focus-items"], (old) => {
+      queryClient.setQueryData<FocusItem[]>(["focus-items", currentUser?.id], (old) => {
         if (!old) return old;
         return old.map((item) =>
           item.id === id
@@ -160,13 +171,13 @@ export function useFocusItems() {
     },
     onError: (error, _variables, context) => {
       if (context?.previousItems) {
-        queryClient.setQueryData(["focus-items"], context.previousItems);
+        queryClient.setQueryData(["focus-items", currentUser?.id], context.previousItems);
       }
       toast.error("Failed to move focus item");
       console.error("Move focus item error:", error);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["focus-items"] });
+      queryClient.invalidateQueries({ queryKey: ["focus-items", currentUser?.id] });
     },
   });
 

@@ -41,8 +41,18 @@ interface BatchAnalysisResult {
 
 // Fetch all brainstorm targets for current session
 export function useBrainstormTargets(quarter: string, sessionId: string | null) {
+  // Get current user for cache key
+  const { data: currentUser } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+    staleTime: Infinity,
+  });
+
   return useQuery({
-    queryKey: ['brainstorm-targets', quarter, sessionId],
+    queryKey: ['brainstorm-targets', currentUser?.id, quarter, sessionId],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
