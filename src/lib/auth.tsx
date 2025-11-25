@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const checkUserRole = useCallback(async (userId: string) => {
     try {
@@ -66,6 +68,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Clear user-specific cache on auth state change
+        if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          queryClient.removeQueries({ queryKey: ["focus-items"] });
+          queryClient.removeQueries({ queryKey: ["brainstorm-targets"] });
+          queryClient.removeQueries({ queryKey: ["quarterly-targets"] });
+          queryClient.removeQueries({ queryKey: ["auth-user"] });
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -96,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [checkUserRole, checkMembershipTier]);
+  }, [checkUserRole, checkMembershipTier, queryClient]);
 
 
   const signUp = async (email: string, password: string, agencyName: string, membershipTier: string = '1:1 Coaching') => {
