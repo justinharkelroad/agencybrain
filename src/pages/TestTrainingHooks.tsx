@@ -66,7 +66,7 @@ export default function TestTrainingHooks() {
     const testCategory = {
       agency_id: agencyId,
       name: `Test Category ${Date.now()}`,
-      display_order: 999,
+      sort_order: 999,
       is_active: true,
     };
 
@@ -164,7 +164,7 @@ export default function TestTrainingHooks() {
                   >
                     <p className="font-medium">{cat.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      ID: {cat.id} | Order: {cat.display_order}
+                      ID: {cat.id} | Order: {cat.sort_order}
                     </p>
                   </div>
                 ))}
