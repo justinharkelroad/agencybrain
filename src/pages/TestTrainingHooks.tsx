@@ -71,14 +71,22 @@ export default function TestTrainingHooks() {
     };
 
     createCategory(testCategory, {
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         addLog(`✓ Category created: ${data.name} (ID: ${data.id})`);
         setTestCategoryId(data.id);
 
-        // Step 2: Fetch (will happen automatically via React Query)
-        setTimeout(() => {
+        // Step 2: Explicitly fetch fresh data to avoid stale closure
+        setTimeout(async () => {
           addLog('Step 2: Fetching categories...');
-          const found = categories?.find(c => c.id === data.id);
+          
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data: freshCategories } = await supabase
+            .from('training_categories')
+            .select('*')
+            .eq('agency_id', agencyId)
+            .order('sort_order', { ascending: true });
+          
+          const found = freshCategories?.find(c => c.id === data.id);
           if (found) {
             addLog(`✓ Category fetched: ${found.name}`);
             
