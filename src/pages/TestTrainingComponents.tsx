@@ -16,14 +16,18 @@ import { useAuth } from "@/lib/auth";
 
 export default function TestTrainingComponents() {
   const [videoUrl, setVideoUrl] = useState("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  const [testLessonId] = useState("test-lesson-id");
+  const [testLessonId, setTestLessonId] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string>("");
+  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
-    const fetchAgencyId = async () => {
+    const setupTestData = async () => {
       if (!user?.id) return;
+      
+      setIsCreatingLesson(true);
 
+      // Get agency ID
       const { data, error } = await supabase
         .from("profiles")
         .select("agency_id")
@@ -33,15 +37,56 @@ export default function TestTrainingComponents() {
       if (error) {
         console.error("Error fetching agency_id:", error);
         toast.error("Failed to load agency information");
+        setIsCreatingLesson(false);
         return;
       }
 
-      if (data?.agency_id) {
-        setAgencyId(data.agency_id);
+      if (!data?.agency_id) {
+        setIsCreatingLesson(false);
+        return;
       }
+      
+      setAgencyId(data.agency_id);
+
+      // Check for existing test lesson
+      const { data: existingLesson } = await supabase
+        .from("training_lessons")
+        .select("id")
+        .eq("agency_id", data.agency_id)
+        .eq("title", "Test Lesson")
+        .maybeSingle();
+
+      if (existingLesson) {
+        setTestLessonId(existingLesson.id);
+        setIsCreatingLesson(false);
+        return;
+      }
+
+      // Create test lesson if it doesn't exist
+      const { data: newLesson, error: createError } = await supabase
+        .from("training_lessons")
+        .insert({
+          agency_id: data.agency_id,
+          category_id: "511e1fba-56f5-48a5-9d87-ab77cec768a2",
+          title: "Test Lesson",
+          description: "Auto-generated test lesson for component testing",
+          order_index: 9999
+        })
+        .select("id")
+        .single();
+
+      if (createError) {
+        console.error("Error creating test lesson:", createError);
+        toast.error("Failed to create test lesson");
+      } else if (newLesson) {
+        setTestLessonId(newLesson.id);
+        toast.success("Test lesson created");
+      }
+      
+      setIsCreatingLesson(false);
     };
 
-    fetchAgencyId();
+    setupTestData();
   }, [user]);
 
   const { quizzes, createQuizWithQuestions } = useTrainingQuizzes(testLessonId, agencyId);
@@ -49,9 +94,9 @@ export default function TestTrainingComponents() {
 
   const testVideoUrls = [
     { platform: "YouTube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-    { platform: "Vimeo", url: "https://vimeo.com/148751763" },
-    { platform: "Loom", url: "https://www.loom.com/share/1234567890abcdef" },
-    { platform: "Wistia", url: "https://home.wistia.com/medias/abcdef1234" },
+    { platform: "Vimeo", url: "https://vimeo.com/576326154" },
+    { platform: "Loom", url: "https://www.loom.com/share/bcb9bde7cda144bfa13cd98491b970f6" },
+    { platform: "Wistia", url: "https://hfiagencies.wistia.com/medias/1bz6nrl5ip" },
   ];
 
   const handleQuizSave = async (quizData: QuizData) => {
@@ -119,11 +164,15 @@ export default function TestTrainingComponents() {
     }
   };
 
-  if (!agencyId) {
+  if (!agencyId || !testLessonId || isCreatingLesson) {
     return (
       <SidebarLayout>
         <div className="container mx-auto p-6">
-          <p>Loading agency information...</p>
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              {isCreatingLesson ? "Setting up test lesson..." : "Loading test environment..."}
+            </p>
+          </div>
         </div>
       </SidebarLayout>
     );
@@ -136,6 +185,9 @@ export default function TestTrainingComponents() {
           <h1 className="text-3xl font-bold mb-2">Training Components Test Page</h1>
           <p className="text-muted-foreground">
             Test all Phase 4 shared components: VideoEmbed, AttachmentUploader, and QuizBuilder
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Test Lesson ID: {testLessonId}
           </p>
         </div>
 
