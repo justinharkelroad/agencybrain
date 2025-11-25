@@ -28,6 +28,7 @@ import { usePeriodEditSession } from '@/hooks/usePeriodEditSession';
 import { usePeriodBackup } from '@/hooks/usePeriodBackup';
 import { ConflictWarningAlert } from '@/components/client/ConflictWarningAlert';
 import { SaveStatusIndicator } from '@/components/client/SaveStatusIndicator';
+import { PeriodBackupManager } from '@/components/client/PeriodBackupManager';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -1304,6 +1305,13 @@ export default function Submit() {
               <Shield className="w-4 h-4 mr-2" />
               Data Protection
             </Button>
+            <PeriodBackupManager 
+              periodId={currentPeriod?.id}
+              onRestore={() => {
+                // Reload data after restore
+                fetchCurrentPeriod();
+              }}
+            />
             <Button variant="outline" className="rounded-full" onClick={saveProgress} disabled={saving}>
               {saving ? 'Saving...' : 'Save Progress'}
             </Button>
@@ -1421,6 +1429,12 @@ export default function Submit() {
               status={saveStatus} 
               lastSaved={lastSaved} 
               hasUnsavedChanges={hasUnsavedChanges} 
+            />
+            <PeriodBackupManager 
+              periodId={currentPeriod?.id}
+              onRestore={() => {
+                fetchCurrentPeriod();
+              }}
             />
           </div>
           <div className="flex gap-2">
