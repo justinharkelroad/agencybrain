@@ -171,6 +171,11 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
         return;
       }
 
+      // Skip option validation for text_response questions
+      if (q.question_type === "text_response") {
+        continue;
+      }
+
       const hasCorrectAnswer = q.options.some((opt) => opt.is_correct);
       if (!hasCorrectAnswer) {
         toast.error("All questions must have a correct answer selected");
