@@ -256,8 +256,8 @@ export default function AdminTraining() {
     return <LoadingSpinner />;
   }
 
-  const selectedCategory = categories.find(c => c.id === selectedCategoryId);
-  const selectedModule = modules.find(m => m.id === selectedModuleId);
+  const selectedCategory = categories?.find(c => c.id === selectedCategoryId);
+  const selectedModule = modules?.find(m => m.id === selectedModuleId);
 
   return (
     <div className="container mx-auto p-6 space-y-6">

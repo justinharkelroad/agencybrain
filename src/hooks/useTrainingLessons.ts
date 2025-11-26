@@ -43,7 +43,7 @@ export function useTrainingLessons(moduleId?: string) {
   const queryClient = useQueryClient();
 
   // Fetch all lessons for a module
-  const { data: lessons, isLoading, error } = useQuery({
+  const { data: lessons = [], isLoading, error } = useQuery({
     queryKey: ['training-lessons', moduleId],
     queryFn: async () => {
       if (!moduleId) return [];
