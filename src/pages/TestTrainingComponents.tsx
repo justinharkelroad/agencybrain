@@ -8,6 +8,7 @@ import { QuizBuilder, QuizData } from "@/components/training/QuizBuilder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Trash2 } from "lucide-react";
 import { useTrainingQuizzes } from "@/hooks/useTrainingQuizzes";
 import { useTrainingAttachments } from "@/hooks/useTrainingAttachments";
 import { toast } from "sonner";
@@ -124,7 +125,7 @@ export default function TestTrainingComponents() {
   }, [user]);
 
   const { quizzes, createQuizWithQuestions } = useTrainingQuizzes(testLessonId, agencyId);
-  const { attachments } = useTrainingAttachments(testLessonId, agencyId);
+  const { attachments, deleteAttachment, isDeleting } = useTrainingAttachments(testLessonId, agencyId);
 
   const testVideoUrls = [
     { platform: "YouTube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
@@ -310,6 +311,18 @@ export default function TestTrainingComponents() {
                                 {att.file_size_bytes && ` • ${(att.file_size_bytes / 1024).toFixed(1)} KB`}
                               </p>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteAttachment({
+                                id: att.id,
+                                fileUrl: att.file_url,
+                                isExternal: att.is_external_link ?? false
+                              })}
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
                         </Card>
                       ))}
