@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Link as LinkIcon, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Attachment {
   id?: string;
@@ -34,6 +35,7 @@ export function AttachmentUploader({
   maxSizeMB = 10,
   allowedTypes = [".pdf", ".doc", ".docx", ".mp3", ".mp4", ".wav", ".txt"],
 }: AttachmentUploaderProps) {
+  const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
   const [externalLink, setExternalLink] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
@@ -86,6 +88,7 @@ export function AttachmentUploader({
       if (attachmentError) throw attachmentError;
 
       toast.success("File uploaded successfully");
+      queryClient.invalidateQueries({ queryKey: ["training-attachments", lessonId] });
       onAttachmentAdded?.(attachmentData);
       
       // Reset input
@@ -131,6 +134,7 @@ export function AttachmentUploader({
       if (error) throw error;
 
       toast.success("External link added successfully");
+      queryClient.invalidateQueries({ queryKey: ["training-attachments", lessonId] });
       onAttachmentAdded?.(data);
       setExternalLink("");
       setShowLinkInput(false);
