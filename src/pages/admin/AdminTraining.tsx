@@ -10,12 +10,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { BookOpen, Plus, Pencil, Trash2, Video } from 'lucide-react';
+import { BookOpen, Plus, Pencil, Trash2, Video, FileText, HelpCircle } from 'lucide-react';
 import { useTrainingCategories } from '@/hooks/useTrainingCategories';
 import { useTrainingLessons } from '@/hooks/useTrainingLessons';
+import { useTrainingAttachments } from '@/hooks/useTrainingAttachments';
+import { useTrainingQuizzes } from '@/hooks/useTrainingQuizzes';
 import { useAuth } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { VideoEmbed } from '@/components/training/VideoEmbed';
+import { AttachmentUploader } from '@/components/training/AttachmentUploader';
+import { QuizBuilder, QuizData } from '@/components/training/QuizBuilder';
 
 export default function AdminTraining() {
   const { user } = useAuth();
@@ -56,6 +62,13 @@ export default function AdminTraining() {
     sort_order: 0,
     is_active: true,
   });
+
+  // Attachments and Quizzes for current lesson being edited
+  const { attachments, deleteAttachment, isDeleting: isDeletingAttachment } = 
+    useTrainingAttachments(editingLesson?.id, agencyId || undefined);
+  
+  const { quizzes, createQuizWithQuestions, deleteQuiz, isCreating: isCreatingQuiz, isDeleting: isDeletingQuiz } = 
+    useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
 
   // Delete confirmations
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'category' | 'lesson'; id: string } | null>(null);
@@ -143,6 +156,19 @@ export default function AdminTraining() {
       });
     }
     setLessonDialog(true);
+  };
+
+  const handleQuizSave = (quizData: QuizData) => {
+    if (!editingLesson?.id || !agencyId) return;
+    createQuizWithQuestions({
+      quiz: {
+        lesson_id: editingLesson.id,
+        agency_id: agencyId,
+        name: quizData.name,
+        description: quizData.description,
+      },
+      questions: quizData.questions,
+    });
   };
 
   return (
@@ -354,85 +380,196 @@ export default function AdminTraining() {
 
         {/* Lesson Dialog */}
         <Dialog open={lessonDialog} onOpenChange={setLessonDialog}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingLesson ? 'Edit Lesson' : 'Create Lesson'}</DialogTitle>
-              <DialogDescription>Configure lesson content and video</DialogDescription>
+              <DialogDescription>Configure lesson content, video, attachments, and quizzes</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Lesson Name</Label>
-                <Input
-                  value={lessonForm.name}
-                  onChange={(e) => setLessonForm({ ...lessonForm, name: e.target.value })}
-                  placeholder="e.g., Introduction to the Platform"
-                />
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  value={lessonForm.description}
-                  onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
-                  placeholder="Brief lesson description"
-                  rows={2}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="basic">
+                  <Video className="h-4 w-4 mr-2" />
+                  Basic Info
+                </TabsTrigger>
+                <TabsTrigger value="attachments" disabled={!editingLesson}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Attachments
+                </TabsTrigger>
+                <TabsTrigger value="quiz" disabled={!editingLesson}>
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Quiz
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4 mt-4">
                 <div>
-                  <Label>Video Platform</Label>
-                  <Select value={lessonForm.video_platform} onValueChange={(v) => setLessonForm({ ...lessonForm, video_platform: v })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="youtube">YouTube</SelectItem>
-                      <SelectItem value="vimeo">Vimeo</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Duration (minutes)</Label>
+                  <Label>Lesson Name</Label>
                   <Input
-                    type="number"
-                    value={lessonForm.estimated_duration_minutes}
-                    onChange={(e) => setLessonForm({ ...lessonForm, estimated_duration_minutes: parseInt(e.target.value) || 0 })}
+                    value={lessonForm.name}
+                    onChange={(e) => setLessonForm({ ...lessonForm, name: e.target.value })}
+                    placeholder="e.g., Introduction to the Platform"
                   />
                 </div>
-              </div>
-              <div>
-                <Label>Video URL</Label>
-                <Input
-                  value={lessonForm.video_url}
-                  onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })}
-                  placeholder="https://youtube.com/watch?v=..."
-                />
-              </div>
-              <div>
-                <Label>Lesson Content (HTML)</Label>
-                <Textarea
-                  value={lessonForm.content_html}
-                  onChange={(e) => setLessonForm({ ...lessonForm, content_html: e.target.value })}
-                  placeholder="Additional lesson content..."
-                  rows={6}
-                />
-              </div>
-              <div>
-                <Label>Sort Order</Label>
-                <Input
-                  type="number"
-                  value={lessonForm.sort_order}
-                  onChange={(e) => setLessonForm({ ...lessonForm, sort_order: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={lessonForm.is_active}
-                  onCheckedChange={(checked) => setLessonForm({ ...lessonForm, is_active: checked })}
-                />
-                <Label>Active</Label>
-              </div>
-            </div>
+                <div>
+                  <Label>Description</Label>
+                  <Textarea
+                    value={lessonForm.description}
+                    onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
+                    placeholder="Brief lesson description"
+                    rows={2}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Video Platform</Label>
+                    <Select value={lessonForm.video_platform} onValueChange={(v) => setLessonForm({ ...lessonForm, video_platform: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="vimeo">Vimeo</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Duration (minutes)</Label>
+                    <Input
+                      type="number"
+                      value={lessonForm.estimated_duration_minutes}
+                      onChange={(e) => setLessonForm({ ...lessonForm, estimated_duration_minutes: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Video URL</Label>
+                  <Input
+                    value={lessonForm.video_url}
+                    onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })}
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                  {lessonForm.video_url && (
+                    <div className="mt-3">
+                      <Label className="text-sm text-muted-foreground">Preview</Label>
+                      <div className="mt-2">
+                        <VideoEmbed url={lessonForm.video_url} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label>Lesson Content (HTML)</Label>
+                  <Textarea
+                    value={lessonForm.content_html}
+                    onChange={(e) => setLessonForm({ ...lessonForm, content_html: e.target.value })}
+                    placeholder="Additional lesson content..."
+                    rows={6}
+                  />
+                </div>
+                <div>
+                  <Label>Sort Order</Label>
+                  <Input
+                    type="number"
+                    value={lessonForm.sort_order}
+                    onChange={(e) => setLessonForm({ ...lessonForm, sort_order: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={lessonForm.is_active}
+                    onCheckedChange={(checked) => setLessonForm({ ...lessonForm, is_active: checked })}
+                  />
+                  <Label>Active</Label>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="attachments" className="space-y-4 mt-4">
+                {editingLesson ? (
+                  <>
+                    <AttachmentUploader lessonId={editingLesson.id} agencyId={agencyId!} />
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Current Attachments</Label>
+                      {attachments && attachments.length > 0 ? (
+                        attachments.map((att) => (
+                          <Card key={att.id} className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-sm">{att.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {att.is_external_link ? "External Link" : "Uploaded File"}
+                                  {att.file_size_bytes && ` • ${(att.file_size_bytes / 1024).toFixed(1)} KB`}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteAttachment({
+                                  id: att.id,
+                                  fileUrl: att.file_url,
+                                  isExternal: att.is_external_link ?? false
+                                })}
+                                disabled={isDeletingAttachment}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </Card>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No attachments yet</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Save the lesson first to add attachments</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="quiz" className="space-y-4 mt-4">
+                {editingLesson ? (
+                  <>
+                    {quizzes && quizzes.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Existing Quizzes</Label>
+                        {quizzes.map((quiz) => (
+                          <Card key={quiz.id} className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{quiz.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {quiz.questions?.length || 0} question{quiz.questions?.length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteQuiz(quiz.id)}
+                                disabled={isDeletingQuiz}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Create New Quiz</Label>
+                      <QuizBuilder 
+                        lessonId={editingLesson.id} 
+                        agencyId={agencyId!} 
+                        onSave={handleQuizSave} 
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Save the lesson first to add quizzes</p>
+                )}
+              </TabsContent>
+            </Tabs>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setLessonDialog(false)}>Cancel</Button>
               <Button onClick={handleSaveLesson} disabled={!lessonForm.name}>
