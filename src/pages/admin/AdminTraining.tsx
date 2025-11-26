@@ -63,7 +63,6 @@ export default function AdminTraining() {
     video_url: '',
     content_html: '',
     description: '',
-    estimated_duration_minutes: 0,
     sort_order: 0,
     is_active: true,
   });
@@ -136,7 +135,6 @@ export default function AdminTraining() {
       video_url: '',
       content_html: '',
       description: '',
-      estimated_duration_minutes: 0,
       sort_order: 0,
       is_active: true,
     });
@@ -152,7 +150,6 @@ export default function AdminTraining() {
         video_url: lesson.video_url || '',
         content_html: lesson.content_html || '',
         description: lesson.description || '',
-        estimated_duration_minutes: lesson.estimated_duration_minutes || 0,
         sort_order: lesson.sort_order || 0,
         is_active: lesson.is_active !== false,
       });
@@ -165,7 +162,6 @@ export default function AdminTraining() {
         video_url: '',
         content_html: '',
         description: '',
-        estimated_duration_minutes: 0,
         sort_order: lessons?.length || 0,
         is_active: true,
       });
@@ -291,7 +287,6 @@ export default function AdminTraining() {
                     <TableRow>
                       <TableHead>Lesson Name</TableHead>
                       <TableHead>Video</TableHead>
-                      <TableHead>Duration (min)</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -309,7 +304,6 @@ export default function AdminTraining() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>{lesson.estimated_duration_minutes}</TableCell>
                         <TableCell>{lesson.sort_order}</TableCell>
                         <TableCell>
                           <Badge variant={lesson.is_active ? 'default' : 'secondary'}>
@@ -447,17 +441,9 @@ export default function AdminTraining() {
                         <SelectItem value="vimeo">Vimeo</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Duration (minutes)</Label>
-                    <Input
-                      type="number"
-                      value={lessonForm.estimated_duration_minutes}
-                      onChange={(e) => setLessonForm({ ...lessonForm, estimated_duration_minutes: parseInt(e.target.value) || 0 })}
-                    />
-                  </div>
+                  </Select>
                 </div>
+              </div>
                 <div>
                   <Label>Video URL</Label>
                   <Input

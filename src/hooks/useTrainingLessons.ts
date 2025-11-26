@@ -13,7 +13,6 @@ export interface TrainingLesson {
   content_html: string | null;
   sort_order: number | null;
   is_active: boolean | null;
-  estimated_duration_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,7 +27,6 @@ export interface TrainingLessonInsert {
   content_html?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
-  estimated_duration_minutes?: number | null;
 }
 
 export interface TrainingLessonUpdate {
@@ -39,7 +37,6 @@ export interface TrainingLessonUpdate {
   content_html?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
-  estimated_duration_minutes?: number | null;
 }
 
 export function useTrainingLessons(categoryId?: string) {
