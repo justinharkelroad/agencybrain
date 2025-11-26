@@ -26,16 +26,21 @@ import { QuizBuilder, QuizData } from '@/components/training/QuizBuilder';
 export default function AdminTraining() {
   const { user } = useAuth();
   const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [agencyLoading, setAgencyLoading] = useState(true);
 
   useEffect(() => {
     const fetchAgencyId = async () => {
-      if (!user) return;
+      if (!user) {
+        setAgencyLoading(false);
+        return;
+      }
       const { data } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
         .single();
       if (data) setAgencyId(data.agency_id);
+      setAgencyLoading(false);
     };
     fetchAgencyId();
   }, [user]);
@@ -73,6 +78,16 @@ export default function AdminTraining() {
   // Delete confirmations
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'category' | 'lesson'; id: string } | null>(null);
 
+  // Show loading spinner while fetching agency
+  if (agencyLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Only redirect if user or agencyId is truly missing after loading
   if (!user || !agencyId) {
     return <Navigate to="/dashboard" replace />;
   }
