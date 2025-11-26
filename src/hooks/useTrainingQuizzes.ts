@@ -18,7 +18,7 @@ export interface TrainingQuizQuestion {
   id: string;
   quiz_id: string;
   question_text: string;
-  question_type: "multiple_choice" | "true_false";
+  question_type: "multiple_choice" | "true_false" | "text_response";
   sort_order: number | null;
   created_at: string;
   options?: TrainingQuizOption[];
@@ -42,7 +42,7 @@ export interface QuizWithQuestionsInsert {
   };
   questions: {
     question_text: string;
-    question_type: "multiple_choice" | "true_false";
+    question_type: "multiple_choice" | "true_false" | "text_response";
     sort_order: number;
     options: {
       option_text: string;

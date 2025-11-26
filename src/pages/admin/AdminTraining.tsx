@@ -73,7 +73,7 @@ export default function AdminTraining() {
   const { modules, createModule, updateModule, deleteModule, isCreating: isCreatingModule, isUpdating: isUpdatingModule } = useTrainingModules(selectedCategoryId || undefined);
   const { lessons, createLesson, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
   const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId || undefined);
-  const { quizzes } = useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
+  const { quizzes, createQuizWithQuestions, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
 
   // Attachment handlers
   const handleDownloadAttachment = async (attachment: any) => {
@@ -90,6 +90,25 @@ export default function AdminTraining() {
       id: attachment.id,
       fileUrl: attachment.file_url,
       isExternal: attachment.is_external_link || false,
+    });
+  };
+
+  // Quiz save handler
+  const handleQuizSave = (quizData: any) => {
+    if (!editingLesson || !agencyId) {
+      console.error('Missing lesson or agency ID');
+      return;
+    }
+    
+    createQuizWithQuestions({
+      quiz: {
+        lesson_id: editingLesson.id,
+        agency_id: agencyId,
+        name: quizData.name,
+        description: quizData.description || '',
+        is_active: true,
+      },
+      questions: quizData.questions,
     });
   };
 
@@ -748,7 +767,11 @@ export default function AdminTraining() {
 
             <TabsContent value="quiz">
               {editingLesson && agencyId && (
-                <QuizBuilder lessonId={editingLesson.id} agencyId={agencyId} />
+                <QuizBuilder 
+                  lessonId={editingLesson.id} 
+                  agencyId={agencyId} 
+                  onSave={handleQuizSave}
+                />
               )}
             </TabsContent>
           </Tabs>
