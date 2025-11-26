@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Edit, Plus, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, ArrowLeft, Download, FileIcon } from "lucide-react";
 import { useTrainingCategories } from "@/hooks/useTrainingCategories";
 import { useTrainingModules } from "@/hooks/useTrainingModules";
 import { useTrainingLessons } from "@/hooks/useTrainingLessons";
@@ -72,8 +72,26 @@ export default function AdminTraining() {
   const { categories, createCategory, updateCategory, deleteCategory, isCreating: isCreatingCategory, isUpdating: isUpdatingCategory } = useTrainingCategories(agencyId || undefined);
   const { modules, createModule, updateModule, deleteModule, isCreating: isCreatingModule, isUpdating: isUpdatingModule } = useTrainingModules(selectedCategoryId || undefined);
   const { lessons, createLesson, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
-  const { attachments } = useTrainingAttachments(editingLesson?.id, agencyId || undefined);
+  const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId || undefined);
   const { quizzes } = useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
+
+  // Attachment handlers
+  const handleDownloadAttachment = async (attachment: any) => {
+    try {
+      const url = await getDownloadUrl(attachment.file_url, attachment.is_external_link || false);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
+
+  const handleDeleteAttachment = (attachment: any) => {
+    deleteAttachment({
+      id: attachment.id,
+      fileUrl: attachment.file_url,
+      isExternal: attachment.is_external_link || false,
+    });
+  };
 
   // Fetch agency ID
   useEffect(() => {
@@ -686,9 +704,45 @@ export default function AdminTraining() {
               </div>
             </TabsContent>
 
-            <TabsContent value="attachments">
+            <TabsContent value="attachments" className="space-y-4">
               {editingLesson && agencyId && (
-                <AttachmentUploader lessonId={editingLesson.id} agencyId={agencyId} />
+                <>
+                  <AttachmentUploader lessonId={editingLesson.id} agencyId={agencyId} maxSizeMB={25} />
+                  
+                  {/* Attachments List */}
+                  {attachments.length > 0 ? (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Uploaded Files ({attachments.length})</h4>
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <FileIcon className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="text-sm font-medium">{attachment.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {attachment.file_size_bytes 
+                                  ? `${(attachment.file_size_bytes / 1024 / 1024).toFixed(2)} MB`
+                                  : attachment.is_external_link ? 'External Link' : 'Unknown size'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleDownloadAttachment(attachment)}>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteAttachment(attachment)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No attachments yet. Upload a file or add a link above.
+                    </p>
+                  )}
+                </>
               )}
             </TabsContent>
 
