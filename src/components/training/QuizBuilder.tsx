@@ -11,9 +11,10 @@ import { toast } from "sonner";
 
 export interface QuizQuestion {
   question_text: string;
-  question_type: "multiple_choice" | "true_false";
+  question_type: "multiple_choice" | "true_false" | "text_response";
   sort_order: number;
   options: QuizOption[];
+  is_required_reflection?: boolean;
 }
 
 export interface QuizOption {
@@ -43,6 +44,24 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
       ? initialData.questions
       : [createEmptyQuestion(0)]
   );
+
+  // Default reflection questions - always required
+  const reflectionQuestions: QuizQuestion[] = [
+    {
+      question_text: "What is the main takeaway?",
+      question_type: "text_response",
+      sort_order: 1000,
+      options: [],
+      is_required_reflection: true,
+    },
+    {
+      question_text: "Why do you feel that is an important takeaway?",
+      question_type: "text_response",
+      sort_order: 1001,
+      options: [],
+      is_required_reflection: true,
+    },
+  ];
 
   function createEmptyQuestion(index: number): QuizQuestion {
     return {
@@ -170,7 +189,7 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
     onSave?.({
       name: quizName,
       description: quizDescription,
-      questions,
+      questions: [...questions, ...reflectionQuestions],
     });
   };
 
@@ -298,6 +317,27 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
           </div>
         </Card>
       ))}
+
+      {/* Required Reflection Questions (Read-only) */}
+      <Card className="p-4 border-dashed border-2 border-primary/30 bg-primary/5">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm font-semibold">Required Takeaway Questions</span>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          These questions are automatically added to every quiz and are required for submission.
+        </p>
+        
+        <div className="space-y-3">
+          <div className="p-3 bg-background rounded-md">
+            <Label className="text-sm">1. What is the main takeaway?</Label>
+            <p className="text-xs text-muted-foreground mt-1">Text response (required)</p>
+          </div>
+          <div className="p-3 bg-background rounded-md">
+            <Label className="text-sm">2. Why do you feel that is an important takeaway?</Label>
+            <p className="text-xs text-muted-foreground mt-1">Text response (required)</p>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
