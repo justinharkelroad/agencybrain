@@ -48,12 +48,46 @@ export default function TestTrainingComponents() {
       
       setAgencyId(data.agency_id);
 
-      // Check for existing test lesson
+      // Step 1: Check/create test module first
+      const { data: existingModule } = await supabase
+        .from("training_modules")
+        .select("id")
+        .eq("agency_id", data.agency_id)
+        .eq("name", "Test Module")
+        .maybeSingle();
+
+      let moduleId = existingModule?.id;
+
+      if (!moduleId) {
+        const { data: newModule, error: moduleError } = await supabase
+          .from("training_modules")
+          .insert({
+            agency_id: data.agency_id,
+            category_id: "511e1fba-56f5-48a5-9d87-ab77cec768a2",
+            name: "Test Module",
+            description: "Auto-generated for component testing",
+            sort_order: 9999
+          })
+          .select("id")
+          .single();
+
+        if (moduleError) {
+          console.error("Error creating test module:", moduleError);
+          toast.error("Failed to create test module");
+          setIsCreatingLesson(false);
+          return;
+        }
+        
+        moduleId = newModule?.id;
+        toast.success("Test module created");
+      }
+
+      // Step 2: Check/create test lesson with correct columns
       const { data: existingLesson } = await supabase
         .from("training_lessons")
         .select("id")
         .eq("agency_id", data.agency_id)
-        .eq("title", "Test Lesson")
+        .eq("name", "Test Lesson")
         .maybeSingle();
 
       if (existingLesson) {
@@ -67,10 +101,10 @@ export default function TestTrainingComponents() {
         .from("training_lessons")
         .insert({
           agency_id: data.agency_id,
-          category_id: "511e1fba-56f5-48a5-9d87-ab77cec768a2",
-          title: "Test Lesson",
+          module_id: moduleId,
+          name: "Test Lesson",
           description: "Auto-generated test lesson for component testing",
-          order_index: 9999
+          sort_order: 9999
         })
         .select("id")
         .single();
