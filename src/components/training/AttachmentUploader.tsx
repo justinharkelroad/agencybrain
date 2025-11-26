@@ -32,7 +32,7 @@ export function AttachmentUploader({
   lessonId,
   agencyId,
   onAttachmentAdded,
-  maxSizeMB = 10,
+  maxSizeMB = 25,
   allowedTypes = [".pdf", ".doc", ".docx", ".mp3", ".mp4", ".wav", ".txt"],
 }: AttachmentUploaderProps) {
   const queryClient = useQueryClient();
