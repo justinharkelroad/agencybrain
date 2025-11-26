@@ -266,37 +266,49 @@ export default function AdminTraining() {
         <p className="text-muted-foreground">Manage training categories, modules, and lessons</p>
       </div>
 
-      {/* Breadcrumb navigation */}
-      {(selectedCategoryId || selectedModuleId) && (
-        <div className="flex items-center gap-2 text-sm">
-          <Button variant="link" onClick={() => { setSelectedCategoryId(''); setSelectedModuleId(''); }} className="p-0 h-auto">
-            Categories
-          </Button>
-          {selectedCategoryId && (
-            <>
-              <ArrowRight className="h-4 w-4" />
-              <Button variant="link" onClick={() => setSelectedModuleId('')} className="p-0 h-auto">
-                {selectedCategory?.name}
-              </Button>
-            </>
-          )}
-          {selectedModuleId && (
-            <>
-              <ArrowRight className="h-4 w-4" />
-              <span className="font-medium">{selectedModule?.name}</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* Enhanced Breadcrumb Navigation */}
+      <Card className="bg-muted/50">
+        <CardContent className="py-3">
+          <div className="flex items-center gap-3 text-sm">
+            <Button 
+              variant={!selectedCategoryId ? "default" : "ghost"}
+              size="sm"
+              onClick={() => { setSelectedCategoryId(''); setSelectedModuleId(''); }}
+            >
+              📁 All Categories
+            </Button>
+            {selectedCategoryId && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <Button 
+                  variant={!selectedModuleId ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setSelectedModuleId('')}
+                >
+                  📦 {selectedCategory?.name}
+                </Button>
+              </>
+            )}
+            {selectedModuleId && (
+              <>
+                <span className="text-muted-foreground">/</span>
+                <Button variant="default" size="sm" disabled>
+                  📖 {selectedModule?.name}
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* CATEGORIES VIEW (top level) */}
       {!selectedCategoryId && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Training Categories</CardTitle>
-                <CardDescription>Top-level organization for training content</CardDescription>
+                <CardTitle className="text-2xl">Training Categories</CardTitle>
+                <CardDescription>Organize your training content into categories</CardDescription>
               </div>
               <Button onClick={() => openCategoryDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -305,43 +317,49 @@ export default function AdminTraining() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Category Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="font-medium">{category.name}</TableCell>
-                    <TableCell>{category.description}</TableCell>
-                    <TableCell>{category.sort_order}</TableCell>
-                    <TableCell>
-                      <Badge variant={category.is_active ? 'default' : 'secondary'}>
-                        {category.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedCategoryId(category.id)}>
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                        View Modules
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => openCategoryDialog(category)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => confirmDelete('category', category.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {categories.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg mb-2">No training categories yet</p>
+                <p className="text-sm mb-4">Create your first category to start organizing training content</p>
+                <Button onClick={() => openCategoryDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Category
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Category Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell>{category.description}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setSelectedCategoryId(category.id)}>
+                              View Modules
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openCategoryDialog(category)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('category', category.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -349,62 +367,70 @@ export default function AdminTraining() {
       {/* MODULES VIEW (middle tier) */}
       {selectedCategoryId && !selectedModuleId && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Modules in {selectedCategory?.name}</CardTitle>
-                <CardDescription>Training modules within this category</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setSelectedCategoryId('')}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Categories
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => setSelectedCategoryId('')}>
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <Button onClick={() => openModuleDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Module
-                </Button>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Category</p>
+                  <CardTitle className="text-xl">{selectedCategory?.name}</CardTitle>
+                  <CardDescription>
+                    {modules.length} {modules.length === 1 ? 'module' : 'modules'} in this category
+                  </CardDescription>
+                </div>
               </div>
+              <Button onClick={() => openModuleDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Module
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Module Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {modules.map((module) => (
-                  <TableRow key={module.id}>
-                    <TableCell className="font-medium">{module.name}</TableCell>
-                    <TableCell>{module.description}</TableCell>
-                    <TableCell>{module.sort_order}</TableCell>
-                    <TableCell>
-                      <Badge variant={module.is_active ? 'default' : 'secondary'}>
-                        {module.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedModuleId(module.id)}>
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                        View Lessons
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => openModuleDialog(module)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => confirmDelete('module', module.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {modules.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg mb-2">No modules in this category yet</p>
+                <p className="text-sm mb-4">Create your first module to start adding lessons</p>
+                <Button onClick={() => openModuleDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Module
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Module Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {modules.map((module) => (
+                      <TableRow key={module.id}>
+                        <TableCell className="font-medium">{module.name}</TableCell>
+                        <TableCell>{module.description}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setSelectedModuleId(module.id)}>
+                              View Lessons
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openModuleDialog(module)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('module', module.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -412,64 +438,75 @@ export default function AdminTraining() {
       {/* LESSONS VIEW (bottom tier) */}
       {selectedModuleId && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Lessons in {selectedModule?.name}</CardTitle>
-                <CardDescription>Training lessons within this module</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setSelectedModuleId('')}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Modules
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => setSelectedModuleId('')}>
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <Button onClick={() => openLessonDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Lesson
-                </Button>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Module</p>
+                  <CardTitle className="text-xl">{selectedModule?.name}</CardTitle>
+                  <CardDescription>
+                    {lessons.length} {lessons.length === 1 ? 'lesson' : 'lessons'} in this module
+                  </CardDescription>
+                </div>
               </div>
+              <Button onClick={() => openLessonDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Lesson
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Lesson Name</TableHead>
-                  <TableHead>Video</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lessons.map((lesson) => (
-                  <TableRow key={lesson.id}>
-                    <TableCell className="font-medium">{lesson.name}</TableCell>
-                    <TableCell>
-                      {lesson.video_url && (
-                        <Badge variant="outline">
-                          {lesson.video_platform}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{lesson.sort_order}</TableCell>
-                    <TableCell>
-                      <Badge variant={lesson.is_active ? 'default' : 'secondary'}>
-                        {lesson.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="ghost" onClick={() => openLessonDialog(lesson)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => confirmDelete('lesson', lesson.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {lessons.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p className="text-lg mb-2">No lessons in this module yet</p>
+                <p className="text-sm mb-4">Add your first lesson with video content</p>
+                <Button onClick={() => openLessonDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Lesson
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lesson Name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Video</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lessons.map((lesson) => (
+                      <TableRow key={lesson.id}>
+                        <TableCell className="font-medium">{lesson.name}</TableCell>
+                        <TableCell>{lesson.description}</TableCell>
+                        <TableCell>
+                          {lesson.video_url ? (
+                            <Badge variant="outline" className="text-green-600">Has Video</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => openLessonDialog(lesson)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('lesson', lesson.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
