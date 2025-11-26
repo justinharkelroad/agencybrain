@@ -176,16 +176,27 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
         continue;
       }
 
-      const hasCorrectAnswer = q.options.some((opt) => opt.is_correct);
-      if (!hasCorrectAnswer) {
-        toast.error("All questions must have a correct answer selected");
-        return;
-      }
-
       if (q.question_type === "multiple_choice") {
-        const hasEmptyOptions = q.options.some((opt) => !opt.option_text.trim());
-        if (hasEmptyOptions) {
-          toast.error("All options must have text");
+        // Filter to only non-empty options
+        const nonEmptyOptions = q.options.filter((opt) => opt.option_text.trim());
+        
+        // Need at least 2 non-empty options for multiple choice
+        if (nonEmptyOptions.length < 2) {
+          toast.error("Multiple choice questions need at least 2 options with text");
+          return;
+        }
+        
+        // Check that at least one non-empty option is marked correct
+        const hasCorrectNonEmpty = nonEmptyOptions.some((opt) => opt.is_correct);
+        if (!hasCorrectNonEmpty) {
+          toast.error("Please select a correct answer from your filled-in options");
+          return;
+        }
+      } else {
+        // For true/false questions, just check correct answer exists
+        const hasCorrectAnswer = q.options.some((opt) => opt.is_correct);
+        if (!hasCorrectAnswer) {
+          toast.error("All questions must have a correct answer selected");
           return;
         }
       }
@@ -194,7 +205,13 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
     onSave?.({
       name: quizName,
       description: quizDescription,
-      questions: [...questions, ...reflectionQuestions],
+      questions: [...questions.map(q => ({
+        ...q,
+        // Filter out empty options for multiple choice
+        options: q.question_type === "multiple_choice" 
+          ? q.options.filter(opt => opt.option_text.trim())
+          : q.options
+      })), ...reflectionQuestions],
     });
   };
 
