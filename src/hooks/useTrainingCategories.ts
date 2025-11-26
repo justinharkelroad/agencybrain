@@ -32,7 +32,7 @@ export function useTrainingCategories(agencyId?: string) {
   const queryClient = useQueryClient();
 
   // Fetch all categories for an agency
-  const { data: categories, isLoading, error } = useQuery({
+  const { data: categories = [], isLoading, error } = useQuery({
     queryKey: ['training-categories', agencyId],
     queryFn: async () => {
       if (!agencyId) return [];
