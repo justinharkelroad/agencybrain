@@ -39,25 +39,25 @@ export interface TrainingLessonUpdate {
   is_active?: boolean | null;
 }
 
-export function useTrainingLessons(categoryId?: string) {
+export function useTrainingLessons(moduleId?: string) {
   const queryClient = useQueryClient();
 
-  // Fetch all lessons for a module (category)
+  // Fetch all lessons for a module
   const { data: lessons, isLoading, error } = useQuery({
-    queryKey: ['training-lessons', categoryId],
+    queryKey: ['training-lessons', moduleId],
     queryFn: async () => {
-      if (!categoryId) return [];
+      if (!moduleId) return [];
       
       const { data, error } = await supabase
         .from('training_lessons')
         .select('*')
-        .eq('module_id', categoryId)
+        .eq('module_id', moduleId)
         .order('sort_order', { ascending: true });
 
       if (error) throw error;
       return data as TrainingLesson[];
     },
-    enabled: !!categoryId,
+    enabled: !!moduleId,
   });
 
   // Create lesson mutation
