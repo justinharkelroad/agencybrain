@@ -32,7 +32,7 @@ export function AttachmentUploader({
   agencyId,
   onAttachmentAdded,
   maxSizeMB = 10,
-  allowedTypes = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  allowedTypes = [".pdf", ".doc", ".docx", ".mp3", ".mp4", ".wav", ".txt"],
 }: AttachmentUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [externalLink, setExternalLink] = useState("");
@@ -50,8 +50,9 @@ export function AttachmentUploader({
     }
 
     // Validate file type
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Invalid file type. Please upload PDF or Word documents.");
+    const ext = `.${file.name.split(".").pop()?.toLowerCase()}`;
+    if (!allowedTypes.includes(ext)) {
+      toast.error("Invalid file type. Allowed: PDF, DOC, DOCX, MP3, MP4, WAV, TXT");
       return;
     }
 
@@ -76,7 +77,7 @@ export function AttachmentUploader({
           name: file.name,
           file_url: uploadData.path,
           file_size_bytes: file.size,
-          file_type: file.type,
+          file_type: fileExt?.toLowerCase() || 'pdf',
           is_external_link: false,
         })
         .select()
@@ -121,7 +122,7 @@ export function AttachmentUploader({
           lesson_id: lessonId,
           name: externalLink,
           file_url: externalLink,
-          file_type: "external_link",
+          file_type: "link",
           is_external_link: true,
         })
         .select()
