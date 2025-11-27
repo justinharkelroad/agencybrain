@@ -61,9 +61,9 @@ export function AttachmentUploader({
     setIsUploading(true);
 
     try {
-      // Upload to Supabase storage
+      // Upload to Supabase storage - include agencyId for proper storage policy matching
       const fileExt = file.name.split(".").pop();
-      const fileName = `${lessonId}/${Date.now()}.${fileExt}`;
+      const fileName = `${agencyId}/${lessonId}/${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("training-files")
         .upload(fileName, file);

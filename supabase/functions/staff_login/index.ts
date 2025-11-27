@@ -4,18 +4,64 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Simple password verification for testing
-// NOTE: In production, you'd use a proper bcrypt library compatible with Deno Deploy
-// or use Postgres pgcrypto extension for password hashing
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  // For the test user with the specific hash
-  if (hash === "$2a$10$rZS4j8YMqQR.VG7X7Y8tO.pV6N.pqVJf.M8KNq.8Z4Yw9Y8X7Y6W2") {
-    return password === "TestPassword123!";
+// PBKDF2 password verification using Web Crypto API
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  try {
+    // Parse stored hash: pbkdf2_sha256$iterations$salt$hash
+    const parts = storedHash.split('$');
+    if (parts.length !== 4 || parts[0] !== 'pbkdf2_sha256') {
+      console.error('Invalid hash format');
+      return false;
+    }
+
+    const iterations = parseInt(parts[1]);
+    const saltHex = parts[2];
+    const storedHashHex = parts[3];
+
+    // Convert hex strings back to Uint8Array
+    const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)));
+    const storedHashArray = new Uint8Array(storedHashHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)));
+
+    // Hash the provided password with the same salt
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      data,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    );
+    
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: iterations,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256
+    );
+    
+    const computedHash = new Uint8Array(derivedBits);
+
+    // Compare hashes in constant time
+    if (computedHash.length !== storedHashArray.length) {
+      return false;
+    }
+
+    let diff = 0;
+    for (let i = 0; i < computedHash.length; i++) {
+      diff |= computedHash[i] ^ storedHashArray[i];
+    }
+
+    return diff === 0;
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
   }
-  
-  // For other users, you'd need to implement proper bcrypt verification
-  // or store hashes differently (e.g., using Web Crypto API scrypt)
-  return false;
 }
 
 Deno.serve(async (req) => {
@@ -75,7 +121,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify password
+    // Verify password using PBKDF2
     const passwordMatch = await verifyPassword(password, staffUser.password_hash);
     
     if (!passwordMatch) {
