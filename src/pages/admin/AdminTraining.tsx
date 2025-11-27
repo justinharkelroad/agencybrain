@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export default function AdminTraining() {
   const { modules, createModule, updateModule, deleteModule, isCreating: isCreatingModule, isUpdating: isUpdatingModule } = useTrainingModules(selectedCategoryId || undefined);
   const { lessons, createLesson, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
   const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId || undefined);
-  const { quizzes, createQuizWithQuestions, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
+  const { quizzes, createQuizWithQuestions, deleteQuiz, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId || undefined);
 
   // Attachment handlers
   const handleDownloadAttachment = async (attachment: any) => {
@@ -94,10 +95,24 @@ export default function AdminTraining() {
   };
 
   // Quiz save handler
-  const handleQuizSave = (quizData: any) => {
+  const handleQuizSave = async (quizData: any) => {
     if (!editingLesson || !agencyId) {
       console.error('Missing lesson or agency ID');
       return;
+    }
+    
+    // Delete existing quiz first if it exists (unique constraint on lesson_id)
+    if (quizzes && quizzes.length > 0) {
+      const { error } = await supabase
+        .from('training_quizzes')
+        .delete()
+        .eq('id', quizzes[0].id);
+      
+      if (error) {
+        console.error('Failed to delete existing quiz:', error);
+        toast.error('Failed to update quiz');
+        return;
+      }
     }
     
     createQuizWithQuestions({
@@ -771,6 +786,20 @@ export default function AdminTraining() {
                   lessonId={editingLesson.id} 
                   agencyId={agencyId} 
                   onSave={handleQuizSave}
+                  initialData={quizzes && quizzes.length > 0 ? {
+                    name: quizzes[0].name,
+                    description: quizzes[0].description || "",
+                    questions: quizzes[0].questions?.filter(q => !q.question_text.startsWith("What is the main takeaway") && !q.question_text.startsWith("Why do you feel")).map(q => ({
+                      question_text: q.question_text,
+                      question_type: q.question_type,
+                      sort_order: q.sort_order || 0,
+                      options: q.options?.map(o => ({
+                        option_text: o.option_text,
+                        is_correct: o.is_correct || false,
+                        sort_order: o.sort_order || 0,
+                      })) || [],
+                    })) || [],
+                  } : undefined}
                 />
               )}
             </TabsContent>
