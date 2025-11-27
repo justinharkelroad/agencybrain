@@ -64,6 +64,8 @@ import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 import TestTrainingHooks from "./pages/TestTrainingHooks";
+import StaffLogin from "./pages/StaffLogin";
+import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
 const LifeTargetsBrainstorm = lazy(() => import("./pages/LifeTargetsBrainstorm"));
@@ -476,6 +478,17 @@ const App = () => (
                   <TestTrainingHooks />
                 </SidebarLayout>
               </ProtectedRoute>
+            } />
+            
+            {/* Staff Portal Routes - separate auth system */}
+            <Route path="/staff/login" element={<StaffLogin />} />
+            <Route path="/staff/training" element={
+              <StaffProtectedRoute>
+                <div className="min-h-screen bg-background p-8">
+                  <h1 className="text-2xl font-bold">Staff Training Portal</h1>
+                  <p className="text-muted-foreground mt-2">Training content coming in Phase 6</p>
+                </div>
+              </StaffProtectedRoute>
             } />
             
             <Route path="*" element={<NotFound />} />
