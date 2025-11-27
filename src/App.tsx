@@ -65,6 +65,7 @@ const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 import TestTrainingHooks from "./pages/TestTrainingHooks";
 import StaffLogin from "./pages/StaffLogin";
+import StaffTraining from "./pages/StaffTraining";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
@@ -484,10 +485,7 @@ const App = () => (
             <Route path="/staff/login" element={<StaffLogin />} />
             <Route path="/staff/training" element={
               <StaffProtectedRoute>
-                <div className="min-h-screen bg-background p-8">
-                  <h1 className="text-2xl font-bold">Staff Training Portal</h1>
-                  <p className="text-muted-foreground mt-2">Training content coming in Phase 6</p>
-                </div>
+                <StaffTraining />
               </StaffProtectedRoute>
             } />
             
