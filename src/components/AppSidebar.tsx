@@ -10,6 +10,7 @@ import {
   Wrench,
   LogOut,
   GraduationCap,
+  UserCog,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -45,6 +46,7 @@ const adminItems = [
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Training System", url: "/admin/training", icon: GraduationCap },
+  { title: "Staff Users", url: "/admin/staff-users", icon: UserCog },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
