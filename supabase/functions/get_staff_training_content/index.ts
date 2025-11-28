@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('agency_id', agency_id)
       .eq('is_active', true)
-      .order('order_index');
+      .order('sort_order');
 
     if (modulesError) {
       console.error('Error fetching modules:', modulesError);
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('agency_id', agency_id)
       .eq('is_active', true)
-      .order('order_index');
+      .order('sort_order');
 
     if (categoriesError) {
       console.error('Error fetching categories:', categoriesError);
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('agency_id', agency_id)
       .eq('is_active', true)
-      .order('order_index');
+      .order('sort_order');
 
     if (lessonsError) {
       console.error('Error fetching lessons:', lessonsError);

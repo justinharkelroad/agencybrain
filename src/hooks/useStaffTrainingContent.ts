@@ -5,7 +5,7 @@ interface TrainingLesson {
   id: string;
   title: string;
   content: string | null;
-  order_index: number;
+  sort_order: number;
   video_url: string | null;
   module_id: string;
   created_at: string;
@@ -15,7 +15,7 @@ interface TrainingModule {
   id: string;
   title: string;
   description: string | null;
-  order_index: number;
+  sort_order: number;
   category_id: string;
   lessons: TrainingLesson[];
 }
@@ -24,7 +24,7 @@ interface TrainingCategory {
   id: string;
   name: string;
   description: string | null;
-  order_index: number;
+  sort_order: number;
   modules: TrainingModule[];
 }
 
@@ -61,10 +61,10 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
             ...mod,
             lessons: (data.lessons || [])
               .filter((lesson: any) => lesson.module_id === mod.id)
-              .sort((a: any, b: any) => a.order_index - b.order_index)
+              .sort((a: any, b: any) => a.sort_order - b.sort_order)
           }))
-          .sort((a: any, b: any) => a.order_index - b.order_index)
-      })).sort((a: any, b: any) => a.order_index - b.order_index);
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      })).sort((a: any, b: any) => a.sort_order - b.sort_order);
 
       return { categories: categoriesWithModules };
     },
