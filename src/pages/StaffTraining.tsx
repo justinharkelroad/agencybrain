@@ -36,6 +36,17 @@ export default function StaffTraining() {
   const attachments = selectedLesson?.id ? (contentData?.attachmentsByLesson?.[selectedLesson.id] || []) : [];
   const quizzes = selectedLesson?.id ? (contentData?.quizzesByLesson?.[selectedLesson.id] || []) : [];
 
+  // Debug logging for attachments and quizzes
+  useEffect(() => {
+    if (selectedLesson?.id && contentData) {
+      console.log('Selected lesson ID:', selectedLesson.id);
+      console.log('Attachments by lesson:', contentData.attachmentsByLesson);
+      console.log('Quizzes by lesson:', contentData.quizzesByLesson);
+      console.log('Filtered attachments:', attachments);
+      console.log('Filtered quizzes:', quizzes);
+    }
+  }, [selectedLesson?.id, contentData, attachments, quizzes]);
+
   const isCompleted = (lessonId: string) => {
     return progressData?.progress?.some(p => p.lesson_id === lessonId && p.completed) || false;
   };

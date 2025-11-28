@@ -17,7 +17,7 @@ export function useUpdateTrainingProgress() {
         body: {
           session_token: sessionToken,
           lesson_id: lessonId,
-          completed,
+          status: completed ? 'completed' : 'not_started',
         }
       });
 
