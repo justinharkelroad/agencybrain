@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useStaffTrainingContent } from '@/hooks/useStaffTrainingContent';
 import { useStaffTrainingProgress } from '@/hooks/useStaffTrainingProgress';
@@ -26,6 +26,10 @@ export default function StaffTraining() {
     content: string | null;
     video_url: string | null;
   } | null>(null);
+
+  useEffect(() => {
+    console.log('selectedLesson state changed:', selectedLesson);
+  }, [selectedLesson]);
 
   const isCompleted = (lessonId: string) => {
     return progressData?.progress?.some(p => p.lesson_id === lessonId && p.completed) || false;
@@ -135,6 +139,7 @@ export default function StaffTraining() {
                                           className="flex items-center gap-2 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
                                           onClick={(e) => {
                                             e.stopPropagation();
+                                            console.log('Lesson clicked:', lesson);
                                             setSelectedLesson(lesson);
                                           }}
                                         >
