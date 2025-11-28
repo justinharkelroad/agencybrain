@@ -3,8 +3,7 @@ import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useStaffTrainingContent } from '@/hooks/useStaffTrainingContent';
 import { useStaffTrainingProgress } from '@/hooks/useStaffTrainingProgress';
 import { useUpdateTrainingProgress } from '@/hooks/useUpdateTrainingProgress';
-import { useTrainingAttachments } from '@/hooks/useTrainingAttachments';
-import { useTrainingQuizzes, TrainingQuiz } from '@/hooks/useTrainingQuizzes';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -31,10 +30,11 @@ export default function StaffTraining() {
     video_url: string | null;
   } | null>(null);
   
-  const [activeQuiz, setActiveQuiz] = useState<TrainingQuiz | null>(null);
+  const [activeQuiz, setActiveQuiz] = useState<any>(null);
 
-  const { attachments, getDownloadUrl } = useTrainingAttachments(selectedLesson?.id);
-  const { quizzes } = useTrainingQuizzes(selectedLesson?.id);
+  // Get attachments and quizzes for selected lesson from content data
+  const attachments = selectedLesson?.id ? (contentData?.attachmentsByLesson?.[selectedLesson.id] || []) : [];
+  const quizzes = selectedLesson?.id ? (contentData?.quizzesByLesson?.[selectedLesson.id] || []) : [];
 
   const isCompleted = (lessonId: string) => {
     return progressData?.progress?.some(p => p.lesson_id === lessonId && p.completed) || false;
@@ -51,9 +51,19 @@ export default function StaffTraining() {
 
   const handleDownloadAttachment = async (attachment: any) => {
     try {
-      const url = await getDownloadUrl(attachment.file_url, attachment.is_external_link || false);
-      window.open(url, '_blank');
+      const { data, error } = await supabase.functions.invoke('get_training_attachment_url', {
+        body: { 
+          session_token: sessionToken,
+          attachment_id: attachment.id 
+        }
+      });
+      
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
     } catch (error) {
+      console.error('Download error:', error);
       toast.error('Failed to download file');
     }
   };

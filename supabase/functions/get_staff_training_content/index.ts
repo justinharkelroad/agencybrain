@@ -96,12 +96,50 @@ Deno.serve(async (req) => {
       console.error('Error fetching attachments:', attachmentsError);
     }
 
+    // Fetch quizzes
+    const { data: quizzes, error: quizzesError } = await supabase
+      .from('training_quizzes')
+      .select('*')
+      .eq('agency_id', agency_id)
+      .order('created_at');
+
+    if (quizzesError) {
+      console.error('Error fetching quizzes:', quizzesError);
+    }
+
+    // Fetch quiz questions
+    const quizIds = (quizzes || []).map((q: any) => q.id);
+    let questions = [];
+    let options = [];
+
+    if (quizIds.length > 0) {
+      const { data: questionsData } = await supabase
+        .from('training_quiz_questions')
+        .select('*')
+        .in('quiz_id', quizIds)
+        .order('sort_order');
+      questions = questionsData || [];
+      
+      const questionIds = questions.map((q: any) => q.id);
+      if (questionIds.length > 0) {
+        const { data: optionsData } = await supabase
+          .from('training_quiz_options')
+          .select('*')
+          .in('question_id', questionIds)
+          .order('sort_order');
+        options = optionsData || [];
+      }
+    }
+
     return new Response(
       JSON.stringify({
         modules: modules || [],
         categories: categories || [],
         lessons: lessons || [],
         attachments: attachments || [],
+        quizzes: quizzes || [],
+        quiz_questions: questions,
+        quiz_options: options,
         staff_user: {
           id: session.staff_users.id,
           username: session.staff_users.username,
