@@ -3,6 +3,8 @@ import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useStaffTrainingContent } from '@/hooks/useStaffTrainingContent';
 import { useStaffTrainingProgress } from '@/hooks/useStaffTrainingProgress';
 import { useUpdateTrainingProgress } from '@/hooks/useUpdateTrainingProgress';
+import { useTrainingAttachments } from '@/hooks/useTrainingAttachments';
+import { useTrainingQuizzes, TrainingQuiz } from '@/hooks/useTrainingQuizzes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -12,10 +14,12 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VideoEmbed } from '@/components/training/VideoEmbed';
-import { BookOpen, CheckCircle, Circle, Video, LogOut } from 'lucide-react';
+import { QuizTaker } from '@/components/training/QuizTaker';
+import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function StaffTraining() {
-  const { user, logout } = useStaffAuth();
+  const { user, logout, sessionToken } = useStaffAuth();
   const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(user?.agency_id);
   const { data: progressData, isLoading: progressLoading } = useStaffTrainingProgress();
   const updateProgress = useUpdateTrainingProgress();
@@ -26,10 +30,11 @@ export default function StaffTraining() {
     content: string | null;
     video_url: string | null;
   } | null>(null);
+  
+  const [activeQuiz, setActiveQuiz] = useState<TrainingQuiz | null>(null);
 
-  useEffect(() => {
-    console.log('selectedLesson state changed:', selectedLesson);
-  }, [selectedLesson]);
+  const { attachments, getDownloadUrl } = useTrainingAttachments(selectedLesson?.id);
+  const { quizzes } = useTrainingQuizzes(selectedLesson?.id);
 
   const isCompleted = (lessonId: string) => {
     return progressData?.progress?.some(p => p.lesson_id === lessonId && p.completed) || false;
@@ -42,6 +47,21 @@ export default function StaffTraining() {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleDownloadAttachment = async (attachment: any) => {
+    try {
+      const url = await getDownloadUrl(attachment.file_url, attachment.is_external_link || false);
+      window.open(url, '_blank');
+    } catch (error) {
+      toast.error('Failed to download file');
+    }
+  };
+
+  const handleQuizComplete = () => {
+    if (selectedLesson) {
+      handleToggleComplete(selectedLesson.id);
+    }
   };
 
   if (contentLoading || progressLoading) {
@@ -90,9 +110,9 @@ export default function StaffTraining() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Training Content List */}
-          <div className="lg:col-span-1">
+          <div className="md:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle>Training Modules</CardTitle>
@@ -168,65 +188,124 @@ export default function StaffTraining() {
           </div>
 
           {/* Lesson Viewer */}
-          <div className="lg:col-span-2">
-            <Card className="h-full">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle>{selectedLesson?.title || 'Select a lesson'}</CardTitle>
-                    {selectedLesson && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Checkbox
-                          id="complete-lesson"
-                          checked={isCompleted(selectedLesson.id)}
-                          onCheckedChange={() => handleToggleComplete(selectedLesson.id)}
-                        />
-                        <label
-                          htmlFor="complete-lesson"
-                          className="text-sm font-medium leading-none cursor-pointer"
-                        >
-                          Mark as complete
-                        </label>
+          <div className="md:col-span-2">
+            {activeQuiz ? (
+              <QuizTaker 
+                quiz={activeQuiz} 
+                sessionToken={sessionToken || ''}
+                onBack={() => setActiveQuiz(null)}
+                onComplete={handleQuizComplete}
+              />
+            ) : (
+              <Card className="h-full">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle>{selectedLesson?.title || 'Select a lesson'}</CardTitle>
+                      {selectedLesson && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Checkbox
+                            id="complete-lesson"
+                            checked={isCompleted(selectedLesson.id)}
+                            onCheckedChange={() => handleToggleComplete(selectedLesson.id)}
+                          />
+                          <label
+                            htmlFor="complete-lesson"
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            Mark as complete
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[600px]">
+                    {!selectedLesson ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                        <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">No lesson selected</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Select a lesson from the list to view its content
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {selectedLesson.video_url && (
+                          <VideoEmbed url={selectedLesson.video_url} />
+                        )}
+                        
+                        {selectedLesson.content && (
+                          <>
+                            <Separator />
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <div dangerouslySetInnerHTML={{ __html: selectedLesson.content }} />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Attachments Section */}
+                        {attachments.length > 0 && (
+                          <>
+                            <Separator />
+                            <div>
+                              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                Attachments
+                              </h3>
+                              <div className="space-y-2">
+                                {attachments.map((attachment) => (
+                                  <Button
+                                    key={attachment.id}
+                                    variant="outline"
+                                    className="w-full justify-start"
+                                    onClick={() => handleDownloadAttachment(attachment)}
+                                  >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    {attachment.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Quiz Section */}
+                        {quizzes.length > 0 && (
+                          <>
+                            <Separator />
+                            <div>
+                              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                <ClipboardList className="h-4 w-4" />
+                                Quiz
+                              </h3>
+                              {quizzes.map((quiz) => (
+                                <div key={quiz.id} className="p-4 border rounded-lg">
+                                  <p className="font-medium">{quiz.name}</p>
+                                  {quiz.description && (
+                                    <p className="text-sm text-muted-foreground mt-1">{quiz.description}</p>
+                                  )}
+                                  <Button className="mt-3" onClick={() => setActiveQuiz(quiz)}>
+                                    Take Quiz
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        
+                        {!selectedLesson.content && !selectedLesson.video_url && attachments.length === 0 && quizzes.length === 0 && (
+                          <p className="text-muted-foreground text-center py-8">
+                            No content available for this lesson yet.
+                          </p>
+                        )}
                       </div>
                     )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px]">
-                  {!selectedLesson ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-20">
-                      <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
-                      <p className="text-lg font-medium">No lesson selected</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Select a lesson from the list to view its content
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {selectedLesson.video_url && (
-                        <VideoEmbed url={selectedLesson.video_url} />
-                      )}
-                      
-                      {selectedLesson.content && (
-                        <>
-                          <Separator />
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <div dangerouslySetInnerHTML={{ __html: selectedLesson.content }} />
-                          </div>
-                        </>
-                      )}
-                      
-                      {!selectedLesson.content && !selectedLesson.video_url && (
-                        <p className="text-muted-foreground text-center py-8">
-                          No content available for this lesson yet.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
