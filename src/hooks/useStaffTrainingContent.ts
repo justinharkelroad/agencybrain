@@ -52,15 +52,21 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
       if (error) throw error;
       if (!data) throw new Error('No data returned');
 
-      // Transform flat arrays into nested structure
+      // Transform flat arrays into nested structure with aliases for UI compatibility
       const categoriesWithModules: TrainingCategory[] = (data.categories || []).map((cat: any) => ({
         ...cat,
         modules: (data.modules || [])
           .filter((mod: any) => mod.category_id === cat.id)
           .map((mod: any) => ({
             ...mod,
+            title: mod.name, // Add title alias for UI
             lessons: (data.lessons || [])
               .filter((lesson: any) => lesson.module_id === mod.id)
+              .map((lesson: any) => ({
+                ...lesson,
+                title: lesson.name, // Add title alias for UI
+                content: lesson.content_html // Add content alias for UI
+              }))
               .sort((a: any, b: any) => a.sort_order - b.sort_order)
           }))
           .sort((a: any, b: any) => a.sort_order - b.sort_order)

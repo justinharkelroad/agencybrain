@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { VideoEmbed } from '@/components/training/VideoEmbed';
 import { BookOpen, CheckCircle, Circle, Video, LogOut } from 'lucide-react';
 
 export default function StaffTraining() {
@@ -196,14 +197,7 @@ export default function StaffTraining() {
                   ) : (
                     <div className="space-y-6">
                       {selectedLesson.video_url && (
-                        <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                          <iframe
-                            src={selectedLesson.video_url}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        </div>
+                        <VideoEmbed url={selectedLesson.video_url} />
                       )}
                       
                       {selectedLesson.content && (
