@@ -15,7 +15,7 @@ import { BookOpen, CheckCircle, Circle, Video, LogOut } from 'lucide-react';
 
 export default function StaffTraining() {
   const { user, logout } = useStaffAuth();
-  const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent();
+  const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(user?.agency_id);
   const { data: progressData, isLoading: progressLoading } = useStaffTrainingProgress();
   const updateProgress = useUpdateTrainingProgress();
   
