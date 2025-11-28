@@ -130,10 +130,13 @@ export default function StaffTraining() {
                                     )}
                                     <div className="space-y-1">
                                       {module.lessons.map((lesson) => (
-                                        <div
+                                         <div
                                           key={lesson.id}
                                           className="flex items-center gap-2 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
-                                          onClick={() => setSelectedLesson(lesson)}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedLesson(lesson);
+                                          }}
                                         >
                                           {isCompleted(lesson.id) ? (
                                             <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
