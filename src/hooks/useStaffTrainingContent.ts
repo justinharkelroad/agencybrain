@@ -28,6 +28,42 @@ interface TrainingCategory {
   modules: TrainingModule[];
 }
 
+interface TrainingAttachment {
+  id: string;
+  name: string;
+  file_url: string;
+  is_external_link: boolean;
+  lesson_id: string | null;
+}
+
+interface TrainingQuizOption {
+  id: string;
+  question_id: string;
+  option_text: string;
+  is_correct: boolean;
+  sort_order: number;
+}
+
+interface TrainingQuizQuestion {
+  id: string;
+  quiz_id: string;
+  question_text: string;
+  question_type: string;
+  sort_order: number;
+  options: TrainingQuizOption[];
+}
+
+interface TrainingQuiz {
+  id: string;
+  name: string;
+  description: string | null;
+  lesson_id: string | null;
+  passing_score: number;
+  questions: TrainingQuizQuestion[];
+}
+
+export type { TrainingQuiz, TrainingAttachment };
+
 export function useStaffTrainingContent(agencyId: string | undefined) {
   return useQuery({
     queryKey: ['staff-training-content', agencyId],
@@ -72,7 +108,45 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
           .sort((a: any, b: any) => a.sort_order - b.sort_order)
       })).sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-      return { categories: categoriesWithModules };
+      // Group attachments by lesson_id
+      const attachmentsByLesson: Record<string, TrainingAttachment[]> = {};
+      (data.attachments || []).forEach((att: any) => {
+        if (att.lesson_id) {
+          if (!attachmentsByLesson[att.lesson_id]) {
+            attachmentsByLesson[att.lesson_id] = [];
+          }
+          attachmentsByLesson[att.lesson_id].push(att);
+        }
+      });
+
+      // Group quizzes with their questions and options
+      const quizzesByLesson: Record<string, TrainingQuiz[]> = {};
+      (data.quizzes || []).forEach((quiz: any) => {
+        if (quiz.lesson_id) {
+          const quizQuestions = (data.quiz_questions || [])
+            .filter((q: any) => q.quiz_id === quiz.id)
+            .map((q: any) => ({
+              ...q,
+              options: (data.quiz_options || [])
+                .filter((opt: any) => opt.question_id === q.id)
+                .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            }))
+            .sort((a: any, b: any) => a.sort_order - b.sort_order);
+
+          const fullQuiz = { ...quiz, questions: quizQuestions };
+          
+          if (!quizzesByLesson[quiz.lesson_id]) {
+            quizzesByLesson[quiz.lesson_id] = [];
+          }
+          quizzesByLesson[quiz.lesson_id].push(fullQuiz);
+        }
+      });
+
+      return { 
+        categories: categoriesWithModules,
+        attachmentsByLesson,
+        quizzesByLesson
+      };
     },
     enabled: !!agencyId,
     staleTime: 5 * 60 * 1000, // 5 minutes
