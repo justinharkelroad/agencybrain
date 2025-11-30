@@ -202,6 +202,93 @@ export default function AdminTrainingAssignments() {
     },
   });
 
+  // Backfill existing progress mutation
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      // Find all staff users with lesson progress but no assignment
+      const { data: progressWithNoAssignment, error: queryError } = await supabase.rpc(
+        'get_progress_without_assignments',
+        { p_agency_id: agencyId }
+      );
+
+      if (queryError) {
+        // If RPC doesn't exist, do it manually
+        const { data: allProgress, error: progressError } = await supabase
+          .from('staff_lesson_progress')
+          .select(`
+            staff_user_id,
+            lesson_id,
+            training_lessons!inner(module_id)
+          `)
+          .eq('agency_id', agencyId);
+
+        if (progressError) throw progressError;
+
+        const { data: existingAssignments, error: assignmentError } = await supabase
+          .from('training_assignments')
+          .select('staff_user_id, module_id')
+          .eq('agency_id', agencyId);
+
+        if (assignmentError) throw assignmentError;
+
+        // Group progress by staff_user_id and module_id
+        const progressMap = new Map<string, Set<string>>();
+        allProgress?.forEach(p => {
+          const key = `${p.staff_user_id}-${(p.training_lessons as any).module_id}`;
+          if (!progressMap.has(p.staff_user_id)) {
+            progressMap.set(p.staff_user_id, new Set());
+          }
+          progressMap.get(p.staff_user_id)!.add((p.training_lessons as any).module_id);
+        });
+
+        // Find missing assignments
+        const missingAssignments: any[] = [];
+        progressMap.forEach((moduleIds, staffUserId) => {
+          moduleIds.forEach(moduleId => {
+            const hasAssignment = existingAssignments?.some(
+              a => a.staff_user_id === staffUserId && a.module_id === moduleId
+            );
+            if (!hasAssignment) {
+              missingAssignments.push({
+                agency_id: agencyId,
+                staff_user_id: staffUserId,
+                module_id: moduleId,
+                assigned_by: user?.id,
+                assigned_at: new Date().toISOString(),
+              });
+            }
+          });
+        });
+
+        if (missingAssignments.length === 0) {
+          return { count: 0 };
+        }
+
+        const { error: insertError } = await supabase
+          .from('training_assignments')
+          .insert(missingAssignments);
+
+        if (insertError) throw insertError;
+
+        return { count: missingAssignments.length };
+      }
+
+      return progressWithNoAssignment;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
+      const count = data?.count || 0;
+      if (count === 0) {
+        toast.info('No missing assignments found');
+      } else {
+        toast.success(`Backfilled ${count} assignment${count === 1 ? '' : 's'}`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to backfill assignments');
+    },
+  });
+
   const getStatus = (assignment: any) => {
     if (!assignment.module_id || !assignment.staff_user_id) return 'In Progress';
     
@@ -267,10 +354,19 @@ export default function AdminTrainingAssignments() {
           <h1 className="text-3xl font-bold">Training Assignments</h1>
           <p className="text-muted-foreground">Assign training modules to staff members</p>
         </div>
-        <Button onClick={() => setIsBulkDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Bulk Assign
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => backfillMutation.mutate()}
+            disabled={backfillMutation.isPending}
+          >
+            {backfillMutation.isPending ? 'Backfilling...' : 'Backfill Existing Progress'}
+          </Button>
+          <Button onClick={() => setIsBulkDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Bulk Assign
+          </Button>
+        </div>
       </div>
 
       <Card>
