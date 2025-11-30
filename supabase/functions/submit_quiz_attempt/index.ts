@@ -112,15 +112,20 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const isCorrect = userAnswer === correctOption.id;
+      // Find the selected option - check both ID match (new) and text match (old/fallback)
+      const selectedOption = options.find((opt: any) => 
+        opt.id === userAnswer || opt.option_text === userAnswer
+      );
+      
+      // Check if answer is correct - support both ID and text comparison
+      const isCorrect = userAnswer === correctOption.id || userAnswer === correctOption.option_text;
+      
+      console.log(`Question ${question.id}: userAnswer="${userAnswer}", correctId="${correctOption.id}", correctText="${correctOption.option_text}", isCorrect=${isCorrect}`);
       
       if (isCorrect) {
         correctCount++;
       }
       gradableCount++;
-
-      // Find the selected option to display its text
-      const selectedOption = options.find((opt: any) => opt.id === userAnswer);
 
       detailedResults.push({
         question_id: question.id,
