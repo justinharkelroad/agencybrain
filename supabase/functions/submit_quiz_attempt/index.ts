@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
         question_text: question.question_text,
         user_answer: userAnswer,
         correct_answer: correctOption.id,
+        correct_answer_text: correctOption.option_text,
         is_correct: isCorrect,
         type: question.question_type
       });

@@ -54,10 +54,10 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
       setSubmitted(true);
       
       if (data.passed) {
-        toast.success(`Quiz passed! Score: ${data.score_percentage}%`);
+        toast.success(`Quiz passed! Score: ${data.score}%`);
         onComplete();
       } else {
-        toast.error(`Quiz not passed. Score: ${data.score_percentage}%`);
+        toast.error(`Quiz not passed. Score: ${data.score}%`);
       }
     } catch (error: any) {
       console.error('Quiz submission error:', error);
@@ -91,41 +91,41 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
             )}
           </CardTitle>
           <CardDescription>
-            Your Score: {results.score_percentage}% ({results.correct_answers}/{results.total_questions})
+            Your Score: {results.score}% ({results.correct_count}/{results.total_questions})
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[500px]">
             <div className="space-y-4">
               {results.detailed_results?.map((result: any, idx: number) => (
-                <Card key={idx} className={result.correct ? 'border-green-500/50' : result.gradable ? 'border-destructive/50' : ''}>
+                <Card key={idx} className={result.is_correct ? 'border-green-500/50' : result.type !== 'text_response' ? 'border-destructive/50' : ''}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
                         Question {idx + 1}
-                        {result.gradable && (
-                          result.correct ? (
+                        {result.type !== 'text_response' && (
+                          result.is_correct ? (
                             <CheckCircle className="h-4 w-4 text-green-500" />
                           ) : (
                             <XCircle className="h-4 w-4 text-destructive" />
                           )
                         )}
                       </CardTitle>
-                      {!result.gradable && (
+                      {result.type === 'text_response' && (
                         <Badge variant="secondary">Text Response</Badge>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <p className="font-medium">{result.question}</p>
+                    <p className="font-medium">{result.question_text}</p>
                     <div>
                       <p className="text-sm text-muted-foreground">Your answer:</p>
-                      <p className="text-sm">{result.answer}</p>
+                      <p className="text-sm">{result.user_answer || 'No answer provided'}</p>
                     </div>
-                    {result.gradable && !result.correct && (
+                    {result.type !== 'text_response' && !result.is_correct && (
                       <div>
                         <p className="text-sm text-muted-foreground">Correct answer:</p>
-                        <p className="text-sm text-green-600 dark:text-green-400">{result.correct_answer}</p>
+                        <p className="text-sm text-green-600 dark:text-green-400">{result.correct_answer_text}</p>
                       </div>
                     )}
                   </CardContent>
