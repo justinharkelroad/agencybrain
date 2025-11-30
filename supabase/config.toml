@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.get_training_attachment_url]
 verify_jwt = false
+
+[functions.admin_reset_staff_password]
+verify_jwt = true

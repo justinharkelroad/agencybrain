@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, UserCog } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck } from "lucide-react";
 
 interface StaffUser {
   id: string;
@@ -20,6 +21,26 @@ interface StaffUser {
   last_login_at: string | null;
   created_at: string;
 }
+
+// Helper function to generate random password
+const generateRandomPassword = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let password = '';
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
+
+// Helper function to copy to clipboard
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Password copied to clipboard");
+  } catch (err) {
+    toast.error("Failed to copy to clipboard");
+  }
+};
 
 export default function AdminStaffUsers() {
   const queryClient = useQueryClient();
@@ -43,12 +64,29 @@ export default function AdminStaffUsers() {
   });
   
   const agencyId = profile?.agency_id;
+
+  // Create dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
     display_name: "",
   });
+
+  // Edit dialog states
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    username: "",
+    display_name: "",
+  });
+
+  // Reset password dialog states
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<StaffUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Fetch staff users for agency
   const { data: staffUsers = [], isLoading } = useQuery({
@@ -88,10 +126,62 @@ export default function AdminStaffUsers() {
       toast.success("Staff user created successfully");
       setIsCreateDialogOpen(false);
       setFormData({ username: "", password: "", display_name: "" });
+      setShowPassword(false);
     },
     onError: (error: any) => {
       console.error("Create staff user error:", error);
       toast.error(error.message || "Failed to create staff user");
+    },
+  });
+
+  // Edit staff user mutation
+  const editStaffUser = useMutation({
+    mutationFn: async ({ userId, userData }: { userId: string; userData: typeof editFormData }) => {
+      const { error } = await supabase
+        .from("staff_users")
+        .update({
+          username: userData.username,
+          display_name: userData.display_name,
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-users"] });
+      toast.success("Staff user updated successfully");
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+    },
+    onError: (error: any) => {
+      console.error("Edit staff user error:", error);
+      toast.error(error.message || "Failed to update staff user");
+    },
+  });
+
+  // Reset password mutation
+  const resetPassword = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const { data, error } = await supabase.functions.invoke("admin_reset_staff_password", {
+        body: {
+          user_id: userId,
+          new_password: password,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Password reset successfully");
+      setIsResetDialogOpen(false);
+      setResetUser(null);
+      setNewPassword("");
+      setShowNewPassword(false);
+    },
+    onError: (error: any) => {
+      console.error("Reset password error:", error);
+      toast.error(error.message || "Failed to reset password");
     },
   });
 
@@ -131,6 +221,69 @@ export default function AdminStaffUsers() {
     createStaffUser.mutate(formData);
   };
 
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingUser || !editFormData.username) {
+      toast.error("Username is required");
+      return;
+    }
+
+    editStaffUser.mutate({
+      userId: editingUser.id,
+      userData: editFormData,
+    });
+  };
+
+  const handleResetPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!resetUser || !newPassword) {
+      toast.error("Password is required");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    resetPassword.mutate({
+      userId: resetUser.id,
+      password: newPassword,
+    });
+  };
+
+  const handleGeneratePassword = () => {
+    const password = generateRandomPassword();
+    setFormData({ ...formData, password });
+    setShowPassword(true);
+    copyToClipboard(password);
+  };
+
+  const handleGenerateNewPassword = () => {
+    const password = generateRandomPassword();
+    setNewPassword(password);
+    setShowNewPassword(true);
+    copyToClipboard(password);
+  };
+
+  const handleEdit = (user: StaffUser) => {
+    setEditingUser(user);
+    setEditFormData({
+      username: user.username,
+      display_name: user.display_name || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleResetPassword = (user: StaffUser) => {
+    setResetUser(user);
+    setNewPassword("");
+    setShowNewPassword(false);
+    setIsResetDialogOpen(true);
+  };
+
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -145,6 +298,8 @@ export default function AdminStaffUsers() {
                 Create and manage staff users for training system access
               </CardDescription>
             </div>
+            
+            {/* Create Staff User Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -172,15 +327,40 @@ export default function AdminStaffUsers() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Minimum 8 characters"
-                      required
-                      minLength={8}
-                    />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          placeholder="Minimum 8 characters"
+                          required
+                          minLength={8}
+                          className="pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGeneratePassword}
+                      >
+                        Generate
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="display_name">Display Name</Label>
@@ -235,19 +415,43 @@ export default function AdminStaffUsers() {
                     </TableCell>
                     <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          toggleActive.mutate({
-                            userId: user.id,
-                            isActive: user.is_active,
-                          })
-                        }
-                        disabled={toggleActive.isPending}
-                      >
-                        {user.is_active ? "Deactivate" : "Activate"}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(user)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+                            <Key className="h-4 w-4 mr-2" />
+                            Reset Password
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              toggleActive.mutate({
+                                userId: user.id,
+                                isActive: user.is_active,
+                              })
+                            }
+                          >
+                            {user.is_active ? (
+                              <>
+                                <UserX className="h-4 w-4 mr-2" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-4 w-4 mr-2" />
+                                Activate
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -256,6 +460,96 @@ export default function AdminStaffUsers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Staff User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Staff User</DialogTitle>
+            <DialogDescription>
+              Update username and display name
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">Username *</Label>
+              <Input
+                id="edit-username"
+                value={editFormData.username}
+                onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
+                placeholder="staff.username"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-display-name">Display Name</Label>
+              <Input
+                id="edit-display-name"
+                value={editFormData.display_name}
+                onChange={(e) => setEditFormData({ ...editFormData, display_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <Button type="submit" disabled={editStaffUser.isPending} className="w-full">
+              {editStaffUser.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password for: <span className="font-mono font-semibold">{resetUser?.username}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password *</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="new-password"
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    required
+                    minLength={8}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateNewPassword}
+                >
+                  Generate
+                </Button>
+              </div>
+            </div>
+            <Button type="submit" disabled={resetPassword.isPending} className="w-full">
+              {resetPassword.isPending ? "Resetting..." : "Reset Password"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
