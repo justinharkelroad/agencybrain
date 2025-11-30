@@ -119,10 +119,13 @@ Deno.serve(async (req) => {
       }
       gradableCount++;
 
+      // Find the selected option to display its text
+      const selectedOption = options.find((opt: any) => opt.id === userAnswer);
+
       detailedResults.push({
         question_id: question.id,
         question_text: question.question_text,
-        user_answer: userAnswer,
+        user_answer: selectedOption?.option_text || 'No answer provided',
         correct_answer: correctOption.id,
         correct_answer_text: correctOption.option_text,
         is_correct: isCorrect,
@@ -181,6 +184,12 @@ Deno.serve(async (req) => {
 
     console.log(`Quiz attempt submitted: user=${staffUserId}, quiz=${quiz_id}, score=${scorePercentage}%, passed=${passed}`);
 
+    // Extract reflection answers
+    const reflectionAnswers = {
+      reflection_1: answers['reflection_1'] || '',
+      reflection_2: answers['reflection_2'] || ''
+    };
+
     return new Response(
       JSON.stringify({
         attempt_id: attempt.id,
@@ -190,7 +199,8 @@ Deno.serve(async (req) => {
         total_questions: questions.length,
         gradable_questions: gradableCount,
         passing_score: PASSING_SCORE,
-        detailed_results: detailedResults
+        detailed_results: detailedResults,
+        reflection_answers: reflectionAnswers
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
