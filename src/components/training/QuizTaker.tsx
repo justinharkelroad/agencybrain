@@ -71,12 +71,6 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2 mb-2">
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Lesson
-            </Button>
-          </div>
           <CardTitle className="flex items-center gap-2">
             {results.passed ? (
               <>
@@ -165,6 +159,29 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
               )}
             </div>
           </ScrollArea>
+          
+          <div className="mt-4 flex justify-center gap-3">
+            {results.passed ? (
+              <Button onClick={onBack} size="lg" className="bg-green-600 hover:bg-green-700">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Complete Training
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={onBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Lesson
+                </Button>
+                <Button onClick={() => {
+                  setSubmitted(false);
+                  setResults(null);
+                  setAnswers({});
+                }}>
+                  Retake Quiz
+                </Button>
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
     );

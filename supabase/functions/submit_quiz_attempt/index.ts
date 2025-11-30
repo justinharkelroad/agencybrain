@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
     // If passed, update lesson progress - use correct table name
     if (passed) {
       const { error: progressError } = await supabase
-        .from('training_lesson_progress')
+        .from('staff_lesson_progress')
         .upsert({
           agency_id: quiz.agency_id,
           staff_user_id: staffUserId,

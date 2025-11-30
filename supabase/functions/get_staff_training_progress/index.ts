@@ -64,9 +64,16 @@ Deno.serve(async (req) => {
       console.error('Error fetching quiz attempts:', quizError);
     }
 
+    // Transform lesson_progress to match frontend expectations
+    const progress = (lessonProgress || []).map(lp => ({
+      lesson_id: lp.lesson_id,
+      completed: lp.is_completed,
+      completed_at: lp.completed_at
+    }));
+
     return new Response(
       JSON.stringify({
-        lesson_progress: lessonProgress || [],
+        progress: progress,
         quiz_attempts: quizAttempts || [],
         staff_user_id: staffUserId
       }),
