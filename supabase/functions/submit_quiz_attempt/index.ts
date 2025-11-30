@@ -168,15 +168,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If passed, update lesson progress - use correct table name
+    // If passed, update lesson progress
     if (passed) {
       const { error: progressError } = await supabase
         .from('staff_lesson_progress')
         .upsert({
-          agency_id: quiz.agency_id,
           staff_user_id: staffUserId,
           lesson_id: quiz.lesson_id,
-          is_completed: true,
+          completed: true,
           completed_at: new Date().toISOString()
         }, {
           onConflict: 'staff_user_id,lesson_id'
@@ -184,6 +183,8 @@ Deno.serve(async (req) => {
 
       if (progressError) {
         console.error('Failed to update lesson progress:', progressError);
+      } else {
+        console.log(`✅ Successfully marked lesson ${quiz.lesson_id} as complete for staff user ${staffUserId}`);
       }
     }
 

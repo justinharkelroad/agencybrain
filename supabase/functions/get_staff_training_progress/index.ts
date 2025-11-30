@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     // Transform lesson_progress to match frontend expectations
     const progress = (lessonProgress || []).map(lp => ({
       lesson_id: lp.lesson_id,
-      completed: lp.is_completed,
+      completed: lp.completed,
       completed_at: lp.completed_at
     }));
 
