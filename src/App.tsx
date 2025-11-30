@@ -46,6 +46,7 @@ import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
+import AdminTrainingAssignments from "./pages/admin/AdminTrainingAssignments";
 import TestTrainingComponents from "./pages/TestTrainingComponents";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
@@ -377,6 +378,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminStaffUsers />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/training-assignments" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminTrainingAssignments />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
