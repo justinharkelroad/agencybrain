@@ -40,16 +40,17 @@ Deno.serve(async (req) => {
     const staffUserId = session.staff_users.id;
 
     // Upsert lesson progress
-    const progressRecord = {
+    const isCompleted = status === 'completed';
+
+    const progressRecord: Record<string, any> = {
       staff_user_id: staffUserId,
       lesson_id: lesson_id,
-      status: status,
-      progress_data: progress_data || {},
-      last_accessed_at: new Date().toISOString()
+      completed: isCompleted,
+      updated_at: new Date().toISOString()
     };
 
-    if (status === 'completed') {
-      progressRecord['completed_at'] = new Date().toISOString();
+    if (isCompleted) {
+      progressRecord.completed_at = new Date().toISOString();
     }
 
     const { data: progress, error: progressError } = await supabase
