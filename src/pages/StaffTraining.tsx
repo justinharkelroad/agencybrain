@@ -220,26 +220,7 @@ export default function StaffTraining() {
             ) : (
               <Card className="h-full">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle>{selectedLesson?.title || 'Select a lesson'}</CardTitle>
-                      {selectedLesson && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <Checkbox
-                            id="complete-lesson"
-                            checked={isCompleted(selectedLesson.id)}
-                            onCheckedChange={() => handleToggleComplete(selectedLesson.id)}
-                          />
-                          <label
-                            htmlFor="complete-lesson"
-                            className="text-sm font-medium leading-none cursor-pointer"
-                          >
-                            Mark as complete
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <CardTitle>{selectedLesson?.title || 'Select a lesson'}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[600px]">
@@ -312,6 +293,60 @@ export default function StaffTraining() {
                                   </Button>
                                 </div>
                               ))}
+                            </div>
+                          </>
+                        )}
+
+                        {/* Completion Section */}
+                        {selectedLesson && (
+                          <>
+                            <Separator />
+                            <div className="p-4 rounded-lg border bg-muted/30">
+                              {quizzes.length > 0 ? (
+                                // Has quiz - check if completed
+                                isCompleted(selectedLesson.id) ? (
+                                  <div className="flex items-center gap-3 text-green-600">
+                                    <CheckCircle className="h-6 w-6 fill-green-600" />
+                                    <div>
+                                      <p className="font-semibold">Lesson Complete!</p>
+                                      <p className="text-sm text-muted-foreground">You've finished this lesson</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-3 text-amber-600">
+                                    <ClipboardList className="h-6 w-6" />
+                                    <div>
+                                      <p className="font-semibold">Quiz Required</p>
+                                      <p className="text-sm text-muted-foreground">Complete the quiz above to finish this lesson</p>
+                                    </div>
+                                  </div>
+                                )
+                              ) : (
+                                // No quiz - allow manual completion
+                                isCompleted(selectedLesson.id) ? (
+                                  <div className="flex items-center gap-3 text-green-600">
+                                    <CheckCircle className="h-6 w-6 fill-green-600" />
+                                    <div>
+                                      <p className="font-semibold">Lesson Complete!</p>
+                                      <p className="text-sm text-muted-foreground">You've finished this lesson</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="font-semibold">Ready to complete?</p>
+                                      <p className="text-sm text-muted-foreground">Mark this lesson as done</p>
+                                    </div>
+                                    <Button 
+                                      onClick={() => handleToggleComplete(selectedLesson.id)}
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Mark Complete
+                                    </Button>
+                                  </div>
+                                )
+                              )}
                             </div>
                           </>
                         )}
