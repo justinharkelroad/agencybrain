@@ -91,8 +91,13 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
             )}
           </CardTitle>
           <CardDescription>
-            Your Score: {results.score}% ({results.correct_count}/{results.total_questions})
+            Your Score: {results.score}% ({results.correct_count}/{results.gradable_questions})
           </CardDescription>
+          {results.passing_score && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Passing score: {results.passing_score}%
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[500px]">
@@ -131,6 +136,33 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
                   </CardContent>
                 </Card>
               ))}
+
+              {/* Reflection Answers */}
+              {results.reflection_answers && (
+                <Card className="border-primary/50">
+                  <CardHeader>
+                    <CardTitle className="text-base">Reflection Answers</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {results.reflection_answers.reflection_1 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                          What was the most valuable insight you gained from this lesson?
+                        </p>
+                        <p className="text-sm">{results.reflection_answers.reflection_1}</p>
+                      </div>
+                    )}
+                    {results.reflection_answers.reflection_2 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                          How will you apply what you learned to your work?
+                        </p>
+                        <p className="text-sm">{results.reflection_answers.reflection_2}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </ScrollArea>
         </CardContent>
@@ -188,7 +220,7 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
                     >
                       {(question.options || []).map((option) => (
                         <div key={option.id} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option.option_text} id={option.id} />
+                          <RadioGroupItem value={option.id} id={option.id} />
                           <Label htmlFor={option.id} className="cursor-pointer">
                             {option.option_text}
                           </Label>
