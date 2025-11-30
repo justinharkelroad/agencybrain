@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useStaffTrainingContent } from '@/hooks/useStaffTrainingContent';
 import { useStaffTrainingProgress } from '@/hooks/useStaffTrainingProgress';
@@ -18,6 +19,7 @@ import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, Clipb
 import { toast } from 'sonner';
 
 export default function StaffTraining() {
+  const queryClient = useQueryClient();
   const { user, logout, sessionToken } = useStaffAuth();
   const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(user?.agency_id);
   const { data: progressData, isLoading: progressLoading } = useStaffTrainingProgress();
@@ -80,9 +82,10 @@ export default function StaffTraining() {
   };
 
   const handleQuizComplete = () => {
-    if (selectedLesson) {
-      handleToggleComplete(selectedLesson.id);
-    }
+    // Invalidate progress query to refresh completion status
+    queryClient.invalidateQueries({ queryKey: ['staff-training-progress'] });
+    setActiveQuiz(null);
+    toast.success('Quiz completed! Lesson marked as complete.');
   };
 
   if (contentLoading || progressLoading) {
