@@ -15,8 +15,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VideoEmbed } from '@/components/training/VideoEmbed';
 import { QuizTaker } from '@/components/training/QuizTaker';
-import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList } from 'lucide-react';
+import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { differenceInDays, isPast } from 'date-fns';
 
 export default function StaffTraining() {
   const queryClient = useQueryClient();
@@ -96,6 +97,38 @@ export default function StaffTraining() {
     );
   }
 
+  // Handle no assignments state
+  if (contentData?.no_assignments) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <BookOpen className="h-8 w-8 text-primary" />
+              <div>
+                <h1 className="text-2xl font-bold">Training Portal</h1>
+                <p className="text-sm text-muted-foreground">Welcome, {user?.display_name}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </header>
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center justify-center text-center py-20">
+            <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">No training assigned yet</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Your administrator will assign training modules to you.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const categories = contentData?.categories || [];
   
   const totalLessons = categories.reduce((total, cat) => 
@@ -103,6 +136,45 @@ export default function StaffTraining() {
   );
   
   const completedLessons = progressData?.progress?.filter(p => p.completed).length || 0;
+
+  const getDueDateBadge = (dueDate: string | null | undefined) => {
+    if (!dueDate) return null;
+    
+    const due = new Date(dueDate);
+    const daysUntilDue = differenceInDays(due, new Date());
+    
+    if (isPast(due)) {
+      const daysOverdue = Math.abs(daysUntilDue);
+      return (
+        <Badge variant="destructive" className="ml-2">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          Overdue by {daysOverdue} day{daysOverdue !== 1 ? 's' : ''}
+        </Badge>
+      );
+    }
+    
+    if (daysUntilDue <= 3) {
+      return (
+        <Badge variant="destructive" className="ml-2">
+          Due in {daysUntilDue} day{daysUntilDue !== 1 ? 's' : ''}
+        </Badge>
+      );
+    }
+    
+    if (daysUntilDue <= 7) {
+      return (
+        <Badge variant="secondary" className="ml-2 bg-yellow-500/20 text-yellow-700 dark:text-yellow-300">
+          Due in {daysUntilDue} days
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge variant="secondary" className="ml-2">
+        Due in {daysUntilDue} days
+      </Badge>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,7 +242,10 @@ export default function StaffTraining() {
                               {category.modules.map((module) => (
                                 <AccordionItem key={module.id} value={module.id}>
                                   <AccordionTrigger className="hover:no-underline text-sm">
-                                    <span>{module.title}</span>
+                                    <div className="flex items-center flex-1">
+                                      <span>{module.title}</span>
+                                      {getDueDateBadge(module.due_date)}
+                                    </div>
                                   </AccordionTrigger>
                                   <AccordionContent>
                                     {module.description && (

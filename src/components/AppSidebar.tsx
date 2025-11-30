@@ -11,6 +11,7 @@ import {
   LogOut,
   GraduationCap,
   UserCog,
+  ClipboardCheck,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -46,6 +47,7 @@ const adminItems = [
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Training System", url: "/admin/training", icon: GraduationCap },
+  { title: "Training Assignments", url: "/admin/training-assignments", icon: ClipboardCheck },
   { title: "Staff Users", url: "/admin/staff-users", icon: UserCog },
 ];
 

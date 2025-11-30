@@ -17,6 +17,7 @@ interface TrainingModule {
   description: string | null;
   sort_order: number;
   category_id: string;
+  due_date?: string | null;
   lessons: TrainingLesson[];
 }
 
@@ -88,6 +89,16 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
       if (error) throw error;
       if (!data) throw new Error('No data returned');
 
+      // Check if no assignments
+      if (data.no_assignments) {
+        return {
+          categories: [],
+          attachmentsByLesson: {},
+          quizzesByLesson: {},
+          no_assignments: true
+        };
+      }
+
       // Transform flat arrays into nested structure with aliases for UI compatibility
       const categoriesWithModules: TrainingCategory[] = (data.categories || []).map((cat: any) => ({
         ...cat,
@@ -145,7 +156,8 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
       return { 
         categories: categoriesWithModules,
         attachmentsByLesson,
-        quizzesByLesson
+        quizzesByLesson,
+        no_assignments: false
       };
     },
     enabled: !!agencyId,

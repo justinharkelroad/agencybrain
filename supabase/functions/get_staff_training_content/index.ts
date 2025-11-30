@@ -45,11 +45,45 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch training modules
+    // Fetch assignments for this staff user
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('training_assignments')
+      .select('module_id, due_date')
+      .eq('staff_user_id', session.staff_users.id)
+      .eq('agency_id', agency_id);
+
+    if (assignmentsError) {
+      console.error('Error fetching assignments:', assignmentsError);
+    }
+
+    // If no assignments exist, return empty with flag
+    if (!assignments || assignments.length === 0) {
+      return new Response(
+        JSON.stringify({
+          modules: [],
+          categories: [],
+          lessons: [],
+          attachments: [],
+          quizzes: [],
+          quiz_questions: [],
+          quiz_options: [],
+          no_assignments: true,
+          staff_user: {
+            id: session.staff_users.id,
+            username: session.staff_users.username,
+            display_name: session.staff_users.display_name
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch only assigned modules
+    const assignedModuleIds = assignments.map(a => a.module_id);
     const { data: modules, error: modulesError } = await supabase
       .from('training_modules')
       .select('*')
-      .eq('agency_id', agency_id)
+      .in('id', assignedModuleIds)
       .eq('is_active', true)
       .order('sort_order');
 
@@ -60,6 +94,12 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Attach due_date to each module from assignments
+    const modulesWithDueDates = (modules || []).map(m => ({
+      ...m,
+      due_date: assignments.find(a => a.module_id === m.id)?.due_date || null
+    }));
 
     // Fetch categories
     const { data: categories, error: categoriesError } = await supabase
@@ -133,13 +173,14 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        modules: modules || [],
+        modules: modulesWithDueDates,
         categories: categories || [],
         lessons: lessons || [],
         attachments: attachments || [],
         quizzes: quizzes || [],
         quiz_questions: questions,
         quiz_options: options,
+        no_assignments: false,
         staff_user: {
           id: session.staff_users.id,
           username: session.staff_users.username,
