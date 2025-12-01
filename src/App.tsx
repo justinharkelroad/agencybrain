@@ -67,8 +67,12 @@ const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 import TestTrainingHooks from "./pages/TestTrainingHooks";
 import StaffLogin from "./pages/StaffLogin";
+import StaffForgotPassword from "./pages/staff/ForgotPassword";
+import StaffResetPassword from "./pages/staff/ResetPassword";
 import StaffTraining from "./pages/StaffTraining";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
 const LifeTargetsBrainstorm = lazy(() => import("./pages/LifeTargetsBrainstorm"));
@@ -499,11 +503,17 @@ const App = () => (
             
             {/* Staff Portal Routes - separate auth system */}
             <Route path="/staff/login" element={<StaffLogin />} />
+            <Route path="/staff/forgot-password" element={<StaffForgotPassword />} />
+            <Route path="/staff/reset-password" element={<StaffResetPassword />} />
             <Route path="/staff/training" element={
               <StaffProtectedRoute>
                 <StaffTraining />
               </StaffProtectedRoute>
             } />
+            
+            {/* Regular User Password Reset */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

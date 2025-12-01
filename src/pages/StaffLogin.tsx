@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,12 @@ export default function StaffLogin() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
+
+            <div className="text-center text-sm">
+              <Link to="/staff/forgot-password" className="text-muted-foreground hover:text-primary transition-colors">
+                Forgot your password?
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>
