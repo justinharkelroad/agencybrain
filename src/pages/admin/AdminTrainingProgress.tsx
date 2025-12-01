@@ -395,7 +395,7 @@ export default function AdminTrainingProgress() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8 px-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Training Progress Dashboard</h1>
@@ -493,7 +493,8 @@ export default function AdminTrainingProgress() {
           </div>
 
           {/* Staff Table */}
-          <div className="rounded-md border">
+          <div className="overflow-x-auto">
+            <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -656,6 +657,7 @@ export default function AdminTrainingProgress() {
               </TableBody>
             </Table>
           </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -666,8 +668,9 @@ export default function AdminTrainingProgress() {
           <CardDescription>View quiz attempts and scores across all staff</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
+          <div className="overflow-x-auto">
+            <div className="rounded-md border">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Staff Name</TableHead>
@@ -714,6 +717,7 @@ export default function AdminTrainingProgress() {
               </TableBody>
             </Table>
           </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -724,9 +728,10 @@ export default function AdminTrainingProgress() {
           <CardDescription>View staff reflections and AI coaching feedback</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
+          <div className="overflow-x-auto">
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead>Staff Name</TableHead>
@@ -880,6 +885,7 @@ export default function AdminTrainingProgress() {
                 )}
               </TableBody>
             </Table>
+          </div>
           </div>
         </CardContent>
       </Card>
