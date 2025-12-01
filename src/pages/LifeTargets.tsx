@@ -220,7 +220,7 @@ export default function LifeTargets() {
   return (
     <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
       <div>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
           <h1 className="text-3xl font-bold">Create Your Targets</h1>
           <QuarterSelector />
         </div>
@@ -333,7 +333,7 @@ export default function LifeTargets() {
                 You've completed all steps for {formatQuarterDisplay(currentQuarter)}. Keep building your daily habits!
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center pt-2">
               <Button
                 variant="default"
                 onClick={() => navigate('/life-targets/cascade')}

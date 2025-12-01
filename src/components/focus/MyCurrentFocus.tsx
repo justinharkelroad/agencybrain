@@ -133,12 +133,12 @@ export function MyCurrentFocus() {
     <>
       <Card className="glass-surface elevate">
         <CardHeader className="border-b border-border/50">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
               Focus Targets
             </CardTitle>
-            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               New Focus Item
             </Button>

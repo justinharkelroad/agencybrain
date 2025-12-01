@@ -462,7 +462,7 @@ const getSubmissionStatus = (profile: Profile) => {
                   Monitor client submission status and progress
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                 <div className="w-full md:w-48">
                   <Select value={tierFilter} onValueChange={setTierFilter}>
                     <SelectTrigger>
