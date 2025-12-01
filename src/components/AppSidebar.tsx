@@ -12,6 +12,7 @@ import {
   GraduationCap,
   UserCog,
   ClipboardCheck,
+  BarChart3,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -48,6 +49,7 @@ const adminItems = [
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Training System", url: "/admin/training", icon: GraduationCap },
   { title: "Training Assignments", url: "/admin/training-assignments", icon: ClipboardCheck },
+  { title: "Training Progress", url: "/admin/training-progress", icon: BarChart3 },
   { title: "Staff Users", url: "/admin/staff-users", icon: UserCog },
 ];
 
