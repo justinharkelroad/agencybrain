@@ -189,6 +189,10 @@ Deno.serve(async (req) => {
       }
 
       // Extract reflection answers
+      const reflectionAnswers = {
+        reflection_1: answers['reflection_1'] || '',
+        reflection_2: answers['reflection_2'] || ''
+      };
       const reflection1 = reflectionAnswers.reflection_1 || '';
       const reflection2 = reflectionAnswers.reflection_2 || '';
 
@@ -302,12 +306,6 @@ FORMAT:
     }
 
     console.log(`Quiz attempt submitted: user=${staffUserId}, quiz=${quiz_id}, score=${scorePercentage}%, passed=${passed}`);
-
-    // Extract reflection answers
-    const reflectionAnswers = {
-      reflection_1: answers['reflection_1'] || '',
-      reflection_2: answers['reflection_2'] || ''
-    };
 
     return new Response(
       JSON.stringify({
