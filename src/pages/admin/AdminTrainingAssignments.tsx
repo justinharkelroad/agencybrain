@@ -205,75 +205,71 @@ export default function AdminTrainingAssignments() {
   // Backfill existing progress mutation
   const backfillMutation = useMutation({
     mutationFn: async () => {
-      // Find all staff users with lesson progress but no assignment
-      const { data: progressWithNoAssignment, error: queryError } = await supabase.rpc(
-        'get_progress_without_assignments',
-        { p_agency_id: agencyId }
+      // Step 1: Fetch all necessary data in separate queries
+      const [
+        { data: allProgress, error: progressError },
+        { data: lessons, error: lessonsError },
+        { data: staffUsers, error: staffError },
+        { data: existingAssignments, error: assignmentError }
+      ] = await Promise.all([
+        supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id'),
+        supabase.from('training_lessons').select('id, module_id, agency_id'),
+        supabase.from('staff_users').select('id, agency_id').eq('agency_id', agencyId),
+        supabase.from('training_assignments').select('staff_user_id, module_id').eq('agency_id', agencyId)
+      ]);
+
+      if (progressError) throw progressError;
+      if (lessonsError) throw lessonsError;
+      if (staffError) throw staffError;
+      if (assignmentError) throw assignmentError;
+
+      // Step 2: Join data in JavaScript
+      const lessonToModule = new Map<string, { module_id: string; agency_id: string }>(
+        lessons?.map(l => [l.id, { module_id: l.module_id, agency_id: l.agency_id }])
       );
+      const staffAgencyMap = new Map(staffUsers?.map(s => [s.id, s.agency_id]));
 
-      if (queryError) {
-        // If RPC doesn't exist, do it manually
-        const { data: allProgress, error: progressError } = await supabase
-          .from('staff_lesson_progress')
-          .select(`
-            staff_user_id,
-            lesson_id,
-            training_lessons!inner(module_id)
-          `)
-          .eq('agency_id', agencyId);
+      // Filter progress to current agency staff only
+      const agencyProgress = allProgress?.filter(p => staffAgencyMap.has(p.staff_user_id));
 
-        if (progressError) throw progressError;
-
-        const { data: existingAssignments, error: assignmentError } = await supabase
-          .from('training_assignments')
-          .select('staff_user_id, module_id')
-          .eq('agency_id', agencyId);
-
-        if (assignmentError) throw assignmentError;
-
-        // Group progress by staff_user_id and module_id
-        const progressMap = new Map<string, Set<string>>();
-        allProgress?.forEach(p => {
-          const key = `${p.staff_user_id}-${(p.training_lessons as any).module_id}`;
-          if (!progressMap.has(p.staff_user_id)) {
-            progressMap.set(p.staff_user_id, new Set());
-          }
-          progressMap.get(p.staff_user_id)!.add((p.training_lessons as any).module_id);
-        });
-
-        // Find missing assignments
-        const missingAssignments: any[] = [];
-        progressMap.forEach((moduleIds, staffUserId) => {
-          moduleIds.forEach(moduleId => {
-            const hasAssignment = existingAssignments?.some(
-              a => a.staff_user_id === staffUserId && a.module_id === moduleId
-            );
-            if (!hasAssignment) {
-              missingAssignments.push({
-                agency_id: agencyId,
-                staff_user_id: staffUserId,
-                module_id: moduleId,
-                assigned_by: user?.id,
-                assigned_at: new Date().toISOString(),
-              });
-            }
-          });
-        });
-
-        if (missingAssignments.length === 0) {
-          return { count: 0 };
+      // Find unique staff_user_id + module_id combinations from progress
+      const progressCombos = new Set<string>();
+      agencyProgress?.forEach(p => {
+        const lesson = lessonToModule.get(p.lesson_id);
+        if (lesson && lesson.agency_id === agencyId) {
+          progressCombos.add(`${p.staff_user_id}|${lesson.module_id}`);
         }
+      });
 
-        const { error: insertError } = await supabase
-          .from('training_assignments')
-          .insert(missingAssignments);
+      // Find which don't have assignments
+      const existingSet = new Set(
+        existingAssignments?.map(a => `${a.staff_user_id}|${a.module_id}`)
+      );
+      const missingAssignments = [...progressCombos]
+        .filter(combo => !existingSet.has(combo))
+        .map(combo => {
+          const [staff_user_id, module_id] = combo.split('|');
+          return {
+            agency_id: agencyId,
+            staff_user_id,
+            module_id,
+            assigned_by: user?.id,
+            assigned_at: new Date().toISOString(),
+          };
+        });
 
-        if (insertError) throw insertError;
-
-        return { count: missingAssignments.length };
+      // Step 3: Insert missing assignments
+      if (missingAssignments.length === 0) {
+        return { count: 0 };
       }
 
-      return progressWithNoAssignment;
+      const { error: insertError } = await supabase
+        .from('training_assignments')
+        .insert(missingAssignments);
+
+      if (insertError) throw insertError;
+
+      return { count: missingAssignments.length };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
