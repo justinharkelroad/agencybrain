@@ -24,8 +24,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
           </div>
         </div>
         
-        <main className="flex-1 flex flex-col pt-14 md:pt-0">
-          <div className="flex-1">
+        <main className="flex-1 flex flex-col pt-14 md:pt-0 overflow-x-hidden min-w-0">
+          <div className="flex-1 min-w-0 w-full">
             {children}
           </div>
         </main>
