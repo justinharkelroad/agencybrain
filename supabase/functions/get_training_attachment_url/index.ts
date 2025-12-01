@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // Generate signed URL for storage file (expires in 1 hour)
     const { data: signedUrlData, error: urlError } = await supabase
       .storage
-      .from('training-attachments')
+      .from('training-files')
       .createSignedUrl(attachment.file_url, 3600);
 
     if (urlError || !signedUrlData) {
