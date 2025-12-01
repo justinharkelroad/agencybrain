@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, Download, ChevronDown, ChevronRight, CheckCircle2, Circle, Trophy, Clock, Users, BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
+import { Loader2, Download, ChevronDown, ChevronRight, CheckCircle2, Circle, Trophy, Clock, Users, BookOpen, TrendingUp, AlertCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { exportToCSV } from '@/utils/exportUtils';
 import { toast } from 'sonner';
@@ -100,6 +100,16 @@ export default function AdminTrainingProgress() {
   const quizMap = useMemo(() =>
     new Map(allData?.quizzes.map(q => [q.id, q])),
     [allData?.quizzes]
+  );
+
+  const staffMap = useMemo(() =>
+    new Map(allData?.staffUsers.map(s => [s.id, s])),
+    [allData?.staffUsers]
+  );
+
+  const lessonMap = useMemo(() =>
+    new Map(allData?.lessons.map(l => [l.id, l])),
+    [allData?.lessons]
   );
 
   // Calculate summary stats
@@ -203,8 +213,6 @@ export default function AdminTrainingProgress() {
   // Build quiz scores data
   const quizScoresData = useMemo(() => {
     if (!allData) return [];
-
-    const staffMap = new Map(allData.staffUsers.map((s: any) => [s.id, s]));
     
     // Group attempts by staff + quiz
     const groupedAttempts = new Map<string, any[]>();
@@ -239,7 +247,7 @@ export default function AdminTrainingProgress() {
         date: latestAttempt.completed_at ? parseISO(latestAttempt.completed_at) : null
       };
     });
-  }, [allData, quizMap]);
+  }, [allData, quizMap, staffMap]);
 
   // Apply filters and sorting
   const filteredAndSortedData = useMemo(() => {
@@ -702,6 +710,169 @@ export default function AdminTrainingProgress() {
                       </TableCell>
                     </TableRow>
                   ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Reflection Review Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Reflection Review</CardTitle>
+          <CardDescription>View staff reflections and AI coaching feedback</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Staff Name</TableHead>
+                  <TableHead>Lesson</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Takeaway</TableHead>
+                  <TableHead>AI Feedback</TableHead>
+                  <TableHead className="text-center">Viewed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allData?.quizAttempts
+                  .filter((attempt: any) => attempt.ai_feedback)
+                  .sort((a: any, b: any) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+                  .length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No reflections with AI feedback yet
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  allData?.quizAttempts
+                    .filter((attempt: any) => attempt.ai_feedback)
+                    .sort((a: any, b: any) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+                    .map((attempt: any) => {
+                      const staff: any = staffMap.get(attempt.staff_user_id);
+                      const quiz: any = quizMap.get(attempt.quiz_id);
+                      const lesson: any = lessonMap.get(quiz?.lesson_id);
+                      const reflectionKey = `reflection-${attempt.id}`;
+                      const isExpanded = expandedRows.has(reflectionKey);
+                      
+                      const originalReflection1 = attempt.answers_json?.reflection_1 || '';
+                      const originalReflection2 = attempt.answers_json?.reflection_2 || '';
+                      const finalReflection1 = attempt.reflection_answers_final?.reflection_1 || originalReflection1;
+                      const finalReflection2 = attempt.reflection_answers_final?.reflection_2 || originalReflection2;
+                      const wasEdited = finalReflection1 !== originalReflection1 || finalReflection2 !== originalReflection2;
+                      
+                      return (
+                        <>
+                          <TableRow key={attempt.id} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleRow(reflectionKey)}>
+                            <TableCell>
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div>
+                                <div>{staff?.name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{staff?.email || ''}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{lesson?.name || 'Unknown Lesson'}</TableCell>
+                            <TableCell>
+                              {attempt.completed_at 
+                                ? formatDistanceToNow(parseISO(attempt.completed_at), { addSuffix: true })
+                                : 'Unknown'
+                              }
+                            </TableCell>
+                            <TableCell className="max-w-[300px]">
+                              <p className="truncate text-sm">
+                                {finalReflection1.substring(0, 80)}...
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRow(reflectionKey);
+                              }}>
+                                View
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {attempt.feedback_viewed_at ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-600 inline" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-muted-foreground inline" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* Expanded Row Details */}
+                          {isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={7} className="bg-muted/30 p-6">
+                                <div className="space-y-6">
+                                  {/* Reflection Answers */}
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-3">Reflection Answers</h4>
+                                    <div className="space-y-4 bg-background p-4 rounded-lg">
+                                      <div>
+                                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                                          Main Takeaway:
+                                        </p>
+                                        <p className="text-sm">{finalReflection1}</p>
+                                        {wasEdited && (
+                                          <div className="mt-2 p-2 bg-muted rounded border-l-4 border-primary">
+                                            <p className="text-xs text-muted-foreground mb-1">Original:</p>
+                                            <p className="text-xs italic">{originalReflection1}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <div>
+                                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                                          Why It's Important:
+                                        </p>
+                                        <p className="text-sm">{finalReflection2}</p>
+                                        {wasEdited && (
+                                          <div className="mt-2 p-2 bg-muted rounded border-l-4 border-primary">
+                                            <p className="text-xs text-muted-foreground mb-1">Original:</p>
+                                            <p className="text-xs italic">{originalReflection2}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* AI Feedback */}
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-3">AI Coaching Feedback</h4>
+                                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
+                                      <div className="prose prose-sm max-w-none whitespace-pre-line">
+                                        {attempt.ai_feedback}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Metadata */}
+                                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-4 border-t">
+                                    <span>Submitted: {attempt.completed_at ? new Date(attempt.completed_at).toLocaleString() : 'Unknown'}</span>
+                                    {attempt.feedback_viewed_at && (
+                                      <span>Confirmed: {new Date(attempt.feedback_viewed_at).toLocaleString()}</span>
+                                    )}
+                                    {wasEdited && (
+                                      <Badge variant="secondary" className="ml-auto">Edited</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })
                 )}
               </TableBody>
             </Table>

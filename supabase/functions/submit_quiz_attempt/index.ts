@@ -168,6 +168,119 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Generate AI coaching feedback
+    let aiFeedback = null;
+    try {
+      // Fetch lesson and module context
+      const { data: lesson, error: lessonError } = await supabase
+        .from('training_lessons')
+        .select('name, description, content_html, module_id')
+        .eq('id', quiz.lesson_id)
+        .single();
+
+      let moduleName = 'Unknown Module';
+      if (lesson?.module_id) {
+        const { data: module } = await supabase
+          .from('training_modules')
+          .select('name')
+          .eq('id', lesson.module_id)
+          .single();
+        if (module) moduleName = module.name;
+      }
+
+      // Extract reflection answers
+      const reflection1 = reflectionAnswers.reflection_1 || '';
+      const reflection2 = reflectionAnswers.reflection_2 || '';
+
+      // Only generate AI feedback if we have reflection answers
+      if (reflection1 || reflection2) {
+        // Build context parts conditionally
+        let contextParts = [
+          `Module: ${moduleName}`,
+          `Lesson: ${lesson?.name || 'Unknown Lesson'}`
+        ];
+
+        if (lesson?.description) {
+          contextParts.push(`Lesson Description: ${lesson.description}`);
+        }
+
+        // Only include content if it exists and is not empty
+        if (lesson?.content_html && lesson.content_html.trim()) {
+          const contentText = lesson.content_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          if (contentText) {
+            contextParts.push(`Lesson Content: ${contentText.substring(0, 500)}...`);
+          }
+        }
+
+        const lessonContext = contextParts.join('\n');
+
+        const prompt = `You are a professional sales coach with an encouraging, therapeutic tone. A team member just completed a training lesson and answered reflection questions.
+
+LESSON CONTEXT:
+${lessonContext}
+
+THEIR REFLECTION ANSWERS:
+1. Main Takeaway: ${reflection1}
+2. Why It's Important: ${reflection2}
+
+YOUR TASK:
+Provide coaching feedback that:
+1. Acknowledges what they shared (show you heard them)
+2. Reinforces strong takeaways or gently redirects weak ones
+3. Evaluates if their takeaway is ACTIONABLE — can they actually DO something with it?
+4. If not actionable, coach them on how to make it actionable
+5. Provide 1-2 clear, specific action items they should implement
+
+FORMAT:
+- Write in sales letter style — short sentences, each on its own line
+- Add a blank line between sentences for easy scanning
+- One paragraph acknowledging their response
+- One paragraph evaluating if the takeaway is actionable
+- Numbered action items at the end (1-2 specific items)
+- Keep total response under 200 words
+- Be encouraging but direct when something needs improvement`;
+
+        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+        if (OPENAI_API_KEY) {
+          console.log('Calling OpenAI for coaching feedback...');
+          const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o',
+              messages: [{ role: 'user', content: prompt }],
+              max_tokens: 500,
+              temperature: 0.7
+            })
+          });
+
+          if (openAIResponse.ok) {
+            const openAIData = await openAIResponse.json();
+            aiFeedback = openAIData.choices?.[0]?.message?.content || null;
+            console.log('AI feedback generated successfully');
+
+            // Update the attempt with AI feedback
+            if (aiFeedback) {
+              await supabase
+                .from('training_quiz_attempts')
+                .update({ ai_feedback: aiFeedback })
+                .eq('id', attempt.id);
+            }
+          } else {
+            console.error('OpenAI API error:', openAIResponse.status, await openAIResponse.text());
+          }
+        } else {
+          console.warn('OPENAI_API_KEY not configured, skipping AI feedback');
+        }
+      }
+    } catch (aiError) {
+      console.error('Error generating AI feedback:', aiError);
+      // Continue without AI feedback - don't fail the quiz submission
+    }
+
     // If passed, update lesson progress
     if (passed) {
       const { error: progressError } = await supabase
@@ -206,7 +319,8 @@ Deno.serve(async (req) => {
         gradable_questions: gradableCount,
         passing_score: PASSING_SCORE,
         detailed_results: detailedResults,
-        reflection_answers: reflectionAnswers
+        reflection_answers: reflectionAnswers,
+        ai_feedback: aiFeedback
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

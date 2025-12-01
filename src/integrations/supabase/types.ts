@@ -3357,11 +3357,14 @@ export type Database = {
       training_quiz_attempts: {
         Row: {
           agency_id: string
+          ai_feedback: string | null
           answers_json: Json
           completed_at: string
           correct_answers: number
+          feedback_viewed_at: string | null
           id: string
           quiz_id: string
+          reflection_answers_final: Json | null
           score_percent: number
           staff_user_id: string
           started_at: string
@@ -3369,11 +3372,14 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          ai_feedback?: string | null
           answers_json: Json
           completed_at: string
           correct_answers: number
+          feedback_viewed_at?: string | null
           id?: string
           quiz_id: string
+          reflection_answers_final?: Json | null
           score_percent: number
           staff_user_id: string
           started_at: string
@@ -3381,11 +3387,14 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          ai_feedback?: string | null
           answers_json?: Json
           completed_at?: string
           correct_answers?: number
+          feedback_viewed_at?: string | null
           id?: string
           quiz_id?: string
+          reflection_answers_final?: Json | null
           score_percent?: number
           staff_user_id?: string
           started_at?: string
