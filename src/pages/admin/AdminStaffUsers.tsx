@@ -10,13 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck } from "lucide-react";
+import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail } from "lucide-react";
 
 interface StaffUser {
   id: string;
   agency_id: string;
   username: string;
   display_name: string | null;
+  email: string | null;
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -72,6 +73,7 @@ export default function AdminStaffUsers() {
     username: "",
     password: "",
     display_name: "",
+    email: "",
   });
 
   // Edit dialog states
@@ -80,6 +82,7 @@ export default function AdminStaffUsers() {
   const [editFormData, setEditFormData] = useState({
     username: "",
     display_name: "",
+    email: "",
   });
 
   // Reset password dialog states
@@ -115,6 +118,7 @@ export default function AdminStaffUsers() {
           username: userData.username,
           password: userData.password,
           display_name: userData.display_name || userData.username,
+          email: userData.email || null,
         },
       });
 
@@ -125,7 +129,7 @@ export default function AdminStaffUsers() {
       queryClient.invalidateQueries({ queryKey: ["staff-users"] });
       toast.success("Staff user created successfully");
       setIsCreateDialogOpen(false);
-      setFormData({ username: "", password: "", display_name: "" });
+      setFormData({ username: "", password: "", display_name: "", email: "" });
       setShowPassword(false);
     },
     onError: (error: any) => {
@@ -142,6 +146,7 @@ export default function AdminStaffUsers() {
         .update({
           username: userData.username,
           display_name: userData.display_name,
+          email: userData.email || null,
         })
         .eq("id", userId);
 
@@ -182,6 +187,25 @@ export default function AdminStaffUsers() {
     onError: (error: any) => {
       console.error("Reset password error:", error);
       toast.error(error.message || "Failed to reset password");
+    },
+  });
+
+  // Send reset email mutation
+  const sendResetEmail = useMutation({
+    mutationFn: async (email: string) => {
+      const { data, error } = await supabase.functions.invoke("staff_request_password_reset", {
+        body: { email },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Password reset email sent successfully");
+    },
+    onError: (error: any) => {
+      console.error("Send reset email error:", error);
+      toast.error(error.message || "Failed to send reset email");
     },
   });
 
@@ -273,8 +297,17 @@ export default function AdminStaffUsers() {
     setEditFormData({
       username: user.username,
       display_name: user.display_name || "",
+      email: user.email || "",
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleSendResetEmail = (user: StaffUser) => {
+    if (!user.email) {
+      toast.error("No email address for this user");
+      return;
+    }
+    sendResetEmail.mutate(user.email);
   };
 
   const handleResetPassword = (user: StaffUser) => {
@@ -371,6 +404,19 @@ export default function AdminStaffUsers() {
                       placeholder="John Doe"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="staff@agency.com"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Required for password reset emails
+                    </p>
+                  </div>
                   <Button type="submit" disabled={createStaffUser.isPending} className="w-full">
                     {createStaffUser.isPending ? "Creating..." : "Create Staff User"}
                   </Button>
@@ -393,6 +439,7 @@ export default function AdminStaffUsers() {
                 <TableRow>
                   <TableHead>Username</TableHead>
                   <TableHead>Display Name</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Created</TableHead>
@@ -404,6 +451,7 @@ export default function AdminStaffUsers() {
                   <TableRow key={user.id}>
                     <TableCell className="font-mono">{user.username}</TableCell>
                     <TableCell>{user.display_name || "-"}</TableCell>
+                    <TableCell>{user.email || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={user.is_active ? "default" : "secondary"}>
                         {user.is_active ? "Active" : "Inactive"}
@@ -429,7 +477,14 @@ export default function AdminStaffUsers() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleResetPassword(user)}>
                             <Key className="h-4 w-4 mr-2" />
-                            Reset Password
+                            Reset Password (Manual)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleSendResetEmail(user)}
+                            disabled={!user.email}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Password Reset Email
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() =>
@@ -469,7 +524,7 @@ export default function AdminStaffUsers() {
           <DialogHeader>
             <DialogTitle>Edit Staff User</DialogTitle>
             <DialogDescription>
-              Update username and display name
+              Update username, display name, and email address
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
@@ -491,6 +546,19 @@ export default function AdminStaffUsers() {
                 onChange={(e) => setEditFormData({ ...editFormData, display_name: e.target.value })}
                 placeholder="John Doe"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email Address</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                placeholder="staff@agency.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for password reset emails
+              </p>
             </div>
             <Button type="submit" disabled={editStaffUser.isPending} className="w-full">
               {editStaffUser.isPending ? "Saving..." : "Save Changes"}

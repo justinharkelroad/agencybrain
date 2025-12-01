@@ -2465,6 +2465,41 @@ export type Database = {
           },
         ]
       }
+      staff_password_reset_tokens: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          staff_user_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          staff_user_id: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          staff_user_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_password_reset_tokens_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_quiz_attempts: {
         Row: {
           answers: Json
@@ -2550,6 +2585,7 @@ export type Database = {
           agency_id: string
           created_at: string
           display_name: string
+          email: string | null
           id: string
           is_active: boolean | null
           last_login_at: string | null
@@ -2561,6 +2597,7 @@ export type Database = {
           agency_id: string
           created_at?: string
           display_name: string
+          email?: string | null
           id?: string
           is_active?: boolean | null
           last_login_at?: string | null
@@ -2572,6 +2609,7 @@ export type Database = {
           agency_id?: string
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
           is_active?: boolean | null
           last_login_at?: string | null

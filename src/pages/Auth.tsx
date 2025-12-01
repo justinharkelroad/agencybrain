@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -155,6 +155,12 @@ export default function Auth() {
                 <Button type="submit" variant="gradient-glow" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing In..." : "Sign In"}
                 </Button>
+
+                <div className="text-center text-sm">
+                  <Link to="/forgot-password" className="text-muted-foreground hover:text-primary transition-colors">
+                    Forgot your password?
+                  </Link>
+                </div>
               </form>
             </TabsContent>
             
