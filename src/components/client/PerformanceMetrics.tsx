@@ -98,36 +98,36 @@ const kpis = useMemo(() => {
       </Badge>
     </div>
     <Separator className="my-4" />
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div className="rounded-lg border p-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 overflow-hidden">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Premium Sold</div>
         <div className="text-2xl font-semibold">{formatCurrency(kpis.premium)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Policies Sold</div>
         <div className="text-2xl font-semibold">{formatNumber(kpis.policies)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Policies Quoted</div>
         <div className="text-2xl font-semibold">{formatNumber(kpis.policiesQuoted)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">VC Achieved</div>
         <div className={`text-2xl font-semibold ${kpis.achievedVC ? 'text-green-600' : 'text-red-600'}`}>{kpis.achievedVC ? '✓ Yes' : '✗ No'}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Total Marketing Spend</div>
         <div className="text-2xl font-semibold">{formatCurrency(kpis.totalMarketingSpend)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Agency Compensation</div>
         <div className="text-2xl font-semibold">{formatCurrency(kpis.compensation)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Expenses</div>
         <div className="text-2xl font-semibold">{formatCurrency(kpis.expenses)}</div>
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
         <div className="text-sm text-muted-foreground">Net Profit</div>
         <div className={`text-2xl font-bold ${typeof kpis.netProfit === 'number' && (kpis.netProfit ?? 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(kpis.netProfit as number | undefined)}</div>
       </div>

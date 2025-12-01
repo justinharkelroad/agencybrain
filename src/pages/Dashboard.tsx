@@ -58,7 +58,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-4 py-6 space-y-6 overflow-x-hidden">
         <h1 className="sr-only">Client Dashboard</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-3">
@@ -70,7 +70,7 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          <Button variant="gradient-glow" asChild className="w-full sm:w-auto">
+          <Button variant="gradient-glow" asChild className="w-full sm:w-auto min-w-0">
             <Link to="/submit?mode=new">
               <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
               <span className="sm:hidden">Submit New Form</span>
