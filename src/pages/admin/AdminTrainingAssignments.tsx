@@ -109,16 +109,28 @@ export default function AdminTrainingAssignments() {
     enabled: !!agencyId,
   });
 
-  // Fetch progress to calculate status
-  const { data: progressData } = useQuery({
-    queryKey: ['staff-training-progress-all', agencyId],
+  // Fetch lesson progress to calculate status
+  const { data: lessonProgressData } = useQuery({
+    queryKey: ['staff-lesson-progress-all', agencyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staff_training_progress')
-        .select('*')
-        .eq('agency_id', agencyId);
-      if (error) throw error;
-      return data;
+      const [
+        { data: progress, error: progressError },
+        { data: lessons, error: lessonsError },
+        { data: agencyStaff, error: staffError },
+        { data: allLessons, error: allLessonsError }
+      ] = await Promise.all([
+        supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id, completed'),
+        supabase.from('training_lessons').select('id, module_id').eq('agency_id', agencyId),
+        supabase.from('staff_users').select('id').eq('agency_id', agencyId),
+        supabase.from('training_lessons').select('module_id').eq('agency_id', agencyId)
+      ]);
+
+      if (progressError) throw progressError;
+      if (lessonsError) throw lessonsError;
+      if (staffError) throw staffError;
+      if (allLessonsError) throw allLessonsError;
+
+      return { progress, lessons, allLessons, agencyStaff };
     },
     enabled: !!agencyId,
   });
@@ -286,21 +298,33 @@ export default function AdminTrainingAssignments() {
   });
 
   const getStatus = (assignment: any) => {
-    if (!assignment.module_id || !assignment.staff_user_id) return 'In Progress';
+    if (!assignment.module_id || !assignment.staff_user_id) return 'Not Started';
     
-    // Check if all lessons in the module are completed
-    const moduleProgress = progressData?.filter(
-      p => p.staff_user_id === assignment.staff_user_id
-    ) || [];
+    const { progress, lessons, allLessons } = lessonProgressData || {};
     
-    // For simplicity, if any progress exists for this staff user, consider it in progress
-    // A full implementation would check all lessons in the module
-    const hasProgress = moduleProgress.length > 0;
-    const isComplete = moduleProgress.some(p => p.completed);
+    // Create lesson -> module map
+    const lessonToModule = new Map(lessons?.map(l => [l.id, l.module_id]));
     
-    if (isComplete) return 'Completed';
-    if (assignment.due_date && isPast(new Date(assignment.due_date))) return 'Overdue';
-    return 'In Progress';
+    // Get total lessons in this module
+    const totalLessonsInModule = allLessons?.filter(l => l.module_id === assignment.module_id).length || 0;
+    
+    // Get completed lessons for this staff user + module
+    const completedLessons = progress?.filter(p => 
+      p.staff_user_id === assignment.staff_user_id &&
+      lessonToModule.get(p.lesson_id) === assignment.module_id &&
+      p.completed
+    ).length || 0;
+    
+    if (totalLessonsInModule > 0 && completedLessons >= totalLessonsInModule) {
+      return 'Completed';
+    }
+    if (completedLessons > 0) {
+      return 'In Progress';
+    }
+    if (assignment.due_date && isPast(new Date(assignment.due_date))) {
+      return 'Overdue';
+    }
+    return 'Not Started';
   };
 
   const filteredAssignments = assignments?.filter(a => {
@@ -351,13 +375,6 @@ export default function AdminTrainingAssignments() {
           <p className="text-muted-foreground">Assign training modules to staff members</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => backfillMutation.mutate()}
-            disabled={backfillMutation.isPending}
-          >
-            {backfillMutation.isPending ? 'Backfilling...' : 'Backfill Existing Progress'}
-          </Button>
           <Button onClick={() => setIsBulkDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Bulk Assign
