@@ -74,11 +74,29 @@ export default function StaffTraining() {
       
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Fetch the file as blob to bypass ad blockers
+        const response = await fetch(data.url);
+        if (!response.ok) throw new Error('Download failed');
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = data.name || attachment.name || 'download.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Cleanup blob URL
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        
+        toast.success('Download started');
       }
     } catch (error) {
       console.error('Download error:', error);
-      toast.error('Failed to download file');
+      toast.error('Failed to download file. Try disabling ad blocker.');
     }
   };
 
