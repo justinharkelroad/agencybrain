@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { TrainingQuiz } from '@/hooks/useTrainingQuizzes';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { QuizResultsWithFeedback } from './QuizResultsWithFeedback';
 
 interface QuizTakerProps {
   quiz: TrainingQuiz;
@@ -23,6 +24,7 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
 
   const questions = quiz.questions || [];
 
@@ -39,6 +41,7 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
     }
 
     setIsSubmitting(true);
+    setIsGeneratingFeedback(true);
     try {
       const { data, error } = await supabase.functions.invoke('submit_quiz_attempt', {
         body: {
@@ -52,137 +55,49 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
 
       setResults(data);
       setSubmitted(true);
+      setIsGeneratingFeedback(false);
       
-      if (data.passed) {
-        toast.success(`Quiz passed! Score: ${data.score}%`);
-        onComplete();
-      } else {
-        toast.error(`Quiz not passed. Score: ${data.score}%`);
-      }
+      // Don't show success toast or call onComplete immediately
+      // Let the user view feedback first
     } catch (error: any) {
       console.error('Quiz submission error:', error);
       toast.error(error.message || 'Failed to submit quiz');
+      setIsGeneratingFeedback(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleConfirmComplete = () => {
+    if (results?.passed) {
+      toast.success(`Quiz passed! Score: ${results.score}%`);
+    }
+    onComplete();
+  };
+
   if (submitted && results) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {results.passed ? (
-              <>
-                <CheckCircle className="h-6 w-6 text-green-500" />
-                Quiz Passed!
-              </>
-            ) : (
-              <>
-                <XCircle className="h-6 w-6 text-destructive" />
-                Quiz Not Passed
-              </>
-            )}
-          </CardTitle>
-          <CardDescription>
-            Your Score: {results.score}% ({results.correct_count}/{results.gradable_questions})
-          </CardDescription>
-          {results.passing_score && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Passing score: {results.passing_score}%
-            </p>
-          )}
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-4">
-              {results.detailed_results?.map((result: any, idx: number) => (
-                <Card key={idx} className={result.is_correct ? 'border-green-500/50' : result.type !== 'text_response' ? 'border-destructive/50' : ''}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        Question {idx + 1}
-                        {result.type !== 'text_response' && (
-                          result.is_correct ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          )
-                        )}
-                      </CardTitle>
-                      {result.type === 'text_response' && (
-                        <Badge variant="secondary">Text Response</Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="font-medium">{result.question_text}</p>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Your answer:</p>
-                      <p className="text-sm">{result.user_answer || 'No answer provided'}</p>
-                    </div>
-                    {result.type !== 'text_response' && !result.is_correct && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Correct answer:</p>
-                        <p className="text-sm text-green-600 dark:text-green-400">{result.correct_answer_text}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+      <QuizResultsWithFeedback
+        results={results}
+        sessionToken={sessionToken}
+        onConfirm={handleConfirmComplete}
+        onBack={onBack}
+      />
+    );
+  }
 
-              {/* Reflection Answers */}
-              {results.reflection_answers && (
-                <Card className="border-primary/50">
-                  <CardHeader>
-                    <CardTitle className="text-base">Reflection Answers</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {results.reflection_answers.reflection_1 && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">
-                          What was the most valuable insight you gained from this lesson?
-                        </p>
-                        <p className="text-sm">{results.reflection_answers.reflection_1}</p>
-                      </div>
-                    )}
-                    {results.reflection_answers.reflection_2 && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">
-                          How will you apply what you learned to your work?
-                        </p>
-                        <p className="text-sm">{results.reflection_answers.reflection_2}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </ScrollArea>
-          
-          <div className="mt-4 flex justify-center gap-3">
-            {results.passed ? (
-              <Button onClick={onBack} size="lg" className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Complete Training
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={onBack}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Lesson
-                </Button>
-                <Button onClick={() => {
-                  setSubmitted(false);
-                  setResults(null);
-                  setAnswers({});
-                }}>
-                  Retake Quiz
-                </Button>
-              </>
-            )}
+  if (isGeneratingFeedback) {
+    return (
+      <Card className="p-12">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold mb-2">Generating your coaching feedback...</h3>
+            <p className="text-sm text-muted-foreground">
+              This may take a few seconds as we analyze your reflections
+            </p>
           </div>
-        </CardContent>
+        </div>
       </Card>
     );
   }

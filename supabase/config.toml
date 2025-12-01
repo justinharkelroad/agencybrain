@@ -122,3 +122,9 @@ verify_jwt = false
 
 [functions.admin_reset_staff_password]
 verify_jwt = true
+
+[functions.update_quiz_reflection]
+verify_jwt = false
+
+[functions.confirm_quiz_feedback]
+verify_jwt = false
