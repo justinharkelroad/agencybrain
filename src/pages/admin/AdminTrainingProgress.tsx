@@ -751,6 +751,10 @@ export default function AdminTrainingProgress() {
                   allData?.quizAttempts
                     .filter((attempt: any) => attempt.ai_feedback)
                     .sort((a: any, b: any) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+                    .filter((attempt: any, index: number, arr: any[]) => {
+                      const key = `${attempt.staff_user_id}-${attempt.quiz_id}`;
+                      return arr.findIndex((a: any) => `${a.staff_user_id}-${a.quiz_id}` === key) === index;
+                    })
                     .map((attempt: any) => {
                       const staff: any = staffMap.get(attempt.staff_user_id);
                       const quiz: any = quizMap.get(attempt.quiz_id);
@@ -776,8 +780,8 @@ export default function AdminTrainingProgress() {
                             </TableCell>
                             <TableCell className="font-medium">
                               <div>
-                                <div>{staff?.name || 'Unknown'}</div>
-                                <div className="text-xs text-muted-foreground">{staff?.email || ''}</div>
+                                <div>{staff?.display_name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{staff?.username || ''}</div>
                               </div>
                             </TableCell>
                             <TableCell>{lesson?.name || 'Unknown Lesson'}</TableCell>
