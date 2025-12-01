@@ -210,7 +210,7 @@ export default function AdminTrainingProgress() {
     const groupedAttempts = new Map<string, any[]>();
     
     allData.quizAttempts.forEach((attempt: any) => {
-      const key = `${attempt.staff_user_id}-${attempt.quiz_id}`;
+      const key = `${attempt.staff_user_id}|${attempt.quiz_id}`;
       if (!groupedAttempts.has(key)) {
         groupedAttempts.set(key, []);
       }
@@ -218,7 +218,7 @@ export default function AdminTrainingProgress() {
     });
 
     return Array.from(groupedAttempts.entries()).map(([key, attempts]) => {
-      const [staffUserId, quizId] = key.split('-');
+      const [staffUserId, quizId] = key.split('|');
       const staff: any = staffMap.get(staffUserId);
       const quiz: any = quizMap.get(quizId);
       
