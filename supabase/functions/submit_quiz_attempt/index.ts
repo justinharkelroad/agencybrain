@@ -168,6 +168,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Extract reflection answers (needed for both AI feedback and response)
+    const reflectionAnswers = {
+      reflection_1: answers['reflection_1'] || '',
+      reflection_2: answers['reflection_2'] || ''
+    };
+
     // Generate AI coaching feedback
     let aiFeedback = null;
     try {
@@ -188,11 +194,7 @@ Deno.serve(async (req) => {
         if (module) moduleName = module.name;
       }
 
-      // Extract reflection answers
-      const reflectionAnswers = {
-        reflection_1: answers['reflection_1'] || '',
-        reflection_2: answers['reflection_2'] || ''
-      };
+      // Use reflection answers for AI feedback
       const reflection1 = reflectionAnswers.reflection_1 || '';
       const reflection2 = reflectionAnswers.reflection_2 || '';
 
