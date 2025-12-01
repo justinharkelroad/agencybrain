@@ -121,7 +121,7 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
+        <ScrollArea className="h-[calc(100vh-300px)] min-h-[400px] max-h-[600px]">
           <div className="space-y-6 pr-4">
             {questions.map((question, idx) => (
               <Card key={question.id}>

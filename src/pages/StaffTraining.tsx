@@ -198,7 +198,7 @@ export default function StaffTraining() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <BookOpen className="h-8 w-8 text-primary" />
             <div>
@@ -235,7 +235,7 @@ export default function StaffTraining() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
+                <ScrollArea className="h-[calc(100vh-250px)] min-h-[400px] max-h-[700px] pr-4">
                   {categories.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">
                       No training content available yet.
@@ -319,7 +319,7 @@ export default function StaffTraining() {
                   <CardTitle>{selectedLesson?.title || 'Select a lesson'}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[600px]">
+                  <ScrollArea className="h-[calc(100vh-250px)] min-h-[400px] max-h-[700px]">
                     {!selectedLesson ? (
                       <div className="flex flex-col items-center justify-center h-full text-center py-20">
                         <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
