@@ -242,7 +242,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue={initialTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="scorecards" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               Scorecards
@@ -296,7 +296,7 @@ export default function Settings() {
                       <p className="text-sm text-muted-foreground mb-3">
                         Choose which metrics count towards daily performance. Passing requires hitting targets on N of these selected metrics.
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {availableMetrics.map(metric => (
                           <div key={metric.key} className="flex items-center space-x-2">
                             <Checkbox
@@ -334,7 +334,7 @@ export default function Settings() {
                       <p className="text-sm text-muted-foreground mb-3">
                         Weight is added to daily score only when actual performance exceeds the target (not just meets it).
                       </p>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {availableMetrics.map(metric => (
                           <div key={metric.key} className="flex items-center justify-between">
                             <Label htmlFor={`weight-${metric.key}`} className="flex-1">
@@ -366,7 +366,7 @@ export default function Settings() {
                       <p className="text-sm text-muted-foreground mb-3">
                         Which days of the week count towards streaks and performance tracking?
                       </p>
-                      <div className="grid grid-cols-7 gap-2">
+                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
                         {Object.entries(countedDays).map(([day, checked]) => (
                           <div key={day} className="flex items-center space-x-2">
                             <Checkbox
@@ -398,7 +398,7 @@ export default function Settings() {
                       <p className="text-sm text-muted-foreground mb-3">
                         Select which metrics to display in the visual performance rings dashboard.
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {availableMetrics.map(metric => (
                           <div key={`ring-${metric.key}`} className="flex items-center space-x-2">
                             <Checkbox

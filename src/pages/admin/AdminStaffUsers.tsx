@@ -387,6 +387,7 @@ export default function AdminStaffUsers() {
               No staff users yet. Create one to get started.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -457,6 +458,7 @@ export default function AdminStaffUsers() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -228,7 +228,7 @@ export default function Agency() {
         <h1 className="sr-only">My Agency</h1>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Agency Info
@@ -259,17 +259,17 @@ export default function Agency() {
             <CardDescription>Update your agency profile</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="agency-name" className="text-right">Name</Label>
-              <Input id="agency-name" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} className="col-span-3" />
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-name" className="sm:text-right">Name</Label>
+              <Input id="agency-name" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} className="col-span-1 sm:col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="agency-email" className="text-right">Email</Label>
-              <Input id="agency-email" type="email" value={agencyEmail} onChange={(e) => setAgencyEmail(e.target.value)} className="col-span-3" />
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-email" className="sm:text-right">Email</Label>
+              <Input id="agency-email" type="email" value={agencyEmail} onChange={(e) => setAgencyEmail(e.target.value)} className="col-span-1 sm:col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="agency-phone" className="text-right">Phone</Label>
-              <Input id="agency-phone" value={agencyPhone} onChange={(e) => setAgencyPhone(e.target.value)} className="col-span-3" />
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
+              <Label htmlFor="agency-phone" className="sm:text-right">Phone</Label>
+              <Input id="agency-phone" value={agencyPhone} onChange={(e) => setAgencyPhone(e.target.value)} className="col-span-1 sm:col-span-3" />
             </div>
             <div className="flex justify-end">
               <Button variant="gradient-glow" onClick={upsertAgency}>{agencyId ? "Save" : "Create Agency"}</Button>
@@ -300,18 +300,18 @@ export default function Agency() {
                   <DialogDescription>Manage team member details</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-2">
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right" htmlFor="name">Name</Label>
-                    <Input id="name" value={memberForm.name} onChange={(e) => setMemberForm((f) => ({ ...f, name: e.target.value }))} className="col-span-3" />
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                    <Label className="sm:text-right" htmlFor="name">Name</Label>
+                    <Input id="name" value={memberForm.name} onChange={(e) => setMemberForm((f) => ({ ...f, name: e.target.value }))} className="col-span-1 sm:col-span-3" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right" htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-3" />
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                    <Label className="sm:text-right" htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-1 sm:col-span-3" />
                   </div>
-                   <div className="grid grid-cols-4 items-center gap-3">
-                     <Label className="text-right">Role</Label>
+                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                     <Label className="sm:text-right">Role</Label>
                      <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
-                       <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
+                       <SelectTrigger className="col-span-1 sm:col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
                        <SelectContent>
                          {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
                        </SelectContent>
@@ -356,27 +356,27 @@ export default function Agency() {
                        </div>
                      </div>
                    )}
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right">Employment</Label>
-                    <Select value={memberForm.employment} onValueChange={(v) => setMemberForm((f) => ({ ...f, employment: v as Employment }))}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
+                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                     <Label className="sm:text-right">Employment</Label>
+                     <Select value={memberForm.employment} onValueChange={(v) => setMemberForm((f) => ({ ...f, employment: v as Employment }))}>
+                       <SelectTrigger className="col-span-1 sm:col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
                       <SelectContent>
                         {EMPLOYMENT_TYPES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right">Status</Label>
-                    <Select value={memberForm.status} onValueChange={(v) => setMemberForm((f) => ({ ...f, status: v as MemberStatus }))}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select status" /></SelectTrigger>
+                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                     <Label className="sm:text-right">Status</Label>
+                     <Select value={memberForm.status} onValueChange={(v) => setMemberForm((f) => ({ ...f, status: v as MemberStatus }))}>
+                       <SelectTrigger className="col-span-1 sm:col-span-3"><SelectValue placeholder="Select status" /></SelectTrigger>
                       <SelectContent>
                         {MEMBER_STATUS.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-4 items-start gap-3">
-                    <Label className="text-right" htmlFor="notes">Notes</Label>
-                    <Textarea id="notes" value={memberForm.notes} onChange={(e) => setMemberForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-3 min-h-[84px]" />
+                   <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
+                     <Label className="sm:text-right" htmlFor="notes">Notes</Label>
+                     <Textarea id="notes" value={memberForm.notes} onChange={(e) => setMemberForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-1 sm:col-span-3 min-h-[84px]" />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
@@ -387,6 +387,7 @@ export default function Agency() {
             </Dialog>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -432,6 +433,7 @@ export default function Agency() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </TabsContent>
