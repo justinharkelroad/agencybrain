@@ -71,8 +71,11 @@ export default function ReportingPeriods() {
                     <Badge variant={p.status === 'complete' ? 'default' : p.status === 'active' ? 'secondary' : 'outline'}>
                       {p.status}
                     </Badge>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/submit?mode=update&periodId=${p.id}`}>Update</Link>
+                    <Button asChild size="sm" variant="outline" title="Edit this period's data - changes will replace existing data">
+                      <Link to={`/submit?mode=update&periodId=${p.id}`}>Edit</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="default">
+                      <Link to={`/submit?mode=new`}>+ New</Link>
                     </Button>
                     <PeriodDeleteDialog
                       period={p as any}

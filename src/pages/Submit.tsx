@@ -10,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, CalendarIcon, Shield } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CalendarIcon, Shield, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -132,6 +133,11 @@ const getPreviousMonthDates = () => {
   };
 };
 
+// Helper to check if dates are in a different month
+const areDatesInDifferentMonth = (date1: Date, date2: Date) => {
+  return date1.getMonth() !== date2.getMonth() || date1.getFullYear() !== date2.getFullYear();
+};
+
 export default function Submit() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -162,6 +168,8 @@ export default function Submit() {
   const [showValidationDialog, setShowValidationDialog] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [pendingSaveAction, setPendingSaveAction] = useState<(() => void) | null>(null);
+  const [originalPeriodDates, setOriginalPeriodDates] = useState<{ start: Date; end: Date; title: string } | null>(null);
+  const [showDateChangeWarning, setShowDateChangeWarning] = useState(false);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -276,6 +284,12 @@ export default function Submit() {
           setCurrentPeriod(specificPeriod);
           setStartDate(new Date(specificPeriod.start_date));
           setEndDate(new Date(specificPeriod.end_date));
+          // Store original dates to detect changes
+          setOriginalPeriodDates({
+            start: new Date(specificPeriod.start_date),
+            end: new Date(specificPeriod.end_date),
+            title: specificPeriod.title || ''
+          });
           
           if (specificPeriod.form_data && Object.keys(specificPeriod.form_data).length > 0) {
             // Load full existing data for update mode
@@ -1260,6 +1274,27 @@ export default function Submit() {
             <h1 className="text-3xl font-bold mt-4">Meeting Form</h1>
             <p className="text-muted-foreground mb-4">Submit to update Dashboard</p>
             
+            {/* Update Mode Warning Banner */}
+            {mode === 'update' && originalPeriodDates && (
+              <Alert variant="destructive" className="mb-4 border-amber-500 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <AlertTitle className="text-amber-500">Editing Existing Period</AlertTitle>
+                <AlertDescription className="text-amber-600">
+                  You are editing your <strong>{originalPeriodDates.title || format(originalPeriodDates.start, 'MMMM yyyy')}</strong> period 
+                  ({format(originalPeriodDates.start, 'MMM d')} – {format(originalPeriodDates.end, 'MMM d, yyyy')}). 
+                  Changes will <strong>replace</strong> existing data.
+                  <div className="mt-2">
+                    <Link to="/submit?mode=new">
+                      <Button variant="outline" size="sm" className="text-amber-600 border-amber-500 hover:bg-amber-500/20">
+                        <Plus className="w-3 h-3 mr-1" />
+                        Start New Period Instead
+                      </Button>
+                    </Link>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Editable Period Dates */}
             <div className="flex flex-col md:flex-row gap-4 md:items-center">
               <div className="flex flex-col">
@@ -1281,7 +1316,12 @@ export default function Submit() {
                     <Calendar
                       mode="single"
                       selected={startDate}
-                      onSelect={setStartDate}
+                      onSelect={(date) => {
+                        if (mode === 'update' && originalPeriodDates && date && areDatesInDifferentMonth(date, originalPeriodDates.start)) {
+                          setShowDateChangeWarning(true);
+                        }
+                        setStartDate(date);
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
@@ -1308,7 +1348,12 @@ export default function Submit() {
                     <Calendar
                       mode="single"
                       selected={endDate}
-                      onSelect={setEndDate}
+                      onSelect={(date) => {
+                        if (mode === 'update' && originalPeriodDates && date && areDatesInDifferentMonth(date, originalPeriodDates.end)) {
+                          setShowDateChangeWarning(true);
+                        }
+                        setEndDate(date);
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
@@ -1556,6 +1601,39 @@ export default function Submit() {
         }}
         otherDevices={conflictInfo.otherDevices}
       />
+
+      {/* Date Change Warning Dialog */}
+      <AlertDialog open={showDateChangeWarning} onOpenChange={setShowDateChangeWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Different Month Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You're editing your <strong>{originalPeriodDates?.title || (originalPeriodDates ? format(originalPeriodDates.start, 'MMMM yyyy') : '')}</strong> period, 
+              but you've selected dates for a different month.
+              <br /><br />
+              If you want to submit data for a <strong>new month</strong>, you should start a new period instead 
+              to avoid overwriting your existing data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setShowDateChangeWarning(false)}>
+              Keep Editing This Period
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowDateChangeWarning(false);
+                navigate('/submit?mode=new');
+              }}
+              className="bg-primary text-primary-foreground"
+            >
+              Start New Period
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Validation Error Dialog */}
       {validationResult && (
