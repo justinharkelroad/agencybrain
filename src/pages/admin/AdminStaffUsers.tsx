@@ -311,10 +311,13 @@ export default function AdminStaffUsers() {
   };
 
   const handleResetPassword = (user: StaffUser) => {
+    console.log("=== handleResetPassword called ===");
+    console.log("User:", user);
     setResetUser(user);
     setNewPassword("");
     setShowNewPassword(false);
     setIsResetDialogOpen(true);
+    console.log("=== isResetDialogOpen should now be true ===");
   };
 
   return (
@@ -475,7 +478,11 @@ export default function AdminStaffUsers() {
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleResetPassword(user)}>
+                <DropdownMenuItem onSelect={() => {
+                  console.log("=== onSelect fired for Reset Password ===");
+                  console.log("User object:", user);
+                  handleResetPassword(user);
+                }}>
                   <Key className="h-4 w-4 mr-2" />
                   Reset Password (Manual)
                 </DropdownMenuItem>
