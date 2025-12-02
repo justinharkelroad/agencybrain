@@ -23,7 +23,10 @@ interface StaffUser {
   created_at: string;
 }
 
-// Helper function to generate random password
+interface StaffUsersTabProps {
+  agencyId: string;
+}
+
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let password = '';
@@ -33,7 +36,6 @@ const generateRandomPassword = () => {
   return password;
 };
 
-// Helper function to copy to clipboard
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text);
@@ -43,30 +45,9 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
-export default function AdminStaffUsers() {
+export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const queryClient = useQueryClient();
-  
-  // Get current user's agency ID
-  const { data: profile } = useQuery({
-    queryKey: ["current-user-profile"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-      
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("agency_id")
-        .eq("id", user.id)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-  });
-  
-  const agencyId = profile?.agency_id;
 
-  // Create dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -76,7 +57,6 @@ export default function AdminStaffUsers() {
     email: "",
   });
 
-  // Edit dialog states
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -85,18 +65,14 @@ export default function AdminStaffUsers() {
     email: "",
   });
 
-  // Reset password dialog states
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [resetUser, setResetUser] = useState<StaffUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
-  // Fetch staff users for agency
   const { data: staffUsers = [], isLoading } = useQuery({
     queryKey: ["staff-users", agencyId],
     queryFn: async () => {
-      if (!agencyId) return [];
-      
       const { data, error } = await supabase
         .from("staff_users")
         .select("*")
@@ -109,7 +85,6 @@ export default function AdminStaffUsers() {
     enabled: !!agencyId,
   });
 
-  // Create staff user mutation
   const createStaffUser = useMutation({
     mutationFn: async (userData: typeof formData) => {
       const { data, error } = await supabase.functions.invoke("admin_create_staff_user", {
@@ -133,12 +108,10 @@ export default function AdminStaffUsers() {
       setShowPassword(false);
     },
     onError: (error: any) => {
-      console.error("Create staff user error:", error);
       toast.error(error.message || "Failed to create staff user");
     },
   });
 
-  // Edit staff user mutation
   const editStaffUser = useMutation({
     mutationFn: async ({ userId, userData }: { userId: string; userData: typeof editFormData }) => {
       const { error } = await supabase
@@ -159,12 +132,10 @@ export default function AdminStaffUsers() {
       setEditingUser(null);
     },
     onError: (error: any) => {
-      console.error("Edit staff user error:", error);
       toast.error(error.message || "Failed to update staff user");
     },
   });
 
-  // Reset password mutation
   const resetPassword = useMutation({
     mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
       const { data, error } = await supabase.functions.invoke("admin_reset_staff_password", {
@@ -185,12 +156,10 @@ export default function AdminStaffUsers() {
       setShowNewPassword(false);
     },
     onError: (error: any) => {
-      console.error("Reset password error:", error);
       toast.error(error.message || "Failed to reset password");
     },
   });
 
-  // Send reset email mutation
   const sendResetEmail = useMutation({
     mutationFn: async (email: string) => {
       const { data, error } = await supabase.functions.invoke("staff_request_password_reset", {
@@ -204,12 +173,10 @@ export default function AdminStaffUsers() {
       toast.success("Password reset email sent successfully");
     },
     onError: (error: any) => {
-      console.error("Send reset email error:", error);
       toast.error(error.message || "Failed to send reset email");
     },
   });
 
-  // Toggle active status mutation
   const toggleActive = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
       const { error } = await supabase
@@ -224,7 +191,6 @@ export default function AdminStaffUsers() {
       toast.success("Staff user status updated");
     },
     onError: (error: any) => {
-      console.error("Toggle active error:", error);
       toast.error("Failed to update staff user");
     },
   });
@@ -311,20 +277,17 @@ export default function AdminStaffUsers() {
   };
 
   const handleResetPassword = (user: StaffUser) => {
-    console.log("=== handleResetPassword called ===");
-    console.log("User:", user);
     setResetUser(user);
     setNewPassword("");
     setShowNewPassword(false);
     setIsResetDialogOpen(true);
-    console.log("=== isResetDialogOpen should now be true ===");
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <UserCog className="h-5 w-5" />
@@ -335,7 +298,6 @@ export default function AdminStaffUsers() {
               </CardDescription>
             </div>
             
-            {/* Create Staff User Dialog */}
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -382,18 +344,10 @@ export default function AdminStaffUsers() {
                           className="absolute right-0 top-0 h-full px-3"
                           onClick={() => setShowPassword(!showPassword)}
                         >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleGeneratePassword}
-                      >
+                      <Button type="button" variant="outline" onClick={handleGeneratePassword}>
                         Generate
                       </Button>
                     </div>
@@ -437,102 +391,90 @@ export default function AdminStaffUsers() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Username</TableHead>
-                  <TableHead>Display Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staffUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-mono">{user.username}</TableCell>
-                    <TableCell>{user.display_name || "-"}</TableCell>
-                    <TableCell>{user.email || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.is_active ? "default" : "secondary"}>
-                        {user.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {user.last_login_at
-                        ? new Date(user.last_login_at).toLocaleDateString()
-                        : "Never"}
-                    </TableCell>
-                    <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => handleEdit(user)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => {
-                  console.log("=== onSelect fired for Reset Password ===");
-                  console.log("User object:", user);
-                  handleResetPassword(user);
-                }}>
-                  <Key className="h-4 w-4 mr-2" />
-                  Reset Password (Manual)
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onSelect={() => handleSendResetEmail(user)}
-                  disabled={!user.email}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Password Reset Email
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() =>
-                    toggleActive.mutate({
-                      userId: user.id,
-                      isActive: user.is_active,
-                    })
-                  }
-                >
-                  {user.is_active ? (
-                    <>
-                      <UserX className="h-4 w-4 mr-2" />
-                      Deactivate
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Activate
-                    </>
-                  )}
-                </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Display Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Login</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {staffUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-mono">{user.username}</TableCell>
+                      <TableCell>{user.display_name || "-"}</TableCell>
+                      <TableCell>{user.email || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.last_login_at
+                          ? new Date(user.last_login_at).toLocaleDateString()
+                          : "Never"}
+                      </TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => handleEdit(user)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleResetPassword(user)}>
+                              <Key className="h-4 w-4 mr-2" />
+                              Reset Password (Manual)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onSelect={() => handleSendResetEmail(user)}
+                              disabled={!user.email}
+                            >
+                              <Mail className="h-4 w-4 mr-2" />
+                              Send Password Reset Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => toggleActive.mutate({ userId: user.id, isActive: user.is_active })}
+                            >
+                              {user.is_active ? (
+                                <>
+                                  <UserX className="h-4 w-4 mr-2" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="h-4 w-4 mr-2" />
+                                  Activate
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Edit Staff User Dialog */}
+      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Staff User</DialogTitle>
-            <DialogDescription>
-              Update username, display name, and email address
-            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -541,34 +483,28 @@ export default function AdminStaffUsers() {
                 id="edit-username"
                 value={editFormData.username}
                 onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
-                placeholder="staff.username"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-display-name">Display Name</Label>
+              <Label htmlFor="edit-display_name">Display Name</Label>
               <Input
-                id="edit-display-name"
+                id="edit-display_name"
                 value={editFormData.display_name}
                 onChange={(e) => setEditFormData({ ...editFormData, display_name: e.target.value })}
-                placeholder="John Doe"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email Address</Label>
+              <Label htmlFor="edit-email">Email</Label>
               <Input
                 id="edit-email"
                 type="email"
                 value={editFormData.email}
                 onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                placeholder="staff@agency.com"
               />
-              <p className="text-xs text-muted-foreground">
-                Required for password reset emails
-              </p>
             </div>
             <Button type="submit" disabled={editStaffUser.isPending} className="w-full">
-              {editStaffUser.isPending ? "Saving..." : "Save Changes"}
+              {editStaffUser.isPending ? "Updating..." : "Update User"}
             </Button>
           </form>
         </DialogContent>
@@ -580,7 +516,7 @@ export default function AdminStaffUsers() {
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
             <DialogDescription>
-              Reset password for: <span className="font-mono font-semibold">{resetUser?.username}</span>
+              Reset password for {resetUser?.display_name || resetUser?.username}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
@@ -605,18 +541,10 @@ export default function AdminStaffUsers() {
                     className="absolute right-0 top-0 h-full px-3"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                   >
-                    {showNewPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleGenerateNewPassword}
-                >
+                <Button type="button" variant="outline" onClick={handleGenerateNewPassword}>
                   Generate
                 </Button>
               </div>

@@ -45,9 +45,6 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import AdminTraining from "./pages/admin/AdminTraining";
-import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
-import AdminTrainingAssignments from "./pages/admin/AdminTrainingAssignments";
-import AdminTrainingProgress from "./pages/admin/AdminTrainingProgress";
 import TestTrainingComponents from "./pages/TestTrainingComponents";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
@@ -379,27 +376,10 @@ const App = () => (
                 </SidebarLayout>
               </ProtectedRoute>
             } />
-            <Route path="/admin/staff-users" element={
-              <ProtectedRoute requireAdmin>
-                <SidebarLayout>
-                  <AdminStaffUsers />
-                </SidebarLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/training-assignments" element={
-              <ProtectedRoute requireAdmin>
-                <SidebarLayout>
-                  <AdminTrainingAssignments />
-                </SidebarLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/training-progress" element={
-              <ProtectedRoute requireAdmin>
-                <SidebarLayout>
-                  <AdminTrainingProgress />
-                </SidebarLayout>
-              </ProtectedRoute>
-            } />
+            {/* Redirect old training routes to new tabbed interface */}
+            <Route path="/admin/staff-users" element={<Navigate to="/admin/training?tab=staff" replace />} />
+            <Route path="/admin/training-assignments" element={<Navigate to="/admin/training?tab=assignments" replace />} />
+            <Route path="/admin/training-progress" element={<Navigate to="/admin/training?tab=progress" replace />} />
             <Route path="/test-training-components" element={
               <ProtectedRoute requireAdmin>
                 <TestTrainingComponents />
