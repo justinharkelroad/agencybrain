@@ -67,8 +67,8 @@ export function useStaffAuth() {
         body: { username, password, agency_slug: agencySlug }
       });
 
-      if (error || data.error) {
-        const errorMsg = data?.error || error?.message || 'Login failed';
+      if (error || !data?.success) {
+        const errorMsg = data?.error || 'Unable to sign in. Please try again.';
         setState(prev => ({ ...prev, loading: false, error: errorMsg }));
         return { error: errorMsg };
       }
