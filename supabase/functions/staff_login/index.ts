@@ -74,8 +74,8 @@ Deno.serve(async (req) => {
 
     if (!username || !password) {
       return new Response(
-        JSON.stringify({ error: 'Username and password required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Please enter both username and password' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -93,8 +93,8 @@ Deno.serve(async (req) => {
       
       if (!agency) {
         return new Response(
-          JSON.stringify({ error: 'Agency not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'Agency code not recognized. Please check and try again.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       agencyId = agency.id;
@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
     if (userError || !staffUser) {
       console.log('User not found:', username);
       return new Response(
-        JSON.stringify({ error: 'Invalid credentials' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Invalid username or password. Please try again.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -127,8 +127,8 @@ Deno.serve(async (req) => {
     if (!passwordMatch) {
       console.log('Password mismatch for user:', username);
       return new Response(
-        JSON.stringify({ error: 'Invalid credentials' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Invalid username or password. Please try again.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -151,8 +151,8 @@ Deno.serve(async (req) => {
     if (sessionError) {
       console.error('Session creation error:', sessionError);
       return new Response(
-        JSON.stringify({ error: 'Failed to create session' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Something went wrong. Please try again.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -169,6 +169,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
+        success: true,
         session_token: sessionToken,
         expires_at: expiresAt.toISOString(),
         user: userData
@@ -179,8 +180,8 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Login error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: 'Something went wrong. Please try again later.' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
