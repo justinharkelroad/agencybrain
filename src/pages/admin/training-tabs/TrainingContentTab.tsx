@@ -65,7 +65,16 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
 
   // Delete confirmation
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'module' | 'lesson', id: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'module' | 'lesson', id: string, name: string } | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<{
+    modules: number;
+    lessons: number;
+    quizzes: number;
+    quizAttempts: number;
+    lessonProgress: number;
+    assignments: number;
+  } | null>(null);
+  const [loadingImpact, setLoadingImpact] = useState(false);
 
   // Hooks
   const { categories, createCategory, updateCategory, deleteCategory, isCreating: isCreatingCategory, isUpdating: isUpdatingCategory } = useTrainingCategories(agencyId);
@@ -271,9 +280,109 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     setDeleteTarget(null);
   };
 
-  const confirmDelete = (type: 'category' | 'module' | 'lesson', id: string) => {
-    setDeleteTarget({ type, id });
+  const confirmDelete = async (type: 'category' | 'module' | 'lesson', id: string, name: string) => {
+    setDeleteTarget({ type, id, name });
+    setDeleteImpact(null);
+    setLoadingImpact(true);
     setDeleteDialog(true);
+
+    try {
+      let moduleIds: string[] = [];
+      let lessonIds: string[] = [];
+      let quizIds: string[] = [];
+      let modulesCount = 0;
+      let lessonsCount = 0;
+      let quizzesCount = 0;
+
+      if (type === 'category') {
+        // Get all modules in category
+        const { data: mods } = await supabase
+          .from('training_modules')
+          .select('id')
+          .eq('category_id', id);
+        moduleIds = mods?.map(m => m.id) || [];
+        modulesCount = moduleIds.length;
+
+        if (moduleIds.length > 0) {
+          // Get all lessons in those modules
+          const { data: lsns } = await supabase
+            .from('training_lessons')
+            .select('id')
+            .in('module_id', moduleIds);
+          lessonIds = lsns?.map(l => l.id) || [];
+          lessonsCount = lessonIds.length;
+        }
+      } else if (type === 'module') {
+        // Get all lessons in module
+        const { data: lsns } = await supabase
+          .from('training_lessons')
+          .select('id')
+          .eq('module_id', id);
+        lessonIds = lsns?.map(l => l.id) || [];
+        lessonsCount = lessonIds.length;
+      } else {
+        lessonIds = [id];
+      }
+
+      // Get quizzes for lessons
+      if (lessonIds.length > 0) {
+        const { data: qzs } = await supabase
+          .from('training_quizzes')
+          .select('id')
+          .in('lesson_id', lessonIds);
+        quizIds = qzs?.map(q => q.id) || [];
+        quizzesCount = quizIds.length;
+      }
+
+      // Count quiz attempts that will be orphaned
+      let quizAttemptsCount = 0;
+      if (quizIds.length > 0) {
+        const { count } = await supabase
+          .from('training_quiz_attempts')
+          .select('*', { count: 'exact', head: true })
+          .in('quiz_id', quizIds);
+        quizAttemptsCount = count || 0;
+      }
+
+      // Count lesson progress that will be orphaned
+      let lessonProgressCount = 0;
+      if (lessonIds.length > 0) {
+        const { count } = await supabase
+          .from('staff_lesson_progress')
+          .select('*', { count: 'exact', head: true })
+          .in('lesson_id', lessonIds);
+        lessonProgressCount = count || 0;
+      }
+
+      // Count assignments
+      let assignmentsCount = 0;
+      if (type === 'category' && moduleIds.length > 0) {
+        const { count } = await supabase
+          .from('training_assignments')
+          .select('*', { count: 'exact', head: true })
+          .in('module_id', moduleIds);
+        assignmentsCount = count || 0;
+      } else if (type === 'module') {
+        const { count } = await supabase
+          .from('training_assignments')
+          .select('*', { count: 'exact', head: true })
+          .eq('module_id', id);
+        assignmentsCount = count || 0;
+      }
+
+      setDeleteImpact({
+        modules: modulesCount,
+        lessons: lessonsCount,
+        quizzes: quizzesCount,
+        quizAttempts: quizAttemptsCount,
+        lessonProgress: lessonProgressCount,
+        assignments: assignmentsCount,
+      });
+    } catch (error) {
+      console.error('Error fetching deletion impact:', error);
+    } finally {
+      setLoadingImpact(false);
+    }
   };
 
   const selectedCategory = categories?.find(c => c.id === selectedCategoryId);
@@ -364,7 +473,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                             <Button size="sm" variant="ghost" onClick={() => openCategoryDialog(category)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('category', category.id)}>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('category', category.id, category.name)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -435,7 +544,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                             <Button size="sm" variant="ghost" onClick={() => openModuleDialog(module)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('module', module.id)}>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('module', module.id, module.name)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -505,7 +614,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                             <Button size="sm" variant="ghost" onClick={() => openLessonDialog(lesson)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('lesson', lesson.id)}>
+                            <Button size="sm" variant="ghost" onClick={() => confirmDelete('lesson', lesson.id, lesson.name)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
@@ -732,18 +841,72 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog with Impact Warning */}
       <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this {deleteTarget?.type}? This action cannot be undone.
+            <AlertDialogTitle className="text-destructive">
+              Delete {deleteTarget?.type === 'category' ? 'Category' : deleteTarget?.type === 'module' ? 'Module' : 'Lesson'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Are you sure you want to delete <span className="font-semibold">"{deleteTarget?.name}"</span>?
+                </p>
+                
+                {loadingImpact ? (
+                  <div className="text-center py-2 text-muted-foreground">
+                    Calculating impact...
+                  </div>
+                ) : deleteImpact && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
+                    <p className="font-medium text-destructive text-sm">This will permanently delete:</p>
+                    <ul className="text-sm space-y-1 ml-4 list-disc">
+                      {deleteTarget?.type === 'category' && deleteImpact.modules > 0 && (
+                        <li>{deleteImpact.modules} module{deleteImpact.modules !== 1 ? 's' : ''}</li>
+                      )}
+                      {deleteImpact.lessons > 0 && (
+                        <li>{deleteImpact.lessons} lesson{deleteImpact.lessons !== 1 ? 's' : ''}</li>
+                      )}
+                      {deleteImpact.quizzes > 0 && (
+                        <li>{deleteImpact.quizzes} quiz{deleteImpact.quizzes !== 1 ? 'zes' : ''}</li>
+                      )}
+                      {deleteImpact.assignments > 0 && (
+                        <li>{deleteImpact.assignments} staff assignment{deleteImpact.assignments !== 1 ? 's' : ''}</li>
+                      )}
+                    </ul>
+                    
+                    {(deleteImpact.quizAttempts > 0 || deleteImpact.lessonProgress > 0) && (
+                      <div className="pt-2 border-t border-destructive/20">
+                        <p className="font-medium text-amber-600 dark:text-amber-400 text-sm">Staff history will be preserved:</p>
+                        <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
+                          {deleteImpact.quizAttempts > 0 && (
+                            <li>{deleteImpact.quizAttempts} quiz attempt{deleteImpact.quizAttempts !== 1 ? 's' : ''} (with reflections & AI feedback)</li>
+                          )}
+                          {deleteImpact.lessonProgress > 0 && (
+                            <li>{deleteImpact.lessonProgress} lesson completion record{deleteImpact.lessonProgress !== 1 ? 's' : ''}</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loadingImpact}
+            >
+              Delete {deleteTarget?.type}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
