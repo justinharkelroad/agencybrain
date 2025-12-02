@@ -471,41 +471,41 @@ export default function AdminStaffUsers() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(user)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleResetPassword(user)}>
-                            <Key className="h-4 w-4 mr-2" />
-                            Reset Password (Manual)
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleSendResetEmail(user)}
-                            disabled={!user.email}
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Send Password Reset Email
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              toggleActive.mutate({
-                                userId: user.id,
-                                isActive: user.is_active,
-                              })
-                            }
-                          >
-                            {user.is_active ? (
-                              <>
-                                <UserX className="h-4 w-4 mr-2" />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="h-4 w-4 mr-2" />
-                                Activate
-                              </>
-                            )}
-                          </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleEdit(user)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleResetPassword(user)}>
+                  <Key className="h-4 w-4 mr-2" />
+                  Reset Password (Manual)
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onSelect={() => handleSendResetEmail(user)}
+                  disabled={!user.email}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Password Reset Email
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    toggleActive.mutate({
+                      userId: user.id,
+                      isActive: user.is_active,
+                    })
+                  }
+                >
+                  {user.is_active ? (
+                    <>
+                      <UserX className="h-4 w-4 mr-2" />
+                      Deactivate
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      Activate
+                    </>
+                  )}
+                </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
