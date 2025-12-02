@@ -16,30 +16,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Calendar as CalendarIcon, MoreVertical, Plus, Trash2, Edit } from 'lucide-react';
-import { format, isPast, differenceInDays } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export default function AdminTrainingAssignments() {
+interface TrainingAssignmentsTabProps {
+  agencyId: string;
+}
+
+export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
-  // Fetch user's agency_id from profile
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-  
-  const agencyId = profile?.agency_id;
   
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -214,101 +201,14 @@ export default function AdminTrainingAssignments() {
     },
   });
 
-  // Backfill existing progress mutation
-  const backfillMutation = useMutation({
-    mutationFn: async () => {
-      // Step 1: Fetch all necessary data in separate queries
-      const [
-        { data: allProgress, error: progressError },
-        { data: lessons, error: lessonsError },
-        { data: staffUsers, error: staffError },
-        { data: existingAssignments, error: assignmentError }
-      ] = await Promise.all([
-        supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id'),
-        supabase.from('training_lessons').select('id, module_id, agency_id'),
-        supabase.from('staff_users').select('id, agency_id').eq('agency_id', agencyId),
-        supabase.from('training_assignments').select('staff_user_id, module_id').eq('agency_id', agencyId)
-      ]);
-
-      if (progressError) throw progressError;
-      if (lessonsError) throw lessonsError;
-      if (staffError) throw staffError;
-      if (assignmentError) throw assignmentError;
-
-      // Step 2: Join data in JavaScript
-      const lessonToModule = new Map<string, { module_id: string; agency_id: string }>(
-        lessons?.map(l => [l.id, { module_id: l.module_id, agency_id: l.agency_id }])
-      );
-      const staffAgencyMap = new Map(staffUsers?.map(s => [s.id, s.agency_id]));
-
-      // Filter progress to current agency staff only
-      const agencyProgress = allProgress?.filter(p => staffAgencyMap.has(p.staff_user_id));
-
-      // Find unique staff_user_id + module_id combinations from progress
-      const progressCombos = new Set<string>();
-      agencyProgress?.forEach(p => {
-        const lesson = lessonToModule.get(p.lesson_id);
-        if (lesson && lesson.agency_id === agencyId) {
-          progressCombos.add(`${p.staff_user_id}|${lesson.module_id}`);
-        }
-      });
-
-      // Find which don't have assignments
-      const existingSet = new Set(
-        existingAssignments?.map(a => `${a.staff_user_id}|${a.module_id}`)
-      );
-      const missingAssignments = [...progressCombos]
-        .filter(combo => !existingSet.has(combo))
-        .map(combo => {
-          const [staff_user_id, module_id] = combo.split('|');
-          return {
-            agency_id: agencyId,
-            staff_user_id,
-            module_id,
-            assigned_by: user?.id,
-            assigned_at: new Date().toISOString(),
-          };
-        });
-
-      // Step 3: Insert missing assignments
-      if (missingAssignments.length === 0) {
-        return { count: 0 };
-      }
-
-      const { error: insertError } = await supabase
-        .from('training_assignments')
-        .insert(missingAssignments);
-
-      if (insertError) throw insertError;
-
-      return { count: missingAssignments.length };
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
-      const count = data?.count || 0;
-      if (count === 0) {
-        toast.info('No missing assignments found');
-      } else {
-        toast.success(`Backfilled ${count} assignment${count === 1 ? '' : 's'}`);
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to backfill assignments');
-    },
-  });
-
   const getStatus = (assignment: any) => {
     if (!assignment.module_id || !assignment.staff_user_id) return 'Not Started';
     
     const { progress, lessons, allLessons } = lessonProgressData || {};
     
-    // Create lesson -> module map
     const lessonToModule = new Map(lessons?.map(l => [l.id, l.module_id]));
-    
-    // Get total lessons in this module
     const totalLessonsInModule = allLessons?.filter(l => l.module_id === assignment.module_id).length || 0;
     
-    // Get completed lessons for this staff user + module
     const completedLessons = progress?.filter(p => 
       p.staff_user_id === assignment.staff_user_id &&
       lessonToModule.get(p.lesson_id) === assignment.module_id &&
@@ -360,26 +260,20 @@ export default function AdminTrainingAssignments() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Training Assignments</h1>
-          <p className="text-muted-foreground">Assign training modules to staff members</p>
+          <h2 className="text-xl font-semibold">Training Assignments</h2>
+          <p className="text-muted-foreground text-sm">Assign training modules to staff members</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsBulkDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Bulk Assign
-          </Button>
-        </div>
+        <Button onClick={() => setIsBulkDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Bulk Assign
+        </Button>
       </div>
 
       <Card>
@@ -439,109 +333,110 @@ export default function AdminTrainingAssignments() {
       </Card>
 
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Staff Name</TableHead>
-              <TableHead>Module Name</TableHead>
-              <TableHead>Assigned Date</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredAssignments.length === 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  No assignments found
-                </TableCell>
+                <TableHead>Staff Name</TableHead>
+                <TableHead>Module Name</TableHead>
+                <TableHead>Assigned Date</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              filteredAssignments.map((assignment) => {
-                const status = getStatus(assignment);
-                return (
-                  <TableRow key={assignment.id}>
-                    <TableCell className="font-medium">
-                      {assignment.staff_users?.display_name}
-                    </TableCell>
-                    <TableCell>{assignment.training_modules?.name}</TableCell>
-                    <TableCell>
-                      {format(new Date(assignment.assigned_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      {assignment.due_date ? (
-                        format(new Date(assignment.due_date), 'MMM d, yyyy')
-                      ) : (
-                        <span className="text-muted-foreground">No due date</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          status === 'Completed' ? 'default' :
-                          status === 'Overdue' ? 'destructive' :
-                          'secondary'
-                        }
-                      >
-                        {status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditingAssignment(assignment);
-                              setEditDueDate(assignment.due_date ? new Date(assignment.due_date) : undefined);
-                              setIsEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Due Date
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => {
-                              setDeletingAssignment(assignment);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Remove Assignment
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredAssignments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    No assignments found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAssignments.map((assignment) => {
+                  const status = getStatus(assignment);
+                  return (
+                    <TableRow key={assignment.id}>
+                      <TableCell className="font-medium">
+                        {assignment.staff_users?.display_name}
+                      </TableCell>
+                      <TableCell>{assignment.training_modules?.name}</TableCell>
+                      <TableCell>
+                        {format(new Date(assignment.assigned_at), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        {assignment.due_date ? (
+                          format(new Date(assignment.due_date), 'MMM d, yyyy')
+                        ) : (
+                          <span className="text-muted-foreground">No due date</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            status === 'Completed' ? 'default' :
+                            status === 'In Progress' ? 'secondary' :
+                            status === 'Overdue' ? 'destructive' : 'outline'
+                          }
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setEditingAssignment(assignment);
+                                setEditDueDate(assignment.due_date ? new Date(assignment.due_date) : undefined);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Due Date
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setDeletingAssignment(assignment);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       {/* Bulk Assign Dialog */}
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Bulk Assign Training</DialogTitle>
             <DialogDescription>
-              Assign modules to multiple staff members at once
+              Select staff members and modules to create assignments
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-6 py-4">
+          <div className="space-y-6">
             <div>
-              <Label>Select Staff Members</Label>
-              <div className="mt-2 space-y-2 border rounded-lg p-4 max-h-48 overflow-y-auto">
+              <Label className="mb-2 block">Select Staff Members</Label>
+              <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
                 {staffUsers?.map(staff => (
-                  <div key={staff.id} className="flex items-center space-x-2">
+                  <div key={staff.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`staff-${staff.id}`}
                       checked={selectedStaffIds.includes(staff.id)}
@@ -553,77 +448,55 @@ export default function AdminTrainingAssignments() {
                         }
                       }}
                     />
-                    <label
-                      htmlFor={`staff-${staff.id}`}
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      {staff.display_name} ({staff.username})
+                    <label htmlFor={`staff-${staff.id}`} className="text-sm cursor-pointer">
+                      {staff.display_name || staff.username}
                     </label>
                   </div>
                 ))}
               </div>
             </div>
-
             <div>
-              <Label>Select Modules</Label>
-              <div className="mt-2 space-y-2 border rounded-lg p-4 max-h-48 overflow-y-auto">
-                {modules?.map(module => (
-                  <div key={module.id} className="flex items-center space-x-2">
+              <Label className="mb-2 block">Select Modules</Label>
+              <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
+                {modules?.map(mod => (
+                  <div key={mod.id} className="flex items-center gap-2">
                     <Checkbox
-                      id={`module-${module.id}`}
-                      checked={selectedModuleIds.includes(module.id)}
+                      id={`mod-${mod.id}`}
+                      checked={selectedModuleIds.includes(mod.id)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setSelectedModuleIds([...selectedModuleIds, module.id]);
+                          setSelectedModuleIds([...selectedModuleIds, mod.id]);
                         } else {
-                          setSelectedModuleIds(selectedModuleIds.filter(id => id !== module.id));
+                          setSelectedModuleIds(selectedModuleIds.filter(id => id !== mod.id));
                         }
                       }}
                     />
-                    <label
-                      htmlFor={`module-${module.id}`}
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      {module.name}
+                    <label htmlFor={`mod-${mod.id}`} className="text-sm cursor-pointer">
+                      {mod.name}
                     </label>
                   </div>
                 ))}
               </div>
             </div>
-
             <div>
-              <Label>Due Date (Optional)</Label>
+              <Label className="mb-2 block">Due Date (Optional)</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal mt-2',
-                      !bulkDueDate && 'text-muted-foreground'
-                    )}
-                  >
+                  <Button variant="outline" className={cn("w-full justify-start text-left", !bulkDueDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {bulkDueDate ? format(bulkDueDate, 'PPP') : 'Pick a date'}
+                    {bulkDueDate ? format(bulkDueDate, 'PPP') : 'Select due date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={bulkDueDate}
-                    onSelect={setBulkDueDate}
-                    initialFocus
-                  />
+                  <Calendar mode="single" selected={bulkDueDate} onSelect={setBulkDueDate} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleBulkAssign} disabled={bulkAssignMutation.isPending}>
-              {bulkAssignMutation.isPending ? 'Assigning...' : 'Assign'}
+              {bulkAssignMutation.isPending ? 'Assigning...' : 'Create Assignments'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -634,41 +507,25 @@ export default function AdminTrainingAssignments() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Due Date</DialogTitle>
-            <DialogDescription>
-              Update the due date for this assignment
-            </DialogDescription>
           </DialogHeader>
-          
-          <div className="py-4">
-            <Label>Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal mt-2',
-                    !editDueDate && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editDueDate ? format(editDueDate, 'PPP') : 'No due date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={editDueDate}
-                  onSelect={setEditDueDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-2 block">Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left", !editDueDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editDueDate ? format(editDueDate, 'PPP') : 'Select due date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={editDueDate} onSelect={setEditDueDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleEditAssignment} disabled={updateAssignmentMutation.isPending}>
               {updateAssignmentMutation.isPending ? 'Updating...' : 'Update'}
             </Button>
@@ -676,23 +533,18 @@ export default function AdminTrainingAssignments() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Assignment?</AlertDialogTitle>
+            <AlertDialogTitle>Remove Assignment</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this training assignment? This action cannot be undone.
+              Are you sure you want to remove this assignment? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAssignment}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteAssignmentMutation.isPending ? 'Removing...' : 'Remove'}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteAssignment}>Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
