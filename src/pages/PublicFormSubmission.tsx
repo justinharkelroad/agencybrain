@@ -421,7 +421,7 @@ export default function PublicFormSubmission() {
                     </label>
                      {(field.type === "textarea" || field.type === "longtext") ? (
                        <textarea 
-                         value={values[field.key] ?? ""} 
+                         value={typeof values[field.key] === 'object' ? JSON.stringify(values[field.key]) : (values[field.key] ?? "")} 
                          onChange={e=>onChange(field.key, e.target.value)}
                          rows={4}
                          className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground resize-vertical"
@@ -429,7 +429,7 @@ export default function PublicFormSubmission() {
                      ) : field.type === "text" ? (
                        <input 
                          type="text"
-                         value={values[field.key] ?? ""} 
+                         value={typeof values[field.key] === 'object' ? JSON.stringify(values[field.key]) : (values[field.key] ?? "")} 
                          onChange={e=>onChange(field.key, e.target.value)}
                          className={`w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
                            fieldErrors[field.key] ? 'border-destructive focus:ring-destructive' : 'border-input'
@@ -459,7 +459,7 @@ export default function PublicFormSubmission() {
                     ) : (
                       <input 
                         type={field.type === "number" ? "number" : "text"}
-                        value={values[field.key] ?? ""} 
+                        value={typeof values[field.key] === 'object' ? JSON.stringify(values[field.key]) : (values[field.key] ?? "")} 
                         onChange={e=>onChange(field.key, e.target.value)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       />
