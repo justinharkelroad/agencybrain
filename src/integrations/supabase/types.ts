@@ -2426,7 +2426,9 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
-          lesson_id: string
+          lesson_id: string | null
+          lesson_name: string | null
+          module_name: string | null
           staff_user_id: string
           updated_at: string
         }
@@ -2435,7 +2437,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
-          lesson_id: string
+          lesson_id?: string | null
+          lesson_name?: string | null
+          module_name?: string | null
           staff_user_id: string
           updated_at?: string
         }
@@ -2444,7 +2448,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
-          lesson_id?: string
+          lesson_id?: string | null
+          lesson_name?: string | null
+          module_name?: string | null
           staff_user_id?: string
           updated_at?: string
         }
@@ -3397,11 +3403,15 @@ export type Database = {
           agency_id: string
           ai_feedback: string | null
           answers_json: Json
+          category_name: string | null
           completed_at: string
           correct_answers: number
           feedback_viewed_at: string | null
           id: string
-          quiz_id: string
+          lesson_name: string | null
+          module_name: string | null
+          quiz_id: string | null
+          quiz_name: string | null
           reflection_answers_final: Json | null
           score_percent: number
           staff_user_id: string
@@ -3412,11 +3422,15 @@ export type Database = {
           agency_id: string
           ai_feedback?: string | null
           answers_json: Json
+          category_name?: string | null
           completed_at: string
           correct_answers: number
           feedback_viewed_at?: string | null
           id?: string
-          quiz_id: string
+          lesson_name?: string | null
+          module_name?: string | null
+          quiz_id?: string | null
+          quiz_name?: string | null
           reflection_answers_final?: Json | null
           score_percent: number
           staff_user_id: string
@@ -3427,11 +3441,15 @@ export type Database = {
           agency_id?: string
           ai_feedback?: string | null
           answers_json?: Json
+          category_name?: string | null
           completed_at?: string
           correct_answers?: number
           feedback_viewed_at?: string | null
           id?: string
-          quiz_id?: string
+          lesson_name?: string | null
+          module_name?: string | null
+          quiz_id?: string | null
+          quiz_name?: string | null
           reflection_answers_final?: Json | null
           score_percent?: number
           staff_user_id?: string

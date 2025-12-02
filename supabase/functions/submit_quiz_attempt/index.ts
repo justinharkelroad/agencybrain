@@ -57,6 +57,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch lesson, module, and category for snapshot columns
+    let lessonName = 'Unknown Lesson';
+    let moduleName = 'Unknown Module';
+    let categoryName = 'Unknown Category';
+    let lesson: any = null;
+
+    const { data: lessonData, error: lessonError } = await supabase
+      .from('training_lessons')
+      .select('id, name, description, content_html, module_id')
+      .eq('id', quiz.lesson_id)
+      .single();
+
+    if (lessonData) {
+      lesson = lessonData;
+      lessonName = lessonData.name;
+
+      if (lessonData.module_id) {
+        const { data: moduleData } = await supabase
+          .from('training_modules')
+          .select('id, name, category_id')
+          .eq('id', lessonData.module_id)
+          .single();
+
+        if (moduleData) {
+          moduleName = moduleData.name;
+
+          if (moduleData.category_id) {
+            const { data: categoryData } = await supabase
+              .from('training_categories')
+              .select('name')
+              .eq('id', moduleData.category_id)
+              .single();
+
+            if (categoryData) {
+              categoryName = categoryData.name;
+            }
+          }
+        }
+      }
+    }
+
     // Fetch questions with options
     const { data: questions, error: questionsError } = await supabase
       .from('training_quiz_questions')
@@ -143,7 +184,7 @@ Deno.serve(async (req) => {
 
     console.log(`Quiz scoring: ${correctCount}/${gradableCount} correct (${scorePercentage}%), passed: ${passed}`);
 
-    // Store attempt with correct column names
+    // Store attempt with snapshot columns for historical preservation
     const { data: attempt, error: attemptError } = await supabase
       .from('training_quiz_attempts')
       .insert({
@@ -155,7 +196,12 @@ Deno.serve(async (req) => {
         correct_answers: correctCount,
         answers_json: answers,
         started_at: new Date().toISOString(),
-        completed_at: new Date().toISOString()
+        completed_at: new Date().toISOString(),
+        // Snapshot columns - preserved even if training content is deleted
+        quiz_name: quiz.name,
+        lesson_name: lessonName,
+        module_name: moduleName,
+        category_name: categoryName
       })
       .select()
       .single();
@@ -177,23 +223,6 @@ Deno.serve(async (req) => {
     // Generate AI coaching feedback
     let aiFeedback = null;
     try {
-      // Fetch lesson and module context
-      const { data: lesson, error: lessonError } = await supabase
-        .from('training_lessons')
-        .select('name, description, content_html, module_id')
-        .eq('id', quiz.lesson_id)
-        .single();
-
-      let moduleName = 'Unknown Module';
-      if (lesson?.module_id) {
-        const { data: module } = await supabase
-          .from('training_modules')
-          .select('name')
-          .eq('id', lesson.module_id)
-          .single();
-        if (module) moduleName = module.name;
-      }
-
       // Use reflection answers for AI feedback
       const reflection1 = reflectionAnswers.reflection_1 || '';
       const reflection2 = reflectionAnswers.reflection_2 || '';
@@ -203,7 +232,7 @@ Deno.serve(async (req) => {
         // Build context parts conditionally
         let contextParts = [
           `Module: ${moduleName}`,
-          `Lesson: ${lesson?.name || 'Unknown Lesson'}`
+          `Lesson: ${lessonName}`
         ];
 
         if (lesson?.description) {
@@ -287,7 +316,7 @@ FORMAT:
       // Continue without AI feedback - don't fail the quiz submission
     }
 
-    // If passed, update lesson progress
+    // If passed, update lesson progress with snapshot columns
     if (passed) {
       const { error: progressError } = await supabase
         .from('staff_lesson_progress')
@@ -295,7 +324,10 @@ FORMAT:
           staff_user_id: staffUserId,
           lesson_id: quiz.lesson_id,
           completed: true,
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          // Snapshot columns for historical preservation
+          lesson_name: lessonName,
+          module_name: moduleName
         }, {
           onConflict: 'staff_user_id,lesson_id'
         });
