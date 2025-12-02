@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Eye, Search, TrendingUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Eye, Search, TrendingUp, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -21,6 +22,11 @@ interface RoleplaySession {
   pdf_file_path: string;
   grading_data: any;
   conversation_transcript: any[];
+  agency_id: string;
+  agency?: {
+    id: string;
+    name: string;
+  };
   token: {
     created_at: string;
     created_by: string;
@@ -30,18 +36,17 @@ interface RoleplaySession {
 export default function RoleplayReports() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedAgency, setSelectedAgency] = useState<string>("all");
   const [selectedSession, setSelectedSession] = useState<RoleplaySession | null>(null);
 
-  const { data: profile } = useQuery({
-    queryKey: ['profile', user?.id],
+  // Fetch all agencies for the filter dropdown
+  const { data: agencies } = useQuery({
+    queryKey: ['all-agencies'],
     queryFn: async () => {
-      if (!user?.id) throw new Error('Not authenticated');
-      
       const { data, error } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user.id)
-        .single();
+        .from('agencies')
+        .select('id, name')
+        .order('name');
       
       if (error) throw error;
       return data;
@@ -49,30 +54,36 @@ export default function RoleplayReports() {
     enabled: !!user?.id
   });
 
+  // Fetch ALL roleplay sessions (admin sees all agencies)
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['roleplay-sessions', profile?.agency_id],
+    queryKey: ['roleplay-sessions-all'],
     queryFn: async () => {
-      if (!profile?.agency_id) throw new Error('No agency ID');
-
       const { data, error } = await supabase
         .from('roleplay_sessions')
         .select(`
           *,
+          agency:agencies!agency_id(id, name),
           token:roleplay_access_tokens!token_id(created_at, created_by)
         `)
-        .eq('agency_id', profile.agency_id)
         .order('completed_at', { ascending: false });
 
       if (error) throw error;
       return data as RoleplaySession[];
     },
-    enabled: !!profile?.agency_id
+    enabled: !!user?.id
   });
 
-  const filteredSessions = sessions?.filter(session =>
-    session.staff_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    session.staff_email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter by search term and selected agency
+  const filteredSessions = sessions?.filter(session => {
+    const matchesSearch = 
+      session.staff_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      session.staff_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      session.agency?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesAgency = selectedAgency === "all" || session.agency_id === selectedAgency;
+    
+    return matchesSearch && matchesAgency;
+  });
 
   const handleDownloadPDF = async (session: RoleplaySession) => {
     try {
@@ -108,22 +119,41 @@ export default function RoleplayReports() {
     }
   };
 
+  // Stats based on filtered sessions (respects agency filter)
   const stats = {
-    total: sessions?.length || 0,
-    excellent: sessions?.filter(s => s.overall_score === 'Excellent').length || 0,
-    good: sessions?.filter(s => s.overall_score === 'Good').length || 0,
-    needsImprovement: sessions?.filter(s => s.overall_score === 'Needs Improvement').length || 0,
+    total: filteredSessions?.length || 0,
+    excellent: filteredSessions?.filter(s => s.overall_score === 'Excellent').length || 0,
+    good: filteredSessions?.filter(s => s.overall_score === 'Good').length || 0,
+    needsImprovement: filteredSessions?.filter(s => s.overall_score === 'Needs Improvement').length || 0,
   };
 
   return (
     <>
       <div className="container mx-auto py-8 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Roleplay Reports</h1>
             <p className="text-muted-foreground">
-              View completed sales roleplay sessions and performance reports
+              View completed sales roleplay sessions across all agencies
             </p>
+          </div>
+          
+          {/* Agency Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedAgency} onValueChange={setSelectedAgency}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter by agency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Agencies</SelectItem>
+                {agencies?.map((agency) => (
+                  <SelectItem key={agency.id} value={agency.id}>
+                    {agency.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -169,12 +199,15 @@ export default function RoleplayReports() {
         <CardHeader>
           <CardTitle>Completed Sessions</CardTitle>
           <CardDescription>
-            All completed roleplay sessions for your agency
+            {selectedAgency === "all" 
+              ? "All completed roleplay sessions across all agencies" 
+              : `Roleplay sessions for ${agencies?.find(a => a.id === selectedAgency)?.name || 'selected agency'}`
+            }
           </CardDescription>
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by name or email..."
+              placeholder="Search by name, email, or agency..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -185,53 +218,61 @@ export default function RoleplayReports() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>
           ) : filteredSessions && filteredSessions.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Staff Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Completed</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell className="font-medium">{session.staff_name}</TableCell>
-                    <TableCell>{session.staff_email}</TableCell>
-                    <TableCell>
-                      {format(new Date(session.completed_at), 'MMM d, yyyy h:mm a')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={getScoreBadgeVariant(session.overall_score)}>
-                        {session.overall_score}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedSession(session)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadPDF(session)}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          PDF
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Agency</TableHead>
+                    <TableHead>Staff Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Completed</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredSessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell>
+                        <Badge variant="outline" className="font-normal">
+                          {session.agency?.name || 'Unknown'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{session.staff_name}</TableCell>
+                      <TableCell>{session.staff_email}</TableCell>
+                      <TableCell>
+                        {format(new Date(session.completed_at), 'MMM d, yyyy h:mm a')}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getScoreBadgeVariant(session.overall_score)}>
+                          {session.overall_score}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedSession(session)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadPDF(session)}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            PDF
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               {searchTerm ? 'No sessions found matching your search' : 'No completed sessions yet'}
@@ -249,6 +290,10 @@ export default function RoleplayReports() {
           {selectedSession && (
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Agency</p>
+                  <p className="font-medium">{selectedSession.agency?.name || 'Unknown'}</p>
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Staff Name</p>
                   <p className="font-medium">{selectedSession.staff_name}</p>
