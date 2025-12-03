@@ -18,9 +18,10 @@ import { QuizTaker } from '@/components/training/QuizTaker';
 import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList, AlertCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function StaffTraining() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, logout, sessionToken } = useStaffAuth();
   const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(user?.agency_id);
@@ -60,8 +61,9 @@ export default function StaffTraining() {
     updateProgress.mutate({ lessonId, completed: !currentStatus });
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
+    navigate('/staff/login');
   };
 
   const handleDownloadAttachment = async (attachment: any) => {
