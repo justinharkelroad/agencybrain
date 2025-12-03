@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle } from "lucide-react";
 
 interface StaffUser {
   id: string;
@@ -21,6 +22,14 @@ interface StaffUser {
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;
+  team_member_id: string | null;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string | null;
 }
 
 interface StaffUsersTabProps {
@@ -56,6 +65,8 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     display_name: "",
     email: "",
   });
+  const [selectedTeamMemberId, setSelectedTeamMemberId] = useState<string>("");
+  const [newTeamMemberRole, setNewTeamMemberRole] = useState<string>("Sales");
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
@@ -70,6 +81,11 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [linkingUser, setLinkingUser] = useState<StaffUser | null>(null);
+  const [linkTeamMemberId, setLinkTeamMemberId] = useState<string>("");
+
+  // Fetch staff users with team member info
   const { data: staffUsers = [], isLoading } = useQuery({
     queryKey: ["staff-users", agencyId],
     queryFn: async () => {
@@ -85,16 +101,57 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     enabled: !!agencyId,
   });
 
+  // Fetch all team members for this agency
+  const { data: allTeamMembers = [] } = useQuery({
+    queryKey: ["team-members", agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_members")
+        .select("id, name, role, email")
+        .eq("agency_id", agencyId)
+        .eq("status", "active")
+        .order("name");
+
+      if (error) throw error;
+      return data as TeamMember[];
+    },
+    enabled: !!agencyId,
+  });
+
+  // Build a map of team_member_id -> team_member for quick lookup
+  const teamMemberMap = new Map(allTeamMembers.map(tm => [tm.id, tm]));
+
+  // Get linked team member IDs
+  const linkedTeamMemberIds = new Set(
+    staffUsers.filter(u => u.team_member_id).map(u => u.team_member_id)
+  );
+
+  // Get unlinked team members (available for linking)
+  const unlinkedTeamMembers = allTeamMembers.filter(tm => !linkedTeamMemberIds.has(tm.id));
+
   const createStaffUser = useMutation({
     mutationFn: async (userData: typeof formData) => {
-      const { data, error } = await supabase.functions.invoke("admin_create_staff_user", {
-        body: {
-          agency_id: agencyId,
-          username: userData.username,
-          password: userData.password,
-          display_name: userData.display_name || userData.username,
+      const body: Record<string, any> = {
+        agency_id: agencyId,
+        username: userData.username,
+        password: userData.password,
+        display_name: userData.display_name || userData.username,
+        email: userData.email || null,
+      };
+
+      // Handle team member selection
+      if (selectedTeamMemberId === "new") {
+        body.create_team_member = {
+          name: userData.display_name || userData.username,
+          role: newTeamMemberRole,
           email: userData.email || null,
-        },
+        };
+      } else if (selectedTeamMemberId && selectedTeamMemberId !== "none") {
+        body.team_member_id = selectedTeamMemberId;
+      }
+
+      const { data, error } = await supabase.functions.invoke("admin_create_staff_user", {
+        body,
       });
 
       if (error) throw error;
@@ -102,9 +159,12 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-users"] });
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success("Staff user created successfully");
       setIsCreateDialogOpen(false);
       setFormData({ username: "", password: "", display_name: "", email: "" });
+      setSelectedTeamMemberId("");
+      setNewTeamMemberRole("Sales");
       setShowPassword(false);
     },
     onError: (error: any) => {
@@ -195,6 +255,30 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     },
   });
 
+  const linkTeamMember = useMutation({
+    mutationFn: async ({ staffUserId, teamMemberId }: { staffUserId: string; teamMemberId: string }) => {
+      const { data, error } = await supabase.functions.invoke("admin_link_staff_team_member", {
+        body: {
+          staff_user_id: staffUserId,
+          team_member_id: teamMemberId,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staff-users"] });
+      toast.success("Staff user linked to team member");
+      setIsLinkDialogOpen(false);
+      setLinkingUser(null);
+      setLinkTeamMemberId("");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to link staff user");
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -244,6 +328,20 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     });
   };
 
+  const handleLinkSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!linkingUser || !linkTeamMemberId) {
+      toast.error("Please select a team member");
+      return;
+    }
+
+    linkTeamMember.mutate({
+      staffUserId: linkingUser.id,
+      teamMemberId: linkTeamMemberId,
+    });
+  };
+
   const handleGeneratePassword = () => {
     const password = generateRandomPassword();
     setFormData({ ...formData, password });
@@ -283,6 +381,12 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     setIsResetDialogOpen(true);
   };
 
+  const handleLinkTeamMember = (user: StaffUser) => {
+    setLinkingUser(user);
+    setLinkTeamMemberId("");
+    setIsLinkDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -305,7 +409,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                   Create Staff User
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create New Staff User</DialogTitle>
                   <DialogDescription>
@@ -374,6 +478,50 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                       Required for password reset emails
                     </p>
                   </div>
+
+                  {/* Team Member Selection */}
+                  <div className="space-y-2 border-t pt-4">
+                    <Label>Team Member (for metrics)</Label>
+                    <Select value={selectedTeamMemberId} onValueChange={setSelectedTeamMemberId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select or create team member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No team member link</SelectItem>
+                        <SelectItem value="new">+ Create New Team Member</SelectItem>
+                        {unlinkedTeamMembers.map(tm => (
+                          <SelectItem key={tm.id} value={tm.id}>
+                            {tm.name} ({tm.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Link to a team member for metrics tracking
+                    </p>
+                  </div>
+
+                  {/* New Team Member Role (shown only when creating new) */}
+                  {selectedTeamMemberId === "new" && (
+                    <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                      <Label>New Team Member Role</Label>
+                      <Select value={newTeamMemberRole} onValueChange={setNewTeamMemberRole}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Sales">Sales</SelectItem>
+                          <SelectItem value="Service">Service</SelectItem>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Hybrid">Hybrid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Uses display name and email from above
+                      </p>
+                    </div>
+                  )}
+
                   <Button type="submit" disabled={createStaffUser.isPending} className="w-full">
                     {createStaffUser.isPending ? "Creating..." : "Create Staff User"}
                   </Button>
@@ -396,73 +544,100 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                   <TableRow>
                     <TableHead>Username</TableHead>
                     <TableHead>Display Name</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>Team Member</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
-                    <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {staffUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-mono">{user.username}</TableCell>
-                      <TableCell>{user.display_name || "-"}</TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.is_active ? "default" : "secondary"}>
-                          {user.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {user.last_login_at
-                          ? new Date(user.last_login_at).toLocaleDateString()
-                          : "Never"}
-                      </TableCell>
-                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleEdit(user)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleResetPassword(user)}>
-                              <Key className="h-4 w-4 mr-2" />
-                              Reset Password (Manual)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onSelect={() => handleSendResetEmail(user)}
-                              disabled={!user.email}
-                            >
-                              <Mail className="h-4 w-4 mr-2" />
-                              Send Password Reset Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => toggleActive.mutate({ userId: user.id, isActive: user.is_active })}
-                            >
-                              {user.is_active ? (
-                                <>
-                                  <UserX className="h-4 w-4 mr-2" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="h-4 w-4 mr-2" />
-                                  Activate
-                                </>
+                  {staffUsers.map((user) => {
+                    const linkedTeamMember = user.team_member_id 
+                      ? teamMemberMap.get(user.team_member_id)
+                      : null;
+
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-mono">{user.username}</TableCell>
+                        <TableCell>{user.display_name || "-"}</TableCell>
+                        <TableCell>
+                          {linkedTeamMember ? (
+                            <span className="text-sm">{linkedTeamMember.name}</span>
+                          ) : (
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <AlertTriangle className="h-3 w-3" />
+                              <span className="text-xs">Not Linked</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {linkedTeamMember ? (
+                            <Badge variant="outline">{linkedTeamMember.role}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.is_active ? "default" : "secondary"}>
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.last_login_at
+                            ? new Date(user.last_login_at).toLocaleDateString()
+                            : "Never"}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => handleEdit(user)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              {!user.team_member_id && (
+                                <DropdownMenuItem onSelect={() => handleLinkTeamMember(user)}>
+                                  <Link2 className="h-4 w-4 mr-2" />
+                                  Link Team Member
+                                </DropdownMenuItem>
                               )}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              <DropdownMenuItem onSelect={() => handleResetPassword(user)}>
+                                <Key className="h-4 w-4 mr-2" />
+                                Reset Password (Manual)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onSelect={() => handleSendResetEmail(user)}
+                                disabled={!user.email}
+                              >
+                                <Mail className="h-4 w-4 mr-2" />
+                                Send Password Reset Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => toggleActive.mutate({ userId: user.id, isActive: user.is_active })}
+                              >
+                                {user.is_active ? (
+                                  <>
+                                    <UserX className="h-4 w-4 mr-2" />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Activate
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -495,7 +670,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
+              <Label htmlFor="edit-email">Email Address</Label>
               <Input
                 id="edit-email"
                 type="email"
@@ -504,7 +679,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
               />
             </div>
             <Button type="submit" disabled={editStaffUser.isPending} className="w-full">
-              {editStaffUser.isPending ? "Updating..." : "Update User"}
+              {editStaffUser.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </form>
         </DialogContent>
@@ -516,7 +691,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
             <DialogDescription>
-              Reset password for {resetUser?.display_name || resetUser?.username}
+              Set a new password for {resetUser?.display_name || resetUser?.username}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
@@ -551,6 +726,53 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
             </div>
             <Button type="submit" disabled={resetPassword.isPending} className="w-full">
               {resetPassword.isPending ? "Resetting..." : "Reset Password"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Team Member Dialog */}
+      <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link Team Member</DialogTitle>
+            <DialogDescription>
+              Link {linkingUser?.display_name || linkingUser?.username} to a team member for metrics tracking
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleLinkSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Team Member</Label>
+              <Select value={linkTeamMemberId} onValueChange={setLinkTeamMemberId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unlinkedTeamMembers.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No available team members
+                    </SelectItem>
+                  ) : (
+                    unlinkedTeamMembers.map(tm => (
+                      <SelectItem key={tm.id} value={tm.id}>
+                        {tm.name} ({tm.role})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {unlinkedTeamMembers.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  All team members are already linked. Create new team members in the Team section.
+                </p>
+              )}
+            </div>
+            <Button 
+              type="submit" 
+              disabled={linkTeamMember.isPending || !linkTeamMemberId} 
+              className="w-full"
+            >
+              {linkTeamMember.isPending ? "Linking..." : "Link Team Member"}
             </Button>
           </form>
         </DialogContent>
