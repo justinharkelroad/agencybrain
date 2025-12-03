@@ -66,6 +66,7 @@ serve(async (req) => {
         created_at,
         work_date,
         household_name,
+        lead_source_label,
         zip_code,
         extras,
         items_quoted,
@@ -76,8 +77,7 @@ serve(async (req) => {
           team_member_id,
           team_members(name),
           form_templates!inner(agency_id)
-        ),
-        lead_sources(name)
+        )
       `, { count: 'exact' })
       .eq("submissions.form_templates.agency_id", agencyId);
 
@@ -135,7 +135,7 @@ serve(async (req) => {
         created_at: row.created_at,
         prospect_name: row.household_name,
         staff_member_name: row.submissions?.team_members?.name,
-        lead_source_label: row.lead_sources?.name || "Undefined",
+        lead_source_label: row.lead_source_label || "Undefined",
         zip: row.zip_code || null,
         notes: row.extras?.detailed_notes || row.extras?.notes || null, // Extract notes from extras JSON
         custom_fields: row.extras?.custom_fields || {}, // Include custom fields with readable labels
