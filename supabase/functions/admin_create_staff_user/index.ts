@@ -37,6 +37,22 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2_sha256$100000$${saltHex}$${hashHex}`;
 }
 
+interface CreateTeamMemberInput {
+  name: string;
+  role: 'Sales' | 'Service' | 'Manager' | 'Hybrid';
+  email?: string;
+}
+
+interface CreateStaffUserInput {
+  agency_id: string;
+  username: string;
+  password: string;
+  display_name?: string;
+  email?: string;
+  team_member_id?: string;
+  create_team_member?: CreateTeamMemberInput;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -79,7 +95,8 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { agency_id, username, password, display_name } = await req.json();
+    const body: CreateStaffUserInput = await req.json();
+    const { agency_id, username, password, display_name, email, team_member_id, create_team_member } = body;
 
     if (!agency_id || !username || !password) {
       return new Response(
@@ -110,10 +127,77 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Handle team member linking/creation
+    let finalTeamMemberId: string | null = null;
+
+    if (team_member_id) {
+      // Verify team member exists and belongs to same agency
+      const { data: existingTm, error: tmError } = await supabase
+        .from('team_members')
+        .select('id, agency_id')
+        .eq('id', team_member_id)
+        .single();
+
+      if (tmError || !existingTm) {
+        return new Response(
+          JSON.stringify({ error: 'Team member not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (existingTm.agency_id !== agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'Team member belongs to different agency' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if team member is already linked to a staff user
+      const { data: linkedStaff } = await supabase
+        .from('staff_users')
+        .select('id')
+        .eq('team_member_id', team_member_id)
+        .single();
+
+      if (linkedStaff) {
+        return new Response(
+          JSON.stringify({ error: 'Team member is already linked to another staff user' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      finalTeamMemberId = team_member_id;
+      console.log(`Linking to existing team member: ${team_member_id}`);
+    } else if (create_team_member) {
+      // Create new team member
+      const { data: newTm, error: createTmError } = await supabase
+        .from('team_members')
+        .insert({
+          agency_id,
+          name: create_team_member.name,
+          role: create_team_member.role,
+          email: create_team_member.email || email || null,
+          status: 'active'
+        })
+        .select('id')
+        .single();
+
+      if (createTmError) {
+        console.error('Failed to create team member:', createTmError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to create team member' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      finalTeamMemberId = newTm.id;
+      console.log(`Created new team member: ${newTm.id}`);
+    }
+
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create staff user
+    // Create staff user with optional team_member link
     const { data: staffUser, error: createError } = await supabase
       .from('staff_users')
       .insert({
@@ -121,6 +205,8 @@ Deno.serve(async (req) => {
         username,
         password_hash: passwordHash,
         display_name: display_name || username,
+        email: email || null,
+        team_member_id: finalTeamMemberId,
         is_active: true
       })
       .select()
@@ -134,7 +220,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Staff user created: ${username} for agency ${agency_id}`);
+    console.log(`Staff user created: ${username} for agency ${agency_id}, team_member_id: ${finalTeamMemberId || 'none'}`);
 
     // Return user data without password hash
     const { password_hash, ...userData } = staffUser;

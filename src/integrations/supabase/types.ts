@@ -2596,6 +2596,7 @@ export type Database = {
           is_active: boolean | null
           last_login_at: string | null
           password_hash: string
+          team_member_id: string | null
           updated_at: string
           username: string
         }
@@ -2608,6 +2609,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           password_hash: string
+          team_member_id?: string | null
           updated_at?: string
           username: string
         }
@@ -2620,6 +2622,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           password_hash?: string
+          team_member_id?: string | null
           updated_at?: string
           username?: string
         }
@@ -2629,6 +2632,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_users_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: true
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
