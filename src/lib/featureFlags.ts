@@ -1,2 +1,2 @@
 export const enableSaveToReport = true;
-export const enableMetrics = false;
+export const enableMetrics = true;
