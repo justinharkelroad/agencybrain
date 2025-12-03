@@ -12,6 +12,16 @@ const getCurrentLocalDate = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper function to convert string to Title Case (for prospect names)
+const toTitleCase = (str: string): string => {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 type ResolvedForm = { 
   id: string; 
   slug: string; 
@@ -605,6 +615,18 @@ export default function PublicFormSubmission() {
                                       setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
                                     }
                                   }}
+                                  onBlur={field.key === 'prospect_name' ? (e) => {
+                                    const formatted = toTitleCase(e.target.value);
+                                    if (formatted !== e.target.value) {
+                                      setValues(prev => {
+                                        const currentArray = [...(prev[sectionKey] || [])];
+                                        const currentItem = { ...(currentArray[i] || {}) };
+                                        currentItem[field.key] = formatted;
+                                        currentArray[i] = currentItem;
+                                        return { ...prev, [sectionKey]: currentArray };
+                                      });
+                                    }
+                                  } : undefined}
                                   className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground ${
                                     fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
                                   }`}
