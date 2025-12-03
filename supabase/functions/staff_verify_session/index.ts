@@ -21,12 +21,20 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find valid session
+    // Find valid session with team_member info
     const { data: session, error: sessionError } = await supabase
       .from('staff_sessions')
       .select(`
         *,
-        staff_users (*)
+        staff_users (
+          id,
+          username,
+          display_name,
+          agency_id,
+          team_member_id,
+          email,
+          is_active
+        )
       `)
       .eq('session_token', session_token)
       .eq('is_valid', true)

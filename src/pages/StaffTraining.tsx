@@ -15,9 +15,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VideoEmbed } from '@/components/training/VideoEmbed';
 import { QuizTaker } from '@/components/training/QuizTaker';
-import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList, AlertCircle } from 'lucide-react';
+import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList, AlertCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 export default function StaffTraining() {
   const queryClient = useQueryClient();
@@ -224,6 +225,22 @@ export default function StaffTraining() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {/* Daily Scorecard Card */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Daily Scorecard</CardTitle>
+            <CardDescription>Submit your daily metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full sm:w-auto">
+              <Link to="/staff/submit/hfi-daily-standards-">
+                <Send className="h-4 w-4 mr-2" />
+                Submit Today's Numbers
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Training Content List */}
           <div className="md:col-span-1">
