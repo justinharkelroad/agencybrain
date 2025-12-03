@@ -1016,6 +1016,42 @@ export type Database = {
         }
         Relationships: []
       }
+      kpi_definitions: {
+        Row: {
+          applicable_roles: string[]
+          category: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          label: string
+          slug: string
+          sort_order: number
+          type: string
+        }
+        Insert: {
+          applicable_roles: string[]
+          category: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          type?: string
+        }
+        Update: {
+          applicable_roles?: string[]
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          type?: string
+        }
+        Relationships: []
+      }
       kpi_versions: {
         Row: {
           created_at: string
@@ -1070,6 +1106,7 @@ export type Database = {
           id: string
           is_active: boolean
           key: string
+          kpi_definition_id: string | null
           label: string
           role: Database["public"]["Enums"]["app_member_role"] | null
           type: string
@@ -1085,6 +1122,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           key: string
+          kpi_definition_id?: string | null
           label: string
           role?: Database["public"]["Enums"]["app_member_role"] | null
           type: string
@@ -1100,11 +1138,20 @@ export type Database = {
           id?: string
           is_active?: boolean
           key?: string
+          kpi_definition_id?: string | null
           label?: string
           role?: Database["public"]["Enums"]["app_member_role"] | null
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "kpis_kpi_definition_id_fkey"
+            columns: ["kpi_definition_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lead_sources: {
         Row: {

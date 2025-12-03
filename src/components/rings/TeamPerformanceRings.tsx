@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RING_COLORS, RING_LABELS } from "./colors";
-import { useRef } from "react";
 import { Check, X } from "lucide-react";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
+import { useKpiLabels } from "@/hooks/useKpiLabels";
 
 type RingMetric = {
   key: string;
@@ -135,6 +135,9 @@ export default function TeamPerformanceRings({
   const [ringMetrics, setRingMetrics] = useState<string[]>([]);
   const [nRequired, setNRequired] = useState(2);
   
+  // Fetch current KPI labels from database (not hardcoded)
+  const { data: kpiLabels } = useKpiLabels(agencyId);
+  
   // Modal state for PersonSnapshotModal
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -223,7 +226,8 @@ export default function TeamPerformanceRings({
             
             return {
               key: metricKey,
-              label: RING_LABELS[metricKey] || metricKey,
+              // Use database labels first, fallback to RING_LABELS, then slug
+              label: kpiLabels?.[metricKey] || RING_LABELS[metricKey] || metricKey,
               progress: target > 0 ? Math.min(actual / target, 1) : 0,
               color: RING_COLORS[metricKey] || "#9ca3af",
               actual,

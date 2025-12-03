@@ -1,6 +1,11 @@
 import { RING_COLORS, RING_LABELS } from "./colors";
 
-export default function RingLegend({ metrics }: { metrics: string[] }) {
+interface RingLegendProps {
+  metrics: string[];
+  kpiLabels?: Record<string, string>; // Database labels override hardcoded
+}
+
+export default function RingLegend({ metrics, kpiLabels }: RingLegendProps) {
   if (metrics.length === 0) return null;
 
   return (
@@ -12,7 +17,9 @@ export default function RingLegend({ metrics }: { metrics: string[] }) {
             className="inline-block w-3 h-3 rounded-full"
             style={{ background: RING_COLORS[metricKey] || "#9ca3af" }}
           />
-          <span className="text-foreground">{RING_LABELS[metricKey] ?? metricKey}</span>
+          <span className="text-foreground">
+            {kpiLabels?.[metricKey] || RING_LABELS[metricKey] || metricKey}
+          </span>
         </div>
       ))}
     </div>
