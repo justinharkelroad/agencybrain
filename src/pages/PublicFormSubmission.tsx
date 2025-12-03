@@ -153,9 +153,9 @@ export default function PublicFormSubmission() {
       });
     }
     
-    // Validate required fields in repeater sections (snake_case normalized)
-    const quotedDetails = values.quoted_details || [];
-    const quotedCount = values.quoted_count || 0;
+    // Validate required fields in repeater sections (handle both camelCase and snake_case)
+    const quotedDetails = values.quoted_details || values.quotedDetails || [];
+    const quotedCount = values.quoted_count || values.quotedCount || 0;
     
     // Only validate if quoted_count > 0 and we have rows
     if (quotedCount > 0 && quotedDetails.length > 0) {
