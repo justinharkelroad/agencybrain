@@ -264,7 +264,7 @@ export default function TeamPerformanceRings({
     if (agencyId && role && date) {
       fetchData();
     }
-  }, [agencyId, role, date]);
+  }, [agencyId, role, date, kpiLabels]);
 
   if (loading) {
     return (

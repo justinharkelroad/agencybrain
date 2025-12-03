@@ -41,7 +41,7 @@ export function useKpiLabels(agencyId: string | undefined) {
       return labelMap;
     },
     enabled: !!agencyId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - faster label updates after changes
     gcTime: 10 * 60 * 1000,
   });
 }
