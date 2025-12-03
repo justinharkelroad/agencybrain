@@ -251,7 +251,15 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     }
   };
 
-  const updateKPILabel = async (kpiId: string, label: string) => {
+  // Local state update only - for smooth typing
+  const updateKPILabelLocal = (kpiId: string, label: string) => {
+    setKpis(prev => prev.map(kpi => 
+      kpi.id === kpiId ? { ...kpi, label } : kpi
+    ));
+  };
+
+  // Save to database - called on blur
+  const saveKPILabelToDatabase = async (kpiId: string, label: string) => {
     try {
       const { error } = await supabase
         .from('kpis')
@@ -259,13 +267,9 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
         .eq('id', kpiId);
 
       if (error) throw error;
-
-      setKpis(prev => prev.map(kpi => 
-        kpi.id === kpiId ? { ...kpi, label } : kpi
-      ));
     } catch (error) {
       console.error('Error updating KPI label:', error);
-      toast.error("Failed to update KPI label");
+      toast.error("Failed to save KPI label");
     }
   };
 
@@ -308,7 +312,8 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
                         <div className="flex-1">
                           <Input
                             value={kpi.label}
-                            onChange={(e) => updateKPILabel(kpi.id, e.target.value)}
+                            onChange={(e) => updateKPILabelLocal(kpi.id, e.target.value)}
+                            onBlur={(e) => saveKPILabelToDatabase(kpi.id, e.target.value)}
                             className="font-medium h-8"
                             placeholder="KPI Name"
                           />
