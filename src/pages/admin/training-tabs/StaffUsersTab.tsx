@@ -84,6 +84,8 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [linkingUser, setLinkingUser] = useState<StaffUser | null>(null);
   const [linkTeamMemberId, setLinkTeamMemberId] = useState<string>("");
+  const [linkCreateNew, setLinkCreateNew] = useState(false);
+  const [linkNewTeamMemberRole, setLinkNewTeamMemberRole] = useState<string>("Sales");
 
   // Fetch staff users with team member info
   const { data: staffUsers = [], isLoading } = useQuery({
@@ -269,10 +271,13 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-users"] });
+      queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success("Staff user linked to team member");
       setIsLinkDialogOpen(false);
       setLinkingUser(null);
       setLinkTeamMemberId("");
+      setLinkCreateNew(false);
+      setLinkNewTeamMemberRole("Sales");
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to link staff user");
@@ -328,17 +333,43 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     });
   };
 
-  const handleLinkSubmit = (e: React.FormEvent) => {
+  const handleLinkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!linkingUser || !linkTeamMemberId) {
-      toast.error("Please select a team member");
+    if (!linkingUser) return;
+    
+    let teamMemberIdToLink = linkTeamMemberId;
+    
+    // If creating new team member
+    if (linkCreateNew) {
+      const { data: newTm, error: createError } = await supabase
+        .from('team_members')
+        .insert({
+          agency_id: agencyId,
+          name: linkingUser.display_name || linkingUser.username,
+          role: linkNewTeamMemberRole,
+          email: linkingUser.email || null,
+          status: 'active',
+          employment: 'Full-time'
+        })
+        .select('id')
+        .single();
+      
+      if (createError) {
+        toast.error('Failed to create team member');
+        return;
+      }
+      teamMemberIdToLink = newTm.id;
+    }
+    
+    if (!teamMemberIdToLink) {
+      toast.error("Please select or create a team member");
       return;
     }
 
     linkTeamMember.mutate({
       staffUserId: linkingUser.id,
-      teamMemberId: linkTeamMemberId,
+      teamMemberId: teamMemberIdToLink,
     });
   };
 
@@ -384,6 +415,8 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const handleLinkTeamMember = (user: StaffUser) => {
     setLinkingUser(user);
     setLinkTeamMemberId("");
+    setLinkCreateNew(false);
+    setLinkNewTeamMemberRole("Sales");
     setIsLinkDialogOpen(true);
   };
 
@@ -743,36 +776,58 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
           <form onSubmit={handleLinkSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Select Team Member</Label>
-              <Select value={linkTeamMemberId} onValueChange={setLinkTeamMemberId}>
+              <Select 
+                value={linkCreateNew ? 'new' : linkTeamMemberId} 
+                onValueChange={(value) => {
+                  if (value === 'new') {
+                    setLinkCreateNew(true);
+                    setLinkTeamMemberId('');
+                  } else {
+                    setLinkCreateNew(false);
+                    setLinkTeamMemberId(value);
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose team member..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {unlinkedTeamMembers.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      No available team members
+                  <SelectItem value="new">+ Create New Team Member</SelectItem>
+                  {unlinkedTeamMembers.map(tm => (
+                    <SelectItem key={tm.id} value={tm.id}>
+                      {tm.name} ({tm.role})
                     </SelectItem>
-                  ) : (
-                    unlinkedTeamMembers.map(tm => (
-                      <SelectItem key={tm.id} value={tm.id}>
-                        {tm.name} ({tm.role})
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
-              {unlinkedTeamMembers.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  All team members are already linked. Create new team members in the Team section.
-                </p>
-              )}
             </div>
+            
+            {linkCreateNew && (
+              <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                <Label>New Team Member Role</Label>
+                <Select value={linkNewTeamMemberRole} onValueChange={setLinkNewTeamMemberRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="Service">Service</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Will create team member with name: {linkingUser?.display_name || linkingUser?.username}
+                </p>
+              </div>
+            )}
+            
             <Button 
               type="submit" 
-              disabled={linkTeamMember.isPending || !linkTeamMemberId} 
+              disabled={linkTeamMember.isPending || (!linkCreateNew && !linkTeamMemberId)} 
               className="w-full"
             >
-              {linkTeamMember.isPending ? "Linking..." : "Link Team Member"}
+              {linkTeamMember.isPending ? "Linking..." : linkCreateNew ? "Create & Link Team Member" : "Link Team Member"}
             </Button>
           </form>
         </DialogContent>
