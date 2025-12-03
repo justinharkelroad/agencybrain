@@ -201,16 +201,12 @@ export default function TeamPerformanceRings({
           return (defaults as any)[metricKey] || 0;
         };
 
-        // Filter metrics based on role - reordered to show Quoted first, then Sold
-        const roleMetrics = role === 'Sales' 
-          ? ['quoted_count', 'sold_items', 'outbound_calls', 'talk_minutes']
-          : ['cross_sells_uncovered', 'mini_reviews', 'outbound_calls', 'talk_minutes'];
-        
-        const filteredMetrics = metrics.filter(m => roleMetrics.includes(m));
+        // Use ring_metrics directly from database - no hardcoded filtering
+        // If agency configures 2 ring_metrics, only 2 rings will show
 
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
-          const memberMetrics: RingMetric[] = filteredMetrics.map((metricKey: string) => {
+          const memberMetrics: RingMetric[] = metrics.map((metricKey: string) => {
             const actual = member[metricKey] || 0;
             
             // Get target: member-specific first, then agency default, then role default
