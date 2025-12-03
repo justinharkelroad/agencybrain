@@ -10,6 +10,7 @@ import {
   Wrench,
   LogOut,
   GraduationCap,
+  ClipboardList,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -36,6 +37,7 @@ type AppSidebarProps = {
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "My Agency", url: "/agency", icon: Building2 },
+  { title: "Scorecards", url: "/metrics", icon: ClipboardList },
 ];
 
 const adminItems = [
