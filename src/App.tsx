@@ -67,6 +67,7 @@ import StaffLogin from "./pages/StaffLogin";
 import StaffForgotPassword from "./pages/staff/ForgotPassword";
 import StaffResetPassword from "./pages/staff/ResetPassword";
 import StaffTraining from "./pages/StaffTraining";
+import StaffFormSubmission from "./pages/StaffFormSubmission";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -488,6 +489,11 @@ const App = () => (
             <Route path="/staff/training" element={
               <StaffProtectedRoute>
                 <StaffTraining />
+              </StaffProtectedRoute>
+            } />
+            <Route path="/staff/submit/:formSlug" element={
+              <StaffProtectedRoute>
+                <StaffFormSubmission />
               </StaffProtectedRoute>
             } />
             
