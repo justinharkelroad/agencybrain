@@ -41,6 +41,7 @@ interface CreateTeamMemberInput {
   name: string;
   role: 'Sales' | 'Service' | 'Manager' | 'Hybrid';
   email?: string;
+  employment?: 'Full-time' | 'Part-time' | 'Contract';
 }
 
 interface CreateStaffUserInput {
@@ -177,7 +178,8 @@ Deno.serve(async (req) => {
           name: create_team_member.name,
           role: create_team_member.role,
           email: create_team_member.email || email || null,
-          status: 'active'
+          status: 'active',
+          employment: create_team_member.employment || 'Full-time'
         })
         .select('id')
         .single();
