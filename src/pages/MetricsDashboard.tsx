@@ -15,7 +15,7 @@ import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DashboardError } from "@/components/DashboardError";
 import { useDashboardDaily } from "@/hooks/useDashboardDaily";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
-import { useKpis } from "@/hooks/useKpis";
+import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { RING_LABELS } from "@/components/rings/colors";
 
 
@@ -94,9 +94,8 @@ export default function MetricsDashboard() {
     selectedDate
   );
 
-  // Load KPIs for the current agency - temporarily disabled to prevent 404s
-  const kpisData = null;
-  const kpisLoading = false;
+  // Load KPI labels from database (replaces hardcoded labels)
+  const { data: kpiLabels } = useKpiLabels(agencyProfile?.agencyId);
 
   // Show loading skeleton on first load
   if (agencyLoading || (dashboardLoading && !dashboardData)) {
@@ -169,29 +168,15 @@ export default function MetricsDashboard() {
 
   const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Get role-based metric labels using versioned data (label_at_submit wins)
+  // Get role-based metric labels using database labels (from kpi_versions)
   const getMetricConfig = () => {
     const selectedMetrics = scorecardRules?.selected_metric_slugs || scorecardRules?.selected_metrics || [];
     const ringMetrics = scorecardRules?.ring_metrics || [];
     const isService = role === 'Service';
     
-    // Create label map from versioned metrics data (uses label_at_submit)
-    const labelMap = new Map<string, string>();
-    if (dashboardData?.rows) {
-      dashboardData.rows.forEach((metric: any) => {
-        // Map known metrics to labels
-        if (metric.outbound_calls) labelMap.set('outbound_calls', 'Outbound Calls');
-        if (metric.talk_minutes) labelMap.set('talk_minutes', 'Talk Minutes');
-        if (metric.quoted_count) labelMap.set('quoted_count', 'Quoted');
-        if (metric.sold_items) labelMap.set('sold_items', 'Sold Items');
-        if (metric.cross_sells_uncovered) labelMap.set('cross_sells_uncovered', 'Cross Sells');
-        if (metric.mini_reviews) labelMap.set('mini_reviews', 'Mini Reviews');
-      });
-    }
-    
-    // Get KPI label from versioned data first, fallback to RING_LABELS, then slug
+    // Get KPI label from database first, fallback to RING_LABELS, then slug
     const getKpiLabel = (slug: string) => {
-      return labelMap.get(slug) || RING_LABELS[slug] || slug;
+      return kpiLabels?.[slug] || RING_LABELS[slug] || slug;
     };
     
     return {

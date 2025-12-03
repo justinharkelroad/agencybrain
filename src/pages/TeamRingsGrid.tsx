@@ -10,6 +10,7 @@ import RingLegend from "@/components/rings/RingLegend";
 import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
 import { toast } from "sonner";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
+import { useKpiLabels } from "@/hooks/useKpiLabels";
 
 type TeamMetricRow = {
   team_member_id: string;
@@ -46,6 +47,9 @@ export default function TeamRingsGrid() {
   );
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+  // Fetch current KPI labels from database (not hardcoded)
+  const { data: kpiLabels } = useKpiLabels(agencyId);
 
   // Load agency and ring metrics
   useEffect(() => {
@@ -199,7 +203,8 @@ export default function TeamRingsGrid() {
         
         return {
           key,
-          label: RING_LABELS[key] ?? key,
+          // Use database labels first, fallback to RING_LABELS, then slug
+          label: kpiLabels?.[key] || RING_LABELS[key] || key,
           progress,
           color: RING_COLORS[key] || "#9ca3af",
           actual,
@@ -214,7 +219,7 @@ export default function TeamRingsGrid() {
         metrics
       };
     });
-  }, [rows, targets, ringMetrics]);
+  }, [rows, targets, ringMetrics, kpiLabels]);
 
   if (loading) {
     return (
@@ -258,7 +263,7 @@ export default function TeamRingsGrid() {
             </div>
           </CardHeader>
           <CardContent>
-            <RingLegend metrics={ringMetrics} />
+            <RingLegend metrics={ringMetrics} kpiLabels={kpiLabels} />
             
             {gridData.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
