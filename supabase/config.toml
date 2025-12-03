@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.confirm_quiz_feedback]
 verify_jwt = false
+
+[functions.admin_link_staff_team_member]
+verify_jwt = true
