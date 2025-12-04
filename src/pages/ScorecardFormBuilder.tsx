@@ -247,6 +247,9 @@ export default function ScorecardFormBuilder() {
       // Create KPI fields for preselected metrics
       const kpiFields: KPIField[] = preselectedSlugs.map((slug, index) => {
         const matchedKpi = agencyKpis.find(k => k.slug === slug);
+        // Use role-specific defaults based on initialRole
+        const roleTargets = initialRole === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
+        const defaultTarget = roleTargets[slug] || { minimum: 0, goal: 0, excellent: 0 };
         return {
           key: `preselected_kpi_${index}_${slug}`,
           label: matchedKpi?.label || slug,
@@ -254,7 +257,7 @@ export default function ScorecardFormBuilder() {
           type: 'number' as const,
           selectedKpiId: matchedKpi?.kpi_id,
           selectedKpiSlug: slug,
-          target: { minimum: 0, goal: 100, excellent: 150 }
+          target: defaultTarget
         };
       });
       
@@ -371,7 +374,7 @@ export default function ScorecardFormBuilder() {
       // Only update label if it's empty or was auto-generated, don't override user input
       ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {}),
       // Auto-populate targets if defaults exist and no targets are set yet
-      ...(defaultTargets && !updatedKPIs[index].target ? { target: defaultTargets } : {})
+      ...(defaultTargets ? { target: defaultTargets } : {})
     };
     setFormSchema(prev => ({ ...prev, kpis: updatedKPIs }));
   };

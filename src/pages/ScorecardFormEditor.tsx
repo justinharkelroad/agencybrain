@@ -262,7 +262,7 @@ export default function ScorecardFormEditor() {
       // Only update label if it's empty or was auto-generated, don't override user input
       ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {}),
       // Auto-populate targets if defaults exist and no targets are set yet
-      ...(defaultTargets && !updatedKPIs[index].target ? { target: defaultTargets } : {})
+      ...(defaultTargets ? { target: defaultTargets } : {})
     };
     setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
