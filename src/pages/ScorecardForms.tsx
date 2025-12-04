@@ -161,61 +161,66 @@ export default function ScorecardForms() {
               </Button>
             </div>
             
+            {/* Always show template cards */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-5 w-5" />
+                    Sales Scorecard
+                  </CardTitle>
+                  <CardDescription>
+                    Create a daily KPI tracking form for sales team members
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => navigate("/metrics/builder?role=sales")}
+                  >
+                    Create Sales Form
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Plus className="h-5 w-5" />
+                    Service Scorecard
+                  </CardTitle>
+                  <CardDescription>
+                    Create a daily KPI tracking form for service team members
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => navigate("/metrics/builder?role=service")}
+                  >
+                    Create Service Form
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Show existing forms below */}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading forms...</p>
               </div>
-            ) : forms.length > 0 ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                {forms.map((form) => (
-                  <FormTemplateCard key={form.id} form={form} onDelete={handleDeleteForm} />
-                ))}
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Plus className="h-5 w-5" />
-                      Sales Scorecard
-                    </CardTitle>
-                    <CardDescription>
-                      Create a daily KPI tracking form for sales team members
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => navigate("/metrics/builder?role=sales")}
-                    >
-                      Create Sales Form
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-2 border-dashed border-muted hover:border-primary/50 transition-colors">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Plus className="h-5 w-5" />
-                      Service Scorecard
-                    </CardTitle>
-                    <CardDescription>
-                      Create a daily KPI tracking form for service team members
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => navigate("/metrics/builder?role=service")}
-                    >
-                      Create Service Form
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
+            ) : forms.length > 0 && (
+              <>
+                <h3 className="text-lg font-semibold mt-6">Existing Forms</h3>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {forms.map((form) => (
+                    <FormTemplateCard key={form.id} form={form} onDelete={handleDeleteForm} />
+                  ))}
+                </div>
+              </>
             )}
           </TabsContent>
 
