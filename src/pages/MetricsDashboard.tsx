@@ -155,6 +155,12 @@ export default function MetricsDashboard() {
       case 'Sold Items':
         acc.sold_items = tile.value;
         break;
+      case 'Cross-Sells Uncovered':
+        acc.cross_sells_uncovered = tile.value;
+        break;
+      case 'Mini Reviews':
+        acc.mini_reviews = tile.value;
+        break;
     }
     return acc;
   }, {
