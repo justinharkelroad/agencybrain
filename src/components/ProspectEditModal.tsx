@@ -183,7 +183,7 @@ export function ProspectEditModal({
       setFormCustomFields(allFormFields);
 
       // Load existing values from extras.custom_fields
-      const existingValues = qhd?.extras?.custom_fields || {};
+      const existingValues = qhd?.extras?.raw_json || {};
       setFormCustomFieldValues(existingValues);
 
     } catch (error) {
