@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { CheckCircle, XCircle, Target } from "lucide-react";
 
 // Helper function to get current local date in YYYY-MM-DD format
 const getCurrentLocalDate = (): string => {
@@ -32,6 +33,25 @@ type ResolvedForm = {
   lead_sources: Array<{ id: string; name: string; }>;
 };
 
+interface KPIPerformance {
+  key: string;
+  label: string;
+  submitted: number;
+  target: number;
+  passed: boolean;
+  percentOfTarget: number;
+}
+
+interface PerformanceSummary {
+  kpis: KPIPerformance[];
+  summary: {
+    totalKPIs: number;
+    passedKPIs: number;
+    passRate: number;
+    overallPass: boolean;
+  };
+}
+
 export default function PublicFormSubmission() {
   const { agencySlug, formSlug } = useParams();
   const [form, setForm] = useState<ResolvedForm | null>(null);
@@ -39,6 +59,7 @@ export default function PublicFormSubmission() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [targets, setTargets] = useState<Record<string, number>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
   
   // Conditional logger - only for admin diagnostics
@@ -87,12 +108,61 @@ export default function PublicFormSubmission() {
         setValues(v => ({ ...v, submission_date: today, work_date: today }));
         
         log('🔧 Lead sources loaded:', data.form.lead_sources?.length || 0, 'items');
+
+        // Load targets for this agency
+        if (form.agency_id) {
+          const { data: targetRows } = await supabase
+            .from('targets')
+            .select('metric_key, value_number, team_member_id')
+            .eq('agency_id', form.agency_id);
+
+          if (targetRows) {
+            const targetsMap: Record<string, number> = {};
+            // Load agency defaults (team_member_id = null)
+            targetRows.forEach(t => {
+              if (!t.team_member_id) {
+                targetsMap[t.metric_key] = t.value_number;
+              }
+            });
+            setTargets(targetsMap);
+            log('🎯 Targets loaded:', targetsMap);
+          }
+        }
       } catch (error) {
         logError('Form resolution error:', error);
         setErr("NETWORK_ERROR");
       }
     })();
   }, [agencySlug, formSlug, token]);
+
+  // Load member-specific targets when team member is selected
+  useEffect(() => {
+    if (!form?.agency_id || !values.team_member_id) return;
+    
+    (async () => {
+      const { data: targetRows } = await supabase
+        .from('targets')
+        .select('metric_key, value_number, team_member_id')
+        .eq('agency_id', form.agency_id);
+
+      if (targetRows) {
+        const targetsMap: Record<string, number> = {};
+        // First load agency defaults
+        targetRows.forEach(t => {
+          if (!t.team_member_id) {
+            targetsMap[t.metric_key] = t.value_number;
+          }
+        });
+        // Then override with member-specific targets
+        targetRows.forEach(t => {
+          if (t.team_member_id === values.team_member_id) {
+            targetsMap[t.metric_key] = t.value_number;
+          }
+        });
+        setTargets(targetsMap);
+      }
+    })();
+  }, [form?.agency_id, values.team_member_id]);
 
   // Dynamic date refresh - ensure submission_date is always current
   useEffect(() => {
@@ -134,6 +204,50 @@ export default function PublicFormSubmission() {
       });
     }
   };
+
+  // Helper to check pass/fail status
+  const getPassStatus = (key: string, value: any): boolean | null => {
+    const target = targets[key];
+    if (target === undefined || target === 0) return null;
+    if (value === '' || value === undefined || value === null) return null;
+    return Number(value) >= target;
+  };
+
+  // Build performance summary for KPIs with targets
+  const performanceSummary: PerformanceSummary = useMemo(() => {
+    const kpiPerformance: KPIPerformance[] = [];
+    
+    if (form?.schema?.kpis) {
+      form.schema.kpis.forEach((kpi: any) => {
+        const target = targets[kpi.key];
+        if (target !== undefined && target > 0) {
+          const submitted = Number(values[kpi.key]) || 0;
+          kpiPerformance.push({
+            key: kpi.key,
+            label: kpi.label,
+            submitted,
+            target,
+            passed: submitted >= target,
+            percentOfTarget: Math.round((submitted / target) * 100)
+          });
+        }
+      });
+    }
+
+    const totalKPIs = kpiPerformance.length;
+    const passedKPIs = kpiPerformance.filter(k => k.passed).length;
+    const passRate = totalKPIs > 0 ? Math.round((passedKPIs / totalKPIs) * 100) : 0;
+
+    return {
+      kpis: kpiPerformance,
+      summary: {
+        totalKPIs,
+        passedKPIs,
+        passRate,
+        overallPass: passRate >= 50 // At least half targets met
+      }
+    };
+  }, [form?.schema?.kpis, values, targets]);
 
   const validateRequired = () => {
     const errors: Record<string, string> = {};
@@ -227,7 +341,8 @@ export default function PublicFormSubmission() {
         teamMemberId: values.team_member_id,
         submissionDate: values.submission_date,
         workDate: values.work_date || null,
-        values: values, // Already normalized above
+        values: values,
+        performanceSummary: performanceSummary, // Include performance data for AI email
       };
 
       log('📤 POST to submit_public_form...');
@@ -375,48 +490,90 @@ export default function PublicFormSubmission() {
               </div>
             </div>
 
-            {/* KPI Fields */}
+            {/* KPI Fields with Target Display */}
             {form.schema?.kpis?.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Key Performance Indicators</h3>
-                {form.schema.kpis.map((kpi: any) => (
-                  <div key={kpi.key} className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      {kpi.label}{kpi.required && <span className="text-destructive"> *</span>}
-                    </label>
-                    {kpi.type === "number" && (
-                      <input 
-                        type="number" 
-                        min={0} 
-                        value={values[kpi.key] ?? ""} 
-                        onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                      />
-                    )}
-                    {kpi.type === "currency" && (
-                      <input 
-                        type="number" 
-                        min={0} 
-                        step="0.01" 
-                        value={values[kpi.key] ?? ""} 
-                        onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                      />
-                    )}
-                    {(kpi.type === "dropdown" || kpi.type === "select") && (
-                      <select 
-                        value={values[kpi.key] ?? ""} 
-                        onChange={e=>onChange(kpi.key, e.target.value)}
-                        className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
-                      >
-                        <option value="">Select</option>
-                        {(kpi.entityOptions || kpi.options || []).map((o:string) => (
-                          <option key={o} value={o}>{o}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ))}
+                {form.schema.kpis.map((kpi: any) => {
+                  const target = targets[kpi.key];
+                  const passStatus = getPassStatus(kpi.key, values[kpi.key]);
+                  const hasTarget = target !== undefined && target > 0;
+                  
+                  return (
+                    <div key={kpi.key} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-foreground">
+                          {kpi.label}{kpi.required && <span className="text-destructive"> *</span>}
+                        </label>
+                        {hasTarget && (
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
+                            <Target className="h-3 w-3" />
+                            Target: {target}
+                          </span>
+                        )}
+                      </div>
+                      {kpi.type === "number" && (
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min={0} 
+                            value={values[kpi.key] ?? ""} 
+                            onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
+                            className={`w-full px-3 py-2 pr-10 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                              passStatus === true ? 'border-green-500 focus:ring-green-500' : 
+                              passStatus === false ? 'border-red-500 focus:ring-red-500' : 'border-input'
+                            }`}
+                          />
+                          {passStatus !== null && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {passStatus ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {kpi.type === "currency" && (
+                        <div className="relative">
+                          <input 
+                            type="number" 
+                            min={0} 
+                            step="0.01" 
+                            value={values[kpi.key] ?? ""} 
+                            onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
+                            className={`w-full px-3 py-2 pr-10 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
+                              passStatus === true ? 'border-green-500 focus:ring-green-500' : 
+                              passStatus === false ? 'border-red-500 focus:ring-red-500' : 'border-input'
+                            }`}
+                          />
+                          {passStatus !== null && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {passStatus ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {(kpi.type === "dropdown" || kpi.type === "select") && (
+                        <select 
+                          value={values[kpi.key] ?? ""} 
+                          onChange={e=>onChange(kpi.key, e.target.value)}
+                          className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
+                        >
+                          <option value="">Select</option>
+                          {(kpi.entityOptions || kpi.options || []).map((o:string) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -644,6 +801,23 @@ export default function PublicFormSubmission() {
                 </div>
               );
             })}
+
+            {/* Performance Summary */}
+            {performanceSummary.summary.totalKPIs > 0 && (
+              <div className="border-t border-b border-border py-4 my-4">
+                <div className={`text-center p-3 rounded-lg ${
+                  performanceSummary.summary.overallPass 
+                    ? 'bg-green-500/10 border border-green-500/20' 
+                    : 'bg-red-500/10 border border-red-500/20'
+                }`}>
+                  <p className={`text-lg font-semibold ${
+                    performanceSummary.summary.overallPass ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    Performance Summary: {performanceSummary.summary.passedKPIs}/{performanceSummary.summary.totalKPIs} targets met ({performanceSummary.summary.passRate}%)
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Submit Button */}
             <div className="border-t border-border pt-6">
