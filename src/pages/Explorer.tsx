@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchIcon, DownloadIcon, FilterIcon, EditIcon, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { ProspectEditModal } from "@/components/ProspectEditModal";
+import { ProspectViewModal } from "@/components/ProspectViewModal";
 
 interface QuotedHousehold {
   id: string;
@@ -483,20 +483,15 @@ export default function Explorer() {
         </CardContent>
       </Card>
 
-      <ProspectEditModal
+      <ProspectViewModal
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedHousehold(null);
         }}
-        onSave={() => {
-          // Refresh the search results after saving
-          search();
-        }}
         prospect={selectedHousehold}
         teamMembers={teamMembers}
         leadSources={leadSources}
-        agencyId={agencyIdForModal}
       />
     </div>
   );
