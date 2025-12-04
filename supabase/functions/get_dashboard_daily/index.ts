@@ -46,6 +46,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const agencySlug = url.searchParams.get('agencySlug');
     const workDate = url.searchParams.get('workDate'); // YYYY-MM-DD format
+    const role = url.searchParams.get('role'); // "Sales" or "Service"
 
     if (!agencySlug || !workDate) {
       return new Response(
@@ -62,6 +63,17 @@ serve(async (req) => {
     if (!dateRegex.test(workDate)) {
       return new Response(
         JSON.stringify({ error: 'Invalid date format. Use YYYY-MM-DD' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Validate role parameter
+    if (!role || !['Sales', 'Service'].includes(role)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales" or "Service"' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -87,11 +99,15 @@ serve(async (req) => {
       );
     }
 
-    // Call the database function
-    const { data, error } = await supabase.rpc('get_dashboard_daily', {
-      p_agency_id: agency.id,
-      p_work_date: workDate
-    });
+    // Query vw_metrics_with_team view directly, filtering by role
+    // Include both the selected role AND Hybrid (hybrid team members appear in both tabs)
+    const { data, error } = await supabase
+      .from('vw_metrics_with_team')
+      .select('*')
+      .eq('agency_id', agency.id)
+      .eq('date', workDate)
+      .or(`role.eq.${role},role.eq.Hybrid`)
+      .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {
       console.error('Dashboard daily query error:', error);
@@ -104,11 +120,11 @@ serve(async (req) => {
       );
     }
 
-    // Transform and validate response data
+    // Transform view data to match expected interface
     const rows: DashboardDailyRow[] = (data || []).map(row => ({
       team_member_id: row.team_member_id,
       rep_name: row.rep_name || 'Unassigned',
-      work_date: row.work_date,
+      work_date: row.date,
       outbound_calls: row.outbound_calls || 0,
       talk_minutes: row.talk_minutes || 0,
       quoted_count: row.quoted_count || 0,
@@ -124,7 +140,7 @@ serve(async (req) => {
       status: row.status || 'final'
     }));
 
-    console.log(`Dashboard daily: Found ${rows.length} rows for agency ${agencySlug} on ${workDate}`);
+    console.log(`Dashboard daily: Found ${rows.length} rows for agency ${agencySlug} on ${workDate} with role ${role}`);
 
     return new Response(
       JSON.stringify({ rows }),

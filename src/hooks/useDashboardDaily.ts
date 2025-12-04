@@ -57,9 +57,9 @@ export function useDashboardDaily(
         throw new Error("No authentication session found");
       }
 
-      // Call the new daily dashboard API
+      // Call the daily dashboard API with role filter
       const response = await fetch(
-        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_dashboard_daily?agencySlug=${agencySlug}&workDate=${workDate}`,
+        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_dashboard_daily?agencySlug=${agencySlug}&workDate=${workDate}&role=${role}`,
         {
           method: "GET",
           headers: {
@@ -77,11 +77,8 @@ export function useDashboardDaily(
       
       console.log("Raw dashboard data:", rows);
 
-      // Filter by role
-      const filteredRows = rows.filter((row: DailyMetric) => {
-        // For now, include all rows since role filtering should be done on the backend
-        return true;
-      });
+      // Role filtering now handled by backend
+      const filteredRows = rows;
 
       // Generate summary tiles from the actual data
       const tiles = [
