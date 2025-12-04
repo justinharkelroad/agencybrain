@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
 import { toast } from "sonner";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
-
+import { ArrowLeft } from "lucide-react";
 type TeamMetricRow = {
   team_member_id: string;
   name: string;
@@ -234,6 +235,10 @@ export default function TeamRingsGrid() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
+        <Link to="/metrics" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Metrics
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle>Team Performance Rings</CardTitle>

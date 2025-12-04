@@ -249,7 +249,7 @@ export default function MetricsDashboard() {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      <span className="text-foreground">{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}</span>
+                      <span>{selectedDate ? format(selectedDate, "PPP") : "Pick a date"}</span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
