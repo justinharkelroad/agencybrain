@@ -90,12 +90,20 @@ interface FormSchema {
   };
 }
 
-// Default KPI targets by slug
-const DEFAULT_KPI_TARGETS: Record<string, { minimum: number; goal: number; excellent: number }> = {
+// Sales-specific default KPI targets
+const SALES_KPI_TARGETS: Record<string, { minimum: number; goal: number; excellent: number }> = {
   sold_items: { minimum: 0, goal: 2, excellent: 3 },
   quoted_count: { minimum: 0, goal: 5, excellent: 7 },
   talk_minutes: { minimum: 0, goal: 180, excellent: 220 },
   outbound_calls: { minimum: 0, goal: 100, excellent: 150 },
+};
+
+// Service-specific default KPI targets
+const SERVICE_KPI_TARGETS: Record<string, { minimum: number; goal: number; excellent: number }> = {
+  outbound_calls: { minimum: 0, goal: 30, excellent: 50 },
+  talk_minutes: { minimum: 0, goal: 180, excellent: 220 },
+  cross_sells_uncovered: { minimum: 0, goal: 2, excellent: 3 },
+  mini_reviews: { minimum: 0, goal: 2, excellent: 3 },
 };
 
 const TIME_OPTIONS = [
@@ -352,7 +360,9 @@ export default function ScorecardFormBuilder() {
 
   const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
     const updatedKPIs = [...formSchema.kpis];
-    const defaultTargets = DEFAULT_KPI_TARGETS[slug];
+    // Select defaults based on form role
+    const roleTargets = formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
+    const defaultTargets = roleTargets[slug];
     
     updatedKPIs[index] = { 
       ...updatedKPIs[index], 
