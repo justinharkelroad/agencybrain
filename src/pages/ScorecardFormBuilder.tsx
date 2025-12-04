@@ -11,7 +11,7 @@ import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
-import { QuotedDetailsMapping } from "@/components/FormBuilder/QuotedDetailsMapping";
+
 import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
   import { useAgencyKpis } from "@/hooks/useKpis";
@@ -539,16 +539,6 @@ export default function ScorecardFormBuilder() {
                 }}
               />
 
-              <QuotedDetailsMapping
-                schema={formSchema}
-                value={formSchema.fieldMappings || {}}
-                onChange={(mappings) => {
-                  setFormSchema(prev => ({
-                    ...prev,
-                    fieldMappings: mappings
-                  }));
-                }}
-              />
 
               <RepeaterSectionManager
                 section={formSchema.repeaterSections?.soldDetails || {

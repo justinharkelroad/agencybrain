@@ -12,7 +12,7 @@ import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
-import { QuotedDetailsMapping } from "@/components/FormBuilder/QuotedDetailsMapping";
+
 import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
 import { useAgencyKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
@@ -436,16 +436,6 @@ export default function ScorecardFormEditor() {
                 }}
               />
 
-              <QuotedDetailsMapping
-                schema={formSchema}
-                value={formSchema.fieldMappings || {}}
-                onChange={(mappings) => {
-                  setFormSchema(prev => prev ? ({
-                    ...prev,
-                    fieldMappings: mappings
-                  }) : null);
-                }}
-              />
             </div>
 
             <AdvancedSettings
