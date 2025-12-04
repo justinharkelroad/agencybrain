@@ -137,7 +137,8 @@ export default function ScorecardFormBuilder() {
   const [agencyId, setAgencyId] = useState<string>("");
   const [currentMemberId, setCurrentMemberId] = useState<string>("");
 
-  const initialRole = (searchParams.get('role') as 'Sales' | 'Service') || 'Sales';
+  const roleParam = searchParams.get('role')?.toLowerCase();
+  const initialRole: 'Sales' | 'Service' = roleParam === 'service' ? 'Service' : 'Sales';
   
   const [formSchema, setFormSchema] = useState<FormSchema>({
     title: `${initialRole} Scorecard`,
