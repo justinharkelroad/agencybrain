@@ -21,10 +21,6 @@ interface QuotedHousehold {
   prospect_name: string;
   staff_member_name?: string;
   lead_source_label?: string | null;
-  zip?: string | null;
-  notes?: string | null;
-  email?: string | null;
-  phone?: string | null;
   items_quoted: number;
   policies_quoted: number;
   premium_potential_cents: number;
@@ -142,20 +138,16 @@ export default function Explorer() {
       return;
     }
 
-    const headers = ["Date", "Staff", "Household", "Lead Source", "ZIP", "#Items", "#Policies", "Premium Potential", "Notes", "Email", "Phone"];
+    const headers = ["Date", "Staff", "Household", "Lead Source", "#Items", "#Policies", "Premium Potential"];
     const csvRows = rows.map(row => {
       const values = [
         row.work_date || row.created_at?.split('T')[0] || "",
         row.staff_member_name || "Unknown",
         row.prospect_name || "",
         row.lead_source_label || "Undefined",
-        row.zip || "",
         row.items_quoted?.toString() || "0",
         row.policies_quoted?.toString() || "0", 
-        (row.premium_potential_cents / 100).toFixed(2),
-        (row.notes || "").replace(/\n/g, " ").replace(/"/g, '""'), // Escape quotes and newlines
-        row.email || "",
-        row.phone || ""
+        (row.premium_potential_cents / 100).toFixed(2)
       ];
       return values.map(value => `"${value}"`).join(",");
     });

@@ -56,7 +56,7 @@ export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerRespo
   if (response.rows) {
     response.rows = response.rows.map((row: any) => ({
       ...row,
-      notes: row.extras?.notes || row.notes || null,
+      notes: row.extras?.raw_json?.detailed_notes || row.extras?.detailed_notes || row.notes || null,
       items_quoted: row.items_quoted || 0,
       policies_quoted: row.policies_quoted || 0,
       premium_potential_cents: row.premium_potential_cents || 0,
