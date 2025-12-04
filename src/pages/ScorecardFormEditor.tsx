@@ -90,6 +90,14 @@ interface FormSchema {
   };
 }
 
+// Default KPI targets by slug
+const DEFAULT_KPI_TARGETS: Record<string, { minimum: number; goal: number; excellent: number }> = {
+  sold_items: { minimum: 0, goal: 2, excellent: 3 },
+  quoted_count: { minimum: 0, goal: 5, excellent: 7 },
+  talk_minutes: { minimum: 0, goal: 180, excellent: 220 },
+  outbound_calls: { minimum: 0, goal: 100, excellent: 150 },
+};
+
 export default function ScorecardFormEditor() {
   const navigate = useNavigate();
   const { formId } = useParams();
@@ -235,12 +243,16 @@ export default function ScorecardFormEditor() {
   const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
     if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
+    const defaultTargets = DEFAULT_KPI_TARGETS[slug];
+    
     updatedKPIs[index] = { 
       ...updatedKPIs[index], 
       selectedKpiId: kpiId,
       selectedKpiSlug: slug,
       // Only update label if it's empty or was auto-generated, don't override user input
-      ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {})
+      ...(updatedKPIs[index].label === 'New KPI' || !updatedKPIs[index].label ? { label } : {}),
+      // Auto-populate targets if defaults exist and no targets are set yet
+      ...(defaultTargets && !updatedKPIs[index].target ? { target: defaultTargets } : {})
     };
     setFormSchema(prev => prev ? { ...prev, kpis: updatedKPIs } : null);
   };
