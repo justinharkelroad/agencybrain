@@ -4050,7 +4050,7 @@ export type Database = {
       }
       flatten_quoted_household_details_enhanced: {
         Args: { p_submission_id: string }
-        Returns: Json
+        Returns: undefined
       }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
       get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
