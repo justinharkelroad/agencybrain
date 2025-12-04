@@ -650,7 +650,7 @@ export default function PublicFormSubmission() {
                   <h3 className="text-lg font-semibold text-foreground mb-4">{section.title}</h3>
                   <div className="bg-muted/30 border border-border rounded-lg p-4">
                     {rows.map((row, i) => (
-                      <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 p-3 bg-background rounded-md mb-3 last:mb-0">
+                      <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end p-3 bg-background rounded-md mb-3 last:mb-0">
                         <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
                           {section.title.slice(0, -1)} #{i + 1}
                         </div>
