@@ -92,8 +92,8 @@ interface FormSchema {
 
 // Sales-specific default KPI targets
 const SALES_KPI_TARGETS: Record<string, { minimum: number; goal: number; excellent: number }> = {
-  items_sold: { minimum: 0, goal: 2, excellent: 3 },
-  quoted_households: { minimum: 0, goal: 5, excellent: 7 },
+  sold_items: { minimum: 0, goal: 2, excellent: 3 },
+  quoted_count: { minimum: 0, goal: 5, excellent: 7 },
   talk_minutes: { minimum: 0, goal: 180, excellent: 220 },
   outbound_calls: { minimum: 0, goal: 100, excellent: 150 },
 };
@@ -247,9 +247,10 @@ export default function ScorecardFormBuilder() {
       // Create KPI fields for preselected metrics
       const kpiFields: KPIField[] = preselectedSlugs.map((slug, index) => {
         const matchedKpi = agencyKpis.find(k => k.slug === slug);
-        // Use role-specific defaults based on initialRole
+        // Use role-specific defaults based on initialRole, with fallback to other role
         const roleTargets = initialRole === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
-        const defaultTarget = roleTargets[slug] || { minimum: 0, goal: 0, excellent: 0 };
+        const otherTargets = initialRole === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
+        const defaultTarget = roleTargets[slug] || otherTargets[slug] || { minimum: 0, goal: 0, excellent: 0 };
         return {
           key: `preselected_kpi_${index}_${slug}`,
           label: matchedKpi?.label || slug,
@@ -363,9 +364,10 @@ export default function ScorecardFormBuilder() {
 
   const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
     const updatedKPIs = [...formSchema.kpis];
-    // Select defaults based on form role
+    // Select defaults based on form role, with fallback to other role
     const roleTargets = formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
-    const defaultTargets = roleTargets[slug];
+    const otherTargets = formSchema.role === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
+    const defaultTargets = roleTargets[slug] || otherTargets[slug];
     
     updatedKPIs[index] = { 
       ...updatedKPIs[index], 
