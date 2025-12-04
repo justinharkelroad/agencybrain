@@ -348,7 +348,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
           agency_id: agencyId,
           name: linkingUser.display_name || linkingUser.username,
           role: linkNewTeamMemberRole,
-          email: linkingUser.email || null,
+          email: linkingUser.email || `${linkingUser.username.toLowerCase().replace(/\s+/g, '_')}@staff.placeholder`,
           status: 'active',
           employment: 'Full-time'
         })
