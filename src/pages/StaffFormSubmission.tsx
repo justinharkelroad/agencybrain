@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,13 +10,32 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Send, CheckCircle, AlertCircle, ArrowLeft, User } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, ArrowLeft, User, XCircle, Target } from 'lucide-react';
 
 interface FormField {
   key: string;
   label: string;
   type: string;
   required?: boolean;
+}
+
+interface KPIPerformance {
+  key: string;
+  label: string;
+  submitted: number;
+  target: number;
+  passed: boolean;
+  percentOfTarget: number;
+}
+
+interface PerformanceSummary {
+  kpis: KPIPerformance[];
+  summary: {
+    totalKPIs: number;
+    passedKPIs: number;
+    passRate: number;
+    overallPass: boolean;
+  };
 }
 
 export default function StaffFormSubmission() {
@@ -31,8 +50,9 @@ export default function StaffFormSubmission() {
   const [error, setError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [teamMemberName, setTeamMemberName] = useState<string>('');
+  const [targets, setTargets] = useState<Record<string, number>>({});
 
-  // Load form template and team member info
+  // Load form template, team member info, and targets
   useEffect(() => {
     async function loadForm() {
       if (!user?.agency_id || !formSlug) return;
@@ -44,7 +64,7 @@ export default function StaffFormSubmission() {
         // Get form template
         const { data: template, error: templateError } = await supabase
           .from('form_templates')
-          .select('id, name, slug, schema_json, status')
+          .select('id, name, slug, schema_json, status, agency_id')
           .eq('slug', formSlug)
           .eq('agency_id', user.agency_id)
           .single();
@@ -74,6 +94,31 @@ export default function StaffFormSubmission() {
           }
         }
 
+        // Load targets from targets table
+        const { data: targetRows } = await supabase
+          .from('targets')
+          .select('metric_key, value_number, team_member_id')
+          .eq('agency_id', template.agency_id);
+
+        if (targetRows) {
+          const targetsMap: Record<string, number> = {};
+          // First load agency defaults (team_member_id = null)
+          targetRows.forEach(t => {
+            if (!t.team_member_id) {
+              targetsMap[t.metric_key] = t.value_number;
+            }
+          });
+          // Then override with member-specific targets if they exist
+          if (user.team_member_id) {
+            targetRows.forEach(t => {
+              if (t.team_member_id === user.team_member_id) {
+                targetsMap[t.metric_key] = t.value_number;
+              }
+            });
+          }
+          setTargets(targetsMap);
+        }
+
         // Initialize default values
         const initialValues: Record<string, any> = {
           submission_date: format(new Date(), 'yyyy-MM-dd'),
@@ -98,6 +143,73 @@ export default function StaffFormSubmission() {
     setValues(prev => ({ ...prev, [key]: value }));
   };
 
+  // Parse form fields from schema
+  const fields: FormField[] = useMemo(() => {
+    const result: FormField[] = [];
+    if (formTemplate?.schema_json?.sections) {
+      for (const section of formTemplate.schema_json.sections) {
+        if (section.fields) {
+          for (const field of section.fields) {
+            result.push({
+              key: field.key || field.id,
+              label: field.label,
+              type: field.type || 'number',
+              required: field.required
+            });
+          }
+        }
+      }
+    }
+    // Also check for KPIs in schema
+    if (formTemplate?.schema_json?.kpis) {
+      for (const kpi of formTemplate.schema_json.kpis) {
+        if (!result.find(f => f.key === kpi.key)) {
+          result.push({
+            key: kpi.key,
+            label: kpi.label,
+            type: kpi.type || 'number',
+            required: kpi.required
+          });
+        }
+      }
+    }
+    return result;
+  }, [formTemplate]);
+
+  // Build performance summary for KPIs with targets
+  const performanceSummary: PerformanceSummary = useMemo(() => {
+    const kpiPerformance: KPIPerformance[] = [];
+    
+    fields.forEach(field => {
+      const target = targets[field.key];
+      if (target !== undefined && target > 0) {
+        const submitted = Number(values[field.key]) || 0;
+        kpiPerformance.push({
+          key: field.key,
+          label: field.label,
+          submitted,
+          target,
+          passed: submitted >= target,
+          percentOfTarget: Math.round((submitted / target) * 100)
+        });
+      }
+    });
+
+    const totalKPIs = kpiPerformance.length;
+    const passedKPIs = kpiPerformance.filter(k => k.passed).length;
+    const passRate = totalKPIs > 0 ? Math.round((passedKPIs / totalKPIs) * 100) : 0;
+
+    return {
+      kpis: kpiPerformance,
+      summary: {
+        totalKPIs,
+        passedKPIs,
+        passRate,
+        overallPass: passRate >= 50 // At least half targets met
+      }
+    };
+  }, [fields, values, targets]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -119,7 +231,8 @@ export default function StaffFormSubmission() {
           formSlug,
           submissionDate: values.submission_date,
           workDate: values.work_date,
-          values: values
+          values: values,
+          performanceSummary: performanceSummary
         },
         headers: {
           'x-staff-session': sessionToken
@@ -143,6 +256,14 @@ export default function StaffFormSubmission() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Helper to check pass/fail status
+  const getPassStatus = (key: string, value: any): boolean | null => {
+    const target = targets[key];
+    if (target === undefined || target === 0) return null;
+    if (value === '' || value === undefined || value === null) return null;
+    return Number(value) >= target;
   };
 
   // Auth loading state
@@ -237,6 +358,14 @@ export default function StaffFormSubmission() {
                 <p className="text-muted-foreground">
                   Your daily metrics have been recorded.
                 </p>
+                {/* Show performance summary in success state */}
+                {performanceSummary.summary.totalKPIs > 0 && (
+                  <div className="bg-muted/50 rounded-lg p-4 mt-4">
+                    <p className="text-lg font-semibold">
+                      {performanceSummary.summary.passedKPIs}/{performanceSummary.summary.totalKPIs} targets met ({performanceSummary.summary.passRate}%)
+                    </p>
+                  </div>
+                )}
                 <div className="flex gap-4 justify-center pt-4">
                   <Button variant="outline" onClick={() => navigate('/staff/training')}>
                     Back to Training
@@ -257,23 +386,6 @@ export default function StaffFormSubmission() {
         </div>
       </div>
     );
-  }
-
-  // Parse form fields from schema
-  const fields: FormField[] = [];
-  if (formTemplate?.schema_json?.sections) {
-    for (const section of formTemplate.schema_json.sections) {
-      if (section.fields) {
-        for (const field of section.fields) {
-          fields.push({
-            key: field.key || field.id,
-            label: field.label,
-            type: field.type || 'number',
-            required: field.required
-          });
-        }
-      }
-    }
   }
 
   // Render form
@@ -333,71 +445,123 @@ export default function StaffFormSubmission() {
                 </div>
               </div>
 
-              {/* Dynamic Fields from Schema */}
+              {/* Dynamic Fields from Schema with Target Display */}
               {fields.length > 0 ? (
                 <div className="space-y-4">
-                  {fields.map((field) => (
-                    <div key={field.key} className="space-y-2">
-                      <Label htmlFor={field.key}>
-                        {field.label}
-                        {field.required && <span className="text-destructive ml-1">*</span>}
-                      </Label>
-                      <Input
-                        id={field.key}
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        value={values[field.key] || ''}
-                        onChange={(e) => handleInputChange(
-                          field.key, 
-                          field.type === 'number' ? Number(e.target.value) : e.target.value
-                        )}
-                        required={field.required}
-                        min={field.type === 'number' ? 0 : undefined}
-                      />
-                    </div>
-                  ))}
+                  {fields.map((field) => {
+                    const target = targets[field.key];
+                    const passStatus = getPassStatus(field.key, values[field.key]);
+                    const hasTarget = target !== undefined && target > 0;
+                    
+                    return (
+                      <div key={field.key} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor={field.key}>
+                            {field.label}
+                            {field.required && <span className="text-destructive ml-1">*</span>}
+                          </Label>
+                          {hasTarget && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
+                              <Target className="h-3 w-3" />
+                              Target: {target}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id={field.key}
+                            type={field.type === 'number' ? 'number' : 'text'}
+                            value={values[field.key] ?? ''}
+                            onChange={(e) => handleInputChange(
+                              field.key, 
+                              field.type === 'number' ? Number(e.target.value) : e.target.value
+                            )}
+                            required={field.required}
+                            min={field.type === 'number' ? 0 : undefined}
+                            className={`pr-10 ${
+                              passStatus === true ? 'border-green-500 focus-visible:ring-green-500' : 
+                              passStatus === false ? 'border-red-500 focus-visible:ring-red-500' : ''
+                            }`}
+                          />
+                          {passStatus !== null && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {passStatus ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 /* Default fields if no schema */
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="outbound_calls">Outbound Calls</Label>
-                    <Input
-                      id="outbound_calls"
-                      type="number"
-                      min={0}
-                      value={values.outbound_calls || ''}
-                      onChange={(e) => handleInputChange('outbound_calls', Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="talk_minutes">Talk Minutes</Label>
-                    <Input
-                      id="talk_minutes"
-                      type="number"
-                      min={0}
-                      value={values.talk_minutes || ''}
-                      onChange={(e) => handleInputChange('talk_minutes', Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quoted_count">Quotes</Label>
-                    <Input
-                      id="quoted_count"
-                      type="number"
-                      min={0}
-                      value={values.quoted_count || ''}
-                      onChange={(e) => handleInputChange('quoted_count', Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sold_items">Items Sold</Label>
-                    <Input
-                      id="sold_items"
-                      type="number"
-                      min={0}
-                      value={values.sold_items || ''}
-                      onChange={(e) => handleInputChange('sold_items', Number(e.target.value))}
-                    />
+                  {[
+                    { key: 'outbound_calls', label: 'Outbound Calls' },
+                    { key: 'talk_minutes', label: 'Talk Minutes' },
+                    { key: 'quoted_count', label: 'Quotes' },
+                    { key: 'sold_items', label: 'Items Sold' }
+                  ].map((field) => {
+                    const target = targets[field.key];
+                    const passStatus = getPassStatus(field.key, values[field.key]);
+                    const hasTarget = target !== undefined && target > 0;
+                    
+                    return (
+                      <div key={field.key} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor={field.key}>{field.label}</Label>
+                          {hasTarget && (
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
+                              <Target className="h-3 w-3" />
+                              Target: {target}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id={field.key}
+                            type="number"
+                            min={0}
+                            value={values[field.key] ?? ''}
+                            onChange={(e) => handleInputChange(field.key, Number(e.target.value))}
+                            className={`pr-10 ${
+                              passStatus === true ? 'border-green-500 focus-visible:ring-green-500' : 
+                              passStatus === false ? 'border-red-500 focus-visible:ring-red-500' : ''
+                            }`}
+                          />
+                          {passStatus !== null && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                              {passStatus ? (
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-500" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Performance Summary */}
+              {performanceSummary.summary.totalKPIs > 0 && (
+                <div className="border-t border-b border-border py-4 my-4">
+                  <div className={`text-center p-3 rounded-lg ${
+                    performanceSummary.summary.overallPass 
+                      ? 'bg-green-500/10 border border-green-500/20' 
+                      : 'bg-red-500/10 border border-red-500/20'
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      performanceSummary.summary.overallPass ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      Performance Summary: {performanceSummary.summary.passedKPIs}/{performanceSummary.summary.totalKPIs} targets met ({performanceSummary.summary.passRate}%)
+                    </p>
                   </div>
                 </div>
               )}
