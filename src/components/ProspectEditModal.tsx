@@ -21,10 +21,6 @@ interface ProspectData {
   work_date: string;
   household_name: string;
   lead_source?: string | null;
-  zip?: string | null;
-  notes?: string | null;
-  email?: string | null;
-  phone?: string | null;
   items_quoted: number;
   policies_quoted: number;
   premium_potential_cents: number;
@@ -78,10 +74,6 @@ export function ProspectEditModal({
   // Form state
   const [formData, setFormData] = useState({
     prospect_name: "",
-    email: "",
-    phone: "",
-    zip: "",
-    notes: "",
     items_quoted: 0,
     policies_quoted: 0,
     premium_potential: 0,
@@ -97,10 +89,6 @@ export function ProspectEditModal({
       // Load prospect data into form
       setFormData({
         prospect_name: prospect.household_name || "",
-        email: prospect.email || "",
-        phone: prospect.phone || "",
-        zip: prospect.zip || "",
-        notes: prospect.notes || "",
         items_quoted: prospect.items_quoted || 0,
         policies_quoted: prospect.policies_quoted || 0,
         premium_potential: (prospect.premium_potential_cents || 0) / 100,
@@ -219,10 +207,6 @@ export function ProspectEditModal({
         agency_id: agencyId,
         quoted_household_detail_id: prospect.id,
         prospect_name: formData.prospect_name || null,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        zip: formData.zip || null,
-        notes: formData.notes || null,
         items_quoted: formData.items_quoted || null,
         policies_quoted: formData.policies_quoted || null,
         premium_potential_cents: formData.premium_potential ? Math.round(formData.premium_potential * 100) : null,
@@ -496,49 +480,6 @@ export function ProspectEditModal({
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter email"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="zip">ZIP Code</Label>
-                  <Input
-                    id="zip"
-                    value={formData.zip}
-                    onChange={(e) => setFormData(prev => ({ ...prev, zip: e.target.value }))}
-                    placeholder="Enter ZIP code"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Enter notes about this prospect"
-                  rows={3}
-                />
-              </div>
             </CardContent>
           </Card>
 
