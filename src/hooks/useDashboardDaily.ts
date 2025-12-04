@@ -101,6 +101,16 @@ export function useDashboardDaily(
           title: "Sold Items",
           value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.sold_items || 0), 0),
           icon: "💰"
+        },
+        {
+          title: "Cross-Sells Uncovered",
+          value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.cross_sells_uncovered || 0), 0),
+          icon: "📈"
+        },
+        {
+          title: "Mini Reviews",
+          value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.mini_reviews || 0), 0),
+          icon: "🎖️"
         }
       ];
 
