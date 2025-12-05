@@ -146,7 +146,7 @@ export default function StaffTraining() {
             </CardHeader>
             <CardContent>
               <Button asChild className="w-full sm:w-auto">
-                <Link to="/staff/submit/hfi-daily-standards-">
+                <Link to="/staff/scorecard">
                   <Send className="h-4 w-4 mr-2" />
                   Submit Today's Numbers
                 </Link>
@@ -251,7 +251,7 @@ export default function StaffTraining() {
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full sm:w-auto">
-              <Link to="/staff/submit/hfi-daily-standards-">
+              <Link to="/staff/scorecard">
                 <Send className="h-4 w-4 mr-2" />
                 Submit Today's Numbers
               </Link>
