@@ -43,9 +43,10 @@ Deno.serve(async (req) => {
 
     if (sessionError || !session) {
       console.log('Invalid or expired session');
+      // Return 200 with valid: false instead of 401 to prevent error throwing
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ valid: false, error: 'Invalid or expired session' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
