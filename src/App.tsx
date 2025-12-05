@@ -271,6 +271,10 @@ const App = () => (
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            {/* Catch encoded settings URLs and redirect to proper format */}
+            <Route path="/settings%3F*" element={
+              <Navigate to={decodeURIComponent(window.location.pathname) + window.location.search} replace />
+            } />
             <Route path="/settings" element={
               <ProtectedRoute>
                 <SidebarLayout>
