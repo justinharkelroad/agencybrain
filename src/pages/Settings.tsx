@@ -22,8 +22,9 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [availableMetrics, setAvailableMetrics] = useState<Array<{key: string, label: string}>>([]);
   
-  // Get initial role from URL params
-  const initialRole = (searchParams.get('role') as "Sales" | "Service") || "Sales";
+  // Get initial role from URL params (normalize case - URL may have lowercase)
+  const roleFromUrl = searchParams.get('role')?.toLowerCase();
+  const initialRole: "Sales" | "Service" = roleFromUrl === 'service' ? "Service" : "Sales";
   
   // Scorecard Settings
   const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(initialRole);
