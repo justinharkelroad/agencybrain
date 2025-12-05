@@ -62,10 +62,12 @@ export function ProspectViewModal({
     setLoadingSchema(true);
     try {
       // Get the submission and form template schema
+      // Get submission with payload_json AND form template schema
       const { data: submission, error: submissionError } = await supabase
         .from('submissions')
         .select(`
           id,
+          payload_json,
           form_templates(schema_json)
         `)
         .eq('id', prospect.submission_id)
@@ -98,8 +100,13 @@ export function ProspectViewModal({
 
       setFormCustomFields(allFormFields);
 
-      // Load existing values from extras.raw_json
-      const existingValues = qhd?.extras?.raw_json || {};
+      // Merge root-level payload_json + household-specific extras.raw_json
+      const rootLevelFields = submission?.payload_json || {};
+      const householdFields = qhd?.extras?.raw_json || {};
+      const existingValues = {
+        ...rootLevelFields,   // Root fields like field_0 (Hearsay)
+        ...householdFields    // Household fields like prospect_name, lead_source_label
+      };
       setFormCustomFieldValues(existingValues);
 
     } catch (error) {
@@ -219,7 +226,12 @@ export function ProspectViewModal({
                   <div className="grid gap-4 md:grid-cols-2">
                     {formCustomFields.map((field) => {
                       const fieldKey = field.key;
-                      const currentValue = formCustomFieldValues[fieldKey] || "";
+                      let currentValue = formCustomFieldValues[fieldKey] || "";
+                      
+                      // Fix: lead_source schema key maps to lead_source_label in stored data
+                      if (!currentValue && fieldKey === 'lead_source') {
+                        currentValue = formCustomFieldValues['lead_source_label'] || "";
+                      }
                       
                       return (
                         <div key={fieldKey}>
