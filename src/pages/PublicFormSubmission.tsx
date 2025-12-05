@@ -205,10 +205,11 @@ export default function PublicFormSubmission() {
     }
   };
 
-  // Helper to check pass/fail status
-  const getPassStatus = (key: string, value: any): boolean | null => {
-    const target = targets[key];
-    if (target === undefined || target === 0) return null;
+  // Helper to check pass/fail status - uses KPI object for target lookup priority
+  const getPassStatus = (kpi: any, value: any): boolean | null => {
+    // Priority: form schema target > targets table by slug > targets table by key
+    const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+    if (target === 0) return null;
     if (value === '' || value === undefined || value === null) return null;
     return Number(value) >= target;
   };
@@ -219,8 +220,9 @@ export default function PublicFormSubmission() {
     
     if (form?.schema?.kpis) {
       form.schema.kpis.forEach((kpi: any) => {
-        const target = targets[kpi.key];
-        if (target !== undefined && target > 0) {
+        // Priority: form schema target > targets table by slug > targets table by key
+        const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+        if (target > 0) {
           const submitted = Number(values[kpi.key]) || 0;
           kpiPerformance.push({
             key: kpi.key,
@@ -495,9 +497,10 @@ export default function PublicFormSubmission() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Key Performance Indicators</h3>
                 {form.schema.kpis.map((kpi: any) => {
-                  const target = targets[kpi.key];
-                  const passStatus = getPassStatus(kpi.key, values[kpi.key]);
-                  const hasTarget = target !== undefined && target > 0;
+                  // Priority: form schema target > targets table by slug > targets table by key
+                  const targetValue = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+                  const passStatus = getPassStatus(kpi, values[kpi.key]);
+                  const hasTarget = targetValue > 0;
                   
                   return (
                     <div key={kpi.key} className="space-y-2">
@@ -508,7 +511,7 @@ export default function PublicFormSubmission() {
                         {hasTarget && (
                           <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
                             <Target className="h-3 w-3" />
-                            Target: {target}
+                            Target: {targetValue}
                           </span>
                         )}
                       </div>

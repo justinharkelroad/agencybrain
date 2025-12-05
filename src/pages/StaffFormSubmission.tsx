@@ -179,14 +179,16 @@ export default function StaffFormSubmission() {
   // Build performance summary for KPIs with targets
   const performanceSummary: PerformanceSummary = useMemo(() => {
     const kpiPerformance: KPIPerformance[] = [];
+    const kpis = formTemplate?.schema_json?.kpis || [];
     
-    fields.forEach(field => {
-      const target = targets[field.key];
-      if (target !== undefined && target > 0) {
-        const submitted = Number(values[field.key]) || 0;
+    kpis.forEach((kpi: any) => {
+      // Priority: form schema target > targets table by slug > targets table by key
+      const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+      if (target > 0) {
+        const submitted = Number(values[kpi.key]) || 0;
         kpiPerformance.push({
-          key: field.key,
-          label: field.label,
+          key: kpi.key,
+          label: kpi.label,
           submitted,
           target,
           passed: submitted >= target,
@@ -258,10 +260,11 @@ export default function StaffFormSubmission() {
     }
   };
 
-  // Helper to check pass/fail status
-  const getPassStatus = (key: string, value: any): boolean | null => {
-    const target = targets[key];
-    if (target === undefined || target === 0) return null;
+  // Helper to check pass/fail status - uses KPI object for target lookup priority
+  const getPassStatus = (kpi: any, value: any): boolean | null => {
+    // Priority: form schema target > targets table by slug > targets table by key
+    const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+    if (target === 0) return null;
     if (value === '' || value === undefined || value === null) return null;
     return Number(value) >= target;
   };
@@ -446,38 +449,39 @@ export default function StaffFormSubmission() {
               </div>
 
               {/* Dynamic Fields from Schema with Target Display */}
-              {fields.length > 0 ? (
+              {formTemplate?.schema_json?.kpis?.length > 0 ? (
                 <div className="space-y-4">
-                  {fields.map((field) => {
-                    const target = targets[field.key];
-                    const passStatus = getPassStatus(field.key, values[field.key]);
-                    const hasTarget = target !== undefined && target > 0;
+                  {formTemplate.schema_json.kpis.map((kpi: any) => {
+                    // Priority: form schema target > targets table by slug > targets table by key
+                    const targetValue = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
+                    const passStatus = getPassStatus(kpi, values[kpi.key]);
+                    const hasTarget = targetValue > 0;
                     
                     return (
-                      <div key={field.key} className="space-y-2">
+                      <div key={kpi.key} className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <Label htmlFor={field.key}>
-                            {field.label}
-                            {field.required && <span className="text-destructive ml-1">*</span>}
+                          <Label htmlFor={kpi.key}>
+                            {kpi.label}
+                            {kpi.required && <span className="text-destructive ml-1">*</span>}
                           </Label>
                           {hasTarget && (
                             <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
                               <Target className="h-3 w-3" />
-                              Target: {target}
+                              Target: {targetValue}
                             </span>
                           )}
                         </div>
                         <div className="relative">
                           <Input
-                            id={field.key}
-                            type={field.type === 'number' ? 'number' : 'text'}
-                            value={values[field.key] ?? ''}
+                            id={kpi.key}
+                            type={kpi.type === 'number' || kpi.type === 'currency' ? 'number' : 'text'}
+                            value={values[kpi.key] ?? ''}
                             onChange={(e) => handleInputChange(
-                              field.key, 
-                              field.type === 'number' ? Number(e.target.value) : e.target.value
+                              kpi.key, 
+                              kpi.type === 'number' || kpi.type === 'currency' ? Number(e.target.value) : e.target.value
                             )}
-                            required={field.required}
-                            min={field.type === 'number' ? 0 : undefined}
+                            required={kpi.required}
+                            min={kpi.type === 'number' || kpi.type === 'currency' ? 0 : undefined}
                             className={`pr-10 ${
                               passStatus === true ? 'border-green-500 focus-visible:ring-green-500' : 
                               passStatus === false ? 'border-red-500 focus-visible:ring-red-500' : ''
@@ -501,14 +505,14 @@ export default function StaffFormSubmission() {
                 /* Default fields if no schema */
                 <div className="space-y-4">
                   {[
-                    { key: 'outbound_calls', label: 'Outbound Calls' },
-                    { key: 'talk_minutes', label: 'Talk Minutes' },
-                    { key: 'quoted_count', label: 'Quotes' },
-                    { key: 'sold_items', label: 'Items Sold' }
+                    { key: 'outbound_calls', label: 'Outbound Calls', selectedKpiSlug: 'outbound_calls' },
+                    { key: 'talk_minutes', label: 'Talk Minutes', selectedKpiSlug: 'talk_minutes' },
+                    { key: 'quoted_count', label: 'Quotes', selectedKpiSlug: 'quoted_count' },
+                    { key: 'sold_items', label: 'Items Sold', selectedKpiSlug: 'sold_items' }
                   ].map((field) => {
-                    const target = targets[field.key];
-                    const passStatus = getPassStatus(field.key, values[field.key]);
-                    const hasTarget = target !== undefined && target > 0;
+                    const targetValue = targets[field.key] ?? 0;
+                    const passStatus = getPassStatus(field, values[field.key]);
+                    const hasTarget = targetValue > 0;
                     
                     return (
                       <div key={field.key} className="space-y-2">
@@ -517,7 +521,7 @@ export default function StaffFormSubmission() {
                           {hasTarget && (
                             <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex items-center gap-1">
                               <Target className="h-3 w-3" />
-                              Target: {target}
+                              Target: {targetValue}
                             </span>
                           )}
                         </div>
