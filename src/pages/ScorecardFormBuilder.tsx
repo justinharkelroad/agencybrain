@@ -300,10 +300,10 @@ export default function ScorecardFormBuilder() {
     try {
       const slug = formSchema.title.toLowerCase().replace(/\s+/g, '-');
       
-      // Create form template
+      // Create form template (upsert to handle duplicate slug)
       const { data: template, error: templateError } = await supa
         .from('form_templates')
-        .insert({
+        .upsert({
           agency_id: agencyId,
           name: formSchema.title,
           slug: slug,
@@ -311,7 +311,7 @@ export default function ScorecardFormBuilder() {
           schema_json: formSchema as any,
           settings_json: formSchema.settings as any,
           field_mappings: formSchema.fieldMappings as any,
-        })
+        }, { onConflict: 'agency_id,slug' })
         .select()
         .single();
 
