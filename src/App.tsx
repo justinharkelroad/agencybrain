@@ -1,10 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -92,6 +92,21 @@ const queryClient = new QueryClient({
   },
 });
 
+// Fix encoded URLs before router matching (handles %3F encoding bug)
+const URLFixer = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.pathname.includes('%3F')) {
+      const decodedPath = decodeURIComponent(location.pathname);
+      navigate(decodedPath + location.search + location.hash, { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+};
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -101,6 +116,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+            <URLFixer />
             <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
@@ -270,10 +286,6 @@ const App = () => (
                   </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
-            } />
-            {/* Catch encoded settings URLs and redirect to proper format */}
-            <Route path="/settings%3F*" element={
-              <Navigate to={decodeURIComponent(window.location.pathname) + window.location.search} replace />
             } />
             <Route path="/settings" element={
               <ProtectedRoute>
