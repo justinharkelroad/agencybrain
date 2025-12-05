@@ -3,13 +3,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface FormSettings {
+export interface FormSettings {
   dueBy: string;
   customDueTime?: string;
   lateCountsForPass: boolean;
   reminderTimes: string[];
   ccOwner: boolean;
   suppressIfFinal: boolean;
+  // Email notification settings
+  sendImmediateEmail: boolean;
+  additionalImmediateRecipients: string[];
+  sendDailySummary: boolean;
+  dailySummaryRecipients: 'sales_team' | 'service_team' | 'all_team' | 'owner_only' | 'custom';
+  customSummaryRecipients: string[];
 }
 
 interface AdvancedSettingsProps {

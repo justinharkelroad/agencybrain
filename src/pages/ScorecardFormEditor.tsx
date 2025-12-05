@@ -9,6 +9,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
+import NotificationSettings from "@/components/FormBuilder/NotificationSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
@@ -87,6 +88,12 @@ interface FormSchema {
     reminderTimes: string[];
     ccOwner: boolean;
     suppressIfFinal: boolean;
+    // Email notification settings
+    sendImmediateEmail?: boolean;
+    additionalImmediateRecipients?: string[];
+    sendDailySummary?: boolean;
+    dailySummaryRecipients?: 'sales_team' | 'service_team' | 'all_team' | 'owner_only' | 'custom';
+    customSummaryRecipients?: string[];
   };
 }
 
@@ -462,11 +469,35 @@ export default function ScorecardFormEditor() {
             </div>
 
             <AdvancedSettings
-              settings={formSchema.settings}
+              settings={{
+                ...formSchema.settings,
+                // Provide defaults for notification fields if missing (backward compatibility)
+                sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
+                additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
+                sendDailySummary: formSchema.settings.sendDailySummary ?? true,
+                dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
+                customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
+              }}
               onUpdateSettings={(settings) => setFormSchema(prev => prev ? {
                 ...prev,
                 settings: { ...prev.settings, ...settings }
               } : null)}
+            />
+
+            <NotificationSettings
+              settings={{
+                ...formSchema.settings,
+                sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
+                additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
+                sendDailySummary: formSchema.settings.sendDailySummary ?? true,
+                dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
+                customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
+              }}
+              onUpdateSettings={(settings) => setFormSchema(prev => prev ? {
+                ...prev,
+                settings: { ...prev.settings, ...settings }
+              } : null)}
+              agencyId={agencyId}
             />
           </div>
 
