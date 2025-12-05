@@ -458,13 +458,22 @@ export default function Explorer() {
                       </td>
                       <td className="p-3 font-medium">{row.prospect_name}</td>
                       <td className="p-3">
-                        {row.lead_source_label === "Undefined" ? (
-                          <Badge variant="outline" className="text-xs">
-                            Undefined
-                          </Badge>
-                        ) : (
-                          row.lead_source_label || "—"
-                        )}
+                        {(() => {
+                          const label = row.lead_source_label;
+                          // Check if it's a UUID pattern and resolve to name
+                          if (label && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(label)) {
+                            const resolved = leadSources.find(ls => ls.id === label)?.name;
+                            return resolved || label;
+                          }
+                          if (label === "Undefined") {
+                            return (
+                              <Badge variant="outline" className="text-xs">
+                                Undefined
+                              </Badge>
+                            );
+                          }
+                          return label || "—";
+                        })()}
                       </td>
                       <td className="p-3">{row.items_quoted ?? "—"}</td>
                       <td className="p-3">{row.policies_quoted ?? "—"}</td>
