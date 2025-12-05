@@ -158,7 +158,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Enrich quoted_details with lead_source_label
+    // FIRST: quotedDetails -> quoted_details (normalize key BEFORE enrichment)
+    if (Array.isArray(values?.quotedDetails)) {
+      v.quoted_details = values.quotedDetails;
+      delete v.quotedDetails;
+    }
+
+    // THEN: Enrich quoted_details with lead_source_label
     if (Array.isArray(v.quoted_details)) {
       for (const r of v.quoted_details) {
         const id = r.lead_source_id ?? r.lead_source;
@@ -175,12 +181,6 @@ Deno.serve(async (req) => {
           }
         }
       }
-    }
-
-    // quotedDetails -> quoted_details
-    if (Array.isArray(values?.quotedDetails)) {
-      v.quoted_details = values.quotedDetails;
-      delete v.quotedDetails;
     }
 
     // Step 6: Resolve active KPI binding
