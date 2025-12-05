@@ -311,24 +311,27 @@ export default function ScorecardFormBuilder() {
           schema_json: formSchema as any,
           settings_json: formSchema.settings as any,
           field_mappings: formSchema.fieldMappings as any,
+          is_active: true,
         }, { onConflict: 'agency_id,slug' })
         .select()
         .single();
 
       if (templateError) throw templateError;
 
-      // Create form link with token
+      // Upsert form link (handles existing links gracefully)
       const token = crypto.randomUUID();
       const { error: linkError } = await supa
         .from('form_links')
-        .insert({
+        .upsert({
           form_template_id: template.id,
-          agency_id: agencyId, // Fix: Include agency_id from state
+          agency_id: agencyId,
           token: token,
           enabled: true,
-        });
+        }, { onConflict: 'form_template_id' });
 
-      if (linkError) throw linkError;
+      if (linkError && !linkError.message?.includes('duplicate')) {
+        console.error('Form link error:', linkError);
+      }
 
       // Bind KPI fields to their versions
       const { error: bindError } = await supa.rpc('bind_form_kpis', {
