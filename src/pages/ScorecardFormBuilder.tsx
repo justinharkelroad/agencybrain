@@ -9,6 +9,7 @@ import { ArrowLeft, Save, Eye, Link2, Settings } from "lucide-react";
 import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
+import NotificationSettings from "@/components/FormBuilder/NotificationSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
 
@@ -87,6 +88,12 @@ interface FormSchema {
     reminderTimes: string[];
     ccOwner: boolean;
     suppressIfFinal: boolean;
+    // Email notification settings
+    sendImmediateEmail: boolean;
+    additionalImmediateRecipients: string[];
+    sendDailySummary: boolean;
+    dailySummaryRecipients: 'sales_team' | 'service_team' | 'all_team' | 'owner_only' | 'custom';
+    customSummaryRecipients: string[];
   };
 }
 
@@ -184,6 +191,12 @@ export default function ScorecardFormBuilder() {
       reminderTimes: ['16:45', '07:00'],
       ccOwner: true,
       suppressIfFinal: true,
+      // Email notification defaults based on role
+      sendImmediateEmail: true,
+      additionalImmediateRecipients: [],
+      sendDailySummary: true,
+      dailySummaryRecipients: initialRole === 'Service' ? 'service_team' : 'sales_team',
+      customSummaryRecipients: [],
     }
   });
 
@@ -595,6 +608,15 @@ export default function ScorecardFormBuilder() {
                 ...prev,
                 settings: { ...prev.settings, ...settings }
               }))}
+            />
+
+            <NotificationSettings
+              settings={formSchema.settings}
+              onUpdateSettings={(settings) => setFormSchema(prev => ({
+                ...prev,
+                settings: { ...prev.settings, ...settings }
+              }))}
+              agencyId={agencyId}
             />
           </div>
 
