@@ -53,13 +53,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Validate form link token
+    // Validate form link token - get agency through form_template since form_links.agency_id may be NULL
     const { data: linkData, error: linkError } = await supabase
       .from('form_links')
       .select(`
         *,
-        form_template:form_templates(*),
-        agency:agencies(*)
+        form_template:form_templates(
+          *,
+          agency:agencies(*)
+        )
       `)
       .eq('token', token)
       .eq('enabled', true)
@@ -86,8 +88,22 @@ serve(async (req) => {
       );
     }
 
+    // Get agency from form_template (form_links.agency_id may be NULL)
+    const agencyId = linkData.form_template?.agency_id;
+    const agency = linkData.form_template?.agency;
+
+    if (!agencyId || !agency) {
+      return new Response(
+        JSON.stringify({ error: 'Form has no associated agency' }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     // Validate agency and form slugs match
-    if (linkData.agency.slug !== agencySlug || linkData.form_template.slug !== formSlug) {
+    if (agency.slug !== agencySlug || linkData.form_template.slug !== formSlug) {
       return new Response(
         JSON.stringify({ error: 'Agency or form slug mismatch' }),
         { 
@@ -96,9 +112,6 @@ serve(async (req) => {
         }
       );
     }
-
-    // Get agency ID for additional queries
-    const agencyId = linkData.form_template.agency_id;
 
     // Query team_members and lead_sources
     const { data: teamMembers, error: tmErr } = await supabase
