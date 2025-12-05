@@ -279,6 +279,18 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Trigger feedback email (fire and forget)
+    EdgeRuntime.waitUntil(
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send_submission_feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ submissionId: sid }),
+      }).catch(err => console.error('Failed to trigger feedback email:', err))
+    );
+
     logStructured('info', 'staff_submission_success', {
       request_id: requestId,
       submission_id: sid,
