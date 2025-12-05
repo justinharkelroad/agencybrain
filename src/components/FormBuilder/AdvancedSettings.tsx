@@ -1,4 +1,3 @@
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -98,27 +97,8 @@ export default function AdvancedSettings({ settings, onUpdateSettings }: Advance
               onCheckedChange={(checked) => onUpdateSettings({ lateCountsForPass: checked })}
             />
           </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="ccOwner">CC owner on reminders</Label>
-            <Switch
-              id="ccOwner"
-              checked={settings.ccOwner}
-              onCheckedChange={(checked) => onUpdateSettings({ ccOwner: checked })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="suppressIfFinal">Suppress reminders if submission exists</Label>
-            <Switch
-              id="suppressIfFinal"
-              checked={settings.suppressIfFinal}
-              onCheckedChange={(checked) => onUpdateSettings({ suppressIfFinal: checked })}
-            />
-          </div>
         </CardContent>
       </Card>
-
     </>
   );
 }
