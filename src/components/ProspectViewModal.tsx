@@ -182,7 +182,11 @@ export function ProspectViewModal({
               </div>
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">Lead Source</Label>
-                <p className="font-medium">{prospect.lead_source || "Not specified"}</p>
+                <p className="font-medium">
+                  {leadSources.find(ls => ls.id === prospect.lead_source)?.name 
+                   || prospect.lead_source 
+                   || "Not specified"}
+                </p>
               </div>
             </CardContent>
           </Card>
