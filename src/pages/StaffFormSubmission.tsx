@@ -51,6 +51,8 @@ export default function StaffFormSubmission() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [teamMemberName, setTeamMemberName] = useState<string>('');
   const [targets, setTargets] = useState<Record<string, number>>({});
+  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string }>>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Load form template, team member info, and targets
   useEffect(() => {
@@ -92,6 +94,18 @@ export default function StaffFormSubmission() {
           if (member) {
             setTeamMemberName(member.name);
           }
+        }
+
+        // Load lead sources for repeater dropdowns
+        const { data: leadSourcesData } = await supabase
+          .from('lead_sources')
+          .select('id, name')
+          .eq('agency_id', template.agency_id)
+          .eq('is_active', true)
+          .order('name');
+        
+        if (leadSourcesData) {
+          setLeadSources(leadSourcesData);
         }
 
         // Load targets from targets table
@@ -139,8 +153,39 @@ export default function StaffFormSubmission() {
     }
   }, [user, formSlug, isAuthenticated]);
 
+  // Helper function to convert string to Title Case (for prospect names)
+  const toTitleCase = (str: string): string => {
+    if (!str) return str;
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const handleInputChange = (key: string, value: any) => {
     setValues(prev => ({ ...prev, [key]: value }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => ({ ...prev, [key]: '' }));
+    }
+    
+    // Handle repeater section triggers
+    const schema = formTemplate?.schema_json;
+    if (schema?.repeaterSections) {
+      Object.entries(schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
+        if (section.enabled && section.triggerKPI === key) {
+          const cap = schema?.settings?.spawnCap ?? 25;
+          const rows = Math.max(0, Math.min(Number(value) || 0, cap));
+          setValues(v => ({ 
+            ...v, 
+            [key]: value,
+            [sectionKey]: Array.from({length: rows}).map((_,i) => v[sectionKey]?.[i] || {}) 
+          }));
+        }
+      });
+    }
   };
 
   // Parse form fields from schema
@@ -552,6 +597,166 @@ export default function StaffFormSubmission() {
                   })}
                 </div>
               )}
+
+              {/* Repeater Sections (Household Details) */}
+              {formTemplate?.schema_json?.repeaterSections && Object.entries(formTemplate.schema_json.repeaterSections).map(([sectionKey, section]: [string, any]) => {
+                if (!section.enabled || !section.triggerKPI) return null;
+                
+                const triggerValue = values[section.triggerKPI];
+                const rows: any[] = values[sectionKey] || [];
+                
+                if (!triggerValue || triggerValue <= 0 || rows.length === 0) return null;
+                
+                return (
+                  <div key={sectionKey} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">{section.title}</h3>
+                    <div className="bg-muted/30 border border-border rounded-lg p-4">
+                      {rows.map((row, i) => (
+                        <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end p-3 bg-background rounded-md mb-3 last:mb-0">
+                          <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
+                            {section.title.slice(0, -1)} #{i + 1}
+                          </div>
+                          {section.fields?.map((field: any) => (
+                            <div key={field.key} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
+                              <label className="text-xs font-medium text-muted-foreground">
+                                {field.label}{field.required && <span className="text-destructive"> *</span>}
+                              </label>
+                              {field.type === "select" ? (
+                                <div className="space-y-1">
+                                  <select
+                                    value={row[field.key] || ""}
+                                    onChange={e => {
+                                      const v = e.target.value;
+                                      setValues(prev => {
+                                        const currentArray = [...(prev[sectionKey] || [])];
+                                        const currentItem = { ...(currentArray[i] || {}) };
+                                        currentItem[field.key] = v;
+                                        currentArray[i] = currentItem;
+                                        return { ...prev, [sectionKey]: currentArray };
+                                      });
+                                      
+                                      const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                      if (fieldErrors[errorKey]) {
+                                        setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                      }
+                                    }}
+                                    className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground ${
+                                      fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                    }`}
+                                  >
+                                    <option value="">Select</option>
+                                    {field.key === 'lead_source' ? (
+                                      leadSources?.map((ls) => (
+                                        <option key={ls.id} value={ls.id}>{ls.name}</option>
+                                      ))
+                                    ) : (
+                                      (field.options || []).map((o: string) => (
+                                        <option key={o} value={o}>{o}</option>
+                                      ))
+                                    )}
+                                  </select>
+                                  {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                    <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                  )}
+                                </div>
+                              ) : field.type === "longtext" ? (
+                                <div className="space-y-1">
+                                  <textarea
+                                    value={row[field.key] || ""}
+                                    onChange={e => {
+                                      const v = e.target.value;
+                                      setValues(prev => {
+                                        const currentArray = [...(prev[sectionKey] || [])];
+                                        const currentItem = { ...(currentArray[i] || {}) };
+                                        currentItem[field.key] = v;
+                                        currentArray[i] = currentItem;
+                                        return { ...prev, [sectionKey]: currentArray };
+                                      });
+                                      
+                                      const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                      if (fieldErrors[errorKey]) {
+                                        setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                      }
+                                    }}
+                                    rows={3}
+                                    className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical ${
+                                      fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                    }`}
+                                  />
+                                  {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                    <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                  )}
+                                </div>
+                              ) : field.type === "checkbox" ? (
+                                <div className="space-y-1">
+                                  <label className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={row[field.key] === "yes" || row[field.key] === true}
+                                      onChange={e => {
+                                        const v = e.target.checked ? "yes" : "no";
+                                        setValues(prev => {
+                                          const currentArray = [...(prev[sectionKey] || [])];
+                                          const currentItem = { ...(currentArray[i] || {}) };
+                                          currentItem[field.key] = v;
+                                          currentArray[i] = currentItem;
+                                          return { ...prev, [sectionKey]: currentArray };
+                                        });
+                                      }}
+                                      className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0"
+                                    />
+                                    <span className="text-sm text-foreground">Yes</span>
+                                  </label>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <input
+                                    type={field.type === "number" ? "number" : "text"}
+                                    value={row[field.key] || ""}
+                                    onChange={e => {
+                                      const v = e.target.value;
+                                      setValues(prev => {
+                                        const currentArray = [...(prev[sectionKey] || [])];
+                                        const currentItem = { ...(currentArray[i] || {}) };
+                                        currentItem[field.key] = v;
+                                        currentArray[i] = currentItem;
+                                        return { ...prev, [sectionKey]: currentArray };
+                                      });
+                                      
+                                      const errorKey = `${sectionKey}.${i}.${field.key}`;
+                                      if (fieldErrors[errorKey]) {
+                                        setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
+                                      }
+                                    }}
+                                    onBlur={field.key === 'prospect_name' ? (e) => {
+                                      const formatted = toTitleCase(e.target.value);
+                                      if (formatted !== e.target.value) {
+                                        setValues(prev => {
+                                          const currentArray = [...(prev[sectionKey] || [])];
+                                          const currentItem = { ...(currentArray[i] || {}) };
+                                          currentItem[field.key] = formatted;
+                                          currentArray[i] = currentItem;
+                                          return { ...prev, [sectionKey]: currentArray };
+                                        });
+                                      }
+                                    } : undefined}
+                                    className={`w-full px-2 py-1 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground ${
+                                      fieldErrors[`${sectionKey}.${i}.${field.key}`] ? 'border-destructive focus:ring-destructive' : 'border-input'
+                                    }`}
+                                  />
+                                  {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                    <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Performance Summary */}
               {performanceSummary.summary.totalKPIs > 0 && (
