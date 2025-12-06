@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
+import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, EyeOff, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface FormTemplate {
   id: string;
@@ -26,9 +27,10 @@ interface FormTemplate {
 interface FormTemplateCardProps {
   form: FormTemplate;
   onDelete?: (formId: string) => Promise<void>;
+  onToggleActive?: (formId: string, isActive: boolean) => Promise<boolean>;
 }
 
-export default function FormTemplateCard({ form, onDelete }: FormTemplateCardProps) {
+export default function FormTemplateCard({ form, onDelete, onToggleActive }: FormTemplateCardProps) {
   const navigate = useNavigate();
   const { 
     createFormLink, 
@@ -100,13 +102,22 @@ export default function FormTemplateCard({ form, onDelete }: FormTemplateCardPro
     form.schema_json.repeaterSections.soldDetails?.enabled
   );
 
+  const handleToggleActive = async () => {
+    if (onToggleActive) {
+      await onToggleActive(form.id, !form.is_active);
+    }
+  };
+
   return (
-    <Card>
+    <Card className={cn(!form.is_active && "opacity-60 border-dashed")}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <CardTitle className="text-lg">{form.name}</CardTitle>
+              {!form.is_active && (
+                <Badge variant="destructive">Inactive</Badge>
+              )}
               <Badge variant={form.role === 'Sales' ? 'default' : 'secondary'}>
                 {form.role}
               </Badge>
@@ -154,6 +165,19 @@ export default function FormTemplateCard({ form, onDelete }: FormTemplateCardPro
               <DropdownMenuItem className="text-foreground">
                 <Clock className="h-4 w-4 mr-2" />
                 Set Expiration
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleToggleActive} className="text-foreground">
+                {form.is_active ? (
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Deactivate Form
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Activate Form
+                  </>
+                )}
               </DropdownMenuItem>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
