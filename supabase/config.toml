@@ -137,3 +137,9 @@ verify_jwt = false
 
 [functions.send_submission_feedback]
 verify_jwt = false
+
+[functions.send_staff_invite]
+verify_jwt = true
+
+[functions.staff_accept_invite]
+verify_jwt = false
