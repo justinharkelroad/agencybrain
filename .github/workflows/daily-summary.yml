@@ -1,0 +1,19 @@
+name: Daily Summary Email
+
+on:
+  schedule:
+    # Run at 3 PM UTC (10 AM EST)
+    - cron: '0 15 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Daily Summary
+        run: |
+          curl -X POST \
+            'https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/send_daily_summary' \
+            -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            -d '{}'
