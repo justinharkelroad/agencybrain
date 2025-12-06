@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Settings, Eye, EyeOff, Key, UserX, UserCheck, Mail } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Settings, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2 } from "lucide-react";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
@@ -88,17 +88,12 @@ export default function Agency() {
     hybridTeamAssignments: [] as string[],
   });
 
-  // Staff Login dialogs state
-  const [createLoginDialogOpen, setCreateLoginDialogOpen] = useState(false);
+  // Staff Invite dialog state
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [manageLoginDialogOpen, setManageLoginDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedStaffUser, setSelectedStaffUser] = useState<StaffUser | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginForm, setLoginForm] = useState({
-    username: "",
-    password: "",
-    email: "",
-  });
 
   // Reset password state
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -288,16 +283,10 @@ export default function Agency() {
     setSearchParams({ tab: value });
   };
 
-  // Staff Login handlers
-  const openCreateLoginModal = (member: any) => {
+  // Staff Invite handlers
+  const openInviteModal = (member: any) => {
     setSelectedMember(member);
-    setLoginForm({
-      username: "",
-      password: generateRandomPassword(),
-      email: member.email || "",
-    });
-    setShowPassword(true);
-    setCreateLoginDialogOpen(true);
+    setInviteDialogOpen(true);
   };
 
   const openManageLoginModal = (member: any, staffUser: StaffUser) => {
@@ -306,42 +295,71 @@ export default function Agency() {
     setManageLoginDialogOpen(true);
   };
 
-  const handleCreateLogin = async () => {
+  const handleSendInvite = async () => {
     try {
       if (!selectedMember || !agencyId) return;
-      if (!loginForm.username || !loginForm.password) {
-        toast.error("Username and password are required");
-        return;
-      }
-      if (loginForm.password.length < 8) {
-        toast.error("Password must be at least 8 characters");
+      
+      if (!selectedMember.email) {
+        toast.error("Team member has no email address");
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("admin_create_staff_user", {
+      setInviteLoading(true);
+
+      const { data, error } = await supabase.functions.invoke("send_staff_invite", {
         body: {
-          agency_id: agencyId,
-          username: loginForm.username,
-          password: loginForm.password,
-          display_name: selectedMember.name,
-          email: loginForm.email || null,
           team_member_id: selectedMember.id,
+          agency_id: agencyId,
         },
       });
 
       if (error) throw error;
-
-      // Copy password to clipboard
-      await copyToClipboard(loginForm.password);
-      toast.success("Staff login created! Password copied to clipboard.");
       
-      setCreateLoginDialogOpen(false);
-      setLoginForm({ username: "", password: "", email: "" });
+      if (!data?.success) {
+        toast.error(data?.error || "Failed to send invite");
+        return;
+      }
+
+      toast.success(`Invite sent to ${selectedMember.email}`);
+      setInviteDialogOpen(false);
       setSelectedMember(null);
       await refreshData(agencyId);
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message || "Failed to create staff login");
+      toast.error(e?.message || "Failed to send invite");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleResendInvite = async (member: any) => {
+    try {
+      if (!agencyId) return;
+      
+      if (!member.email) {
+        toast.error("Team member has no email address");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("send_staff_invite", {
+        body: {
+          team_member_id: member.id,
+          agency_id: agencyId,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (!data?.success) {
+        toast.error(data?.error || "Failed to resend invite");
+        return;
+      }
+
+      toast.success(`Invite resent to ${member.email}`);
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to resend invite");
     }
   };
 
@@ -608,32 +626,53 @@ export default function Agency() {
                       <TableCell>{m.status}</TableCell>
                       <TableCell>
                         {staffUser ? (
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={staffUser.is_active 
-                                ? "bg-green-500/10 text-green-500 border-green-500/20" 
-                                : "bg-muted text-muted-foreground"
-                              }
-                            >
-                              {staffUser.is_active ? "✅" : "⏸️"} {staffUser.username}
-                            </Badge>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => openManageLoginModal(m, staffUser)}
-                            >
-                              Manage
-                            </Button>
-                          </div>
+                          staffUser.is_active ? (
+                            // Active staff login
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className="bg-green-500/10 text-green-500 border-green-500/20"
+                              >
+                                ✅ {staffUser.username}
+                              </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => openManageLoginModal(m, staffUser)}
+                              >
+                                Manage
+                              </Button>
+                            </div>
+                          ) : (
+                            // Invite pending (inactive staff user)
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className="bg-amber-500/10 text-amber-600 border-amber-500/20"
+                              >
+                                <Clock className="h-3 w-3 mr-1" />
+                                Invite Pending
+                              </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleResendInvite(m)}
+                              >
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Resend
+                              </Button>
+                            </div>
+                          )
                         ) : (
+                          // No staff user - show invite button
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => openCreateLoginModal(m)}
+                            onClick={() => openInviteModal(m)}
+                            disabled={!m.email}
                           >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Create Login
+                            <Send className="h-3 w-3 mr-1" />
+                            Invite
                           </Button>
                         )}
                       </TableCell>
@@ -680,71 +719,39 @@ export default function Agency() {
       </TabsContent>
     </Tabs>
 
-    {/* Create Login Dialog */}
-    <Dialog open={createLoginDialogOpen} onOpenChange={setCreateLoginDialogOpen}>
+    {/* Invite Staff Dialog */}
+    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
       <DialogContent className="glass-surface">
         <DialogHeader>
-          <DialogTitle>Create Staff Login</DialogTitle>
+          <DialogTitle>Invite {selectedMember?.name} to Agency Brain</DialogTitle>
           <DialogDescription>
-            Create login credentials for {selectedMember?.name}
+            Send an email invitation to set up their staff portal access.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right">Username</Label>
-            <Input 
-              value={loginForm.username} 
-              onChange={(e) => setLoginForm(f => ({ ...f, username: e.target.value }))} 
-              className="col-span-3"
-              placeholder="e.g., jharkelroad"
-            />
+        <div className="py-4 space-y-4">
+          <div className="bg-muted/50 p-4 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">An email will be sent to:</p>
+            <p className="font-medium">{selectedMember?.email}</p>
           </div>
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right">Password</Label>
-            <div className="col-span-3 flex gap-2">
-              <div className="relative flex-1">
-                <Input 
-                  type={showPassword ? "text" : "password"}
-                  value={loginForm.password} 
-                  onChange={(e) => setLoginForm(f => ({ ...f, password: e.target.value }))} 
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  const pwd = generateRandomPassword();
-                  setLoginForm(f => ({ ...f, password: pwd }));
-                  copyToClipboard(pwd);
-                }}
-              >
-                Generate
-              </Button>
-            </div>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right">Email</Label>
-            <Input 
-              type="email"
-              value={loginForm.email} 
-              onChange={(e) => setLoginForm(f => ({ ...f, email: e.target.value }))} 
-              className="col-span-3"
-              placeholder={selectedMember?.email || "For password resets"}
-            />
-          </div>
+          <p className="text-sm text-muted-foreground">
+            They'll receive a link to set their password and access the staff portal. The invite expires in 7 days.
+          </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setCreateLoginDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateLogin}>Create Login</Button>
+          <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSendInvite} disabled={inviteLoading}>
+            {inviteLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Send Invite
+              </>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

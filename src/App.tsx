@@ -66,6 +66,7 @@ import TestTrainingHooks from "./pages/TestTrainingHooks";
 import StaffLogin from "./pages/StaffLogin";
 import StaffForgotPassword from "./pages/staff/ForgotPassword";
 import StaffResetPassword from "./pages/staff/ResetPassword";
+import StaffAcceptInvite from "./pages/staff/AcceptInvite";
 import StaffTraining from "./pages/StaffTraining";
 import StaffFormSubmission from "./pages/StaffFormSubmission";
 import StaffScorecard from "./pages/staff/StaffScorecard";
@@ -503,6 +504,7 @@ const App = () => (
             <Route path="/staff/login" element={<StaffLogin />} />
             <Route path="/staff/forgot-password" element={<StaffForgotPassword />} />
             <Route path="/staff/reset-password" element={<StaffResetPassword />} />
+            <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
             <Route path="/staff/training" element={
               <StaffProtectedRoute>
                 <StaffTraining />
