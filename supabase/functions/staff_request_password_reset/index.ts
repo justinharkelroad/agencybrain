@@ -73,6 +73,23 @@ Deno.serve(async (req) => {
 
     const resetUrl = `https://preview--agencybrain.lovable.app/staff/reset-password?token=${token}`;
     
+    // Import shared email template
+    const { BRAND, buildEmailHtml, EmailComponents } = await import('../_shared/email-template.ts');
+
+    const bodyContent = `
+      ${EmailComponents.paragraph(`Hi ${staffUser.display_name || staffUser.username},`)}
+      ${EmailComponents.paragraph('You requested a password reset for your training portal account.')}
+      ${EmailComponents.button('Reset Password', resetUrl)}
+      ${EmailComponents.paragraph(`Or copy and paste this link into your browser:`)}
+      <p style="color: #666; word-break: break-all; font-size: 12px;">${resetUrl}</p>
+      ${EmailComponents.infoText("This link expires in 1 hour. If you didn't request this, you can safely ignore this email.")}
+    `;
+
+    const emailHtml = buildEmailHtml({
+      title: '🔐 Password Reset Request',
+      bodyContent,
+    });
+
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -80,7 +97,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
+        from: BRAND.fromEmail,
         to: [email],
         subject: 'Reset Your Password - Agency Brain Training Portal',
         text: `Hi ${staffUser.display_name || staffUser.username},
@@ -95,24 +112,7 @@ This link expires in 1 hour.
 If you didn't request this, you can safely ignore this email.
 
 — Agency Brain`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Reset Your Password</h2>
-            <p>Hi ${staffUser.display_name || staffUser.username},</p>
-            <p>You requested a password reset for your training portal account.</p>
-            <p>
-              <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 6px;">
-                Reset Password
-              </a>
-            </p>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="color: #666; word-break: break-all;">${resetUrl}</p>
-            <p style="color: #666; font-size: 14px;">This link expires in 1 hour.</p>
-            <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-            <p style="color: #999; font-size: 12px;">— Agency Brain</p>
-          </div>
-        `
+        html: emailHtml,
       })
     });
 
