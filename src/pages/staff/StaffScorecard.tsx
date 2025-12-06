@@ -20,36 +20,24 @@ export default function StaffScorecard() {
   const { user, isAuthenticated, loading: authLoading } = useStaffAuth();
   
   const [forms, setForms] = useState<FormTemplate[]>([]);
-  const [teamMemberRole, setTeamMemberRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use role from session (fetched via edge function, not direct DB query)
+  const teamMemberRole = user?.role || null;
+
   useEffect(() => {
     async function loadFormsForUser() {
-      if (!user?.agency_id || !user?.team_member_id) return;
+      if (!user?.agency_id || !user?.team_member_id || !user?.role) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        // Get team member's role
-        const { data: teamMember, error: tmError } = await supabase
-          .from('team_members')
-          .select('role')
-          .eq('id', user.team_member_id)
-          .single();
-
-        if (tmError || !teamMember) {
-          setError('Could not determine your role. Contact your administrator.');
-          return;
-        }
-
-        setTeamMemberRole(teamMember.role);
-
         // Get forms matching agency + role (or Hybrid which can use any)
-        const roles = teamMember.role === 'Hybrid' 
+        const roles = user.role === 'Hybrid' 
           ? ['Sales', 'Service', 'Hybrid']
-          : [teamMember.role, 'Hybrid'];
+          : [user.role, 'Hybrid'];
 
         const { data: formTemplates, error: formsError } = await supabase
           .from('form_templates')

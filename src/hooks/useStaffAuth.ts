@@ -7,6 +7,8 @@ interface StaffUser {
   display_name: string;
   agency_id: string;
   team_member_id: string | null;
+  role: string | null;
+  team_member_name: string | null;
 }
 
 interface StaffAuthState {
