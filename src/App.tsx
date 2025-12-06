@@ -395,6 +395,14 @@ const App = () => (
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            {/* Agency Owner Training Route */}
+            <Route path="/agency/training" element={
+              <ProtectedRoute requireAgencyOwner>
+                <SidebarLayout>
+                  <AdminTraining />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             {/* Redirect old training routes to new tabbed interface */}
             <Route path="/admin/staff-users" element={<Navigate to="/admin/training?tab=staff" replace />} />
             <Route path="/admin/training-assignments" element={<Navigate to="/admin/training?tab=assignments" replace />} />
