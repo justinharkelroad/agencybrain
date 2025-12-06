@@ -40,7 +40,7 @@ export default function Settings() {
     saturday: false,
     sunday: false
   });
-  const [backfillDays, setBackfillDays] = useState(7);
+  // backfillDays kept in database but hidden from UI - not connected to any functionality yet
   const [countWeekendIfSubmitted, setCountWeekendIfSubmitted] = useState(true);
   const [ringMetrics, setRingMetrics] = useState<string[]>([]);
 
@@ -115,7 +115,7 @@ export default function Settings() {
           saturday: false,
           sunday: false
         });
-        setBackfillDays(rules.backfill_days || 7);
+        // backfillDays not loaded - hidden from UI
         setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
         setRingMetrics(rules.ring_metrics || []);
       }
@@ -182,7 +182,6 @@ export default function Settings() {
           n_required: nRequired,
           weights,
           counted_days: countedDays,
-          backfill_days: backfillDays,
           count_weekend_if_submitted: countWeekendIfSubmitted,
           ring_metrics: ringMetrics
         }, { 
@@ -407,23 +406,6 @@ export default function Settings() {
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Backfill Days */}
-                <div>
-                  <Label htmlFor="backfill-days" className="text-base font-medium">Backfill Window (Days)</Label>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    When recalculating metrics, how many days back should be processed?
-                  </p>
-                  <Input
-                    id="backfill-days" 
-                    type="number"
-                    min={1}
-                    max={30}
-                    value={backfillDays}
-                    onChange={e => setBackfillDays(Number(e.target.value) || 7)}
-                    className="w-20"
-                  />
                 </div>
 
                 {/* KPI Targets Management */}
