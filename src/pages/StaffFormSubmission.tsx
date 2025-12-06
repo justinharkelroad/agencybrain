@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, User, XCircle, Target } from 'lucide-react';
+import { mergeStickyFieldsIntoSchema } from '@/utils/mergeStickyFields';
 
 interface FormField {
   key: string;
@@ -79,6 +80,11 @@ export default function StaffFormSubmission() {
         if (template.status !== 'published') {
           setError('This form is not currently available');
           return;
+        }
+
+        // Merge sticky fields into schema at runtime
+        if (template.schema_json) {
+          template.schema_json = await mergeStickyFieldsIntoSchema(template.schema_json);
         }
 
         setFormTemplate(template);
