@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Target } from "lucide-react";
+import { mergeStickyFieldsIntoSchema } from "@/utils/mergeStickyFields";
 
 // Helper function to get current local date in YYYY-MM-DD format
 const getCurrentLocalDate = (): string => {
@@ -101,6 +102,11 @@ export default function PublicFormSubmission() {
         const form = data.form;
         if (!form.schema && form.schema_json) form.schema = form.schema_json;
         if (!form.settings) form.settings = form.schema?.settings ?? form.settings_json ?? {};
+        
+        // Merge sticky fields into schema at runtime
+        if (form.schema) {
+          form.schema = await mergeStickyFieldsIntoSchema(form.schema);
+        }
         
         setForm(form);
         // seed defaults - both submission_date and work_date default to today (submission_date will be locked)
