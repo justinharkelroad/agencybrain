@@ -53,10 +53,27 @@ Deno.serve(async (req) => {
     // Return user data (without password hash)
     const { password_hash, ...userData } = session.staff_users as any;
 
+    // If staff user is linked to a team member, fetch the role
+    let role: string | null = null;
+    let team_member_name: string | null = null;
+    
+    if (userData.team_member_id) {
+      const { data: teamMember } = await supabase
+        .from('team_members')
+        .select('name, role')
+        .eq('id', userData.team_member_id)
+        .single();
+      
+      if (teamMember) {
+        role = teamMember.role;
+        team_member_name = teamMember.name;
+      }
+    }
+
     return new Response(
       JSON.stringify({
         valid: true,
-        user: userData,
+        user: { ...userData, role, team_member_name },
         expires_at: session.expires_at
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
