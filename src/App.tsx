@@ -69,8 +69,8 @@ import StaffResetPassword from "./pages/staff/ResetPassword";
 import StaffAcceptInvite from "./pages/staff/AcceptInvite";
 import StaffTraining from "./pages/StaffTraining";
 import StaffFormSubmission from "./pages/StaffFormSubmission";
-import StaffScorecard from "./pages/staff/StaffScorecard";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
+import { StaffLayout, StaffDashboard, StaffAccountSettings, StaffSubmitWrapper } from "./components/staff";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 // Lazy load Life Targets pages for better performance
@@ -513,21 +513,20 @@ const App = () => (
             <Route path="/staff/forgot-password" element={<StaffForgotPassword />} />
             <Route path="/staff/reset-password" element={<StaffResetPassword />} />
             <Route path="/staff/accept-invite" element={<StaffAcceptInvite />} />
-            <Route path="/staff/training" element={
+            
+            {/* Protected Staff Routes with Sidebar Layout */}
+            <Route path="/staff" element={
               <StaffProtectedRoute>
-                <StaffTraining />
+                <StaffLayout />
               </StaffProtectedRoute>
-            } />
-            <Route path="/staff/scorecard" element={
-              <StaffProtectedRoute>
-                <StaffScorecard />
-              </StaffProtectedRoute>
-            } />
-            <Route path="/staff/submit/:formSlug" element={
-              <StaffProtectedRoute>
-                <StaffFormSubmission />
-              </StaffProtectedRoute>
-            } />
+            }>
+              <Route index element={<Navigate to="/staff/dashboard" replace />} />
+              <Route path="dashboard" element={<StaffDashboard />} />
+              <Route path="submit" element={<StaffSubmitWrapper />} />
+              <Route path="submit/:formSlug" element={<StaffFormSubmission />} />
+              <Route path="training" element={<StaffTraining />} />
+              <Route path="account" element={<StaffAccountSettings />} />
+            </Route>
             
             {/* Regular User Password Reset */}
             <Route path="/forgot-password" element={<ForgotPassword />} />
