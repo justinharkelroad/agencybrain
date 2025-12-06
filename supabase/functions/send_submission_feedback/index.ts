@@ -301,71 +301,26 @@ Provide your coaching feedback based on these results.`;
       );
     }
 
-    // 10. Build HTML email
+    // 10. Build HTML email using shared template
     const passedCount = performanceData.filter(p => p.passed).length;
     const totalCount = performanceData.length;
     const passRate = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
 
-    const statsHtml = performanceData
-      .map(p => {
-        const icon = p.passed ? '✅' : '❌';
-        const color = p.passed ? '#22c55e' : '#ef4444';
-        return `<tr>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${p.metric}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${p.actual}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${p.target}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${color};">${icon} ${p.percentage}%</td>
-        </tr>`;
-      })
-      .join('');
+    // Import shared email template
+    const { BRAND, buildEmailHtml, EmailComponents } = await import('../_shared/email-template.ts');
 
-    // AI feedback section (only if we have feedback)
-    const aiFeedbackHtml = aiFeedback 
-      ? `<div style="background: #fefce8; padding: 16px; border-radius: 8px; border-left: 4px solid #eab308; margin-top: 16px;">
-          <strong>🧠 Agency Brain Coaching:</strong>
-          <div style="margin-top: 8px; white-space: pre-line;">${aiFeedback}</div>
-        </div>`
-      : '';
+    const bodyContent = `
+      ${EmailComponents.summaryBox(`Summary: ${passedCount} of ${totalCount} targets met (${passRate}%)`)}
+      ${EmailComponents.statsTable(performanceData)}
+      ${EmailComponents.aiFeedback(aiFeedback)}
+    `;
 
-    const emailHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; margin: 0; padding: 0;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-      <h1 style="margin: 0; font-size: 24px;">📊 Daily Performance Report</h1>
-      <p style="margin: 8px 0 0 0; opacity: 0.9;">${teamMember?.name || 'Team Member'} • ${formTemplate.role || 'Sales'} • ${submission.work_date || submission.submission_date}</p>
-    </div>
-    <div style="background: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-      <div style="background: #f0f9ff; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-        <strong>Summary:</strong> ${passedCount} of ${totalCount} targets met (${passRate}%)
-      </div>
-      
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr>
-            <th style="background: #f3f4f6; padding: 10px; text-align: left; font-weight: 600;">Metric</th>
-            <th style="background: #f3f4f6; padding: 10px; text-align: center; font-weight: 600;">Actual</th>
-            <th style="background: #f3f4f6; padding: 10px; text-align: center; font-weight: 600;">Target</th>
-            <th style="background: #f3f4f6; padding: 10px; text-align: center; font-weight: 600;">Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${statsHtml}
-        </tbody>
-      </table>
-
-      ${aiFeedbackHtml}
-    </div>
-    <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px;">
-      Powered by Agency Brain • ${agency?.name || 'Your Agency'}
-    </div>
-  </div>
-</body>
-</html>`;
+    const emailHtml = buildEmailHtml({
+      title: '📊 Daily Performance Report',
+      subtitle: `${teamMember?.name || 'Team Member'} • ${formTemplate.role || 'Sales'} • ${submission.work_date || submission.submission_date}`,
+      bodyContent,
+      footerAgencyName: agency?.name,
+    });
 
     // 11. Send email via Resend
     logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length });
@@ -377,7 +332,7 @@ Provide your coaching feedback based on these results.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
+        from: BRAND.fromEmail,
         to: recipients,
         subject: `📊 Daily Report: ${passedCount}/${totalCount} targets met - ${teamMember?.name || 'Team Member'}`,
         html: emailHtml,
