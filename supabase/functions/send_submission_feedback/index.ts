@@ -134,10 +134,25 @@ Deno.serve(async (req) => {
       .eq('id', submission.team_member_id)
       .single();
 
+    // Check if there's a linked staff user with their own email (prioritize over team_members)
+    let submitterEmail = teamMember?.email;
+    const { data: staffUser } = await supabase
+      .from('staff_users')
+      .select('email')
+      .eq('team_member_id', submission.team_member_id)
+      .single();
+
+    // Prefer staff_users email if exists and not placeholder
+    if (staffUser?.email && !staffUser.email.includes('@staff.placeholder')) {
+      submitterEmail = staffUser.email;
+    }
+
     logStructured('info', 'team_member_loaded', { 
       request_id: requestId, 
       name: teamMember?.name,
-      has_email: !!teamMember?.email
+      team_member_email: teamMember?.email,
+      staff_user_email: staffUser?.email,
+      submitter_email_used: submitterEmail
     });
 
     // 5. Get targets for this agency
@@ -250,9 +265,9 @@ Provide your coaching feedback based on these results.`;
     // 9. Build recipient list
     const recipients: string[] = [];
     
-    // Submitter email (skip placeholder emails)
-    if (teamMember?.email && !teamMember.email.includes('@staff.placeholder')) {
-      recipients.push(teamMember.email);
+    // Submitter email (use staff_users email if available, else team_members email)
+    if (submitterEmail && !submitterEmail.includes('@staff.placeholder')) {
+      recipients.push(submitterEmail);
     }
 
     // Agency owner email (from agencies.agency_email)
