@@ -40,17 +40,22 @@ const mainItems = [
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
 ];
 
-const adminItems = [
+// Admin-only items (system-wide admin access)
+const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
-  { title: "Training System", url: "/admin/training", icon: GraduationCap },
+];
+
+// Items accessible by agency owners AND admins
+const agencyOwnerItems = [
+  { title: "Training System", url: "/agency/training", icon: GraduationCap },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
-  const { signOut, isAdmin, user } = useAuth();
+  const { signOut, isAdmin, isAgencyOwner } = useAuth();
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
 
@@ -105,13 +110,39 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {/* Admin Navigation */}
-          {(isAdmin || user?.email === 'justin@hfiagencies.com') && (
+          {/* Agency Owner Navigation - Training System */}
+          {(isAdmin || isAgencyOwner) && (
+            <SidebarGroup>
+              {sidebarOpen && <SidebarGroupLabel>Management</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {agencyOwnerItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.url);
+                    
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={active}>
+                          <Link to={item.url} className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" />
+                            {sidebarOpen && <span>{item.title}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {/* Admin-Only Navigation */}
+          {isAdmin && (
             <SidebarGroup>
               {sidebarOpen && <SidebarGroupLabel>Admin</SidebarGroupLabel>}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {adminItems.map((item) => {
+                  {adminOnlyItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.url);
                     

@@ -12,6 +12,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  isAgencyOwner: boolean;
   membershipTier: string | null;
   hasTierAccess: (feature: string) => boolean;
 }
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [adminLoading, setAdminLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAgencyOwner, setIsAgencyOwner] = useState(false);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -53,18 +55,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('membership_tier')
+        .select('membership_tier, agency_id')
         .eq('id', userId)
         .maybeSingle();
         
       if (!error && data) {
         setMembershipTier(data.membership_tier);
+        // User is an agency owner if they have an agency_id
+        setIsAgencyOwner(!!data.agency_id);
       } else {
         setMembershipTier(null);
+        setIsAgencyOwner(false);
       }
     } catch (error) {
       console.error('Error checking membership tier:', error);
       setMembershipTier(null);
+      setIsAgencyOwner(false);
     }
   }, []);
 
@@ -92,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAdmin(false);
           setAdminLoading(false);
           setMembershipTier(null);
+          setIsAgencyOwner(false);
         }
       }
     );
@@ -176,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     isAdmin,
+    isAgencyOwner,
     membershipTier,
     hasTierAccess,
   };
