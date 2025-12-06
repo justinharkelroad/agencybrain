@@ -130,6 +130,7 @@ export function useTrainingLessons(moduleId?: string) {
     isLoading,
     error,
     createLesson: createLesson.mutate,
+    createLessonAsync: createLesson.mutateAsync,
     updateLesson: updateLesson.mutate,
     deleteLesson: deleteLesson.mutate,
     isCreating: createLesson.isPending,

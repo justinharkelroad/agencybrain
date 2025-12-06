@@ -53,6 +53,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   // Lesson state
   const [lessonDialog, setLessonDialog] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [lessonTab, setLessonTab] = useState('basic');
   const [lessonForm, setLessonForm] = useState({
     name: '',
     video_platform: 'youtube',
@@ -79,7 +80,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   // Hooks
   const { categories, createCategory, updateCategory, deleteCategory, isCreating: isCreatingCategory, isUpdating: isUpdatingCategory } = useTrainingCategories(agencyId);
   const { modules, createModule, updateModule, deleteModule, isCreating: isCreatingModule, isUpdating: isUpdatingModule } = useTrainingModules(selectedCategoryId || undefined);
-  const { lessons, createLesson, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
+  const { lessons, createLesson, createLessonAsync, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
   const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId);
   const { quizzes, createQuizWithQuestions, deleteQuiz, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId);
 
@@ -250,7 +251,38 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         is_active: true,
       });
     }
+    setLessonTab('basic');
     setLessonDialog(true);
+  };
+
+  // Tab change handler for lesson dialog - auto-saves when switching to attachments/quiz
+  const handleLessonTabChange = async (tab: string) => {
+    if ((tab === 'attachments' || tab === 'quiz') && !editingLesson) {
+      if (!lessonForm.name.trim()) {
+        toast.error('Please enter a lesson name first');
+        return;
+      }
+      
+      try {
+        const savedLesson = await createLessonAsync({
+          name: lessonForm.name,
+          description: lessonForm.description || null,
+          video_url: lessonForm.video_url || null,
+          video_platform: lessonForm.video_platform || 'youtube',
+          content_html: lessonForm.content_html || null,
+          sort_order: lessons?.length || 0,
+          is_active: lessonForm.is_active,
+          agency_id: agencyId,
+          module_id: selectedModuleId!,
+        });
+        setEditingLesson(savedLesson);
+        toast.success('Lesson saved! You can now add attachments and quizzes.');
+      } catch (error) {
+        toast.error('Failed to save lesson');
+        return;
+      }
+    }
+    setLessonTab(tab);
   };
 
   // Delete handler
@@ -711,13 +743,13 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
       <Dialog open={lessonDialog} onOpenChange={setLessonDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingLesson ? 'Edit Lesson' : 'New Lesson'}</DialogTitle>
+            <DialogTitle>{editingLesson ? `Edit Lesson: ${editingLesson.name}` : 'New Lesson'}</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="basic" className="w-full">
+          <Tabs value={lessonTab} onValueChange={handleLessonTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="attachments" disabled={!editingLesson}>Attachments</TabsTrigger>
-              <TabsTrigger value="quiz" disabled={!editingLesson}>Quiz</TabsTrigger>
+              <TabsTrigger value="attachments">Attachments</TabsTrigger>
+              <TabsTrigger value="quiz">Quiz</TabsTrigger>
             </TabsList>
             <TabsContent value="basic" className="space-y-4 mt-4">
               <div>
