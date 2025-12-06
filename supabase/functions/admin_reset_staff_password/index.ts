@@ -71,9 +71,13 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'admin') {
+    // Allow super-admins OR agency owners
+    const isSuperAdmin = profile?.role === 'admin';
+    const isAgencyOwner = !!profile?.agency_id;
+
+    if (!profile || (!isSuperAdmin && !isAgencyOwner)) {
       return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
+        JSON.stringify({ error: 'Admin or Agency Owner access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -110,7 +114,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (staffUser.agency_id !== profile.agency_id) {
+    // Super-admins can reset any staff, agency owners only their own
+    if (!isSuperAdmin && staffUser.agency_id !== profile.agency_id) {
       return new Response(
         JSON.stringify({ error: 'Access denied to this staff user' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
