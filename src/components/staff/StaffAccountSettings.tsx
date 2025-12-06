@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+// Avatar import removed temporarily to fix 504 timeout
 import { toast } from 'sonner';
 import { Loader2, Upload, Save, Lock } from 'lucide-react';
 
@@ -146,10 +146,13 @@ export function StaffAccountSettings() {
           <div className="space-y-2">
             <Label>Profile Photo</Label>
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={photoUrl} />
-                <AvatarFallback className="text-lg">{initials}</AvatarFallback>
-              </Avatar>
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-lg font-medium overflow-hidden">
+                {photoUrl ? (
+                  <img src={photoUrl} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
               <div className="flex-1">
                 <Input
                   placeholder="Photo URL"
