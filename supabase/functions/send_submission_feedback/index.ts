@@ -166,7 +166,8 @@ Deno.serve(async (req) => {
     }> = [];
 
     for (const kpi of kpis) {
-      const actual = Number(payload[kpi.key]) || 0;
+      // Try selectedKpiSlug first (matches payload keys like "outbound_calls"), then fall back to full key
+      const actual = Number(payload[kpi.selectedKpiSlug]) || Number(payload[kpi.key]) || 0;
       // Priority: kpi.target.goal → targets table by selectedKpiSlug → targets table by key
       const target = kpi.target?.goal || targetsMap[kpi.selectedKpiSlug] || targetsMap[kpi.key] || 0;
       const percentage = target > 0 ? Math.round((actual / target) * 100) : 100;
