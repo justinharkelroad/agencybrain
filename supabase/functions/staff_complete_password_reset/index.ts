@@ -34,7 +34,7 @@ async function hashPassword(password: string): Promise<string> {
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
   
-  return `${saltHex}:${hashHex}`;
+  return `pbkdf2_sha256$100000$${saltHex}$${hashHex}`;
 }
 
 Deno.serve(async (req) => {
