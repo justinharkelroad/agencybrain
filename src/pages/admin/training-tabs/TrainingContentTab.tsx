@@ -840,7 +840,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                             <TableRow key={att.id}>
                               <TableCell className="flex items-center gap-2">
                                 <FileIcon className="h-4 w-4" />
-                                {att.file_name}
+                                {att.name}
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
