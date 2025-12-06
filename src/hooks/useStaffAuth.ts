@@ -9,6 +9,8 @@ interface StaffUser {
   team_member_id: string | null;
   role: string | null;
   team_member_name: string | null;
+  email: string | null;
+  profile_photo_url: string | null;
 }
 
 interface StaffAuthState {

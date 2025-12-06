@@ -345,21 +345,14 @@ export default function StaffFormSubmission() {
   // Not linked to team member
   if (!user?.team_member_id) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Training
-          </Button>
-          
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Account Not Linked</AlertTitle>
-            <AlertDescription>
-              Your staff account is not linked to a team member. Please contact your administrator to set up your account before submitting forms.
-            </AlertDescription>
-          </Alert>
-        </div>
+      <div className="p-6 max-w-2xl mx-auto">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Account Not Linked</AlertTitle>
+          <AlertDescription>
+            Your staff account is not linked to a team member. Please contact your administrator to set up your account before submitting forms.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -367,7 +360,7 @@ export default function StaffFormSubmission() {
   // Loading form
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-[50vh] flex items-center justify-center">
         <LoadingSpinner />
       </div>
     );
@@ -376,19 +369,12 @@ export default function StaffFormSubmission() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Training
-          </Button>
-          
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </div>
+      <div className="p-6 max-w-2xl mx-auto">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -396,54 +382,43 @@ export default function StaffFormSubmission() {
   // Success state
   if (submitted) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                <h2 className="text-2xl font-bold">Submission Successful!</h2>
-                <p className="text-muted-foreground">
-                  Your daily metrics have been recorded.
-                </p>
-                {/* Show performance summary in success state */}
-                {performanceSummary.summary.totalKPIs > 0 && (
-                  <div className="bg-muted/50 rounded-lg p-4 mt-4">
-                    <p className="text-lg font-semibold">
-                      {performanceSummary.summary.passedKPIs}/{performanceSummary.summary.totalKPIs} targets met ({performanceSummary.summary.passRate}%)
-                    </p>
-                  </div>
-                )}
-                <div className="flex gap-4 justify-center pt-4">
-                  <Button variant="outline" onClick={() => navigate('/staff/training')}>
-                    Back to Training
-                  </Button>
-                  <Button onClick={() => {
-                    setSubmitted(false);
-                    setValues({
-                      submission_date: format(new Date(), 'yyyy-MM-dd'),
-                      work_date: format(new Date(), 'yyyy-MM-dd'),
-                    });
-                  }}>
-                    Submit Another
-                  </Button>
+      <div className="p-6 max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+              <h2 className="text-2xl font-bold">Submission Successful!</h2>
+              <p className="text-muted-foreground">
+                Your daily metrics have been recorded.
+              </p>
+              {performanceSummary.summary.totalKPIs > 0 && (
+                <div className="bg-muted/50 rounded-lg p-4 mt-4">
+                  <p className="text-lg font-semibold">
+                    {performanceSummary.summary.passedKPIs}/{performanceSummary.summary.totalKPIs} targets met ({performanceSummary.summary.passRate}%)
+                  </p>
                 </div>
+              )}
+              <div className="flex gap-4 justify-center pt-4">
+                <Button onClick={() => {
+                  setSubmitted(false);
+                  setValues({
+                    submission_date: format(new Date(), 'yyyy-MM-dd'),
+                    work_date: format(new Date(), 'yyyy-MM-dd'),
+                  });
+                }}>
+                  Submit Another
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   // Render form
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-2">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Training
-        </Button>
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
 
         {/* Identity Card - Shows who is submitting (no dropdown!) */}
         <Card className="bg-muted/50 border-primary/20">

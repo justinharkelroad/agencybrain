@@ -121,46 +121,29 @@ export default function StaffTraining() {
   // Handle no assignments state
   if (contentData?.no_assignments) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold">Training Portal</h1>
-                <p className="text-sm text-muted-foreground">Welcome, {user?.display_name}</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
+      <div className="p-6">
+        {/* Daily Scorecard Card - always show */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Daily Scorecard</CardTitle>
+            <CardDescription>Submit your daily metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full sm:w-auto">
+              <Link to="/staff/submit">
+                <Send className="h-4 w-4 mr-2" />
+                Submit Today's Numbers
+              </Link>
             </Button>
-          </div>
-        </header>
-        <div className="container mx-auto px-4 py-8">
-          {/* Daily Scorecard Card - always show */}
-          <Card className="mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Daily Scorecard</CardTitle>
-              <CardDescription>Submit your daily metrics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full sm:w-auto">
-                <Link to="/staff/scorecard">
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit Today's Numbers
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          <div className="flex flex-col items-center justify-center text-center py-12">
-            <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">No training assigned yet</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Your administrator will assign training modules to you.
-            </p>
-          </div>
+        <div className="flex flex-col items-center justify-center text-center py-12">
+          <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">No training assigned yet</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Your administrator will assign training modules to you.
+          </p>
         </div>
       </div>
     );
@@ -214,54 +197,34 @@ export default function StaffTraining() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold">Training Portal</h1>
-              <p className="text-sm text-muted-foreground">Welcome, {user?.display_name}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium">Progress</p>
-              <p className="text-xs text-muted-foreground">
-                {completedLessons} / {totalLessons} lessons
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+    <div className="p-6">
+      {/* Daily Scorecard Card */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Daily Scorecard</CardTitle>
+          <CardDescription>Submit your daily metrics</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full sm:w-auto">
+            <Link to="/staff/submit">
+              <Send className="h-4 w-4 mr-2" />
+              Submit Today's Numbers
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Progress Summary */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="text-sm">
+          <span className="font-medium">Progress:</span>{' '}
+          <span className="text-muted-foreground">{completedLessons} / {totalLessons} lessons</span>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Daily Scorecard Card */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Daily Scorecard</CardTitle>
-            <CardDescription>Submit your daily metrics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full sm:w-auto">
-              <Link to="/staff/scorecard">
-                <Send className="h-4 w-4 mr-2" />
-                Submit Today's Numbers
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Training Content List */}
-          <div className="md:col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Training Content List */}
+        <div className="md:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle>Training Modules</CardTitle>

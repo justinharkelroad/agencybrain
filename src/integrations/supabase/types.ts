@@ -2678,6 +2678,7 @@ export type Database = {
           is_active: boolean | null
           last_login_at: string | null
           password_hash: string
+          profile_photo_url: string | null
           team_member_id: string | null
           updated_at: string
           username: string
@@ -2691,6 +2692,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           password_hash: string
+          profile_photo_url?: string | null
           team_member_id?: string | null
           updated_at?: string
           username: string
@@ -2704,6 +2706,7 @@ export type Database = {
           is_active?: boolean | null
           last_login_at?: string | null
           password_hash?: string
+          profile_photo_url?: string | null
           team_member_id?: string | null
           updated_at?: string
           username?: string

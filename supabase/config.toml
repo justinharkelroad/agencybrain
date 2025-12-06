@@ -152,3 +152,9 @@ verify_jwt = false
 
 [functions.send_daily_summary]
 verify_jwt = false
+
+[functions.update_staff_profile]
+verify_jwt = false
+
+[functions.staff_change_password]
+verify_jwt = false
