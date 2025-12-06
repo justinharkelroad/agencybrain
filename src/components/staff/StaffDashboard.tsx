@@ -94,9 +94,8 @@ function CompactRing({
 export function StaffDashboard() {
   const { user } = useStaffAuth();
   const [loading, setLoading] = useState(true);
-  const [submission, setSubmission] = useState<SubmissionData | null>(null);
+  const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
-  const [targets, setTargets] = useState<Record<string, number>>({});
   
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
@@ -112,27 +111,7 @@ export function StaffDashboard() {
       }
 
       try {
-        // Load yesterday's submission
-        const { data: submissionData, error: subError } = await supabase
-          .from('submissions')
-          .select(`
-            id,
-            payload_json,
-            form_template:form_templates (
-              name,
-              schema_json
-            )
-          `)
-          .eq('team_member_id', user.team_member_id)
-          .eq('work_date', previousBusinessDayStr)
-          .eq('final', true)
-          .maybeSingle();
-
-        if (subError) {
-          console.error('Error loading submission:', subError);
-        }
-
-        // Load targets
+        // Load targets first
         const { data: targetRows } = await supabase
           .from('targets')
           .select('metric_key, value_number, team_member_id')
@@ -153,44 +132,67 @@ export function StaffDashboard() {
             }
           });
         }
-        setTargets(targetsMap);
 
-        if (submissionData) {
-          // Handle the nested form_template properly
-          const formTemplate = Array.isArray(submissionData.form_template) 
-            ? submissionData.form_template[0] 
-            : submissionData.form_template;
-          
-          setSubmission({
-            ...submissionData,
-            form_template: formTemplate
-          });
+        // Load form template for user's role to get KPIs even without submission
+        const { data: formTemplate } = await supabase
+          .from('form_templates')
+          .select('schema_json')
+          .eq('agency_id', user.agency_id)
+          .eq('role', user.role || 'Sales')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
 
-          // Extract KPI data from submission
-          const schema = formTemplate?.schema_json;
-          const kpis = schema?.kpis || [];
-          const payload = submissionData.payload_json || {};
+        // Load yesterday's submission
+        const { data: submissionData, error: subError } = await supabase
+          .from('submissions')
+          .select(`
+            id,
+            payload_json,
+            form_template:form_templates (
+              name,
+              schema_json
+            )
+          `)
+          .eq('team_member_id', user.team_member_id)
+          .eq('work_date', previousBusinessDayStr)
+          .eq('final', true)
+          .maybeSingle();
 
-          const kpiResults: KPIData[] = kpis.map((kpi: any) => {
-            const actual = Number(payload[kpi.key]) || 0;
-            const target = kpi.target?.goal ?? targetsMap[kpi.selectedKpiSlug] ?? targetsMap[kpi.key] ?? 0;
-            const progress = target > 0 ? Math.min(actual / target, 1) : 0;
-            
-            return {
-              key: kpi.key,
-              label: kpi.label,
-              actual,
-              target,
-              passed: target > 0 ? actual >= target : false,
-              progress
-            };
-          });
-
-          setKpiData(kpiResults.filter(k => k.target > 0)); // Only show KPIs with targets
-        } else {
-          setSubmission(null);
-          setKpiData([]);
+        if (subError) {
+          console.error('Error loading submission:', subError);
         }
+
+        const hasData = !!submissionData;
+        setHasSubmission(hasData);
+
+        // Use submission schema or fallback to form template schema
+        const schema = hasData 
+          ? (Array.isArray(submissionData.form_template) 
+              ? submissionData.form_template[0]?.schema_json 
+              : submissionData.form_template?.schema_json)
+          : formTemplate?.schema_json;
+
+        const kpis = schema?.kpis || [];
+        const payload = hasData ? (submissionData.payload_json || {}) : {};
+
+        const kpiResults: KPIData[] = kpis.map((kpi: any) => {
+          const actual = hasData ? (Number(payload[kpi.key]) || 0) : 0;
+          const target = kpi.target?.goal ?? targetsMap[kpi.selectedKpiSlug] ?? targetsMap[kpi.key] ?? 0;
+          const progress = target > 0 ? Math.min(actual / target, 1) : 0;
+          
+          return {
+            key: kpi.key,
+            label: kpi.label,
+            actual,
+            target,
+            passed: target > 0 ? actual >= target : false,
+            progress
+          };
+        });
+
+        // Only show KPIs with targets
+        setKpiData(kpiResults.filter(k => k.target > 0));
 
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -228,9 +230,9 @@ export function StaffDashboard() {
           <CardTitle>Yesterday's Performance</CardTitle>
           <CardDescription>{displayDate}</CardDescription>
         </CardHeader>
-        <CardContent>
-          {!submission ? (
-            /* No Submission Alert */
+        <CardContent className="space-y-6">
+          {/* No Submission Alert - show above rings */}
+          {!hasSubmission && (
             <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
@@ -240,76 +242,91 @@ export function StaffDashboard() {
                 Make sure to submit your daily scorecard.
               </p>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Activity Rings */}
-              {kpiData.length > 0 ? (
-                <>
-                  <div className="flex flex-wrap gap-6 justify-center">
-                    {kpiData.map((kpi) => (
-                      <div key={kpi.key} className="flex flex-col items-center gap-2">
-                        <CompactRing
-                          progress={kpi.progress}
-                          color={RING_COLORS[kpi.key] || '#9ca3af'}
-                          actual={kpi.actual}
-                        />
-                        <span className="text-xs text-muted-foreground text-center max-w-[80px]">
-                          {kpi.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+          )}
 
-                  {/* Stats Summary */}
-                  <div className={`rounded-lg p-4 ${passRate >= 50 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                    <div className="flex items-center justify-center gap-2">
-                      {passRate >= 50 ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
-                      )}
+          {/* Always show rings - empty/gray if no submission */}
+          {kpiData.length > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-6 justify-center">
+                {kpiData.map((kpi) => (
+                  <div key={kpi.key} className="flex flex-col items-center gap-2">
+                    <CompactRing
+                      progress={kpi.progress}
+                      color={hasSubmission ? (RING_COLORS[kpi.key] || '#9ca3af') : 'hsl(var(--muted-foreground) / 0.3)'}
+                      actual={kpi.actual}
+                    />
+                    <span className="text-xs text-muted-foreground text-center max-w-[80px]">
+                      {kpi.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Stats Summary */}
+              <div className={`rounded-lg p-4 ${
+                !hasSubmission 
+                  ? 'bg-muted/50' 
+                  : passRate >= 50 
+                    ? 'bg-green-500/10' 
+                    : 'bg-red-500/10'
+              }`}>
+                <div className="flex items-center justify-center gap-2">
+                  {!hasSubmission ? (
+                    <span className="text-muted-foreground">No data for this day</span>
+                  ) : passRate >= 50 ? (
+                    <>
+                      <CheckCircle className="h-5 w-5 text-green-600" />
                       <span className="font-semibold">
                         {passedCount}/{totalCount} targets met ({passRate}%)
                       </span>
-                    </div>
-                  </div>
-
-                  {/* Stats Table */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-4 py-2 text-left font-medium">Metric</th>
-                          <th className="px-4 py-2 text-right font-medium">Actual</th>
-                          <th className="px-4 py-2 text-right font-medium">Target</th>
-                          <th className="px-4 py-2 text-center font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {kpiData.map((kpi) => (
-                          <tr key={kpi.key} className="border-t">
-                            <td className="px-4 py-2">{kpi.label}</td>
-                            <td className="px-4 py-2 text-right font-mono">{kpi.actual}</td>
-                            <td className="px-4 py-2 text-right font-mono text-muted-foreground">{kpi.target}</td>
-                            <td className="px-4 py-2 text-center">
-                              {kpi.passed ? (
-                                <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-red-600 mx-auto" />
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No KPI targets configured for this form.</p>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      <span className="font-semibold">
+                        {passedCount}/{totalCount} targets met ({passRate}%)
+                      </span>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Stats Table - always visible */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-medium">Metric</th>
+                      <th className="px-4 py-2 text-right font-medium">Actual</th>
+                      <th className="px-4 py-2 text-right font-medium">Target</th>
+                      <th className="px-4 py-2 text-center font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpiData.map((kpi) => (
+                      <tr key={kpi.key} className="border-t">
+                        <td className="px-4 py-2">{kpi.label}</td>
+                        <td className="px-4 py-2 text-right font-mono">{kpi.actual}</td>
+                        <td className="px-4 py-2 text-right font-mono text-muted-foreground">{kpi.target}</td>
+                        <td className="px-4 py-2 text-center">
+                          {!hasSubmission ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : kpi.passed ? (
+                            <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-600 mx-auto" />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No KPI targets configured for this form.</p>
             </div>
           )}
         </CardContent>
