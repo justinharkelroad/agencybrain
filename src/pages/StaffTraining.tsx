@@ -458,7 +458,6 @@ export default function StaffTraining() {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }

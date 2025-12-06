@@ -767,7 +767,6 @@ export default function StaffFormSubmission() {
             </form>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }
