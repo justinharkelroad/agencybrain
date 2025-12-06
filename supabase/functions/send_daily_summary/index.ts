@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
       for (const form of forms || []) {
         const settings = form.settings_json || {};
         
-        // Skip if daily summary disabled (default to true for backward compatibility)
-        if (settings.sendDailySummary === false) {
+        // Skip if daily summary not explicitly enabled (explicit opt-in only)
+        if (settings.sendDailySummary !== true) {
           logStructured('skipping_form', { formId: form.id, formName: form.name, reason: 'daily_summary_disabled' });
           continue;
         }
