@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, BarChart3, Users, Target, FileText, Award } from "lucide-react";
+import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
@@ -18,7 +19,8 @@ import { useAuth } from "@/lib/auth";
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
-  const { forms, loading, agencyId, deleteForm, refetch } = useScorecardForms();
+  const [formFilter, setFormFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const { forms, loading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
   const { isAdmin } = useAuth();
   
   // Check if diagnostics should be shown
@@ -77,9 +79,23 @@ export default function ScorecardForms() {
 
   const handleDeleteForm = async (formId: string) => {
     await deleteForm(formId);
-    // Refetch to ensure UI is updated immediately
     await refetch();
   };
+
+  const handleToggleActive = async (formId: string, isActive: boolean): Promise<boolean> => {
+    const success = await toggleFormActive(formId, isActive);
+    if (success) {
+      await refetch();
+    }
+    return success;
+  };
+
+  // Filter forms based on selection
+  const filteredForms = forms.filter(form => {
+    if (formFilter === 'active') return form.is_active;
+    if (formFilter === 'inactive') return !form.is_active;
+    return true; // 'all'
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -155,10 +171,23 @@ export default function ScorecardForms() {
           <TabsContent value="forms" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Form Templates</h2>
-              <Button onClick={() => navigate("/metrics/builder")}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Form
-              </Button>
+              <div className="flex items-center gap-3">
+                <Select value={formFilter} onValueChange={(v) => setFormFilter(v as 'all' | 'active' | 'inactive')}>
+                  <SelectTrigger className="w-[140px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active Only</SelectItem>
+                    <SelectItem value="inactive">Inactive Only</SelectItem>
+                    <SelectItem value="all">All Forms</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => navigate("/metrics/builder")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Form
+                </Button>
+              </div>
             </div>
             
             {/* Always show template cards */}
@@ -212,16 +241,27 @@ export default function ScorecardForms() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading forms...</p>
               </div>
-            ) : forms.length > 0 && (
+            ) : filteredForms.length > 0 ? (
               <>
-                <h3 className="text-lg font-semibold mt-6">Existing Forms</h3>
+                <h3 className="text-lg font-semibold mt-6">
+                  {formFilter === 'active' ? 'Active Forms' : formFilter === 'inactive' ? 'Inactive Forms' : 'All Forms'}
+                </h3>
                 <div className="grid md:grid-cols-2 gap-6">
-                  {forms.map((form) => (
-                    <FormTemplateCard key={form.id} form={form} onDelete={handleDeleteForm} />
+                  {filteredForms.map((form) => (
+                    <FormTemplateCard 
+                      key={form.id} 
+                      form={form} 
+                      onDelete={handleDeleteForm}
+                      onToggleActive={handleToggleActive}
+                    />
                   ))}
                 </div>
               </>
-            )}
+            ) : forms.length > 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                No {formFilter} forms found. Try a different filter.
+              </p>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="submissions" className="space-y-6">

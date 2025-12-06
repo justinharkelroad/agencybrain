@@ -48,12 +48,11 @@ export function useScorecardForms() {
       if (profile?.agency_id) {
         setAgencyId(profile.agency_id);
 
-        // Fetch forms for this agency
+        // Fetch ALL forms for this agency (admins see both active and inactive)
         const { data: formsData, error } = await supabase
           .from('form_templates')
           .select('*')
           .eq('agency_id', profile.agency_id)
-          .eq('is_active', true)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -127,6 +126,25 @@ export function useScorecardForms() {
     }
   };
 
+  const toggleFormActive = async (formId: string, isActive: boolean): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('form_templates')
+        .update({ is_active: isActive })
+        .eq('id', formId);
+
+      if (error) throw error;
+
+      await fetchAgencyAndForms();
+      toast.success(`Form ${isActive ? 'activated' : 'deactivated'} successfully!`);
+      return true;
+    } catch (error: any) {
+      console.error('Error toggling form status:', error);
+      toast.error('Failed to update form status');
+      return false;
+    }
+  };
+
   const deleteForm = async (formId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -138,7 +156,7 @@ export function useScorecardForms() {
 
       // Refresh the forms list
       await fetchAgencyAndForms();
-      toast.success('Form deleted successfully!');
+      toast.success('Form deactivated successfully!');
       return true;
     } catch (error: any) {
       console.error('Error deleting form:', error);
@@ -173,6 +191,7 @@ export function useScorecardForms() {
     createFormLink,
     getFormLink,
     toggleFormLink,
+    toggleFormActive,
     deleteForm,
     generatePublicUrl,
     refetch: fetchAgencyAndForms,
