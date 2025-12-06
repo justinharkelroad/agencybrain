@@ -143,3 +143,12 @@ verify_jwt = true
 
 [functions.staff_accept_invite]
 verify_jwt = false
+
+[functions.staff_request_password_reset]
+verify_jwt = false
+
+[functions.staff_complete_password_reset]
+verify_jwt = false
+
+[functions.send_daily_summary]
+verify_jwt = false
