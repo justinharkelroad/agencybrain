@@ -863,10 +863,11 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
             </TabsContent>
             <TabsContent value="quiz" className="mt-4">
               {editingLesson && (
-                <QuizBuilder
-                  lessonId={editingLesson.id}
-                  agencyId={agencyId}
-                />
+                          <QuizBuilder
+                            lessonId={editingLesson.id}
+                            agencyId={agencyId}
+                            onSave={handleQuizSave}
+                          />
               )}
             </TabsContent>
           </Tabs>
