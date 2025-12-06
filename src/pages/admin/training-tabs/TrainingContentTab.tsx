@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   const { lessons, createLesson, createLessonAsync, updateLesson, deleteLesson, isCreating: isCreatingLesson, isUpdating: isUpdatingLesson } = useTrainingLessons(selectedModuleId || undefined);
   const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId);
   const { quizzes, createQuizWithQuestions, deleteQuiz, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId);
+  
+  // Ref to prevent duplicate lesson creation race condition
+  const isSavingLessonRef = useRef(false);
 
   // Attachment handlers
   const handleDownloadAttachment = async (attachment: any) => {
@@ -208,6 +211,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   // Lesson handlers
   const handleSaveLesson = () => {
     if (!agencyId || !selectedModuleId) return;
+    
+    // Prevent duplicate creation if auto-save is in progress
+    if (isSavingLessonRef.current) return;
 
     if (editingLesson) {
       updateLesson({ id: editingLesson.id, updates: lessonForm });
@@ -263,6 +269,10 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         return;
       }
       
+      // Prevent race condition with manual save button
+      if (isSavingLessonRef.current) return;
+      isSavingLessonRef.current = true;
+      
       try {
         const savedLesson = await createLessonAsync({
           name: lessonForm.name,
@@ -279,8 +289,10 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         toast.success('Lesson saved! You can now add attachments and quizzes.');
       } catch (error) {
         toast.error('Failed to save lesson');
+        isSavingLessonRef.current = false;
         return;
       }
+      isSavingLessonRef.current = false;
     }
     setLessonTab(tab);
   };
