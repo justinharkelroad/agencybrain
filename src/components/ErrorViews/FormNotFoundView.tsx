@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 export function FormNotFoundView() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
-      <Card className="w-full max-w-md p-8 text-center space-y-6 shadow-elegant">
+      <Card className="w-full max-w-md p-8 text-center space-y-6">
         <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
           <FileQuestion className="w-8 h-8 text-muted-foreground" />
         </div>

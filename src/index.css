@@ -122,8 +122,9 @@
 
 @layer components {
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.05), hsl(var(--accent) / 0.15));
-    border: 1px solid hsl(var(--primary) / 0.1);
+    /* Softened for Notion-style flat aesthetic */
+    background: transparent;
+    border: 1px solid hsl(var(--border) / 0.1);
   }
   
   .gradient-success {
@@ -133,12 +134,13 @@
   }
   
   .shadow-elegant {
-    box-shadow: 0 10px 30px -10px hsl(var(--primary) / 0.15);
+    /* Removed shadow for flat aesthetic */
+    box-shadow: none;
     transition: all 0.3s ease;
   }
   
   .shadow-elegant:hover {
-    box-shadow: 0 20px 40px -15px hsl(var(--primary) / 0.25);
+    box-shadow: none;
   }
   
   .transition-smooth {

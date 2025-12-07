@@ -74,7 +74,7 @@ export function DailyActionsManager({
           {dailyActions.map((action, index) => (
             <div
               key={index}
-              className="flex items-start gap-2 p-3 rounded-lg border bg-card"
+              className="flex items-start gap-2 p-3 rounded-lg border border-border/10 bg-card/50"
             >
               <CheckCircle2 className={`h-4 w-4 mt-0.5 flex-shrink-0 ${textColor}`} />
               <p className="text-sm flex-1">{action}</p>

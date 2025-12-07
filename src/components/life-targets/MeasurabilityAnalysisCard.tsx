@@ -44,7 +44,7 @@ function AnalysisItem({
 }) {
   return (
     <div 
-      className="space-y-3 p-4 rounded-lg border bg-card animate-scale-in hover:border-primary/30 transition-all"
+      className="space-y-3 p-4 rounded-lg border border-border/10 bg-card/50 animate-scale-in hover:border-primary/30 transition-all"
       role="article"
       aria-label={`Analysis for ${domain} target`}
     >

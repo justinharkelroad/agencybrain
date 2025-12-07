@@ -469,7 +469,7 @@ export default function BonusGridPage(){
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
-          <Card title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)" 
+          <BonusCard title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)" 
             headerAction={
               <Button 
                 onClick={() => navigate('/snapshot-planner')}
@@ -482,25 +482,25 @@ export default function BonusGridPage(){
             }
           >
             <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
-          </Card>
-          <Card title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here.\n(this data is best found in the P&C New Business Summary Report)">
+          </BonusCard>
+          <BonusCard title="New Business" subtitle="Enter your TOTAL production for each line for the prior year here.\n(this data is best found in the P&C New Business Summary Report)">
             <NewBusinessTable state={state} setState={setField} computedValues={allOutputs} />
-          </Card>
-          <Card title="Growth Bonus Factors">
+          </BonusCard>
+          <BonusCard title="Growth Bonus Factors">
             <GrowthBonusFactorsCard state={state} setState={setField} computedValues={allOutputs} />
-          </Card>
+          </BonusCard>
         </section>
 
         <section className="space-y-4">
           <KPIStrip outputs={outputs as any} />
           {isHydrated ? (
-            <Card title="Growth Grid Summary">
+            <BonusCard title="Growth Grid Summary">
               <SummaryGrid state={state} computed={allOutputs} setField={setField} />
-            </Card>
+            </BonusCard>
           ) : (
-            <Card title="Growth Grid Summary">
+            <BonusCard title="Growth Grid Summary">
               <div className="p-4 text-sm text-muted-foreground">Loading…</div>
-            </Card>
+            </BonusCard>
           )}
         </section>
           </div>
@@ -510,15 +510,15 @@ export default function BonusGridPage(){
   );
 }
 
-function Card({ title, subtitle, children, headerAction }:{ title:string; subtitle?: string; children:any; headerAction?: React.ReactNode }) {
+function BonusCard({ title, subtitle, children, headerAction }:{ title:string; subtitle?: string; children:any; headerAction?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card">
-      <div className="px-4 py-3 border-b border-border">
+    <div className="rounded-lg border border-border/10 bg-card/50">
+      <div className="px-4 py-3 border-b border-border/10">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium text-card-foreground">{title}</div>
             {subtitle && (
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              <p className="mt-1 text-xs text-muted-foreground/70 leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -550,9 +550,9 @@ function KPIStrip({ outputs }:{ outputs: Record<string, number> }) {
 }
 function KPI({ label, value }:{ label:string; value:string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold text-card-foreground">{value}</div>
+    <div className="rounded-lg border border-border/10 bg-card/50 p-4">
+      <div className="text-xs text-muted-foreground/70">{label}</div>
+      <div className="text-xl font-medium text-card-foreground">{value}</div>
     </div>
   );
 }
