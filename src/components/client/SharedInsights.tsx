@@ -228,35 +228,35 @@ const SharedInsights: React.FC = () => {
 
 
   return (
-    <Card>
+    <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle>Shared Insights</CardTitle>
+          <CardTitle className="font-medium">Shared Insights</CardTitle>
         </CardHeader>
       <CardContent>
         {analyses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No insights have been shared with you yet from your Coach.</p>
+          <p className="text-sm text-muted-foreground/70">No insights have been shared with you yet from your Coach.</p>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
-              <h4 className="text-sm font-medium mb-3">Needs Your Review</h4>
+              <h4 className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium mb-3">Needs Your Review</h4>
               <div className="space-y-3">
                 {paginatedNeedsReview.length === 0 && (
-                  <p className="text-xs text-muted-foreground">You're all caught up.</p>
+                  <p className="text-xs text-muted-foreground/70">You're all caught up.</p>
                 )}
                 {paginatedNeedsReview.map(a => (
-                  <div key={a.id} className="border rounded-md p-3">
+                  <div key={a.id} className="border-border/10 bg-muted/30 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(a.analysis_type)}`}>
+                        <span className="text-xs text-muted-foreground/70 font-normal">
                           {a.analysis_type}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground/70">{new Date(a.created_at).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
+                        <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                          <Eye className="w-3 h-3" strokeWidth={1.5} />
                           {views[a.id]?.view_count ?? 0}
-                        </Badge>
+                        </span>
                       </div>
                     </div>
                     <div className="mt-3">
@@ -273,7 +273,7 @@ const SharedInsights: React.FC = () => {
                         }}
                       >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">View insight</Button>
+                          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View insight</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>
@@ -303,8 +303,8 @@ const SharedInsights: React.FC = () => {
                             )}
                           </div>
                           <div className="mt-4">
-                            <Button onClick={() => acknowledge(a)} className="w-full">
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                            <Button onClick={() => acknowledge(a)} variant="ghost" className="w-full text-muted-foreground hover:text-foreground">
+                              <CheckCircle2 className="w-4 h-4 mr-2" strokeWidth={1.5} />
                               Acknowledge
                             </Button>
                           </div>
@@ -317,51 +317,53 @@ const SharedInsights: React.FC = () => {
               
               {/* Needs Review Pagination */}
               {needsReview.length > itemsPerPage && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/5">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setNeedsReviewPage(Math.max(0, needsReviewPage - 1))}
                     disabled={needsReviewPage === 0}
                   >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    <ChevronLeft className="w-4 h-4 mr-1" strokeWidth={1.5} />
                     Previous
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground/70">
                     Page {needsReviewPage + 1} of {needsReviewTotalPages}
                   </span>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setNeedsReviewPage(Math.min(needsReviewTotalPages - 1, needsReviewPage + 1))}
                     disabled={needsReviewPage >= needsReviewTotalPages - 1}
                   >
                     Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
+                    <ChevronRight className="w-4 h-4 ml-1" strokeWidth={1.5} />
                   </Button>
                 </div>
               )}
             </div>
 
             <div>
-              <h4 className="text-sm font-medium mb-3">Completed</h4>
+              <h4 className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium mb-3">Completed</h4>
               <div className="space-y-3">
                 {paginatedCompleted.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No completed items yet.</p>
+                  <p className="text-xs text-muted-foreground/70">No completed items yet.</p>
                 )}
                 {paginatedCompleted.map(a => (
-                  <div key={a.id} className="border rounded-md p-3">
+                  <div key={a.id} className="border-border/10 bg-muted/30 rounded-md p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={`text-white border-none ${getCategoryGradient(a.analysis_type)}`}>
+                        <span className="text-xs text-muted-foreground/70 font-normal">
                           {a.analysis_type}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground/70">{new Date(a.created_at).toLocaleDateString()}</span>
                       </div>
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                      <span className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                        <Clock className="w-3 h-3" strokeWidth={1.5} />
                         {views[a.id]?.acknowledged_at ? new Date(views[a.id]!.acknowledged_at!).toLocaleDateString() : '—'}
-                      </Badge>
+                      </span>
                     </div>
                     <div className="mt-3">
                       <Dialog
@@ -377,7 +379,7 @@ const SharedInsights: React.FC = () => {
                         }}
                       >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">View again</Button>
+                          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View again</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>
@@ -415,27 +417,29 @@ const SharedInsights: React.FC = () => {
               
               {/* Completed Pagination */}
               {completed.length > itemsPerPage && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/5">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setCompletedPage(Math.max(0, completedPage - 1))}
                     disabled={completedPage === 0}
                   >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    <ChevronLeft className="w-4 h-4 mr-1" strokeWidth={1.5} />
                     Previous
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground/70">
                     Page {completedPage + 1} of {completedTotalPages}
                   </span>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setCompletedPage(Math.min(completedTotalPages - 1, completedPage + 1))}
                     disabled={completedPage >= completedTotalPages - 1}
                   >
                     Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
+                    <ChevronRight className="w-4 h-4 ml-1" strokeWidth={1.5} />
                   </Button>
                 </div>
               )}

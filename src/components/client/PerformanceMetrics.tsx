@@ -71,10 +71,10 @@ const kpis = useMemo(() => {
 
   return (
     <section aria-labelledby="performance-metrics">
-      <Card>
+      <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle id="performance-metrics">Performance Metrics</CardTitle>
-          <CardDescription>Key stats from your most recent submission</CardDescription>
+          <CardTitle id="performance-metrics" className="font-medium">Performance Metrics</CardTitle>
+          <CardDescription className="text-muted-foreground/70">Key stats from your most recent submission</CardDescription>
         </CardHeader>
         <CardContent>
 {loading ? (
@@ -93,48 +93,48 @@ const kpis = useMemo(() => {
           : `${latest.title} • ${formatDateLocal(latest.start_date)} – ${formatDateLocal(latest.end_date)}`}
 
       </div>
-      <Badge variant={latest.status === 'complete' ? 'default' : latest.status === 'active' ? 'secondary' : 'outline'}>
+      <span className="text-xs text-muted-foreground/70 font-normal">
         {latest.status}
-      </Badge>
+      </span>
     </div>
-    <Separator className="my-4" />
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 overflow-hidden">
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Premium Sold</div>
-        <div className="text-2xl font-semibold">{formatCurrency(kpis.premium)}</div>
+    <div className="border-t border-border/5 my-4" />
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-hidden">
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Premium Sold</div>
+        <div className="text-2xl font-medium">{formatCurrency(kpis.premium)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Policies Sold</div>
-        <div className="text-2xl font-semibold">{formatNumber(kpis.policies)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Policies Sold</div>
+        <div className="text-2xl font-medium">{formatNumber(kpis.policies)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Policies Quoted</div>
-        <div className="text-2xl font-semibold">{formatNumber(kpis.policiesQuoted)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Policies Quoted</div>
+        <div className="text-2xl font-medium">{formatNumber(kpis.policiesQuoted)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">VC Achieved</div>
-        <div className={`text-2xl font-semibold ${kpis.achievedVC ? 'text-green-600' : 'text-red-600'}`}>{kpis.achievedVC ? '✓ Yes' : '✗ No'}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">VC Achieved</div>
+        <div className={`text-2xl font-medium ${kpis.achievedVC ? 'text-green-600' : 'text-red-600'}`}>{kpis.achievedVC ? '✓ Yes' : '✗ No'}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Total Marketing Spend</div>
-        <div className="text-2xl font-semibold">{formatCurrency(kpis.totalMarketingSpend)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Total Marketing Spend</div>
+        <div className="text-2xl font-medium">{formatCurrency(kpis.totalMarketingSpend)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Agency Compensation</div>
-        <div className="text-2xl font-semibold">{formatCurrency(kpis.compensation)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Agency Compensation</div>
+        <div className="text-2xl font-medium">{formatCurrency(kpis.compensation)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Expenses</div>
-        <div className="text-2xl font-semibold">{formatCurrency(kpis.expenses)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Expenses</div>
+        <div className="text-2xl font-medium">{formatCurrency(kpis.expenses)}</div>
       </div>
-      <div className="rounded-lg border p-4 min-w-0 overflow-hidden">
-        <div className="text-sm text-muted-foreground">Net Profit</div>
-        <div className={`text-2xl font-bold ${typeof kpis.netProfit === 'number' && (kpis.netProfit ?? 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(kpis.netProfit as number | undefined)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4 min-w-0 overflow-hidden">
+        <div className="text-sm text-muted-foreground/70">Net Profit</div>
+        <div className={`text-2xl font-medium ${typeof kpis.netProfit === 'number' && (kpis.netProfit ?? 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(kpis.netProfit as number | undefined)}</div>
       </div>
     </div>
-    <div className="mt-4 flex justify-end gap-2">
-      <FormViewer period={latest} triggerButton={<Button size="sm" variant="secondary">View Details</Button>} />
-      <Button asChild size="sm">
+    <div className="mt-6 flex justify-end gap-2">
+      <FormViewer period={latest} triggerButton={<Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View Details</Button>} />
+      <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">
         <Link to={`/submit?mode=update&periodId=${latest.id}`}>Update</Link>
       </Button>
       <PeriodDeleteDialog period={latest} onDelete={fetchLatest} />
