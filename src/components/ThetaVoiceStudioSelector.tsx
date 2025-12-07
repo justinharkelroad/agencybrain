@@ -134,7 +134,7 @@ export function ThetaVoiceStudioSelector({
               >
                 <Card
                   className={`
-                    transition-all duration-200 hover:shadow-md relative
+                    transition-all duration-200 relative
                     ${isSelected 
                       ? 'border-2 border-primary bg-primary/5' 
                       : 'border hover:border-border/60'

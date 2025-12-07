@@ -138,7 +138,7 @@ export default function MemberRingsCard({
   };
   return (
     <Card 
-      className={`w-full max-w-sm rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 ${
+      className={`w-full max-w-sm transition-opacity duration-200 ${
         memberId && onMemberClick ? 'cursor-pointer hover:opacity-90' : ''
       }`}
       onClick={handleClick}

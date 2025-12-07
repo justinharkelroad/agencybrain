@@ -564,7 +564,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
-          <Button variant="gradient-glow" onClick={handleCopy}>Copy results</Button>
+          <Button variant="flat" onClick={handleCopy}>Copy results</Button>
         </div>
       </div>
     </div>
@@ -799,7 +799,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
-          <Button variant="gradient-glow" onClick={handleCopy}>Copy results</Button>
+          <Button variant="flat" onClick={handleCopy}>Copy results</Button>
         </div>
       </div>
     </div>
@@ -1010,7 +1010,7 @@ function TransferForm({ onBack }: { onBack: () => void }) {
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
-          <Button variant="gradient-glow" onClick={handleCopy}>Copy results</Button>
+          <Button variant="flat" onClick={handleCopy}>Copy results</Button>
         </div>
       </div>
     </div>

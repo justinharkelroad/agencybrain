@@ -399,9 +399,9 @@ export default function BonusGridPage(){
           </div>
 
       {/* Prominent Dashboard Header */}
-      <div className="relative rounded-2xl border border-border bg-gradient-to-br from-card via-card to-card/80 p-6 shadow-2xl backdrop-blur-sm">
+      <div className="relative rounded-lg border border-border bg-card p-6">
         {/* Glow effect */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
         
         {/* Trophy Badge */}
         <div className="absolute -top-3 -right-3 bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 px-4 py-2 rounded-full text-sm font-bold shadow-lg">

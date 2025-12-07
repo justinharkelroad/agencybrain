@@ -137,7 +137,7 @@ export function MarketingCalculatorModal({ open, onOpenChange }: MarketingCalcul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto glass-surface backdrop-blur-md rounded-2xl border border-border/60">
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto glass-surface border border-border/60">
         <DialogHeader>
           <DialogTitle>You Fill Out This</DialogTitle>
           <DialogDescription>

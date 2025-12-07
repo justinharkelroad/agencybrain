@@ -60,7 +60,7 @@ export default function Landing() {
             <h1 className="sr-only">AgencyBrain – Unlock Clarity. Move Faster.</h1>
 
             {/* Center glass logo card */}
-            <div className="mx-auto max-w-md rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm sm:p-8">
+            <div className="mx-auto max-w-md rounded-lg border border-border/60 bg-card/60 p-6 backdrop-blur-sm sm:p-8">
               <img
                 src="/lovable-uploads/agencybrain-logo.png"
                 alt="AgencyBrain logo"

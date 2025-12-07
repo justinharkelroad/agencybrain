@@ -1293,7 +1293,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {pvVaults.map((v) => (
-                    <Card key={v.id} className="p-4 cursor-pointer hover:shadow-md transition" onClick={() => openVault(v)}>
+                    <Card key={v.id} className="p-4 cursor-pointer transition-opacity hover:opacity-90" onClick={() => openVault(v)}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <Folder className="h-5 w-5 mr-2" />

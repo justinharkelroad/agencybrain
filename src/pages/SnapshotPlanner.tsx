@@ -238,8 +238,8 @@ export default function SnapshotPlannerPage() {
       </div>
 
       {/* Header */}
-      <div className="relative rounded-2xl border border-border bg-gradient-to-br from-card via-card to-card/80 p-6 shadow-2xl backdrop-blur-sm">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
+      <div className="relative rounded-lg border border-border bg-card p-6">
+        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
         
         <div className="flex items-center justify-between">
           <div className="space-y-2">
@@ -337,7 +337,7 @@ export default function SnapshotPlannerPage() {
                 onClick={computeTargets} 
                 disabled={!canCompute}
                 className="w-full"
-                variant="gradient-glow"
+                variant="default"
               >
                 Calculate ROY Targets
               </Button>
@@ -388,7 +388,7 @@ export default function SnapshotPlannerPage() {
                     onClick={handleSaveSnapshot} 
                     disabled={!royResult || isSaving}
                     className="gap-2"
-                    variant="gradient-glow"
+                    variant="default"
                   >
                     <Save className="h-4 w-4" />
                     {isSaving ? "Saving..." : "Save Snapshot"}
