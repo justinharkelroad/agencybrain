@@ -17,7 +17,7 @@ const buttonVariants = cva(
           "relative overflow-hidden border border-input bg-background transition-all duration-200 group",
         secondary:
           "relative overflow-hidden bg-secondary text-secondary-foreground transition-all duration-200 group",
-        ghost: "relative overflow-hidden bg-transparent border border-border/40 text-foreground/80 hover:bg-muted/40 hover:text-foreground hover:border-border/60 active:scale-[0.98] active:bg-muted/50 transition-all duration-150 group",
+        ghost: "bg-transparent border border-border/20 text-foreground/80 hover:bg-muted/5 hover:text-foreground hover:border-border/30 active:scale-[0.98] active:bg-muted/10 transition-all duration-150",
         link: "relative overflow-hidden text-primary underline-offset-4 hover:underline transition-all duration-200 group",
         premium: "relative overflow-hidden gradient-primary text-primary-foreground transition-all duration-200 group shadow-elegant",
         glass: "relative overflow-hidden glass-surface text-foreground transition-all duration-200 group",
@@ -49,7 +49,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, showIcon = false, isHeaderButton = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     
-    // For header buttons: use existing variant system
+    // For header buttons: use existing variant system with special styling
     if (isHeaderButton) {
       return (
         <Comp
@@ -63,20 +63,31 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       )
     }
     
-    // For non-header buttons: white pill style (bypass variants entirely)
+    // For ghost variant: use transparent style (don't override)
+    if (variant === "ghost") {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant: "ghost", size }), className)}
+          ref={ref}
+          {...props}
+        >
+          {children}
+          {showIcon && <ArrowUpRight className="w-3.5 h-3.5" />}
+        </Comp>
+      )
+    }
+    
+    // For non-header, non-ghost buttons: white pill style
     const pillBaseClasses = cn(
-      // Base utilities (layout, focus, disabled, group)
       "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium",
       "ring-offset-background transition-all duration-200",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       "disabled:cursor-not-allowed disabled:bg-white disabled:text-black disabled:opacity-100",
       "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-      // White background with black text
       "rounded-full bg-white text-black shadow-sm hover:shadow-md",
       "border border-gray-200"
     )
     
-    // Map size to pill dimensions
     const sizeClasses = {
       default: "h-10 px-4 py-2",
       sm: "h-9 px-3",
@@ -84,8 +95,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       icon: "h-10 w-10"
     }[size || "default"]
     
-    // When asChild=true, Slot requires a single React element child (no fragments)
-    // to properly clone and apply className. showIcon is ignored in this mode.
     if (asChild) {
       return (
         <Comp
