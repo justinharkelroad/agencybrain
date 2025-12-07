@@ -71,10 +71,10 @@ export default function ReportingPeriods() {
                     <span className="text-xs text-muted-foreground/70 font-normal">
                       {p.status}
                     </span>
-                    <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" title="Edit this period's data - changes will replace existing data">
+                    <Button asChild size="sm" variant="ghost" title="Edit this period's data - changes will replace existing data">
                       <Link to={`/submit?mode=update&periodId=${p.id}`}>Edit</Link>
                     </Button>
-                    <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">
+                    <Button asChild size="sm" variant="ghost">
                       <Link to={`/submit?mode=new`}>+ New</Link>
                     </Button>
                     <PeriodDeleteDialog

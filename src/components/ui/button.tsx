@@ -17,7 +17,7 @@ const buttonVariants = cva(
           "relative overflow-hidden border border-input bg-background transition-all duration-200 group",
         secondary:
           "relative overflow-hidden bg-secondary text-secondary-foreground transition-all duration-200 group",
-        ghost: "relative overflow-hidden transition-all duration-200 group",
+        ghost: "relative overflow-hidden bg-transparent border border-border/40 text-foreground/80 hover:bg-muted/40 hover:text-foreground hover:border-border/60 active:scale-[0.98] active:bg-muted/50 transition-all duration-150 group",
         link: "relative overflow-hidden text-primary underline-offset-4 hover:underline transition-all duration-200 group",
         premium: "relative overflow-hidden gradient-primary text-primary-foreground transition-all duration-200 group shadow-elegant",
         glass: "relative overflow-hidden glass-surface text-foreground transition-all duration-200 group",
