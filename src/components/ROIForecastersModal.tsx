@@ -75,7 +75,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
       if (v) setLast(v);
     } catch {}
   }, []);
-  const cardBase = "glass-surface elevate rounded-2xl hover-scale transition-shadow shadow-md hover:shadow-lg";
+  const cardBase = "rounded-lg border border-border/10 bg-card/50 transition-colors hover:bg-accent/5";
   
   // Restricted card component for Boardroom users
   const RestrictedCard = ({ 
@@ -294,7 +294,7 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto glass-surface backdrop-blur-md rounded-2xl border border-border/60">
+      <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] overflow-y-auto rounded-lg border border-border/10 bg-background">
         <DialogHeader>
           <DialogTitle>Tools</DialogTitle>
           <DialogDescription>Choose Your Weapon</DialogDescription>

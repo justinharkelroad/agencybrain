@@ -282,7 +282,7 @@ export default function LifeTargetsBrainstorm() {
                   {targetsByDomain[key].map((target) => (
                     <div
                       key={target.id}
-                      className="flex items-center gap-2 p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                      className="flex items-center gap-2 p-3 rounded-lg border border-border/10 bg-card/50 hover:bg-accent/5 transition-colors"
                     >
                       {editingId === target.id ? (
                         <>

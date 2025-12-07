@@ -246,11 +246,11 @@ export default function LifeTargets() {
 
       {/* Show create plan message if user manually selected empty quarter */}
       {!targets && !isLoading && selectionSource === 'manual' && (
-        <div className="rounded-lg border bg-card p-6 space-y-3">
+        <div className="rounded-lg border border-border/10 bg-card/50 p-6 space-y-3">
           <div className="flex items-start gap-3">
             <Target className="h-5 w-5 text-primary mt-0.5" />
             <div className="space-y-1">
-              <h3 className="font-semibold">No Plan Exists for {formatQuarterDisplay(currentQuarter)}</h3>
+              <h3 className="font-medium">No Plan Exists for {formatQuarterDisplay(currentQuarter)}</h3>
               <p className="text-sm text-muted-foreground">
                 You've selected an empty quarter. Start by setting your quarterly targets below to create a new 90-day plan.
               </p>

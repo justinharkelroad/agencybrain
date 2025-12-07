@@ -84,7 +84,7 @@ function MissionCard({
   };
 
   return (
-    <div className={`p-4 rounded-lg border bg-card space-y-3 group ${isEditing ? 'ring-2 ring-primary' : ''}`}>
+    <div className={`p-4 rounded-lg border border-border/10 bg-card/50 space-y-3 group ${isEditing ? 'ring-2 ring-primary' : ''}`}>
       <div className="flex items-center gap-2 justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-muted-foreground" />

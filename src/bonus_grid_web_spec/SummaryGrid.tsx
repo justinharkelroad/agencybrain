@@ -40,8 +40,8 @@ export function SummaryGrid({
   }, [state, rows, computed]);
 
   return (
-    <div className={cn("rounded-xl border bg-card overflow-x-auto", className)}>
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/50">
+    <div className={cn("rounded-lg border border-border/10 bg-card/50 overflow-x-auto", className)}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/10 bg-muted/30">
         <div className="font-medium">Growth Grid Summary</div>
       </div>
 

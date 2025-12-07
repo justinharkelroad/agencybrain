@@ -372,7 +372,7 @@ const getSubmissionStatus = (profile: Profile) => {
     </p>
   </div>
   <Card
-    className="gradient-primary shadow-elegant w-full sm:w-auto cursor-pointer hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
+    className="w-full sm:w-auto cursor-pointer hover:bg-accent/5 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
     role="button"
     tabIndex={0}
     aria-label="Reveal coaching revenue"
@@ -388,7 +388,7 @@ const getSubmissionStatus = (profile: Profile) => {
       <div className="flex items-center justify-between gap-6">
         <div>
           <p className="text-sm font-medium text-muted-foreground">Coaching Revenue</p>
-          <p className="text-2xl font-bold select-none">
+          <p className="text-2xl font-medium select-none">
             {isRevenueVisible ? formatCurrency(coachingRevenue) : '••••'}
           </p>
           {!isRevenueVisible && (
@@ -403,48 +403,48 @@ const getSubmissionStatus = (profile: Profile) => {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
+          <Card className="hover:bg-accent/5 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Clients</p>
-                  <p className="text-2xl font-bold">{stats.totalClients}</p>
+                  <p className="text-2xl font-medium">{stats.totalClients}</p>
                 </div>
                 <Users className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
+          <Card className="hover:bg-accent/5 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Submissions</p>
-                  <p className="text-2xl font-bold">{stats.activeSubmissions}</p>
+                  <p className="text-2xl font-medium">{stats.activeSubmissions}</p>
                 </div>
                 <FileText className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
+          <Card className="hover:bg-accent/5 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Pending Reviews</p>
-                  <p className="text-2xl font-bold">{stats.pendingReviews}</p>
+                  <p className="text-2xl font-medium">{stats.pendingReviews}</p>
                 </div>
                 <Bell className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="gradient-primary shadow-elegant hover:scale-105 transition-all duration-300">
+          <Card className="hover:bg-accent/5 transition-all duration-300">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Recent Uploads</p>
-                  <p className="text-2xl font-bold">{stats.recentUploads}</p>
+                  <p className="text-2xl font-medium">{stats.recentUploads}</p>
                 </div>
                 <Upload className="h-8 w-8 text-primary" />
               </div>
@@ -453,7 +453,7 @@ const getSubmissionStatus = (profile: Profile) => {
         </div>
 
         {/* Client List */}
-        <Card className="shadow-elegant">
+        <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
@@ -552,7 +552,7 @@ const getSubmissionStatus = (profile: Profile) => {
                   {paginatedClients.map((client) => (
                     <div
                       key={client.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all duration-200 hover:scale-[1.02] animate-fade-in"
+                      className="flex items-center justify-between p-4 border border-border/10 rounded-lg hover:bg-accent/5 transition-all duration-200 animate-fade-in"
                     >
                       <div className="flex items-center space-x-4">
                         <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -560,15 +560,15 @@ const getSubmissionStatus = (profile: Profile) => {
                         </div>
                         <div className="flex items-center gap-3">
                           <div>
-                            <h3 className="font-semibold">{client.agency?.name}</h3>
+                            <h3 className="font-medium">{client.agency?.name}</h3>
                             <p className="text-sm text-muted-foreground">
                               Joined {new Date(client.created_at).toLocaleDateString()}
                             </p>
                           </div>
                           {client.membership_tier === '1:1 Coaching' ? (
-                            <Badge className="bg-blue-500 hover:bg-blue-600">1:1</Badge>
+                            <Badge>1:1</Badge>
                           ) : (
-                            <Badge className="bg-red-500 hover:bg-red-600">Boardroom</Badge>
+                            <Badge variant="secondary">Boardroom</Badge>
                           )}
                         </div>
                       </div>
@@ -576,7 +576,7 @@ const getSubmissionStatus = (profile: Profile) => {
                         {getSubmissionStatus(client)}
                   <div className="flex gap-2">
                     <Link to={`/admin/client/${client.id}`}>
-                      <Button variant="outline" size="sm">
+                      <Button variant="flat" size="sm">
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </Button>
@@ -625,7 +625,7 @@ const getSubmissionStatus = (profile: Profile) => {
 
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          <Card className="shadow-elegant">
+          <Card>
             <CardHeader>
               <CardTitle>Recent Submissions</CardTitle>
             </CardHeader>
@@ -651,7 +651,7 @@ const getSubmissionStatus = (profile: Profile) => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-elegant">
+          <Card>
             <CardHeader>
               <CardTitle>Recent Uploads</CardTitle>
             </CardHeader>
