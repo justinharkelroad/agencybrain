@@ -41,10 +41,10 @@ export default function ReportingPeriods() {
 
   return (
     <section aria-labelledby="reporting-periods">
-      <Card>
+      <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle id="reporting-periods">Reporting Periods</CardTitle>
-          <CardDescription>Your 5 most recent periods</CardDescription>
+          <CardTitle id="reporting-periods" className="font-medium">Reporting Periods</CardTitle>
+          <CardDescription className="text-muted-foreground/70">Your 5 most recent periods</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -56,25 +56,25 @@ export default function ReportingPeriods() {
           ) : periods.length === 0 ? (
             <div className="text-sm text-muted-foreground">No periods yet. Start a new submission above.</div>
           ) : (
-            <ul className="divide-y">
+            <ul className="space-y-3">
               {periods.map((p) => (
                 <li key={p.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <div className="font-medium">{p.title}</div>
                       {!/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/.test(p.title) && !/\b\d{4}-\d{2}-\d{2}\b/.test(p.title) && (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-sm text-muted-foreground/70">
                           {formatDateLocal(p.start_date)} – {formatDateLocal(p.end_date)}
                         </div>
                       )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={p.status === 'complete' ? 'default' : p.status === 'active' ? 'secondary' : 'outline'}>
+                    <span className="text-xs text-muted-foreground/70 font-normal">
                       {p.status}
-                    </Badge>
-                    <Button asChild size="sm" variant="outline" title="Edit this period's data - changes will replace existing data">
+                    </span>
+                    <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground" title="Edit this period's data - changes will replace existing data">
                       <Link to={`/submit?mode=update&periodId=${p.id}`}>Edit</Link>
                     </Button>
-                    <Button asChild size="sm" variant="default">
+                    <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">
                       <Link to={`/submit?mode=new`}>+ New</Link>
                     </Button>
                     <PeriodDeleteDialog

@@ -152,41 +152,41 @@ export default function RoleplaySessionsCard() {
   return (
     <>
       <section aria-labelledby="roleplay-sessions">
-        <Card>
+        <Card className="border-border/10 bg-muted/20">
           <CardHeader>
-            <CardTitle id="roleplay-sessions">Completed Roleplay Sessions</CardTitle>
-            <CardDescription>Recent sales training roleplay performance</CardDescription>
+            <CardTitle id="roleplay-sessions" className="font-medium">Completed Roleplay Sessions</CardTitle>
+            <CardDescription className="text-muted-foreground/70">Recent sales training roleplay performance</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+            <div className="grid gap-6 md:grid-cols-4">
+              <div className="flex items-center justify-between p-4 border-border/10 rounded-lg bg-muted/30">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Sessions</p>
-                  <p className="text-2xl font-bold">{stats.total}</p>
+                  <p className="text-sm font-normal text-muted-foreground/70">Total Sessions</p>
+                  <p className="text-2xl font-medium">{stats.total}</p>
                 </div>
-                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <TrendingUp className="h-5 w-5 text-muted-foreground/70" strokeWidth={1.5} />
               </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+              <div className="flex items-center justify-between p-4 border-border/10 rounded-lg bg-muted/30">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Excellent</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.excellent}</p>
+                  <p className="text-sm font-normal text-muted-foreground/70">Excellent</p>
+                  <p className="text-2xl font-medium text-green-600">{stats.excellent}</p>
                 </div>
-                <Award className="h-5 w-5 text-muted-foreground" />
+                <Award className="h-5 w-5 text-muted-foreground/70" strokeWidth={1.5} />
               </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+              <div className="flex items-center justify-between p-4 border-border/10 rounded-lg bg-muted/30">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Good</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.good}</p>
+                  <p className="text-sm font-normal text-muted-foreground/70">Good</p>
+                  <p className="text-2xl font-medium text-blue-600">{stats.good}</p>
                 </div>
-                <ThumbsUp className="h-5 w-5 text-muted-foreground" />
+                <ThumbsUp className="h-5 w-5 text-muted-foreground/70" strokeWidth={1.5} />
               </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+              <div className="flex items-center justify-between p-4 border-border/10 rounded-lg bg-muted/30">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Needs Work</p>
-                  <p className="text-2xl font-bold text-amber-600">{stats.needsImprovement}</p>
+                  <p className="text-sm font-normal text-muted-foreground/70">Needs Work</p>
+                  <p className="text-2xl font-medium text-amber-600">{stats.needsImprovement}</p>
                 </div>
-                <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+                <AlertTriangle className="h-5 w-5 text-muted-foreground/70" strokeWidth={1.5} />
               </div>
             </div>
 
@@ -213,26 +213,28 @@ export default function RoleplaySessionsCard() {
                         {format(new Date(session.completed_at), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getScoreBadgeVariant(session.overall_score)}>
+                        <span className="text-xs text-muted-foreground/70 font-normal">
                           {session.overall_score}
-                        </Badge>
+                        </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
+                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => setSelectedSession(session)}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
+                            <Eye className="h-4 w-4 mr-1" strokeWidth={1.5} />
                             View
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
+                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => handleDownloadPDF(session)}
                           >
-                            <Download className="h-4 w-4 mr-1" />
+                            <Download className="h-4 w-4 mr-1" strokeWidth={1.5} />
                             PDF
                           </Button>
                         </div>

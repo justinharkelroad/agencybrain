@@ -83,13 +83,13 @@ const Dashboard = () => {
         <RoleplaySessionsCard />
         {enableMetrics && (
           <section>
-            <Card className="glass-surface elevate rounded-2xl">
+            <Card className="border-border/10 bg-muted/20">
               <CardHeader>
-                <CardTitle>Metrics Dashboard</CardTitle>
-                <CardDescription>View team performance and analytics</CardDescription>
+                <CardTitle className="font-medium">Metrics Dashboard</CardTitle>
+                <CardDescription className="text-muted-foreground/70">View team performance and analytics</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="gradient-glow" className="w-full" asChild>
+                <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" asChild>
                   <Link to="/metrics">View Metrics Dashboard</Link>
                 </Button>
               </CardContent>

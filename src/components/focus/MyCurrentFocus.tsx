@@ -113,15 +113,15 @@ export function MyCurrentFocus() {
 
   if (isLoading) {
     return (
-      <Card className="glass-surface elevate">
+      <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 font-medium">
+            <Target className="h-5 w-5" strokeWidth={1.5} />
             Focus Targets
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-32 text-muted-foreground">
+          <div className="flex items-center justify-center h-32 text-muted-foreground/70">
             Loading...
           </div>
         </CardContent>
@@ -131,15 +131,15 @@ export function MyCurrentFocus() {
 
   return (
     <>
-      <Card className="glass-surface elevate">
-        <CardHeader className="border-b border-border/50">
+      <Card className="border-border/10 bg-muted/20">
+        <CardHeader className="border-b border-border/5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 font-medium">
+              <Target className="h-5 w-5" strokeWidth={1.5} />
               Focus Targets
             </CardTitle>
-            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2 w-full sm:w-auto">
-              <Plus className="h-4 w-4" />
+            <Button onClick={() => setCreateDialogOpen(true)} variant="ghost" className="gap-2 w-full sm:w-auto text-muted-foreground hover:text-foreground">
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
               New Focus Item
             </Button>
           </div>

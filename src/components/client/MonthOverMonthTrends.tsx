@@ -123,19 +123,19 @@ export default function MonthOverMonthTrends() {
     const Color = up ? 'text-primary' : down ? 'text-destructive' : 'text-muted-foreground';
     const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
     return (
-      <div className="rounded-lg border p-4">
-        <div className="text-sm text-muted-foreground">{label}</div>
-        <div className="mt-1 text-2xl font-semibold">{isCurrency ? formatCurrency(curr) : formatNumber(curr)}</div>
+      <div className="rounded-lg border-border/10 bg-muted/30 p-4">
+        <div className="text-sm text-muted-foreground/70">{label}</div>
+        <div className="mt-1 text-2xl font-medium">{isCurrency ? formatCurrency(curr) : formatNumber(curr)}</div>
         {typeof del.abs === 'number' ? (
           <div className={`mt-1 flex items-center gap-1 text-sm ${Color}`}>
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4" strokeWidth={1.5} />
             <span>{isCurrency ? formatCurrency(del.abs) : formatNumber(del.abs)}</span>
             {typeof del.pct === 'number' && (
-              <span className="text-muted-foreground">({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(del.pct)}%)</span>
+              <span className="text-muted-foreground/70">({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(del.pct)}%)</span>
             )}
           </div>
         ) : (
-          <div className="mt-1 text-sm text-muted-foreground">No previous period</div>
+          <div className="mt-1 text-sm text-muted-foreground/70">No previous period</div>
         )}
       </div>
     );
@@ -143,10 +143,10 @@ export default function MonthOverMonthTrends() {
 
   return (
     <section aria-labelledby="mom-trends">
-      <Card>
+      <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle id="mom-trends">Month-over-Month Trends</CardTitle>
-          <CardDescription>Latest vs previous period</CardDescription>
+          <CardTitle id="mom-trends" className="font-medium">Month-over-Month Trends</CardTitle>
+          <CardDescription className="text-muted-foreground/70">Latest vs previous period</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -176,7 +176,7 @@ export default function MonthOverMonthTrends() {
                 {periods.length > 1 && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline">View comparisons</Button>
+                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View comparisons</Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-5xl">
                       <DialogHeader>
@@ -229,7 +229,7 @@ export default function MonthOverMonthTrends() {
                   </Dialog>
                 )}
               </div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Trend label="Premium Sold" curr={kpis.premium.curr} del={dPremium} isCurrency />
                 <Trend label="Policies Sold" curr={kpis.policies.curr} del={dPolicies} />
                 <Trend label="Policies Quoted" curr={kpis.quoted.curr} del={dQuoted} />
