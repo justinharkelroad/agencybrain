@@ -111,12 +111,12 @@ function QuarterCard({ plan }: { plan: QuarterlyTargetsSummary }) {
           <Eye className="mr-2 h-4 w-4" />
           View Full Plan
         </Button>
-        <Button onClick={handleExportPDF} variant="outline" size="sm">
+        <Button onClick={handleExportPDF} variant="flat" size="sm">
           <Download className="h-4 w-4" />
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" disabled={deleteMutation.isPending}>
+            <Button variant="flat" size="sm" disabled={deleteMutation.isPending}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </AlertDialogTrigger>

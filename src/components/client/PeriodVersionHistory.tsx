@@ -133,7 +133,7 @@ export function PeriodVersionHistory({ periodId }: PeriodVersionHistoryProps) {
                   </div>
                   {index > 0 && (
                     <Button
-                      variant="outline"
+                      variant="flat"
                       size="sm"
                       onClick={() => restoreVersion(version)}
                     >

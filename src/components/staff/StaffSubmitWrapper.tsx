@@ -141,7 +141,7 @@ export function StaffSubmitWrapper() {
           {forms.map((form) => (
             <Button
               key={form.id}
-              variant="outline"
+              variant="flat"
               className="w-full justify-start h-auto py-4"
               onClick={() => navigate(`/staff/submit/${form.slug}`)}
             >

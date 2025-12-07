@@ -132,10 +132,10 @@ export function LeadSourceAnalytics() {
             <div className="space-y-2">
               <Label>&nbsp;</Label>
               <div className="flex gap-2">
-                <Button onClick={refetch} variant="outline" size="sm">
+                <Button onClick={refetch} variant="flat" size="sm">
                   Refresh
                 </Button>
-                <Button onClick={handleExport} variant="outline" size="sm" className="flex items-center gap-2">
+                <Button onClick={handleExport} variant="flat" size="sm" className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
                   Export
                 </Button>

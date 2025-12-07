@@ -1142,7 +1142,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                         <FormViewer 
                           period={period} 
                           triggerButton={
-                            <Button size="sm" variant="outline">
+                            <Button size="sm" variant="flat">
                               <FileText className="h-4 w-4 mr-2" />
                               View Details
                             </Button>
@@ -1150,7 +1150,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                         />
                         <Button 
                           size="sm" 
-                          variant="outline"
+                          variant="flat"
                           onClick={() => setSelectedPeriodForHistory(
                             selectedPeriodForHistory === period.id ? null : period.id
                           )}

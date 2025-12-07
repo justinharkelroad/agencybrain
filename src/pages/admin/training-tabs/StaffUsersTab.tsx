@@ -484,7 +484,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
-                      <Button type="button" variant="outline" onClick={handleGeneratePassword}>
+                      <Button type="button" variant="flat" onClick={handleGeneratePassword}>
                         Generate
                       </Button>
                     </div>
@@ -752,7 +752,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                     {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
-                <Button type="button" variant="outline" onClick={handleGenerateNewPassword}>
+                <Button type="button" variant="flat" onClick={handleGenerateNewPassword}>
                   Generate
                 </Button>
               </div>

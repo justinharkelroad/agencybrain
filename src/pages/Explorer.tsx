@@ -386,14 +386,14 @@ export default function Explorer() {
             <CardTitle>Results ({rows.length} households)</CardTitle>
             <div className="flex gap-2">
               <Button
-                variant="outline"
+                variant="flat"
                 onClick={handleLoadMore}
                 disabled={!hasMore || loading}
               >
                 Load More
               </Button>
               <Button
-                variant="outline"
+                variant="flat"
                 onClick={exportCsv}
                 disabled={!rows.length}
               >
