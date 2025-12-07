@@ -16,11 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Settings, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2 } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2 } from "lucide-react";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
-import { SettingsContent } from "@/components/SettingsContent";
 
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -457,10 +456,6 @@ export default function Agency() {
               <ShieldCheck className="h-4 w-4" />
               Process Vault
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="info" className="space-y-6">
@@ -714,9 +709,6 @@ export default function Agency() {
         <ProcessVaultContent />
       </TabsContent>
 
-      <TabsContent value="settings" className="space-y-6">
-        <SettingsContent />
-      </TabsContent>
     </Tabs>
 
     {/* Invite Staff Dialog */}
