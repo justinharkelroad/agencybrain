@@ -84,7 +84,7 @@ const AdminProcessVaultTypes: React.FC = () => {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6 space-y-6">
         <section>
-          <Card className="shadow-elegant">
+          <Card>
             <CardHeader>
               <CardTitle>Defaults visible to all clients</CardTitle>
             </CardHeader>
@@ -100,7 +100,7 @@ const AdminProcessVaultTypes: React.FC = () => {
         </section>
 
         <section>
-          <Card className="shadow-elegant">
+          <Card>
             <CardHeader>
               <CardTitle>Current Defaults</CardTitle>
             </CardHeader>

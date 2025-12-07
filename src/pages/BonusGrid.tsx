@@ -435,7 +435,7 @@ export default function BonusGridPage(){
       <header className="flex items-end justify-between">
         <div className="flex gap-2 items-center">
           <Button 
-            variant="gradient-glow" 
+            variant="flat" 
             onClick={handleSave}
             disabled={!isDirty}
             className="gap-2"
