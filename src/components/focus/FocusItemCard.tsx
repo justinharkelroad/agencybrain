@@ -49,13 +49,13 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
       {...attributes}
       {...listeners}
       className={`
-        glass-surface rounded-xl p-4 mb-3 cursor-grab active:cursor-grabbing
-        border transition-all duration-300 hover:scale-[1.02]
+        glass-surface rounded-lg p-4 mb-3 cursor-grab active:cursor-grabbing
+        border transition-all duration-300
         ${isCompleted 
           ? "bg-emerald-500/10 border-emerald-500/30" 
           : "border-border/50 hover:border-primary/50"
         }
-        ${isDragging ? "shadow-xl ring-2 ring-primary/50" : "shadow-md"}
+        ${isDragging ? "ring-2 ring-primary/50" : ""}
       `}
     >
       <div className="flex items-start justify-between gap-2 mb-2">

@@ -63,7 +63,7 @@ export function ThetaToneSelector({ selectedTone, onToneChange }: ThetaToneSelec
               >
                 <Card
                   className={`
-                    transition-all duration-200 hover:shadow-md
+                    transition-all duration-200
                     ${isSelected 
                       ? `bg-gradient-to-br ${tone.gradient} border-2` 
                       : 'border hover:border-border/60'

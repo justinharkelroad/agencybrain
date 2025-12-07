@@ -270,7 +270,7 @@ export default function LifeTargets() {
             <Card 
               key={step.id}
               className={`transition-all ${
-                isLocked ? 'opacity-50' : 'hover:shadow-md cursor-pointer'
+                isLocked ? 'opacity-50' : 'cursor-pointer'
               } ${isCurrent ? 'ring-2 ring-primary' : ''}`}
               onClick={!isLocked ? step.onClick : undefined}
             >

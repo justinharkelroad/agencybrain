@@ -111,7 +111,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
-      <Card className="w-full max-w-md shadow-2xl">
+      <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
             <AgencyBrainBadge />
@@ -152,7 +152,7 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" variant="gradient-glow" className="w-full" disabled={isLoading}>
+                <Button type="submit" variant="default" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing In..." : "Sign In"}
                 </Button>
 
@@ -247,7 +247,7 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" variant="gradient-glow" className="w-full" disabled={isLoading}>
+                <Button type="submit" variant="default" className="w-full" disabled={isLoading}>
                   {isLoading ? "Creating Account..." : "Create Account"}
                 </Button>
               </form>

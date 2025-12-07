@@ -274,7 +274,7 @@ const [form, setForm] = useState<FormState>({
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
-                  <Button variant="gradient-glow" onClick={submit} disabled={upsertMutation.isPending}>{upsertMutation.isPending ? "Saving..." : "Save"}</Button>
+                  <Button variant="default" onClick={submit} disabled={upsertMutation.isPending}>{upsertMutation.isPending ? "Saving..." : "Save"}</Button>
                 </div>
               </DialogContent>
             </Dialog>

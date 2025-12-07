@@ -777,7 +777,7 @@ export default function Submit() {
 
   // Shared section components for Tabs (desktop) and Accordion (mobile)
   const SalesSection = () => (
-    <Card className="glass-surface elevate rounded-2xl">
+    <Card className="glass-surface">
       <CardHeader>
         <CardTitle>Sales Metrics</CardTitle>
       </CardHeader>
@@ -832,7 +832,7 @@ export default function Submit() {
   );
 
   const MarketingSection = () => (
-    <Card className="glass-surface elevate rounded-2xl">
+    <Card className="glass-surface">
       <CardHeader>
         <CardTitle>Marketing Metrics</CardTitle>
       </CardHeader>
@@ -956,7 +956,7 @@ export default function Submit() {
   );
 
   const OperationsSection = () => (
-    <Card className="glass-surface elevate rounded-2xl">
+    <Card className="glass-surface">
       <CardHeader>
         <CardTitle>Bonus/Ops Metrics</CardTitle>
       </CardHeader>
@@ -1079,7 +1079,7 @@ export default function Submit() {
   );
 
   const CashFlowSection = () => (
-    <Card className="glass-surface elevate rounded-2xl">
+    <Card className="glass-surface">
       <CardHeader>
         <CardTitle>Cash Flow Metrics</CardTitle>
       </CardHeader>
@@ -1125,7 +1125,7 @@ export default function Submit() {
   );
 
   const QualitativeSection = () => (
-    <Card className="glass-surface elevate rounded-2xl">
+    <Card className="glass-surface">
       <CardHeader>
         <CardTitle>Current Reality</CardTitle>
       </CardHeader>
@@ -1232,7 +1232,7 @@ export default function Submit() {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="container mx-auto max-w-4xl">
-          <Card className="glass-surface elevate rounded-2xl">
+          <Card className="glass-surface">
             <CardHeader>
               <CardTitle>No Active Period</CardTitle>
               <CardDescription>

@@ -59,7 +59,7 @@ function QuarterCard({ plan }: { plan: QuarterlyTargetsSummary }) {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="transition-opacity hover:opacity-95">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>

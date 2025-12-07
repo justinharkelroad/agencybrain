@@ -161,7 +161,7 @@ export default function AdminFocusManagement() {
   return (
     <>
       <main className="container mx-auto px-4 py-8">
-        <Card className="glass-surface elevate">
+        <Card className="glass-surface">
           <CardHeader className="border-b border-border/50">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">

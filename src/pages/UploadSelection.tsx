@@ -97,7 +97,7 @@ export default function UploadSelection() {
               <Button variant="outline" onClick={handleSkip}>
                 Skip & Complete
               </Button>
-              <Button variant="gradient-glow" onClick={handleContinue} className="flex items-center gap-2">
+              <Button variant="default" onClick={handleContinue} className="flex items-center gap-2">
                 {selectedCategories.length > 0 ? (
                   <>
                     <Upload className="w-4 h-4" />

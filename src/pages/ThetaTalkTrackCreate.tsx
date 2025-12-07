@@ -164,7 +164,7 @@ export default function ThetaTalkTrackCreate() {
                         <button
                           onClick={handleGenerateAffirmations}
                           disabled={generateMutation.isPending}
-                          className="px-6 py-2 bg-white text-black border border-gray-200 rounded-md shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                          className="px-6 py-2 bg-white text-black border border-gray-200 rounded-md transition-all disabled:opacity-50"
                         >
                           {generateMutation.isPending ? 'Generating...' : 'Generate Affirmations'}
                         </button>
