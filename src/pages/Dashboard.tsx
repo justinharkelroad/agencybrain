@@ -70,7 +70,7 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          <Button variant="gradient-glow" asChild className="w-full sm:w-auto min-w-0">
+          <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
             <Link to="/submit?mode=new">
               <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
               <span className="sm:hidden">Submit New Form</span>
