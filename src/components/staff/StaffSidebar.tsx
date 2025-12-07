@@ -87,7 +87,7 @@ export function StaffSidebar() {
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={active}>
                         <Link to={item.url} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
@@ -111,7 +111,7 @@ export function StaffSidebar() {
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={active}>
                         <Link to={item.url} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
@@ -124,7 +124,7 @@ export function StaffSidebar() {
                       onClick={handleLogout}
                       className="flex items-center gap-2 w-full text-destructive"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-4 w-4" strokeWidth={1.5} />
                       {sidebarOpen && <span>Sign Out</span>}
                     </button>
                   </SidebarMenuButton>
