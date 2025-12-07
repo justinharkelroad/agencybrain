@@ -27,7 +27,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
@@ -60,19 +59,18 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { open: sidebarOpen } = useSidebar();
 
   const isActive = (path: string) => location.pathname === path;
-  const isAdminRoute = location.pathname.startsWith("/admin");
 
   return (
     <Sidebar
       collapsible="icon"
       className={cn(
-        "border-r border-border",
+        "border-r border-border/30",
         sidebarOpen ? "w-60" : "w-14"
       )}
     >
       <div className="flex flex-col h-full">
-        {/* Logo Section - Fixed at top */}
-        <div className="px-4 py-6 flex items-center justify-center border-b border-border">
+        {/* Logo Section - More breathing room, softer border */}
+        <div className="p-5 flex items-center justify-center border-b border-border/20">
           <AgencyBrainBadge 
             asLink 
             to="/dashboard"
@@ -80,15 +78,19 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           />
         </div>
 
-      {/* Trigger Button - Desktop only */}
-      <div className="hidden md:block p-2 flex justify-end">
-        <SidebarTrigger />
-      </div>
+        {/* Trigger Button - Desktop only */}
+        <div className="hidden md:block p-2 flex justify-end">
+          <SidebarTrigger />
+        </div>
 
         <SidebarContent className="flex-1">
           {/* Main Navigation */}
           <SidebarGroup>
-            {sidebarOpen && <SidebarGroupLabel>Main</SidebarGroupLabel>}
+            {sidebarOpen && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
+                Main
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {mainItems.map((item) => {
@@ -97,9 +99,16 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                   
                   return (
                     <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={active}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={active}
+                        className={cn(
+                          "hover:bg-muted/40 transition-colors",
+                          active && "bg-muted/50 text-foreground"
+                        )}
+                      >
                         <Link to={item.url} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
                         </Link>
                       </SidebarMenuButton>
@@ -110,10 +119,17 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
 
+          {/* Soft divider */}
+          <div className="my-2" />
+
           {/* Agency Owner Navigation - Training System */}
           {(isAdmin || isAgencyOwner) && (
             <SidebarGroup>
-              {sidebarOpen && <SidebarGroupLabel>Management</SidebarGroupLabel>}
+              {sidebarOpen && (
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
+                  Management
+                </SidebarGroupLabel>
+              )}
               <SidebarGroupContent>
                 <SidebarMenu>
                   {agencyOwnerItems.map((item) => {
@@ -122,9 +138,16 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                     
                     return (
                       <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild isActive={active}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={active}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors",
+                            active && "bg-muted/50 text-foreground"
+                          )}
+                        >
                           <Link to={item.url} className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
+                            <Icon className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
@@ -136,10 +159,17 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             </SidebarGroup>
           )}
 
+          {/* Soft divider */}
+          <div className="my-2" />
+
           {/* Admin-Only Navigation */}
           {isAdmin && (
             <SidebarGroup>
-              {sidebarOpen && <SidebarGroupLabel>Admin</SidebarGroupLabel>}
+              {sidebarOpen && (
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
+                  Admin
+                </SidebarGroupLabel>
+              )}
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminOnlyItems.map((item) => {
@@ -148,9 +178,16 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                     
                     return (
                       <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild isActive={active}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={active}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors",
+                            active && "bg-muted/50 text-foreground"
+                          )}
+                        >
                           <Link to={item.url} className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
+                            <Icon className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>{item.title}</span>}
                           </Link>
                         </SidebarMenuButton>
@@ -162,31 +199,44 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             </SidebarGroup>
           )}
 
+          {/* Soft divider */}
+          <div className="my-2" />
+
           {/* Actions */}
           <SidebarGroup>
-            {sidebarOpen && <SidebarGroupLabel>Actions</SidebarGroupLabel>}
+            {sidebarOpen && (
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
+                Actions
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {onOpenROI && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
+                    <SidebarMenuButton 
+                      asChild
+                      className="hover:bg-muted/40 transition-colors"
+                    >
                       <button
                         onClick={onOpenROI}
                         className="flex items-center gap-2 w-full"
                       >
-                        <Wrench className="h-4 w-4" />
+                        <Wrench className="h-4 w-4" strokeWidth={1.5} />
                         {sidebarOpen && <span>Tools</span>}
                       </button>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild
+                    className="hover:bg-muted/40 transition-colors"
+                  >
                     <button
                       onClick={() => signOut()}
                       className="flex items-center gap-2 w-full text-destructive"
                     >
-                      <LogOut className="h-4 w-4" />
+                      <LogOut className="h-4 w-4" strokeWidth={1.5} />
                       {sidebarOpen && <span>Sign Out</span>}
                     </button>
                   </SidebarMenuButton>
