@@ -222,7 +222,6 @@ export default function RoleplaySessionsCard() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => setSelectedSession(session)}
                           >
                             <Eye className="h-4 w-4 mr-1" strokeWidth={1.5} />
@@ -231,7 +230,6 @@ export default function RoleplaySessionsCard() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => handleDownloadPDF(session)}
                           >
                             <Download className="h-4 w-4 mr-1" strokeWidth={1.5} />

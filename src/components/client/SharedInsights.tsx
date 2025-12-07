@@ -273,7 +273,7 @@ const SharedInsights: React.FC = () => {
                         }}
                       >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View insight</Button>
+                          <Button size="sm" variant="ghost">View insight</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>
@@ -303,7 +303,7 @@ const SharedInsights: React.FC = () => {
                             )}
                           </div>
                           <div className="mt-4">
-                            <Button onClick={() => acknowledge(a)} variant="ghost" className="w-full text-muted-foreground hover:text-foreground">
+                            <Button onClick={() => acknowledge(a)} variant="ghost" className="w-full">
                               <CheckCircle2 className="w-4 h-4 mr-2" strokeWidth={1.5} />
                               Acknowledge
                             </Button>
@@ -321,7 +321,6 @@ const SharedInsights: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setNeedsReviewPage(Math.max(0, needsReviewPage - 1))}
                     disabled={needsReviewPage === 0}
                   >
@@ -334,7 +333,6 @@ const SharedInsights: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground hover:text-foreground"
                     onClick={() => setNeedsReviewPage(Math.min(needsReviewTotalPages - 1, needsReviewPage + 1))}
                     disabled={needsReviewPage >= needsReviewTotalPages - 1}
                   >
@@ -379,7 +377,7 @@ const SharedInsights: React.FC = () => {
                         }}
                       >
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">View again</Button>
+                          <Button size="sm" variant="ghost">View again</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
                           <DialogHeader>

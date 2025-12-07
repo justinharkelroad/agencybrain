@@ -138,7 +138,7 @@ export function MyCurrentFocus() {
               <Target className="h-5 w-5" strokeWidth={1.5} />
               Focus Targets
             </CardTitle>
-            <Button onClick={() => setCreateDialogOpen(true)} variant="ghost" className="gap-2 w-full sm:w-auto text-muted-foreground hover:text-foreground">
+            <Button onClick={() => setCreateDialogOpen(true)} variant="ghost" className="gap-2 w-full sm:w-auto">
               <Plus className="h-4 w-4" strokeWidth={1.5} />
               New Focus Item
             </Button>
