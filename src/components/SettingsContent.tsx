@@ -362,10 +362,10 @@ export const SettingsContent = () => {
                       type={selectedRole === "Sales" ? "sales" : "service"}
                       agencyId={agencyId}
                     >
-                      <Button variant="outline">Configure KPIs</Button>
+                      <Button variant="flat">Configure KPIs</Button>
                     </EnhancedKPIConfigDialog>
                     <Link to="/targets">
-                      <Button variant="outline">Manage KPI Targets</Button>
+                      <Button variant="flat">Manage KPI Targets</Button>
                     </Link>
                   </div>
                 </div>

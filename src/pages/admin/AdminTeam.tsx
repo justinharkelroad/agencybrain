@@ -309,7 +309,7 @@ const [form, setForm] = useState<FormState>({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link to={`/admin/team/${m.id}`}>
-                            <Button variant="outline" size="sm" className="rounded-full">View</Button>
+                            <Button variant="flat" size="sm" className="rounded-full">View</Button>
                           </Link>
                           <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                             <Edit className="h-4 w-4" />

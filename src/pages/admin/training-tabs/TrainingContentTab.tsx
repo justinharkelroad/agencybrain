@@ -511,7 +511,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                         <TableCell>{category.description}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setSelectedCategoryId(category.id)}>
+                            <Button size="sm" variant="flat" onClick={() => setSelectedCategoryId(category.id)}>
                               View Modules
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => openCategoryDialog(category)}>
@@ -582,7 +582,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                         <TableCell>{module.description}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setSelectedModuleId(module.id)}>
+                            <Button size="sm" variant="flat" onClick={() => setSelectedModuleId(module.id)}>
                               View Lessons
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => openModuleDialog(module)}>

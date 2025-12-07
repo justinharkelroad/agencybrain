@@ -444,7 +444,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
           <h2 className="text-xl font-semibold">Training Progress</h2>
           <p className="text-muted-foreground text-sm">Monitor staff training completion and performance</p>
         </div>
-        <Button onClick={handleExportCSV} variant="outline">
+        <Button onClick={handleExportCSV} variant="flat">
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>
@@ -701,7 +701,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
               </CardTitle>
               <CardDescription>Review staff reflections and AI coaching feedback</CardDescription>
             </div>
-            <Button onClick={handleExportReflections} variant="outline" size="sm">
+            <Button onClick={handleExportReflections} variant="flat" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export Reflections
             </Button>
