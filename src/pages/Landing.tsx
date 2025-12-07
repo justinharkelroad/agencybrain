@@ -60,7 +60,7 @@ export default function Landing() {
             <h1 className="sr-only">AgencyBrain – Unlock Clarity. Move Faster.</h1>
 
             {/* Center glass logo card */}
-            <div className="mx-auto max-w-md rounded-2xl border border-border/60 bg-card/60 p-6 shadow-elegant backdrop-blur-sm sm:p-8">
+            <div className="mx-auto max-w-md rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm sm:p-8">
               <img
                 src="/lovable-uploads/agencybrain-logo.png"
                 alt="AgencyBrain logo"
@@ -72,7 +72,7 @@ export default function Landing() {
                 }}
               />
               <div className="mt-6">
-                <Button asChild size="lg" className="rounded-full px-8 text-base sm:text-lg shadow-elegant bg-white text-black hover:bg-white/90">
+                <Button asChild size="lg" className="rounded-full px-8 text-base sm:text-lg bg-white text-black hover:bg-white/90">
                   <Link to="/auth" aria-label="Enter AgencyBrain">
                     ENTER YOUR 🧠 →
                   </Link>

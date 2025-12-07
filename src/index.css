@@ -171,10 +171,9 @@
 
   /* Glass and Frosted utilities */
   .glass-surface {
-    background-color: hsl(var(--card) / 0.6);
-    border: 1px solid hsl(var(--border) / 0.5);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background-color: hsl(var(--card) / 0.5);
+    border: 1px solid hsl(var(--border) / 0.1);
+    backdrop-filter: none;
   }
 
   .frosted-header {

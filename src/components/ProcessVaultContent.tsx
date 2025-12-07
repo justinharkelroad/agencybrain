@@ -278,7 +278,7 @@ export const ProcessVaultContent: React.FC = () => {
   return (
     <div className="space-y-6">
       <section>
-        <Card className="shadow-elegant">
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-primary" /> Secure your processes
@@ -321,13 +321,13 @@ export const ProcessVaultContent: React.FC = () => {
       </section>
 
       <section>
-        <Card className="shadow-elegant">
+        <Card>
           <CardHeader>
             <CardTitle>Add a custom vault</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-3">
             <Input placeholder="e.g., SOP ARCHIVE" value={newVaultName} onChange={(e) => setNewVaultName(e.target.value)} />
-            <Button variant="gradient-glow" onClick={() => { addVault(newVaultName); setNewVaultName(""); }}>Add</Button>
+            <Button variant="flat" onClick={() => { addVault(newVaultName); setNewVaultName(""); }}>Add</Button>
           </CardContent>
         </Card>
       </section>

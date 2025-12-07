@@ -43,7 +43,7 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-4">
-          <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 shadow-elegant font-inter gap-1">
+          <nav className="flex items-center bg-background/40 backdrop-blur-md border border-border/60 rounded-full p-1 font-inter gap-1">
             {!isOnDashboard && (
               <Link to="/dashboard" aria-label="Go to Dashboard">
                 <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Dashboard</Button>

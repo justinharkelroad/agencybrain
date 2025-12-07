@@ -484,7 +484,7 @@ export default function Agency() {
               <Input id="agency-phone" value={agencyPhone} onChange={(e) => setAgencyPhone(e.target.value)} className="col-span-1 sm:col-span-3" />
             </div>
             <div className="flex justify-end">
-              <Button variant="gradient-glow" onClick={upsertAgency}>{agencyId ? "Save" : "Create Agency"}</Button>
+              <Button variant="flat" onClick={upsertAgency}>{agencyId ? "Save" : "Create Agency"}</Button>
             </div>
           </CardContent>
         </Card>
@@ -593,7 +593,7 @@ export default function Agency() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setMemberDialogOpen(false)}>Cancel</Button>
-                  <Button variant="gradient-glow" onClick={saveMember}>{editingId ? "Save" : "Add"}</Button>
+                  <Button variant="flat" onClick={saveMember}>{editingId ? "Save" : "Add"}</Button>
                 </div>
               </DialogContent>
             </Dialog>

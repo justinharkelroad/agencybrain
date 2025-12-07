@@ -371,7 +371,7 @@ export const SettingsContent = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={saveScorecardSettings} disabled={saving} variant="gradient-glow">
+                  <Button onClick={saveScorecardSettings} disabled={saving} variant="flat">
                     {saving ? "Saving..." : "Save Scorecard Settings"}
                   </Button>
                 </div>
@@ -393,7 +393,7 @@ export const SettingsContent = () => {
           </CardHeader>
           <CardContent>
             <Link to="/targets">
-              <Button variant="gradient-glow">Open Targets Manager</Button>
+              <Button variant="flat">Open Targets Manager</Button>
             </Link>
           </CardContent>
         </Card>

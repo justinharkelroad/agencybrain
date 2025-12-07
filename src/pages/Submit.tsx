@@ -1389,7 +1389,7 @@ export default function Submit() {
             <Button variant="outline" className="rounded-full" onClick={saveProgress} disabled={saving}>
               {saving ? 'Saving...' : 'Save Progress'}
             </Button>
-            <Button variant="gradient-glow" className="rounded-full" onClick={submitCompletedForm} disabled={saving}>
+            <Button variant="flat" className="rounded-full" onClick={submitCompletedForm} disabled={saving}>
               {saving ? 'Saving...' : 'Submit Completed Form'}
             </Button>
           </div>
@@ -1515,7 +1515,7 @@ export default function Submit() {
             <Button variant="outline" onClick={saveProgress} disabled={saving} className="rounded-full flex-1" size="sm">
               {saving ? "Saving..." : "Save Progress"}
             </Button>
-            <Button variant="gradient-glow" onClick={submitCompletedForm} disabled={saving} className="rounded-full flex-1" size="sm">
+            <Button variant="flat" onClick={submitCompletedForm} disabled={saving} className="rounded-full flex-1" size="sm">
               {saving ? "Saving..." : "Submit"}
             </Button>
           </div>
