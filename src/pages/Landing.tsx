@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
+import agencyBrainLogo from "@/assets/agencybrain-logo-new.png";
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -61,19 +62,25 @@ export default function Landing() {
 
             <div className="flex flex-col items-center justify-center gap-8">
               <img
-                src="/lovable-uploads/agencybrain-logo.png"
+                src={agencyBrainLogo}
                 alt="AgencyBrain logo"
                 className="h-24 w-auto sm:h-32"
                 height={128}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
               />
-              <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg">
-                <Link to="/auth" aria-label="Enter AgencyBrain">
-                  ENTER YOUR 🧠 →
-                </Link>
-              </Button>
+              
+              <div className="flex flex-col gap-4 w-full max-w-xs">
+                <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full">
+                  <Link to="/auth" aria-label="Enter AgencyBrain">
+                    ENTER YOUR 🧠 →
+                  </Link>
+                </Button>
+                
+                <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                  <Link to="/staff/login" aria-label="Staff Login">
+                    Staff Login
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             <span className="sr-only">Animated abstract background with brand colors.</span>

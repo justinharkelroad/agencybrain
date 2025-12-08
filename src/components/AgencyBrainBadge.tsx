@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import agencyBrainLogo from "@/assets/agencybrain-logo-new.png";
 
 type Props = {
   size?: "sm" | "md" | "lg";
@@ -10,16 +11,10 @@ type Props = {
 };
 
 export function AgencyBrainBadge({ size = "md", className, asLink = false, to = "/dashboard" }: Props) {
-  const sizeClasses = {
-    sm: "text-sm px-3 py-1",
-    md: "text-base px-4 py-1.5",
-    lg: "text-lg px-5 py-2",
-  }[size];
-
   const imageHeight = {
-    sm: "h-6",
-    md: "h-7",
-    lg: "h-10",
+    sm: "max-h-8",
+    md: "max-h-10",
+    lg: "max-h-14",
   }[size];
 
   const Comp: any = asLink ? Link : "div";
@@ -34,9 +29,9 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
       )}
     >
       <img
-        src="/lovable-uploads/agencybrain-logo.png"
+        src={agencyBrainLogo}
         alt="AgencyBrain logo"
-        className="w-full h-auto max-h-12 object-contain"
+        className={cn("w-auto object-contain", imageHeight)}
       />
     </Comp>
   );
