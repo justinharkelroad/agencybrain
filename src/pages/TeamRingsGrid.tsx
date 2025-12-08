@@ -76,7 +76,7 @@ export default function TeamRingsGrid() {
   const loadAgencyAndRingMetrics = async () => {
     try {
       // Get user's agency
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user?.id)
@@ -90,7 +90,7 @@ export default function TeamRingsGrid() {
       setAgencyId(profile.agency_id);
 
       // Load ring metrics from scorecard rules
-      const { data: rules } = await supa
+      const { data: rules } = await supabase
         .from("scorecard_rules")
         .select("ring_metrics, selected_metrics")
         .eq("agency_id", profile.agency_id)
@@ -111,7 +111,7 @@ export default function TeamRingsGrid() {
     if (!agencyId) return;
 
     try {
-      const { data, error } = await supa.rpc('get_team_metrics_for_day', {
+      const { data, error } = await supabase.rpc('get_team_metrics_for_day', {
         p_agency: agencyId,
         p_role: selectedRole,
         p_date: selectedDate
@@ -131,7 +131,7 @@ export default function TeamRingsGrid() {
     if (!agencyId) return;
 
     try {
-      const { data: targetRows, error } = await supa
+      const { data: targetRows, error } = await supabase
         .from("targets")
         .select("team_member_id, metric_key, value_number")
         .eq("agency_id", agencyId);
