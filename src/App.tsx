@@ -83,6 +83,10 @@ const LifeTargetsDaily = lazy(() => import("./pages/LifeTargetsDaily"));
 const LifeTargetsCascade = lazy(() => import("./pages/LifeTargetsCascade"));
 const LifeTargetsHistory = lazy(() => import("./pages/LifeTargetsHistory"));
 
+// Flows pages
+import Flows from "./pages/Flows";
+import FlowProfile from "./pages/flows/FlowProfile";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -168,6 +172,21 @@ const App = () => (
               <ProtectedRoute>
                 <SidebarLayout>
                   <ProcessVault />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Flows Routes */}
+            <Route path="/flows" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Flows />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/flows/profile" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <FlowProfile />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
