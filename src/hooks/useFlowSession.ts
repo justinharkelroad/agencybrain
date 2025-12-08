@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { FlowTemplate, FlowSession, FlowQuestion } from '@/types/flows';
 
+export interface PromptSegment {
+  type: 'text' | 'interpolated';
+  content: string;
+}
+
 interface UseFlowSessionProps {
   templateSlug?: string;
   sessionId?: string;
@@ -176,26 +181,48 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     }
   };
 
-  const interpolatePrompt = useCallback((prompt: string): string => {
-    let result = prompt;
+  const interpolatePrompt = useCallback((prompt: string): PromptSegment[] => {
+    const segments: PromptSegment[] = [];
+    const questions = template?.questions_json as FlowQuestion[];
     
-    const matches = prompt.match(/\{([^}]+)\}/g);
-    if (matches) {
-      matches.forEach(match => {
-        const key = match.slice(1, -1);
-        
-        const questions = template?.questions_json as FlowQuestion[];
-        const sourceQuestion = questions?.find(
-          q => q.interpolation_key === key || q.id === key
-        );
-        
-        if (sourceQuestion && responses[sourceQuestion.id]) {
-          result = result.replace(match, responses[sourceQuestion.id]);
+    const regex = /\{([^}]+)\}/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(prompt)) !== null) {
+      if (match.index > lastIndex) {
+        const textBefore = prompt.slice(lastIndex, match.index).trim();
+        if (textBefore) {
+          segments.push({ type: 'text', content: textBefore });
         }
-      });
+      }
+
+      const key = match[1];
+      const sourceQuestion = questions?.find(
+        q => q.interpolation_key === key || q.id === key
+      );
+
+      if (sourceQuestion && responses[sourceQuestion.id]) {
+        segments.push({ type: 'interpolated', content: responses[sourceQuestion.id] });
+      } else {
+        segments.push({ type: 'text', content: match[0] });
+      }
+
+      lastIndex = match.index + match[0].length;
     }
-    
-    return result;
+
+    if (lastIndex < prompt.length) {
+      const remaining = prompt.slice(lastIndex).trim();
+      if (remaining) {
+        segments.push({ type: 'text', content: remaining });
+      }
+    }
+
+    if (segments.length === 0) {
+      segments.push({ type: 'text', content: prompt });
+    }
+
+    return segments;
   }, [responses, template]);
 
   const questions = (template?.questions_json || []) as FlowQuestion[];

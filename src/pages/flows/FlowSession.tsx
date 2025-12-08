@@ -155,7 +155,7 @@ export default function FlowSession() {
     );
   }
 
-  const interpolatedPrompt = interpolatePrompt(currentQuestion.prompt);
+  const promptSegments = interpolatePrompt(currentQuestion.prompt);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -188,29 +188,51 @@ export default function FlowSession() {
         <div className="max-w-3xl mx-auto px-4 py-8">
           {/* Previous Q&A */}
           <div className="space-y-8 mb-8">
-            {questions.slice(0, currentQuestionIndex).map((q, idx) => (
-              <div 
-                key={q.id} 
-                className="opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => handleClickPreviousAnswer(idx)}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xl">🧠</span>
-                  <p className="text-base">{interpolatePrompt(q.prompt)}</p>
+            {questions.slice(0, currentQuestionIndex).map((q, idx) => {
+              const segments = interpolatePrompt(q.prompt);
+              const hasInterpolations = segments.some(s => s.type === 'interpolated');
+              
+              return (
+                <div 
+                  key={q.id} 
+                  className="opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => handleClickPreviousAnswer(idx)}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl flex-shrink-0">🧠</span>
+                    <div className="space-y-2">
+                      {hasInterpolations ? (
+                        segments.map((segment, segIdx) => (
+                          <p 
+                            key={segIdx}
+                            className={
+                              segment.type === 'interpolated'
+                                ? 'text-base font-medium'
+                                : 'text-base text-muted-foreground/70'
+                            }
+                          >
+                            {segment.content}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-base">{segments[0]?.content}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pl-9 mt-2">
+                    <p className="text-muted-foreground bg-muted/30 rounded-lg px-4 py-2 inline-block">
+                      {responses[q.id]}
+                    </p>
+                  </div>
                 </div>
-                <div className="pl-10 mt-2">
-                  <p className="text-muted-foreground bg-muted/30 rounded-lg px-4 py-2 inline-block">
-                    {responses[q.id]}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Current Question */}
           <FlowQuestionComponent
             question={currentQuestion}
-            prompt={interpolatedPrompt}
+            promptSegments={promptSegments}
             value={currentValue}
             onChange={setCurrentValue}
             onSubmit={handleSubmitAnswer}
