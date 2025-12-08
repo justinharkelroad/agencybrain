@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FlowQuestion as FlowQuestionType } from '@/types/flows';
+import { PromptSegment } from '@/hooks/useFlowSession';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +9,7 @@ import { Mic, MicOff } from 'lucide-react';
 
 interface FlowQuestionProps {
   question: FlowQuestionType;
-  prompt: string;
+  promptSegments: PromptSegment[];
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
@@ -18,7 +19,7 @@ interface FlowQuestionProps {
 
 export function FlowQuestionComponent({
   question,
-  prompt,
+  promptSegments,
   value,
   onChange,
   onSubmit,
@@ -97,11 +98,32 @@ export function FlowQuestionComponent({
     }
   };
 
+  const hasInterpolations = promptSegments.some(s => s.type === 'interpolated');
+
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3">
-        <span className="text-2xl">🧠</span>
-        <p className="text-lg leading-relaxed">{prompt}</p>
+        <span className="text-2xl flex-shrink-0">🧠</span>
+        <div className="space-y-3">
+          {hasInterpolations ? (
+            promptSegments.map((segment, idx) => (
+              <p 
+                key={idx}
+                className={
+                  segment.type === 'interpolated'
+                    ? 'text-lg font-medium text-foreground leading-relaxed'
+                    : 'text-lg text-muted-foreground/80 leading-relaxed'
+                }
+              >
+                {segment.content}
+              </p>
+            ))
+          ) : (
+            <p className="text-lg leading-relaxed">
+              {promptSegments[0]?.content}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="pl-11">
