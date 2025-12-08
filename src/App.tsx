@@ -86,6 +86,8 @@ const LifeTargetsHistory = lazy(() => import("./pages/LifeTargetsHistory"));
 // Flows pages
 import Flows from "./pages/Flows";
 import FlowProfile from "./pages/flows/FlowProfile";
+import FlowStart from "./pages/flows/FlowStart";
+import FlowSession from "./pages/flows/FlowSession";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -188,6 +190,16 @@ const App = () => (
                 <SidebarLayout>
                   <FlowProfile />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/flows/start/:slug" element={
+              <ProtectedRoute>
+                <FlowStart />
+              </ProtectedRoute>
+            } />
+            <Route path="/flows/session/:slug" element={
+              <ProtectedRoute>
+                <FlowSession />
               </ProtectedRoute>
             } />
             {/* Metrics Routes */}
