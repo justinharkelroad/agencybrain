@@ -54,6 +54,23 @@ export default function FlowSession() {
     }
   }, [currentQuestionIndex, showChallenge]);
 
+  // Auto-save on page unload/refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (currentValue.trim() && currentQuestion) {
+        saveResponse(currentQuestion.id, currentValue.trim());
+      }
+      
+      if (currentValue.trim()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [currentValue, currentQuestion, saveResponse]);
+
   const checkForChallenge = async (questionId: string, response: string): Promise<string | null> => {
     if (!currentQuestion?.ai_challenge || !template?.ai_challenge_enabled) {
       return null;
@@ -119,7 +136,10 @@ export default function FlowSession() {
     }
   };
 
-  const handleExit = () => {
+  const handleExit = async () => {
+    if (currentValue.trim() && currentQuestion) {
+      await saveResponse(currentQuestion.id, currentValue.trim());
+    }
     navigate('/flows');
   };
 
