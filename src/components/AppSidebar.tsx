@@ -11,6 +11,7 @@ import {
   LogOut,
   GraduationCap,
   ClipboardList,
+  Sparkles,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -36,6 +37,7 @@ type AppSidebarProps = {
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "My Agency", url: "/agency", icon: Building2 },
+  { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
 ];
 
