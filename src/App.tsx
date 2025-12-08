@@ -89,6 +89,7 @@ import FlowProfile from "./pages/flows/FlowProfile";
 import FlowStart from "./pages/flows/FlowStart";
 import FlowSession from "./pages/flows/FlowSession";
 import FlowComplete from "./pages/flows/FlowComplete";
+import FlowView from "./pages/flows/FlowView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -206,6 +207,11 @@ const App = () => (
             <Route path="/flows/complete/:sessionId" element={
               <ProtectedRoute>
                 <FlowComplete />
+              </ProtectedRoute>
+            } />
+            <Route path="/flows/view/:sessionId" element={
+              <ProtectedRoute>
+                <FlowView />
               </ProtectedRoute>
             } />
             {/* Metrics Routes */}
