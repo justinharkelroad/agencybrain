@@ -685,6 +685,199 @@ export type Database = {
         }
         Relationships: []
       }
+      flow_challenge_logs: {
+        Row: {
+          ai_challenge: string | null
+          created_at: string | null
+          id: string
+          original_response: string | null
+          question_id: string
+          revised_response: string | null
+          session_id: string
+          user_action: string | null
+        }
+        Insert: {
+          ai_challenge?: string | null
+          created_at?: string | null
+          id?: string
+          original_response?: string | null
+          question_id: string
+          revised_response?: string | null
+          session_id: string
+          user_action?: string | null
+        }
+        Update: {
+          ai_challenge?: string | null
+          created_at?: string | null
+          id?: string
+          original_response?: string | null
+          question_id?: string
+          revised_response?: string | null
+          session_id?: string
+          user_action?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_challenge_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "flow_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flow_profiles: {
+        Row: {
+          background_notes: string | null
+          core_values: string[] | null
+          created_at: string | null
+          current_challenges: string | null
+          current_goals: string | null
+          faith_tradition: string | null
+          full_name: string | null
+          id: string
+          life_roles: string[] | null
+          preferred_name: string | null
+          spiritual_beliefs: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          background_notes?: string | null
+          core_values?: string[] | null
+          created_at?: string | null
+          current_challenges?: string | null
+          current_goals?: string | null
+          faith_tradition?: string | null
+          full_name?: string | null
+          id?: string
+          life_roles?: string[] | null
+          preferred_name?: string | null
+          spiritual_beliefs?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          background_notes?: string | null
+          core_values?: string[] | null
+          created_at?: string | null
+          current_challenges?: string | null
+          current_goals?: string | null
+          faith_tradition?: string | null
+          full_name?: string | null
+          id?: string
+          life_roles?: string[] | null
+          preferred_name?: string | null
+          spiritual_beliefs?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      flow_sessions: {
+        Row: {
+          ai_analysis_json: Json | null
+          completed_at: string | null
+          created_at: string | null
+          domain: string | null
+          flow_template_id: string
+          id: string
+          pdf_url: string | null
+          responses_json: Json
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_analysis_json?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          domain?: string | null
+          flow_template_id: string
+          id?: string
+          pdf_url?: string | null
+          responses_json?: Json
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_analysis_json?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          domain?: string | null
+          flow_template_id?: string
+          id?: string
+          pdf_url?: string | null
+          responses_json?: Json
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flow_sessions_flow_template_id_fkey"
+            columns: ["flow_template_id"]
+            isOneToOne: false
+            referencedRelation: "flow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flow_templates: {
+        Row: {
+          ai_analysis_prompt: string | null
+          ai_challenge_enabled: boolean | null
+          ai_challenge_intensity: string | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          questions_json: Json
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_analysis_prompt?: string | null
+          ai_challenge_enabled?: boolean | null
+          ai_challenge_intensity?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          questions_json?: Json
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_analysis_prompt?: string | null
+          ai_challenge_enabled?: boolean | null
+          ai_challenge_intensity?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          questions_json?: Json
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       focus_items: {
         Row: {
           agency_id: string | null
