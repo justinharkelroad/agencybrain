@@ -37,7 +37,6 @@ type AppSidebarProps = {
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "My Agency", url: "/agency", icon: Building2 },
   { title: "Training", url: "/training", icon: BookOpen },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
@@ -53,9 +52,6 @@ const adminOnlyItems = [
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
 ];
-
-// Items accessible by agency owners AND admins - now empty since Training is unified
-const agencyOwnerItems: { title: string; url: string; icon: any }[] = [];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, isAgencyOwner } = useAuth();
@@ -125,49 +121,26 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                     </SidebarMenuItem>
                   );
                 })}
+                {/* Tools button - under Scorecards */}
+                {onOpenROI && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      className="hover:bg-muted/40 transition-colors"
+                    >
+                      <button
+                        onClick={onOpenROI}
+                        className="flex items-center gap-2 w-full"
+                      >
+                        <Wrench className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Tools</span>}
+                      </button>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-
-          {/* Soft divider */}
-          <div className="my-2" />
-
-          {/* Agency Owner Navigation - Training System */}
-          {(isAdmin || isAgencyOwner) && (
-            <SidebarGroup>
-              {sidebarOpen && (
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
-                  Management
-                </SidebarGroupLabel>
-              )}
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {agencyOwnerItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.url);
-                    
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                          asChild 
-                          isActive={active}
-                          className={cn(
-                            "hover:bg-muted/40 transition-colors",
-                            active && "bg-muted/50 text-foreground"
-                          )}
-                        >
-                          <Link to={item.url} className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" strokeWidth={1.5} />
-                            {sidebarOpen && <span>{item.title}</span>}
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
 
           {/* Soft divider */}
           <div className="my-2" />
@@ -212,31 +185,30 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           {/* Soft divider */}
           <div className="my-2" />
 
-          {/* Actions */}
+          {/* Account section - My Agency + Sign Out */}
           <SidebarGroup>
             {sidebarOpen && (
               <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
-                Actions
+                Account
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
               <SidebarMenu>
-                {onOpenROI && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild
-                      className="hover:bg-muted/40 transition-colors"
-                    >
-                      <button
-                        onClick={onOpenROI}
-                        className="flex items-center gap-2 w-full"
-                      >
-                        <Wrench className="h-4 w-4" strokeWidth={1.5} />
-                        {sidebarOpen && <span>Tools</span>}
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive("/agency")}
+                    className={cn(
+                      "hover:bg-muted/40 transition-colors",
+                      isActive("/agency") && "bg-muted/50 text-foreground"
+                    )}
+                  >
+                    <Link to="/agency" className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" strokeWidth={1.5} />
+                      {sidebarOpen && <span>My Agency</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild
