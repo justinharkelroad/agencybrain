@@ -4609,6 +4609,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_default_kpis: { Args: { p_agency_id: string }; Returns: undefined }
       create_default_scorecard_rules: {
         Args: { p_agency_id: string }
         Returns: undefined
