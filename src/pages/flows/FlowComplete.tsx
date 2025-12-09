@@ -99,7 +99,7 @@ export default function FlowComplete() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading your stack...</p>
+          <p className="text-muted-foreground">Loading your flow...</p>
         </div>
       </div>
     );
@@ -130,9 +130,9 @@ export default function FlowComplete() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 mb-4">
             <CheckCircle2 className="h-8 w-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-medium">Stack Complete!</h1>
+          <h1 className="text-2xl font-medium">Flow Complete!</h1>
           <p className="text-muted-foreground mt-2">
-            {template.icon} {template.name} Stack
+            {template.icon} {template.name} Flow
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export default function FlowComplete() {
         <Card className="mb-6 border-border/10">
           <CardContent className="p-6">
             <h2 className="text-xl font-medium mb-1">
-              {session.title || 'Untitled Stack'}
+              {session.title || 'Untitled Flow'}
             </h2>
             <p className="text-sm text-muted-foreground">
               {session.domain && <span className="mr-3">📊 {session.domain}</span>}
@@ -273,7 +273,7 @@ export default function FlowComplete() {
             onClick={() => navigate(`/flows/start/${template.slug}`)}
           >
             <RotateCcw className="h-4 w-4 mr-2" strokeWidth={1.5} />
-            Start New {template.name} Stack
+            Start New {template.name} Flow
           </Button>
           
           <Button 

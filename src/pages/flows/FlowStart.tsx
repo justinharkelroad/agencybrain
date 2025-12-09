@@ -147,7 +147,7 @@ export default function FlowStart() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Preparing your stack...</p>
+          <p className="text-muted-foreground">Preparing your flow...</p>
         </div>
       </div>
     );
@@ -167,7 +167,7 @@ export default function FlowStart() {
           <CardContent className="space-y-6">
             <div className="bg-muted/30 rounded-lg p-4">
               <p className="font-medium">
-                {draftSession.title || `Untitled ${templateName} Stack`}
+                {draftSession.title || `Untitled ${templateName} Flow`}
               </p>
               <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -224,7 +224,7 @@ export default function FlowStart() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete your in-progress stack. This action cannot be undone.
+                This will permanently delete your in-progress flow. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

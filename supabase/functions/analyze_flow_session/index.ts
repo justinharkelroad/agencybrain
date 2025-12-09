@@ -177,10 +177,10 @@ ${parts.join('\n')}
     }
   }
 
-  return `You are a supportive coach analyzing a completed ${flowType} Stack reflection exercise.
+  return `You are a supportive coach analyzing a completed ${flowType} Flow reflection exercise.
 ${profileContext}
 Your job is to:
-1. Congratulate the user warmly and specifically (reference something they shared)
+1. Congratulate the user warmly and specifically on completing this flow (reference something they shared)
 2. Connect their insights to their stated values, roles, or goals (if profile available)
 3. Identify 2-3 themes that emerged from their reflection
 4. If their stated action item is vague or not measurable, suggest a more specific version
@@ -202,7 +202,7 @@ function buildUserPrompt(session: any, qaPairs: any[]): string {
     .map((qa: any, i: number) => `Q${i + 1}: ${qa.question}\nA: ${qa.answer}`)
     .join('\n\n')
 
-  return `Here is the completed ${session.flow_template.name} Stack:
+  return `Here is the completed ${session.flow_template.name} Flow:
 
 Title: ${session.title || 'Untitled'}
 Domain: ${session.domain || 'Not specified'}
