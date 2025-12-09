@@ -98,7 +98,7 @@ export default function Flows() {
           className="flex items-center gap-2"
         >
           <User className="h-4 w-4" strokeWidth={1.5} />
-          {hasProfile ? 'Edit Profile' : 'Setup Profile'}
+          {hasProfile ? 'Edit Your AI Experience' : 'Setup Profile'}
         </Button>
       </div>
 
@@ -108,9 +108,9 @@ export default function Flows() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-lg">Complete Your Profile</h3>
+                <h3 className="font-medium text-lg">Required for Flow Usage</h3>
                 <p className="text-muted-foreground/70 text-sm mt-1">
-                  Help us personalize your Flow experience with AI-powered insights.
+                  Share as much information as possible to enhance your AI-powered flow experience.
                 </p>
               </div>
               <Button onClick={() => navigate('/flows/profile')}>
