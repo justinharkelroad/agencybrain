@@ -281,7 +281,7 @@ export default function StaffSPTrainingHub() {
               <Card
                 key={category.id}
                 className="cursor-pointer hover:bg-accent/5 transition-colors"
-                onClick={() => navigate(`/staff/playbook/${category.slug}`)}
+                onClick={() => navigate(`/staff/training/standard/${category.slug}`)}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">

@@ -306,7 +306,7 @@ export default function TrainingHub() {
               <Card
                 key={category.id}
                 className="cursor-pointer hover:bg-accent/5 transition-colors"
-                onClick={() => navigate(`/training/${category.slug}`)}
+                onClick={() => navigate(`/training/standard/${category.slug}`)}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">

@@ -148,7 +148,7 @@ export default function TrainingLesson() {
       }
     } catch (err) {
       console.error('Error fetching lesson:', err);
-      navigate('/training');
+      navigate('/training/standard');
     } finally {
       setLoading(false);
     }
@@ -278,7 +278,7 @@ export default function TrainingLesson() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate(`/training/${categorySlug}`)}
+          onClick={() => navigate(`/training/standard/${categorySlug}`)}
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
@@ -431,12 +431,12 @@ export default function TrainingLesson() {
               Great work! You've completed this lesson.
             </p>
             {nextLesson ? (
-              <Button onClick={() => navigate(`/training/${categorySlug}/${lesson.module?.slug}/${nextLesson.slug}`)}>
+              <Button onClick={() => navigate(`/training/standard/${categorySlug}/${lesson.module?.slug}/${nextLesson.slug}`)}>
                 Next: {nextLesson.name}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={() => navigate(`/training/${categorySlug}`)}>
+              <Button onClick={() => navigate(`/training/standard/${categorySlug}`)}>
                 Back to {lesson.module?.category?.name}
               </Button>
             )}

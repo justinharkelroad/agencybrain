@@ -54,17 +54,21 @@ const adminOnlyItems = [
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
 ];
 
-// Items accessible by agency owners AND admins
-const agencyOwnerItems = [
-  { title: "Training System", url: "/agency/training", icon: GraduationCap },
-];
+// Items accessible by agency owners AND admins - now empty since Training is unified
+const agencyOwnerItems: { title: string; url: string; icon: any }[] = [];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, isAgencyOwner } = useAuth();
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    // Training should be active for any training sub-route
+    if (path === '/training') {
+      return location.pathname === path || location.pathname.startsWith('/training/');
+    }
+    return location.pathname === path;
+  };
 
   return (
     <Sidebar

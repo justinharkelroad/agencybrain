@@ -147,7 +147,7 @@ export default function StaffSPLesson() {
       }
     } catch (err) {
       console.error('Error fetching lesson:', err);
-      navigate('/staff/playbook');
+      navigate('/staff/training/standard');
     } finally {
       setLoading(false);
     }
@@ -250,7 +250,7 @@ export default function StaffSPLesson() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate(`/staff/playbook/${categorySlug}`)}
+          onClick={() => navigate(`/staff/training/standard/${categorySlug}`)}
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
@@ -401,12 +401,12 @@ export default function StaffSPLesson() {
               Great work! You've completed this lesson.
             </p>
             {nextLesson ? (
-              <Button onClick={() => navigate(`/staff/playbook/${categorySlug}/${lesson.module?.slug}/${nextLesson.slug}`)}>
+              <Button onClick={() => navigate(`/staff/training/standard/${categorySlug}/${lesson.module?.slug}/${nextLesson.slug}`)}>
                 Next: {nextLesson.name}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={() => navigate(`/staff/playbook/${categorySlug}`)}>
+              <Button onClick={() => navigate(`/staff/training/standard/${categorySlug}`)}>
                 Back to {lesson.module?.category?.name}
               </Button>
             )}

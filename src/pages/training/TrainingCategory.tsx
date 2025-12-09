@@ -129,7 +129,7 @@ export default function TrainingCategory() {
       }
     } catch (err) {
       console.error('Error fetching category:', err);
-      navigate('/training');
+      navigate('/training/standard');
     } finally {
       setLoading(false);
     }
@@ -175,7 +175,7 @@ export default function TrainingCategory() {
       <div className="mb-8">
         <Button
           variant="ghost"
-          onClick={() => navigate('/training')}
+          onClick={() => navigate('/training/standard')}
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
@@ -247,7 +247,7 @@ export default function TrainingCategory() {
                         <button
                           key={lesson.id}
                           className="w-full p-4 pl-20 flex items-center gap-4 text-left hover:bg-accent/5 transition-colors border-b border-border/30 last:border-0"
-                          onClick={() => navigate(`/training/${categorySlug}/${module.slug}/${lesson.slug}`)}
+                          onClick={() => navigate(`/training/standard/${categorySlug}/${module.slug}/${lesson.slug}`)}
                         >
                           {/* Completion Status */}
                           <div className="flex-shrink-0">

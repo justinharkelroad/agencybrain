@@ -103,9 +103,11 @@ import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 
 // Training pages
+import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
 import TrainingHub from "./pages/training/TrainingHub";
 import TrainingCategory from "./pages/training/TrainingCategory";
 import TrainingLesson from "./pages/training/TrainingLesson";
+import StaffUnifiedTrainingHub from "./pages/staff/StaffUnifiedTrainingHub";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -237,25 +239,48 @@ const App = () => (
                 </SidebarLayout>
               </ProtectedRoute>
             } />
-            {/* Training Routes */}
+            {/* Training Routes - Unified Hub */}
             <Route path="/training" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <UnifiedTrainingHub />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Standard Playbook Routes */}
+            <Route path="/training/standard" element={
               <ProtectedRoute>
                 <SidebarLayout>
                   <TrainingHub />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
-            <Route path="/training/:categorySlug" element={
+            <Route path="/training/standard/:categorySlug" element={
               <ProtectedRoute>
                 <SidebarLayout>
                   <TrainingCategory />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
-            <Route path="/training/:categorySlug/:moduleSlug/:lessonSlug" element={
+            <Route path="/training/standard/:categorySlug/:moduleSlug/:lessonSlug" element={
               <ProtectedRoute>
                 <SidebarLayout>
                   <TrainingLesson />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Agency Training Routes */}
+            <Route path="/training/agency" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <StaffTraining />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/agency/manage" element={
+              <ProtectedRoute requireAgencyOwner>
+                <SidebarLayout>
+                  <AdminTraining />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -555,14 +580,8 @@ const App = () => (
                 </SidebarLayout>
               </ProtectedRoute>
             } />
-            {/* Agency Owner Training Route */}
-            <Route path="/agency/training" element={
-              <ProtectedRoute requireAgencyOwner>
-                <SidebarLayout>
-                  <AdminTraining />
-                </SidebarLayout>
-              </ProtectedRoute>
-            } />
+            {/* Redirect legacy agency training route to unified hub */}
+            <Route path="/agency/training" element={<Navigate to="/training/agency/manage" replace />} />
             {/* Redirect old training routes to new tabbed interface */}
             <Route path="/admin/staff-users" element={<Navigate to="/admin/training?tab=staff" replace />} />
             <Route path="/admin/training-assignments" element={<Navigate to="/admin/training?tab=assignments" replace />} />
@@ -684,10 +703,16 @@ const App = () => (
               <Route path="dashboard" element={<StaffDashboard />} />
               <Route path="submit" element={<StaffSubmitWrapper />} />
               <Route path="submit/:formSlug" element={<StaffFormSubmission />} />
-              <Route path="training" element={<StaffTraining />} />
-              <Route path="playbook" element={<StaffSPTrainingHub />} />
-              <Route path="playbook/:categorySlug" element={<StaffSPCategory />} />
-              <Route path="playbook/:categorySlug/:moduleSlug/:lessonSlug" element={<StaffSPLesson />} />
+              {/* Unified Training Hub */}
+              <Route path="training" element={<StaffUnifiedTrainingHub />} />
+              {/* Standard Playbook */}
+              <Route path="training/standard" element={<StaffSPTrainingHub />} />
+              <Route path="training/standard/:categorySlug" element={<StaffSPCategory />} />
+              <Route path="training/standard/:categorySlug/:moduleSlug/:lessonSlug" element={<StaffSPLesson />} />
+              {/* Agency Training */}
+              <Route path="training/agency" element={<StaffTraining />} />
+              {/* Legacy redirects for backward compatibility */}
+              <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />
             </Route>
             
