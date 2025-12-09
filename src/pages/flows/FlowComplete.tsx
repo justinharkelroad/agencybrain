@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
-import { FlowSession, FlowTemplate, FlowAnalysis } from '@/types/flows';
+import { generateFlowPDF } from '@/lib/generateFlowPDF';
+import { FlowSession, FlowTemplate, FlowAnalysis, FlowQuestion } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags } from 'lucide-react';
@@ -19,6 +20,7 @@ export default function FlowComplete() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -89,9 +91,28 @@ export default function FlowComplete() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    // TODO: Implement in Phase 4B
-    alert('PDF export coming soon!');
+  const handleDownloadPDF = async () => {
+    if (!session || !template) return;
+    
+    const questions: FlowQuestion[] = (typeof template.questions_json === 'string' 
+      ? JSON.parse(template.questions_json) 
+      : template.questions_json) || [];
+    
+    setGeneratingPDF(true);
+    try {
+      await generateFlowPDF({
+        session,
+        template,
+        questions,
+        analysis,
+        userName: profile?.preferred_name || undefined,
+      });
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   if (loading) {
@@ -263,9 +284,14 @@ export default function FlowComplete() {
             className="w-full" 
             variant="outline"
             onClick={handleDownloadPDF}
+            disabled={generatingPDF}
           >
-            <Download className="h-4 w-4 mr-2" strokeWidth={1.5} />
-            Download PDF
+            {generatingPDF ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            )}
+            {generatingPDF ? 'Generating PDF...' : 'Download PDF'}
           </Button>
           
           <Button 

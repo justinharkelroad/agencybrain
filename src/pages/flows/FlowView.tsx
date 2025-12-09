@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
+import { generateFlowPDF } from '@/lib/generateFlowPDF';
 import { FlowSession, FlowTemplate, FlowQuestion, FlowAnalysis } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ export default function FlowView() {
   const [analysis, setAnalysis] = useState<FlowAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -79,9 +81,24 @@ export default function FlowView() {
     }
   };
 
-  const handleDownloadPDF = () => {
-    // TODO: Phase 4B
-    alert('PDF export coming soon!');
+  const handleDownloadPDF = async () => {
+    if (!session || !template) return;
+    
+    setGeneratingPDF(true);
+    try {
+      await generateFlowPDF({
+        session,
+        template,
+        questions,
+        analysis,
+        userName: profile?.preferred_name || undefined,
+      });
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   // Interpolate prompt with responses
@@ -159,8 +176,17 @@ export default function FlowView() {
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
-                <Download className="h-4 w-4 mr-1" strokeWidth={1.5} />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadPDF}
+                disabled={generatingPDF}
+              >
+                {generatingPDF ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" strokeWidth={1.5} />
+                )}
                 PDF
               </Button>
               <Button size="sm" onClick={() => navigate(`/flows/start/${template.slug}`)}>
