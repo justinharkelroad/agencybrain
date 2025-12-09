@@ -99,6 +99,11 @@ import FlowLibrary from "./pages/flows/FlowLibrary";
 import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 
+// Training pages
+import TrainingHub from "./pages/training/TrainingHub";
+import TrainingCategory from "./pages/training/TrainingCategory";
+import TrainingLesson from "./pages/training/TrainingLesson";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -226,6 +231,28 @@ const App = () => (
               <ProtectedRoute>
                 <SidebarLayout>
                   <FlowLibrary />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Training Routes */}
+            <Route path="/training" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <TrainingHub />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/:categorySlug" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <TrainingCategory />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/:categorySlug/:moduleSlug/:lessonSlug" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <TrainingLesson />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

@@ -161,3 +161,6 @@ verify_jwt = false
 
 [functions.analyze_flow_session]
 verify_jwt = true
+
+[functions.sp_lesson_complete]
+verify_jwt = true
