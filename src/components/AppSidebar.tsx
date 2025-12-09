@@ -12,6 +12,7 @@ import {
   GraduationCap,
   ClipboardList,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -44,6 +45,7 @@ const mainItems = [
 // Admin-only items (system-wide admin access)
 const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
+  { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
