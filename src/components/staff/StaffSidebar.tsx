@@ -29,7 +29,6 @@ const navItems = [
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
-  { title: "Playbook", url: "/staff/playbook", icon: BookOpen },
 ];
 
 const bottomItems = [
@@ -44,6 +43,10 @@ export function StaffSidebar() {
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
       return location.pathname.startsWith("/staff/submit");
+    }
+    // Training should be active for any training sub-route
+    if (path === "/staff/training") {
+      return location.pathname === path || location.pathname.startsWith("/staff/training/");
     }
     return location.pathname === path;
   };

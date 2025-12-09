@@ -128,7 +128,7 @@ export default function StaffSPCategory() {
       }
     } catch (err) {
       console.error('Error fetching category:', err);
-      navigate('/staff/playbook');
+      navigate('/staff/training/standard');
     } finally {
       setLoading(false);
     }
@@ -174,11 +174,11 @@ export default function StaffSPCategory() {
       <div className="mb-8">
         <Button
           variant="ghost"
-          onClick={() => navigate('/staff/playbook')}
+          onClick={() => navigate('/staff/training/standard')}
           className="mb-4 -ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
-          Back to Playbook
+          Back to Standard Playbook
         </Button>
 
         <div className="flex items-center gap-4">
@@ -246,7 +246,7 @@ export default function StaffSPCategory() {
                         <button
                           key={lesson.id}
                           className="w-full p-4 pl-20 flex items-center gap-4 text-left hover:bg-accent/5 transition-colors border-b border-border/30 last:border-0"
-                          onClick={() => navigate(`/staff/playbook/${categorySlug}/${module.slug}/${lesson.slug}`)}
+                          onClick={() => navigate(`/staff/training/standard/${categorySlug}/${module.slug}/${lesson.slug}`)}
                         >
                           <div className="flex-shrink-0">
                             {lesson.completed ? (
