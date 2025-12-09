@@ -1,0 +1,526 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabaseClient';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  GripVertical,
+  ArrowLeft,
+  ChevronRight,
+  Loader2,
+  Package,
+  BookOpen,
+  Save,
+} from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+
+interface SPCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string;
+  access_tiers: string[];
+  is_published: boolean;
+}
+
+interface SPModule {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string;
+  display_order: number;
+  is_published: boolean;
+  lesson_count?: number;
+}
+
+const EMOJI_OPTIONS = ['📦', '🎯', '📚', '🚀', '⭐', '🔥', '💡', '📈', '🎓', '🏆', '📊', '🤝', '💪', '🧠'];
+
+export default function AdminSPCategoryDetail() {
+  const { categoryId } = useParams<{ categoryId: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [category, setCategory] = useState<SPCategory | null>(null);
+  const [modules, setModules] = useState<SPModule[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Module dialog state
+  const [moduleDialogOpen, setModuleDialogOpen] = useState(false);
+  const [editingModule, setEditingModule] = useState<SPModule | null>(null);
+  const [moduleName, setModuleName] = useState('');
+  const [moduleSlug, setModuleSlug] = useState('');
+  const [moduleDescription, setModuleDescription] = useState('');
+  const [moduleIcon, setModuleIcon] = useState('📦');
+  const [savingModule, setSavingModule] = useState(false);
+  
+  // Delete state
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (categoryId) {
+      fetchData();
+    }
+  }, [categoryId]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch category
+      const { data: catData, error: catError } = await supabase
+        .from('sp_categories')
+        .select('*')
+        .eq('id', categoryId)
+        .single();
+
+      if (catError) throw catError;
+      setCategory(catData);
+
+      // Fetch modules with lesson count
+      const { data: modData, error: modError } = await supabase
+        .from('sp_modules')
+        .select(`
+          *,
+          sp_lessons(count)
+        `)
+        .eq('category_id', categoryId)
+        .order('display_order', { ascending: true });
+
+      if (modError) throw modError;
+
+      const modulesWithCount = (modData || []).map(mod => ({
+        ...mod,
+        lesson_count: mod.sp_lessons?.[0]?.count || 0,
+      }));
+
+      setModules(modulesWithCount);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      toast({ title: 'Error loading category', variant: 'destructive' });
+      navigate('/admin/standard-playbook');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  };
+
+  const openModuleDialog = (module?: SPModule) => {
+    if (module) {
+      setEditingModule(module);
+      setModuleName(module.name);
+      setModuleSlug(module.slug);
+      setModuleDescription(module.description || '');
+      setModuleIcon(module.icon || '📦');
+    } else {
+      setEditingModule(null);
+      setModuleName('');
+      setModuleSlug('');
+      setModuleDescription('');
+      setModuleIcon('📦');
+    }
+    setModuleDialogOpen(true);
+  };
+
+  const closeModuleDialog = () => {
+    setModuleDialogOpen(false);
+    setEditingModule(null);
+    setModuleName('');
+    setModuleSlug('');
+    setModuleDescription('');
+    setModuleIcon('📦');
+  };
+
+  const handleModuleNameChange = (value: string) => {
+    setModuleName(value);
+    if (!editingModule) {
+      setModuleSlug(generateSlug(value));
+    }
+  };
+
+  const saveModule = async () => {
+    if (!moduleName.trim()) {
+      toast({ title: 'Name is required', variant: 'destructive' });
+      return;
+    }
+    if (!moduleSlug.trim()) {
+      toast({ title: 'Slug is required', variant: 'destructive' });
+      return;
+    }
+
+    setSavingModule(true);
+    try {
+      const moduleData = {
+        category_id: categoryId,
+        name: moduleName.trim(),
+        slug: moduleSlug.trim(),
+        description: moduleDescription.trim() || null,
+        icon: moduleIcon,
+      };
+
+      if (editingModule) {
+        const { error } = await supabase
+          .from('sp_modules')
+          .update(moduleData)
+          .eq('id', editingModule.id);
+
+        if (error) throw error;
+        toast({ title: 'Module updated!' });
+      } else {
+        const { error } = await supabase
+          .from('sp_modules')
+          .insert({
+            ...moduleData,
+            display_order: modules.length,
+          });
+
+        if (error) {
+          if (error.code === '23505') {
+            toast({ title: 'A module with this slug already exists', variant: 'destructive' });
+            return;
+          }
+          throw error;
+        }
+        toast({ title: 'Module created!' });
+      }
+
+      closeModuleDialog();
+      fetchData();
+    } catch (err) {
+      console.error('Error saving module:', err);
+      toast({ title: 'Error saving module', variant: 'destructive' });
+    } finally {
+      setSavingModule(false);
+    }
+  };
+
+  const toggleModulePublished = async (module: SPModule) => {
+    try {
+      const newState = !module.is_published;
+      const { error } = await supabase
+        .from('sp_modules')
+        .update({
+          is_published: newState,
+          published_at: newState ? new Date().toISOString() : null,
+        })
+        .eq('id', module.id);
+
+      if (error) throw error;
+
+      setModules(prev =>
+        prev.map(m => m.id === module.id ? { ...m, is_published: newState } : m)
+      );
+
+      toast({ title: `Module ${newState ? 'published' : 'unpublished'}` });
+    } catch (err) {
+      console.error('Error toggling module:', err);
+      toast({ title: 'Error updating module', variant: 'destructive' });
+    }
+  };
+
+  const deleteModule = async () => {
+    if (!deleteId) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('sp_modules')
+        .delete()
+        .eq('id', deleteId);
+
+      if (error) throw error;
+
+      setModules(prev => prev.filter(m => m.id !== deleteId));
+      toast({ title: 'Module deleted' });
+    } catch (err) {
+      console.error('Error deleting module:', err);
+      toast({ title: 'Error deleting module', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+      setDeleteId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!category) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-muted-foreground">Category not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/admin/standard-playbook')}
+          className="mb-4 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
+          Back to Standard Playbook
+        </Button>
+
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">{category.icon}</div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-medium">{category.name}</h1>
+                {!category.is_published && (
+                  <Badge variant="outline">Draft</Badge>
+                )}
+              </div>
+              <p className="text-muted-foreground/70 mt-1">
+                {category.description || 'No description'}
+              </p>
+            </div>
+          </div>
+
+          <Button onClick={() => openModuleDialog()}>
+            <Plus className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            New Module
+          </Button>
+        </div>
+      </div>
+
+      {/* Modules List */}
+      {modules.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Package className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" strokeWidth={1} />
+            <h3 className="font-medium mb-2">No modules yet</h3>
+            <p className="text-sm text-muted-foreground/70 mb-4">
+              Create your first module to start adding lessons.
+            </p>
+            <Button onClick={() => openModuleDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Module
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {modules.map((module, index) => (
+            <Card
+              key={module.id}
+              className={`transition-opacity ${!module.is_published ? 'opacity-60' : ''}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  {/* Drag Handle */}
+                  <div className="text-muted-foreground/40 cursor-grab">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
+
+                  {/* Module Number */}
+                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-medium">
+                    {index + 1}
+                  </div>
+
+                  {/* Icon */}
+                  <div className="text-2xl">{module.icon || '📦'}</div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium truncate">{module.name}</h3>
+                      {!module.is_published && (
+                        <Badge variant="outline" className="text-xs">Draft</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground/70 truncate">
+                      {module.lesson_count} lesson{module.lesson_count !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={module.is_published}
+                      onCheckedChange={() => toggleModulePublished(module)}
+                    />
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/admin/standard-playbook/module/${module.id}`)}
+                    >
+                      <BookOpen className="h-4 w-4 mr-1" />
+                      Lessons
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openModuleDialog(module)}
+                    >
+                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteId(module.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Module Dialog */}
+      <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingModule ? 'Edit Module' : 'New Module'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="moduleName">Name *</Label>
+              <Input
+                id="moduleName"
+                value={moduleName}
+                onChange={e => handleModuleNameChange(e.target.value)}
+                placeholder="e.g., Getting Started"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="moduleSlug">Slug *</Label>
+              <Input
+                id="moduleSlug"
+                value={moduleSlug}
+                onChange={e => setModuleSlug(e.target.value)}
+                placeholder="e.g., getting-started"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="moduleDesc">Description</Label>
+              <Textarea
+                id="moduleDesc"
+                value={moduleDescription}
+                onChange={e => setModuleDescription(e.target.value)}
+                placeholder="Brief description of this module"
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+
+            <div>
+              <Label>Icon</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {EMOJI_OPTIONS.map(emoji => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setModuleIcon(emoji)}
+                    className={`w-9 h-9 text-lg rounded-lg border transition-all ${
+                      moduleIcon === emoji
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border/50 hover:border-border'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={closeModuleDialog}>
+              Cancel
+            </Button>
+            <Button onClick={saveModule} disabled={savingModule}>
+              {savingModule ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {savingModule ? 'Saving...' : 'Save Module'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this module?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the module and all its lessons.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteModule}
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete Module'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
