@@ -117,7 +117,7 @@ export default function FlowView() {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="border-border/10">
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Stack not found.</p>
+            <p className="text-muted-foreground">Flow not found.</p>
             <Button className="mt-4" onClick={() => navigate('/flows/library')}>
               Back to Library
             </Button>
@@ -147,10 +147,10 @@ export default function FlowView() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-2xl">{template.icon}</span>
-                <span className="text-sm text-muted-foreground">{template.name} Stack</span>
+                <span className="text-sm text-muted-foreground">{template.name} Flow</span>
               </div>
               <h1 className="text-2xl font-medium">
-                {session.title || 'Untitled Stack'}
+                {session.title || 'Untitled Flow'}
               </h1>
               <p className="text-sm text-muted-foreground/70 mt-1">
                 {session.domain && <span className="mr-3">{session.domain}</span>}

@@ -185,7 +185,7 @@ export default function FlowSession() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <span className="text-2xl">{template.icon}</span>
-              <h1 className="font-medium">{template.name} Stack</h1>
+              <h1 className="font-medium">{template.name} Flow</h1>
             </div>
             <Button variant="ghost" size="sm" onClick={handleExit}>
               <X className="h-4 w-4 mr-1" strokeWidth={1.5} />

@@ -109,10 +109,10 @@ export default function FlowLibrary() {
         </Button>
         
         <h1 className="text-2xl font-medium flex items-center gap-2">
-          📚 Your Stack Library
+          📚 Your Flow Library
         </h1>
         <p className="text-muted-foreground/70 mt-1">
-          {sessions.length} total stacks
+          {sessions.length} total flows
         </p>
       </div>
 
@@ -121,7 +121,7 @@ export default function FlowLibrary() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search stacks..."
+            placeholder="Search flows..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -161,12 +161,12 @@ export default function FlowLibrary() {
             <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" strokeWidth={1} />
             {sessions.length === 0 ? (
               <>
-                <h3 className="font-medium mb-2">No stacks yet</h3>
+                <h3 className="font-medium mb-2">No flows yet</h3>
                 <p className="text-sm text-muted-foreground/70 mb-4">
                   Start your first Flow to begin building your library.
                 </p>
                 <Button onClick={() => navigate('/flows')}>
-                  Start a Stack
+                  Start a Flow
                 </Button>
               </>
             ) : (
@@ -194,7 +194,7 @@ export default function FlowLibrary() {
                   </span>
                   <div>
                     <h4 className="font-medium">
-                      {session.title || 'Untitled Stack'}
+                      {session.title || 'Untitled Flow'}
                     </h4>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground/70">
                       <span>{session.flow_template?.name}</span>

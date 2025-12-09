@@ -123,7 +123,7 @@ export default function Flows() {
 
       {/* Flow Templates Grid */}
       <div className="mb-10">
-        <h2 className="text-lg font-medium mb-4">Choose Your Stack</h2>
+        <h2 className="text-lg font-medium mb-4">Choose Your Flow</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {templates.map(template => (
             <Card
@@ -173,7 +173,7 @@ export default function Flows() {
       {/* Recent Stacks / Library */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium">📚 Your Stack Library</h2>
+          <h2 className="text-lg font-medium">📚 Your Flow Library</h2>
           {recentSessions.length > 0 && (
             <Button
               variant="ghost"
@@ -190,7 +190,7 @@ export default function Flows() {
           <Card>
             <CardContent className="p-8 text-center">
               <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" strokeWidth={1} />
-              <h3 className="font-medium mb-2">No stacks yet</h3>
+              <h3 className="font-medium mb-2">No flows yet</h3>
               <p className="text-sm text-muted-foreground/70">
                 Start your first Flow to begin building your library.
               </p>
@@ -211,7 +211,7 @@ export default function Flows() {
                     </span>
                     <div>
                       <h4 className="font-medium">
-                        {session.title || 'Untitled Stack'}
+                        {session.title || 'Untitled Flow'}
                       </h4>
                       <p className="text-sm text-muted-foreground/70">
                         {session.flow_template?.name} • {format(new Date(session.created_at), 'MMM d, yyyy')}
