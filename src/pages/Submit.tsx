@@ -146,6 +146,8 @@ export default function Submit() {
   // Get URL parameters with stable references to prevent infinite useEffect loops
   const mode = useMemo(() => searchParams.get('mode'), [searchParams]); // 'update' or 'new'
   const periodIdParam = useMemo(() => searchParams.get('periodId'), [searchParams]);
+  const tierParam = useMemo(() => searchParams.get('tier'), [searchParams]); // 'boardroom' or null
+  const showQualitativeSection = tierParam !== 'boardroom';
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -568,7 +570,8 @@ export default function Submit() {
     if (!formData.cashFlow.compensation && !formData.cashFlow.expenses) {
       incomplete.push('Cash Flow');
     }
-    if (!formData.qualitative.biggestStress && !formData.qualitative.gutAction) {
+    // Only check qualitative section for non-boardroom users
+    if (showQualitativeSection && !formData.qualitative.biggestStress && !formData.qualitative.gutAction) {
       incomplete.push('Current Reality');
     }
     
@@ -1448,24 +1451,28 @@ export default function Submit() {
                 {CashFlowSection()}
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="qualitative">
-              <AccordionTrigger>Current Reality</AccordionTrigger>
-              <AccordionContent>
-                {QualitativeSection()}
-              </AccordionContent>
-            </AccordionItem>
+            {showQualitativeSection && (
+              <AccordionItem value="qualitative">
+                <AccordionTrigger>Current Reality</AccordionTrigger>
+                <AccordionContent>
+                  {QualitativeSection()}
+                </AccordionContent>
+              </AccordionItem>
+            )}
           </Accordion>
         </div>
 
         <div className="hidden md:block">
           <Tabs defaultValue="sales" className="space-y-6">
-          <TabsList className="w-full glass-surface rounded-full p-1 overflow-x-auto whitespace-nowrap flex md:grid md:grid-cols-6 gap-1">
+          <TabsList className={`w-full glass-surface rounded-full p-1 overflow-x-auto whitespace-nowrap flex md:grid gap-1 ${showQualitativeSection ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="sales">Sales</TabsTrigger>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="marketing">Marketing</TabsTrigger>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="operations">Bonus/Ops</TabsTrigger>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="retention">Retention</TabsTrigger>
             <TabsTrigger className="text-sm md:text-base shrink-0" value="cashflow">Cash Flow</TabsTrigger>
-            <TabsTrigger className="text-sm md:text-base shrink-0" value="qualitative">Current Reality</TabsTrigger>
+            {showQualitativeSection && (
+              <TabsTrigger className="text-sm md:text-base shrink-0" value="qualitative">Current Reality</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="sales">
@@ -1488,9 +1495,11 @@ export default function Submit() {
             {CashFlowSection()}
           </TabsContent>
 
-          <TabsContent value="qualitative">
-            {QualitativeSection()}
-          </TabsContent>
+          {showQualitativeSection && (
+            <TabsContent value="qualitative">
+              {QualitativeSection()}
+            </TabsContent>
+          )}
         </Tabs>
         </div>
       </div>
