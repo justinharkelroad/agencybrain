@@ -474,7 +474,7 @@ export default function ScorecardFormEditor() {
                 // Provide defaults for notification fields if missing (backward compatibility)
                 sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
                 additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
-                sendDailySummary: formSchema.settings.sendDailySummary ?? true,
+                sendDailySummary: formSchema.settings.sendDailySummary ?? false,
                 dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
                 customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
               }}
@@ -489,7 +489,7 @@ export default function ScorecardFormEditor() {
                 ...formSchema.settings,
                 sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
                 additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
-                sendDailySummary: formSchema.settings.sendDailySummary ?? true,
+                sendDailySummary: formSchema.settings.sendDailySummary ?? false,
                 dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
                 customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
               }}
