@@ -71,6 +71,8 @@ export default function Agency() {
   const [agencyName, setAgencyName] = useState("");
   const [agencyEmail, setAgencyEmail] = useState("");
   const [agencyPhone, setAgencyPhone] = useState("");
+  const [agencyLogo, setAgencyLogo] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Team state
   const [members, setMembers] = useState<any[]>([]);
@@ -135,13 +137,14 @@ export default function Agency() {
         if (aId) {
           const { data: agency, error: aErr } = await supabase
             .from("agencies")
-            .select("id,name,agency_email,phone")
+            .select("id,name,agency_email,phone,logo_url")
             .eq("id", aId)
             .maybeSingle();
           if (aErr) throw aErr;
           setAgencyName(agency?.name || "");
           setAgencyEmail(agency?.agency_email || "");
           setAgencyPhone(agency?.phone || "");
+          setAgencyLogo(agency?.logo_url || null);
 
           const { data: team, error: tErr } = await supabase
             .from("team_members")
@@ -466,6 +469,95 @@ export default function Agency() {
             <CardDescription>Update your agency profile</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
+            {/* Agency Logo */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-4">
+              <Label className="sm:text-right pt-2">Logo</Label>
+              <div className="col-span-1 sm:col-span-3 space-y-3">
+                {agencyLogo ? (
+                  <div className="flex items-center gap-4">
+                    <img 
+                      src={agencyLogo} 
+                      alt="Agency logo" 
+                      className="h-16 max-w-48 object-contain rounded border border-border/30 bg-background p-2"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={async () => {
+                        if (!agencyId) return;
+                        try {
+                          await supabase.from("agencies").update({ logo_url: null }).eq("id", agencyId);
+                          setAgencyLogo(null);
+                          toast.success("Logo removed");
+                        } catch (e: any) {
+                          toast.error("Failed to remove logo");
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-32 rounded border border-dashed border-border/50 flex items-center justify-center text-muted-foreground/50">
+                      <Building2 className="h-8 w-8" />
+                    </div>
+                    <input
+                      type="file"
+                      id="logo-upload"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !agencyId) return;
+                        
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error("File must be under 2MB");
+                          return;
+                        }
+
+                        setUploadingLogo(true);
+                        try {
+                          const ext = file.name.split('.').pop();
+                          const filePath = `${agencyId}/logo.${ext}`;
+                          
+                          const { error: uploadError } = await supabase.storage
+                            .from('agency-logos')
+                            .upload(filePath, file, { upsert: true });
+                          
+                          if (uploadError) throw uploadError;
+
+                          const { data: { publicUrl } } = supabase.storage
+                            .from('agency-logos')
+                            .getPublicUrl(filePath);
+
+                          await supabase.from("agencies").update({ logo_url: publicUrl }).eq("id", agencyId);
+                          setAgencyLogo(publicUrl);
+                          toast.success("Logo uploaded!");
+                        } catch (e: any) {
+                          console.error(e);
+                          toast.error(e?.message || "Failed to upload logo");
+                        } finally {
+                          setUploadingLogo(false);
+                        }
+                      }}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={!agencyId || uploadingLogo}
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                    >
+                      {uploadingLogo ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                      Upload Logo
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">PNG, JPG or WebP. Max 2MB. This appears on your training card.</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
               <Label htmlFor="agency-name" className="sm:text-right">Name</Label>
               <Input id="agency-name" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} className="col-span-1 sm:col-span-3" />
