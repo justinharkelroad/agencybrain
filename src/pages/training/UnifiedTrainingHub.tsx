@@ -12,8 +12,7 @@ import {
   Building2,
   Settings,
 } from 'lucide-react';
-
-const AGENCY_BRAIN_LOGO = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/AGENCYBRAIN%20LOGO.png';
+import standardPlaybookLogo from '@/assets/standard-playbook-logo.png';
 
 interface TrainingStats {
   categoryCount: number;
@@ -194,8 +193,8 @@ export default function UnifiedTrainingHub() {
               {/* Logo */}
               <div className="h-12 mb-4 flex items-center">
                 <img 
-                  src={AGENCY_BRAIN_LOGO} 
-                  alt="Agency Brain" 
+                  src={standardPlaybookLogo} 
+                  alt="Standard Playbook" 
                   className="h-8 object-contain"
                 />
               </div>
