@@ -91,6 +91,8 @@ import FlowSession from "./pages/flows/FlowSession";
 import FlowComplete from "./pages/flows/FlowComplete";
 import FlowView from "./pages/flows/FlowView";
 import FlowLibrary from "./pages/flows/FlowLibrary";
+import AdminFlows from "./pages/admin/AdminFlows";
+import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -443,6 +445,28 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminTraining />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Admin Flow Template Manager */}
+            <Route path="/admin/flows" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminFlows />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/flows/new" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminFlowEditor />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/flows/edit/:templateId" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminFlowEditor />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

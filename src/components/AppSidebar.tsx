@@ -44,6 +44,7 @@ const mainItems = [
 // Admin-only items (system-wide admin access)
 const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
+  { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
