@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
-import { FlowSession, FlowTemplate, FlowQuestion } from '@/types/flows';
+import { useFlowProfile } from '@/hooks/useFlowProfile';
+import { FlowSession, FlowTemplate, FlowQuestion, FlowAnalysis } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Sparkles, Download, RotateCcw, Home, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, RotateCcw, Sparkles, Lightbulb, Target, Tags, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function FlowView() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { profile } = useFlowProfile();
   
   const [session, setSession] = useState<FlowSession | null>(null);
   const [template, setTemplate] = useState<FlowTemplate | null>(null);
+  const [questions, setQuestions] = useState<FlowQuestion[]>([]);
+  const [analysis, setAnalysis] = useState<FlowAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -31,19 +36,72 @@ export default function FlowView() {
 
       if (error) throw error;
 
+      const templateData = {
+        ...data.flow_template,
+        questions_json: typeof data.flow_template.questions_json === 'string'
+          ? JSON.parse(data.flow_template.questions_json)
+          : data.flow_template.questions_json
+      };
+
       setSession(data);
-      setTemplate(data.flow_template);
+      setTemplate(templateData);
+      setQuestions(templateData.questions_json);
+      setAnalysis(data.ai_analysis_json);
+
+      // If completed but no analysis, trigger it
+      if (data.status === 'completed' && !data.ai_analysis_json) {
+        await runAnalysis(sessionId);
+      }
     } catch (err) {
       console.error('Error loading session:', err);
-      navigate('/flows');
+      navigate('/flows/library');
     } finally {
       setLoading(false);
     }
   };
 
+  const runAnalysis = async (id: string) => {
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze_flow_session', {
+        body: { session_id: id },
+      });
+
+      if (error) throw error;
+
+      if (data?.analysis) {
+        setAnalysis(data.analysis);
+      }
+    } catch (err) {
+      console.error('Analysis error:', err);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleDownloadPDF = () => {
-    // TODO: Implement PDF generation
+    // TODO: Phase 4B
     alert('PDF export coming soon!');
+  };
+
+  // Interpolate prompt with responses
+  const interpolatePrompt = (prompt: string): string => {
+    let result = prompt;
+    const matches = prompt.match(/\{([^}]+)\}/g);
+    
+    if (matches && session?.responses_json) {
+      matches.forEach(match => {
+        const key = match.slice(1, -1);
+        const sourceQuestion = questions.find(
+          q => q.interpolation_key === key || q.id === key
+        );
+        if (sourceQuestion && session.responses_json[sourceQuestion.id]) {
+          result = result.replace(match, session.responses_json[sourceQuestion.id]);
+        }
+      });
+    }
+    
+    return result;
   };
 
   if (loading) {
@@ -57,11 +115,11 @@ export default function FlowView() {
   if (!session || !template) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Card>
+        <Card className="border-border/10">
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Session not found.</p>
-            <Button className="mt-4" onClick={() => navigate('/flows')}>
-              Back to Flows
+            <p className="text-muted-foreground">Stack not found.</p>
+            <Button className="mt-4" onClick={() => navigate('/flows/library')}>
+              Back to Library
             </Button>
           </CardContent>
         </Card>
@@ -69,118 +127,149 @@ export default function FlowView() {
     );
   }
 
-  const questions = template.questions_json as FlowQuestion[];
-  const responses = session.responses_json as Record<string, string>;
-
-  // Get key insight (revelation or lesson)
-  const keyInsight = responses?.revelation || responses?.lesson || null;
+  const userName = profile?.preferred_name || 'there';
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border/10 bg-card/50">
-        <div className="max-w-3xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate('/flows')}
-              className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-              Back to Flows
-            </Button>
+    <div className="min-h-screen py-8 px-6">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/flows/library')}
+            className="mb-4 -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            Back to Library
+          </Button>
+          
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">{template.icon}</span>
+                <span className="text-sm text-muted-foreground">{template.name} Stack</span>
+              </div>
+              <h1 className="text-2xl font-medium">
+                {session.title || 'Untitled Stack'}
+              </h1>
+              <p className="text-sm text-muted-foreground/70 mt-1">
+                {session.domain && <span className="mr-3">{session.domain}</span>}
+                {format(new Date(session.created_at), 'MMMM d, yyyy • h:mm a')}
+              </p>
+            </div>
             
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleDownloadPDF}>
-                <Download className="h-4 w-4" strokeWidth={1.5} />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
+                <Download className="h-4 w-4 mr-1" strokeWidth={1.5} />
+                PDF
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate(`/flows/start/${template.slug}`)}
-              >
-                <RotateCcw className="h-4 w-4" strokeWidth={1.5} />
+              <Button size="sm" onClick={() => navigate(`/flows/start/${template.slug}`)}>
+                <RotateCcw className="h-4 w-4 mr-1" strokeWidth={1.5} />
+                New
               </Button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        {/* Title Section */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">{template.icon || '🧠'}</span>
-            <span className="text-sm text-muted-foreground">{template.name} Stack</span>
-          </div>
-          <h1 className="text-2xl font-medium">
-            {session.title || 'Untitled Stack'}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(session.created_at), 'MMMM d, yyyy • h:mm a')}
-            {session.completed_at && (
-              <span className="ml-2 text-green-500">• Completed</span>
-            )}
-          </p>
-        </div>
-
-        {/* Key Insight */}
-        {keyInsight && (
-          <Card className="border-border/10 bg-primary/5 mb-8">
+        {/* AI Analysis Section */}
+        {(analysis || analyzing) && (
+          <Card className="mb-8 border-border/10">
             <CardContent className="p-6">
-              <h3 className="font-medium mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Key Insight
-              </h3>
-              <p className="text-foreground">{keyInsight}</p>
+              {analyzing ? (
+                <div className="text-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-primary" />
+                  <p className="text-muted-foreground">Generating insights...</p>
+                </div>
+              ) : analysis ? (
+                <div className="space-y-6">
+                  {/* Congratulations */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-5 w-5 text-yellow-500" />
+                      <h3 className="font-medium">AI Insights</h3>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {analysis.congratulations}
+                    </p>
+                  </div>
+
+                  {/* Connections */}
+                  {analysis.connections && analysis.connections.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lightbulb className="h-5 w-5 text-blue-500" />
+                        <h3 className="font-medium">Connections</h3>
+                      </div>
+                      <ul className="space-y-2">
+                        {analysis.connections.map((connection, idx) => (
+                          <li key={idx} className="text-muted-foreground text-sm flex items-start gap-2">
+                            <span className="text-primary mt-1">•</span>
+                            {connection}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Themes */}
+                  {analysis.themes && analysis.themes.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Tags className="h-5 w-5 text-purple-500" />
+                        <h3 className="font-medium">Themes</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {analysis.themes.map((theme, idx) => (
+                          <span 
+                            key={idx}
+                            className="px-3 py-1 bg-muted/50 rounded-full text-sm text-muted-foreground"
+                          >
+                            {theme}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggested Action */}
+                  {analysis.suggested_action && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target className="h-5 w-5 text-green-500" />
+                        <h3 className="font-medium">Suggested Action</h3>
+                      </div>
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                        <p className="text-sm">
+                          {analysis.suggested_action}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         )}
 
-        {/* Q&A History */}
+        {/* Q&A Section */}
         <div className="space-y-6">
+          <h2 className="font-medium text-lg">Your Responses</h2>
+          
           {questions.map((question, idx) => {
-            const answer = responses[question.id];
-            if (!answer) return null;
-
+            const response = session.responses_json?.[question.id];
+            if (!response) return null;
+            
             return (
-              <div key={question.id} className="border-l-2 border-border/20 pl-6">
-                <div className="flex items-start gap-3 mb-2">
-                  <span className="text-lg flex-shrink-0">🧠</span>
-                  <p className="text-muted-foreground">{question.prompt}</p>
-                </div>
-                <div className="ml-8">
-                  <p className="bg-muted/30 rounded-lg px-4 py-3 text-foreground">
-                    {answer}
-                  </p>
-                </div>
+              <div key={question.id} className="border-b border-border/10 pb-6 last:border-0">
+                <p className="text-muted-foreground/70 text-sm mb-2">
+                  {interpolatePrompt(question.prompt)}
+                </p>
+                <p className="text-foreground leading-relaxed">
+                  {response}
+                </p>
               </div>
             );
           })}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="mt-12 pt-8 border-t border-border/10">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button 
-              variant="flat"
-              onClick={() => navigate(`/flows/start/${template.slug}`)}
-              className="flex-1"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" strokeWidth={1.5} />
-              Start New {template.name} Stack
-            </Button>
-            <Button 
-              variant="ghost"
-              onClick={() => navigate('/flows')}
-              className="flex-1"
-            >
-              <Home className="h-4 w-4 mr-2" strokeWidth={1.5} />
-              Back to Flows
-            </Button>
-          </div>
         </div>
       </div>
     </div>
