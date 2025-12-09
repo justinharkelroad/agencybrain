@@ -123,7 +123,7 @@ export default function FlowComplete() {
       }
     } catch (err: any) {
       console.error('Analysis error:', err);
-      setAnalysisError('Unable to generate AI insights. Your stack has been saved.');
+      setAnalysisError('Unable to generate AI insights. Your flow has been saved.');
     } finally {
       setAnalyzing(false);
     }
@@ -195,7 +195,7 @@ export default function FlowComplete() {
           </p>
         </div>
 
-        {/* Stack Info Card */}
+        {/* Flow Info Card */}
         <Card className="mb-6 border-border/10">
           <CardContent className="p-6">
             <h2 className="text-xl font-medium mb-1">

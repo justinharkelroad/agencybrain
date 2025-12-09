@@ -120,7 +120,7 @@ serve(async (req) => {
       console.error('Failed to parse AI response:', parseError, 'Raw:', aiContent)
       // Fallback to basic structure
       analysis = {
-        congratulations: "Great work completing this stack! Your reflections show real self-awareness.",
+        congratulations: "Great work completing this flow! Your reflections show real self-awareness.",
         connections: [],
         suggested_action: null,
         themes: [],
