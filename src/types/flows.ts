@@ -60,10 +60,13 @@ export interface FlowSession {
 }
 
 export interface FlowAnalysis {
+  headline: string;
   congratulations: string;
+  deep_dive_insight: string;
   connections: string[];
-  suggested_action: string | null;
   themes: string[];
+  provocative_question: string;
+  suggested_action: string | null;
 }
 
 export interface FlowChallengeLog {
