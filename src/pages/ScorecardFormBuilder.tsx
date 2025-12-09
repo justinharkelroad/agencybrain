@@ -194,7 +194,7 @@ export default function ScorecardFormBuilder() {
       // Email notification defaults based on role
       sendImmediateEmail: true,
       additionalImmediateRecipients: [],
-      sendDailySummary: true,
+      sendDailySummary: false,
       dailySummaryRecipients: initialRole === 'Service' ? 'service_team' : 'sales_team',
       customSummaryRecipients: [],
     }
