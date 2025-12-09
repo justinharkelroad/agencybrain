@@ -1,18 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
+import { useFlowStats } from '@/hooks/useFlowStats';
+import { useToast } from '@/hooks/use-toast';
 import { generateFlowPDF } from '@/lib/generateFlowPDF';
 import { FlowSession, FlowTemplate, FlowAnalysis, FlowQuestion } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags } from 'lucide-react';
 import { format } from 'date-fns';
+import confetti from 'canvas-confetti';
 
 export default function FlowComplete() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const { profile } = useFlowProfile();
+  const stats = useFlowStats();
+  const { toast } = useToast();
+  const celebrationShownRef = useRef(false);
   
   const [session, setSession] = useState<FlowSession | null>(null);
   const [template, setTemplate] = useState<FlowTemplate | null>(null);
@@ -21,6 +27,38 @@ export default function FlowComplete() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  // Celebration effect for milestones and streaks
+  useEffect(() => {
+    if (!stats.loading && !celebrationShownRef.current && stats.totalFlows > 0) {
+      celebrationShownRef.current = true;
+      
+      // Check if we just hit a milestone
+      const justHitMilestone = stats.milestones.find(m => 
+        m.achieved && stats.currentStreak === m.days
+      );
+
+      if (justHitMilestone) {
+        // Fire confetti
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        toast({
+          title: `${justHitMilestone.icon} ${justHitMilestone.label} Milestone!`,
+          description: `You've maintained a ${justHitMilestone.days}-day streak! Keep going!`,
+        });
+      } else if (stats.todayCompleted && stats.currentStreak > 1) {
+        // Show streak alive toast
+        toast({
+          title: '🔥 Streak Alive!',
+          description: `Day ${stats.currentStreak} in the books!`,
+        });
+      }
+    }
+  }, [stats, toast]);
 
   useEffect(() => {
     if (sessionId) {
