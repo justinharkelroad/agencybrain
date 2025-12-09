@@ -82,7 +82,7 @@ serve(async (req) => {
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 1000,
+        max_tokens: 1500,
       }),
     })
 
@@ -120,10 +120,13 @@ serve(async (req) => {
       console.error('Failed to parse AI response:', parseError, 'Raw:', aiContent)
       // Fallback to basic structure
       analysis = {
+        headline: "Reflection Complete",
         congratulations: "Great work completing this flow! Your reflections show real self-awareness.",
+        deep_dive_insight: "",
         connections: [],
-        suggested_action: null,
         themes: [],
+        provocative_question: "",
+        suggested_action: null,
         raw_response: aiContent,
       }
     }
@@ -177,23 +180,28 @@ ${parts.join('\n')}
     }
   }
 
-  return `You are a supportive coach analyzing a completed ${flowType} Flow reflection exercise.
+  return `You are an Expert Growth Strategist analyzing a completed ${flowType} Flow reflection exercise.
 ${profileContext}
-Your job is to:
-1. Congratulate the user warmly and specifically on completing this flow (reference something they shared)
-2. Connect their insights to their stated values, roles, or goals (if profile available)
-3. Identify 2-3 themes that emerged from their reflection
-4. If their stated action item is vague or not measurable, suggest a more specific version
+Your job is to provide meaningful insights that reveal patterns and growth opportunities, not summarize what the user already wrote.
+
+ANALYSIS INSTRUCTIONS:
+1. **Analyze Don't Summarize**: Never repeat back what they wrote. Instead, interpret the MEANING behind their responses. What does this reveal about how they operate?
+2. **Avoid Platitudes**: No generic advice like "keep up the good work" or "you're doing great". Every sentence must contain specific insight drawn from their actual words.
+3. **Synthesize Values**: If profile values exist, connect their responses to potential tensions or alignments with those values. If no profile, infer values from their responses.
+4. **Identify the Pivot Point**: Find the ONE insight that, if internalized, would create the biggest shift in their thinking or behavior.
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "congratulations": "A warm, personalized congratulations message (2-3 sentences)",
-  "connections": ["Connection to their values/goals #1", "Connection #2"],
-  "themes": ["Theme 1", "Theme 2", "Theme 3"],
-  "suggested_action": "A more specific action if theirs was vague, or null if theirs was already good"
+  "headline": "A punchy 5-8 word insight that captures the core theme (e.g., 'Your Creativity Thrives in Structured Chaos')",
+  "congratulations": "1-2 sentences acknowledging something SPECIFIC they revealed, not generic praise. Reference exact phrases or themes from their responses.",
+  "deep_dive_insight": "2-3 sentences revealing a pattern or tension you noticed. This should be an 'aha' moment they didn't explicitly state. Start with 'I noticed...' or 'There's an interesting tension...'",
+  "connections": ["Insight connecting their response to a value/goal #1", "Insight #2 - be specific, not generic"],
+  "themes": ["Theme 1 - stated as a noun phrase", "Theme 2", "Theme 3"],
+  "provocative_question": "A single thought-provoking question that challenges their current frame or opens a new perspective. This should linger in their mind.",
+  "suggested_action": "If their stated action was vague, rewrite it as: 'When [specific trigger], I will [specific behavior] so that [specific outcome]'. If theirs was already specific, return null."
 }
 
-Be warm, encouraging, and specific. Reference actual content from their responses.
+Be direct, insightful, and specific. Every word must add value.
 Do not include any text outside the JSON object.`
 }
 
