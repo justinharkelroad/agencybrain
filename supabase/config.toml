@@ -158,3 +158,6 @@ verify_jwt = false
 
 [functions.staff_change_password]
 verify_jwt = false
+
+[functions.analyze_flow_session]
+verify_jwt = true
