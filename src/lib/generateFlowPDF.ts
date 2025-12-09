@@ -28,6 +28,75 @@ async function getLogoBase64(): Promise<string | null> {
   }
 }
 
+// Strip emojis from text since jsPDF doesn't support them
+function stripEmojis(text: string): string {
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation Selectors
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
+    .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, Hourglass
+    .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Various symbols
+    .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // Various symbols
+    .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
+    .replace(/[\u{25B6}]/gu, '')            // Play button
+    .replace(/[\u{25C0}]/gu, '')            // Reverse button
+    .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // Squares
+    .replace(/[\u{2614}-\u{2615}]/gu, '')   // Umbrella, Hot Beverage
+    .replace(/[\u{2648}-\u{2653}]/gu, '')   // Zodiac
+    .replace(/[\u{267F}]/gu, '')            // Wheelchair
+    .replace(/[\u{2693}]/gu, '')            // Anchor
+    .replace(/[\u{26A1}]/gu, '')            // High Voltage
+    .replace(/[\u{26AA}-\u{26AB}]/gu, '')   // Circles
+    .replace(/[\u{26BD}-\u{26BE}]/gu, '')   // Soccer, Baseball
+    .replace(/[\u{26C4}-\u{26C5}]/gu, '')   // Snowman, Sun
+    .replace(/[\u{26CE}]/gu, '')            // Ophiuchus
+    .replace(/[\u{26D4}]/gu, '')            // No Entry
+    .replace(/[\u{26EA}]/gu, '')            // Church
+    .replace(/[\u{26F2}-\u{26F3}]/gu, '')   // Fountain, Golf
+    .replace(/[\u{26F5}]/gu, '')            // Sailboat
+    .replace(/[\u{26FA}]/gu, '')            // Tent
+    .replace(/[\u{26FD}]/gu, '')            // Fuel Pump
+    .replace(/[\u{2702}]/gu, '')            // Scissors
+    .replace(/[\u{2705}]/gu, '')            // Check Mark
+    .replace(/[\u{2708}-\u{270D}]/gu, '')   // Airplane to Writing Hand
+    .replace(/[\u{270F}]/gu, '')            // Pencil
+    .replace(/[\u{2712}]/gu, '')            // Black Nib
+    .replace(/[\u{2714}]/gu, '')            // Check Mark
+    .replace(/[\u{2716}]/gu, '')            // X Mark
+    .replace(/[\u{271D}]/gu, '')            // Latin Cross
+    .replace(/[\u{2721}]/gu, '')            // Star of David
+    .replace(/[\u{2728}]/gu, '')            // Sparkles
+    .replace(/[\u{2733}-\u{2734}]/gu, '')   // Eight Spoked Asterisk
+    .replace(/[\u{2744}]/gu, '')            // Snowflake
+    .replace(/[\u{2747}]/gu, '')            // Sparkle
+    .replace(/[\u{274C}]/gu, '')            // Cross Mark
+    .replace(/[\u{274E}]/gu, '')            // Cross Mark
+    .replace(/[\u{2753}-\u{2755}]/gu, '')   // Question Marks
+    .replace(/[\u{2757}]/gu, '')            // Exclamation Mark
+    .replace(/[\u{2763}-\u{2764}]/gu, '')   // Heart Exclamation, Heart
+    .replace(/[\u{2795}-\u{2797}]/gu, '')   // Plus, Minus, Divide
+    .replace(/[\u{27A1}]/gu, '')            // Right Arrow
+    .replace(/[\u{27B0}]/gu, '')            // Curly Loop
+    .replace(/[\u{27BF}]/gu, '')            // Double Curly Loop
+    .replace(/[\u{2934}-\u{2935}]/gu, '')   // Arrows
+    .replace(/[\u{2B05}-\u{2B07}]/gu, '')   // Arrows
+    .replace(/[\u{2B1B}-\u{2B1C}]/gu, '')   // Squares
+    .replace(/[\u{2B50}]/gu, '')            // Star
+    .replace(/[\u{2B55}]/gu, '')            // Circle
+    .replace(/[\u{3030}]/gu, '')            // Wavy Dash
+    .replace(/[\u{303D}]/gu, '')            // Part Alternation Mark
+    .replace(/[\u{3297}]/gu, '')            // Circled Ideograph Congratulation
+    .replace(/[\u{3299}]/gu, '')            // Circled Ideograph Secret
+    .trim();
+}
+
 export async function generateFlowPDF({
   session,
   template,
@@ -78,11 +147,16 @@ export async function generateFlowPDF({
     doc.setFont('helvetica', fontStyle);
     doc.setTextColor(color);
     
-    const lines = doc.splitTextToSize(text, maxWidth);
+    // Strip emojis before rendering
+    const cleanText = stripEmojis(text);
+    const lines = doc.splitTextToSize(cleanText, maxWidth);
     let currentY = y;
     
     lines.forEach((line: string) => {
-      checkPageBreak(lineHeight);
+      if (currentY + lineHeight > pageHeight - 25) {
+        doc.addPage();
+        currentY = margin;
+      }
       doc.text(line, x, currentY);
       currentY += lineHeight;
     });
@@ -134,16 +208,17 @@ export async function generateFlowPDF({
     console.error('Failed to add logo to PDF:', err);
   }
   
-  // Flow icon and type (left side)
+  // Flow type (left side) - no emoji
   doc.setFontSize(11);
-  doc.setTextColor('#ffffff');
+  doc.setTextColor('#94a3b8');
   doc.setFont('helvetica', 'normal');
-  doc.text(`${template.icon || '📝'} ${template.name} Flow`, margin, 14);
+  doc.text(`${stripEmojis(template.name)} Flow`, margin, 14);
   
   // Flow title
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  const titleLines = doc.splitTextToSize(session.title || 'Untitled Flow', contentWidth - 45);
+  doc.setTextColor('#ffffff');
+  const titleLines = doc.splitTextToSize(stripEmojis(session.title || 'Untitled Flow'), contentWidth - 45);
   doc.text(titleLines, margin, 26);
   
   // Date and user
@@ -153,7 +228,7 @@ export async function generateFlowPDF({
   const metaParts = [format(new Date(session.created_at), 'MMMM d, yyyy')];
   if (session.domain) metaParts.push(session.domain);
   if (userName) metaParts.push(`by ${userName}`);
-  doc.text(metaParts.join('  •  '), margin, 36);
+  doc.text(metaParts.join('  |  '), margin, 36);
   
   yPosition = 52;
 
@@ -168,7 +243,7 @@ export async function generateFlowPDF({
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(textColor);
-    doc.text('✨ AI Insights', margin + 3, yPosition + 5.5);
+    doc.text('AI Insights', margin + 4, yPosition + 5.5);
     yPosition += 15;
 
     // Congratulations
@@ -198,7 +273,7 @@ export async function generateFlowPDF({
       analysis.connections.forEach(connection => {
         checkPageBreak(10);
         yPosition = addWrappedText(
-          `• ${connection}`,
+          `- ${connection}`,
           margin + 3,
           yPosition,
           contentWidth - 6,
@@ -212,48 +287,67 @@ export async function generateFlowPDF({
       yPosition += 3;
     }
 
-    // Themes
+    // Themes - with proper wrapping
     if (analysis.themes && analysis.themes.length > 0) {
       checkPageBreak(15);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(mutedColor);
-      doc.text('Themes: ', margin, yPosition);
+      doc.text('Themes:', margin, yPosition);
+      yPosition += 5;
       
+      // Wrap themes text properly
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(textColor);
-      doc.text(analysis.themes.join(', '), margin + 18, yPosition);
-      yPosition += 8;
+      const themesText = analysis.themes.join(', ');
+      const themesLines = doc.splitTextToSize(themesText, contentWidth);
+      themesLines.forEach((line: string) => {
+        doc.text(line, margin, yPosition);
+        yPosition += 5;
+      });
+      yPosition += 3;
     }
 
     // Suggested Action
     if (analysis.suggested_action) {
       checkPageBreak(25);
       
+      // Calculate box height based on text
+      doc.setFontSize(9);
+      const actionText = stripEmojis(analysis.suggested_action);
+      const actionLines = doc.splitTextToSize(actionText, contentWidth - 16);
+      const actionHeight = actionLines.length * 4.5 + 16;
+      
       // Green box background
       doc.setFillColor('#dcfce7');
-      const actionLines = doc.splitTextToSize(analysis.suggested_action, contentWidth - 12);
-      const actionHeight = actionLines.length * 5 + 14;
       doc.roundedRect(margin, yPosition, contentWidth, actionHeight, 2, 2, 'F');
       
       // Green left border
       doc.setFillColor('#22c55e');
       doc.rect(margin, yPosition, 3, actionHeight, 'F');
       
+      // Header
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#166534');
-      doc.text('💡 Suggested Action', margin + 6, yPosition + 6);
+      doc.text('Suggested Action', margin + 8, yPosition + 6);
       
+      // Action text
       doc.setFont('helvetica', 'normal');
-      doc.text(actionLines, margin + 6, yPosition + 12);
-      yPosition += actionHeight + 5;
+      doc.setFontSize(9);
+      let actionY = yPosition + 12;
+      actionLines.forEach((line: string) => {
+        doc.text(line, margin + 8, actionY);
+        actionY += 4.5;
+      });
+      
+      yPosition += actionHeight + 8;
     }
 
     // Divider after analysis
-    yPosition += 5;
-    doc.setDrawColor(lightBg);
-    doc.setLineWidth(0.5);
+    yPosition += 2;
+    doc.setDrawColor('#e5e7eb');
+    doc.setLineWidth(0.3);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 10;
   }
@@ -269,7 +363,7 @@ export async function generateFlowPDF({
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(textColor);
-  doc.text('📝 Your Responses', margin + 3, yPosition + 5.5);
+  doc.text('Your Responses', margin + 4, yPosition + 5.5);
   yPosition += 15;
 
   // Questions and Answers
@@ -285,17 +379,18 @@ export async function generateFlowPDF({
     const interpolatedPrompt = interpolatePrompt(question.prompt);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(brandDark);
-    yPosition = addWrappedText(
-      `${questionNumber}. ${interpolatedPrompt}`,
-      margin,
-      yPosition,
-      contentWidth,
-      4.5,
-      9,
-      'bold',
-      mutedColor
-    );
+    doc.setTextColor(mutedColor);
+    
+    const questionText = `${questionNumber}. ${stripEmojis(interpolatedPrompt)}`;
+    const questionLines = doc.splitTextToSize(questionText, contentWidth);
+    questionLines.forEach((line: string) => {
+      if (yPosition > pageHeight - 25) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += 4.5;
+    });
     yPosition += 2;
 
     // Answer
@@ -342,7 +437,8 @@ export async function generateFlowPDF({
   // SAVE PDF
   // ==================
   
-  const safeTitle = (session.title || 'Untitled').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-  const filename = `${template.name}_Flow_${safeTitle}_${format(new Date(session.created_at), 'yyyy-MM-dd')}.pdf`;
+  const safeTitle = stripEmojis(session.title || 'Untitled').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+  const safeName = stripEmojis(template.name);
+  const filename = `${safeName}_Flow_${safeTitle}_${format(new Date(session.created_at), 'yyyy-MM-dd')}.pdf`;
   doc.save(filename);
 }

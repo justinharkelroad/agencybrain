@@ -4309,6 +4309,27 @@ export type Database = {
       get_current_user_role: { Args: never; Returns: string }
       get_dashboard_daily:
         | {
+            Args: { p_agency_id: string; p_work_date: string }
+            Returns: {
+              cross_sells_uncovered: number
+              daily_score: number
+              hits: number
+              is_late: boolean
+              mini_reviews: number
+              outbound_calls: number
+              pass: boolean
+              quoted_count: number
+              rep_name: string
+              sold_items: number
+              sold_policies: number
+              sold_premium_cents: number
+              status: string
+              talk_minutes: number
+              team_member_id: string
+              work_date: string
+            }[]
+          }
+        | {
             Args: {
               p_agency_slug: string
               p_end: string
@@ -4330,27 +4351,6 @@ export type Database = {
               talk_minutes: number
               team_member_id: string
               team_member_name: string
-            }[]
-          }
-        | {
-            Args: { p_agency_id: string; p_work_date: string }
-            Returns: {
-              cross_sells_uncovered: number
-              daily_score: number
-              hits: number
-              is_late: boolean
-              mini_reviews: number
-              outbound_calls: number
-              pass: boolean
-              quoted_count: number
-              rep_name: string
-              sold_items: number
-              sold_policies: number
-              sold_premium_cents: number
-              status: string
-              talk_minutes: number
-              team_member_id: string
-              work_date: string
             }[]
           }
       get_sticky_fields_for_section: {
@@ -4389,6 +4389,14 @@ export type Database = {
         | {
             Args: {
               p_agency_slug: string
+              p_consolidate_versions?: boolean
+              p_role: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_agency_slug: string
               p_end: string
               p_role: string
               p_start: string
@@ -4406,14 +4414,6 @@ export type Database = {
               team_member_name: string
               value: number
             }[]
-          }
-        | {
-            Args: {
-              p_agency_slug: string
-              p_consolidate_versions?: boolean
-              p_role: string
-            }
-            Returns: Json
           }
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
