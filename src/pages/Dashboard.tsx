@@ -16,7 +16,7 @@ import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
 
 const Dashboard = () => {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, membershipTier } = useAuth();
   
 
   if (!user) {
@@ -70,12 +70,22 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
-            <Link to="/submit?mode=new">
-              <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
-              <span className="sm:hidden">Submit New Form</span>
-            </Link>
-          </Button>
+          {membershipTier === '1:1 Coaching' && (
+            <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
+              <Link to="/submit?mode=new">
+                <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
+                <span className="sm:hidden">Submit New Form</span>
+              </Link>
+            </Button>
+          )}
+          {membershipTier === 'Boardroom' && (
+            <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
+              <Link to="/submit?mode=new&tier=boardroom">
+                <span className="hidden sm:inline">Submit Dashboard Metrics</span>
+                <span className="sm:hidden">Submit Metrics</span>
+              </Link>
+            </Button>
+          )}
         </div>
         <PerformanceMetrics />
         <MyCurrentFocus />
