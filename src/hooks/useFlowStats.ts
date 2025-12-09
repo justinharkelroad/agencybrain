@@ -84,10 +84,11 @@ export function useFlowStats(): FlowStats {
       };
     }
 
-    // Get unique dates with completed flows
+    // Get unique dates with completed flows (use new Date for local timezone)
     const completedDates = new Set<string>();
     sessions.forEach(s => {
-      const date = format(parseISO(s.completed_at), 'yyyy-MM-dd');
+      const sessionDate = new Date(s.completed_at); // Converts UTC to local
+      const date = format(sessionDate, 'yyyy-MM-dd');
       completedDates.add(date);
     });
 
@@ -138,8 +139,9 @@ export function useFlowStats(): FlowStats {
     const mondayOfWeek = startOfWeek(today, { weekStartsOn: 1 });
     let weeklyProgress = 0;
     sessions.forEach(s => {
-      const sessionDate = parseISO(s.completed_at);
-      if (sessionDate >= mondayOfWeek && sessionDate <= today) {
+      const sessionDate = new Date(s.completed_at); // Local timezone
+      const sessionDay = startOfDay(sessionDate);
+      if (sessionDay >= mondayOfWeek && sessionDay <= today) {
         weeklyProgress++;
       }
     });
@@ -152,10 +154,11 @@ export function useFlowStats(): FlowStats {
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayLabel = format(date, 'EEE').charAt(0); // M, T, W, T, F, S, S
       
-      // Count flows completed on this day
-      const completed = sessions.filter(s => 
-        format(parseISO(s.completed_at), 'yyyy-MM-dd') === dateStr
-      ).length;
+      // Count flows completed on this day (local timezone)
+      const completed = sessions.filter(s => {
+        const sessionDate = new Date(s.completed_at);
+        return format(sessionDate, 'yyyy-MM-dd') === dateStr;
+      }).length;
 
       weeklyActivity.push({
         date,
