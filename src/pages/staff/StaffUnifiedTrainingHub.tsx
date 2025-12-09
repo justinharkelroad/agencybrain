@@ -101,39 +101,45 @@ export default function StaffUnifiedTrainingHub() {
           setAgencyInfo(agency);
         }
 
-        // Count assigned training modules for staff
+        // Count assigned training modules for staff - use separate queries
         const { data: assignments } = await supabase
           .from('training_assignments')
-          .select(`
-            id,
-            training_modules!inner(
-              id,
-              training_lessons(id)
-            )
-          `)
+          .select('id, module_id')
           .eq('staff_user_id', user!.id);
 
-        const { data: lessonProgress } = await supabase
-          .from('training_lesson_progress')
-          .select('lesson_id')
-          .eq('staff_user_id', user!.id)
-          .eq('completed', true);
-
-        const completedAgencyLessons = new Set(lessonProgress?.map(p => p.lesson_id) || []);
+        const moduleIds = assignments?.map(a => a.module_id).filter(Boolean) || [];
+        
         let agencyTotalLessons = 0;
         let agencyCompletedLessons = 0;
 
-        assignments?.forEach((assignment: any) => {
-          assignment.training_modules?.training_lessons?.forEach((lesson: any) => {
-            agencyTotalLessons++;
-            if (completedAgencyLessons.has(lesson.id)) {
-              agencyCompletedLessons++;
-            }
+        if (moduleIds.length > 0) {
+          // Fetch modules with their lessons
+          const { data: modules } = await supabase
+            .from('training_modules')
+            .select('id, training_lessons(id)')
+            .in('id', moduleIds);
+
+          // Fetch lesson progress
+          const { data: lessonProgress } = await supabase
+            .from('training_lesson_progress')
+            .select('lesson_id')
+            .eq('staff_user_id', user!.id)
+            .eq('completed', true);
+
+          const completedAgencyLessons = new Set(lessonProgress?.map(p => p.lesson_id) || []);
+
+          modules?.forEach((mod: any) => {
+            mod.training_lessons?.forEach((lesson: any) => {
+              agencyTotalLessons++;
+              if (completedAgencyLessons.has(lesson.id)) {
+                agencyCompletedLessons++;
+              }
+            });
           });
-        });
+        }
 
         setAgencyStats({
-          moduleCount: assignments?.length || 0,
+          moduleCount: moduleIds.length,
           completedLessons: agencyCompletedLessons,
           totalLessons: agencyTotalLessons,
         });
