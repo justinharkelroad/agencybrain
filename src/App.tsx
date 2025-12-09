@@ -73,6 +73,9 @@ import StaffForgotPassword from "./pages/staff/ForgotPassword";
 import StaffResetPassword from "./pages/staff/ResetPassword";
 import StaffAcceptInvite from "./pages/staff/AcceptInvite";
 import StaffTraining from "./pages/StaffTraining";
+import StaffSPTrainingHub from "./pages/staff/StaffSPTrainingHub";
+import StaffSPCategory from "./pages/staff/StaffSPCategory";
+import StaffSPLesson from "./pages/staff/StaffSPLesson";
 import StaffFormSubmission from "./pages/StaffFormSubmission";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffLayout, StaffDashboard, StaffAccountSettings, StaffSubmitWrapper } from "./components/staff";
@@ -682,6 +685,9 @@ const App = () => (
               <Route path="submit" element={<StaffSubmitWrapper />} />
               <Route path="submit/:formSlug" element={<StaffFormSubmission />} />
               <Route path="training" element={<StaffTraining />} />
+              <Route path="playbook" element={<StaffSPTrainingHub />} />
+              <Route path="playbook/:categorySlug" element={<StaffSPCategory />} />
+              <Route path="playbook/:categorySlug/:moduleSlug/:lessonSlug" element={<StaffSPLesson />} />
               <Route path="account" element={<StaffAccountSettings />} />
             </Route>
             
