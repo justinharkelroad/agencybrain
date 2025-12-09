@@ -29,6 +29,7 @@ const navItems = [
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
+  { title: "Playbook", url: "/staff/playbook", icon: BookOpen },
 ];
 
 const bottomItems = [
