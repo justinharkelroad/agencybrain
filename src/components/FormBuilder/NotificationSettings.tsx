@@ -202,12 +202,12 @@ export default function NotificationSettings({
               </p>
             </div>
             <Switch
-              checked={settings.sendDailySummary ?? true}
+              checked={settings.sendDailySummary ?? false}
               onCheckedChange={(checked) => onUpdateSettings({ sendDailySummary: checked })}
             />
           </div>
 
-          {(settings.sendDailySummary ?? true) && (
+          {(settings.sendDailySummary ?? false) && (
             <div className="space-y-3 pt-2">
               <div className="space-y-2">
                 <Label className="text-sm">Summary Recipients</Label>
