@@ -138,8 +138,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 7. Build invite URL
-    const baseUrl = 'https://agencybrain.standardplaybook.com';
+    // 7. Build invite URL using SITE_URL secret
+    const baseUrl = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
     const inviteUrl = `${baseUrl}/staff/accept-invite?token=${inviteToken}`;
 
     // 8. Send email via Resend

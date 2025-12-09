@@ -57,9 +57,9 @@ serve(async (req) => {
       );
     }
 
-    // Generate shareable URL
-    const origin = req.headers.get('origin') || 'https://3514b22d-668f-4961-a1cb-640fb062b50c.lovableproject.com';
-    const shareableUrl = `${origin}/roleplay-staff?t=${token}`;
+    // Generate shareable URL using SITE_URL secret
+    const baseUrl = Deno.env.get('SITE_URL') || req.headers.get('origin') || 'https://myagencybrain.com';
+    const shareableUrl = `${baseUrl}/roleplay-staff?t=${token}`;
 
     return new Response(
       JSON.stringify({
