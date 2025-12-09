@@ -71,7 +71,9 @@ Deno.serve(async (req) => {
       throw new Error('Email service not configured');
     }
 
-    const resetUrl = `https://preview--agencybrain.lovable.app/staff/reset-password?token=${token}`;
+    // Build reset URL using SITE_URL secret
+    const baseUrl = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+    const resetUrl = `${baseUrl}/staff/reset-password?token=${token}`;
     
     // Import shared email template
     const { BRAND, buildEmailHtml, EmailComponents } = await import('../_shared/email-template.ts');
