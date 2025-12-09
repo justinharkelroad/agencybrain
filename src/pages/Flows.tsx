@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, User, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { FlowStatsCard } from '@/components/flows/FlowStatsCard';
 
 export default function Flows() {
   const navigate = useNavigate();
@@ -120,6 +121,9 @@ export default function Flows() {
           </CardContent>
         </Card>
       )}
+
+      {/* Gamification Stats */}
+      <FlowStatsCard />
 
       {/* Flow Templates Grid */}
       <div className="mb-10">
