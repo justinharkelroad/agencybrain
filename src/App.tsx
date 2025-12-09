@@ -45,6 +45,8 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import AdminTraining from "./pages/admin/AdminTraining";
+import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
+import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
 import TestTrainingComponents from "./pages/TestTrainingComponents";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
@@ -445,6 +447,35 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminTraining />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Standard Playbook Routes */}
+            <Route path="/admin/standard-playbook" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminStandardPlaybook />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/standard-playbook/category/new" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSPCategoryEditor />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/standard-playbook/category/:categoryId/edit" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSPCategoryEditor />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/standard-playbook/category/:categoryId" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminStandardPlaybook />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

@@ -2660,6 +2660,356 @@ export type Database = {
           },
         ]
       }
+      sp_categories: {
+        Row: {
+          access_tiers: string[]
+          color: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_published: boolean | null
+          name: string
+          published_at: string | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_tiers?: string[]
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          name: string
+          published_at?: string | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_tiers?: string[]
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          name?: string
+          published_at?: string | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sp_lessons: {
+        Row: {
+          content_html: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          document_name: string | null
+          document_url: string | null
+          estimated_minutes: number | null
+          has_quiz: boolean | null
+          id: string
+          is_published: boolean | null
+          module_id: string
+          name: string
+          published_at: string | null
+          slug: string
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          content_html?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          document_name?: string | null
+          document_url?: string | null
+          estimated_minutes?: number | null
+          has_quiz?: boolean | null
+          id?: string
+          is_published?: boolean | null
+          module_id: string
+          name: string
+          published_at?: string | null
+          slug: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          content_html?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          document_name?: string | null
+          document_url?: string | null
+          estimated_minutes?: number | null
+          has_quiz?: boolean | null
+          id?: string
+          is_published?: boolean | null
+          module_id?: string
+          name?: string
+          published_at?: string | null
+          slug?: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "sp_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_modules: {
+        Row: {
+          category_id: string
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_published: boolean | null
+          name: string
+          published_at: string | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          category_id: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          name: string
+          published_at?: string | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          name?: string
+          published_at?: string | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_modules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "sp_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_progress: {
+        Row: {
+          ai_summary: string | null
+          completed_at: string | null
+          content_viewed: boolean | null
+          created_at: string | null
+          document_downloaded: boolean | null
+          id: string
+          lesson_id: string
+          quiz_answers_json: Json | null
+          quiz_completed: boolean | null
+          quiz_passed: boolean | null
+          quiz_score: number | null
+          reflection_action: string | null
+          reflection_result: string | null
+          reflection_takeaway: string | null
+          started_at: string | null
+          updated_at: string | null
+          user_id: string
+          video_watched: boolean | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          completed_at?: string | null
+          content_viewed?: boolean | null
+          created_at?: string | null
+          document_downloaded?: boolean | null
+          id?: string
+          lesson_id: string
+          quiz_answers_json?: Json | null
+          quiz_completed?: boolean | null
+          quiz_passed?: boolean | null
+          quiz_score?: number | null
+          reflection_action?: string | null
+          reflection_result?: string | null
+          reflection_takeaway?: string | null
+          started_at?: string | null
+          updated_at?: string | null
+          user_id: string
+          video_watched?: boolean | null
+        }
+        Update: {
+          ai_summary?: string | null
+          completed_at?: string | null
+          content_viewed?: boolean | null
+          created_at?: string | null
+          document_downloaded?: boolean | null
+          id?: string
+          lesson_id?: string
+          quiz_answers_json?: Json | null
+          quiz_completed?: boolean | null
+          quiz_passed?: boolean | null
+          quiz_score?: number | null
+          reflection_action?: string | null
+          reflection_result?: string | null
+          reflection_takeaway?: string | null
+          started_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+          video_watched?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sp_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_progress_staff: {
+        Row: {
+          ai_summary: string | null
+          completed_at: string | null
+          completion_email_sent: boolean | null
+          completion_email_sent_at: string | null
+          content_viewed: boolean | null
+          created_at: string | null
+          document_downloaded: boolean | null
+          id: string
+          lesson_id: string
+          quiz_answers_json: Json | null
+          quiz_completed: boolean | null
+          quiz_passed: boolean | null
+          quiz_score: number | null
+          reflection_action: string | null
+          reflection_result: string | null
+          reflection_takeaway: string | null
+          staff_user_id: string
+          started_at: string | null
+          updated_at: string | null
+          video_watched: boolean | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          completed_at?: string | null
+          completion_email_sent?: boolean | null
+          completion_email_sent_at?: string | null
+          content_viewed?: boolean | null
+          created_at?: string | null
+          document_downloaded?: boolean | null
+          id?: string
+          lesson_id: string
+          quiz_answers_json?: Json | null
+          quiz_completed?: boolean | null
+          quiz_passed?: boolean | null
+          quiz_score?: number | null
+          reflection_action?: string | null
+          reflection_result?: string | null
+          reflection_takeaway?: string | null
+          staff_user_id: string
+          started_at?: string | null
+          updated_at?: string | null
+          video_watched?: boolean | null
+        }
+        Update: {
+          ai_summary?: string | null
+          completed_at?: string | null
+          completion_email_sent?: boolean | null
+          completion_email_sent_at?: string | null
+          content_viewed?: boolean | null
+          created_at?: string | null
+          document_downloaded?: boolean | null
+          id?: string
+          lesson_id?: string
+          quiz_answers_json?: Json | null
+          quiz_completed?: boolean | null
+          quiz_passed?: boolean | null
+          quiz_score?: number | null
+          reflection_action?: string | null
+          reflection_result?: string | null
+          reflection_takeaway?: string | null
+          staff_user_id?: string
+          started_at?: string | null
+          updated_at?: string | null
+          video_watched?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_progress_staff_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_progress_staff_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sp_quizzes: {
+        Row: {
+          created_at: string | null
+          id: string
+          lesson_id: string
+          pass_threshold: number | null
+          questions_json: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lesson_id: string
+          pass_threshold?: number | null
+          questions_json?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lesson_id?: string
+          pass_threshold?: number | null
+          questions_json?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_quizzes_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "sp_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invite_tokens: {
         Row: {
           accepted_at: string | null
