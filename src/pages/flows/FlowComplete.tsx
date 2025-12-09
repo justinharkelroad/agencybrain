@@ -8,7 +8,7 @@ import { generateFlowPDF } from '@/lib/generateFlowPDF';
 import { FlowSession, FlowTemplate, FlowAnalysis, FlowQuestion } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags } from 'lucide-react';
+import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags, Brain, HelpCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -179,8 +179,6 @@ export default function FlowComplete() {
     );
   }
 
-  const userName = profile?.preferred_name || 'there';
-
   return (
     <div className="min-h-screen py-12 px-6">
       <div className="max-w-2xl mx-auto">
@@ -231,23 +229,45 @@ export default function FlowComplete() {
               </div>
             ) : analysis ? (
               <div className="space-y-6">
+                {/* Headline */}
+                {analysis.headline && (
+                  <div className="text-center pb-4 border-b border-border/10">
+                    <h3 className="text-xl font-semibold text-foreground">
+                      {analysis.headline}
+                    </h3>
+                  </div>
+                )}
+
                 {/* Congratulations */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="h-5 w-5 text-yellow-500" strokeWidth={1.5} />
-                    <h3 className="font-medium">Great Work, {userName}!</h3>
+                    <h3 className="font-medium">Recognition</h3>
                   </div>
                   <p className="text-muted-foreground leading-relaxed">
                     {analysis.congratulations}
                   </p>
                 </div>
 
+                {/* Deep Dive Insight */}
+                {analysis.deep_dive_insight && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Brain className="h-5 w-5 text-indigo-500" strokeWidth={1.5} />
+                      <h3 className="font-medium">Deep Dive</h3>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {analysis.deep_dive_insight}
+                    </p>
+                  </div>
+                )}
+
                 {/* Connections to Profile */}
                 {analysis.connections && analysis.connections.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Lightbulb className="h-5 w-5 text-blue-500" strokeWidth={1.5} />
-                      <h3 className="font-medium">Insights</h3>
+                      <h3 className="font-medium">Connections</h3>
                     </div>
                     <ul className="space-y-2">
                       {analysis.connections.map((connection, idx) => (
@@ -280,12 +300,27 @@ export default function FlowComplete() {
                   </div>
                 )}
 
+                {/* Provocative Question */}
+                {analysis.provocative_question && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <HelpCircle className="h-5 w-5 text-amber-500" strokeWidth={1.5} />
+                      <h3 className="font-medium">Question to Consider</h3>
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                      <p className="text-sm text-foreground italic">
+                        {analysis.provocative_question}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Suggested Action */}
                 {analysis.suggested_action && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <Target className="h-5 w-5 text-green-500" strokeWidth={1.5} />
-                      <h3 className="font-medium">Suggested Action</h3>
+                      <h3 className="font-medium">Micro-Step</h3>
                     </div>
                     <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
                       <p className="text-sm text-foreground">

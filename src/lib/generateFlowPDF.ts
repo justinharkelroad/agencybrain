@@ -246,6 +246,15 @@ export async function generateFlowPDF({
     doc.text('AI Insights', margin + 4, yPosition + 5.5);
     yPosition += 15;
 
+    // Headline
+    if (analysis.headline) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(textColor);
+      doc.text(stripEmojis(analysis.headline), margin, yPosition);
+      yPosition += 8;
+    }
+
     // Congratulations
     if (analysis.congratulations) {
       yPosition = addWrappedText(
@@ -255,6 +264,28 @@ export async function generateFlowPDF({
         contentWidth,
         5,
         10,
+        'normal',
+        textColor
+      );
+      yPosition += 5;
+    }
+
+    // Deep Dive Insight
+    if (analysis.deep_dive_insight) {
+      checkPageBreak(20);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(mutedColor);
+      doc.text('Deep Dive:', margin, yPosition);
+      yPosition += 6;
+
+      yPosition = addWrappedText(
+        analysis.deep_dive_insight,
+        margin,
+        yPosition,
+        contentWidth,
+        5,
+        9,
         'normal',
         textColor
       );
@@ -308,6 +339,43 @@ export async function generateFlowPDF({
       yPosition += 3;
     }
 
+    // Provocative Question
+    if (analysis.provocative_question) {
+      checkPageBreak(25);
+      
+      // Calculate box height based on text
+      doc.setFontSize(9);
+      const questionText = stripEmojis(analysis.provocative_question);
+      const questionLines = doc.splitTextToSize(questionText, contentWidth - 16);
+      const questionHeight = questionLines.length * 4.5 + 16;
+      
+      // Amber/indigo box background
+      doc.setFillColor('#fef3c7'); // amber-100
+      doc.roundedRect(margin, yPosition, contentWidth, questionHeight, 2, 2, 'F');
+      
+      // Left border
+      doc.setFillColor('#f59e0b'); // amber-500
+      doc.rect(margin, yPosition, 3, questionHeight, 'F');
+      
+      // Header
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor('#92400e'); // amber-800
+      doc.text('Question to Consider', margin + 8, yPosition + 6);
+      
+      // Question text
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor('#78350f'); // amber-900
+      let questionY = yPosition + 12;
+      questionLines.forEach((line: string) => {
+        doc.text(line, margin + 8, questionY);
+        questionY += 4.5;
+      });
+      
+      yPosition += questionHeight + 5;
+    }
+
     // Suggested Action
     if (analysis.suggested_action) {
       checkPageBreak(25);
@@ -330,7 +398,7 @@ export async function generateFlowPDF({
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor('#166534');
-      doc.text('Suggested Action', margin + 8, yPosition + 6);
+      doc.text('Micro-Step', margin + 8, yPosition + 6);
       
       // Action text
       doc.setFont('helvetica', 'normal');
