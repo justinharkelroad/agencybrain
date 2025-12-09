@@ -33,7 +33,7 @@ interface AgencyInfo {
 
 export default function StaffUnifiedTrainingHub() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, loading: authLoading } = useStaffAuth();
+  const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
 
   const [loading, setLoading] = useState(true);
   const [spStats, setSpStats] = useState<TrainingStats | null>(null);
@@ -41,108 +41,30 @@ export default function StaffUnifiedTrainingHub() {
   const [agencyInfo, setAgencyInfo] = useState<AgencyInfo | null>(null);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated && user?.id) {
+    if (!authLoading && isAuthenticated && sessionToken) {
       fetchData();
     }
-  }, [authLoading, isAuthenticated, user?.id]);
+  }, [authLoading, isAuthenticated, sessionToken]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch Standard Playbook stats for staff
-      const { data: spCategories } = await supabase
-        .from('sp_categories')
-        .select(`
-          id,
-          sp_modules(
-            id,
-            sp_lessons(id)
-          )
-        `)
-        .eq('is_published', true)
-        .contains('access_tiers', ['staff']);
-
-      const { data: spProgress } = await supabase
-        .from('sp_progress_staff')
-        .select('lesson_id')
-        .eq('staff_user_id', user!.id)
-        .eq('quiz_passed', true);
-
-      const completedLessonIds = new Set(spProgress?.map(p => p.lesson_id) || []);
-      let spTotalLessons = 0;
-      let spCompletedLessons = 0;
-
-      spCategories?.forEach(cat => {
-        cat.sp_modules?.forEach((mod: any) => {
-          mod.sp_lessons?.forEach((lesson: any) => {
-            spTotalLessons++;
-            if (completedLessonIds.has(lesson.id)) {
-              spCompletedLessons++;
-            }
-          });
-        });
+      // Use edge function to bypass RLS (staff users don't have Supabase auth)
+      const { data, error } = await supabase.functions.invoke('get_staff_training_hub_stats', {
+        body: { session_token: sessionToken }
       });
 
-      setSpStats({
-        categoryCount: spCategories?.length || 0,
-        completedLessons: spCompletedLessons,
-        totalLessons: spTotalLessons,
-      });
+      if (error) {
+        console.error('Edge function error:', error);
+        return;
+      }
 
-      // Fetch Agency info and training stats
-      if (user?.agency_id) {
-        const { data: agency } = await supabase
-          .from('agencies')
-          .select('id, name, logo_url')
-          .eq('id', user.agency_id)
-          .single();
-
-        if (agency) {
-          setAgencyInfo(agency);
-        }
-
-        // Count assigned training modules for staff - use separate queries
-        const { data: assignments } = await supabase
-          .from('training_assignments')
-          .select('id, module_id')
-          .eq('staff_user_id', user!.id);
-
-        const moduleIds = assignments?.map(a => a.module_id).filter(Boolean) || [];
-        
-        let agencyTotalLessons = 0;
-        let agencyCompletedLessons = 0;
-
-        if (moduleIds.length > 0) {
-          // Fetch modules with their lessons
-          const { data: modules } = await supabase
-            .from('training_modules')
-            .select('id, training_lessons(id)')
-            .in('id', moduleIds);
-
-          // Fetch lesson progress
-          const { data: lessonProgress } = await supabase
-            .from('training_lesson_progress')
-            .select('lesson_id')
-            .eq('staff_user_id', user!.id)
-            .eq('completed', true);
-
-          const completedAgencyLessons = new Set(lessonProgress?.map(p => p.lesson_id) || []);
-
-          modules?.forEach((mod: any) => {
-            mod.training_lessons?.forEach((lesson: any) => {
-              agencyTotalLessons++;
-              if (completedAgencyLessons.has(lesson.id)) {
-                agencyCompletedLessons++;
-              }
-            });
-          });
-        }
-
-        setAgencyStats({
-          moduleCount: moduleIds.length,
-          completedLessons: agencyCompletedLessons,
-          totalLessons: agencyTotalLessons,
-        });
+      if (data?.success) {
+        setSpStats(data.sp_stats);
+        setAgencyStats(data.agency_stats);
+        setAgencyInfo(data.agency_info);
+      } else {
+        console.error('Failed to fetch training stats:', data?.error);
       }
     } catch (err) {
       console.error('Error fetching training data:', err);
