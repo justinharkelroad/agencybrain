@@ -145,28 +145,6 @@ export default function Flows() {
             </Card>
           ))}
           
-          {/* Coming Soon Placeholders */}
-          {['Irritation', 'War', 'Discovery', 'Bible', 'Prayer', 'Idea'].map(name => (
-            <Card
-              key={name}
-              className="opacity-50 cursor-not-allowed"
-            >
-              <CardContent className="p-6">
-                <div className="text-4xl mb-3 grayscale">
-                  {name === 'Irritation' && '😤'}
-                  {name === 'War' && '⚔️'}
-                  {name === 'Discovery' && '🔍'}
-                  {name === 'Bible' && '📖'}
-                  {name === 'Prayer' && '🙏'}
-                  {name === 'Idea' && '💡'}
-                </div>
-                <h3 className="font-medium text-lg">{name}</h3>
-                <p className="text-sm text-muted-foreground/70 mt-2">
-                  Coming soon
-                </p>
-              </CardContent>
-            </Card>
-          ))}
         </div>
       </div>
 
