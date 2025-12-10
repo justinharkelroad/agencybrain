@@ -84,14 +84,36 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, agency_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.role !== 'admin') {
+    const isSuperAdmin = profile?.role === 'admin';
+    const isAgencyOwner = !!profile?.agency_id;
+
+    if (!profile || (!isSuperAdmin && !isAgencyOwner)) {
       return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
+        JSON.stringify({ error: 'Admin or Agency Owner access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse request body
+    const body: CreateStaffUserInput = await req.json();
+    const { agency_id, username, password, display_name, email, team_member_id, create_team_member } = body;
+
+    // Agency owners can only create staff for their own agency
+    if (!isSuperAdmin && agency_id !== profile.agency_id) {
+      return new Response(
+        JSON.stringify({ error: 'Access denied to this agency' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!agency_id || !username || !password) {
+      return new Response(
+        JSON.stringify({ error: 'agency_id, username, and password required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

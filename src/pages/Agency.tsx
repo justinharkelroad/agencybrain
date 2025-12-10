@@ -97,6 +97,12 @@ export default function Agency() {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedStaffUser, setSelectedStaffUser] = useState<StaffUser | null>(null);
 
+  // Manual password creation state
+  const [inviteMode, setInviteMode] = useState<'email' | 'manual'>('manual');
+  const [manualUsername, setManualUsername] = useState('');
+  const [manualPassword, setManualPassword] = useState('');
+  const [showManualPassword, setShowManualPassword] = useState(false);
+
   // Reset password state
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -287,9 +293,65 @@ export default function Agency() {
   };
 
   // Staff Invite handlers
+  const generateUsername = (name: string) => {
+    return name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+  };
+
   const openInviteModal = (member: any) => {
     setSelectedMember(member);
+    setInviteMode('manual');
+    setManualUsername(generateUsername(member.name));
+    setManualPassword(generateRandomPassword());
+    setShowManualPassword(false);
     setInviteDialogOpen(true);
+  };
+
+  const handleCreateWithPassword = async () => {
+    try {
+      if (!selectedMember || !agencyId) return;
+      
+      if (!manualUsername.trim()) {
+        toast.error("Username is required");
+        return;
+      }
+      if (manualPassword.length < 8) {
+        toast.error("Password must be at least 8 characters");
+        return;
+      }
+
+      setInviteLoading(true);
+
+      const { data, error } = await supabase.functions.invoke("admin_create_staff_user", {
+        body: {
+          agency_id: agencyId,
+          username: manualUsername.trim(),
+          password: manualPassword,
+          display_name: selectedMember.name,
+          email: selectedMember.email || undefined,
+          team_member_id: selectedMember.id,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      await copyToClipboard(manualPassword);
+      toast.success(`Login created! Password copied. Username: ${manualUsername}`);
+      setInviteDialogOpen(false);
+      setSelectedMember(null);
+      setManualUsername('');
+      setManualPassword('');
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to create staff login");
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   const openManageLoginModal = (member: any, staffUser: StaffUser) => {
@@ -761,7 +823,6 @@ export default function Agency() {
                             variant="outline" 
                             size="sm" 
                             onClick={() => openInviteModal(m)}
-                            disabled={!m.email}
                           >
                             <Send className="h-3 w-3 mr-1" />
                             Invite
@@ -829,37 +890,163 @@ export default function Agency() {
 
     {/* Invite Staff Dialog */}
     <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-      <DialogContent className="glass-surface">
+      <DialogContent className="glass-surface max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite {selectedMember?.name} to Agency Brain</DialogTitle>
+          <DialogTitle>Add Staff Login: {selectedMember?.name}</DialogTitle>
           <DialogDescription>
-            Send an email invitation to set up their staff portal access.
+            Choose how to create their staff portal access.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">An email will be sent to:</p>
-            <p className="font-medium">{selectedMember?.email}</p>
+          {/* Mode Selection */}
+          <div className="space-y-3">
+            <div 
+              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                inviteMode === 'manual' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-primary/50'
+              }`}
+              onClick={() => setInviteMode('manual')}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  inviteMode === 'manual' ? 'border-primary' : 'border-muted-foreground'
+                }`}>
+                  {inviteMode === 'manual' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                </div>
+                <span className="font-medium">Create with Password</span>
+                <Badge variant="secondary" className="ml-auto text-xs">Recommended</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 ml-6">
+                Set their password now and share it directly
+              </p>
+            </div>
+            
+            <div 
+              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                inviteMode === 'email' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-primary/50'
+              } ${!selectedMember?.email ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => selectedMember?.email && setInviteMode('email')}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  inviteMode === 'email' ? 'border-primary' : 'border-muted-foreground'
+                }`}>
+                  {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                </div>
+                <span className="font-medium">Send Email Invite</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 ml-6">
+                {selectedMember?.email 
+                  ? `Email invite to ${selectedMember.email}`
+                  : 'Requires email address on team member'
+                }
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            They'll receive a link to set their password and access the staff portal. The invite expires in 7 days.
-          </p>
+
+          {/* Manual Password Fields */}
+          {inviteMode === 'manual' && (
+            <div className="space-y-4 pt-2 border-t border-border/50">
+              <div className="space-y-2">
+                <Label htmlFor="manual-username">Username</Label>
+                <Input
+                  id="manual-username"
+                  value={manualUsername}
+                  onChange={(e) => setManualUsername(e.target.value)}
+                  placeholder="john.smith"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-password">Password</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="manual-password"
+                      type={showManualPassword ? "text" : "password"}
+                      value={manualPassword}
+                      onChange={(e) => setManualPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full"
+                      onClick={() => setShowManualPassword(!showManualPassword)}
+                    >
+                      {showManualPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setManualPassword(generateRandomPassword())}
+                    title="Generate new password"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(manualPassword)}
+                    title="Copy password"
+                  >
+                    <Key className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Email Invite Info */}
+          {inviteMode === 'email' && selectedMember?.email && (
+            <div className="pt-2 border-t border-border/50">
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">An email will be sent to:</p>
+                <p className="font-medium">{selectedMember.email}</p>
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                They'll receive a link to set their password. The invite expires in 7 days.
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSendInvite} disabled={inviteLoading}>
-            {inviteLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4 mr-2" />
-                Send Invite
-              </>
-            )}
-          </Button>
+          {inviteMode === 'manual' ? (
+            <Button onClick={handleCreateWithPassword} disabled={inviteLoading}>
+              {inviteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Create Login
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button onClick={handleSendInvite} disabled={inviteLoading || !selectedMember?.email}>
+              {inviteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Invite
+                </>
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
