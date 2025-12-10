@@ -10,12 +10,6 @@ import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from "@/lib/auth";
 
-interface LeadSource {
-  id: string;
-  name: string;
-  is_active: boolean;
-  order_index: number;
-}
 
 interface UnifiedSettingsDialogProps {
   title: string;
@@ -25,7 +19,6 @@ interface UnifiedSettingsDialogProps {
 
 export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettingsDialogProps) {
   const { user } = useAuth();
-  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [settings, setSettings] = useState({
     timezone: "America/New_York",
     notifications: {
@@ -42,28 +35,24 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
     }
   });
 
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+
   useEffect(() => {
-    const fetchLeadSources = async () => {
+    const fetchAgencyId = async () => {
       if (!user?.id) return;
       
-      const { data: profile } = await supa
+      const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
         .single();
       
       if (profile?.agency_id) {
-        const { data: sources } = await supa
-          .from('lead_sources')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .order('order_index');
-        
-        setLeadSources(sources || []);
+        setAgencyId(profile.agency_id);
       }
     };
 
-    fetchLeadSources();
+    fetchAgencyId();
   }, [user?.id]);
 
   const handleSave = () => {
@@ -154,10 +143,7 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
       {/* Lead Source Management */}
       <div className="space-y-3">
         <Label>Lead Sources</Label>
-        <LeadSourceManager 
-          leadSources={leadSources}
-          onUpdateLeadSources={setLeadSources}
-        />
+        {agencyId && <LeadSourceManager agencyId={agencyId} />}
       </div>
 
       <Separator />
