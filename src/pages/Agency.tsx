@@ -335,7 +335,14 @@ export default function Agency() {
       if (error) throw error;
       
       if (data?.error) {
-        toast.error(data.error);
+        if (data.error === 'email_conflict') {
+          toast.error(
+            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(data.message || data.error);
+        }
         return;
       }
 
@@ -381,7 +388,14 @@ export default function Agency() {
       if (error) throw error;
       
       if (!data?.success) {
-        toast.error(data?.error || "Failed to send invite");
+        if (data?.error === 'email_conflict') {
+          toast.error(
+            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(data?.message || data?.error || "Failed to send invite");
+        }
         return;
       }
 
@@ -416,7 +430,14 @@ export default function Agency() {
       if (error) throw error;
       
       if (!data?.success) {
-        toast.error(data?.error || "Failed to resend invite");
+        if (data?.error === 'email_conflict') {
+          toast.error(
+            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(data?.message || data?.error || "Failed to resend invite");
+        }
         return;
       }
 
