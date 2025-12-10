@@ -176,8 +176,12 @@ export default function MetricsDashboard() {
 
   // Get role-based metric labels using database labels (from kpi_versions)
   const getMetricConfig = () => {
-    const selectedMetrics = scorecardRules?.selected_metric_slugs || scorecardRules?.selected_metrics || [];
-    const ringMetrics = scorecardRules?.ring_metrics || [];
+    const selectedMetrics = (scorecardRules?.selected_metric_slugs?.length > 0 
+      ? scorecardRules.selected_metric_slugs 
+      : scorecardRules?.selected_metrics) || [];
+    const ringMetrics = (scorecardRules?.ring_metrics?.length > 0 
+      ? scorecardRules.ring_metrics 
+      : scorecardRules?.selected_metrics) || [];
     const isService = role === 'Service';
     
     // Get KPI label from database first, fallback to RING_LABELS, then slug
