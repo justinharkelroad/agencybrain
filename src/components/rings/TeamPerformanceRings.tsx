@@ -173,8 +173,9 @@ export default function TeamPerformanceRings({
           throw new Error('Agency slug not found');
         }
 
+        // FIXED: Use standardized keys in fallback
         const metrics = rules?.ring_metrics || (role === 'Sales' 
-          ? ['outbound_calls', 'talk_minutes', 'quoted_count', 'sold_items']
+          ? ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
         setRingMetrics(metrics);
         setNRequired(rules?.n_required || 2);

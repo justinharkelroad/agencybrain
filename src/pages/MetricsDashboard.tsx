@@ -301,10 +301,10 @@ export default function MetricsDashboard() {
           {metricConfig.selectedMetrics.includes('talk_minutes') && (
             <MetricTile title={metricConfig.getKpiLabel('talk_minutes')} value={tilesObject.talk_minutes} icon={<Users className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && (
+          {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && (
             <MetricTile title={metricConfig.quotedTitle} value={tilesObject.quoted} icon={<TrendingUp className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && (
+          {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && (
             <MetricTile title={metricConfig.soldTitle} value={tilesObject.sold_items} icon={<Award className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tilesObject.cross_sells_uncovered !== undefined && (
@@ -331,8 +331,8 @@ export default function MetricsDashboard() {
                     <Th>Rep</Th>
                     {metricConfig.selectedMetrics.includes('outbound_calls') && <Th>{metricConfig.getKpiLabel('outbound_calls')}</Th>}
                     {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>{metricConfig.getKpiLabel('talk_minutes')}</Th>}
-                    {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Th>{metricConfig.quotedTitle}</Th>}
-                    {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Th>{metricConfig.soldTitle}</Th>}
+                    {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && <Th>{metricConfig.quotedTitle}</Th>}
+                    {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && <Th>{metricConfig.soldTitle}</Th>}
                     {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Th>{metricConfig.quotedTitle}</Th>}
                     {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Th>{metricConfig.soldTitle}</Th>}
                     <Th>Pass Days</Th>
@@ -357,8 +357,8 @@ export default function MetricsDashboard() {
                         <Td className="font-medium">{r.name || r.rep_name}</Td>
                         {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
                         {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
-                        {metricConfig.selectedMetrics.includes('quoted_count') && role === 'Sales' && <Td>{r.quoted_count}</Td>}
-                        {metricConfig.selectedMetrics.includes('sold_items') && role === 'Sales' && <Td>{r.sold_items}</Td>}
+                        {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && <Td>{r.quoted_count}</Td>}
+                        {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && <Td>{r.sold_items}</Td>}
                         {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
                         {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
                         <Td>
