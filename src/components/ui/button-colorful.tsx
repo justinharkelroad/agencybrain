@@ -34,8 +34,8 @@ function ButtonColorful({
 
             {/* Content */}
             <div className="relative flex items-center justify-center gap-2">
-                <span className="text-white dark:text-zinc-900">{label}</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-white/90 dark:text-zinc-900/90" />
+                <span className="text-zinc-900 dark:text-white">{label}</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-zinc-900/90 dark:text-white/90" />
             </div>
         </Button>
     );

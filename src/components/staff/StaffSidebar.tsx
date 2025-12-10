@@ -6,7 +6,10 @@ import {
   User,
   LogOut,
   Sparkles,
+  Sun,
 } from "lucide-react";
+
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import {
@@ -124,6 +127,17 @@ export function StaffSidebar() {
                     </SidebarMenuItem>
                   );
                 })}
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <div className="flex items-center justify-between w-full cursor-default">
+                      <span className="flex items-center gap-2">
+                        <Sun className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Theme</span>}
+                      </span>
+                      {sidebarOpen && <ThemeToggle />}
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <button
