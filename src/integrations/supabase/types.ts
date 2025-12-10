@@ -4386,16 +4386,11 @@ export type Database = {
           agency_id: string | null
           counted_days: number | null
           cross_sells_uncovered: number | null
-          end_date: string | null
+          items_sold: number | null
           mini_reviews: number | null
           outbound_calls: number | null
-          pass_days: number | null
-          quoted_count: number | null
+          quoted_households: number | null
           role: Database["public"]["Enums"]["app_member_role"] | null
-          sold_items: number | null
-          sold_policies: number | null
-          sold_premium_cents: number | null
-          start_date: string | null
           talk_minutes: number | null
           team_member_id: string | null
           team_member_name: string | null
@@ -4414,32 +4409,69 @@ export type Database = {
       vw_dashboard_yesterday: {
         Row: {
           agency_id: string | null
+          created_at: string | null
           cross_sells_uncovered: number | null
           daily_score: number | null
           date: string | null
+          final_submission_id: string | null
           hits: number | null
+          id: string | null
           is_counted_day: boolean | null
           is_late: boolean | null
+          items_sold: number | null
+          kpi_version_id: string | null
+          label_at_submit: string | null
+          metric_slug: string | null
           mini_reviews: number | null
           outbound_calls: number | null
           pass: boolean | null
-          quoted_count: number | null
           quoted_entity: string | null
+          quoted_households: number | null
+          rep_name: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
-          sold_items: number | null
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
+          submitted_at: string | null
           talk_minutes: number | null
           team_member_id: string | null
           team_member_name: string | null
+          updated_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "fk_metrics_daily_final_submission_id"
+            columns: ["final_submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
           {
             foreignKeyName: "fk_metrics_daily_team_member_id"
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_kpi_version_id_fkey"
+            columns: ["kpi_version_id"]
+            isOneToOne: false
+            referencedRelation: "kpi_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -4482,23 +4514,24 @@ export type Database = {
           id: string | null
           is_counted_day: boolean | null
           is_late: boolean | null
+          items_sold: number | null
           kpi_version_id: string | null
           label_at_submit: string | null
           metric_slug: string | null
           mini_reviews: number | null
           outbound_calls: number | null
           pass: boolean | null
-          quoted_count: number | null
           quoted_entity: string | null
+          quoted_households: number | null
           rep_name: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
-          sold_items: number | null
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
           submitted_at: string | null
           talk_minutes: number | null
           team_member_id: string | null
+          team_member_name: string | null
           updated_at: string | null
         }
         Relationships: [
@@ -4696,13 +4729,13 @@ export type Database = {
               daily_score: number
               date: string
               hits: number
+              items_sold: number
               kpi_version_id: string
               label_at_submit: string
               mini_reviews: number
               outbound_calls: number
               pass: boolean
-              quoted_count: number
-              sold_items: number
+              quoted_households: number
               talk_minutes: number
               team_member_id: string
               team_member_name: string

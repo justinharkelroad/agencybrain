@@ -6,6 +6,7 @@ import { RING_COLORS, RING_LABELS } from "./colors";
 import { Check, X } from "lucide-react";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
+import { getMetricValue } from "@/lib/kpiKeyMapping";
 
 type RingMetric = {
   key: string;
@@ -207,7 +208,8 @@ export default function TeamPerformanceRings({
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
           const memberMetrics: RingMetric[] = metrics.map((metricKey: string) => {
-            const actual = member[metricKey] || 0;
+            // Use getMetricValue for graceful fallback between UI keys and column names
+            const actual = getMetricValue(member, metricKey);
             
             // Get target: member-specific first, then agency default, then role default
             const memberTarget = targets?.find(t => 
