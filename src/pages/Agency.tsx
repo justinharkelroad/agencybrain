@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2 } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings } from "lucide-react";
+import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
@@ -455,6 +456,10 @@ export default function Agency() {
               <FileText className="h-4 w-4" />
               Files
             </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
             <TabsTrigger value="vault" className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
               Process Vault
@@ -795,6 +800,25 @@ export default function Agency() {
 
       <TabsContent value="files" className="space-y-6">
         <UploadsContent />
+      </TabsContent>
+
+      <TabsContent value="settings" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Agency Settings</CardTitle>
+            <CardDescription>Configure settings for your agency</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            {/* Lead Sources Section */}
+            <div>
+              <h3 className="text-lg font-medium mb-2">Lead Sources</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Manage the lead sources that appear when your team logs quoted households.
+              </p>
+              {agencyId && <LeadSourceManager agencyId={agencyId} />}
+            </div>
+          </CardContent>
+        </Card>
       </TabsContent>
 
       <TabsContent value="vault" className="space-y-6">
