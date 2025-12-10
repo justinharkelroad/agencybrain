@@ -332,18 +332,19 @@ export default function Agency() {
         },
       });
 
-      if (error) throw error;
-      
-      if (data?.error) {
-        if (data.error === 'email_conflict') {
+      // Check for application-level errors returned in the response body
+      if (error || data?.error) {
+        const errorData = data || {};
+        
+        if (errorData.error === 'email_conflict') {
           toast.error(
-            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
+            `Email already in use by staff account "${errorData.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
             { duration: 8000 }
           );
-        } else {
-          toast.error(data.message || data.error);
+          return;
         }
-        return;
+        
+        throw new Error(errorData.message || errorData.error || error?.message || 'Failed to create staff user');
       }
 
       await copyToClipboard(manualPassword);
@@ -354,8 +355,25 @@ export default function Agency() {
       setManualPassword('');
       await refreshData(agencyId);
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Failed to create staff login");
+      console.error('handleCreateWithPassword error:', e);
+      
+      // Try to extract error details from FunctionsHttpError context
+      let errorMessage = e?.message || "Failed to create staff login";
+      try {
+        if (e?.context?.json) {
+          const errorData = await e.context.json();
+          if (errorData?.error === 'email_conflict') {
+            toast.error(
+              `Email already in use by staff account "${errorData.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
+              { duration: 8000 }
+            );
+            return;
+          }
+          errorMessage = errorData?.message || errorData?.error || errorMessage;
+        }
+      } catch {}
+      
+      toast.error(errorMessage);
     } finally {
       setInviteLoading(false);
     }
