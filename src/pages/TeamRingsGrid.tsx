@@ -98,7 +98,9 @@ export default function TeamRingsGrid() {
         .maybeSingle();
 
       if (rules) {
-        const metrics = rules.ring_metrics || rules.selected_metrics || ringMetrics;
+        const metrics = (rules.ring_metrics?.length > 0 
+          ? rules.ring_metrics 
+          : rules.selected_metrics) || ringMetrics;
         setRingMetrics(metrics);
       }
     } catch (error: any) {
