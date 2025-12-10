@@ -22,7 +22,7 @@ export default function ForgotPassword() {
     try {
       // Always use production URL to avoid localhost redirect issues
       const redirectUrl = window.location.origin.includes('localhost')
-        ? 'https://agencybrain.standardplaybook.com/reset-password'
+        ? 'https://myagencybrain.com/reset-password'
         : `${window.location.origin}/reset-password`;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
