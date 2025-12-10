@@ -93,6 +93,27 @@ Deno.serve(async (req) => {
       // Re-use existing inactive staff user
       staffUserId = existingStaff.id;
     } else {
+      // Check if email is already used by another staff user (different team member)
+      const { data: emailConflict } = await supabase
+        .from('staff_users')
+        .select('id, username, team_member_id')
+        .eq('email', teamMember.email)
+        .neq('team_member_id', team_member_id)
+        .maybeSingle();
+
+      if (emailConflict) {
+        console.log('Email conflict detected:', emailConflict.username);
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'email_conflict',
+            message: `This email is already used by staff account "${emailConflict.username}". Update this team member's email address first, or deactivate the conflicting staff account.`,
+            existing_username: emailConflict.username,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Create new staff_user with placeholder password (cannot match real password)
       const placeholderHash = `PENDING_INVITE:${crypto.randomUUID()}`;
       
@@ -113,7 +134,7 @@ Deno.serve(async (req) => {
       if (createError) {
         console.error('Failed to create staff user:', createError);
         return new Response(
-          JSON.stringify({ error: createError.message }),
+          JSON.stringify({ success: false, error: createError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
