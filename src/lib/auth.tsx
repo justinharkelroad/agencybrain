@@ -120,7 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const signUp = async (email: string, password: string, agencyName: string, membershipTier: string = '1:1 Coaching') => {
-    const redirectUrl = `${window.location.origin}/`;
+    // Always use production URL to avoid localhost redirect issues
+    const redirectUrl = window.location.hostname === 'localhost'
+      ? 'https://myagencybrain.com/'
+      : `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
       email,

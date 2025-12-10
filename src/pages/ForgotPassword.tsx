@@ -21,7 +21,7 @@ export default function ForgotPassword() {
 
     try {
       // Always use production URL to avoid localhost redirect issues
-      const redirectUrl = window.location.origin.includes('localhost')
+      const redirectUrl = window.location.hostname === 'localhost'
         ? 'https://myagencybrain.com/reset-password'
         : `${window.location.origin}/reset-password`;
       
