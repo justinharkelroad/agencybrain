@@ -13,7 +13,10 @@ import {
   ClipboardList,
   Sparkles,
   BookOpen,
+  Sun,
 } from "lucide-react";
+
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useAuth } from "@/lib/auth";
 import {
@@ -207,6 +210,20 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       <Building2 className="h-4 w-4" strokeWidth={1.5} />
                       {sidebarOpen && <span>My Agency</span>}
                     </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild
+                    className="hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-between w-full cursor-default">
+                      <span className="flex items-center gap-2">
+                        <Sun className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Theme</span>}
+                      </span>
+                      {sidebarOpen && <ThemeToggle />}
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
