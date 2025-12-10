@@ -117,16 +117,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body
-    const body: CreateStaffUserInput = await req.json();
-    const { agency_id, username, password, display_name, email, team_member_id, create_team_member } = body;
-
-    if (!agency_id || !username || !password) {
-      return new Response(
-        JSON.stringify({ error: 'agency_id, username, and password required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Validate password strength
     if (password.length < 8) {
