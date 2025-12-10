@@ -105,9 +105,9 @@ export default function StaffScorecard() {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-4">
+          <Button variant="ghost" onClick={() => navigate('/staff/dashboard')} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Training
+            Back to Dashboard
           </Button>
           
           <Alert variant="destructive">
@@ -136,9 +136,9 @@ export default function StaffScorecard() {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-4">
+          <Button variant="ghost" onClick={() => navigate('/staff/dashboard')} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Training
+            Back to Dashboard
           </Button>
           
           <Alert variant="destructive">
@@ -156,9 +156,9 @@ export default function StaffScorecard() {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto">
-          <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-4">
+          <Button variant="ghost" onClick={() => navigate('/staff/dashboard')} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Training
+            Back to Dashboard
           </Button>
           
           <Alert>
@@ -177,9 +177,9 @@ export default function StaffScorecard() {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/staff/training')} className="mb-2">
+        <Button variant="ghost" onClick={() => navigate('/staff/dashboard')} className="mb-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Training
+          Back to Dashboard
         </Button>
 
         <Card>

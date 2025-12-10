@@ -19,7 +19,7 @@ export default function StaffLogin() {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    navigate('/staff/training');
+    navigate('/staff/dashboard');
     return null;
   }
 
@@ -34,7 +34,7 @@ export default function StaffLogin() {
       setError(result.error);
       setLoading(false);
     } else {
-      navigate('/staff/training');
+      navigate('/staff/dashboard');
     }
   };
 
