@@ -176,8 +176,10 @@ export function useScorecardForms() {
       .single();
     
     if (agency?.slug) {
-      // Use path-based routing: /f/{agencySlug}/{formSlug}?t={token}
-      const baseUrl = window.location.origin;
+      // Always use production URL to avoid localhost issues
+      const baseUrl = window.location.origin.includes('localhost')
+        ? 'https://myagencybrain.com'
+        : window.location.origin;
       return `${baseUrl}/f/${agency.slug}/${form.slug}?t=${token}`;
     }
     
