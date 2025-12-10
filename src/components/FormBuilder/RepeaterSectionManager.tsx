@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Plus, X, Settings, Trash2, Lock, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useLeadSources } from "@/hooks/useLeadSources";
 
@@ -51,6 +52,7 @@ export default function RepeaterSectionManager({
   kpiFields,
   onUpdateSection 
 }: RepeaterSectionManagerProps) {
+  const navigate = useNavigate();
   const [showFieldConfig, setShowFieldConfig] = useState(false);
   const [stickyFields, setStickyFields] = useState<StickyField[]>([]);
   const [loadingSticky, setLoadingSticky] = useState(false);
@@ -250,7 +252,7 @@ export default function RepeaterSectionManager({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open('/agency?tab=settings', '_blank')}
+                          onClick={() => navigate('/agency?tab=settings')}
                           className="text-xs"
                         >
                           <ExternalLink className="h-3 w-3 mr-1" />
