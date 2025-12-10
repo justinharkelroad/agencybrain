@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { BarChart3, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { BarChart3, Plus, Trash2, AlertTriangle, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,6 +18,7 @@ interface KPIData {
   type: 'number' | 'currency' | 'percentage' | 'integer';
   color?: string;
   is_active: boolean;
+  enabled: boolean; // Whether this KPI is in selected_metrics
   value?: number; // Current target value
 }
 
@@ -32,6 +33,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
   const [isOpen, setIsOpen] = useState(false);
   const [kpis, setKpis] = useState<KPIData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showAvailable, setShowAvailable] = useState(true);
   const [deletingKpi, setDeletingKpi] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     kpi: KPIData;
@@ -41,6 +43,9 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       remaining_kpis: number;
     };
   } | null>(null);
+
+  // Normalize role for database queries
+  const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() as 'Sales' | 'Service';
 
   // Load KPIs and targets when dialog opens
   useEffect(() => {
@@ -55,60 +60,51 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     try {
       setLoading(true);
 
-      // Normalize role to match database enum (capitalize first letter)
-      const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-
-      // First, load scorecard rules to get role-specific selected_metrics
+      // Load scorecard rules to get selected_metrics
       const { data: scorecardRules, error: rulesError } = await supabase
         .from('scorecard_rules')
         .select('selected_metrics')
         .eq('agency_id', agencyId)
-        .eq('role', normalizedRole as 'Sales' | 'Service') // Type assertion for role
+        .eq('role', normalizedRole)
         .single();
 
-      if (rulesError) {
+      if (rulesError && rulesError.code !== 'PGRST116') {
         console.error('Error loading scorecard rules:', rulesError);
-        toast.error('Failed to load role configuration');
-        return;
       }
 
-      const selectedMetrics = scorecardRules?.selected_metrics || [];
-      
-      if (selectedMetrics.length === 0) {
-        console.warn(`No selected metrics found for ${type} role`);
-        setKpis([]);
-        return;
-      }
+      const selectedMetrics = new Set(scorecardRules?.selected_metrics || []);
 
-      // Load only KPIs that are in the role's selected_metrics
+      // Load ALL active KPIs for this agency (role-specific + null role)
       const { data: kpisData, error: kpisError } = await supabase
         .from('kpis')
         .select('*')
         .eq('agency_id', agencyId)
         .eq('is_active', true)
-        .in('key', selectedMetrics)
-        .order('key');
+        .or(`role.eq.${normalizedRole},role.is.null`)
+        .order('label');
 
       if (kpisError) throw kpisError;
 
-      // Load existing targets for role-relevant KPIs only
+      // Load existing targets
+      const kpiKeys = (kpisData || []).map(k => k.key);
       const { data: targets, error: targetsError } = await supabase
         .from('targets')
         .select('metric_key, value_number')
         .eq('agency_id', agencyId)
-        .in('metric_key', selectedMetrics)
+        .in('metric_key', kpiKeys)
         .is('team_member_id', null);
 
       if (targetsError) throw targetsError;
 
-      // Combine KPI data with target values, ensuring proper typing
-      const kpisWithValues = (kpisData || []).map(kpi => ({
+      // Combine KPI data with enabled state and target values
+      const kpisWithState: KPIData[] = (kpisData || []).map(kpi => ({
         ...kpi,
-        type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number', // Ensure proper type
+        type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number',
+        enabled: selectedMetrics.has(kpi.key),
         value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
       }));
 
-      setKpis(kpisWithValues);
+      setKpis(kpisWithState);
     } catch (error) {
       console.error('Error loading KPIs and targets:', error);
       toast.error('Failed to load KPI data');
@@ -117,24 +113,28 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     }
   };
 
+  const toggleKpi = (key: string) => {
+    setKpis(prev => prev.map(kpi => 
+      kpi.key === key ? { ...kpi, enabled: !kpi.enabled } : kpi
+    ));
+  };
+
   const handleDeleteKpi = async (kpi: KPIData) => {
     if (!agencyId) return;
 
     try {
       setDeletingKpi(kpi.key);
 
-      // Check impact before deletion
-      const remainingCount = kpis.filter(k => k.key !== kpi.key).length;
+      const remainingCount = kpis.filter(k => k.key !== kpi.key && k.enabled).length;
       
       if (remainingCount === 0) {
-        toast.error("Cannot delete the last KPI. Each agency must have at least one KPI.");
+        toast.error("Cannot delete the last enabled KPI.");
         return;
       }
 
-      // Mock impact analysis (in real implementation, you'd call an endpoint)
       const impact = {
-        forms_affected: 0, // Would be calculated based on form_templates that reference this KPI
-        rules_touched: true, // Assume rules will be touched
+        forms_affected: 0,
+        rules_touched: true,
         remaining_kpis: remainingCount
       };
 
@@ -164,7 +164,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
       toast.success(`KPI "${deleteConfirm.kpi.label}" has been deleted successfully`);
       setDeleteConfirm(null);
-      await loadKPIsAndTargets(); // Reload the data
+      await loadKPIsAndTargets();
     } catch (error) {
       console.error('Error deleting KPI:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete KPI');
@@ -181,36 +181,54 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
     setLoading(true);
     try {
-      // Only process KPIs that are in the current role's scope
-      const kpiKeys = kpis.map(kpi => kpi.key);
-      
-      // Delete existing targets for role-relevant KPIs only
+      const enabledKpis = kpis.filter(k => k.enabled);
+      const enabledKeys = enabledKpis.map(k => k.key);
+
+      if (enabledKeys.length === 0) {
+        toast.error("You must have at least one KPI enabled");
+        setLoading(false);
+        return;
+      }
+
+      // Update scorecard_rules.selected_metrics
+      const { error: rulesError } = await supabase
+        .from('scorecard_rules')
+        .update({ selected_metrics: enabledKeys })
+        .eq('agency_id', agencyId)
+        .eq('role', normalizedRole);
+
+      if (rulesError) throw rulesError;
+
+      // Delete existing targets for this role's KPIs
+      const allKpiKeys = kpis.map(k => k.key);
       await supabase
         .from('targets')
         .delete()
         .eq('agency_id', agencyId)
         .is('team_member_id', null)
-        .in('metric_key', kpiKeys);
+        .in('metric_key', allKpiKeys);
 
-      // Insert new targets for role-relevant KPIs only
-      const targetsToInsert = kpis.map(kpi => ({
+      // Insert new targets for enabled KPIs only
+      const targetsToInsert = enabledKpis.map(kpi => ({
         agency_id: agencyId,
         metric_key: kpi.key,
         value_number: kpi.value || 0,
         team_member_id: null
       }));
 
-      const { error } = await supabase
-        .from('targets')
-        .insert(targetsToInsert);
+      if (targetsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('targets')
+          .insert(targetsToInsert);
 
-      if (error) throw error;
+        if (insertError) throw insertError;
+      }
 
-      toast.success(`${type === "sales" ? "Sales" : "Service"} KPI targets saved!`);
+      toast.success(`${normalizedRole} KPI configuration saved!`);
       setIsOpen(false);
     } catch (error) {
-      console.error('Error saving targets:', error);
-      toast.error("Failed to save targets");
+      console.error('Error saving configuration:', error);
+      toast.error("Failed to save configuration");
     } finally {
       setLoading(false);
     }
@@ -227,38 +245,59 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     if (!agencyId) return;
 
     try {
+      setLoading(true);
       const newKpiKey = `custom_${Date.now()}`;
       
       // Insert new KPI into database
-      const { error } = await supabase
+      const { error: kpiError } = await supabase
         .from('kpis')
         .insert({
           agency_id: agencyId,
           key: newKpiKey,
-          label: "New KPI",
+          label: "New Custom KPI",
           type: "number",
-          is_active: true
+          is_active: true,
+          role: normalizedRole
         });
 
-      if (error) throw error;
+      if (kpiError) throw kpiError;
+
+      // Get current selected_metrics and add new key
+      const { data: currentRules } = await supabase
+        .from('scorecard_rules')
+        .select('selected_metrics')
+        .eq('agency_id', agencyId)
+        .eq('role', normalizedRole)
+        .single();
+
+      const currentMetrics = currentRules?.selected_metrics || [];
+      
+      // Update scorecard_rules to include new KPI
+      const { error: updateError } = await supabase
+        .from('scorecard_rules')
+        .update({ selected_metrics: [...currentMetrics, newKpiKey] })
+        .eq('agency_id', agencyId)
+        .eq('role', normalizedRole);
+
+      if (updateError) throw updateError;
 
       // Reload KPIs
       await loadKPIsAndTargets();
-      toast.success("Custom KPI added successfully");
+      toast.success("Custom KPI added and enabled");
     } catch (error) {
       console.error('Error adding custom KPI:', error);
       toast.error("Failed to add custom KPI");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Local state update only - for smooth typing
   const updateKPILabelLocal = (kpiId: string, label: string) => {
     setKpis(prev => prev.map(kpi => 
       kpi.id === kpiId ? { ...kpi, label } : kpi
     ));
   };
 
-  // Save to database - called on blur
   const saveKPILabelToDatabase = async (kpiId: string, label: string) => {
     try {
       const { error } = await supabase
@@ -277,6 +316,10 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     e.target.select();
   };
 
+  // Split KPIs into enabled and available
+  const enabledKpis = kpis.filter(k => k.enabled);
+  const availableKpis = kpis.filter(k => !k.enabled);
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -289,14 +332,14 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
               <BarChart3 className="h-5 w-5" />
               {title}
               <span className="ml-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-                {type.toUpperCase()}
+                {normalizedRole}
               </span>
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Configure daily targets for {type} team members. These targets are used to calculate daily scores and achievements.
+              Enable KPIs and set daily targets for {type} team members.
             </p>
 
             {loading ? (
@@ -304,44 +347,111 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="space-y-3">
-                {kpis.map((kpi) => (
-                  <Card key={kpi.id} className="border-muted">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <Input
-                            value={kpi.label}
-                            onChange={(e) => updateKPILabelLocal(kpi.id, e.target.value)}
-                            onBlur={(e) => saveKPILabelToDatabase(kpi.id, e.target.value)}
-                            className="font-medium h-8"
-                            placeholder="KPI Name"
-                          />
-                        </div>
-                        <div className="w-24">
-                          <Input
-                            type="number"
-                            value={kpi.value || 0}
-                            onChange={(e) => updateKPIValue(kpi.key, e.target.value)}
-                            onFocus={handleInputFocus}
-                            className="text-center"
-                            min="0"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteKpi(kpi)}
-                          disabled={deletingKpi === kpi.key}
-                          className="text-destructive hover:text-destructive"
+              <div className="space-y-4">
+                {/* ENABLED KPIs Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    Enabled KPIs ({enabledKpis.length})
+                  </h3>
+                  
+                  {enabledKpis.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No KPIs enabled. Select from available KPIs below.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {enabledKpis.map((kpi) => (
+                        <Card key={kpi.id} className="border-green-500/30 bg-green-500/5">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <Checkbox
+                                checked={true}
+                                onCheckedChange={() => toggleKpi(kpi.key)}
+                                className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <Input
+                                  value={kpi.label}
+                                  onChange={(e) => updateKPILabelLocal(kpi.id, e.target.value)}
+                                  onBlur={(e) => saveKPILabelToDatabase(kpi.id, e.target.value)}
+                                  className="h-8 text-sm font-medium"
+                                  placeholder="KPI Name"
+                                />
+                              </div>
+                              <div className="w-20 shrink-0">
+                                <Input
+                                  type="number"
+                                  value={kpi.value || 0}
+                                  onChange={(e) => updateKPIValue(kpi.key, e.target.value)}
+                                  onFocus={handleInputFocus}
+                                  className="text-center h-8"
+                                  min="0"
+                                  placeholder="Target"
+                                />
+                              </div>
+                              {kpi.key.startsWith('custom_') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteKpi(kpi)}
+                                  disabled={deletingKpi === kpi.key}
+                                  className="text-destructive hover:text-destructive shrink-0"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* AVAILABLE KPIs Section */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowAvailable(!showAvailable)}
+                    className="w-full text-sm font-medium flex items-center justify-between py-1 hover:text-primary transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      Available to Add ({availableKpis.length})
+                    </span>
+                    {showAvailable ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {showAvailable && availableKpis.length > 0 && (
+                    <div className="space-y-1">
+                      {availableKpis.map((kpi) => (
+                        <div
+                          key={kpi.id}
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => toggleKpi(kpi.key)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                
+                          <Checkbox
+                            checked={false}
+                            onCheckedChange={() => toggleKpi(kpi.key)}
+                          />
+                          <span className="text-sm">{kpi.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {showAvailable && availableKpis.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-2 text-center">
+                      All KPIs are enabled
+                    </p>
+                  )}
+                </div>
+
                 <Button
                   variant="outline"
                   onClick={addCustomKPI}
@@ -361,7 +471,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
               <Button onClick={handleSave} disabled={loading}>
-                {loading ? "Saving..." : "Save Targets"}
+                {loading ? "Saving..." : "Save Configuration"}
               </Button>
             </div>
           </div>
@@ -378,7 +488,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>Are you sure you want to delete this KPI? This action cannot be undone.</p>
+                <p>Are you sure you want to delete this custom KPI? This action cannot be undone.</p>
                 
                 {deleteConfirm && (
                   <div className="bg-muted p-3 rounded-md space-y-2">
@@ -386,7 +496,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
                     <ul className="text-sm space-y-1">
                       <li>• Forms affected: {deleteConfirm.impact.forms_affected}</li>
                       <li>• Scorecard rules: {deleteConfirm.impact.rules_touched ? 'Will be updated' : 'No changes needed'}</li>
-                      <li>• Remaining KPIs: {deleteConfirm.impact.remaining_kpis}</li>
+                      <li>• Remaining enabled KPIs: {deleteConfirm.impact.remaining_kpis}</li>
                     </ul>
                     <p className="text-xs text-muted-foreground mt-2">
                       Historical data will be preserved. Only future calculations will be affected.
