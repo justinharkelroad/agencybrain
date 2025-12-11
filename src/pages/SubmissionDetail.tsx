@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ArrowLeft, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 
 interface Submission {
@@ -290,7 +290,7 @@ export default function SubmissionDetail() {
             
             <div>
               <span className="text-sm text-muted-foreground">Work Date</span>
-              <p className="font-medium">{format(new Date(submission.work_date), 'PPP')}</p>
+              <p className="font-medium">{format(parseISO(submission.work_date), 'PPP')}</p>
             </div>
             
             <div>

@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -74,7 +74,7 @@ export function SubmissionsList() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {format(new Date(submission.work_date), 'MMM d, yyyy')}
+                  {format(parseISO(submission.work_date), 'MMM d, yyyy')}
                 </TableCell>
                 <TableCell>
                   {format(new Date(submission.submitted_at), 'MMM d, yyyy h:mm a')}
