@@ -134,7 +134,7 @@ export function StaffDashboard() {
         const payload = hasData ? (submission.payload_json || {}) : {};
 
         const kpiResults: KPIData[] = kpis.map((kpi: any) => {
-          const actual = hasData ? (Number(payload[kpi.key]) || 0) : 0;
+          const actual = hasData ? (Number(payload[kpi.selectedKpiSlug]) || Number(payload[kpi.key]) || 0) : 0;
           const target = kpi.target?.goal ?? targetsMap[kpi.selectedKpiSlug] ?? targetsMap[kpi.key] ?? 0;
           const progress = target > 0 ? Math.min(actual / target, 1) : 0;
           
