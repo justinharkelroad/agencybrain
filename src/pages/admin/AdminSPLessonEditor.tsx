@@ -205,8 +205,18 @@ export default function AdminSPLessonEditor() {
 
     setSaving(true);
     try {
-      // Filter out empty documents
-      const validDocuments = documents.filter(d => d.url.trim());
+      // Helper to normalize URLs
+      const normalizeUrl = (url: string): string => {
+        if (!url) return url;
+        const trimmed = url.trim();
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+        return `https://${trimmed}`;
+      };
+
+      // Filter out empty documents and normalize URLs
+      const validDocuments = documents
+        .filter(d => d.url.trim())
+        .map(d => ({ ...d, url: normalizeUrl(d.url) }));
       
       const lessonData = {
         module_id: moduleId,
