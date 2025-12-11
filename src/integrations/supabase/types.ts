@@ -4904,7 +4904,6 @@ export type Database = {
           p_kpi_version_id?: string
           p_label_at_submit?: string
           p_submission: string
-          p_submitted_at?: string
         }
         Returns: undefined
       }
