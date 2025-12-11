@@ -50,7 +50,7 @@ export default function StaffFormSubmission() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
-  const [teamMemberName, setTeamMemberName] = useState<string>('');
+  
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string }>>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -89,18 +89,6 @@ export default function StaffFormSubmission() {
 
         setFormTemplate(template);
 
-        // Get team member name if linked
-        if (user.team_member_id) {
-          const { data: member } = await supabase
-            .from('team_members')
-            .select('name')
-            .eq('id', user.team_member_id)
-            .single();
-          
-          if (member) {
-            setTeamMemberName(member.name);
-          }
-        }
 
         // Load lead sources for repeater dropdowns
         const { data: leadSourcesData } = await supabase
@@ -462,7 +450,7 @@ export default function StaffFormSubmission() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Submitting as:</p>
-                <p className="font-semibold">{teamMemberName || user.display_name}</p>
+                <p className="font-semibold">{user.team_member_name || user.display_name}</p>
               </div>
             </div>
           </CardContent>
