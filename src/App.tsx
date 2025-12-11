@@ -101,6 +101,7 @@ import FlowView from "./pages/flows/FlowView";
 import FlowLibrary from "./pages/flows/FlowLibrary";
 import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
+import AdminHelpVideos from "./pages/admin/AdminHelpVideos";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
@@ -472,6 +473,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <RoleplayReports />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/help-videos" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminHelpVideos />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

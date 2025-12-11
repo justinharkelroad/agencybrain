@@ -17,6 +17,7 @@ import { useDashboardDaily } from "@/hooks/useDashboardDaily";
 import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { RING_LABELS } from "@/components/rings/colors";
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 
 
 type Role = "Sales" | "Service";
@@ -214,6 +215,7 @@ export default function MetricsDashboard() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground uppercase tracking-wide">
             <TrendingUp className="h-4 w-4" />
             <span>Metrics Dashboard</span>
+            <HelpVideoButton videoKey="metrics-overview" />
           </div>
           {agencyName && (
             <h1 className="text-3xl font-bold leading-none tracking-tight flex items-center gap-2">

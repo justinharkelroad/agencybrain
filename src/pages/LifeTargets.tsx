@@ -18,6 +18,7 @@ import { useResetQuarter } from "@/hooks/useResetQuarter";
 import { useChangeQuarterLabel } from "@/hooks/useChangeQuarterLabel";
 import { useFixQuarterMonths } from "@/hooks/useFixQuarterMonths";
 import { MoveQuarterDialog } from "@/components/life-targets/MoveQuarterDialog";
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -221,7 +222,10 @@ export default function LifeTargets() {
     <div className="container max-w-4xl py-8 space-y-8 animate-fade-in">
       <div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
-          <h1 className="text-3xl font-bold">Create Your Targets</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">Create Your Targets</h1>
+            <HelpVideoButton videoKey="tool-quarterly-targets" size="md" />
+          </div>
           <QuarterSelector />
         </div>
         <p className="text-muted-foreground mb-4">

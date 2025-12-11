@@ -22,6 +22,7 @@ import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 
 // Reuse enums consistent with AdminTeam
@@ -706,7 +707,10 @@ export default function Agency() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Agency Information</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Agency Information
+              <HelpVideoButton videoKey="agency-information" />
+            </CardTitle>
             <CardDescription>Update your agency profile</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
@@ -1070,7 +1074,10 @@ export default function Agency() {
           <CardContent className="space-y-8">
             {/* Lead Sources Section */}
             <div>
-              <h3 className="text-lg font-medium mb-2">Lead Sources</h3>
+              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                Lead Sources
+                <HelpVideoButton videoKey="tool-lead-source-manager" />
+              </h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Manage the lead sources that appear when your team logs quoted households.
               </p>
@@ -1079,7 +1086,10 @@ export default function Agency() {
             
             {/* Policy Types Section */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-2">Policy Types</h3>
+              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                Policy Types
+                <HelpVideoButton videoKey="tool-policy-type-manager" />
+              </h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Manage the policy types that appear when your team logs quoted and sold policies.
               </p>

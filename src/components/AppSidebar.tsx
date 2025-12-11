@@ -14,6 +14,7 @@ import {
   Sparkles,
   BookOpen,
   Sun,
+  Video,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -54,6 +55,7 @@ const adminOnlyItems = [
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
+  { title: "Help Videos", url: "/admin/help-videos", icon: Video },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
