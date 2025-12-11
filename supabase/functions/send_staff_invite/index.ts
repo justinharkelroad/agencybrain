@@ -93,11 +93,12 @@ Deno.serve(async (req) => {
       // Re-use existing inactive staff user
       staffUserId = existingStaff.id;
     } else {
-      // Check if email is already used by another staff user (different team member)
+      // Check if email is already used by another ACTIVE staff user (different team member)
       const { data: emailConflict } = await supabase
         .from('staff_users')
         .select('id, username, team_member_id')
         .eq('email', teamMember.email)
+        .eq('is_active', true)  // Only check active users - deactivated emails can be reused
         .neq('team_member_id', team_member_id)
         .maybeSingle();
 
