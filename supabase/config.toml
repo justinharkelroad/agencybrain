@@ -173,3 +173,9 @@ verify_jwt = false
 
 [functions.get_staff_dashboard]
 verify_jwt = false
+
+[functions.get_staff_flows]
+verify_jwt = false
+
+[functions.save_staff_flow_profile]
+verify_jwt = false
