@@ -158,11 +158,14 @@ Deno.serve(async (req) => {
     }
 
     // Check if email is already used by any staff user (when email provided)
+    // Use service role client to bypass RLS - email constraint is global across all agencies
     console.log('[EMAIL CHECK] Starting. email:', email, 'team_member_id:', team_member_id);
     if (email) {
-      const { data: emailConflict, error: emailCheckError } = await supabase
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+      const { data: emailConflict, error: emailCheckError } = await serviceClient
         .from('staff_users')
-        .select('id, username, team_member_id')
+        .select('id, username, team_member_id, agency_id')
         .eq('email', email)
         .maybeSingle();
 
@@ -182,11 +185,16 @@ Deno.serve(async (req) => {
           );
         }
         
-        // Different team member = email already taken
+        // Different agency = email used elsewhere
+        const isSameAgency = emailConflict.agency_id === agency_id;
+        const message = isSameAgency
+          ? `This email is already used by staff account "${emailConflict.username}". Update the team member's email first, or deactivate the conflicting staff account.`
+          : `This email is already used by a staff account in another agency.`;
+        
         return new Response(
           JSON.stringify({ 
             error: 'email_conflict',
-            message: `This email is already used by staff account "${emailConflict.username}". Update the team member's email first, or deactivate the conflicting staff account.`,
+            message,
             existing_username: emailConflict.username,
           }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
