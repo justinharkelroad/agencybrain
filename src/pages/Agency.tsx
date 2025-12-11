@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings } from "lucide-react";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
+import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
@@ -1074,6 +1075,15 @@ export default function Agency() {
                 Manage the lead sources that appear when your team logs quoted households.
               </p>
               {agencyId && <LeadSourceManager agencyId={agencyId} />}
+            </div>
+            
+            {/* Policy Types Section */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-2">Policy Types</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Manage the policy types that appear when your team logs quoted and sold policies.
+              </p>
+              {agencyId && <PolicyTypeManager agencyId={agencyId} />}
             </div>
           </CardContent>
         </Card>
