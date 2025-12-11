@@ -46,7 +46,7 @@ export default function StaffLogin() {
           <div className="flex justify-center mb-4">
             <AgencyBrainBadge size="lg" />
           </div>
-          <CardTitle className="text-2xl text-center">Staff Training Portal</CardTitle>
+          
           <CardDescription className="text-center">
             Sign in with your staff credentials
           </CardDescription>
