@@ -4713,6 +4713,10 @@ export type Database = {
         Args: { p_submission_id: string }
         Returns: undefined
       }
+      flatten_sold_household_details_enhanced: {
+        Args: { p_submission_id: string }
+        Returns: undefined
+      }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
       get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
       get_agency_safe: {
