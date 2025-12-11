@@ -15,6 +15,7 @@ import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, membershipTier } = useAuth();
@@ -91,27 +92,29 @@ const Dashboard = () => {
             </Button>
           )}
         </div>
-        <PerformanceMetrics />
-        <MyCurrentFocus />
-        <MonthOverMonthTrends />
-        <RoleplaySessionsCard />
-        {enableMetrics && (
-          <section>
-            <Card className="border-border/10 bg-muted/20">
-              <CardHeader>
-                <CardTitle className="font-medium">Metrics Dashboard</CardTitle>
-                <CardDescription className="text-muted-foreground/70">View team performance and analytics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" asChild>
-                  <Link to="/metrics">View Metrics Dashboard</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-        <SharedInsights />
-        <ReportingPeriods />
+        <PeriodRefreshProvider>
+          <PerformanceMetrics />
+          <MyCurrentFocus />
+          <MonthOverMonthTrends />
+          <RoleplaySessionsCard />
+          {enableMetrics && (
+            <section>
+              <Card className="border-border/10 bg-muted/20">
+                <CardHeader>
+                  <CardTitle className="font-medium">Metrics Dashboard</CardTitle>
+                  <CardDescription className="text-muted-foreground/70">View team performance and analytics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" asChild>
+                    <Link to="/metrics">View Metrics Dashboard</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </section>
+          )}
+          <SharedInsights />
+          <ReportingPeriods />
+        </PeriodRefreshProvider>
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
           Version: {versionLabel}
         </div>

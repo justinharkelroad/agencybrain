@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { Link } from 'react-router-dom';
 import { formatDateLocal } from '@/lib/utils';
+import { usePeriodRefresh } from '@/contexts/PeriodRefreshContext';
 
 interface PeriodRow {
   id: string;
@@ -19,6 +20,7 @@ interface PeriodRow {
 
 export default function ReportingPeriods() {
   const { user } = useAuth();
+  const { refreshKey, triggerRefresh } = usePeriodRefresh();
   const [periods, setPeriods] = useState<PeriodRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,9 +37,14 @@ export default function ReportingPeriods() {
     setLoading(false);
   };
 
+  const handleDelete = () => {
+    fetchPeriods();
+    triggerRefresh();
+  };
+
   useEffect(() => {
     fetchPeriods();
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   return (
     <section aria-labelledby="reporting-periods">
@@ -79,7 +86,7 @@ export default function ReportingPeriods() {
                     </Button>
                     <PeriodDeleteDialog
                       period={p as any}
-                      onDelete={fetchPeriods}
+                      onDelete={handleDelete}
                       isAdmin={false}
                     />
                   </div>

@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { FormViewer } from '@/components/FormViewer';
 import { PeriodDeleteDialog } from '@/components/PeriodDeleteDialog';
 import { formatDateLocal } from '@/lib/utils';
+import { usePeriodRefresh } from '@/contexts/PeriodRefreshContext';
 
 interface Period {
   id: string;
@@ -31,26 +32,32 @@ const formatCurrency = (n: number | undefined | null) => {
 
 export default function PerformanceMetrics() {
   const { user } = useAuth();
+  const { refreshKey, triggerRefresh } = usePeriodRefresh();
   const [latest, setLatest] = useState<Period | null>(null);
   const [loading, setLoading] = useState(true);
 
-const fetchLatest = async () => {
-  if (!user) return;
-  setLoading(true);
-  const { data } = await supabase
-    .from('periods')
-    .select('*')
-    .eq('user_id', user.id)
-    .not('form_data', 'is', null)
-    .order('updated_at', { ascending: false })
-    .limit(1);
-  setLatest(data && data.length > 0 ? (data[0] as Period) : null);
-  setLoading(false);
-};
+  const fetchLatest = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from('periods')
+      .select('*')
+      .eq('user_id', user.id)
+      .not('form_data', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    setLatest(data && data.length > 0 ? (data[0] as Period) : null);
+    setLoading(false);
+  };
 
-useEffect(() => {
-  fetchLatest();
-}, [user?.id]);
+  const handleDelete = () => {
+    fetchLatest();
+    triggerRefresh();
+  };
+
+  useEffect(() => {
+    fetchLatest();
+  }, [user?.id, refreshKey]);
 
 const kpis = useMemo(() => {
   const fd = latest?.form_data || {};
@@ -137,7 +144,7 @@ const kpis = useMemo(() => {
       <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground">
         <Link to={`/submit?mode=update&periodId=${latest.id}`}>Update</Link>
       </Button>
-      <PeriodDeleteDialog period={latest} onDelete={fetchLatest} />
+      <PeriodDeleteDialog period={latest} onDelete={handleDelete} />
     </div>
   </div>
 ) : (

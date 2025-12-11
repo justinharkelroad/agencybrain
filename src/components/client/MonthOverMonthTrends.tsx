@@ -1,13 +1,13 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
+import { usePeriodRefresh } from '@/contexts/PeriodRefreshContext';
 import { formatDateLocal } from '@/lib/utils';
 
 interface PeriodRow {
@@ -40,6 +40,7 @@ function labelForPeriod(p: PeriodRow): string {
 
 export default function MonthOverMonthTrends() {
   const { user } = useAuth();
+  const { refreshKey } = usePeriodRefresh();
   const [periods, setPeriods] = useState<PeriodRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +58,7 @@ export default function MonthOverMonthTrends() {
       setLoading(false);
     };
     fetchPeriods();
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   const [current, previous] = periods;
 
