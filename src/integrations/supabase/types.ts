@@ -1179,6 +1179,42 @@ export type Database = {
           },
         ]
       }
+      help_videos: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          placement_description: string | null
+          title: string
+          updated_at: string | null
+          url: string
+          video_key: string
+          video_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          placement_description?: string | null
+          title: string
+          updated_at?: string | null
+          url?: string
+          video_key: string
+          video_type?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          placement_description?: string | null
+          title?: string
+          updated_at?: string | null
+          url?: string
+          video_key?: string
+          video_type?: string
+        }
+        Relationships: []
+      }
       kpi_audit: {
         Row: {
           action: string

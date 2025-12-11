@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, User, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FlowStatsCard } from '@/components/flows/FlowStatsCard';
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 
 export default function Flows() {
   const navigate = useNavigate();
@@ -86,6 +87,7 @@ export default function Flows() {
           <h1 className="text-2xl font-medium flex items-center gap-2">
             <Sparkles className="h-6 w-6" strokeWidth={1.5} />
             Flows
+            <HelpVideoButton videoKey="flows-overview" />
           </h1>
           <p className="text-muted-foreground/70 mt-1">
             Guided reflection for growth
