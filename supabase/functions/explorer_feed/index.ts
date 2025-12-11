@@ -30,7 +30,8 @@ serve(async (req) => {
       agency_slug, start, end, query, staffId, leadSource, 
       page = 1, pageSize = 50,
       sortBy = "created_at", 
-      sortOrder = "desc" 
+      sortOrder = "desc",
+      recordType = "all" // "all" | "prospect" | "customer"
     } = body;
 
     // Get agency by slug or user's agency
@@ -57,102 +58,213 @@ serve(async (req) => {
       );
     }
 
-    // Build query for quoted household details with joins
-    let queryBuilder = sb
-      .from("quoted_household_details")
-      .select(`
-        id,
-        submission_id,
-        created_at,
-        work_date,
-        household_name,
-        lead_source_label,
-        zip_code,
-        extras,
-        items_quoted,
-        policies_quoted,
-        premium_potential_cents,
-        submissions!inner(
-          form_template_id,
-          team_member_id,
-          team_members(name),
-          form_templates!inner(agency_id)
-        )
-      `, { count: 'exact' })
-      .eq("submissions.form_templates.agency_id", agencyId);
-
-    // Apply filters
-    if (start) queryBuilder = queryBuilder.gte("created_at", start + "T00:00:00");
-    if (end) queryBuilder = queryBuilder.lte("created_at", end + "T23:59:59");
-    if (query) queryBuilder = queryBuilder.ilike("household_name", `%${query}%`);
-
-    // Apply sorting with whitelist validation
+    // Valid sort fields for each record type
     const VALID_SORT_FIELDS = [
-      "created_at",               // ISO timestamptz
-      "work_date",                // date
-      "household_name",           // text
-      "items_quoted",             // int
-      "policies_quoted",          // int  
-      "premium_potential_cents"   // bigint
+      "created_at",
+      "work_date",
+      "household_name",
+      "items_quoted",
+      "policies_quoted",
+      "premium_potential_cents"
     ];
     
     const sortField = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : "created_at";
     const ascending = sortOrder === "asc";
     
-    // Log resolved sortField for debugging (48h cleanup)
-    console.log(`Explorer sort: field=${sortField}, order=${sortOrder}, requested=${sortBy}`);
+    console.log(`Explorer: recordType=${recordType}, sort=${sortField}/${sortOrder}`);
+
+    let prospects: any[] = [];
+    let customers: any[] = [];
+    let prospectCount = 0;
+    let customerCount = 0;
+
+    // Query prospects (quoted_household_details)
+    if (recordType === "all" || recordType === "prospect") {
+      let prospectQuery = sb
+        .from("quoted_household_details")
+        .select(`
+          id,
+          submission_id,
+          created_at,
+          work_date,
+          household_name,
+          lead_source_label,
+          zip_code,
+          extras,
+          items_quoted,
+          policies_quoted,
+          premium_potential_cents,
+          submissions!inner(
+            form_template_id,
+            team_member_id,
+            team_members(name),
+            form_templates!inner(agency_id)
+          )
+        `, { count: 'exact' })
+        .eq("submissions.form_templates.agency_id", agencyId);
+
+      // Apply filters
+      if (start) prospectQuery = prospectQuery.gte("created_at", start + "T00:00:00");
+      if (end) prospectQuery = prospectQuery.lte("created_at", end + "T23:59:59");
+      if (query) prospectQuery = prospectQuery.ilike("household_name", `%${query}%`);
+
+      // Apply sorting
+      prospectQuery = prospectQuery.order(sortField, { ascending });
+      if (sortField !== "created_at") {
+        prospectQuery = prospectQuery.order("created_at", { ascending: false });
+      }
+
+      const { data: prospectData, count: pCount, error: prospectError } = await prospectQuery;
+      
+      if (prospectError) {
+        console.error("Prospect query error:", prospectError);
+      } else {
+        prospects = (prospectData || []).map(row => ({
+          id: row.id,
+          submission_id: row.submission_id,
+          form_template_id: row.submissions?.form_template_id,
+          team_member_id: row.submissions?.team_member_id,
+          work_date: row.work_date,
+          created_at: row.created_at,
+          prospect_name: row.household_name,
+          staff_member_name: row.submissions?.team_members?.name,
+          lead_source_label: row.lead_source_label || "Undefined",
+          zip: row.zip_code || null,
+          notes: row.extras?.detailed_notes || row.extras?.notes || null,
+          custom_fields: row.extras?.custom_fields || {},
+          items_quoted: row.items_quoted,
+          policies_quoted: row.policies_quoted,
+          premium_potential_cents: row.premium_potential_cents,
+          record_type: "prospect"
+        }));
+        prospectCount = pCount || 0;
+      }
+    }
+
+    // Query customers (sold_policy_details)
+    if (recordType === "all" || recordType === "customer") {
+      let customerQuery = sb
+        .from("sold_policy_details")
+        .select(`
+          id,
+          submission_id,
+          created_at,
+          policy_holder_name,
+          policy_type,
+          premium_amount_cents,
+          lead_source_id,
+          extras,
+          submissions!inner(
+            form_template_id,
+            team_member_id,
+            work_date,
+            team_members(name),
+            form_templates!inner(agency_id)
+          )
+        `, { count: 'exact' })
+        .eq("submissions.form_templates.agency_id", agencyId);
+
+      // Apply filters - use created_at for sold_policy_details
+      if (start) customerQuery = customerQuery.gte("created_at", start + "T00:00:00");
+      if (end) customerQuery = customerQuery.lte("created_at", end + "T23:59:59");
+      if (query) customerQuery = customerQuery.ilike("policy_holder_name", `%${query}%`);
+
+      // Apply sorting - map fields for sold_policy_details
+      const customerSortField = sortField === "household_name" ? "policy_holder_name" 
+        : sortField === "premium_potential_cents" ? "premium_amount_cents"
+        : sortField;
+      
+      // Only sort by valid fields for this table
+      const validCustomerSort = ["created_at", "policy_holder_name", "premium_amount_cents"].includes(customerSortField);
+      if (validCustomerSort) {
+        customerQuery = customerQuery.order(customerSortField, { ascending });
+      } else {
+        customerQuery = customerQuery.order("created_at", { ascending: false });
+      }
+
+      const { data: customerData, count: cCount, error: customerError } = await customerQuery;
+      
+      if (customerError) {
+        console.error("Customer query error:", customerError);
+      } else {
+        // Get lead source names for lookup
+        const { data: leadSourcesData } = await sb
+          .from("lead_sources")
+          .select("id, name")
+          .eq("agency_id", agencyId);
+        
+        const leadSourceMap = new Map((leadSourcesData || []).map(ls => [ls.id, ls.name]));
+
+        customers = (customerData || []).map(row => ({
+          id: row.id,
+          submission_id: row.submission_id,
+          form_template_id: row.submissions?.form_template_id,
+          team_member_id: row.submissions?.team_member_id,
+          work_date: row.submissions?.work_date || row.extras?.work_date,
+          created_at: row.created_at,
+          prospect_name: row.policy_holder_name,
+          staff_member_name: row.submissions?.team_members?.name,
+          lead_source_label: row.lead_source_id 
+            ? (leadSourceMap.get(row.lead_source_id) || row.extras?.lead_source_label || "Undefined")
+            : (row.extras?.lead_source_label || "Undefined"),
+          zip: row.extras?.zip_code || null,
+          notes: row.extras?.detailed_notes || row.extras?.notes || null,
+          custom_fields: row.extras?.custom_fields || {},
+          items_quoted: null, // Not applicable for sold
+          policies_quoted: null, // Not applicable for sold
+          premium_potential_cents: row.premium_amount_cents,
+          policy_type: row.policy_type, // Array of policy types
+          record_type: "customer"
+        }));
+        customerCount = cCount || 0;
+      }
+    }
+
+    // Combine and sort results
+    let combinedRows = [...prospects, ...customers];
     
-    // Apply ORDER BY with deterministic tiebreaker
-    queryBuilder = queryBuilder.order(sortField, { ascending });
-    if (sortField !== "created_at") {
-      queryBuilder = queryBuilder.order("created_at", { ascending: false });
-    }
+    // Sort combined results by the selected field
+    combinedRows.sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (sortField) {
+        case "created_at":
+        case "work_date":
+          aVal = a[sortField] || "";
+          bVal = b[sortField] || "";
+          break;
+        case "household_name":
+          aVal = a.prospect_name || "";
+          bVal = b.prospect_name || "";
+          break;
+        case "premium_potential_cents":
+          aVal = a.premium_potential_cents || 0;
+          bVal = b.premium_potential_cents || 0;
+          break;
+        default:
+          aVal = a[sortField] ?? 0;
+          bVal = b[sortField] ?? 0;
+      }
+      
+      if (typeof aVal === "string") {
+        return ascending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return ascending ? aVal - bVal : bVal - aVal;
+    });
 
-    // Apply pagination
+    // Apply pagination to combined results
+    const totalCount = prospectCount + customerCount;
     const offset = (page - 1) * pageSize;
-    queryBuilder = queryBuilder.range(offset, offset + pageSize - 1);
-
-    const { data, error, count } = await queryBuilder;
-
-    if (error) {
-      console.error("Database error:", error);
-      return new Response(
-        JSON.stringify({ error: error.message }), 
-        { 
-          status: 500, 
-          headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
-        }
-      );
-    }
-
-      // Transform data to match expected format - preserve numeric types and extract notes
-      const transformedRows = (data || []).map(row => ({
-        id: row.id,
-        submission_id: row.submission_id,
-        form_template_id: row.submissions?.form_template_id,
-        team_member_id: row.submissions?.team_member_id,
-        work_date: row.work_date,
-        created_at: row.created_at,
-        prospect_name: row.household_name,
-        staff_member_name: row.submissions?.team_members?.name,
-        lead_source_label: row.lead_source_label || "Undefined",
-        zip: row.zip_code || null,
-        notes: row.extras?.detailed_notes || row.extras?.notes || null, // Extract notes from extras JSON
-        custom_fields: row.extras?.custom_fields || {}, // Include custom fields with readable labels
-        email: null,
-        phone: null,
-        items_quoted: row.items_quoted,           // Keep as is, allow null
-        policies_quoted: row.policies_quoted,     // Keep as is, allow null
-        premium_potential_cents: row.premium_potential_cents, // Keep as is, allow null
-        status: "final"
-      }));
+    const paginatedRows = combinedRows.slice(offset, offset + pageSize);
 
     return new Response(
       JSON.stringify({ 
-        rows: transformedRows,
+        rows: paginatedRows,
         page,
         pageSize,
-        total: count || 0
+        total: totalCount,
+        prospectCount,
+        customerCount
       }), 
       { 
         status: 200, 
