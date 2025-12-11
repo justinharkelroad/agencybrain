@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useLeadSources } from "@/hooks/useLeadSources";
+import { usePolicyTypes } from "@/hooks/usePolicyTypes";
 
 interface RepeaterField {
   key: string;
@@ -57,6 +58,7 @@ export default function RepeaterSectionManager({
   const [stickyFields, setStickyFields] = useState<StickyField[]>([]);
   const [loadingSticky, setLoadingSticky] = useState(false);
   const { leadSources, loading: leadSourcesLoading, error: leadSourcesError } = useLeadSources();
+  const { policyTypes, loading: policyTypesLoading, error: policyTypesError } = usePolicyTypes();
 
   // Load sticky fields for this section type
   useEffect(() => {
@@ -96,14 +98,8 @@ export default function RepeaterSectionManager({
           required: sf.is_system_required,
           isSticky: true,
           isSystemRequired: sf.is_system_required,
-          options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [
-            'Auto Insurance',
-            'Home Insurance', 
-            'Life Insurance',
-            'Business Insurance',
-            'Health Insurance',
-            'Other'
-          ] : undefined
+          // Options will be populated by separate useEffect hooks for lead_source and policy_type
+          options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [] : undefined
         };
         console.log('🔧 Created sticky field:', field);
         return field;
@@ -138,6 +134,24 @@ export default function RepeaterSectionManager({
       }
     }
   }, [leadSources, section.fields]);
+
+  // Update policy type options when policyTypes data changes
+  useEffect(() => {
+    if (policyTypes && policyTypes.length > 0 && section.fields) {
+      const updatedFields = section.fields.map(field => {
+        if (field.key === 'policy_type' && field.type === 'select') {
+          const options = policyTypes.map(pt => pt.name);
+          console.log('🔧 Updating policy type options:', options);
+          return { ...field, options };
+        }
+        return field;
+      });
+      
+      if (JSON.stringify(updatedFields) !== JSON.stringify(section.fields)) {
+        updateSection({ fields: updatedFields });
+      }
+    }
+  }, [policyTypes, section.fields]);
 
   const updateSection = (updates: Partial<RepeaterSection>) => {
     onUpdateSection(sectionKey, { ...section, ...updates });
@@ -368,11 +382,41 @@ export default function RepeaterSectionManager({
                                 ) : field.key === 'policy_type' ? (
                                   <div>
                                     <Label className="text-xs">Options</Label>
-                                    <div className="p-3 border border-border/10 rounded-md bg-card/50 text-sm">
-                                      <p className="text-muted-foreground/70 mb-2 text-xs">Pre-defined policy types:</p>
-                                      {(field.options || []).map(option => (
-                                        <p key={option} className="text-xs">• {option}</p>
-                                      ))}
+                                     <div className="p-3 border border-border/10 rounded-md bg-card/50 text-sm">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-muted-foreground text-xs">Automatically populated from Policy Type Management</p>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => navigate('/agency?tab=settings')}
+                                          className="text-xs h-6"
+                                        >
+                                          <ExternalLink className="h-3 w-3 mr-1" />
+                                          Manage
+                                        </Button>
+                                      </div>
+                                       {policyTypesLoading ? (
+                                         <p className="text-xs text-muted-foreground">Loading policy types...</p>
+                                        ) : policyTypesError ? (
+                                          <div className="space-y-2">
+                                            <p className="text-xs text-destructive">Failed to load policy types</p>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => navigate('/agency?tab=settings')}
+                                              className="text-xs h-6"
+                                            >
+                                              <ExternalLink className="h-3 w-3 mr-1" />
+                                              Setup Policy Types
+                                            </Button>
+                                          </div>
+                                       ) : policyTypes.length > 0 ? (
+                                         policyTypes.map(pt => (
+                                           <p key={pt.id} className="text-xs">• {pt.name}</p>
+                                         ))
+                                       ) : (
+                                         <p className="text-xs text-orange-600">No active policy types configured. Configure them in Settings → Policy Type Management.</p>
+                                       )}
                                     </div>
                                   </div>
                                 ) : (
