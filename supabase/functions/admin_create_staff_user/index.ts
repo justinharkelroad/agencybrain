@@ -167,6 +167,7 @@ Deno.serve(async (req) => {
         .from('staff_users')
         .select('id, username, team_member_id, agency_id')
         .eq('email', email)
+        .eq('is_active', true)  // Only check active users - deactivated emails can be reused
         .maybeSingle();
 
       console.log('[EMAIL CHECK] Result:', { emailConflict, emailCheckError });
