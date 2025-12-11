@@ -21,11 +21,13 @@ interface QuotedHousehold {
   prospect_name: string;
   staff_member_name?: string;
   lead_source_label?: string | null;
-  items_quoted: number;
-  policies_quoted: number;
+  items_quoted: number | null;
+  policies_quoted: number | null;
   premium_potential_cents: number;
   status?: string;
   custom_fields?: Record<string, { label: string; type: string; value: string }>;
+  record_type?: "prospect" | "customer";
+  policy_type?: string[];
 }
 
 interface SearchFilters {
@@ -39,6 +41,7 @@ interface SearchFilters {
   lateOnly: boolean;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  recordType: "all" | "prospect" | "customer";
 }
 
 export default function Explorer() {
@@ -64,6 +67,7 @@ export default function Explorer() {
     finalOnly: true,
     includeSuperseded: false,
     lateOnly: false,
+    recordType: "all",
   });
 
   const [rows, setRows] = useState<QuotedHousehold[]>([]);
@@ -77,6 +81,8 @@ export default function Explorer() {
   const [agencyIdForModal, setAgencyIdForModal] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [prospectCount, setProspectCount] = useState(0);
+  const [customerCount, setCustomerCount] = useState(0);
 
   const search = async (page: number = 1) => {
     if (!user) return;
@@ -97,13 +103,16 @@ export default function Explorer() {
         includeSuperseded: filters.includeSuperseded,
         lateOnly: filters.lateOnly,
         sortBy: sortBy,
-        sortOrder: sortOrder
+        sortOrder: sortOrder,
+        recordType: filters.recordType
       });
 
       if (page === 1) {
         // Replace results for new search
         setRows(data.rows);
         setHasMore(data.page < Math.ceil(data.total / data.pageSize));
+        setProspectCount(data.prospectCount || 0);
+        setCustomerCount(data.customerCount || 0);
       } else {
         // Append to existing results for "Load more"
         setRows(prevRows => [...prevRows, ...data.rows]);
@@ -138,16 +147,18 @@ export default function Explorer() {
       return;
     }
 
-    const headers = ["Date", "Staff", "Household", "Lead Source", "#Items", "#Policies", "Premium Potential"];
+    const headers = ["Type", "Date", "Staff", "Household", "Lead Source", "#Items", "#Policies", "Premium", "Policy Types"];
     const csvRows = rows.map(row => {
       const values = [
+        row.record_type === "customer" ? "Sold" : "Quoted",
         row.work_date || row.created_at?.split('T')[0] || "",
         row.staff_member_name || "Unknown",
         row.prospect_name || "",
         row.lead_source_label || "Undefined",
-        row.items_quoted?.toString() || "0",
-        row.policies_quoted?.toString() || "0", 
-        (row.premium_potential_cents / 100).toFixed(2)
+        row.items_quoted?.toString() || "—",
+        row.policies_quoted?.toString() || "—", 
+        (row.premium_potential_cents / 100).toFixed(2),
+        row.policy_type?.join(", ") || ""
       ];
       return values.map(value => `"${value}"`).join(",");
     });
@@ -167,7 +178,7 @@ export default function Explorer() {
 
   const updateFilter = (key: keyof SearchFilters, value: string | boolean) => {
     // Handle "all" values as empty strings for API
-    const apiValue = (value === "all") ? "" : value;
+    const apiValue = (value === "all" && key !== "recordType") ? "" : value;
     setFilters(prev => ({ ...prev, [key]: apiValue }));
   };
 
@@ -271,6 +282,14 @@ export default function Explorer() {
     }
   }, [sortBy, sortOrder]);
 
+  // Refetch when record type filter changes
+  useEffect(() => {
+    if (user) {
+      search(1);
+      setCurrentPage(1);
+    }
+  }, [filters.recordType]);
+
   if (!user) {
     return (
       <div className="max-w-7xl mx-auto p-6">
@@ -286,7 +305,7 @@ export default function Explorer() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Explorer</h1>
-          <p className="text-muted-foreground">Search and analyze quoted household data</p>
+          <p className="text-muted-foreground">Search and analyze prospects and customers</p>
         </div>
       </div>
 
@@ -302,7 +321,7 @@ export default function Explorer() {
           <div className="flex gap-2">
             <div className="flex-1">
               <Input
-                placeholder='Search household (jo*, "john doe", or fuzzy search)'
+                placeholder='Search by name (jo*, "john doe", or fuzzy search)'
                 value={filters.q}
                 onChange={(e) => updateFilter("q", e.target.value)}
                 className="w-full"
@@ -334,8 +353,8 @@ export default function Explorer() {
             </div>
           </div>
 
-          {/* Staff and Lead Source Dropdowns */}
-          <div className="grid gap-3 md:grid-cols-2">
+          {/* Staff, Lead Source, and Record Type Dropdowns */}
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">Staff Member</label>
               <Select
@@ -375,6 +394,22 @@ export default function Explorer() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Record Type</label>
+              <Select
+                value={filters.recordType}
+                onValueChange={(value) => updateFilter("recordType", value as "all" | "prospect" | "customer")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All records" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Records</SelectItem>
+                  <SelectItem value="prospect">Prospects Only (Quoted)</SelectItem>
+                  <SelectItem value="customer">Customers Only (Sold)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -382,8 +417,18 @@ export default function Explorer() {
       {/* Results */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Results ({rows.length} households)</CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-4">
+              <CardTitle>Results ({rows.length} records)</CardTitle>
+              <div className="flex gap-2 text-sm">
+                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  {prospectCount} Prospects
+                </Badge>
+                <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+                  {customerCount} Customers
+                </Badge>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="flat"
@@ -418,7 +463,7 @@ export default function Explorer() {
 
           {!loading && !error && rows.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No households found matching your criteria.</p>
+              <p className="text-muted-foreground">No records found matching your criteria.</p>
             </div>
           )}
 
@@ -428,17 +473,24 @@ export default function Explorer() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-3 font-medium w-12">Edit</th>
+                    <th className="text-left p-3 font-medium w-20">Type</th>
                     <SortHeader field="date" label="Date" />
                     <th className="text-left p-3 font-medium">Staff</th>
-                    <SortHeader field="household" label="Household" />
+                    <SortHeader field="household" label="Name" />
                     <th className="text-left p-3 font-medium">Lead Source</th>
                     <SortHeader field="items" label="#Items" />
                     <SortHeader field="policies" label="#Policies" />
+                    <SortHeader field="premium" label="Premium" />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.id} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={row.id} 
+                      className={`border-b hover:bg-muted/50 ${
+                        row.record_type === "customer" ? "bg-green-500/5" : ""
+                      }`}
+                    >
                       <td className="p-3">
                         <Button 
                           variant="ghost" 
@@ -451,6 +503,17 @@ export default function Explorer() {
                         >
                           <EditIcon className="h-4 w-4" />
                         </Button>
+                      </td>
+                      <td className="p-3">
+                        {row.record_type === "customer" ? (
+                          <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30">
+                            Sold
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                            Quoted
+                          </Badge>
+                        )}
                       </td>
                       <td className="p-3">{row.created_at?.split('T')[0] || "—"}</td>
                       <td className="p-3">
@@ -477,6 +540,12 @@ export default function Explorer() {
                       </td>
                       <td className="p-3">{row.items_quoted ?? "—"}</td>
                       <td className="p-3">{row.policies_quoted ?? "—"}</td>
+                      <td className="p-3">
+                        {row.premium_potential_cents 
+                          ? `$${(row.premium_potential_cents / 100).toLocaleString()}`
+                          : "—"
+                        }
+                      </td>
                     </tr>
                   ))}
                 </tbody>

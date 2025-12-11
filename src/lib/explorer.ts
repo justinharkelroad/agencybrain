@@ -13,13 +13,16 @@ export interface ExplorerQuery {
   lateOnly?: boolean;     // default false
   sortBy?: string;        // sort field
   sortOrder?: "asc" | "desc"; // sort direction
+  recordType?: "all" | "prospect" | "customer"; // filter by record type
 }
 
-interface ExplorerResponse {
+export interface ExplorerResponse {
   rows: any[];
   page: number;
   pageSize: number;
   total: number;
+  prospectCount?: number;
+  customerCount?: number;
 }
 
 export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerResponse> {
@@ -57,8 +60,8 @@ export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerRespo
     response.rows = response.rows.map((row: any) => ({
       ...row,
       notes: row.extras?.raw_json?.detailed_notes || row.extras?.detailed_notes || row.notes || null,
-      items_quoted: row.items_quoted || 0,
-      policies_quoted: row.policies_quoted || 0,
+      items_quoted: row.items_quoted ?? null,
+      policies_quoted: row.policies_quoted ?? null,
       premium_potential_cents: row.premium_potential_cents || 0,
     }));
   }
