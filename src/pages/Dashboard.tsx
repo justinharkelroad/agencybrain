@@ -14,6 +14,7 @@ import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, membershipTier } = useAuth();
@@ -62,7 +63,10 @@ const Dashboard = () => {
         <h1 className="sr-only">Client Dashboard</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
+              <HelpVideoButton videoKey="dashboard-overview" />
+            </div>
             {agencyName && (
               <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
                 <span>{`${agencyName}${/[sS]$/.test(agencyName.trim()) ? "'" : "'s"}`}</span>
