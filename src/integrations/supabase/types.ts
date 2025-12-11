@@ -2271,7 +2271,7 @@ export type Database = {
           lead_source_id: string | null
           lead_source_label: string | null
           policies_quoted: number | null
-          policy_type: string | null
+          policy_type: string[] | null
           premium_potential_cents: number | null
           role: Database["public"]["Enums"]["app_member_role"] | null
           submission_id: string
@@ -2289,7 +2289,7 @@ export type Database = {
           lead_source_id?: string | null
           lead_source_label?: string | null
           policies_quoted?: number | null
-          policy_type?: string | null
+          policy_type?: string[] | null
           premium_potential_cents?: number | null
           role?: Database["public"]["Enums"]["app_member_role"] | null
           submission_id: string
@@ -2307,7 +2307,7 @@ export type Database = {
           lead_source_id?: string | null
           lead_source_label?: string | null
           policies_quoted?: number | null
-          policy_type?: string | null
+          policy_type?: string[] | null
           premium_potential_cents?: number | null
           role?: Database["public"]["Enums"]["app_member_role"] | null
           submission_id?: string
@@ -2659,7 +2659,7 @@ export type Database = {
           id: string
           lead_source_id: string | null
           policy_holder_name: string
-          policy_type: string
+          policy_type: string[] | null
           premium_amount_cents: number
           quoted_household_detail_id: string | null
           submission_id: string
@@ -2671,7 +2671,7 @@ export type Database = {
           id?: string
           lead_source_id?: string | null
           policy_holder_name: string
-          policy_type: string
+          policy_type?: string[] | null
           premium_amount_cents?: number
           quoted_household_detail_id?: string | null
           submission_id: string
@@ -2683,7 +2683,7 @@ export type Database = {
           id?: string
           lead_source_id?: string | null
           policy_holder_name?: string
-          policy_type?: string
+          policy_type?: string[] | null
           premium_amount_cents?: number
           quoted_household_detail_id?: string | null
           submission_id?: string
