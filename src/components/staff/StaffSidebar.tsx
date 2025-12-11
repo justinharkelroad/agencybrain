@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Dashboard", url: "/staff/dashboard", icon: LayoutDashboard },
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
-  { title: "Flows", url: "/flows", icon: Sparkles },
+  { title: "Flows", url: "/staff/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
 ];
 

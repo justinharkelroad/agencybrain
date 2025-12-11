@@ -714,7 +714,32 @@ const App = () => (
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />
+              {/* Flows */}
+              <Route path="flows" element={<Flows />} />
+              <Route path="flows/profile" element={<FlowProfile />} />
+              <Route path="flows/library" element={<FlowLibrary />} />
             </Route>
+            {/* Staff Flows Routes - Full screen (no sidebar) */}
+            <Route path="/staff/flows/start/:slug" element={
+              <StaffProtectedRoute>
+                <FlowStart />
+              </StaffProtectedRoute>
+            } />
+            <Route path="/staff/flows/session/:slug" element={
+              <StaffProtectedRoute>
+                <FlowSession />
+              </StaffProtectedRoute>
+            } />
+            <Route path="/staff/flows/complete/:sessionId" element={
+              <StaffProtectedRoute>
+                <FlowComplete />
+              </StaffProtectedRoute>
+            } />
+            <Route path="/staff/flows/view/:sessionId" element={
+              <StaffProtectedRoute>
+                <FlowView />
+              </StaffProtectedRoute>
+            } />
             
             {/* Regular User Password Reset */}
             <Route path="/forgot-password" element={<ForgotPassword />} />
