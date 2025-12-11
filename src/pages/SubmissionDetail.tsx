@@ -364,6 +364,55 @@ export default function SubmissionDetail() {
                 </div>
               )}
 
+              {/* Render sold details as clean formatted section */}
+              {Array.isArray(submission?.payload_json?.soldDetails) && submission.payload_json.soldDetails.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium text-primary mb-3 block">
+                    Sold Household Details
+                  </span>
+                  <div className="space-y-3">
+                    {submission.payload_json.soldDetails.map((sold: any, idx: number) => (
+                      <div key={idx} className="rounded-md bg-muted/50 p-4 border border-border">
+                        <div className="font-medium text-sm mb-2">Sale #{idx + 1}</div>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          {sold.customer_name && (
+                            <li><span className="font-semibold">Customer:</span> {sold.customer_name}</li>
+                          )}
+                          {(sold.lead_source_id || sold.lead_source || sold.lead_source_label) && (
+                            <li>
+                              <span className="font-semibold">Lead Source:</span> {
+                                sold.lead_source_label ||
+                                (sold.lead_source_id ? leadSources.find(ls => ls.id === sold.lead_source_id)?.name : null) ||
+                                sold.lead_source ||
+                                'Unknown'
+                              }
+                            </li>
+                          )}
+                          {sold.policy_type && (
+                            <li>
+                              <span className="font-semibold">Policy Type:</span> {
+                                Array.isArray(sold.policy_type) 
+                                  ? sold.policy_type.join(', ') 
+                                  : sold.policy_type
+                              }
+                            </li>
+                          )}
+                          {sold.num_items && (
+                            <li><span className="font-semibold">Items Sold:</span> {sold.num_items}</li>
+                          )}
+                          {sold.premium_sold && (
+                            <li><span className="font-semibold">Premium:</span> ${sold.premium_sold}</li>
+                          )}
+                          {(sold.zip || sold.zip_code) && (
+                            <li><span className="font-semibold">Zip Code:</span> {sold.zip || sold.zip_code}</li>
+                          )}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Render form-level custom fields */}
               {rootCustoms.length > 0 && (
                 <div>
@@ -386,8 +435,8 @@ export default function SubmissionDetail() {
               {submission.payload_json && typeof submission.payload_json === 'object' ? (
                 <div className="space-y-3">
                   {Object.entries(submission.payload_json).map(([key, value]) => {
-                    // Skip quoted_details as we render it above
-                    if (key === 'quoted_details' || key === 'repeaterData') {
+                    // Skip quoted_details and soldDetails as we render them above
+                    if (key === 'quoted_details' || key === 'soldDetails' || key === 'repeaterData') {
                       return null;
                     }
                     
