@@ -332,27 +332,36 @@ export default function Agency() {
         },
       });
 
-      // Check for application-level errors returned in the response body
-      if (error || data?.error) {
-        const errorData = data || {};
+      // Check for errors - extract body from FunctionsHttpError via error.context.json()
+      if (error) {
+        let errorData: any = {};
+        
+        // FunctionsHttpError has response body in error.context
+        if (error.context?.json) {
+          try {
+            errorData = await error.context.json();
+            console.log('Error data from edge function:', errorData);
+          } catch (parseError) {
+            console.error('Could not parse error response:', parseError);
+          }
+        }
         
         if (errorData.error === 'email_conflict') {
-          toast.error(
-            `Email already in use by staff account "${errorData.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
-            { duration: 8000 }
-          );
+          toast.error(errorData.message || "This email is already in use by another staff account.", { duration: 8000 });
           return;
         }
         
         if (errorData.error === 'team_member_already_linked') {
-          toast.error(
-            `This team member already has a staff account with username "${errorData.existing_username}".`,
-            { duration: 6000 }
-          );
+          toast.error(errorData.message || "This team member already has a staff login.", { duration: 6000 });
           return;
         }
         
-        throw new Error(errorData.message || errorData.error || error?.message || 'Failed to create staff user');
+        throw new Error(errorData.message || error.message || 'Failed to create staff user');
+      }
+      
+      // Also check for application-level errors in data (for 2xx responses with error payloads)
+      if (data?.error) {
+        throw new Error(data.message || data.error);
       }
 
       await copyToClipboard(manualPassword);
@@ -415,17 +424,29 @@ export default function Agency() {
         },
       });
 
-      if (error) throw error;
+      // Check for errors - extract body from FunctionsHttpError via error.context.json()
+      if (error) {
+        let errorData: any = {};
+        
+        if (error.context?.json) {
+          try {
+            errorData = await error.context.json();
+            console.log('Error data from edge function:', errorData);
+          } catch (parseError) {
+            console.error('Could not parse error response:', parseError);
+          }
+        }
+        
+        if (errorData.error === 'email_conflict') {
+          toast.error(errorData.message || "This email is already in use by another staff account.", { duration: 8000 });
+          return;
+        }
+        
+        throw new Error(errorData.message || error.message || 'Failed to send invite');
+      }
       
       if (!data?.success) {
-        if (data?.error === 'email_conflict') {
-          toast.error(
-            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
-            { duration: 8000 }
-          );
-        } else {
-          toast.error(data?.message || data?.error || "Failed to send invite");
-        }
+        toast.error(data?.message || data?.error || "Failed to send invite");
         return;
       }
 
@@ -475,17 +496,29 @@ export default function Agency() {
         },
       });
 
-      if (error) throw error;
+      // Check for errors - extract body from FunctionsHttpError via error.context.json()
+      if (error) {
+        let errorData: any = {};
+        
+        if (error.context?.json) {
+          try {
+            errorData = await error.context.json();
+            console.log('Error data from edge function:', errorData);
+          } catch (parseError) {
+            console.error('Could not parse error response:', parseError);
+          }
+        }
+        
+        if (errorData.error === 'email_conflict') {
+          toast.error(errorData.message || "This email is already in use by another staff account.", { duration: 8000 });
+          return;
+        }
+        
+        throw new Error(errorData.message || error.message || 'Failed to resend invite');
+      }
       
       if (!data?.success) {
-        if (data?.error === 'email_conflict') {
-          toast.error(
-            `Email already in use by staff account "${data.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
-            { duration: 8000 }
-          );
-        } else {
-          toast.error(data?.message || data?.error || "Failed to resend invite");
-        }
+        toast.error(data?.message || data?.error || "Failed to resend invite");
         return;
       }
 
