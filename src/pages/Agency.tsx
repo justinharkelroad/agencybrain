@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -107,6 +108,10 @@ export default function Agency() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
+  
+  // Deactivate confirmation dialog
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+  const [memberToDeactivate, setMemberToDeactivate] = useState<any>(null);
 
   // Build staff user lookup map
   const staffByTeamMemberId = useMemo(() => {
@@ -276,15 +281,63 @@ export default function Agency() {
     }
   };
 
-  const deleteMember = async (id: string) => {
+  const openDeactivateDialog = (member: any) => {
+    setMemberToDeactivate(member);
+    setDeactivateDialogOpen(true);
+  };
+
+  const deactivateMember = async () => {
+    if (!memberToDeactivate || !agencyId) return;
+    
     try {
-      const { error } = await supabase.from("team_members").delete().eq("id", id);
-      if (error) throw error;
-      if (agencyId) await refreshData(agencyId);
-      toastHook({ title: "Deleted", description: "Team member removed" });
+      // Update team member status to inactive
+      const { error: memberError } = await supabase
+        .from("team_members")
+        .update({ status: 'inactive' })
+        .eq("id", memberToDeactivate.id);
+      
+      if (memberError) throw memberError;
+      
+      // Also deactivate their staff login if they have one
+      const staffUser = staffByTeamMemberId.get(memberToDeactivate.id);
+      if (staffUser) {
+        const { error: staffError } = await supabase
+          .from("staff_users")
+          .update({ is_active: false })
+          .eq("team_member_id", memberToDeactivate.id);
+        
+        if (staffError) {
+          console.error("Failed to deactivate staff login:", staffError);
+        }
+      }
+      
+      toast.success(`${memberToDeactivate.name} has been deactivated`);
+      await refreshData(agencyId);
     } catch (e: any) {
-      console.error(e);
-      toastHook({ title: "Delete failed", description: e?.message || "Unable to delete member", variant: "destructive" });
+      console.error("Deactivate member error:", e);
+      toast.error("Failed to deactivate team member");
+    } finally {
+      setDeactivateDialogOpen(false);
+      setMemberToDeactivate(null);
+    }
+  };
+
+  const reactivateMember = async (member: any) => {
+    if (!agencyId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("team_members")
+        .update({ status: 'active' })
+        .eq("id", member.id);
+      
+      if (error) throw error;
+      
+      toast.success(`${member.name} has been reactivated`);
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error("Reactivate member error:", e);
+      toast.error("Failed to reactivate team member");
     }
   };
 
@@ -890,14 +943,20 @@ export default function Agency() {
                 {members.map((m) => {
                   const staffUser = staffByTeamMemberId.get(m.id);
                   return (
-                    <TableRow key={m.id}>
+                    <TableRow key={m.id} className={m.status === 'inactive' ? 'opacity-60' : ''}>
                       <TableCell>
                         <Link to={`/agency/team/${m.id}`} className="text-primary hover:underline">{m.name}</Link>
                       </TableCell>
                       <TableCell>{m.email}</TableCell>
                       <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                       <TableCell>{m.employment}</TableCell>
-                      <TableCell>{m.status}</TableCell>
+                      <TableCell>
+                        {m.status === 'inactive' ? (
+                          <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {staffUser ? (
                           staffUser.is_active ? (
@@ -959,9 +1018,27 @@ export default function Agency() {
                           <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="destructive" size="icon" className="rounded-full" aria-label="Delete" onClick={() => deleteMember(m.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {m.status === 'inactive' ? (
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="rounded-full text-green-600 border-green-600/30 hover:bg-green-500/10" 
+                              aria-label="Reactivate" 
+                              onClick={() => reactivateMember(m)}
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="rounded-full text-destructive border-destructive/30 hover:bg-destructive/10" 
+                              aria-label="Deactivate" 
+                              onClick={() => openDeactivateDialog(m)}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1305,6 +1382,27 @@ export default function Agency() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Deactivate Confirmation Dialog */}
+    <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Deactivate Team Member</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will deactivate <strong>{memberToDeactivate?.name}</strong> and revoke their staff login if they have one. Their historical data will be preserved and they can be reactivated later.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setMemberToDeactivate(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={deactivateMember}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Deactivate
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </main>
 </div>
 );
