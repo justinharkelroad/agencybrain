@@ -2696,6 +2696,27 @@ export type Database = {
             referencedRelation: "lead_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sold_policy_details_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sold_policy_details_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "sold_policy_details_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       sp_categories: {
