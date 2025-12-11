@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const body: CreateStaffUserInput = await req.json();
-    const { agency_id, username, password, display_name, email, team_member_id, create_team_member } = body;
+    let { agency_id, username, password, display_name, email, team_member_id, create_team_member } = body;
+
+    console.log('[ADMIN_CREATE_STAFF] Request body:', { agency_id, username, display_name, email, team_member_id, create_team_member });
 
     // Agency owners can only create staff for their own agency
     if (!isSuperAdmin && agency_id !== profile.agency_id) {
@@ -117,6 +119,19 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'agency_id, username, and password required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // If email not provided but team_member_id is, fetch email from team_member
+    if (!email && team_member_id) {
+      const { data: tm } = await supabase
+        .from('team_members')
+        .select('email')
+        .eq('id', team_member_id)
+        .single();
+      if (tm?.email) {
+        email = tm.email;
+        console.log('[ADMIN_CREATE_STAFF] Email fetched from team_member:', email);
+      }
     }
 
 
@@ -143,12 +158,15 @@ Deno.serve(async (req) => {
     }
 
     // Check if email is already used by any staff user (when email provided)
+    console.log('[EMAIL CHECK] Starting. email:', email, 'team_member_id:', team_member_id);
     if (email) {
-      const { data: emailConflict } = await supabase
+      const { data: emailConflict, error: emailCheckError } = await supabase
         .from('staff_users')
         .select('id, username, team_member_id')
         .eq('email', email)
         .maybeSingle();
+
+      console.log('[EMAIL CHECK] Result:', { emailConflict, emailCheckError });
 
       // If email exists at all during CREATE, it's always a conflict
       if (emailConflict) {
