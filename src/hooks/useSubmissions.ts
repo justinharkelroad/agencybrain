@@ -115,13 +115,13 @@ export function useSubmissions() {
       };
     }
 
-    // Fallback to payload_json
+    // Fallback to payload_json - check both key variations
     const payload = submission.payload_json || {};
     return {
       outbound_calls: payload.outbound_calls || 0,
       talk_minutes: payload.talk_minutes || 0,
-      quoted_count: payload.quoted_count || 0,
-      sold_items: payload.sold_items || 0,
+      quoted_count: payload.quoted_households || payload.quoted_count || 0,
+      sold_items: payload.items_sold || payload.sold_items || 0,
     };
   };
 
