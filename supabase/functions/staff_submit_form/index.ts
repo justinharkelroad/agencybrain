@@ -183,6 +183,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Enrich soldDetails with lead_source_label
+    if (Array.isArray(v.soldDetails)) {
+      for (const sold of v.soldDetails) {
+        const id = sold.lead_source_id ?? sold.lead_source;
+        if (id && !sold.lead_source_label) {
+          const { data: ls } = await supabase
+            .from('lead_sources')
+            .select('id,name')
+            .eq('id', id)
+            .single();
+          if (ls) {
+            sold.lead_source_id = ls.id;
+            sold.lead_source_label = ls.name;
+            delete sold.lead_source;
+          }
+        }
+      }
+    }
+
     // Step 6: Resolve active KPI binding
     const { data: kpiBindings, error: bindingError } = await supabase
       .from('forms_kpi_bindings')
