@@ -28,6 +28,12 @@ interface QuizQuestion {
   correct_index: number;
 }
 
+interface LessonDocument {
+  id: string;
+  url: string;
+  name: string;
+}
+
 export default function AdminSPLessonEditor() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const [searchParams] = useSearchParams();
@@ -47,8 +53,7 @@ export default function AdminSPLessonEditor() {
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [contentHtml, setContentHtml] = useState('');
-  const [documentUrl, setDocumentUrl] = useState('');
-  const [documentName, setDocumentName] = useState('');
+  const [documents, setDocuments] = useState<LessonDocument[]>([]);
   const [estimatedMinutes, setEstimatedMinutes] = useState(10);
   const [hasQuiz, setHasQuiz] = useState(true);
 
@@ -101,8 +106,15 @@ export default function AdminSPLessonEditor() {
       setDescription(lesson.description || '');
       setVideoUrl(lesson.video_url || '');
       setContentHtml(lesson.content_html || '');
-      setDocumentUrl(lesson.document_url || '');
-      setDocumentName(lesson.document_name || '');
+      // Load documents from documents_json or migrate from legacy fields
+      if (lesson.documents_json && Array.isArray(lesson.documents_json) && lesson.documents_json.length > 0) {
+        setDocuments(lesson.documents_json);
+      } else if (lesson.document_url) {
+        // Legacy fallback
+        setDocuments([{ id: `doc_${Date.now()}`, url: lesson.document_url, name: lesson.document_name || 'Document' }]);
+      } else {
+        setDocuments([]);
+      }
       setEstimatedMinutes(lesson.estimated_minutes || 10);
       setHasQuiz(lesson.has_quiz ?? true);
 
@@ -193,6 +205,9 @@ export default function AdminSPLessonEditor() {
 
     setSaving(true);
     try {
+      // Filter out empty documents
+      const validDocuments = documents.filter(d => d.url.trim());
+      
       const lessonData = {
         module_id: moduleId,
         name: name.trim(),
@@ -200,8 +215,7 @@ export default function AdminSPLessonEditor() {
         description: description.trim() || null,
         video_url: videoUrl.trim() || null,
         content_html: contentHtml.trim() || null,
-        document_url: documentUrl.trim() || null,
-        document_name: documentName.trim() || null,
+        documents_json: validDocuments,
         estimated_minutes: estimatedMinutes,
         has_quiz: hasQuiz,
       };
@@ -409,38 +423,78 @@ export default function AdminSPLessonEditor() {
           </CardContent>
         </Card>
 
-        {/* Document */}
+        {/* Documents */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileUp className="h-5 w-5" />
-              Downloadable Document
-            </CardTitle>
-            <CardDescription>
-              Add a PDF or document for users to download
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileUp className="h-5 w-5" />
+                  Downloadable Documents
+                </CardTitle>
+                <CardDescription>
+                  Add PDFs or documents for users to download
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDocuments(prev => [...prev, { id: `doc_${Date.now()}`, url: '', name: '' }])}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Document
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="docUrl">Document URL</Label>
-              <Input
-                id="docUrl"
-                value={documentUrl}
-                onChange={e => setDocumentUrl(e.target.value)}
-                placeholder="https://... (URL to PDF or document)"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="docName">Display Name</Label>
-              <Input
-                id="docName"
-                value={documentName}
-                onChange={e => setDocumentName(e.target.value)}
-                placeholder="e.g., Sales Script Template.pdf"
-                className="mt-1"
-              />
-            </div>
+          <CardContent>
+            {documents.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No documents added. Click "Add Document" to add one.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {documents.map((doc, index) => (
+                  <div key={doc.id} className="flex gap-3 items-start border border-border/50 rounded-lg p-3">
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <Label>Document URL</Label>
+                        <Input
+                          value={doc.url}
+                          onChange={e => {
+                            const newDocs = [...documents];
+                            newDocs[index] = { ...doc, url: e.target.value };
+                            setDocuments(newDocs);
+                          }}
+                          placeholder="https://... (URL to PDF or document)"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label>Display Name</Label>
+                        <Input
+                          value={doc.name}
+                          onChange={e => {
+                            const newDocs = [...documents];
+                            newDocs[index] = { ...doc, name: e.target.value };
+                            setDocuments(newDocs);
+                          }}
+                          placeholder="e.g., Sales Script Template.pdf"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive mt-6"
+                      onClick={() => setDocuments(prev => prev.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

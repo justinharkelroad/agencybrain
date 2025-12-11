@@ -2808,6 +2808,7 @@ export type Database = {
           display_order: number | null
           document_name: string | null
           document_url: string | null
+          documents_json: Json | null
           estimated_minutes: number | null
           has_quiz: boolean | null
           id: string
@@ -2826,6 +2827,7 @@ export type Database = {
           display_order?: number | null
           document_name?: string | null
           document_url?: string | null
+          documents_json?: Json | null
           estimated_minutes?: number | null
           has_quiz?: boolean | null
           id?: string
@@ -2844,6 +2846,7 @@ export type Database = {
           display_order?: number | null
           document_name?: string | null
           document_url?: string | null
+          documents_json?: Json | null
           estimated_minutes?: number | null
           has_quiz?: boolean | null
           id?: string
