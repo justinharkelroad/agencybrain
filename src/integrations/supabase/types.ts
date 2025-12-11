@@ -1907,6 +1907,44 @@ export type Database = {
         }
         Relationships: []
       }
+      policy_types: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_types_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       process_vault_files: {
         Row: {
           created_at: string
@@ -4644,6 +4682,10 @@ export type Database = {
       }
       create_default_kpis: { Args: { p_agency_id: string }; Returns: undefined }
       create_default_lead_sources: {
+        Args: { p_agency_id: string }
+        Returns: undefined
+      }
+      create_default_policy_types: {
         Args: { p_agency_id: string }
         Returns: undefined
       }
