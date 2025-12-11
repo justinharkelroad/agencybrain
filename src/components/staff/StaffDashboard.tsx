@@ -9,6 +9,7 @@ import { RING_COLORS } from '@/components/rings/colors';
 
 interface KPIData {
   key: string;
+  slug: string;
   label: string;
   actual: number;
   target: number;
@@ -140,6 +141,7 @@ export function StaffDashboard() {
           
           return {
             key: kpi.key,
+            slug: kpi.selectedKpiSlug || kpi.key,
             label: kpi.label,
             actual,
             target,
@@ -209,7 +211,7 @@ export function StaffDashboard() {
                   <div key={kpi.key} className="flex flex-col items-center gap-2">
                     <CompactRing
                       progress={kpi.progress}
-                      color={hasSubmission ? (RING_COLORS[kpi.key] || '#9ca3af') : 'hsl(var(--muted-foreground) / 0.3)'}
+                      color={hasSubmission ? (RING_COLORS[kpi.slug] || '#9ca3af') : 'hsl(var(--muted-foreground) / 0.3)'}
                       actual={kpi.actual}
                     />
                     <span className="text-xs text-muted-foreground text-center max-w-[80px]">
