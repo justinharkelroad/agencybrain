@@ -344,6 +344,14 @@ export default function Agency() {
           return;
         }
         
+        if (errorData.error === 'team_member_already_linked') {
+          toast.error(
+            `This team member already has a staff account with username "${errorData.existing_username}".`,
+            { duration: 6000 }
+          );
+          return;
+        }
+        
         throw new Error(errorData.message || errorData.error || error?.message || 'Failed to create staff user');
       }
 

@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if email is already used by another staff user (when email provided)
+    // Check if email is already used by any staff user (when email provided)
     if (email) {
       const { data: emailConflict } = await supabase
         .from('staff_users')
@@ -148,12 +148,25 @@ Deno.serve(async (req) => {
         .eq('email', email)
         .maybeSingle();
 
-      // If email exists and it's a different team member (or no team member link)
-      if (emailConflict && emailConflict.team_member_id !== team_member_id) {
+      // If email exists at all during CREATE, it's always a conflict
+      if (emailConflict) {
+        // Same team member = they already have a staff account
+        if (emailConflict.team_member_id === team_member_id) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'team_member_already_linked',
+              message: `This team member already has a staff account with username "${emailConflict.username}".`,
+              existing_username: emailConflict.username,
+            }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Different team member = email already taken
         return new Response(
           JSON.stringify({ 
             error: 'email_conflict',
-            message: `This email is already used by staff account "${emailConflict.username}". Update this team member's email address first, or deactivate the conflicting staff account.`,
+            message: `This email is already used by staff account "${emailConflict.username}". Update the team member's email first, or deactivate the conflicting staff account.`,
             existing_username: emailConflict.username,
           }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
