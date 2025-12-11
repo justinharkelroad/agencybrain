@@ -276,6 +276,33 @@ export default function StaffFormSubmission() {
       return;
     }
 
+    // Validate repeater sections for required fields
+    const formSchema = formTemplate?.schema_json;
+    if (formSchema?.repeaterSections) {
+      for (const [sectionKey, section] of Object.entries(formSchema.repeaterSections) as [string, any][]) {
+        if (!section.enabled) continue;
+        
+        const rows: any[] = values[sectionKey] || [];
+        
+        for (let i = 0; i < rows.length; i++) {
+          for (const field of section.fields || []) {
+            if (field.required) {
+              const value = rows[i][field.key];
+              const isEmpty = value === undefined || value === null || value === '' || 
+                (Array.isArray(value) && value.length === 0);
+              
+              if (isEmpty) {
+                const errorKey = `${sectionKey}.${i}.${field.key}`;
+                setFieldErrors(prev => ({ ...prev, [errorKey]: `${field.label} is required` }));
+                toast.error(`${section.title?.slice(0, -1) || 'Entry'} #${i + 1}: ${field.label} is required`);
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -604,8 +631,9 @@ export default function StaffFormSubmission() {
                               </label>
                               {field.type === "select" ? (
                                 <div className="space-y-1">
-                                  <select
-                                    value={row[field.key] || ""}
+                                <select
+                                  required={field.required}
+                                  value={row[field.key] || ""}
                                     onChange={e => {
                                       const v = e.target.value;
                                       setValues(prev => {

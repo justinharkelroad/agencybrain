@@ -670,8 +670,9 @@ export default function PublicFormSubmission() {
                             </label>
                             {field.type === "select" ? (
                               <div className="space-y-1">
-                                <select
-                                  value={row[field.key] || ""}
+                              <select
+                                required={field.required}
+                                value={row[field.key] || ""}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setValues(prev => {
