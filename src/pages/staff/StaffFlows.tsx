@@ -1,0 +1,211 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabaseClient';
+import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
+import { FlowTemplate, FlowSession } from '@/types/flows';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Sparkles, User, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
+import { format } from 'date-fns';
+
+export default function StaffFlows() {
+  const navigate = useNavigate();
+  const { sessionToken, user } = useStaffAuth();
+  const { loading: profileLoading, hasProfile } = useStaffFlowProfile();
+  
+  const [templates, setTemplates] = useState<FlowTemplate[]>([]);
+  const [recentSessions, setRecentSessions] = useState<FlowSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (sessionToken) {
+      fetchData();
+    }
+  }, [sessionToken]);
+
+  const fetchData = async () => {
+    if (!sessionToken) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get_staff_flows', {
+        headers: {
+          'x-staff-session': sessionToken,
+        },
+      });
+
+      if (error) {
+        console.error('Error fetching staff flows:', error);
+        return;
+      }
+
+      setTemplates(data?.templates || []);
+      setRecentSessions(data?.sessions || []);
+    } catch (err) {
+      console.error('Error fetching flows data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startFlow = (template: FlowTemplate) => {
+    if (!hasProfile) {
+      // Redirect to profile setup first
+      navigate('/staff/flows/profile', { state: { redirectTo: `/staff/flows/start/${template.slug}` } });
+    } else {
+      navigate(`/staff/flows/start/${template.slug}`);
+    }
+  };
+
+  if (loading || profileLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-48" />
+          <div className="h-4 bg-muted rounded w-64" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-40 bg-muted rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-medium flex items-center gap-2">
+            <Sparkles className="h-6 w-6" strokeWidth={1.5} />
+            Flows
+          </h1>
+          <p className="text-muted-foreground/70 mt-1">
+            Guided reflection for growth
+          </p>
+        </div>
+        
+        <Button
+          variant="flat"
+          onClick={() => navigate('/staff/flows/profile')}
+          className="flex items-center gap-2"
+        >
+          <User className="h-4 w-4" strokeWidth={1.5} />
+          {hasProfile ? 'Edit Your AI Experience' : 'Setup Profile'}
+        </Button>
+      </div>
+
+      {/* Profile Setup Prompt (if no profile) */}
+      {!hasProfile && (
+        <Card className="mb-8 border-primary/30 bg-primary/5">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-lg">Required for Flow Usage</h3>
+                <p className="text-muted-foreground/70 text-sm mt-1">
+                  Share as much information as possible to enhance your AI-powered flow experience.
+                </p>
+              </div>
+              <Button onClick={() => navigate('/staff/flows/profile')}>
+                Get Started
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Flow Templates Grid */}
+      <div className="mb-10">
+        <h2 className="text-lg font-medium mb-4">Choose Your Flow</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {templates.map(template => (
+            <Card
+              key={template.id}
+              className="cursor-pointer hover:border-border/30 hover:bg-accent/5 transition-all group"
+              onClick={() => startFlow(template)}
+            >
+              <CardContent className="p-6">
+                <div className="text-4xl mb-3">{template.icon || '📝'}</div>
+                <h3 className="font-medium text-lg group-hover:text-primary transition-colors">
+                  {template.name}
+                </h3>
+                {template.description && (
+                  <p className="text-sm text-muted-foreground/70 mt-2 line-clamp-2">
+                    {template.description}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Sessions / Library */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-medium">📚 Your Flow Library</h2>
+          {recentSessions.length > 0 && (
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/staff/flows/library')}
+              className="text-muted-foreground"
+            >
+              View All
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          )}
+        </div>
+
+        {recentSessions.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" strokeWidth={1} />
+              <h3 className="font-medium mb-2">No flows yet</h3>
+              <p className="text-sm text-muted-foreground/70">
+                Start your first Flow to begin building your library.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {recentSessions.map(session => (
+              <Card
+                key={session.id}
+                className="cursor-pointer hover:bg-accent/5 transition-colors"
+                onClick={() => navigate(`/staff/flows/view/${session.id}`)}
+              >
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">
+                      {session.flow_template?.icon || '📝'}
+                    </span>
+                    <div>
+                      <h4 className="font-medium">
+                        {session.title || 'Untitled Flow'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground/70">
+                        {session.flow_template?.name} • {format(new Date(session.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {session.status === 'completed' ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <Clock className="h-5 w-5 text-yellow-500" />
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

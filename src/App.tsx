@@ -101,6 +101,8 @@ import FlowView from "./pages/flows/FlowView";
 import FlowLibrary from "./pages/flows/FlowLibrary";
 import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
+import StaffFlows from "./pages/staff/StaffFlows";
+import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
 // Training pages
 import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
@@ -715,8 +717,8 @@ const App = () => (
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />
               {/* Flows */}
-              <Route path="flows" element={<Flows />} />
-              <Route path="flows/profile" element={<FlowProfile />} />
+              <Route path="flows" element={<StaffFlows />} />
+              <Route path="flows/profile" element={<StaffFlowProfile />} />
               <Route path="flows/library" element={<FlowLibrary />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
