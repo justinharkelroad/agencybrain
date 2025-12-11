@@ -35,7 +35,7 @@ interface RepeaterSection {
   fields: Array<{
     key: string;
     label: string;
-    type: 'text' | 'select' | 'number' | 'currency';
+    type: 'text' | 'select' | 'multiselect' | 'number' | 'currency';
     required: boolean;
     options?: string[];
   }>;
@@ -252,7 +252,10 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p className="mb-2">{formSchema.repeaterSections.quotedDetails.description}</p>
                   {formSchema.repeaterSections.quotedDetails.fields.map(field => (
-                    <p key={field.key}>• {field.label}</p>
+                    <p key={field.key}>
+                      {field.type === 'multiselect' ? '☑' : '•'} {field.label}
+                      {field.type === 'multiselect' && <span className="text-xs ml-1">(multi-select)</span>}
+                    </p>
                   ))}
                 </div>
               </div>
@@ -264,7 +267,10 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p className="mb-2">{formSchema.repeaterSections.soldDetails.description}</p>
                   {formSchema.repeaterSections.soldDetails.fields.map(field => (
-                    <p key={field.key}>• {field.label}</p>
+                    <p key={field.key}>
+                      {field.type === 'multiselect' ? '☑' : '•'} {field.label}
+                      {field.type === 'multiselect' && <span className="text-xs ml-1">(multi-select)</span>}
+                    </p>
                   ))}
                 </div>
               </div>

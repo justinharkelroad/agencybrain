@@ -17,7 +17,7 @@ import { usePolicyTypes } from "@/hooks/usePolicyTypes";
 interface RepeaterField {
   key: string;
   label: string;
-  type: 'text' | 'longtext' | 'select' | 'number' | 'currency';
+  type: 'text' | 'longtext' | 'select' | 'multiselect' | 'number' | 'currency';
   required: boolean;
   options?: string[];
   isSticky?: boolean;
@@ -139,7 +139,8 @@ export default function RepeaterSectionManager({
   useEffect(() => {
     if (policyTypes && policyTypes.length > 0 && section.fields) {
       const updatedFields = section.fields.map(field => {
-        if (field.key === 'policy_type' && field.type === 'select') {
+        // Handle both 'select' and 'multiselect' types for policy_type
+        if (field.key === 'policy_type' && (field.type === 'select' || field.type === 'multiselect')) {
           const options = policyTypes.map(pt => pt.name);
           console.log('🔧 Updating policy type options:', options);
           return { ...field, options };
@@ -318,6 +319,7 @@ export default function RepeaterSectionManager({
                                     <SelectItem value="text">Short Text</SelectItem>
                                     <SelectItem value="longtext">Long Text</SelectItem>
                                     <SelectItem value="select">Dropdown</SelectItem>
+                                    <SelectItem value="multiselect">Multi-Select Checkboxes</SelectItem>
                                     <SelectItem value="number">Number</SelectItem>
                                     <SelectItem value="currency">Currency</SelectItem>
                                   </SelectContent>
@@ -337,7 +339,7 @@ export default function RepeaterSectionManager({
                               </div>
                             </div>
 
-                            {field.type === 'select' && (
+                            {(field.type === 'select' || field.type === 'multiselect') && (
                               <div className="space-y-3">
                                 {field.key === 'lead_source' ? (
                                   <div>
@@ -381,10 +383,10 @@ export default function RepeaterSectionManager({
                                   </div>
                                 ) : field.key === 'policy_type' ? (
                                   <div>
-                                    <Label className="text-xs">Options</Label>
+                                    <Label className="text-xs">Options (Multi-Select Checkboxes)</Label>
                                      <div className="p-3 border border-border/10 rounded-md bg-card/50 text-sm">
                                       <div className="flex items-center justify-between mb-2">
-                                        <p className="text-muted-foreground text-xs">Automatically populated from Policy Type Management</p>
+                                        <p className="text-muted-foreground text-xs">Users can select multiple policy types</p>
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -412,7 +414,7 @@ export default function RepeaterSectionManager({
                                           </div>
                                        ) : policyTypes.length > 0 ? (
                                          policyTypes.map(pt => (
-                                           <p key={pt.id} className="text-xs">• {pt.name}</p>
+                                           <p key={pt.id} className="text-xs">☑ {pt.name}</p>
                                          ))
                                        ) : (
                                          <p className="text-xs text-orange-600">No active policy types configured. Configure them in Settings → Policy Type Management.</p>
