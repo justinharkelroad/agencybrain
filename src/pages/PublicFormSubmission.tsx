@@ -103,9 +103,9 @@ export default function PublicFormSubmission() {
         if (!form.schema && form.schema_json) form.schema = form.schema_json;
         if (!form.settings) form.settings = form.schema?.settings ?? form.settings_json ?? {};
         
-        // Merge sticky fields into schema at runtime
+        // Merge sticky fields into schema at runtime (with policy type options)
         if (form.schema) {
-          form.schema = await mergeStickyFieldsIntoSchema(form.schema);
+          form.schema = await mergeStickyFieldsIntoSchema(form.schema, form.agency_id);
         }
         
         setForm(form);
@@ -704,6 +704,44 @@ export default function PublicFormSubmission() {
                                     ))
                                   )}
                                 </select>
+                                {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
+                                  <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
+                                )}
+                              </div>
+                            ) : field.type === "multiselect" ? (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                  {(field.options || []).map((option: string) => {
+                                    const currentValues: string[] = row[field.key] || [];
+                                    const isChecked = currentValues.includes(option);
+                                    return (
+                                      <label key={option} className="flex items-center gap-1.5 text-sm cursor-pointer bg-muted/50 px-2 py-1 rounded border border-input hover:bg-muted transition-colors">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={e => {
+                                            setValues(prev => {
+                                              const currentArray = [...(prev[sectionKey] || [])];
+                                              const currentItem = { ...(currentArray[i] || {}) };
+                                              const existingValues: string[] = currentItem[field.key] || [];
+                                              
+                                              if (e.target.checked) {
+                                                currentItem[field.key] = [...existingValues, option];
+                                              } else {
+                                                currentItem[field.key] = existingValues.filter(v => v !== option);
+                                              }
+                                              
+                                              currentArray[i] = currentItem;
+                                              return { ...prev, [sectionKey]: currentArray };
+                                            });
+                                          }}
+                                          className="rounded border-input text-primary focus:ring-primary focus:ring-offset-0 h-3.5 w-3.5"
+                                        />
+                                        <span className="text-foreground">{option}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
                                 {fieldErrors[`${sectionKey}.${i}.${field.key}`] && (
                                   <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                 )}
