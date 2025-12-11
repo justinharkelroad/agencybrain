@@ -170,3 +170,6 @@ verify_jwt = false
 
 [functions.get_staff_training_hub_stats]
 verify_jwt = false
+
+[functions.get_staff_dashboard]
+verify_jwt = false
