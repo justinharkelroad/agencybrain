@@ -55,6 +55,8 @@ interface CreateStaffUserInput {
 }
 
 Deno.serve(async (req) => {
+  console.log('[ADMIN_CREATE_STAFF v2.1] Function loaded:', new Date().toISOString());
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

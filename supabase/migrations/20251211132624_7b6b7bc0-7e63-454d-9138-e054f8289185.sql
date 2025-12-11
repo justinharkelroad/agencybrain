@@ -1,0 +1,1 @@
+DELETE FROM staff_users WHERE email = 'corinahark@gmail.com';
