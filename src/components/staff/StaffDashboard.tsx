@@ -16,15 +16,6 @@ interface KPIData {
   progress: number;
 }
 
-interface SubmissionData {
-  id: string;
-  payload_json: Record<string, any>;
-  form_template: {
-    name: string;
-    schema_json: any;
-  };
-}
-
 function getPreviousBusinessDay(): Date {
   const today = new Date();
   const dayOfWeek = today.getDay();
@@ -92,7 +83,7 @@ function CompactRing({
 }
 
 export function StaffDashboard() {
-  const { user } = useStaffAuth();
+  const { user, sessionToken } = useStaffAuth();
   const [loading, setLoading] = useState(true);
   const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
@@ -105,76 +96,42 @@ export function StaffDashboard() {
 
   useEffect(() => {
     async function loadDashboardData() {
-      if (!user?.team_member_id || !user?.agency_id) {
+      if (!user?.team_member_id || !sessionToken) {
         setLoading(false);
         return;
       }
 
       try {
-        // Load targets first
-        const { data: targetRows } = await supabase
-          .from('targets')
-          .select('metric_key, value_number, team_member_id')
-          .eq('agency_id', user.agency_id);
+        // Use edge function to bypass RLS (staff users don't have Supabase auth)
+        const { data, error } = await supabase.functions.invoke('get_staff_dashboard', {
+          headers: { 'x-staff-session': sessionToken },
+          body: { work_date: previousBusinessDayStr }
+        });
 
-        const targetsMap: Record<string, number> = {};
-        if (targetRows) {
-          // First load agency defaults
-          targetRows.forEach(t => {
-            if (!t.team_member_id) {
-              targetsMap[t.metric_key] = t.value_number;
-            }
-          });
-          // Then override with member-specific
-          targetRows.forEach(t => {
-            if (t.team_member_id === user.team_member_id) {
-              targetsMap[t.metric_key] = t.value_number;
-            }
-          });
+        if (error) {
+          console.error('Error loading dashboard:', error);
+          setLoading(false);
+          return;
         }
 
-        // Load form template for user's role to get KPIs even without submission
-        const { data: formTemplate } = await supabase
-          .from('form_templates')
-          .select('schema_json')
-          .eq('agency_id', user.agency_id)
-          .eq('role', user.role || 'Sales')
-          .eq('is_active', true)
-          .limit(1)
-          .maybeSingle();
-
-        // Load yesterday's submission
-        const { data: submissionData, error: subError } = await supabase
-          .from('submissions')
-          .select(`
-            id,
-            payload_json,
-            form_template:form_templates (
-              name,
-              schema_json
-            )
-          `)
-          .eq('team_member_id', user.team_member_id)
-          .eq('work_date', previousBusinessDayStr)
-          .eq('final', true)
-          .maybeSingle();
-
-        if (subError) {
-          console.error('Error loading submission:', subError);
+        if (data?.error) {
+          console.error('Dashboard error:', data.error);
+          setLoading(false);
+          return;
         }
 
-        const hasData = !!submissionData;
+        const { submission, submissionSchema, formTemplateSchema, targets: targetsMap } = data;
+
+        const hasData = !!submission;
         setHasSubmission(hasData);
 
         // Use submission schema or fallback to form template schema
         const schema = hasData 
-          ? (Array.isArray(submissionData.form_template) 
-              ? submissionData.form_template[0]?.schema_json 
-              : submissionData.form_template?.schema_json)
-          : formTemplate?.schema_json;
+          ? submissionSchema?.schema_json
+          : formTemplateSchema;
 
         const kpis = schema?.kpis || [];
-        const payload = hasData ? (submissionData.payload_json || {}) : {};
+        const payload = hasData ? (submission.payload_json || {}) : {};
 
         const kpiResults: KPIData[] = kpis.map((kpi: any) => {
           const actual = hasData ? (Number(payload[kpi.key]) || 0) : 0;
@@ -202,7 +159,7 @@ export function StaffDashboard() {
     }
 
     loadDashboardData();
-  }, [user, previousBusinessDayStr]);
+  }, [user, sessionToken, previousBusinessDayStr]);
 
   if (loading) {
     return (
