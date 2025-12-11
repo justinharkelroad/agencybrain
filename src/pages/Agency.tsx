@@ -365,23 +365,27 @@ export default function Agency() {
     } catch (e: any) {
       console.error('handleCreateWithPassword error:', e);
       
-      // Try to extract error details from FunctionsHttpError context
-      let errorMessage = e?.message || "Failed to create staff login";
+      let errorMessage = "Failed to create staff login";
+      
       try {
+        // FunctionsHttpError has response body in e.context
         if (e?.context?.json) {
           const errorData = await e.context.json();
-          if (errorData?.error === 'email_conflict') {
-            toast.error(
-              `Email already in use by staff account "${errorData.existing_username}". Update this team member's email address first, or deactivate the conflicting account.`,
-              { duration: 8000 }
-            );
-            return;
+          console.log('Error data from edge function:', errorData);
+          
+          if (errorData?.error === 'email_conflict' || errorData?.message?.includes('email')) {
+            errorMessage = errorData.message || "This email is already in use by another staff account.";
+          } else if (errorData?.error === 'team_member_already_linked') {
+            errorMessage = errorData.message || "This team member already has a staff login.";
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
           }
-          errorMessage = errorData?.message || errorData?.error || errorMessage;
         }
-      } catch {}
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+      }
       
-      toast.error(errorMessage);
+      toast.error(errorMessage, { duration: 8000 });
     } finally {
       setInviteLoading(false);
     }
@@ -430,8 +434,26 @@ export default function Agency() {
       setSelectedMember(null);
       await refreshData(agencyId);
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Failed to send invite");
+      console.error('handleSendInvite error:', e);
+      
+      let errorMessage = "Failed to send invite";
+      
+      try {
+        if (e?.context?.json) {
+          const errorData = await e.context.json();
+          console.log('Error data from edge function:', errorData);
+          
+          if (errorData?.error === 'email_conflict' || errorData?.message?.includes('email')) {
+            errorMessage = errorData.message || "This email is already in use by another staff account.";
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          }
+        }
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+      }
+      
+      toast.error(errorMessage, { duration: 8000 });
     } finally {
       setInviteLoading(false);
     }
@@ -470,8 +492,26 @@ export default function Agency() {
       toast.success(`Invite resent to ${member.email}`);
       await refreshData(agencyId);
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Failed to resend invite");
+      console.error('handleResendInvite error:', e);
+      
+      let errorMessage = "Failed to resend invite";
+      
+      try {
+        if (e?.context?.json) {
+          const errorData = await e.context.json();
+          console.log('Error data from edge function:', errorData);
+          
+          if (errorData?.error === 'email_conflict' || errorData?.message?.includes('email')) {
+            errorMessage = errorData.message || "This email is already in use by another staff account.";
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          }
+        }
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+      }
+      
+      toast.error(errorMessage, { duration: 8000 });
     }
   };
 
