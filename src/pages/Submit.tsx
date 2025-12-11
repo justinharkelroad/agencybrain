@@ -33,7 +33,6 @@ import { PeriodBackupManager } from '@/components/client/PeriodBackupManager';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 import { ConflictResolutionDialog } from '@/components/client/ConflictResolutionDialog';
 import { ValidationErrorDialog } from '@/components/client/ValidationErrorDialog';
-import { DataValidator } from '@/lib/dataValidation';
 import type { ValidationResult } from '@/lib/dataValidation';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -580,19 +579,28 @@ export default function Submit() {
 
   // Validate form data before save
   const validateFormData = (): ValidationResult => {
-    // Convert FormData to grid data format for validation
-    const gridData: Record<string, any> = {
-      'sales_premium': formData.sales.premium,
-      'sales_items': formData.sales.items,
-      'sales_policies': formData.sales.policies,
-      'marketing_total_spend': formData.marketing.totalSpend,
-      'operations_alr_total': formData.operations.currentAlrTotal,
-      'retention_percent': formData.retention.currentRetentionPercent,
-      'cashflow_compensation': formData.cashFlow.compensation,
-      'cashflow_expenses': formData.cashFlow.expenses,
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    // Calculate completeness based on filled sections
+    let filledSections = 0;
+    const totalSections = 6;
+    
+    if (formData.sales.premium || formData.sales.items || formData.sales.policies) filledSections++;
+    if (formData.marketing.totalSpend || formData.marketing.leadSources.length > 0) filledSections++;
+    if (formData.operations.currentAlrTotal || formData.operations.teamRoster.length > 0) filledSections++;
+    if (formData.retention.numberTerminated || formData.retention.currentRetentionPercent) filledSections++;
+    if (formData.cashFlow.compensation || formData.cashFlow.expenses) filledSections++;
+    if (formData.qualitative.biggestStress || formData.qualitative.gutAction) filledSections++;
+    
+    const completeness = filledSections / totalSections;
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      completeness
     };
-
-    return DataValidator.validateGridData(gridData);
   };
 
   // Check for conflicts before save
