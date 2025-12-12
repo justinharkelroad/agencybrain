@@ -58,6 +58,10 @@ export default function CallScoring() {
   const [userRole, setUserRole] = useState<string>('staff');
   const [userTeamMemberId, setUserTeamMemberId] = useState<string | null>(null);
   
+  // Access control state
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
+  
   // Processing queue for showing uploads in progress
   const [processingCalls, setProcessingCalls] = useState<Array<{
     id: string;
@@ -78,19 +82,54 @@ export default function CallScoring() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
 
-  // TEMPORARY: Admin-only gate until feature is complete
+  // Check access on mount
   useEffect(() => {
-    if (user && !isAdmin) {
-      navigate('/');
-      toast.error('Call Scoring is coming soon!');
-    }
+    const checkAccess = async () => {
+      if (!user) return;
+      
+      // Admins always have access
+      if (isAdmin) {
+        setHasAccess(true);
+        setAccessChecked(true);
+        return;
+      }
+      
+      // For non-admins, check if their agency has it enabled
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.agency_id) {
+        const { data: settings } = await supabase
+          .from('agency_call_scoring_settings')
+          .select('enabled')
+          .eq('agency_id', profile.agency_id)
+          .single();
+        
+        if (settings?.enabled) {
+          setHasAccess(true);
+        } else {
+          navigate('/');
+          toast.error('Call Scoring is not enabled for your agency');
+        }
+      } else {
+        navigate('/');
+        toast.error('No agency found');
+      }
+      setAccessChecked(true);
+    };
+    
+    checkAccess();
   }, [user, isAdmin, navigate]);
 
+  // Fetch data once access is confirmed
   useEffect(() => {
-    if (isAdmin && user) {
+    if (hasAccess && user) {
       fetchAgencyAndData();
     }
-  }, [isAdmin, user]);
+  }, [hasAccess, user]);
 
   const fetchAgencyAndData = async () => {
     try {
@@ -462,7 +501,16 @@ export default function CallScoring() {
     setScorecardOpen(true);
   };
 
-  if (!isAdmin) {
+  // Show loading while checking access
+  if (!accessChecked) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
     return null;
   }
 
