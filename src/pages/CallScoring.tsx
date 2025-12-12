@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
+import { CallScorecard } from '@/components/CallScorecard';
 interface UsageInfo {
   calls_used: number;
   calls_limit: number;
@@ -53,6 +53,10 @@ export default function CallScoring() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  
+  // Scorecard modal state
+  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [scorecardOpen, setScorecardOpen] = useState(false);
 
   // TEMPORARY: Admin-only gate until feature is complete
   useEffect(() => {
@@ -329,6 +333,18 @@ export default function CallScoring() {
     setTimeout(checkStatus, 5000);
   };
 
+  const handleCallClick = async (call: RecentCall) => {
+    // Fetch full call data
+    const { data: fullCall } = await supabase
+      .from('agency_calls')
+      .select('*')
+      .eq('id', call.id)
+      .single();
+    
+    setSelectedCall(fullCall || call);
+    setScorecardOpen(true);
+  };
+
   if (!isAdmin) {
     return null;
   }
@@ -523,7 +539,10 @@ export default function CallScoring() {
                 {recentCalls.map((call) => (
                   <div
                     key={call.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => call.status === 'analyzed' && handleCallClick(call)}
+                    className={`flex items-center justify-between p-3 rounded-lg border bg-card transition-colors ${
+                      call.status === 'analyzed' ? 'hover:bg-accent/50 cursor-pointer' : ''
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-primary/10">
@@ -573,6 +592,12 @@ export default function CallScoring() {
           </CardContent>
         </Card>
       </div>
+      
+      <CallScorecard 
+        call={selectedCall}
+        open={scorecardOpen}
+        onClose={() => setScorecardOpen(false)}
+      />
     </div>
   );
 }
