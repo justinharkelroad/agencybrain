@@ -140,11 +140,69 @@ export default function CallScoring() {
     usage && usage.calls_used < usage.calls_limit && !uploading;
 
   const handleUpload = async () => {
-    if (!canUpload) return;
+    if (!canUpload || !selectedFile) return;
     
     setUploading(true);
-    toast.info('Upload functionality coming in Phase 2C...');
-    setUploading(false);
+    
+    try {
+      // Get current user's agency_id
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        toast.error('You must be logged in to upload calls');
+        return;
+      }
+
+      // Get agency_id from profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', authUser.id)
+        .single();
+
+      if (!profile?.agency_id) {
+        toast.error('Could not determine your agency');
+        return;
+      }
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('audio', selectedFile);
+      formData.append('team_member_id', selectedTeamMember);
+      formData.append('template_id', selectedTemplate);
+      formData.append('agency_id', profile.agency_id);
+      formData.append('file_name', selectedFile.name);
+
+      toast.info('Uploading and transcribing call... This may take a minute.');
+
+      // Call edge function
+      const { data, error } = await supabase.functions.invoke('transcribe-call', {
+        body: formData,
+      });
+
+      if (error) {
+        console.error('Transcription error:', error);
+        toast.error('Failed to transcribe call: ' + error.message);
+        return;
+      }
+
+      console.log('Transcription result:', data);
+      toast.success('Call transcribed successfully!');
+
+      // Log result for Phase 2D
+      console.log('Transcript:', data.transcript);
+      console.log('Duration:', data.duration_seconds, 'seconds');
+
+      // Reset form
+      setSelectedFile(null);
+      setSelectedTeamMember('');
+      setSelectedTemplate('');
+
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('An unexpected error occurred');
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (!isAdmin) {
