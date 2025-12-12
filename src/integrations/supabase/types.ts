@@ -128,15 +128,18 @@ export type Database = {
       agency_calls: {
         Row: {
           agency_id: string
+          analyzed_at: string | null
           audio_storage_path: string | null
           call_duration_seconds: number | null
           client_profile: Json | null
           closing_attempts: number | null
+          coaching_recommendations: Json | null
           created_at: string | null
           critical_gaps: Json | null
           discovery_wins: Json | null
           id: string
           missed_signals: Json | null
+          notable_quotes: Json | null
           original_filename: string | null
           overall_score: number | null
           potential_rank: string | null
@@ -151,15 +154,18 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
           closing_attempts?: number | null
+          coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
+          notable_quotes?: Json | null
           original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null
@@ -174,15 +180,18 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
           closing_attempts?: number | null
+          coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
+          notable_quotes?: Json | null
           original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null
