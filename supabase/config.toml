@@ -179,3 +179,9 @@ verify_jwt = false
 
 [functions.save_staff_flow_profile]
 verify_jwt = false
+
+[functions.transcribe-call]
+verify_jwt = true
+
+[functions.analyze-call]
+verify_jwt = true

@@ -127,6 +127,31 @@ serve(async (req) => {
       console.error("Failed to save call record:", insertError);
     } else {
       console.log("Call record saved:", callRecord.id);
+      
+      // Trigger AI analysis automatically
+      if (callRecord?.id) {
+        console.log("Triggering AI analysis for call:", callRecord.id);
+        
+        try {
+          const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({ call_id: callRecord.id }),
+          });
+
+          if (!analyzeResponse.ok) {
+            console.error("Analysis trigger failed:", await analyzeResponse.text());
+          } else {
+            const analyzeResult = await analyzeResponse.json();
+            console.log("Analysis completed:", analyzeResult.success);
+          }
+        } catch (analyzeError) {
+          console.error("Failed to trigger analysis:", analyzeError);
+        }
+      }
     }
 
     // Update usage tracking
