@@ -38,6 +38,14 @@ export default function CallScoring() {
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   
+  // Processing queue for showing uploads in progress
+  const [processingCalls, setProcessingCalls] = useState<Array<{
+    id: string;
+    fileName: string;
+    teamMemberName: string;
+    startedAt: Date;
+  }>>([]);
+  
   // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -45,7 +53,6 @@ export default function CallScoring() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  // uploading state removed - now non-blocking
 
   // TEMPORARY: Admin-only gate until feature is complete
   useEffect(() => {
@@ -207,23 +214,35 @@ export default function CallScoring() {
   const handleUpload = async () => {
     if (!canUpload || !selectedFile || !agencyId) return;
     
+    // Get team member name for display
+    const selectedMember = teamMembers.find(m => m.id === selectedTeamMember);
+    const teamMemberName = selectedMember?.name || 'Unknown';
+
+    // Generate temp ID for tracking
+    const tempId = crypto.randomUUID();
+
     // Capture current values before resetting
     const fileToUpload = selectedFile;
     const teamMemberId = selectedTeamMember;
     const templateId = selectedTemplate;
     const currentAgencyId = agencyId;
+    const fileName = selectedFile.name;
 
-    // IMMEDIATELY reset form and show toast - don't wait for upload
+    // Add to processing queue IMMEDIATELY
+    setProcessingCalls(prev => [...prev, {
+      id: tempId,
+      fileName: fileName,
+      teamMemberName: teamMemberName,
+      startedAt: new Date(),
+    }]);
+
+    // Reset form
     setSelectedFile(null);
     setSelectedTeamMember('');
     setSelectedTemplate('');
-    
-    toast.info('Call uploaded! Transcription and analysis in progress...', {
-      duration: 5000,
-    });
 
     // Process in background (don't await)
-    processCallInBackground(fileToUpload, teamMemberId, templateId, currentAgencyId);
+    processCallInBackground(fileToUpload, teamMemberId, templateId, currentAgencyId, tempId, fileName);
   };
 
   // Separate background function
@@ -231,7 +250,9 @@ export default function CallScoring() {
     file: File,
     teamMemberId: string,
     templateId: string,
-    agencyIdParam: string
+    agencyIdParam: string,
+    tempId: string,
+    fileName: string
   ) => {
     try {
       const formData = new FormData();
@@ -245,9 +266,12 @@ export default function CallScoring() {
         body: formData,
       });
 
+      // Remove from processing queue
+      setProcessingCalls(prev => prev.filter(c => c.id !== tempId));
+
       if (error) {
         console.error('Transcription error:', error);
-        toast.error('Transcription failed: ' + error.message);
+        toast.error(`Failed to process "${fileName}"`);
         return;
       }
 
@@ -258,16 +282,17 @@ export default function CallScoring() {
         fetchUsageAndCalls(agencyId);
       }
       
-      toast.success(`"${file.name}" transcribed! Analysis in progress...`);
+      toast.success(`"${fileName}" uploaded! Analysis in progress...`);
 
       // Poll for analysis completion
       if (data.call_id) {
-        pollForAnalysis(data.call_id, file.name);
+        pollForAnalysis(data.call_id, fileName);
       }
 
     } catch (err) {
       console.error('Background processing error:', err);
-      toast.error('Processing failed');
+      setProcessingCalls(prev => prev.filter(c => c.id !== tempId));
+      toast.error(`Failed to process "${fileName}"`);
     }
   };
 
@@ -458,11 +483,11 @@ export default function CallScoring() {
             <CardDescription>Your last 10 analyzed calls</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loading && processingCalls.length === 0 ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : recentCalls.length === 0 ? (
+            ) : processingCalls.length === 0 && recentCalls.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Phone className="h-10 w-10 mx-auto mb-2 opacity-50" />
                 <p>No calls analyzed yet</p>
@@ -470,6 +495,31 @@ export default function CallScoring() {
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Processing calls first */}
+                {processingCalls.map((call) => (
+                  <div
+                    key={call.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 animate-pulse"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-blue-500/20">
+                        <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{call.teamMemberName}</p>
+                        <p className="text-xs text-muted-foreground">{call.fileName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Processing
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Completed calls */}
                 {recentCalls.map((call) => (
                   <div
                     key={call.id}
