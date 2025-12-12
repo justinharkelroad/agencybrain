@@ -58,6 +58,11 @@ export default function CallScoring() {
   const [userRole, setUserRole] = useState<string>('staff');
   const [userTeamMemberId, setUserTeamMemberId] = useState<string | null>(null);
   
+  // Staff user detection
+  const [isStaffUser, setIsStaffUser] = useState(false);
+  const [staffAgencyId, setStaffAgencyId] = useState<string | null>(null);
+  const [staffTeamMemberId, setStaffTeamMemberId] = useState<string | null>(null);
+  
   // Access control state
   const [accessChecked, setAccessChecked] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
@@ -82,9 +87,89 @@ export default function CallScoring() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
 
-  // Check access on mount
+  // Detect staff user from localStorage session
+  useEffect(() => {
+    const staffSession = localStorage.getItem('staffUser');
+    if (staffSession) {
+      try {
+        const staff = JSON.parse(staffSession);
+        console.log('Staff user detected:', staff);
+        setIsStaffUser(true);
+        setStaffAgencyId(staff.agency_id);
+        setStaffTeamMemberId(staff.team_member_id);
+        setAgencyId(staff.agency_id);
+        setUserTeamMemberId(staff.team_member_id);
+        setUserRole('staff');
+      } catch (e) {
+        console.error('Error parsing staff session:', e);
+      }
+    }
+  }, []);
+
+  // Check access for staff users via RPC
+  useEffect(() => {
+    const checkStaffAccess = async () => {
+      if (!isStaffUser || !staffAgencyId) return;
+      
+      const { data: isEnabled, error } = await supabase
+        .rpc('is_call_scoring_enabled', { p_agency_id: staffAgencyId });
+      
+      console.log('Staff call scoring access:', isEnabled, error);
+      
+      if (isEnabled) {
+        setHasAccess(true);
+        setAccessChecked(true);
+      } else {
+        navigate('/staff/dashboard');
+        toast.error('Call Scoring is not enabled for your agency');
+      }
+    };
+    
+    if (isStaffUser) {
+      checkStaffAccess();
+    }
+  }, [isStaffUser, staffAgencyId, navigate]);
+
+  // Fetch data for staff users via RPC
+  useEffect(() => {
+    const fetchStaffData = async () => {
+      if (!hasAccess || !staffAgencyId || !staffTeamMemberId) return;
+      
+      setLoading(true);
+      console.log('Fetching staff call scoring data:', { staffAgencyId, staffTeamMemberId });
+      
+      const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
+        p_agency_id: staffAgencyId,
+        p_team_member_id: staffTeamMemberId
+      });
+
+      console.log('Staff call scoring data:', data, 'Error:', error);
+
+      if (data) {
+        setTemplates(data.templates || []);
+        setTeamMembers(data.team_members || []);
+        setRecentCalls(data.recent_calls || []);
+        setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
+        
+        // Auto-select team member for staff
+        if (data.team_members?.length === 1) {
+          setSelectedTeamMember(data.team_members[0].id);
+        }
+      }
+      
+      setLoading(false);
+    };
+    
+    if (isStaffUser && hasAccess) {
+      fetchStaffData();
+    }
+  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId]);
+
+  // Check access for regular users on mount
   useEffect(() => {
     const checkAccess = async () => {
+      // Skip if staff user (handled separately)
+      if (isStaffUser) return;
       if (!user) return;
       
       // Admins always have access
@@ -122,14 +207,14 @@ export default function CallScoring() {
     };
     
     checkAccess();
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, navigate, isStaffUser]);
 
-  // Fetch data once access is confirmed
+  // Fetch data once access is confirmed (regular users only)
   useEffect(() => {
-    if (hasAccess && user) {
+    if (hasAccess && user && !isStaffUser) {
       fetchAgencyAndData();
     }
-  }, [hasAccess, user]);
+  }, [hasAccess, user, isStaffUser]);
 
   const fetchAgencyAndData = async () => {
     try {
