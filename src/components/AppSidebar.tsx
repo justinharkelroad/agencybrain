@@ -68,22 +68,15 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { open: sidebarOpen } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
 
-  // Check if call scoring is enabled for user's agency
+  // Check if call scoring is enabled for user's agency - listen for auth state changes
   useEffect(() => {
-    const checkCallScoringAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Sidebar - Current user:', user?.email);
-      
-      if (!user) {
-        console.log('Sidebar - No user found');
-        setCallScoringEnabled(false);
-        return;
-      }
+    const checkCallScoringAccess = async (userId: string, userEmail?: string) => {
+      console.log('Sidebar - Checking access for user:', userEmail);
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('agency_id, role')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
 
       console.log('Sidebar - Profile:', profile, 'Error:', profileError);
@@ -101,10 +94,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           .from('agency_call_scoring_settings')
           .select('enabled')
           .eq('agency_id', profile.agency_id)
-          .maybeSingle(); // Use maybeSingle to avoid error if no record exists
+          .maybeSingle();
 
         console.log('Sidebar - Call scoring settings:', settings, 'Error:', settingsError);
-
         setCallScoringEnabled(settings?.enabled ?? false);
       } else {
         console.log('Sidebar - No agency_id found');
@@ -112,7 +104,33 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
       }
     };
 
-    checkCallScoringAccess();
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Sidebar - Auth event:', event, 'Session:', !!session);
+        
+        if (!session?.user) {
+          setCallScoringEnabled(false);
+          return;
+        }
+
+        // Defer the async call to avoid deadlock
+        setTimeout(() => {
+          checkCallScoringAccess(session.user.id, session.user.email);
+        }, 0);
+      }
+    );
+
+    // Also check current session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        checkCallScoringAccess(session.user.id, session.user.email);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const isActive = (path: string) => {
