@@ -6,6 +6,7 @@ import {
   FileAudio, Clock, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useState } from "react";
+import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 
 interface CallScorecardProps {
   call: any;
@@ -39,6 +40,29 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
     extractedData?.salesperson_name || 
     'Agent';
 
+  // Prepare radar chart data
+  const getRadarData = () => {
+    const scores = call.skill_scores || {};
+    
+    return [
+      { skill: 'Rapport', score: sectionScores.rapport?.score || scores.rapport || 50, fullMark: 100 },
+      { skill: 'Discovery', score: scores.discovery || 50, fullMark: 100 },
+      { skill: 'Coverage', score: sectionScores.coverage?.score || scores.coverage || 50, fullMark: 100 },
+      { skill: 'Objection', score: scores.objection_handling || 50, fullMark: 100 },
+      { skill: 'Closing', score: sectionScores.closing?.score || scores.closing || 50, fullMark: 100 },
+    ];
+  };
+
+  // Parse price for comparison bars
+  const parsePrice = (priceStr: string) => {
+    if (!priceStr) return 0;
+    return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+  };
+
+  const yourQuoteValue = parsePrice(extractedData.your_quote);
+  const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
+  const maxQuote = Math.max(yourQuoteValue, competitorQuoteValue, 1);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
@@ -62,6 +86,41 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Key Metrics Row */}
+          <div className="grid grid-cols-3 gap-4">
+            {/* Your Quote */}
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">YOUR QUOTE</p>
+                <p className="text-2xl font-bold">
+                  {extractedData.your_quote || '--'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Competitor */}
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">COMPETITOR AVG</p>
+                <p className="text-2xl font-bold text-green-400">
+                  {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : '--'}
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Asset Profile */}
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4">
+                <p className="text-xs text-muted-foreground mb-1">ASSET PROFILE</p>
+                <div className="flex items-center justify-center gap-4 text-sm">
+                  {extractedData.assets?.slice(0, 2).map((asset: string, i: number) => (
+                    <span key={i} className="truncate max-w-[100px]">{asset}</span>
+                  )) || <span className="text-muted-foreground">--</span>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Critical Assessment + Extracted Data Row */}
           <div className="grid md:grid-cols-3 gap-4">
             {/* Critical Assessment - Takes 2 columns */}
@@ -198,6 +257,126 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
               </CardContent>
             </Card>
           </div>
+
+          {/* Visual Charts Row */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Price Resistance Gap */}
+            {extractedData.your_quote && extractedData.competitor_quote && (
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <h3 className="font-bold text-sm">PRICE RESISTANCE GAP</h3>
+                  </div>
+                  
+                  <div className="flex items-end justify-center gap-8 h-40">
+                    {/* Competitor Bar */}
+                    <div className="flex flex-col items-center">
+                      <div 
+                        className="w-16 bg-green-500 rounded-t transition-all"
+                        style={{ 
+                          height: `${Math.max(20, (competitorQuoteValue / maxQuote) * 100)}px` 
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">Competitor</p>
+                      <p className="text-sm font-medium text-green-400">{extractedData.competitor_quote}</p>
+                    </div>
+                    
+                    {/* Your Quote Bar */}
+                    <div className="flex flex-col items-center">
+                      <div 
+                        className="w-16 bg-red-500 rounded-t transition-all"
+                        style={{ height: `${Math.max(20, (yourQuoteValue / maxQuote) * 100)}px` }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">Your Quote</p>
+                      <p className="text-sm font-medium text-red-400">{extractedData.your_quote}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Skill Execution Gap - Radar Chart */}
+            <Card className={!extractedData.your_quote || !extractedData.competitor_quote ? 'md:col-span-2' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <h3 className="font-bold text-sm">SKILL EXECUTION GAP</h3>
+                </div>
+                
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={getRadarData()}>
+                      <PolarGrid stroke="#333" />
+                      <PolarAngleAxis 
+                        dataKey="skill" 
+                        tick={{ fill: '#888', fontSize: 11 }}
+                      />
+                      <Radar
+                        name="Target"
+                        dataKey="fullMark"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.1}
+                        strokeDasharray="5 5"
+                      />
+                      <Radar
+                        name="Actual"
+                        dataKey="score"
+                        stroke="#ef4444"
+                        fill="#ef4444"
+                        fillOpacity={0.3}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="flex items-center justify-center gap-4 mt-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-red-500/30 border border-red-500 rounded" />
+                    <span className="text-muted-foreground">{salespersonName}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-blue-500/10 border border-blue-500 border-dashed rounded" />
+                    <span className="text-muted-foreground">Target</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Corrective Action Plan */}
+          <Card className="border-t-4 border-t-blue-500">
+            <CardContent className="pt-4">
+              <h3 className="font-bold text-sm mb-4">CORRECTIVE ACTION PLAN</h3>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Rapport Action */}
+                <div>
+                  <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {sectionScores.rapport?.coaching || 'Build deeper connection using the HWF framework before discussing insurance details.'}
+                  </p>
+                </div>
+                
+                {/* Value Building Action */}
+                <div>
+                  <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {sectionScores.coverage?.coaching || 'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
+                  </p>
+                </div>
+                
+                {/* Closing Action */}
+                <div>
+                  <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {sectionScores.closing?.coaching || 'Use assumptive close language and set hard follow-up appointments with specific times.'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Execution Clean Sheet */}
           <Card>
