@@ -1,12 +1,23 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { 
   User, Target, AlertTriangle, CheckCircle2, XCircle,
-  FileAudio, Clock, ChevronDown, ChevronUp
+  FileAudio, Clock, ChevronDown, ChevronUp, Download, 
+  Image, FileText, Share2, Loader2
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { toast } from 'sonner';
 
 interface CallScorecardProps {
   call: any;
@@ -16,6 +27,8 @@ interface CallScorecardProps {
 
 export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
   const [showCrmNotes, setShowCrmNotes] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const scorecardRef = useRef<HTMLDivElement>(null);
   
   if (!call) return null;
 
@@ -63,12 +76,74 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
   const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
   const maxQuote = Math.max(yourQuoteValue, competitorQuoteValue, 1);
 
+  const exportAsPNG = async () => {
+    if (!scorecardRef.current) return;
+    
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(scorecardRef.current, {
+        backgroundColor: '#0a0a0b',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      
+      const link = document.createElement('a');
+      link.download = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      toast.success('Scorecard downloaded as PNG');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export scorecard');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportAsPDF = async () => {
+    if (!scorecardRef.current) return;
+    
+    setExporting(true);
+    try {
+      const canvas = await html2canvas(scorecardRef.current, {
+        backgroundColor: '#0a0a0b',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      toast.success('Scorecard downloaded as PDF');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export scorecard');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/call-scoring?call=${call.id}`);
+    toast.success('Link copied to clipboard');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Header */}
         <div className="bg-background border-b p-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs text-red-500 font-medium tracking-wider mb-1">CALL PERFORMANCE AUDIT</p>
               <h1 className="text-2xl font-bold tracking-tight">
@@ -76,16 +151,49 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
               </h1>
               <div className="h-1 w-16 bg-blue-500 mt-2" />
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground mb-1">PERFORMANCE RANK</p>
-              <Badge className={`text-lg px-3 py-1 ${getRankColor(call.potential_rank)}`}>
-                {call.potential_rank || 'PENDING'}
-              </Badge>
+            
+            <div className="flex items-center gap-3">
+              {/* Export Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={exporting}>
+                    {exporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    <span className="ml-2 hidden sm:inline">Export</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={exportAsPNG}>
+                    <Image className="h-4 w-4 mr-2" />
+                    Download as PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportAsPDF}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyShareLink}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Copy Share Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              {/* Rank Badge */}
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground mb-1">PERFORMANCE RANK</p>
+                <Badge className={`text-lg px-3 py-1 ${getRankColor(call.potential_rank)}`}>
+                  {call.potential_rank || 'PENDING'}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        {/* Exportable content */}
+        <div ref={scorecardRef} className="p-6 space-y-6 bg-background">
           {/* Key Metrics Row - Stack on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Your Quote */}
