@@ -143,21 +143,20 @@ export default function CallScoring() {
         setAgencyId(profile.agency_id);
         setUserRole(profile.role || 'staff');
         
-        // Find user's team member ID if they have one
-        const { data: teamMember } = await supabase
-          .from('team_members')
-          .select('id')
-          .eq('user_id', user!.id)
+        // Find user's team member ID if they have one (via staff_users link)
+        const { data: staffUser } = await supabase
+          .from('staff_users')
+          .select('team_member_id')
           .eq('agency_id', profile.agency_id)
-          .single();
+          .maybeSingle();
         
-        if (teamMember) {
-          setUserTeamMemberId(teamMember.id);
+        if (staffUser?.team_member_id) {
+          setUserTeamMemberId(staffUser.team_member_id);
         }
         
         await Promise.all([
-          fetchUsageAndCalls(profile.agency_id, profile.role || 'staff', teamMember?.id),
-          fetchFormData(profile.agency_id, profile.role || 'staff', teamMember?.id)
+          fetchUsageAndCalls(profile.agency_id, profile.role || 'staff', staffUser?.team_member_id),
+          fetchFormData(profile.agency_id, profile.role || 'staff', staffUser?.team_member_id)
         ]);
       }
     } catch (err) {
@@ -204,23 +203,10 @@ export default function CallScoring() {
         // Staff can only see their own calls
         callsQuery = callsQuery.eq('team_member_id', teamMemberId);
         analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
-      } else if (role === 'manager' && user) {
-        // Managers see calls for team members they manage + their own
-        const { data: managedMembers } = await supabase
-          .from('team_members')
-          .select('id')
-          .eq('agency_id', agency)
-          .or(`manager_id.eq.${user.id},user_id.eq.${user.id}`);
-        
-        if (managedMembers && managedMembers.length > 0) {
-          const memberIds = managedMembers.map(m => m.id);
-          callsQuery = callsQuery.in('team_member_id', memberIds);
-          analyticsQuery = analyticsQuery.in('team_member_id', memberIds);
-        } else if (teamMemberId) {
-          // Fall back to just their own calls
-          callsQuery = callsQuery.eq('team_member_id', teamMemberId);
-          analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
-        }
+      } else if (role === 'manager' && teamMemberId) {
+        // Managers see their own calls (simplified - no manager_id column exists)
+        callsQuery = callsQuery.eq('team_member_id', teamMemberId);
+        analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
       }
       // Agency owners and admins see all calls for the agency (no additional filter)
 
@@ -282,39 +268,57 @@ export default function CallScoring() {
   };
 
   const fetchFormData = async (agency: string, role: string, teamMemberId?: string | null) => {
-    // Build team members query based on role
-    let membersQuery = supabase
-      .from('team_members')
-      .select('id, name, user_id, manager_id')
-      .eq('agency_id', agency)
-      .eq('status', 'active')
-      .order('name');
-
-    if (role === 'staff' && user) {
+    // For staff, only show their own team member record
+    // For agency owners/admins, show all active team members
+    let members: { id: string; name: string }[] = [];
+    
+    if (role === 'staff' && teamMemberId) {
       // Staff can only select themselves
-      membersQuery = membersQuery.eq('user_id', user.id);
-    } else if (role === 'manager' && user) {
-      // Managers can select their managed team members + themselves
-      membersQuery = membersQuery.or(`manager_id.eq.${user.id},user_id.eq.${user.id}`);
+      const { data } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .eq('id', teamMemberId)
+        .single();
+      if (data) members = [data];
+    } else {
+      // Agency owners, managers, and admins see all active team members
+      const { data } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .eq('agency_id', agency)
+        .eq('status', 'active')
+        .order('name');
+      members = data || [];
     }
-    // Agency owners and admins see all team members
-
-    const { data: members } = await membersQuery;
-    setTeamMembers(members || []);
+    
+    setTeamMembers(members);
     
     // Auto-select if only one option (for staff)
-    if (members && members.length === 1) {
+    if (members.length === 1) {
       setSelectedTeamMember(members[0].id);
     }
 
-    // Fetch both global templates AND templates for this agency
-    const { data: temps } = await supabase
+    // Fetch global templates
+    const { data: globalTemplates } = await supabase
       .from('call_scoring_templates')
       .select('id, name, is_global')
-      .eq('is_active', true)
-      .or(`is_global.eq.true,agency_id.eq.${agency}`)
-      .order('name');
-    setTemplates(temps || []);
+      .eq('is_global', true)
+      .eq('is_active', true);
+
+    // Fetch agency-specific templates
+    const { data: agencyTemplates } = await supabase
+      .from('call_scoring_templates')
+      .select('id, name, is_global')
+      .eq('agency_id', agency)
+      .eq('is_active', true);
+
+    // Combine both
+    const allTemplates = [
+      ...(globalTemplates || []),
+      ...(agencyTemplates || [])
+    ];
+    
+    setTemplates(allTemplates);
   };
 
   const handleFileSelect = (file: File | null) => {
