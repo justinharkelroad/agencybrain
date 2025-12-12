@@ -132,7 +132,7 @@ export type Database = {
           audio_storage_path: string | null
           call_duration_seconds: number | null
           client_profile: Json | null
-          closing_attempts: number | null
+          closing_attempts: Json | null
           coaching_recommendations: Json | null
           created_at: string | null
           critical_gaps: Json | null
@@ -158,7 +158,7 @@ export type Database = {
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
-          closing_attempts?: number | null
+          closing_attempts?: Json | null
           coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null
@@ -184,7 +184,7 @@ export type Database = {
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
-          closing_attempts?: number | null
+          closing_attempts?: Json | null
           coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null

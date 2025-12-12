@@ -45,7 +45,7 @@ export default function CallScoring() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [uploading, setUploading] = useState(false);
+  // uploading state removed - now non-blocking
 
   // TEMPORARY: Admin-only gate until feature is complete
   useEffect(() => {
@@ -202,56 +202,106 @@ export default function CallScoring() {
   };
 
   const canUpload = selectedFile && selectedTeamMember && selectedTemplate && 
-    usage.calls_used < usage.calls_limit && !uploading;
+    usage.calls_used < usage.calls_limit;
 
   const handleUpload = async () => {
     if (!canUpload || !selectedFile || !agencyId) return;
     
-    setUploading(true);
+    // Capture current values before resetting
+    const fileToUpload = selectedFile;
+    const teamMemberId = selectedTeamMember;
+    const templateId = selectedTemplate;
+    const currentAgencyId = agencyId;
+
+    // IMMEDIATELY reset form and show toast - don't wait for upload
+    setSelectedFile(null);
+    setSelectedTeamMember('');
+    setSelectedTemplate('');
     
+    toast.info('Call uploaded! Transcription and analysis in progress...', {
+      duration: 5000,
+    });
+
+    // Process in background (don't await)
+    processCallInBackground(fileToUpload, teamMemberId, templateId, currentAgencyId);
+  };
+
+  // Separate background function
+  const processCallInBackground = async (
+    file: File,
+    teamMemberId: string,
+    templateId: string,
+    agencyIdParam: string
+  ) => {
     try {
-      // Prepare form data
       const formData = new FormData();
-      formData.append('audio', selectedFile);
-      formData.append('team_member_id', selectedTeamMember);
-      formData.append('template_id', selectedTemplate);
-      formData.append('agency_id', agencyId);
-      formData.append('file_name', selectedFile.name);
+      formData.append('audio', file);
+      formData.append('team_member_id', teamMemberId);
+      formData.append('template_id', templateId);
+      formData.append('agency_id', agencyIdParam);
+      formData.append('file_name', file.name);
 
-      toast.info('Uploading and transcribing call... This may take a minute.');
-
-      // Call edge function
       const { data, error } = await supabase.functions.invoke('transcribe-call', {
         body: formData,
       });
 
       if (error) {
         console.error('Transcription error:', error);
-        toast.error('Failed to transcribe call: ' + error.message);
+        toast.error('Transcription failed: ' + error.message);
         return;
       }
 
-      if (data.success) {
-        const duration = Math.round(data.duration_seconds / 60);
-        toast.success(`Call transcribed successfully! (${duration} min)`);
+      console.log('Transcription complete:', data);
+      
+      // Refresh the calls list to show new entry
+      if (agencyId) {
+        fetchUsageAndCalls(agencyId);
+      }
+      
+      toast.success(`"${file.name}" transcribed! Analysis in progress...`);
 
-        // Reset form
-        setSelectedFile(null);
-        setSelectedTeamMember('');
-        setSelectedTemplate('');
-
-        // Refresh usage and calls list
-        await fetchUsageAndCalls(agencyId);
-      } else {
-        toast.error(data.error || 'Transcription failed');
+      // Poll for analysis completion
+      if (data.call_id) {
+        pollForAnalysis(data.call_id, file.name);
       }
 
     } catch (err) {
-      console.error('Upload error:', err);
-      toast.error('An unexpected error occurred');
-    } finally {
-      setUploading(false);
+      console.error('Background processing error:', err);
+      toast.error('Processing failed');
     }
+  };
+
+  // Poll to notify when analysis is done
+  const pollForAnalysis = async (callId: string, fileName: string) => {
+    let attempts = 0;
+    const maxAttempts = 30; // 30 attempts * 3 seconds = 90 seconds max
+    
+    const checkStatus = async () => {
+      attempts++;
+      
+      const { data } = await supabase
+        .from('agency_calls')
+        .select('status, overall_score')
+        .eq('id', callId)
+        .single();
+
+      if (data?.status === 'analyzed' && data?.overall_score !== null) {
+        toast.success(`"${fileName}" analysis complete: ${data.overall_score}%`, {
+          duration: 5000,
+        });
+        if (agencyId) {
+          fetchUsageAndCalls(agencyId); // Refresh to show score
+        }
+        return;
+      }
+
+      if (attempts < maxAttempts) {
+        setTimeout(checkStatus, 3000); // Check every 3 seconds
+      }
+    };
+
+    // Start polling after a short delay
+    setTimeout(checkStatus, 5000);
   };
 
   if (!isAdmin) {
@@ -392,17 +442,8 @@ export default function CallScoring() {
               disabled={!canUpload}
               onClick={handleUpload}
             >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Analyze Call
-                </>
-              )}
+              <Sparkles className="h-4 w-4 mr-2" />
+              Analyze Call
             </Button>
           </CardContent>
         </Card>
