@@ -7,9 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
+import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
+
 interface UsageInfo {
   calls_used: number;
   calls_limit: number;
@@ -26,6 +29,17 @@ interface RecentCall {
   team_member_name: string;
 }
 
+interface AnalyticsCall {
+  id: string;
+  team_member_id: string;
+  team_member_name: string;
+  potential_rank: string | null;
+  overall_score: number | null;
+  skill_scores: any;
+  discovery_wins: any;
+  analyzed_at: string | null;
+}
+
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
 const MAX_SIZE_MB = 25;
@@ -36,8 +50,10 @@ export default function CallScoring() {
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
+  const [analyticsCalls, setAnalyticsCalls] = useState<AnalyticsCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('upload');
   
   // Processing queue for showing uploads in progress
   const [processingCalls, setProcessingCalls] = useState<Array<{
@@ -110,7 +126,7 @@ export default function CallScoring() {
 
       setUsage(usageData || { calls_used: 0, calls_limit: 20 });
 
-      // Fetch recent calls
+      // Fetch recent calls (limit 10 for display)
       const { data: callsData } = await supabase
         .from('agency_calls')
         .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id')
@@ -118,16 +134,30 @@ export default function CallScoring() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (callsData && callsData.length > 0) {
-        // Fetch team member names separately
-        const teamMemberIds = [...new Set(callsData.map(c => c.team_member_id))];
-        const { data: membersData } = await supabase
-          .from('team_members')
-          .select('id, name')
-          .in('id', teamMemberIds);
+      // Fetch ALL analyzed calls for analytics (with skill_scores and discovery_wins)
+      const { data: analyticsData } = await supabase
+        .from('agency_calls')
+        .select('id, team_member_id, potential_rank, overall_score, skill_scores, discovery_wins, analyzed_at')
+        .eq('agency_id', agency)
+        .not('analyzed_at', 'is', null)
+        .order('analyzed_at', { ascending: false });
 
-        const memberMap = new Map(membersData?.map(m => [m.id, m.name]) || []);
-        
+      // Get all unique team member IDs from both datasets
+      const allTeamMemberIds = [
+        ...new Set([
+          ...(callsData?.map(c => c.team_member_id) || []),
+          ...(analyticsData?.map(c => c.team_member_id) || [])
+        ])
+      ];
+      
+      const { data: membersData } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .in('id', allTeamMemberIds);
+
+      const memberMap = new Map(membersData?.map(m => [m.id, m.name]) || []);
+
+      if (callsData && callsData.length > 0) {
         const enrichedCalls: RecentCall[] = callsData.map(call => ({
           id: call.id,
           original_filename: call.original_filename || 'Unknown file',
@@ -138,10 +168,26 @@ export default function CallScoring() {
           created_at: call.created_at,
           team_member_name: memberMap.get(call.team_member_id) || 'Unknown'
         }));
-        
         setRecentCalls(enrichedCalls);
       } else {
         setRecentCalls([]);
+      }
+
+      // Enrich analytics calls with team member names
+      if (analyticsData && analyticsData.length > 0) {
+        const enrichedAnalytics: AnalyticsCall[] = analyticsData.map(call => ({
+          id: call.id,
+          team_member_id: call.team_member_id,
+          team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
+          potential_rank: call.potential_rank,
+          overall_score: call.overall_score,
+          skill_scores: call.skill_scores,
+          discovery_wins: call.discovery_wins,
+          analyzed_at: call.analyzed_at
+        }));
+        setAnalyticsCalls(enrichedAnalytics);
+      } else {
+        setAnalyticsCalls([]);
       }
     } catch (err) {
       console.error('Error fetching calls:', err);
@@ -373,7 +419,21 @@ export default function CallScoring() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Upload & Calls
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column - Upload Section */}
         <Card>
           <CardHeader>
@@ -608,7 +668,13 @@ export default function CallScoring() {
             )}
           </CardContent>
         </Card>
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-6">
+          <CallScoringAnalytics calls={analyticsCalls} teamMembers={teamMembers} />
+        </TabsContent>
+      </Tabs>
       
       <CallScorecard 
         call={selectedCall}
