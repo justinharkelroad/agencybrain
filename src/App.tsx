@@ -103,6 +103,7 @@ import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 import AdminHelpVideos from "./pages/admin/AdminHelpVideos";
 import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
+import CallScoring from "./pages/CallScoring";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
@@ -432,6 +433,13 @@ const App = () => (
               <ProtectedRoute>
                 <SidebarLayout>
                   <TeamRingsGrid />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/call-scoring" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <CallScoring />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

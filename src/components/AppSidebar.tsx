@@ -45,6 +45,7 @@ const mainItems = [
   { title: "Training", url: "/training", icon: BookOpen },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
+  { title: "Call Scoring", url: "/call-scoring", icon: Phone, adminOnly: true },
 ];
 
 // Admin-only items (system-wide admin access)
@@ -106,28 +107,30 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             )}
             <SidebarGroupContent>
               <SidebarMenu>
-                {mainItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.url);
-                  
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        isActive={active}
-                        className={cn(
-                          "hover:bg-muted/40 transition-colors",
-                          active && "bg-muted/50 text-foreground"
-                        )}
-                      >
-                        <Link to={item.url} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" strokeWidth={1.5} />
-                          {sidebarOpen && <span>{item.title}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+                {mainItems
+                  .filter(item => !item.adminOnly || isAdmin)
+                  .map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.url);
+                    
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={active}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors",
+                            active && "bg-muted/50 text-foreground"
+                          )}
+                        >
+                          <Link to={item.url} className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>{item.title}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 {/* Tools button - under Scorecards */}
                 {onOpenROI && (
                   <SidebarMenuItem>
