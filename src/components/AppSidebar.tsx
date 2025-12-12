@@ -141,6 +141,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     return location.pathname === path;
   };
 
+  // Debug log for Call Scoring visibility
+  console.log('Sidebar render - callScoringEnabled:', callScoringEnabled, 'isAdmin:', isAdmin);
+
   return (
     <Sidebar
       collapsible="icon"
