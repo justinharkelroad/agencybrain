@@ -128,29 +128,27 @@ serve(async (req) => {
     } else {
       console.log("Call record saved:", callRecord.id);
       
-      // Trigger AI analysis automatically
+      // Trigger AI analysis automatically (fire and forget - don't wait)
       if (callRecord?.id) {
         console.log("Triggering AI analysis for call:", callRecord.id);
         
-        try {
-          const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({ call_id: callRecord.id }),
-          });
-
-          if (!analyzeResponse.ok) {
-            console.error("Analysis trigger failed:", await analyzeResponse.text());
+        // Fire and forget - don't await, let it run in background
+        fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({ call_id: callRecord.id }),
+        }).then(async (response) => {
+          if (response.ok) {
+            console.log("Analysis triggered successfully");
           } else {
-            const analyzeResult = await analyzeResponse.json();
-            console.log("Analysis completed:", analyzeResult.success);
+            console.error("Analysis trigger failed:", await response.text());
           }
-        } catch (analyzeError) {
-          console.error("Failed to trigger analysis:", analyzeError);
-        }
+        }).catch((err) => {
+          console.error("Failed to trigger analysis:", err);
+        });
       }
     }
 
