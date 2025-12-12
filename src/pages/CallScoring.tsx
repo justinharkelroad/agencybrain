@@ -21,6 +21,7 @@ interface RecentCall {
   call_duration_seconds: number;
   status: string;
   overall_score: number | null;
+  potential_rank: string | null;
   created_at: string;
   team_member_name: string;
 }
@@ -112,7 +113,7 @@ export default function CallScoring() {
       // Fetch recent calls
       const { data: callsData } = await supabase
         .from('agency_calls')
-        .select('id, original_filename, call_duration_seconds, status, overall_score, created_at, team_member_id')
+        .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id')
         .eq('agency_id', agency)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -133,6 +134,7 @@ export default function CallScoring() {
           call_duration_seconds: call.call_duration_seconds || 0,
           status: call.status || 'unknown',
           overall_score: call.overall_score,
+          potential_rank: call.potential_rank,
           created_at: call.created_at,
           team_member_name: memberMap.get(call.team_member_id) || 'Unknown'
         }));
@@ -566,7 +568,18 @@ export default function CallScoring() {
                           {new Date(call.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      {call.status === 'analyzed' && call.overall_score !== null ? (
+                      {/* Status Badge - show potential rank for analyzed calls */}
+                      {call.status === 'analyzed' && call.potential_rank ? (
+                        <Badge className={`text-xs ${
+                          call.potential_rank === 'VERY HIGH' || call.potential_rank === 'HIGH' 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : call.potential_rank === 'MEDIUM' 
+                              ? 'bg-yellow-500/20 text-yellow-400' 
+                              : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {call.potential_rank}
+                        </Badge>
+                      ) : call.status === 'analyzed' && call.overall_score !== null ? (
                         <div className={`px-2 py-1 rounded text-sm font-medium ${
                           call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
                           call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
