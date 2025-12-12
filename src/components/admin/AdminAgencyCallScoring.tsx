@@ -155,15 +155,21 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
           </div>
 
           <div className="space-y-2">
-            <Label>Reset Day (1-28)</Label>
+            <Label htmlFor="reset_day">Reset Day (1-28)</Label>
             <Input
+              id="reset_day"
               type="number"
               min={1}
               max={28}
               value={settings.reset_day}
-              onChange={(e) => 
-                setSettings({ ...settings, reset_day: parseInt(e.target.value) || 1 })
-              }
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                if (!isNaN(value) && value >= 1 && value <= 28) {
+                  setSettings(prev => ({ ...prev, reset_day: value }));
+                } else if (e.target.value === '') {
+                  setSettings(prev => ({ ...prev, reset_day: 1 }));
+                }
+              }}
             />
             <p className="text-xs text-muted-foreground">Calls reset on this day each month</p>
           </div>
