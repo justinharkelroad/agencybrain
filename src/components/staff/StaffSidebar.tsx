@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   ClipboardEdit,
@@ -7,11 +8,13 @@ import {
   LogOut,
   Sparkles,
   Sun,
+  Phone,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -39,9 +42,34 @@ const bottomItems = [
 ];
 
 export function StaffSidebar() {
-  const { logout } = useStaffAuth();
+  const { logout, user } = useStaffAuth();
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
+  const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+
+  // Check if call scoring is enabled for staff user's agency
+  useEffect(() => {
+    const checkCallScoringAccess = async () => {
+      if (!user?.agency_id) {
+        console.log('StaffSidebar - No agency_id in user session');
+        setCallScoringEnabled(false);
+        return;
+      }
+
+      console.log('StaffSidebar - Checking call scoring for agency:', user.agency_id);
+
+      const { data: settings, error } = await supabase
+        .from('agency_call_scoring_settings')
+        .select('enabled')
+        .eq('agency_id', user.agency_id)
+        .maybeSingle();
+
+      console.log('StaffSidebar - Call scoring settings:', settings, 'Error:', error);
+      setCallScoringEnabled(settings?.enabled ?? false);
+    };
+
+    checkCallScoringAccess();
+  }, [user?.agency_id]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -51,6 +79,9 @@ export function StaffSidebar() {
     if (path === "/staff/training") {
       return location.pathname === path || location.pathname.startsWith("/staff/training/");
     }
+    if (path === "/staff/call-scoring") {
+      return location.pathname.startsWith("/staff/call-scoring");
+    }
     return location.pathname === path;
   };
 
@@ -58,6 +89,8 @@ export function StaffSidebar() {
     await logout();
     window.location.href = "/staff/login";
   };
+
+  console.log('StaffSidebar render - callScoringEnabled:', callScoringEnabled);
 
   return (
     <Sidebar
@@ -103,6 +136,17 @@ export function StaffSidebar() {
                     </SidebarMenuItem>
                   );
                 })}
+                {/* Call Scoring - show when enabled for agency */}
+                {callScoringEnabled && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive("/staff/call-scoring")}>
+                      <Link to="/staff/call-scoring" className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Call Scoring</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
