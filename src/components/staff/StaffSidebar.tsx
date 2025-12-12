@@ -58,14 +58,12 @@ export function StaffSidebar() {
 
       console.log('StaffSidebar - Checking call scoring for agency:', user.agency_id);
 
-      const { data: settings, error } = await supabase
-        .from('agency_call_scoring_settings')
-        .select('enabled')
-        .eq('agency_id', user.agency_id)
-        .maybeSingle();
+      // Use RPC function to bypass RLS (staff users don't use Supabase Auth)
+      const { data: isEnabled, error } = await supabase
+        .rpc('is_call_scoring_enabled', { p_agency_id: user.agency_id });
 
-      console.log('StaffSidebar - Call scoring settings:', settings, 'Error:', error);
-      setCallScoringEnabled(settings?.enabled ?? false);
+      console.log('StaffSidebar - Call scoring enabled:', isEnabled, 'Error:', error);
+      setCallScoringEnabled(isEnabled ?? false);
     };
 
     checkCallScoringAccess();
