@@ -128,6 +128,7 @@ export type Database = {
       agency_calls: {
         Row: {
           agency_id: string
+          audio_storage_path: string | null
           call_duration_seconds: number | null
           client_profile: Json | null
           closing_attempts: number | null
@@ -136,11 +137,13 @@ export type Database = {
           discovery_wins: Json | null
           id: string
           missed_signals: Json | null
+          original_filename: string | null
           overall_score: number | null
           potential_rank: string | null
           premium_analysis: Json | null
           section_scores: Json | null
           skill_scores: Json | null
+          status: string | null
           summary: string | null
           team_member_id: string
           template_id: string
@@ -148,6 +151,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
           closing_attempts?: number | null
@@ -156,11 +160,13 @@ export type Database = {
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
+          original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null
           premium_analysis?: Json | null
           section_scores?: Json | null
           skill_scores?: Json | null
+          status?: string | null
           summary?: string | null
           team_member_id: string
           template_id: string
@@ -168,6 +174,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          audio_storage_path?: string | null
           call_duration_seconds?: number | null
           client_profile?: Json | null
           closing_attempts?: number | null
@@ -176,11 +183,13 @@ export type Database = {
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
+          original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null
           premium_analysis?: Json | null
           section_scores?: Json | null
           skill_scores?: Json | null
+          status?: string | null
           summary?: string | null
           team_member_id?: string
           template_id?: string
@@ -5078,6 +5087,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_call_usage: {
+        Args: { p_agency_id: string; p_month: string }
+        Returns: undefined
       }
       is_now_agency_time: {
         Args: { p_agency_id: string; p_hhmm: string }

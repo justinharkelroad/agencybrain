@@ -13,8 +13,16 @@ import { toast } from 'sonner';
 interface UsageInfo {
   calls_used: number;
   calls_limit: number;
-  billing_period_start: string;
-  billing_period_end: string;
+}
+
+interface RecentCall {
+  id: string;
+  original_filename: string;
+  call_duration_seconds: number;
+  status: string;
+  overall_score: number | null;
+  created_at: string;
+  team_member_name: string;
 }
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
@@ -25,9 +33,10 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 export default function CallScoring() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [usage, setUsage] = useState<UsageInfo | null>(null);
-  const [recentCalls, setRecentCalls] = useState<any[]>([]);
+  const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
+  const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
   
   // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -47,42 +56,92 @@ export default function CallScoring() {
   }, [user, isAdmin, navigate]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchUsageAndCalls();
-      fetchFormData();
+    if (isAdmin && user) {
+      fetchAgencyAndData();
     }
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
-  const fetchUsageAndCalls = async () => {
-    setLoading(true);
-    
-    setUsage({
-      calls_used: 0,
-      calls_limit: 20,
-      billing_period_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
-      billing_period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString()
-    });
+  const fetchAgencyAndData = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user!.id)
+        .single();
 
-    const { data: calls } = await supabase
-      .from('agency_calls')
-      .select(`
-        id,
-        overall_score,
-        potential_rank,
-        created_at,
-        team_members(name)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    setRecentCalls(calls || []);
-    setLoading(false);
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+        await Promise.all([
+          fetchUsageAndCalls(profile.agency_id),
+          fetchFormData(profile.agency_id)
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching agency data:', err);
+    }
   };
 
-  const fetchFormData = async () => {
+  const fetchUsageAndCalls = async (agency: string) => {
+    setLoading(true);
+    
+    try {
+      // Fetch usage for current month
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      
+      const { data: usageData } = await supabase
+        .from('call_usage_tracking')
+        .select('calls_used, calls_limit')
+        .eq('agency_id', agency)
+        .eq('billing_period_start', periodStart)
+        .single();
+
+      setUsage(usageData || { calls_used: 0, calls_limit: 20 });
+
+      // Fetch recent calls
+      const { data: callsData } = await supabase
+        .from('agency_calls')
+        .select('id, original_filename, call_duration_seconds, status, overall_score, created_at, team_member_id')
+        .eq('agency_id', agency)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (callsData && callsData.length > 0) {
+        // Fetch team member names separately
+        const teamMemberIds = [...new Set(callsData.map(c => c.team_member_id))];
+        const { data: membersData } = await supabase
+          .from('team_members')
+          .select('id, name')
+          .in('id', teamMemberIds);
+
+        const memberMap = new Map(membersData?.map(m => [m.id, m.name]) || []);
+        
+        const enrichedCalls: RecentCall[] = callsData.map(call => ({
+          id: call.id,
+          original_filename: call.original_filename || 'Unknown file',
+          call_duration_seconds: call.call_duration_seconds || 0,
+          status: call.status || 'unknown',
+          overall_score: call.overall_score,
+          created_at: call.created_at,
+          team_member_name: memberMap.get(call.team_member_id) || 'Unknown'
+        }));
+        
+        setRecentCalls(enrichedCalls);
+      } else {
+        setRecentCalls([]);
+      }
+    } catch (err) {
+      console.error('Error fetching calls:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchFormData = async (agency: string) => {
     const { data: members } = await supabase
       .from('team_members')
       .select('id, name')
+      .eq('agency_id', agency)
       .eq('status', 'active')
       .order('name');
     setTeamMembers(members || []);
@@ -136,40 +195,27 @@ export default function CallScoring() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
   const canUpload = selectedFile && selectedTeamMember && selectedTemplate && 
-    usage && usage.calls_used < usage.calls_limit && !uploading;
+    usage.calls_used < usage.calls_limit && !uploading;
 
   const handleUpload = async () => {
-    if (!canUpload || !selectedFile) return;
+    if (!canUpload || !selectedFile || !agencyId) return;
     
     setUploading(true);
     
     try {
-      // Get current user's agency_id
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        toast.error('You must be logged in to upload calls');
-        return;
-      }
-
-      // Get agency_id from profiles
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', authUser.id)
-        .single();
-
-      if (!profile?.agency_id) {
-        toast.error('Could not determine your agency');
-        return;
-      }
-
       // Prepare form data
       const formData = new FormData();
       formData.append('audio', selectedFile);
       formData.append('team_member_id', selectedTeamMember);
       formData.append('template_id', selectedTemplate);
-      formData.append('agency_id', profile.agency_id);
+      formData.append('agency_id', agencyId);
       formData.append('file_name', selectedFile.name);
 
       toast.info('Uploading and transcribing call... This may take a minute.');
@@ -185,17 +231,20 @@ export default function CallScoring() {
         return;
       }
 
-      console.log('Transcription result:', data);
-      toast.success('Call transcribed successfully!');
+      if (data.success) {
+        const duration = Math.round(data.duration_seconds / 60);
+        toast.success(`Call transcribed successfully! (${duration} min)`);
 
-      // Log result for Phase 2D
-      console.log('Transcript:', data.transcript);
-      console.log('Duration:', data.duration_seconds, 'seconds');
+        // Reset form
+        setSelectedFile(null);
+        setSelectedTeamMember('');
+        setSelectedTemplate('');
 
-      // Reset form
-      setSelectedFile(null);
-      setSelectedTeamMember('');
-      setSelectedTemplate('');
+        // Refresh usage and calls list
+        await fetchUsageAndCalls(agencyId);
+      } else {
+        toast.error(data.error || 'Transcription failed');
+      }
 
     } catch (err) {
       console.error('Upload error:', err);
@@ -222,11 +271,9 @@ export default function CallScoring() {
             Upload sales calls for AI-powered coaching analysis
           </p>
         </div>
-        {usage && (
-          <Badge variant="outline" className="text-sm px-3 py-1">
-            {usage.calls_used} / {usage.calls_limit} calls this month
-          </Badge>
-        )}
+        <Badge variant="outline" className="text-sm px-3 py-1">
+          {usage.calls_used} / {usage.calls_limit} calls this month
+        </Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -332,7 +379,7 @@ export default function CallScoring() {
             </div>
 
             {/* Usage Warning */}
-            {usage && usage.calls_used >= usage.calls_limit && (
+            {usage.calls_used >= usage.calls_limit && (
               <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertCircle className="h-4 w-4" />
                 Monthly limit reached. Upgrade to analyze more calls.
@@ -367,13 +414,13 @@ export default function CallScoring() {
               <Clock className="h-5 w-5" />
               Recent Calls
             </CardTitle>
-            <CardDescription>
-              Your last 10 analyzed calls
-            </CardDescription>
+            <CardDescription>Your last 10 analyzed calls</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-muted-foreground text-center py-4">Loading...</p>
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
             ) : recentCalls.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Phone className="h-10 w-10 mx-auto mb-2 opacity-50" />
@@ -381,26 +428,46 @@ export default function CallScoring() {
                 <p className="text-sm">Upload your first call to get started</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {recentCalls.map((call) => (
                   <div
                     key={call.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer"
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
                   >
-                    <div>
-                      <p className="font-medium">{call.team_members?.name || 'Unknown'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(call.created_at).toLocaleDateString()}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <FileAudio className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {call.team_member_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                          {call.original_filename}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {call.overall_score !== null && (
-                        <Badge variant={call.overall_score >= 70 ? 'default' : 'secondary'}>
-                          {call.overall_score}/100
-                        </Badge>
-                      )}
-                      {call.potential_rank && (
-                        <Badge variant="outline">{call.potential_rank}</Badge>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm">
+                          {formatDuration(call.call_duration_seconds)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(call.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      {call.status === 'analyzed' && call.overall_score !== null ? (
+                        <div className={`px-2 py-1 rounded text-sm font-medium ${
+                          call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
+                          call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {call.overall_score}%
+                        </div>
+                      ) : (
+                        <div className="px-2 py-1 rounded text-sm bg-muted text-muted-foreground">
+                          {call.status === 'transcribed' ? 'Pending' : call.status}
+                        </div>
                       )}
                     </div>
                   </div>

@@ -107,13 +107,47 @@ serve(async (req) => {
     const whisperResult = await whisperResponse.json();
     console.log("Transcription complete. Duration:", whisperResult.duration, "seconds");
 
-    // Return success response
+    // Save to agency_calls table
+    const { data: callRecord, error: insertError } = await supabase
+      .from("agency_calls")
+      .insert({
+        agency_id: agencyId,
+        team_member_id: teamMemberId,
+        template_id: templateId,
+        audio_storage_path: storagePath,
+        original_filename: fileName,
+        transcript: whisperResult.text,
+        call_duration_seconds: Math.round(whisperResult.duration),
+        status: "transcribed",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Failed to save call record:", insertError);
+    } else {
+      console.log("Call record saved:", callRecord.id);
+    }
+
+    // Update usage tracking
+    const currentMonth = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const { error: usageError } = await supabase.rpc("increment_call_usage", {
+      p_agency_id: agencyId,
+      p_month: currentMonth,
+    });
+
+    if (usageError) {
+      console.error("Failed to update usage:", usageError);
+    }
+
+    // Return success response with call_id
     return new Response(
       JSON.stringify({
         success: true,
+        call_id: callRecord?.id,
         storage_path: storagePath,
         transcript: whisperResult.text,
-        duration_seconds: whisperResult.duration,
+        duration_seconds: Math.round(whisperResult.duration),
         segments: whisperResult.segments || [],
         language: whisperResult.language,
       }),
