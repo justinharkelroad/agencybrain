@@ -58,10 +58,11 @@ export default function CallScoring() {
   const [userRole, setUserRole] = useState<string>('staff');
   const [userTeamMemberId, setUserTeamMemberId] = useState<string | null>(null);
   
-  // Staff user detection
+  // Staff user detection - check localStorage for staff session token
   const [isStaffUser, setIsStaffUser] = useState(false);
   const [staffAgencyId, setStaffAgencyId] = useState<string | null>(null);
   const [staffTeamMemberId, setStaffTeamMemberId] = useState<string | null>(null);
+  const [staffDataLoaded, setStaffDataLoaded] = useState(false);
   
   // Access control state
   const [accessChecked, setAccessChecked] = useState(false);
@@ -87,29 +88,60 @@ export default function CallScoring() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
 
-  // Detect staff user from localStorage session
+  // Detect staff user by verifying session token (same as useStaffAuth hook)
   useEffect(() => {
-    const staffSession = localStorage.getItem('staffUser');
-    if (staffSession) {
-      try {
-        const staff = JSON.parse(staffSession);
-        console.log('Staff user detected:', staff);
-        setIsStaffUser(true);
-        setStaffAgencyId(staff.agency_id);
-        setStaffTeamMemberId(staff.team_member_id);
-        setAgencyId(staff.agency_id);
-        setUserTeamMemberId(staff.team_member_id);
-        setUserRole('staff');
-      } catch (e) {
-        console.error('Error parsing staff session:', e);
+    const detectStaffUser = async () => {
+      console.log('=== CallScoring Staff Detection ===');
+      const token = localStorage.getItem('staff_session_token');
+      console.log('staff_session_token exists:', !!token);
+      
+      if (!token) {
+        console.log('No staff session token, not a staff user');
+        setStaffDataLoaded(true);
+        return;
       }
-    }
+      
+      try {
+        // Verify token and get user data
+        const { data, error } = await supabase.functions.invoke('staff_verify_session', {
+          body: { session_token: token }
+        });
+        
+        console.log('Staff session verification:', { data, error });
+        
+        if (error || !data?.valid) {
+          console.log('Invalid staff session');
+          setStaffDataLoaded(true);
+          return;
+        }
+        
+        console.log('Staff user detected:', data.user);
+        setIsStaffUser(true);
+        setStaffAgencyId(data.user.agency_id);
+        setStaffTeamMemberId(data.user.team_member_id);
+        setAgencyId(data.user.agency_id);
+        setUserTeamMemberId(data.user.team_member_id);
+        setUserRole('staff');
+        setStaffDataLoaded(true);
+      } catch (err) {
+        console.error('Error detecting staff user:', err);
+        setStaffDataLoaded(true);
+      }
+    };
+    
+    detectStaffUser();
   }, []);
 
-  // Check access for staff users via RPC
+  // Check access for staff users via RPC (wait for staff detection to complete)
   useEffect(() => {
     const checkStaffAccess = async () => {
+      // Wait for staff detection to complete
+      if (!staffDataLoaded) return;
+      
+      // If not a staff user, skip
       if (!isStaffUser || !staffAgencyId) return;
+      
+      console.log('Checking staff access for agency:', staffAgencyId);
       
       const { data: isEnabled, error } = await supabase
         .rpc('is_call_scoring_enabled', { p_agency_id: staffAgencyId });
@@ -125,10 +157,10 @@ export default function CallScoring() {
       }
     };
     
-    if (isStaffUser) {
+    if (staffDataLoaded && isStaffUser) {
       checkStaffAccess();
     }
-  }, [isStaffUser, staffAgencyId, navigate]);
+  }, [staffDataLoaded, isStaffUser, staffAgencyId, navigate]);
 
   // Fetch data for staff users via RPC
   useEffect(() => {
