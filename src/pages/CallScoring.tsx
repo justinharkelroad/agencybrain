@@ -55,6 +55,8 @@ export default function CallScoring() {
   const [loading, setLoading] = useState(true);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('upload');
+  const [userRole, setUserRole] = useState<string>('staff');
+  const [userTeamMemberId, setUserTeamMemberId] = useState<string | null>(null);
   
   // Processing queue for showing uploads in progress
   const [processingCalls, setProcessingCalls] = useState<Array<{
@@ -94,15 +96,29 @@ export default function CallScoring() {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('agency_id')
+        .select('agency_id, role')
         .eq('id', user!.id)
         .single();
 
       if (profile?.agency_id) {
         setAgencyId(profile.agency_id);
+        setUserRole(profile.role || 'staff');
+        
+        // Find user's team member ID if they have one
+        const { data: teamMember } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('user_id', user!.id)
+          .eq('agency_id', profile.agency_id)
+          .single();
+        
+        if (teamMember) {
+          setUserTeamMemberId(teamMember.id);
+        }
+        
         await Promise.all([
-          fetchUsageAndCalls(profile.agency_id),
-          fetchFormData(profile.agency_id)
+          fetchUsageAndCalls(profile.agency_id, profile.role || 'staff', teamMember?.id),
+          fetchFormData(profile.agency_id, profile.role || 'staff', teamMember?.id)
         ]);
       }
     } catch (err) {
@@ -110,7 +126,7 @@ export default function CallScoring() {
     }
   };
 
-  const fetchUsageAndCalls = async (agency: string) => {
+  const fetchUsageAndCalls = async (agency: string, role: string, teamMemberId?: string | null) => {
     setLoading(true);
     
     try {
@@ -128,21 +144,49 @@ export default function CallScoring() {
         setUsage({ calls_used: 0, calls_limit: 20 });
       }
 
-      // Fetch recent calls (limit 10 for display)
-      const { data: callsData } = await supabase
+      // Build base query for recent calls
+      let callsQuery = supabase
         .from('agency_calls')
         .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id')
         .eq('agency_id', agency)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // Fetch ALL analyzed calls for analytics (with skill_scores and discovery_wins)
-      const { data: analyticsData } = await supabase
+      // Build base query for analytics
+      let analyticsQuery = supabase
         .from('agency_calls')
         .select('id, team_member_id, potential_rank, overall_score, skill_scores, discovery_wins, analyzed_at')
         .eq('agency_id', agency)
         .not('analyzed_at', 'is', null)
         .order('analyzed_at', { ascending: false });
+
+      // Apply role-based filtering
+      if (role === 'staff' && teamMemberId) {
+        // Staff can only see their own calls
+        callsQuery = callsQuery.eq('team_member_id', teamMemberId);
+        analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
+      } else if (role === 'manager' && user) {
+        // Managers see calls for team members they manage + their own
+        const { data: managedMembers } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('agency_id', agency)
+          .or(`manager_id.eq.${user.id},user_id.eq.${user.id}`);
+        
+        if (managedMembers && managedMembers.length > 0) {
+          const memberIds = managedMembers.map(m => m.id);
+          callsQuery = callsQuery.in('team_member_id', memberIds);
+          analyticsQuery = analyticsQuery.in('team_member_id', memberIds);
+        } else if (teamMemberId) {
+          // Fall back to just their own calls
+          callsQuery = callsQuery.eq('team_member_id', teamMemberId);
+          analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
+        }
+      }
+      // Agency owners and admins see all calls for the agency (no additional filter)
+
+      const { data: callsData } = await callsQuery;
+      const { data: analyticsData } = await analyticsQuery;
 
       // Get all unique team member IDs from both datasets
       const allTeamMemberIds = [
@@ -155,7 +199,7 @@ export default function CallScoring() {
       const { data: membersData } = await supabase
         .from('team_members')
         .select('id, name')
-        .in('id', allTeamMemberIds);
+        .in('id', allTeamMemberIds.length > 0 ? allTeamMemberIds : ['00000000-0000-0000-0000-000000000000']);
 
       const memberMap = new Map(membersData?.map(m => [m.id, m.name]) || []);
 
@@ -198,14 +242,31 @@ export default function CallScoring() {
     }
   };
 
-  const fetchFormData = async (agency: string) => {
-    const { data: members } = await supabase
+  const fetchFormData = async (agency: string, role: string, teamMemberId?: string | null) => {
+    // Build team members query based on role
+    let membersQuery = supabase
       .from('team_members')
-      .select('id, name')
+      .select('id, name, user_id, manager_id')
       .eq('agency_id', agency)
       .eq('status', 'active')
       .order('name');
+
+    if (role === 'staff' && user) {
+      // Staff can only select themselves
+      membersQuery = membersQuery.eq('user_id', user.id);
+    } else if (role === 'manager' && user) {
+      // Managers can select their managed team members + themselves
+      membersQuery = membersQuery.or(`manager_id.eq.${user.id},user_id.eq.${user.id}`);
+    }
+    // Agency owners and admins see all team members
+
+    const { data: members } = await membersQuery;
     setTeamMembers(members || []);
+    
+    // Auto-select if only one option (for staff)
+    if (members && members.length === 1) {
+      setSelectedTeamMember(members[0].id);
+    }
 
     // Fetch both global templates AND templates for this agency
     const { data: temps } = await supabase
@@ -335,7 +396,7 @@ export default function CallScoring() {
       
       // Refresh the calls list to show new entry
       if (agencyId) {
-        fetchUsageAndCalls(agencyId);
+        fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
       }
       
       toast.success(`"${fileName}" uploaded! Analysis in progress...`);
@@ -371,7 +432,7 @@ export default function CallScoring() {
           duration: 5000,
         });
         if (agencyId) {
-          fetchUsageAndCalls(agencyId); // Refresh to show score
+          fetchUsageAndCalls(agencyId, userRole, userTeamMemberId); // Refresh to show score
         }
         return;
       }
@@ -426,17 +487,19 @@ export default function CallScoring() {
         </Badge>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - hide Analytics for staff users */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className={`grid w-full max-w-md ${userRole === 'staff' ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
-            Upload & Calls
+            {userRole === 'staff' ? 'My Calls' : 'Upload & Calls'}
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Analytics
-          </TabsTrigger>
+          {userRole !== 'staff' && (
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="upload" className="mt-6">
@@ -678,9 +741,11 @@ export default function CallScoring() {
           </div>
         </TabsContent>
 
-        <TabsContent value="analytics" className="mt-6">
-          <CallScoringAnalytics calls={analyticsCalls} teamMembers={teamMembers} />
-        </TabsContent>
+        {userRole !== 'staff' && (
+          <TabsContent value="analytics" className="mt-6">
+            <CallScoringAnalytics calls={analyticsCalls} teamMembers={teamMembers} />
+          </TabsContent>
+        )}
       </Tabs>
       
       <CallScorecard 
