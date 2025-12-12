@@ -123,23 +123,26 @@ Objective: Use the Objection Loop to overcome resistance.
 ## REQUIRED JSON RESPONSE FORMAT
 
 {
-  "salesperson_name": "<first name only, from transcript>",
+  "salesperson_name": "<first name of the agent from transcript, or 'Agent' if unclear>",
   "potential_rank": "<VERY LOW | LOW | MEDIUM | HIGH | VERY HIGH>",
-  "potential_rank_rationale": "<2-3 sentences citing specific observations, 80% prospect signals, 20% salesperson effectiveness>",
+  "potential_rank_rationale": "<3-4 sentences explaining the ranking with specific quotes and observations>",
   
-  "critical_assessment": "<1-2 sentence summary of the main issue or success>",
+  "critical_assessment": "<3-4 detailed sentences about the main issues or successes, citing specific moments from the call>",
   
   "rapport_score": <0-100>,
-  "rapport_failures": ["<specific failures with quotes if available>"],
-  "rapport_coaching": "<one directive sentence for improvement>",
+  "rapport_wins": ["<specific thing done well - be specific with quotes if possible>"],
+  "rapport_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
+  "rapport_coaching": "<2-3 sentences of specific, actionable coaching with examples of what to say>",
   
   "coverage_score": <0-100>,
-  "coverage_failures": ["<specific failures>"],
-  "coverage_coaching": "<one directive sentence>",
+  "coverage_wins": ["<specific thing done well>"],
+  "coverage_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
+  "coverage_coaching": "<2-3 sentences of specific, actionable coaching with examples>",
   
   "closing_score": <0-100>,
-  "closing_failures": ["<specific failures>"],
-  "closing_coaching": "<one directive sentence>",
+  "closing_wins": ["<specific thing done well - quote any close attempts>"],
+  "closing_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
+  "closing_coaching": "<2-3 sentences of specific, actionable coaching with example phrases to use>",
   
   "objection_handling_score": <0-100>,
   "discovery_score": <0-100>,
@@ -155,6 +158,12 @@ Objective: Use the Objection Loop to overcome resistance.
     "set_follow_up": <true/false>
   },
   
+  "corrective_action_plan": {
+    "rapport": "<2-3 sentences with specific phrases and techniques to implement>",
+    "value_building": "<2-3 sentences on how to better educate and position as advisor>",
+    "closing": "<2-3 sentences on specific closing techniques and language to use>"
+  },
+  
   "crm_notes": {
     "personal_rapport": "<family, work, hobbies mentioned>",
     "motivation_to_switch": "<reasons stated>",
@@ -168,15 +177,23 @@ Objective: Use the Objection Loop to overcome resistance.
   "extracted_data": {
     "client_first_name": "<first name only>",
     "current_carrier": "<carrier name>",
-    "your_quote": "<monthly or annual premium quoted>",
-    "competitor_quote": "<their current premium if mentioned>",
-    "assets": ["<vehicles, home, etc>"],
+    "your_quote": "<premium quoted - format as $X/month or $X/year>",
+    "competitor_quote": "<their current premium - format as $X/month or $X/year>",
+    "assets": ["<vehicle 1>", "<vehicle 2>", "<home if applicable>"],
     "timeline": "<decision timeline if mentioned>"
   },
   
   "call_outcome": "<sold | not_sold | follow_up_scheduled | undecided>",
   "summary": "<2-3 sentences: why call occurred, outcome, next step>"
 }
+
+IMPORTANT RULES:
+- Each section (rapport, coverage, closing) MUST have at least 1 win (something done well) and 1-2 failures
+- If they did something well, acknowledge it as a win even if the overall score is low
+- Coaching must be 2-3 full sentences with specific examples and phrases to use
+- Critical assessment must be 3-4 sentences minimum
+- Be specific - cite quotes from the transcript when possible
+- Format prices consistently as $X/month or $X/year
 
 ## TRANSCRIPT
 ${call.transcript}`;
@@ -266,26 +283,32 @@ ${call.transcript}`;
         section_scores: {
           rapport: {
             score: analysis.rapport_score,
+            wins: analysis.rapport_wins,
             failures: analysis.rapport_failures,
             coaching: analysis.rapport_coaching
           },
           coverage: {
             score: analysis.coverage_score,
+            wins: analysis.coverage_wins,
             failures: analysis.coverage_failures,
             coaching: analysis.coverage_coaching
           },
           closing: {
             score: analysis.closing_score,
+            wins: analysis.closing_wins,
             failures: analysis.closing_failures,
             coaching: analysis.closing_coaching
           }
         },
         client_profile: analysis.extracted_data,
         discovery_wins: analysis.execution_checklist,
-        critical_gaps: [analysis.critical_assessment],
+        critical_gaps: {
+          assessment: analysis.critical_assessment,
+          rationale: analysis.potential_rank_rationale,
+          corrective_plan: analysis.corrective_action_plan
+        },
         closing_attempts: analysis.crm_notes,
         summary: analysis.summary,
-        missed_signals: [analysis.potential_rank_rationale],
         status: "analyzed",
         analyzed_at: new Date().toISOString(),
       })

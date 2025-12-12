@@ -343,7 +343,11 @@ export default function CallScoring() {
       .eq('id', call.id)
       .single();
     
-    setSelectedCall(fullCall || call);
+    // Merge with the team member name from the list
+    setSelectedCall({
+      ...fullCall,
+      team_member_name: call.team_member_name
+    });
     setScorecardOpen(true);
   };
 
