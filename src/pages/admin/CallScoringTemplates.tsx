@@ -28,11 +28,12 @@ export default function CallScoringTemplates() {
   const [saving, setSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CallScoringTemplate | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     system_prompt: '',
-    skill_categories: ''
+    skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell'
   });
 
   useEffect(() => {
@@ -175,6 +176,63 @@ export default function CallScoringTemplates() {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      system_prompt: '',
+      skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell'
+    });
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!formData.system_prompt.trim()) {
+      toast.error('System Prompt is required');
+      return;
+    }
+
+    const skillsArray = formData.skill_categories
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (skillsArray.length === 0) {
+      toast.error('At least one skill category is required');
+      return;
+    }
+
+    setSaving(true);
+    const { error } = await supabase
+      .from('call_scoring_templates')
+      .insert({
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        system_prompt: formData.system_prompt.trim(),
+        skill_categories: skillsArray,
+        is_active: true
+      });
+
+    setSaving(false);
+    if (error) {
+      toast.error('Failed to create template');
+      console.error(error);
+    } else {
+      toast.success('Template created');
+      setCreateDialogOpen(false);
+      resetForm();
+      fetchTemplates();
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <Card>
@@ -188,7 +246,7 @@ export default function CallScoringTemplates() {
               Manage AI prompts used for analyzing sales calls
             </CardDescription>
           </div>
-          <Button className="gap-2" disabled>
+          <Button className="gap-2" onClick={openCreateDialog}>
             <Plus className="h-4 w-4" />
             Add Template
           </Button>
@@ -292,18 +350,18 @@ export default function CallScoringTemplates() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="edit-name">Name *</Label>
               <Input
-                id="name"
+                id="edit-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Template name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="edit-description">Description</Label>
               <Textarea
-                id="description"
+                id="edit-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Brief description of this template"
@@ -311,9 +369,9 @@ export default function CallScoringTemplates() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="system_prompt">System Prompt *</Label>
+              <Label htmlFor="edit-system_prompt">System Prompt *</Label>
               <Textarea
-                id="system_prompt"
+                id="edit-system_prompt"
                 value={formData.system_prompt}
                 onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
                 placeholder="AI system prompt for analyzing calls..."
@@ -322,9 +380,9 @@ export default function CallScoringTemplates() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="skill_categories">Skill Categories</Label>
+              <Label htmlFor="edit-skill_categories">Skill Categories</Label>
               <Input
-                id="skill_categories"
+                id="edit-skill_categories"
                 value={formData.skill_categories}
                 onChange={(e) => setFormData({ ...formData, skill_categories: e.target.value })}
                 placeholder="Rapport, Discovery, Coverage, Closing, Cross-Sell"
@@ -339,6 +397,71 @@ export default function CallScoringTemplates() {
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Scoring Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-name">Name *</Label>
+              <Input
+                id="create-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Standard Insurance Sales Review"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-description">Description</Label>
+              <Textarea
+                id="create-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Brief description of when to use this template"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-prompt">System Prompt *</Label>
+              <Textarea
+                id="create-prompt"
+                value={formData.system_prompt}
+                onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                placeholder="Enter the AI prompt that will analyze call transcripts..."
+                className="font-mono text-sm"
+                rows={12}
+              />
+              <p className="text-xs text-muted-foreground">
+                This prompt instructs the AI how to analyze and score sales calls.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-skills">Skill Categories</Label>
+              <Input
+                id="create-skills"
+                value={formData.skill_categories}
+                onChange={(e) => setFormData({ ...formData, skill_categories: e.target.value })}
+                placeholder="Rapport, Discovery, Coverage, Closing, Cross-Sell"
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated list of skills to score (e.g., Rapport, Discovery, Closing)
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Template
             </Button>
           </DialogFooter>
         </DialogContent>
