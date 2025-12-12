@@ -141,22 +141,30 @@ export default function CallScoring() {
 
       if (profile?.agency_id) {
         setAgencyId(profile.agency_id);
-        setUserRole(profile.role || 'staff');
+        const role = profile.role || 'user';
+        setUserRole(role);
         
-        // Find user's team member ID if they have one (via staff_users link)
-        const { data: staffUser } = await supabase
-          .from('staff_users')
-          .select('team_member_id')
-          .eq('agency_id', profile.agency_id)
-          .maybeSingle();
+        // Find user's team member ID via staff_users link (for staff/manager roles)
+        let teamMemberId: string | null = null;
         
-        if (staffUser?.team_member_id) {
-          setUserTeamMemberId(staffUser.team_member_id);
+        if (role !== 'admin') {
+          const { data: staffUser, error: staffError } = await supabase
+            .from('staff_users')
+            .select('team_member_id')
+            .eq('agency_id', profile.agency_id)
+            .maybeSingle();
+          
+          console.log('Staff user lookup:', { staffUser, staffError, userId: user!.id });
+          
+          if (staffUser?.team_member_id) {
+            teamMemberId = staffUser.team_member_id;
+            setUserTeamMemberId(teamMemberId);
+          }
         }
         
         await Promise.all([
-          fetchUsageAndCalls(profile.agency_id, profile.role || 'staff', staffUser?.team_member_id),
-          fetchFormData(profile.agency_id, profile.role || 'staff', staffUser?.team_member_id)
+          fetchUsageAndCalls(profile.agency_id, role, teamMemberId),
+          fetchFormData(profile.agency_id, role, teamMemberId)
         ]);
       }
     } catch (err) {
@@ -199,16 +207,13 @@ export default function CallScoring() {
         .order('analyzed_at', { ascending: false });
 
       // Apply role-based filtering
-      if (role === 'staff' && teamMemberId) {
-        // Staff can only see their own calls
-        callsQuery = callsQuery.eq('team_member_id', teamMemberId);
-        analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
-      } else if (role === 'manager' && teamMemberId) {
-        // Managers see their own calls (simplified - no manager_id column exists)
+      // Staff/managers with linked team_member only see their own calls
+      // Agency owners (role=user or null) and admins see all agency calls
+      if ((role === 'staff' || role === 'manager') && teamMemberId) {
         callsQuery = callsQuery.eq('team_member_id', teamMemberId);
         analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
       }
-      // Agency owners and admins see all calls for the agency (no additional filter)
+      // Agency owners (role='user' or null) and admins see all calls for the agency
 
       const { data: callsData } = await callsQuery;
       const { data: analyticsData } = await analyticsQuery;
@@ -268,26 +273,30 @@ export default function CallScoring() {
   };
 
   const fetchFormData = async (agency: string, role: string, teamMemberId?: string | null) => {
-    // For staff, only show their own team member record
-    // For agency owners/admins, show all active team members
+    // For staff/managers with linked team_member, only show their own record
+    // For agency owners (role=user or null) and admins, show all active team members
     let members: { id: string; name: string }[] = [];
     
-    if (role === 'staff' && teamMemberId) {
-      // Staff can only select themselves
-      const { data } = await supabase
+    if ((role === 'staff' || role === 'manager') && teamMemberId) {
+      // Staff/managers can only select themselves
+      const { data, error } = await supabase
         .from('team_members')
         .select('id, name')
         .eq('id', teamMemberId)
         .single();
+      
+      console.log('Staff team member fetch:', { data, error, teamMemberId });
       if (data) members = [data];
     } else {
-      // Agency owners, managers, and admins see all active team members
-      const { data } = await supabase
+      // Agency owners (role='user', 'admin', or null) see all active team members
+      const { data, error } = await supabase
         .from('team_members')
         .select('id, name')
         .eq('agency_id', agency)
         .eq('status', 'active')
         .order('name');
+      
+      console.log('All team members fetch:', { data, error, agency });
       members = data || [];
     }
     
