@@ -15,9 +15,8 @@ import {
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import { toast } from 'sonner';
+import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 
 interface CallScorecardProps {
   call: any;
@@ -76,61 +75,24 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
   const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
   const maxQuote = Math.max(yourQuoteValue, competitorQuoteValue, 1);
 
-  const exportAsPNG = async () => {
+  const handleExportPNG = async () => {
     if (!scorecardRef.current) return;
-    
     setExporting(true);
-    try {
-      const canvas = await html2canvas(scorecardRef.current, {
-        backgroundColor: '#0a0a0b',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      
-      const link = document.createElement('a');
-      link.download = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      
-      toast.success('Scorecard downloaded as PNG');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export scorecard');
-    } finally {
-      setExporting(false);
-    }
+    const filename = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}`;
+    const success = await exportScorecardAsPNG(scorecardRef.current, filename);
+    if (success) toast.success('Downloaded as PNG');
+    else toast.error('Export failed');
+    setExporting(false);
   };
 
-  const exportAsPDF = async () => {
+  const handleExportPDF = async () => {
     if (!scorecardRef.current) return;
-    
     setExporting(true);
-    try {
-      const canvas = await html2canvas(scorecardRef.current, {
-        backgroundColor: '#0a0a0b',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}.pdf`);
-      
-      toast.success('Scorecard downloaded as PDF');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export scorecard');
-    } finally {
-      setExporting(false);
-    }
+    const filename = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}`;
+    const success = await exportScorecardAsPDF(scorecardRef.current, filename);
+    if (success) toast.success('Downloaded as PDF');
+    else toast.error('Export failed');
+    setExporting(false);
   };
 
   const copyShareLink = () => {
@@ -166,11 +128,11 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={exportAsPNG}>
+                  <DropdownMenuItem onClick={handleExportPNG}>
                     <Image className="h-4 w-4 mr-2" />
                     Download as PNG
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={exportAsPDF}>
+                  <DropdownMenuItem onClick={handleExportPDF}>
                     <FileText className="h-4 w-4 mr-2" />
                     Download as PDF
                   </DropdownMenuItem>
