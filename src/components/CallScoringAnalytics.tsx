@@ -12,10 +12,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
   Tooltip,
   Legend,
 } from 'recharts';
@@ -136,7 +132,8 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
 
     const checklistRates = checklistCount > 0 
       ? Object.entries(checklistTotals).map(([key, count]) => ({
-          name: CHECKLIST_LABELS[key] || key,
+          key,
+          skill: CHECKLIST_LABELS[key] || key,
           rate: Math.round((count / checklistCount) * 100),
         })).sort((a, b) => b.rate - a.rate)
       : [];
@@ -376,24 +373,36 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
       {/* Execution Checklist Hit Rates */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Execution Checklist Hit Rates</CardTitle>
+          <CardTitle className="text-sm">Execution Checklist Hit Rates</CardTitle>
         </CardHeader>
         <CardContent>
           {stats?.checklistRates && stats.checklistRates.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={stats.checklistRates} layout="vertical" margin={{ left: 20 }}>
-                <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value: number) => [`${value}%`, 'Hit Rate']} />
-                <Bar 
-                  dataKey="rate" 
-                  fill="hsl(var(--primary))"
-                  radius={[0, 4, 4, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              {stats.checklistRates.map((item: any) => (
+                <div key={item.key} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{item.skill}</span>
+                    <span className={`font-medium ${
+                      item.rate >= 70 ? 'text-green-400' : 
+                      item.rate >= 40 ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {item.rate}%
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        item.rate >= 70 ? 'bg-green-500' : 
+                        item.rate >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${item.rate}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground">
               No checklist data available
             </div>
           )}
