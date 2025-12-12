@@ -86,13 +86,13 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Key Metrics Row */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Key Metrics Row - Stack on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Your Quote */}
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">YOUR QUOTE</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xl sm:text-2xl font-bold break-words">
                   {extractedData.your_quote || '--'}
                 </p>
               </CardContent>
@@ -102,7 +102,7 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">COMPETITOR AVG</p>
-                <p className="text-2xl font-bold text-green-400">
+                <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">
                   {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : '--'}
                 </p>
               </CardContent>
@@ -111,10 +111,10 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
             {/* Asset Profile */}
             <Card className="bg-muted/30">
               <CardContent className="pt-4">
-                <p className="text-xs text-muted-foreground mb-1">ASSET PROFILE</p>
-                <div className="flex items-center justify-center gap-4 text-sm">
+                <p className="text-xs text-muted-foreground mb-1 text-center sm:text-left">ASSET PROFILE</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm">
                   {extractedData.assets?.slice(0, 2).map((asset: string, i: number) => (
-                    <span key={i} className="truncate max-w-[100px]">{asset}</span>
+                    <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
                   )) || <span className="text-muted-foreground">--</span>}
                 </div>
               </CardContent>
@@ -130,8 +130,8 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                   <AlertTriangle className="h-3 w-3" />
                   CRITICAL ASSESSMENT
                 </p>
-                <p className="text-sm">
-                  {call.critical_gaps?.[0] || call.summary || 'Analysis pending...'}
+                <p className="text-sm leading-relaxed">
+                  {call.critical_gaps?.assessment || call.summary || 'Analysis pending...'}
                 </p>
               </CardContent>
             </Card>
@@ -184,7 +184,7 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
           </div>
 
           {/* Three Section Scores */}
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Rapport */}
             <Card>
               <CardContent className="pt-4">
@@ -192,14 +192,23 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                   <h3 className="font-bold text-sm">RAPPORT</h3>
                   <User className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="space-y-2">
-                  {sectionScores.rapport?.failures?.map((failure: string, i: number) => (
-                    <p key={i} className="text-sm text-red-400 flex items-start gap-2">
-                      <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      {failure}
-                    </p>
-                  ))}
-                </div>
+                
+                {/* Wins */}
+                {sectionScores.rapport?.wins?.map((win: string, i: number) => (
+                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{win}</span>
+                  </p>
+                ))}
+                
+                {/* Failures */}
+                {sectionScores.rapport?.failures?.map((failure: string, i: number) => (
+                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{failure}</span>
+                  </p>
+                ))}
+                
                 {sectionScores.rapport?.coaching && (
                   <div className="mt-4 pt-3 border-t">
                     <p className="text-xs text-muted-foreground mb-1">COACHING</p>
@@ -216,14 +225,21 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                   <h3 className="font-bold text-sm">COVERAGE</h3>
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="space-y-2">
-                  {sectionScores.coverage?.failures?.map((failure: string, i: number) => (
-                    <p key={i} className="text-sm text-red-400 flex items-start gap-2">
-                      <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      {failure}
-                    </p>
-                  ))}
-                </div>
+                
+                {sectionScores.coverage?.wins?.map((win: string, i: number) => (
+                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{win}</span>
+                  </p>
+                ))}
+                
+                {sectionScores.coverage?.failures?.map((failure: string, i: number) => (
+                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{failure}</span>
+                  </p>
+                ))}
+                
                 {sectionScores.coverage?.coaching && (
                   <div className="mt-4 pt-3 border-t">
                     <p className="text-xs text-muted-foreground mb-1">COACHING</p>
@@ -240,14 +256,21 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                   <h3 className="font-bold text-sm">CLOSING</h3>
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="space-y-2">
-                  {sectionScores.closing?.failures?.map((failure: string, i: number) => (
-                    <p key={i} className="text-sm text-red-400 flex items-start gap-2">
-                      <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      {failure}
-                    </p>
-                  ))}
-                </div>
+                
+                {sectionScores.closing?.wins?.map((win: string, i: number) => (
+                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{win}</span>
+                  </p>
+                ))}
+                
+                {sectionScores.closing?.failures?.map((failure: string, i: number) => (
+                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>{failure}</span>
+                  </p>
+                ))}
+                
                 {sectionScores.closing?.coaching && (
                   <div className="mt-4 pt-3 border-t">
                     <p className="text-xs text-muted-foreground mb-1">COACHING</p>
@@ -350,12 +373,14 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
             <CardContent className="pt-4">
               <h3 className="font-bold text-sm mb-4">CORRECTIVE ACTION PLAN</h3>
               
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Rapport Action */}
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
                   <p className="text-sm text-muted-foreground">
-                    {sectionScores.rapport?.coaching || 'Build deeper connection using the HWF framework before discussing insurance details.'}
+                    {call.critical_gaps?.corrective_plan?.rapport || 
+                     sectionScores.rapport?.coaching || 
+                     'Build deeper connection using the HWF framework before discussing insurance details.'}
                   </p>
                 </div>
                 
@@ -363,7 +388,9 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
                   <p className="text-sm text-muted-foreground">
-                    {sectionScores.coverage?.coaching || 'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
+                    {call.critical_gaps?.corrective_plan?.value_building || 
+                     sectionScores.coverage?.coaching || 
+                     'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
                   </p>
                 </div>
                 
@@ -371,7 +398,9 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
                   <p className="text-sm text-muted-foreground">
-                    {sectionScores.closing?.coaching || 'Use assumptive close language and set hard follow-up appointments with specific times.'}
+                    {call.critical_gaps?.corrective_plan?.closing || 
+                     sectionScores.closing?.coaching || 
+                     'Use assumptive close language and set hard follow-up appointments with specific times.'}
                   </p>
                 </div>
               </div>
