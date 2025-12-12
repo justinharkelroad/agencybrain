@@ -165,17 +165,39 @@ export default function CallScoring() {
   // Fetch data for staff users via RPC
   useEffect(() => {
     const fetchStaffData = async () => {
-      if (!hasAccess || !staffAgencyId || !staffTeamMemberId) return;
+      console.log('=== fetchStaffData ===');
+      console.log('hasAccess:', hasAccess);
+      console.log('staffAgencyId:', staffAgencyId);
+      console.log('staffTeamMemberId:', staffTeamMemberId);
+      
+      if (!hasAccess) {
+        console.log('No access yet, aborting fetch');
+        return;
+      }
+      
+      if (!staffAgencyId) {
+        console.log('No agency ID, aborting fetch');
+        return;
+      }
+      
+      if (!staffTeamMemberId) {
+        console.log('No team member ID, aborting fetch');
+        return;
+      }
       
       setLoading(true);
-      console.log('Fetching staff call scoring data:', { staffAgencyId, staffTeamMemberId });
       
       const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
         p_team_member_id: staffTeamMemberId
       });
 
-      console.log('Staff call scoring data:', data, 'Error:', error);
+      console.log('RPC response data:', data);
+      console.log('RPC error:', error);
+      console.log('Recent calls returned:', data?.recent_calls);
+      console.log('Team members returned:', data?.team_members);
+      console.log('Templates returned:', data?.templates);
+      console.log('Usage returned:', data?.usage);
 
       if (data) {
         setTemplates(data.templates || []);
