@@ -464,9 +464,14 @@ export default function CallScoring() {
                         }`}>
                           {call.overall_score}%
                         </div>
+                      ) : call.status === 'analyzing' ? (
+                        <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Analyzing
+                        </div>
                       ) : (
                         <div className="px-2 py-1 rounded text-sm bg-muted text-muted-foreground">
-                          {call.status === 'transcribed' ? 'Pending' : call.status}
+                          Pending
                         </div>
                       )}
                     </div>
