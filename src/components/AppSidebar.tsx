@@ -72,29 +72,43 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   useEffect(() => {
     const checkCallScoringAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      console.log('Sidebar - Current user:', user?.email);
+      
+      if (!user) {
+        console.log('Sidebar - No user found');
+        setCallScoringEnabled(false);
+        return;
+      }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('agency_id, role')
         .eq('id', user.id)
         .single();
 
+      console.log('Sidebar - Profile:', profile, 'Error:', profileError);
+
       // Admins always see it
       if (profile?.role === 'admin') {
+        console.log('Sidebar - Admin user, showing call scoring');
         setCallScoringEnabled(true);
         return;
       }
 
       // For non-admins, check if their agency has it enabled
       if (profile?.agency_id) {
-        const { data: settings } = await supabase
+        const { data: settings, error: settingsError } = await supabase
           .from('agency_call_scoring_settings')
           .select('enabled')
           .eq('agency_id', profile.agency_id)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid error if no record exists
+
+        console.log('Sidebar - Call scoring settings:', settings, 'Error:', settingsError);
 
         setCallScoringEnabled(settings?.enabled ?? false);
+      } else {
+        console.log('Sidebar - No agency_id found');
+        setCallScoringEnabled(false);
       }
     };
 
