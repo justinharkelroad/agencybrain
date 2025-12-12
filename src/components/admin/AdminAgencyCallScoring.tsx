@@ -96,6 +96,7 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
 
       if (error) throw error;
       toast.success('Call scoring settings saved');
+      await fetchSettings(); // Refresh usage data with new period dates
     } catch (err: any) {
       console.error('Error saving settings:', err);
       toast.error('Failed to save call scoring settings');
