@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -21,6 +22,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -45,7 +47,6 @@ const mainItems = [
   { title: "Training", url: "/training", icon: BookOpen },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
-  { title: "Call Scoring", url: "/call-scoring", icon: Phone, adminOnly: true },
 ];
 
 // Admin-only items (system-wide admin access)
@@ -65,6 +66,40 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, isAgencyOwner } = useAuth();
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
+  const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+
+  // Check if call scoring is enabled for user's agency
+  useEffect(() => {
+    const checkCallScoringAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id, role')
+        .eq('id', user.id)
+        .single();
+
+      // Admins always see it
+      if (profile?.role === 'admin') {
+        setCallScoringEnabled(true);
+        return;
+      }
+
+      // For non-admins, check if their agency has it enabled
+      if (profile?.agency_id) {
+        const { data: settings } = await supabase
+          .from('agency_call_scoring_settings')
+          .select('enabled')
+          .eq('agency_id', profile.agency_id)
+          .single();
+
+        setCallScoringEnabled(settings?.enabled ?? false);
+      }
+    };
+
+    checkCallScoringAccess();
+  }, []);
 
   const isActive = (path: string) => {
     // Training should be active for any training sub-route
@@ -106,10 +141,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu>
-                {mainItems
-                  .filter(item => !item.adminOnly || isAdmin)
-                  .map((item) => {
+            <SidebarMenu>
+                {mainItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.url);
                     
@@ -131,6 +164,24 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       </SidebarMenuItem>
                     );
                   })}
+                {/* Call Scoring - show for admins OR enabled agencies */}
+                {callScoringEnabled && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive("/call-scoring")}
+                      className={cn(
+                        "hover:bg-muted/40 transition-colors",
+                        isActive("/call-scoring") && "bg-muted/50 text-foreground"
+                      )}
+                    >
+                      <Link to="/call-scoring" className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Call Scoring</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {/* Tools button - under Scorecards */}
                 {onOpenROI && (
                   <SidebarMenuItem>
