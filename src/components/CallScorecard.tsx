@@ -103,47 +103,40 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-        {/* Header */}
-        <div className="bg-background border-b p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs text-red-500 font-medium tracking-wider mb-1">CALL PERFORMANCE AUDIT</p>
-              <h1 className="text-2xl font-bold tracking-tight">
-                SALESPERSON: {salespersonName.toUpperCase()}
-              </h1>
-              <div className="h-1 w-16 bg-blue-500 mt-2" />
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {/* Export Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={exporting}>
-                    {exporting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                    <span className="ml-2 hidden sm:inline">Export</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExportPNG}>
-                    <Image className="h-4 w-4 mr-2" />
-                    Download as PNG
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportPDF}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Download as PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyShareLink}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Copy Share Link
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              {/* Rank Badge */}
+        {/* Export buttons - OUTSIDE the ref so they don't appear in export */}
+        <div className="absolute top-4 right-12 z-10 flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportPNG}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <span className="ml-1 hidden sm:inline">PNG</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExportPDF}
+            disabled={exporting}
+          >
+            <Download className="h-4 w-4" />
+            <span className="ml-1 hidden sm:inline">PDF</span>
+          </Button>
+        </div>
+
+        {/* Everything that should be exported goes inside this ref */}
+        <div ref={scorecardRef} className="bg-background">
+          {/* Header */}
+          <div className="border-b p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-red-500 font-medium tracking-wider mb-1">CALL PERFORMANCE AUDIT</p>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  SALESPERSON: {salespersonName.toUpperCase()}
+                </h1>
+                <div className="h-1 w-16 bg-blue-500 mt-2" />
+              </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground mb-1">PERFORMANCE RANK</p>
                 <Badge className={`text-lg px-3 py-1 ${getRankColor(call.potential_rank)}`}>
@@ -152,10 +145,9 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Exportable content */}
-        <div ref={scorecardRef} className="p-6 space-y-6 bg-background">
+          {/* Main content */}
+          <div className="p-6 space-y-6">
           {/* Key Metrics Row - Stack on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Your Quote */}
@@ -561,6 +553,7 @@ export function CallScorecard({ call, open, onClose }: CallScorecardProps) {
             {call.analyzed_at && (
               <span>Analyzed: {new Date(call.analyzed_at).toLocaleTimeString()}</span>
             )}
+          </div>
           </div>
         </div>
       </DialogContent>
