@@ -745,6 +745,8 @@ const App = () => (
               <Route path="flows" element={<StaffFlows />} />
               <Route path="flows/profile" element={<StaffFlowProfile />} />
               <Route path="flows/library" element={<FlowLibrary />} />
+              {/* Call Scoring */}
+              <Route path="call-scoring" element={<CallScoring />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
