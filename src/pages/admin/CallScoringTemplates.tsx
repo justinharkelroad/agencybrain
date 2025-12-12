@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CallScoringTemplate {
@@ -18,6 +19,7 @@ interface CallScoringTemplate {
   system_prompt: string;
   skill_categories: string[];
   is_active: boolean;
+  is_global: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +35,8 @@ export default function CallScoringTemplates() {
     name: '',
     description: '',
     system_prompt: '',
-    skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell'
+    skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
+    is_global: false
   });
 
   useEffect(() => {
@@ -58,7 +61,8 @@ export default function CallScoringTemplates() {
           ? t.skill_categories 
           : typeof t.skill_categories === 'string'
             ? JSON.parse(t.skill_categories)
-            : []
+            : [],
+        is_global: t.is_global || false
       }));
       setTemplates(parsed);
     }
@@ -73,7 +77,8 @@ export default function CallScoringTemplates() {
       system_prompt: template.system_prompt,
       skill_categories: Array.isArray(template.skill_categories) 
         ? template.skill_categories.join(', ') 
-        : ''
+        : '',
+      is_global: template.is_global || false
     });
     setEditDialogOpen(true);
   };
@@ -102,6 +107,7 @@ export default function CallScoringTemplates() {
         description: formData.description.trim() || null,
         system_prompt: formData.system_prompt,
         skill_categories: skillsArray,
+        is_global: formData.is_global,
         updated_at: new Date().toISOString()
       })
       .eq('id', editingTemplate.id);
@@ -181,7 +187,8 @@ export default function CallScoringTemplates() {
       name: '',
       description: '',
       system_prompt: '',
-      skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell'
+      skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
+      is_global: false
     });
   };
 
@@ -218,7 +225,8 @@ export default function CallScoringTemplates() {
         description: formData.description.trim() || null,
         system_prompt: formData.system_prompt.trim(),
         skill_categories: skillsArray,
-        is_active: true
+        is_active: true,
+        is_global: formData.is_global
       });
 
     setSaving(false);
@@ -277,7 +285,17 @@ export default function CallScoringTemplates() {
                 <TableBody>
                   {templates.map((template) => (
                     <TableRow key={template.id}>
-                      <TableCell className="font-medium">{template.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {template.name}
+                          {template.is_global && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Globe className="h-3 w-3 mr-1" />
+                              Global
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {truncateText(template.description, 50)}
                       </TableCell>
@@ -389,6 +407,18 @@ export default function CallScoringTemplates() {
               />
               <p className="text-xs text-muted-foreground">Comma-separated list of skills to score</p>
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-is_global"
+                checked={formData.is_global}
+                onCheckedChange={(checked) => 
+                  setFormData({ ...formData, is_global: checked as boolean })
+                }
+              />
+              <Label htmlFor="edit-is_global" className="text-sm">
+                Deploy to all agencies (global template)
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
@@ -453,6 +483,18 @@ export default function CallScoringTemplates() {
               <p className="text-xs text-muted-foreground">
                 Comma-separated list of skills to score (e.g., Rapport, Discovery, Closing)
               </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="create-is_global"
+                checked={formData.is_global}
+                onCheckedChange={(checked) => 
+                  setFormData({ ...formData, is_global: checked as boolean })
+                }
+              />
+              <Label htmlFor="create-is_global" className="text-sm">
+                Deploy to all agencies (global template)
+              </Label>
             </div>
           </div>
           <DialogFooter>

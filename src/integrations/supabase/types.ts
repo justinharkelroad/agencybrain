@@ -125,6 +125,44 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_call_scoring_settings: {
+        Row: {
+          agency_id: string | null
+          calls_limit: number | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          reset_day: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          calls_limit?: number | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          reset_day?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          calls_limit?: number | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          reset_day?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_call_scoring_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_calls: {
         Row: {
           agency_id: string
@@ -524,6 +562,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          is_global: boolean | null
           name: string
           output_schema: Json | null
           skill_categories: Json
@@ -535,6 +574,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_global?: boolean | null
           name: string
           output_schema?: Json | null
           skill_categories?: Json
@@ -546,6 +586,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_global?: boolean | null
           name?: string
           output_schema?: Json | null
           skill_categories?: Json
@@ -563,6 +604,9 @@ export type Database = {
           calls_used: number | null
           created_at: string | null
           id: string
+          period_end: string | null
+          period_start: string | null
+          reset_day: number | null
         }
         Insert: {
           agency_id: string
@@ -572,6 +616,9 @@ export type Database = {
           calls_used?: number | null
           created_at?: string | null
           id?: string
+          period_end?: string | null
+          period_start?: string | null
+          reset_day?: number | null
         }
         Update: {
           agency_id?: string
@@ -581,6 +628,9 @@ export type Database = {
           calls_used?: number | null
           created_at?: string | null
           id?: string
+          period_end?: string | null
+          period_start?: string | null
+          reset_day?: number | null
         }
         Relationships: [
           {
@@ -4895,6 +4945,15 @@ export type Database = {
       }
       bind_form_kpis: { Args: { p_form: string }; Returns: undefined }
       calculate_data_completeness: { Args: { data: Json }; Returns: number }
+      check_and_reset_call_usage: {
+        Args: { p_agency_id: string }
+        Returns: {
+          calls_limit: number
+          calls_used: number
+          period_end: string
+          should_reset: boolean
+        }[]
+      }
       check_form_kpi_versions: {
         Args: { p_form_id: string }
         Returns: {
@@ -5098,7 +5157,7 @@ export type Database = {
         Returns: boolean
       }
       increment_call_usage: {
-        Args: { p_agency_id: string; p_month: string }
+        Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
       }
       is_now_agency_time: {

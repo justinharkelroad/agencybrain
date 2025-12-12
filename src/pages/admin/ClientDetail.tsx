@@ -26,6 +26,7 @@ import { EditFocusItemDialog } from "@/components/focus/EditFocusItemDialog";
 import { useAdminFocusItems } from "@/hooks/useAdminFocusItems";
 import type { ColumnStatus, FocusItem } from "@/hooks/useFocusItems";
 import { PeriodVersionHistory } from "@/components/client/PeriodVersionHistory";
+import { AdminAgencyCallScoring } from "@/components/admin/AdminAgencyCallScoring";
 
 interface Client {
   id: string;
@@ -81,6 +82,7 @@ export default function ClientDetail() {
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [agencyName, setAgencyName] = useState<string>('Client');
+  const [clientAgencyId, setClientAgencyId] = useState<string | null>(null);
   const [selectedPeriodForHistory, setSelectedPeriodForHistory] = useState<string | null>(null);
   
   // Form states
@@ -354,6 +356,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
       // Resolve agency name for header
       try {
         if (clientData?.agency_id) {
+          setClientAgencyId(clientData.agency_id);
           const { data: agency, error: agencyError } = await supabase
             .from('agencies')
             .select('name')
@@ -366,6 +369,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
             setAgencyName(agency?.name || 'Client');
           }
         } else {
+          setClientAgencyId(null);
           setAgencyName('Client');
         }
       } catch (e) {
@@ -1082,34 +1086,41 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
 
         {/* Coaching Tab */}
         <TabsContent value="coaching">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <DollarSign className="h-5 w-5 mr-2" />
-                Coaching MRR
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-3 max-w-md">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="coaching-mrr">Monthly Recurring Revenue</Label>
-                  <Input
-                    id="coaching-mrr"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={mrrInput}
-                    onChange={(e) => setMrrInput(e.target.value)}
-                  />
-                  <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2" />
+                  Coaching MRR
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-3 max-w-md">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="coaching-mrr">Monthly Recurring Revenue</Label>
+                    <Input
+                      id="coaching-mrr"
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={mrrInput}
+                      onChange={(e) => setMrrInput(e.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground">Used to calculate Coaching revenue.</p>
+                  </div>
+                  <Button variant="flat" onClick={handleSaveMRR} disabled={savingMRR}>
+                    {savingMRR ? 'Saving...' : 'Save'}
+                  </Button>
                 </div>
-                <Button variant="flat" onClick={handleSaveMRR} disabled={savingMRR}>
-                  {savingMRR ? 'Saving...' : 'Save'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Call Scoring Settings */}
+            {clientAgencyId && (
+              <AdminAgencyCallScoring agencyId={clientAgencyId} />
+            )}
+          </div>
         </TabsContent>
 
         {/* Periods Tab */}
