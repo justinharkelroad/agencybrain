@@ -125,6 +125,91 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_calls: {
+        Row: {
+          agency_id: string
+          call_duration_seconds: number | null
+          client_profile: Json | null
+          closing_attempts: number | null
+          created_at: string | null
+          critical_gaps: Json | null
+          discovery_wins: Json | null
+          id: string
+          missed_signals: Json | null
+          overall_score: number | null
+          potential_rank: string | null
+          premium_analysis: Json | null
+          section_scores: Json | null
+          skill_scores: Json | null
+          summary: string | null
+          team_member_id: string
+          template_id: string
+          transcript: string | null
+        }
+        Insert: {
+          agency_id: string
+          call_duration_seconds?: number | null
+          client_profile?: Json | null
+          closing_attempts?: number | null
+          created_at?: string | null
+          critical_gaps?: Json | null
+          discovery_wins?: Json | null
+          id?: string
+          missed_signals?: Json | null
+          overall_score?: number | null
+          potential_rank?: string | null
+          premium_analysis?: Json | null
+          section_scores?: Json | null
+          skill_scores?: Json | null
+          summary?: string | null
+          team_member_id: string
+          template_id: string
+          transcript?: string | null
+        }
+        Update: {
+          agency_id?: string
+          call_duration_seconds?: number | null
+          client_profile?: Json | null
+          closing_attempts?: number | null
+          created_at?: string | null
+          critical_gaps?: Json | null
+          discovery_wins?: Json | null
+          id?: string
+          missed_signals?: Json | null
+          overall_score?: number | null
+          potential_rank?: string | null
+          premium_analysis?: Json | null
+          section_scores?: Json | null
+          skill_scores?: Json | null
+          summary?: string | null
+          team_member_id?: string
+          template_id?: string
+          transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_calls_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_calls_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_calls_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "call_scoring_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_files: {
         Row: {
           agency_id: string
@@ -414,6 +499,80 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      call_scoring_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          output_schema: Json | null
+          skill_categories: Json
+          system_prompt: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          output_schema?: Json | null
+          skill_categories?: Json
+          system_prompt: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          output_schema?: Json | null
+          skill_categories?: Json
+          system_prompt?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      call_usage_tracking: {
+        Row: {
+          agency_id: string
+          billing_period_end: string
+          billing_period_start: string
+          calls_limit: number
+          calls_used: number | null
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          agency_id: string
+          billing_period_end: string
+          billing_period_start: string
+          calls_limit: number
+          calls_used?: number | null
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          agency_id?: string
+          billing_period_end?: string
+          billing_period_start?: string
+          calls_limit?: number
+          calls_used?: number | null
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_usage_tracking_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       checklist_template_items: {
         Row: {

@@ -15,6 +15,7 @@ import {
   BookOpen,
   Sun,
   Video,
+  Phone,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -51,6 +52,7 @@ const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
+  { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
