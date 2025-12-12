@@ -16,6 +16,7 @@ import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 interface UsageInfo {
   calls_used: number;
   calls_limit: number;
+  period_end?: string | null;
 }
 
 interface RecentCall {
@@ -113,18 +114,19 @@ export default function CallScoring() {
     setLoading(true);
     
     try {
-      // Fetch usage for current month
-      const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-      
+      // Fetch usage using the new RPC function
       const { data: usageData } = await supabase
-        .from('call_usage_tracking')
-        .select('calls_used, calls_limit')
-        .eq('agency_id', agency)
-        .eq('billing_period_start', periodStart)
-        .single();
-
-      setUsage(usageData || { calls_used: 0, calls_limit: 20 });
+        .rpc('check_and_reset_call_usage', { p_agency_id: agency });
+      
+      if (usageData && usageData[0]) {
+        setUsage({
+          calls_used: usageData[0].calls_used || 0,
+          calls_limit: usageData[0].calls_limit || 20,
+          period_end: usageData[0].period_end
+        });
+      } else {
+        setUsage({ calls_used: 0, calls_limit: 20 });
+      }
 
       // Fetch recent calls (limit 10 for display)
       const { data: callsData } = await supabase
@@ -205,10 +207,12 @@ export default function CallScoring() {
       .order('name');
     setTeamMembers(members || []);
 
+    // Fetch both global templates AND templates for this agency
     const { data: temps } = await supabase
       .from('call_scoring_templates')
-      .select('id, name')
+      .select('id, name, is_global')
       .eq('is_active', true)
+      .or(`is_global.eq.true,agency_id.eq.${agency}`)
       .order('name');
     setTemplates(temps || []);
   };
@@ -415,7 +419,10 @@ export default function CallScoring() {
           </p>
         </div>
         <Badge variant="outline" className="text-sm px-3 py-1">
-          {usage.calls_used} / {usage.calls_limit} calls this month
+          {usage.calls_used} / {usage.calls_limit} calls
+          {usage.period_end && (
+            <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
+          )}
         </Badge>
       </div>
 
