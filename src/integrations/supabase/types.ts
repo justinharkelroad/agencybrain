@@ -5160,6 +5160,10 @@ export type Database = {
         Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
       }
+      is_call_scoring_enabled: {
+        Args: { p_agency_id: string }
+        Returns: boolean
+      }
       is_now_agency_time: {
         Args: { p_agency_id: string; p_hhmm: string }
         Returns: Json
