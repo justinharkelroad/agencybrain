@@ -113,6 +113,13 @@ Requirements:
 - If follow-up set: must include exact date/time and clear desired outcome
 - Bonus: Did they ask for referrals or additional quotes?
 
+**4. OBJECTION HANDLING**
+Objective: Use the Objection Loop to overcome resistance.
+- Did they Acknowledge the concern?
+- Did they Address/Reframe with value or proof?
+- Did they Check if resolved ("does that solve it?")?
+- Did they Ask again after handling?
+
 ## REQUIRED JSON RESPONSE FORMAT
 
 {
@@ -133,6 +140,9 @@ Requirements:
   "closing_score": <0-100>,
   "closing_failures": ["<specific failures>"],
   "closing_coaching": "<one directive sentence>",
+  
+  "objection_handling_score": <0-100>,
+  "discovery_score": <0-100>,
   
   "execution_checklist": {
     "hwf_framework": <true/false>,
@@ -249,7 +259,9 @@ ${call.transcript}`;
         skill_scores: {
           rapport: analysis.rapport_score,
           coverage: analysis.coverage_score,
-          closing: analysis.closing_score
+          closing: analysis.closing_score,
+          objection_handling: analysis.objection_handling_score,
+          discovery: analysis.discovery_score
         },
         section_scores: {
           rapport: {
