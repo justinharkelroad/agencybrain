@@ -5084,7 +5084,7 @@ export type Database = {
             }[]
           }
       get_staff_call_scoring_data: {
-        Args: { p_agency_id: string; p_team_member_id: string }
+        Args: { p_agency_id: string; p_team_member_id?: string }
         Returns: Json
       }
       get_sticky_fields_for_section: {

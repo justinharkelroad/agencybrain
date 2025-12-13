@@ -510,7 +510,8 @@ export default function CallScoring() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds: number | null | undefined) => {
+    if (!seconds && seconds !== 0) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${String(secs).padStart(2, '0')}`;
