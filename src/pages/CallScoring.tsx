@@ -646,8 +646,18 @@ export default function CallScoring() {
     setTimeout(checkStatus, 5000);
   };
 
-  const handleCallClick = async (call: RecentCall) => {
-    // Fetch full call data
+  const handleCallClick = async (call: RecentCall | any) => {
+    // For staff users, the call already has full data from RPC - use it directly
+    if (isStaffUser) {
+      setSelectedCall({
+        ...call,
+        team_member_name: call.team_member_name
+      });
+      setScorecardOpen(true);
+      return;
+    }
+    
+    // For regular users, fetch full call data from database
     const { data: fullCall } = await supabase
       .from('agency_calls')
       .select('*')
