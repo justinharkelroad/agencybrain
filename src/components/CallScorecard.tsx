@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,9 +11,9 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { 
-  User, Target, AlertTriangle, CheckCircle2, XCircle,
+  User, Users, Target, AlertTriangle, CheckCircle2, XCircle,
   FileAudio, Clock, ChevronDown, ChevronUp, Download, 
-  Image, FileText, Share2, Loader2, CheckCircle
+  Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
@@ -110,6 +110,22 @@ export function CallScorecard({
     if (!priceStr) return 0;
     return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
   };
+
+  // Format seconds to mm:ss
+  const formatSecondsToMinutes = (seconds: number | null | undefined) => {
+    if (!seconds && seconds !== 0) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Talk ratio data from call
+  const agentTalkPercent = call.agent_talk_percent;
+  const customerTalkPercent = call.customer_talk_percent;
+  const deadAirPercent = call.dead_air_percent;
+  const agentTalkSeconds = call.agent_talk_seconds;
+  const customerTalkSeconds = call.customer_talk_seconds;
+  const deadAirSeconds = call.dead_air_seconds;
 
   const yourQuoteValue = parsePrice(extractedData.your_quote);
   const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
@@ -222,6 +238,111 @@ export function CallScorecard({
               </CardContent>
             </Card>
           </div>
+
+          {/* Talk-to-Listen Ratio Section */}
+          {(agentTalkPercent !== null && agentTalkPercent !== undefined) && (
+            <Card className="bg-card/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Mic className="h-4 w-4" />
+                  TALK-TO-LISTEN RATIO
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Agent Talk */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      Agent
+                    </span>
+                    <span className="font-medium">
+                      {agentTalkPercent?.toFixed(0)}%
+                      <span className="text-muted-foreground text-xs ml-1">
+                        ({formatSecondsToMinutes(agentTalkSeconds)})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        agentTalkPercent > 60 ? 'bg-red-500' : 
+                        agentTalkPercent > 50 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(agentTalkPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Customer Talk */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Users className="h-3 w-3" />
+                      Customer
+                    </span>
+                    <span className="font-medium">
+                      {customerTalkPercent?.toFixed(0)}%
+                      <span className="text-muted-foreground text-xs ml-1">
+                        ({formatSecondsToMinutes(customerTalkSeconds)})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        customerTalkPercent >= 50 ? 'bg-green-500' : 
+                        customerTalkPercent >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(customerTalkPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Dead Air */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <VolumeX className="h-3 w-3" />
+                      Dead Air
+                    </span>
+                    <span className="font-medium">
+                      {deadAirPercent?.toFixed(0)}%
+                      <span className="text-muted-foreground text-xs ml-1">
+                        ({formatSecondsToMinutes(deadAirSeconds)})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all ${
+                        deadAirPercent > 15 ? 'bg-red-500' : 
+                        deadAirPercent > 10 ? 'bg-yellow-500' : 'bg-blue-500/50'
+                      }`}
+                      style={{ width: `${Math.min(deadAirPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Coaching Insight */}
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                  agentTalkPercent <= 45 && customerTalkPercent >= 45 
+                    ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                    : agentTalkPercent > 60
+                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                    : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
+                }`}>
+                  {agentTalkPercent <= 45 && customerTalkPercent >= 45 ? (
+                    <p>✓ Great balance! You let the customer do most of the talking.</p>
+                  ) : agentTalkPercent > 60 ? (
+                    <p>⚠ You talked {agentTalkPercent?.toFixed(0)}% of the call. Try asking more open-ended questions to get the customer talking.</p>
+                  ) : (
+                    <p>→ Aim for 40% or less talk time. Top performers listen more than they speak.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Critical Assessment + Extracted Data Row */}
           <div className="grid md:grid-cols-3 gap-4">

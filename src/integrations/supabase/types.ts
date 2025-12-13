@@ -168,6 +168,8 @@ export type Database = {
           acknowledged_at: string | null
           acknowledged_by: string | null
           agency_id: string
+          agent_talk_percent: number | null
+          agent_talk_seconds: number | null
           analyzed_at: string | null
           audio_storage_path: string | null
           call_duration_seconds: number | null
@@ -176,6 +178,10 @@ export type Database = {
           coaching_recommendations: Json | null
           created_at: string | null
           critical_gaps: Json | null
+          customer_talk_percent: number | null
+          customer_talk_seconds: number | null
+          dead_air_percent: number | null
+          dead_air_seconds: number | null
           discovery_wins: Json | null
           id: string
           missed_signals: Json | null
@@ -193,11 +199,14 @@ export type Database = {
           team_member_id: string
           template_id: string
           transcript: string | null
+          transcript_segments: Json | null
         }
         Insert: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
           agency_id: string
+          agent_talk_percent?: number | null
+          agent_talk_seconds?: number | null
           analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
@@ -206,6 +215,10 @@ export type Database = {
           coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null
+          customer_talk_percent?: number | null
+          customer_talk_seconds?: number | null
+          dead_air_percent?: number | null
+          dead_air_seconds?: number | null
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
@@ -223,11 +236,14 @@ export type Database = {
           team_member_id: string
           template_id: string
           transcript?: string | null
+          transcript_segments?: Json | null
         }
         Update: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
           agency_id?: string
+          agent_talk_percent?: number | null
+          agent_talk_seconds?: number | null
           analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
@@ -236,6 +252,10 @@ export type Database = {
           coaching_recommendations?: Json | null
           created_at?: string | null
           critical_gaps?: Json | null
+          customer_talk_percent?: number | null
+          customer_talk_seconds?: number | null
+          dead_air_percent?: number | null
+          dead_air_seconds?: number | null
           discovery_wins?: Json | null
           id?: string
           missed_signals?: Json | null
@@ -253,6 +273,7 @@ export type Database = {
           team_member_id?: string
           template_id?: string
           transcript?: string | null
+          transcript_segments?: Json | null
         }
         Relationships: [
           {
