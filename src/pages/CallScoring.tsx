@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3 } from 'lucide-react';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
@@ -28,6 +28,10 @@ interface RecentCall {
   potential_rank: string | null;
   created_at: string;
   team_member_name: string;
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
+  staff_feedback_positive?: string | null;
+  staff_feedback_improvement?: string | null;
 }
 
 interface AnalyticsCall {
@@ -329,10 +333,10 @@ export default function CallScoring() {
         setUsage({ calls_used: 0, calls_limit: 20 });
       }
 
-      // Build base query for recent calls
+      // Build base query for recent calls - include acknowledgment fields
       let callsQuery = supabase
         .from('agency_calls')
-        .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id')
+        .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id, acknowledged_at, acknowledged_by, staff_feedback_positive, staff_feedback_improvement')
         .eq('agency_id', agency)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -381,7 +385,11 @@ export default function CallScoring() {
           overall_score: call.overall_score,
           potential_rank: call.potential_rank,
           created_at: call.created_at,
-          team_member_name: memberMap.get(call.team_member_id) || 'Unknown'
+          team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
+          acknowledged_at: call.acknowledged_at,
+          acknowledged_by: call.acknowledged_by,
+          staff_feedback_positive: call.staff_feedback_positive,
+          staff_feedback_improvement: call.staff_feedback_improvement
         }));
         setRecentCalls(enrichedCalls);
       } else {
@@ -654,6 +662,43 @@ export default function CallScoring() {
     setScorecardOpen(true);
   };
 
+  const handleStaffAcknowledge = async (positive: string, improvement: string) => {
+    if (!selectedCall?.id || !staffTeamMemberId) {
+      throw new Error('Missing call or team member ID');
+    }
+
+    const { data, error } = await supabase.rpc('acknowledge_call_review', {
+      p_call_id: selectedCall.id,
+      p_team_member_id: staffTeamMemberId,
+      p_feedback_positive: positive,
+      p_feedback_improvement: improvement
+    });
+
+    if (error) throw error;
+    if (data && !data.success) throw new Error(data.error);
+
+    // Update local state to show the acknowledgment immediately
+    setSelectedCall({
+      ...selectedCall,
+      acknowledged_at: new Date().toISOString(),
+      staff_feedback_positive: positive,
+      staff_feedback_improvement: improvement
+    });
+
+    // Refresh calls list
+    if (isStaffUser && staffAgencyId) {
+      const { data: refreshData } = await supabase.rpc('get_staff_call_scoring_data', {
+        p_agency_id: staffAgencyId,
+        p_team_member_id: staffTeamMemberId
+      });
+      if (refreshData) {
+        setRecentCalls(refreshData.recent_calls || []);
+      }
+    } else if (agencyId) {
+      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
+    }
+  };
+
   // Show loading while checking access
   if (!accessChecked) {
     return (
@@ -894,7 +939,21 @@ export default function CallScoring() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      {/* Acknowledgment Status Badge */}
+                      {call.status === 'analyzed' && (
+                        call.acknowledged_at ? (
+                          <Badge variant="outline" className="text-green-500 border-green-500/50 text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Reviewed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-yellow-500 border-yellow-500/50 text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )
+                      )}
                       <div className="text-right">
                         <p className="text-sm">
                           {formatDuration(call.call_duration_seconds)}
@@ -953,6 +1012,12 @@ export default function CallScoring() {
         call={selectedCall}
         open={scorecardOpen}
         onClose={() => setScorecardOpen(false)}
+        isStaffUser={isStaffUser}
+        staffTeamMemberId={staffTeamMemberId || undefined}
+        acknowledgedAt={selectedCall?.acknowledged_at}
+        staffFeedbackPositive={selectedCall?.staff_feedback_positive}
+        staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
+        onAcknowledge={handleStaffAcknowledge}
       />
     </div>
   );
