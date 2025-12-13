@@ -395,7 +395,7 @@ export function CallScorecard({
 
                 {extractedData.timeline && (
                   <div>
-                    <p className="text-xs text-muted-foreground">TIMELINE</p>
+                    <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
                     <p className="text-sm text-yellow-400 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {extractedData.timeline}
