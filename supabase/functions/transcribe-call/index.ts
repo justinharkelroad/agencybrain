@@ -6,6 +6,71 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Calculate talk metrics from Whisper segments
+function calculateTalkMetrics(segments: any[], totalDuration: number) {
+  let agentSeconds = 0;
+  let customerSeconds = 0;
+  let lastEndTime = 0;
+  let deadAirSeconds = 0;
+  let currentSpeaker = 'agent'; // Agent usually speaks first (greeting)
+  
+  segments.forEach((segment, index) => {
+    const segmentDuration = segment.end - segment.start;
+    const text = segment.text?.toLowerCase() || '';
+    
+    // Calculate dead air (gaps between segments > 0.5s)
+    if (segment.start > lastEndTime) {
+      const gap = segment.start - lastEndTime;
+      if (gap > 0.5) {
+        deadAirSeconds += gap;
+      }
+    }
+    lastEndTime = segment.end;
+    
+    // Speaker detection heuristics
+    const isGreeting = /^(hi|hello|hey|thank you for calling|thanks for calling|good morning|good afternoon)/i.test(text.trim());
+    const isAgentPhrase = /(let me|i can|we offer|your policy|your coverage|your premium|i'll send|i'll email|what i can do|i'm going to|looking at your)/i.test(text);
+    const isCustomerPhrase = /(i need|i want|i'm looking|how much|what about|can you|do you|i have a question|my current|i was wondering)/i.test(text);
+    
+    // Determine speaker
+    if (index === 0 && isGreeting) {
+      currentSpeaker = 'agent';
+    } else if (isAgentPhrase) {
+      currentSpeaker = 'agent';
+    } else if (isCustomerPhrase) {
+      currentSpeaker = 'customer';
+    } else if (index > 0 && segment.start - segments[index - 1].end > 1.0) {
+      // Alternate on significant pauses
+      currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
+    }
+    
+    // Assign time
+    if (currentSpeaker === 'agent') {
+      agentSeconds += segmentDuration;
+    } else {
+      customerSeconds += segmentDuration;
+    }
+  });
+
+  // Round values
+  agentSeconds = Math.round(agentSeconds);
+  customerSeconds = Math.round(customerSeconds);
+  deadAirSeconds = Math.round(deadAirSeconds);
+
+  // Calculate percentages
+  const total = agentSeconds + customerSeconds + deadAirSeconds;
+  const effectiveTotal = total > 0 ? total : totalDuration;
+
+  return {
+    agentSeconds,
+    customerSeconds,
+    deadAirSeconds,
+    agentPercent: effectiveTotal > 0 ? Math.round((agentSeconds / effectiveTotal) * 100 * 100) / 100 : 0,
+    customerPercent: effectiveTotal > 0 ? Math.round((customerSeconds / effectiveTotal) * 100 * 100) / 100 : 0,
+    deadAirPercent: effectiveTotal > 0 ? Math.round((deadAirSeconds / effectiveTotal) * 100 * 100) / 100 : 0,
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -106,8 +171,13 @@ serve(async (req) => {
 
     const whisperResult = await whisperResponse.json();
     console.log("Transcription complete. Duration:", whisperResult.duration, "seconds");
+    console.log("Segments received:", whisperResult.segments?.length || 0);
 
-    // Save to agency_calls table
+    // Calculate talk metrics from segments
+    const talkMetrics = calculateTalkMetrics(whisperResult.segments || [], whisperResult.duration);
+    console.log("Talk metrics calculated:", talkMetrics);
+
+    // Save to agency_calls table with talk metrics
     const { data: callRecord, error: insertError } = await supabase
       .from("agency_calls")
       .insert({
@@ -117,7 +187,14 @@ serve(async (req) => {
         audio_storage_path: storagePath,
         original_filename: fileName,
         transcript: whisperResult.text,
+        transcript_segments: whisperResult.segments,
         call_duration_seconds: Math.round(whisperResult.duration),
+        agent_talk_seconds: talkMetrics.agentSeconds,
+        customer_talk_seconds: talkMetrics.customerSeconds,
+        dead_air_seconds: talkMetrics.deadAirSeconds,
+        agent_talk_percent: talkMetrics.agentPercent,
+        customer_talk_percent: talkMetrics.customerPercent,
+        dead_air_percent: talkMetrics.deadAirPercent,
         status: "transcribed",
       })
       .select()
