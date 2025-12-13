@@ -570,6 +570,7 @@ export type Database = {
       }
       call_scoring_templates: {
         Row: {
+          agency_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -582,6 +583,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          agency_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -594,6 +596,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          agency_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -605,7 +608,15 @@ export type Database = {
           system_prompt?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "call_scoring_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       call_usage_tracking: {
         Row: {
