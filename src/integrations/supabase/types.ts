@@ -165,6 +165,8 @@ export type Database = {
       }
       agency_calls: {
         Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
           agency_id: string
           analyzed_at: string | null
           audio_storage_path: string | null
@@ -184,6 +186,8 @@ export type Database = {
           premium_analysis: Json | null
           section_scores: Json | null
           skill_scores: Json | null
+          staff_feedback_improvement: string | null
+          staff_feedback_positive: string | null
           status: string | null
           summary: string | null
           team_member_id: string
@@ -191,6 +195,8 @@ export type Database = {
           transcript: string | null
         }
         Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agency_id: string
           analyzed_at?: string | null
           audio_storage_path?: string | null
@@ -210,6 +216,8 @@ export type Database = {
           premium_analysis?: Json | null
           section_scores?: Json | null
           skill_scores?: Json | null
+          staff_feedback_improvement?: string | null
+          staff_feedback_positive?: string | null
           status?: string | null
           summary?: string | null
           team_member_id: string
@@ -217,6 +225,8 @@ export type Database = {
           transcript?: string | null
         }
         Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agency_id?: string
           analyzed_at?: string | null
           audio_storage_path?: string | null
@@ -236,6 +246,8 @@ export type Database = {
           premium_analysis?: Json | null
           section_scores?: Json | null
           skill_scores?: Json | null
+          staff_feedback_improvement?: string | null
+          staff_feedback_positive?: string | null
           status?: string | null
           summary?: string | null
           team_member_id?: string
@@ -4925,6 +4937,15 @@ export type Database = {
     Functions: {
       _nz_int: { Args: { v: Json }; Returns: number }
       _nz_num: { Args: { v: Json }; Returns: number }
+      acknowledge_call_review: {
+        Args: {
+          p_call_id: string
+          p_feedback_improvement: string
+          p_feedback_positive: string
+          p_team_member_id: string
+        }
+        Returns: Json
+      }
       admin_create_user: {
         Args: {
           p_agency_id: string
