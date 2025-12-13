@@ -7,6 +7,38 @@ const corsHeaders = {
 };
 
 // Calculate talk metrics from Whisper segments
+// Retry helper for transient network errors
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const isTransient = error.message?.includes('connection reset') ||
+                          error.message?.includes('timeout') ||
+                          error.message?.includes('ECONNRESET') ||
+                          error.message?.includes('network');
+      
+      if (!isTransient || attempt === maxAttempts) {
+        throw error;
+      }
+      
+      const delay = baseDelayMs * Math.pow(2, attempt - 1); // Exponential backoff
+      console.log(`Retry attempt ${attempt}/${maxAttempts} after ${delay}ms due to: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
+// Calculate talk metrics from Whisper segments
 function calculateTalkMetrics(segments: any[], totalDuration: number) {
   let agentSeconds = 0;
   let customerSeconds = 0;
@@ -177,56 +209,76 @@ serve(async (req) => {
     const talkMetrics = calculateTalkMetrics(whisperResult.segments || [], whisperResult.duration);
     console.log("Talk metrics calculated:", talkMetrics);
 
-    // Save to agency_calls table with talk metrics
-    const { data: callRecord, error: insertError } = await supabase
-      .from("agency_calls")
-      .insert({
-        agency_id: agencyId,
-        team_member_id: teamMemberId,
-        template_id: templateId,
-        audio_storage_path: storagePath,
-        original_filename: fileName,
-        transcript: whisperResult.text,
-        transcript_segments: whisperResult.segments,
-        call_duration_seconds: Math.round(whisperResult.duration),
-        agent_talk_seconds: talkMetrics.agentSeconds,
-        customer_talk_seconds: talkMetrics.customerSeconds,
-        dead_air_seconds: talkMetrics.deadAirSeconds,
-        agent_talk_percent: talkMetrics.agentPercent,
-        customer_talk_percent: talkMetrics.customerPercent,
-        dead_air_percent: talkMetrics.deadAirPercent,
-        status: "transcribed",
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("Failed to save call record:", insertError);
-    } else {
-      console.log("Call record saved:", callRecord.id);
-      
-      // Trigger AI analysis automatically (fire and forget - don't wait)
-      if (callRecord?.id) {
-        console.log("Triggering AI analysis for call:", callRecord.id);
+    // Save to agency_calls table with talk metrics (with retry for transient errors)
+    let callRecord: any = null;
+    let insertError: any = null;
+    
+    try {
+      const result = await withRetry(async () => {
+        const { data, error } = await supabase
+          .from("agency_calls")
+          .insert({
+            agency_id: agencyId,
+            team_member_id: teamMemberId,
+            template_id: templateId,
+            audio_storage_path: storagePath,
+            original_filename: fileName,
+            transcript: whisperResult.text,
+            transcript_segments: whisperResult.segments,
+            call_duration_seconds: Math.round(whisperResult.duration),
+            agent_talk_seconds: talkMetrics.agentSeconds,
+            customer_talk_seconds: talkMetrics.customerSeconds,
+            dead_air_seconds: talkMetrics.deadAirSeconds,
+            agent_talk_percent: talkMetrics.agentPercent,
+            customer_talk_percent: talkMetrics.customerPercent,
+            dead_air_percent: talkMetrics.deadAirPercent,
+            status: "transcribed",
+          })
+          .select()
+          .single();
         
-        // Fire and forget - don't await, let it run in background
-        fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({ call_id: callRecord.id }),
-        }).then(async (response) => {
-          if (response.ok) {
-            console.log("Analysis triggered successfully");
-          } else {
-            console.error("Analysis trigger failed:", await response.text());
-          }
-        }).catch((err) => {
-          console.error("Failed to trigger analysis:", err);
-        });
-      }
+        if (error) throw error;
+        return data;
+      }, 3, 1000);
+      
+      callRecord = result;
+      console.log("Call record saved:", callRecord.id);
+    } catch (err) {
+      insertError = err;
+      console.error("Failed to save call record after retries:", insertError);
+      
+      // Return error to frontend so user knows to retry
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to save call record. Please try uploading again.", 
+          details: insertError.message,
+          retryable: true 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Trigger AI analysis automatically (fire and forget - don't wait)
+    if (callRecord?.id) {
+      console.log("Triggering AI analysis for call:", callRecord.id);
+      
+      // Fire and forget - don't await, let it run in background
+      fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ call_id: callRecord.id }),
+      }).then(async (response) => {
+        if (response.ok) {
+          console.log("Analysis triggered successfully");
+        } else {
+          console.error("Analysis trigger failed:", await response.text());
+        }
+      }).catch((err) => {
+        console.error("Failed to trigger analysis:", err);
+      });
     }
 
     // Update usage tracking
