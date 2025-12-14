@@ -405,11 +405,11 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
     leadSource: values.leadSource || "",
     spend: Number(values.spend) || 0,
     cpl: Number(values.cpl) || 0,
-    quoteRatePct: Number(values.quoteRatePct) || 0,
-    closeRatePct: Number(values.closeRatePct) || 0,
+    quoteRatePct: normalizePercent(Number(values.quoteRatePct) || 0),
+    closeRatePct: normalizePercent(Number(values.closeRatePct) || 0),
     avgItemValue: Number(values.avgItemValue) || 0,
     avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
-    commissionPct: Number(values.commissionPct) || 0,
+    commissionPct: normalizePercent(Number(values.commissionPct) || 0),
   }), [values]);
 
   const hasSpend = Number(values.spend) > 0;
@@ -618,12 +618,12 @@ function MailerForm({ onBack }: { onBack: () => void }) {
     mailSource: values.mailSource || "",
     spend: Number(values.spend) || 0,
     costPerPiece: Number(values.costPerPiece) || 0,
-    responseRatePct: Number(values.responseRatePct) || 0,
-    quotedPctOfInboundPct: Number(values.quotedPctOfInboundPct) || 0,
-    closeRatePct: Number(values.closeRatePct) || 0,
+    responseRatePct: normalizePercent(Number(values.responseRatePct) || 0),
+    quotedPctOfInboundPct: normalizePercent(Number(values.quotedPctOfInboundPct) || 0),
+    closeRatePct: normalizePercent(Number(values.closeRatePct) || 0),
     avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
     avgItemValue: Number(values.avgItemValue) || 0,
-    commissionPct: Number(values.commissionPct) || 0,
+    commissionPct: normalizePercent(Number(values.commissionPct) || 0),
   }), [values]);
 
   const canMailers = Number(values.spend) > 0 && Number(values.costPerPiece) > 0;
@@ -841,11 +841,11 @@ function TransferForm({ onBack }: { onBack: () => void }) {
     liveTransferSource: values.liveTransferSource || "",
     spend: Number(values.spend) || 0,
     costPerTransfer: Number(values.costPerTransfer) || 0,
-    quotedPctOfInboundPct: Number(values.quotedPctOfInboundPct) || 0,
-    closeRatePct: Number(values.closeRatePct) || 0,
+    quotedPctOfInboundPct: normalizePercent(Number(values.quotedPctOfInboundPct) || 0),
+    closeRatePct: normalizePercent(Number(values.closeRatePct) || 0),
     avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
     avgItemValue: Number(values.avgItemValue) || 0,
-    commissionPct: Number(values.commissionPct) || 0,
+    commissionPct: normalizePercent(Number(values.commissionPct) || 0),
   }), [values]);
 
   const canTransfers = Number(values.spend) > 0 && Number(values.costPerTransfer) > 0;
