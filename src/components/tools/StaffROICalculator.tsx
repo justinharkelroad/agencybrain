@@ -37,8 +37,23 @@ function GridTwoCols({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
 }
 
+const EMPTY_INPUTS: StaffROIInputs = {
+  autoPremium: 0,
+  homePremium: 0,
+  commissionRate: 0,
+  baseSalary: 0,
+  payrollTaxRate: 0,
+  autoCommissionRate: 0,
+  homeCommissionRate: 0,
+  autoRenewalRate: 0,
+  homeRenewalRate: 0,
+  retentionRate: 0,
+  marketingSpend: 0,
+  autoRenewalPeriod: 'annual',
+};
+
 export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
-  const [inputs, setInputs] = useState<StaffROIInputs>(DEFAULT_STAFF_ROI_INPUTS);
+  const [inputs, setInputs] = useState<StaffROIInputs>(EMPTY_INPUTS);
   const [results, setResults] = useState<StaffROIResults | null>(null);
   const [showReport, setShowReport] = useState(false);
 
@@ -62,7 +77,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
   };
 
   const handleReset = () => {
-    setInputs(DEFAULT_STAFF_ROI_INPUTS);
+    setInputs(EMPTY_INPUTS);
     setResults(null);
     setShowReport(false);
     try {
