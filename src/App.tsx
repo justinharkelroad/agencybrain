@@ -103,6 +103,7 @@ import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 import AdminHelpVideos from "./pages/admin/AdminHelpVideos";
 import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
+import AdminCallScoringDashboard from "./pages/admin/AdminCallScoringDashboard";
 import CallScoring from "./pages/CallScoring";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
@@ -604,6 +605,13 @@ const App = () => (
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <CallScoringTemplates />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/call-scoring-dashboard" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminCallScoringDashboard />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
