@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { VendorVerifierFormInputs, VendorVerifierDerived, computeVendorVerifierDerived, buildVendorVerifierJson } from "@/utils/vendorVerifier"
 import { clampPercent, formatCurrency, formatInteger } from "@/utils/marketingCalculator"
 import SaveVendorReportButton from "@/components/SaveVendorReportButton"
+import VendorReportCard from "@/components/VendorReportCard"
 import { cn } from "@/lib/utils"
-import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar as CalendarIcon, Sparkles } from "lucide-react"
 import { format } from "date-fns"
 
 function InputAffix({ children, prefix, suffix }: { children: React.ReactNode; prefix?: string; suffix?: string }) {
@@ -35,6 +36,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export function VendorVerifierForm({ onBack }: { onBack: () => void }) {
   const STORAGE_KEY = "vendorVerifier:inputs"
   const { register, watch, setValue, reset, formState: { errors } } = useForm<VendorVerifierFormInputs>({ mode: "onChange", defaultValues: {} as any })
+  const [showReport, setShowReport] = useState(false)
 
   // persist
   useEffect(() => {
@@ -286,60 +288,48 @@ const values = watch()
         </div>
       </section>
 
-      <section>
-        <SectionTitle>Derived Metrics</SectionTitle>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          <div>
-            <Label>Cost per Quoted HH</Label>
-            <Input disabled value={derived.costPerQuotedHH == null ? "" : formatCurrency(derived.costPerQuotedHH)} />
-          </div>
-          <div>
-            <Label>Policy Close Rate</Label>
-            <Input disabled value={derived.policyCloseRate == null ? "" : `${(derived.policyCloseRate * 100).toFixed(2)}%`} />
-          </div>
-          <div>
-            <Label>Average Item Value</Label>
-            <Input disabled value={derived.averageItemValue == null ? "" : formatCurrency(derived.averageItemValue)} />
-          </div>
-          <div>
-            <Label>Average Policy Value</Label>
-            <Input disabled value={derived.averagePolicyValue == null ? "" : formatCurrency(derived.averagePolicyValue)} />
-          </div>
-          <div>
-            <Label>Average Cost Per Transfer/Call</Label>
-            <Input disabled value={derived.avgCostPerCall == null ? "" : formatCurrency(derived.avgCostPerCall)} />
-          </div>
-          <div>
-            <Label>Cost Per Quoted Policy</Label>
-            <Input disabled value={derived.costPerQuotedPolicy == null ? "" : formatCurrency(derived.costPerQuotedPolicy)} />
-          </div>
-          <div>
-            <Label>Cost Per Quoted Item</Label>
-            <Input disabled value={derived.costPerQuotedItem == null ? "" : formatCurrency(derived.costPerQuotedItem)} />
-          </div>
-          <div>
-            <Label>Cost Per Sold Item</Label>
-            <Input disabled value={derived.costPerSoldItem == null ? "" : formatCurrency(derived.costPerSoldItem)} />
-          </div>
-          <div>
-            <Label>Cost Per Sold Policy</Label>
-            <Input disabled value={derived.costPerSoldPolicy == null ? "" : formatCurrency(derived.costPerSoldPolicy)} />
-          </div>
-          <div>
-            <Label>Projected Commission</Label>
-            <Input disabled value={derived.projectedCommissionAmount == null ? "" : formatCurrency(derived.projectedCommissionAmount)} />
-          </div>
-        </div>
-      </section>
+      {/* Generate Report Button */}
+      <Button 
+        onClick={() => setShowReport(true)}
+        disabled={!(values.vendorName?.trim() && num(values.amountSpent) > 0 && (num(values.policiesSold) > 0 || num(values.premiumSold) > 0 || num(values.closedHH) > 0))}
+        className="w-full mt-6"
+        size="lg"
+      >
+        <Sparkles className="h-5 w-5 mr-2" />
+        Generate Vendor Report Card
+      </Button>
 
+      {/* Action Buttons */}
       <div className="mt-2 flex items-center justify-between">
-        <Button variant="secondary" onClick={handleReset}>Reset</Button>
+        <Button variant="secondary" onClick={() => { handleReset(); setShowReport(false); }}>Reset</Button>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
           <Button variant="flat" onClick={handleCopy}>Copy results</Button>
-          <SaveVendorReportButton input={saveInput as any} derived={saveDerived as any} data={dataJson} />
         </div>
       </div>
+
+      {/* Visual Report Card */}
+      {showReport && (
+        <VendorReportCard 
+          inputs={{
+            vendorName: values.vendorName,
+            dateStart: values.dateStart,
+            dateEnd: values.dateEnd,
+            amountSpent: num(values.amountSpent),
+            quotedHH: num(values.quotedHH),
+            closedHH: num(values.closedHH),
+            policiesSold: num(values.policiesSold),
+            policiesQuoted: num(values.policiesQuoted),
+            itemsSold: num(values.itemsSold),
+            itemsQuoted: num(values.itemsQuoted),
+            premiumSold: num(values.premiumSold),
+            commissionPct: num(values.commissionPct),
+            inboundCalls: num(values.inboundCalls),
+          }}
+          derived={derived}
+          onClose={() => setShowReport(false)}
+        />
+      )}
     </div>
   )
 }
