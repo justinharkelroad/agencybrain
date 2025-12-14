@@ -14,12 +14,12 @@ import {
   Loader2,
   ImageIcon,
   FileDown,
-  Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { VendorVerifierFormInputs, VendorVerifierDerived } from '@/utils/vendorVerifier';
+import SaveVendorReportButton from '@/components/SaveVendorReportButton';
 
 // Explicit hex colors for export compatibility
 const COLORS = {
@@ -553,12 +553,22 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
         <Copy className="h-4 w-4 mr-2" />
         Copy Results
       </Button>
-      {onSave && (
-        <Button onClick={onSave}>
-          <Save className="h-4 w-4 mr-2" />
-          Save to Reports
-        </Button>
-      )}
+      <SaveVendorReportButton
+        input={{
+          vendorName: inputs.vendorName,
+          dateStart: inputs.dateStart,
+          dateEnd: inputs.dateEnd,
+          amountSpent: inputs.amountSpent,
+          policiesSold: inputs.policiesSold,
+          premiumSold: inputs.premiumSold,
+        }}
+        derived={{
+          cpa: derived.cpa,
+          projectedCommissionAmount: derived.projectedCommissionAmount,
+          policyCloseRate: derived.policyCloseRate,
+        }}
+        data={{ inputs, derived }}
+      />
     </div>
     </>
   );
