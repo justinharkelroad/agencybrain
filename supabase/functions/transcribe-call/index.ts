@@ -205,6 +205,11 @@ serve(async (req) => {
     console.log("Transcription complete. Duration:", whisperResult.duration, "seconds");
     console.log("Segments received:", whisperResult.segments?.length || 0);
 
+    // Calculate Whisper cost ($0.006 per minute)
+    const durationMinutes = whisperResult.duration / 60;
+    const whisperCost = durationMinutes * 0.006;
+    console.log(`Whisper cost for ${durationMinutes.toFixed(2)} minutes: $${whisperCost.toFixed(4)}`);
+
     // Calculate talk metrics from segments
     const talkMetrics = calculateTalkMetrics(whisperResult.segments || [], whisperResult.duration);
     console.log("Talk metrics calculated:", talkMetrics);
@@ -232,6 +237,7 @@ serve(async (req) => {
             agent_talk_percent: talkMetrics.agentPercent,
             customer_talk_percent: talkMetrics.customerPercent,
             dead_air_percent: talkMetrics.deadAirPercent,
+            whisper_cost: whisperCost,
             status: "transcribed",
           })
           .select()

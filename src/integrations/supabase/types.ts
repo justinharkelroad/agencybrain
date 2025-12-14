@@ -183,6 +183,9 @@ export type Database = {
           dead_air_percent: number | null
           dead_air_seconds: number | null
           discovery_wins: Json | null
+          gpt_cost: number | null
+          gpt_input_tokens: number | null
+          gpt_output_tokens: number | null
           id: string
           missed_signals: Json | null
           notable_quotes: Json | null
@@ -198,8 +201,10 @@ export type Database = {
           summary: string | null
           team_member_id: string
           template_id: string
+          total_cost: number | null
           transcript: string | null
           transcript_segments: Json | null
+          whisper_cost: number | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -220,6 +225,9 @@ export type Database = {
           dead_air_percent?: number | null
           dead_air_seconds?: number | null
           discovery_wins?: Json | null
+          gpt_cost?: number | null
+          gpt_input_tokens?: number | null
+          gpt_output_tokens?: number | null
           id?: string
           missed_signals?: Json | null
           notable_quotes?: Json | null
@@ -235,8 +243,10 @@ export type Database = {
           summary?: string | null
           team_member_id: string
           template_id: string
+          total_cost?: number | null
           transcript?: string | null
           transcript_segments?: Json | null
+          whisper_cost?: number | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -257,6 +267,9 @@ export type Database = {
           dead_air_percent?: number | null
           dead_air_seconds?: number | null
           discovery_wins?: Json | null
+          gpt_cost?: number | null
+          gpt_input_tokens?: number | null
+          gpt_output_tokens?: number | null
           id?: string
           missed_signals?: Json | null
           notable_quotes?: Json | null
@@ -272,8 +285,10 @@ export type Database = {
           summary?: string | null
           team_member_id?: string
           template_id?: string
+          total_cost?: number | null
           transcript?: string | null
           transcript_segments?: Json | null
+          whisper_cost?: number | null
         }
         Relationships: [
           {
