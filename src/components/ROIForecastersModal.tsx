@@ -32,6 +32,8 @@ import {
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
 import { StaffROICalculator } from "@/components/tools/StaffROICalculator";
 import { DataLeadReportCard } from "@/components/tools/DataLeadReportCard";
+import { MailerReportCard } from "@/components/tools/MailerReportCard";
+import { LiveTransferReportCard } from "@/components/tools/LiveTransferReportCard";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -855,8 +857,33 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
           <Button variant="flat" onClick={handleCopy}>Copy results</Button>
+          <Button 
+            onClick={() => setShowReportCard(true)}
+            disabled={!canTotalComp || derived.totalMailersSent === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            Generate Report
+          </Button>
         </div>
       </div>
+
+      {showReportCard && derived.totalMailersSent > 0 && (
+        <MailerReportCard
+          inputs={{
+            mailSource: values.mailSource || '',
+            spend: Number(values.spend) || 0,
+            costPerPiece: Number(values.costPerPiece) || 0,
+            responseRatePct: Number(values.responseRatePct) || 0,
+            quotedPctOfInboundPct: Number(values.quotedPctOfInboundPct) || 0,
+            closeRatePct: Number(values.closeRatePct) || 0,
+            avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
+            avgItemValue: Number(values.avgItemValue) || 0,
+            commissionPct: Number(values.commissionPct) || 0,
+          }}
+          derived={derived}
+          onClose={() => setShowReportCard(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1069,8 +1096,32 @@ function TransferForm({ onBack }: { onBack: () => void }) {
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
           <Button variant="flat" onClick={handleCopy}>Copy results</Button>
+          <Button 
+            onClick={() => setShowReportCard(true)}
+            disabled={!canTotalComp || derived.totalTransfers === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            Generate Report
+          </Button>
         </div>
       </div>
+
+      {showReportCard && derived.totalTransfers > 0 && (
+        <LiveTransferReportCard
+          inputs={{
+            liveTransferSource: values.liveTransferSource || '',
+            spend: Number(values.spend) || 0,
+            costPerTransfer: Number(values.costPerTransfer) || 0,
+            quotedPctOfInboundPct: Number(values.quotedPctOfInboundPct) || 0,
+            closeRatePct: Number(values.closeRatePct) || 0,
+            avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
+            avgItemValue: Number(values.avgItemValue) || 0,
+            commissionPct: Number(values.commissionPct) || 0,
+          }}
+          derived={derived}
+          onClose={() => setShowReportCard(false)}
+        />
+      )}
     </div>
   );
 }

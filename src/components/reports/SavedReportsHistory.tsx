@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
+import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3, Mail, PhoneCall } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +26,9 @@ import { toast } from 'sonner';
 import { StaffROIInputs, StaffROIResults } from '@/utils/staffROICalculator';
 import StaffROIReportCard from '@/components/tools/StaffROIReportCard';
 import { DataLeadReportCard } from '@/components/tools/DataLeadReportCard';
-import { MarketingInputs, MarketingDerived } from '@/utils/marketingCalculator';
+import { MailerReportCard } from '@/components/tools/MailerReportCard';
+import { LiveTransferReportCard } from '@/components/tools/LiveTransferReportCard';
+import { MarketingInputs, MarketingDerived, MailerInputs, MailerDerived, TransferInputs, TransferDerived } from '@/utils/marketingCalculator';
 
 type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer';
 
@@ -58,6 +60,10 @@ export function SavedReportsHistory() {
         return <Calculator className="h-4 w-4" />;
       case 'data_lead':
         return <BarChart3 className="h-4 w-4" />;
+      case 'mailer':
+        return <Mail className="h-4 w-4" />;
+      case 'live_transfer':
+        return <PhoneCall className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -71,6 +77,10 @@ export function SavedReportsHistory() {
         return <Badge variant="outline">Vendor Verifier</Badge>;
       case 'data_lead':
         return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Data Lead</Badge>;
+      case 'mailer':
+        return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Mailer</Badge>;
+      case 'live_transfer':
+        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Live Transfer</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -95,6 +105,30 @@ export function SavedReportsHistory() {
           <DataLeadReportCard
             inputs={report.input_data as unknown as MarketingInputs}
             derived={report.results_data as unknown as MarketingDerived}
+            isReadOnly={true}
+          />
+        </div>
+      );
+    }
+
+    if (report.report_type === 'mailer') {
+      return (
+        <div className="mt-4 border-t border-border/20 pt-4">
+          <MailerReportCard
+            inputs={report.input_data as unknown as MailerInputs}
+            derived={report.results_data as unknown as MailerDerived}
+            isReadOnly={true}
+          />
+        </div>
+      );
+    }
+
+    if (report.report_type === 'live_transfer') {
+      return (
+        <div className="mt-4 border-t border-border/20 pt-4">
+          <LiveTransferReportCard
+            inputs={report.input_data as unknown as TransferInputs}
+            derived={report.results_data as unknown as TransferDerived}
             isReadOnly={true}
           />
         </div>
@@ -134,6 +168,8 @@ export function SavedReportsHistory() {
             <SelectItem value="staff_roi">Staff ROI</SelectItem>
             <SelectItem value="vendor_verifier">Vendor Verifier</SelectItem>
             <SelectItem value="data_lead">Data Lead</SelectItem>
+            <SelectItem value="mailer">Mailer</SelectItem>
+            <SelectItem value="live_transfer">Live Transfer</SelectItem>
           </SelectContent>
         </Select>
       </div>
