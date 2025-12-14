@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -30,6 +30,7 @@ import {
   computeTransferMetrics,
 } from "@/utils/marketingCalculator";
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
+import { StaffROICalculator } from "@/components/tools/StaffROICalculator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -235,6 +236,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             last={last === "allstate_bonus_grid"}
           />
         )}
+        <Card
+          className={cardBase}
+          role="button"
+          onClick={() => onPick("staff_roi")}
+          aria-label="Open ROI on Staff"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" /> ROI on Staff
+            </CardTitle>
+            <CardDescription>Calculate your ROI for a specific team member</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "staff_roi" && (
+              <span className="text-xs text-muted-foreground">Last used</span>
+            )}
+          </CardContent>
+        </Card>
         <Card 
           className={cardBase} 
           role="button" 
@@ -272,7 +291,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -322,6 +341,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "transfer" && (
           <div className="animate-enter">
             <TransferForm onBack={() => setMode(null)} />
+          </div>
+        )}
+        {mode === "staff_roi" && (
+          <div className="animate-enter">
+            <StaffROICalculator onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>
