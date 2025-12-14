@@ -1,6 +1,4 @@
 import { useRef, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -22,6 +20,28 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { VendorVerifierFormInputs, VendorVerifierDerived } from '@/utils/vendorVerifier';
+
+// Explicit hex colors for export compatibility
+const COLORS = {
+  bgPrimary: '#0f172a',
+  bgCard: '#1e293b',
+  bgCardAlt: '#334155',
+  textPrimary: '#f8fafc',
+  textSecondary: '#94a3b8',
+  textMuted: '#64748b',
+  green: '#22c55e',
+  greenBg: 'rgba(34, 197, 94, 0.2)',
+  greenBorder: 'rgba(34, 197, 94, 0.3)',
+  yellow: '#eab308',
+  yellowBg: 'rgba(234, 179, 8, 0.2)',
+  yellowBorder: 'rgba(234, 179, 8, 0.3)',
+  red: '#ef4444',
+  redBg: 'rgba(239, 68, 68, 0.2)',
+  redBorder: 'rgba(239, 68, 68, 0.3)',
+  blue: '#3b82f6',
+  borderColor: '#334155',
+  primary: '#3b82f6',
+};
 
 interface VendorReportCardProps {
   inputs: VendorVerifierFormInputs;
@@ -45,28 +65,51 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
 
   // Determine overall verdict
   const getVerdict = () => {
-    if (roi === null) return { label: 'INCOMPLETE DATA', color: 'gray', icon: AlertTriangle };
-    if (roi >= 50) return { label: 'HIGHLY PROFITABLE', color: 'green', icon: TrendingUp };
-    if (roi >= 0) return { label: 'PROFITABLE', color: 'green', icon: CheckCircle };
-    if (roi >= -25) return { label: 'MARGINAL', color: 'yellow', icon: AlertTriangle };
-    return { label: 'LOSING MONEY', color: 'red', icon: TrendingDown };
+    if (roi === null) return { label: 'INCOMPLETE DATA', color: 'gray' as const, icon: AlertTriangle };
+    if (roi >= 50) return { label: 'HIGHLY PROFITABLE', color: 'green' as const, icon: TrendingUp };
+    if (roi >= 0) return { label: 'PROFITABLE', color: 'green' as const, icon: CheckCircle };
+    if (roi >= -25) return { label: 'MARGINAL', color: 'yellow' as const, icon: AlertTriangle };
+    return { label: 'LOSING MONEY', color: 'red' as const, icon: TrendingDown };
   };
 
   const verdict = getVerdict();
 
-  // Color helpers
-  const getCloseRateColor = (rate: number | null | undefined) => {
-    if (!rate) return 'text-muted-foreground';
-    if (rate >= 0.30) return 'text-green-500';
-    if (rate >= 0.20) return 'text-yellow-500';
-    return 'text-red-500';
+  // Get hex colors based on verdict
+  const getVerdictColors = () => {
+    switch (verdict.color) {
+      case 'green':
+        return { bg: COLORS.greenBg, text: COLORS.green, border: COLORS.greenBorder };
+      case 'yellow':
+        return { bg: COLORS.yellowBg, text: COLORS.yellow, border: COLORS.yellowBorder };
+      case 'red':
+        return { bg: COLORS.redBg, text: COLORS.red, border: COLORS.redBorder };
+      default:
+        return { bg: COLORS.bgCardAlt, text: COLORS.textMuted, border: COLORS.borderColor };
+    }
   };
 
-  const getCostColor = (cost: number | null | undefined, threshold: number) => {
-    if (!cost) return 'text-muted-foreground';
-    if (cost <= threshold) return 'text-green-500';
-    if (cost <= threshold * 1.5) return 'text-yellow-500';
-    return 'text-red-500';
+  const verdictColors = getVerdictColors();
+
+  // Color helpers returning hex values
+  const getCloseRateColorHex = (rate: number | null | undefined): string => {
+    if (!rate) return COLORS.textMuted;
+    if (rate >= 0.30) return COLORS.green;
+    if (rate >= 0.20) return COLORS.yellow;
+    return COLORS.red;
+  };
+
+  const getCostColorHex = (cost: number | null | undefined, threshold: number): string => {
+    if (!cost) return COLORS.textMuted;
+    if (cost <= threshold) return COLORS.green;
+    if (cost <= threshold * 1.5) return COLORS.yellow;
+    return COLORS.red;
+  };
+
+  const getProgressBarColor = (rate: number | null | undefined): string => {
+    if (!rate) return COLORS.red;
+    if (rate >= 0.30) return COLORS.green;
+    if (rate >= 0.20) return COLORS.yellow;
+    return COLORS.red;
   };
 
   const formatCurrency = (value: number | null | undefined) => {
@@ -96,29 +139,10 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     setIsExporting(true);
     try {
       const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: '#0f172a',
+        backgroundColor: COLORS.bgPrimary,
         scale: 2,
-        logging: false,
         useCORS: true,
-        allowTaint: true,
-        onclone: (_clonedDoc, element) => {
-          const allElements = element.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const computed = window.getComputedStyle(el as Element);
-            const htmlEl = el as HTMLElement;
-            
-            if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-              htmlEl.style.backgroundColor = computed.backgroundColor;
-            }
-            if (computed.color) {
-              htmlEl.style.color = computed.color;
-            }
-            if (computed.borderColor) {
-              htmlEl.style.borderColor = computed.borderColor;
-            }
-          });
-          element.style.backgroundColor = '#0f172a';
-        }
+        logging: false,
       });
       
       const link = document.createElement('a');
@@ -141,29 +165,10 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     setIsExporting(true);
     try {
       const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: '#0f172a',
+        backgroundColor: COLORS.bgPrimary,
         scale: 2,
-        logging: false,
         useCORS: true,
-        allowTaint: true,
-        onclone: (_clonedDoc, element) => {
-          const allElements = element.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const computed = window.getComputedStyle(el as Element);
-            const htmlEl = el as HTMLElement;
-            
-            if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
-              htmlEl.style.backgroundColor = computed.backgroundColor;
-            }
-            if (computed.color) {
-              htmlEl.style.color = computed.color;
-            }
-            if (computed.borderColor) {
-              htmlEl.style.borderColor = computed.borderColor;
-            }
-          });
-          element.style.backgroundColor = '#0f172a';
-        }
+        logging: false,
       });
       
       const imgData = canvas.toDataURL('image/png', 1.0);
@@ -226,55 +231,75 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     }
   };
 
+  const VerdictIcon = verdict.icon;
+
   return (
     <>
-    <div ref={reportRef} className="mt-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div 
+      ref={reportRef} 
+      style={{ backgroundColor: COLORS.bgPrimary, color: COLORS.textPrimary }}
+      className="mt-8 p-6 rounded-xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
+    >
       {/* Header */}
-      <div className="relative p-6 rounded-xl bg-gradient-to-r from-card to-card/80 border border-border">
+      <div 
+        style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+        className="relative p-6 rounded-xl border"
+      >
         <Button 
           variant="ghost" 
           size="icon" 
           className="absolute top-4 right-4"
           onClick={onClose}
+          style={{ color: COLORS.textSecondary }}
         >
           <X className="h-5 w-5" />
         </Button>
 
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <p className="text-sm text-primary font-medium uppercase tracking-wider">Vendor Performance Report</p>
-            <h2 className="text-3xl font-bold mt-1">{inputs.vendorName || 'Unknown Vendor'}</h2>
-            <p className="text-muted-foreground mt-1">
+            <p style={{ color: COLORS.primary }} className="text-sm font-medium uppercase tracking-wider">
+              Vendor Performance Report
+            </p>
+            <h2 style={{ color: COLORS.textPrimary }} className="text-3xl font-bold mt-1">
+              {inputs.vendorName || 'Unknown Vendor'}
+            </h2>
+            <p style={{ color: COLORS.textSecondary }} className="mt-1">
               {formatDate(inputs.dateStart)} → {formatDate(inputs.dateEnd)}
             </p>
           </div>
           
-          <Badge 
-            className={`text-lg px-4 py-2 ${
-              verdict.color === 'green' ? 'bg-green-500/20 text-green-500 border-green-500/30' :
-              verdict.color === 'yellow' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' :
-              verdict.color === 'red' ? 'bg-red-500/20 text-red-500 border-red-500/30' :
-              'bg-muted text-muted-foreground border-border'
-            }`}
+          <div 
+            style={{ 
+              backgroundColor: verdictColors.bg, 
+              color: verdictColors.text, 
+              borderColor: verdictColors.border 
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-full border text-lg font-semibold"
           >
-            <verdict.icon className="h-5 w-5 mr-2" />
+            <VerdictIcon className="h-5 w-5" style={{ color: verdictColors.text }} />
             {verdict.label}
-          </Badge>
+          </div>
         </div>
 
         {/* ROI Hero Number */}
         {roi !== null && (
           <div className="mt-6 flex items-center gap-8 flex-wrap">
             <div>
-              <p className="text-sm text-muted-foreground">Return on Investment</p>
-              <p className={`text-5xl font-bold ${roi >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">Return on Investment</p>
+              <p 
+                style={{ color: roi >= 0 ? COLORS.green : COLORS.red }}
+                className="text-5xl font-bold"
+              >
                 {roi >= 0 ? '+' : ''}{roi.toFixed(1)}%
               </p>
             </div>
-            <div className="h-16 w-px bg-border hidden sm:block" />
+            <div style={{ backgroundColor: COLORS.borderColor }} className="h-16 w-px hidden sm:block" />
             <div>
-              <p className="text-sm text-muted-foreground">Net Profit/Loss</p>
-              <p className={`text-3xl font-bold ${profit && profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">Net Profit/Loss</p>
+              <p 
+                style={{ color: profit && profit >= 0 ? COLORS.green : COLORS.red }}
+                className="text-3xl font-bold"
+              >
                 {formatCurrency(profit)}
               </p>
             </div>
@@ -285,210 +310,204 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
       {/* Key Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-3">
         {/* Investment Card */}
-        <Card className="bg-card/50 border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-              <DollarSign className="h-4 w-4" />
-              INVESTMENT
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(inputs.amountSpent)}</p>
-            <p className="text-sm text-muted-foreground mt-1">Total spend this period</p>
-          </CardContent>
-        </Card>
+        <div 
+          style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+          className="p-4 rounded-lg border"
+        >
+          <div className="flex items-center gap-2 pb-2">
+            <DollarSign className="h-4 w-4" style={{ color: COLORS.textSecondary }} />
+            <span style={{ color: COLORS.textSecondary }} className="text-sm">INVESTMENT</span>
+          </div>
+          <p style={{ color: COLORS.textPrimary }} className="text-2xl font-bold">
+            {formatCurrency(inputs.amountSpent)}
+          </p>
+          <p style={{ color: COLORS.textSecondary }} className="text-sm mt-1">Total spend this period</p>
+        </div>
 
         {/* Commission Card */}
-        <Card className="bg-card/50 border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-              <TrendingUp className="h-4 w-4" />
-              PROJECTED COMMISSION
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-500">
-              {formatCurrency(derived.projectedCommissionAmount)}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {inputs.commissionPct || 0}% of {formatCurrency(inputs.premiumSold)} premium
-            </p>
-          </CardContent>
-        </Card>
+        <div 
+          style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+          className="p-4 rounded-lg border"
+        >
+          <div className="flex items-center gap-2 pb-2">
+            <TrendingUp className="h-4 w-4" style={{ color: COLORS.textSecondary }} />
+            <span style={{ color: COLORS.textSecondary }} className="text-sm">PROJECTED COMMISSION</span>
+          </div>
+          <p style={{ color: COLORS.green }} className="text-2xl font-bold">
+            {formatCurrency(derived.projectedCommissionAmount)}
+          </p>
+          <p style={{ color: COLORS.textSecondary }} className="text-sm mt-1">
+            {inputs.commissionPct || 0}% of {formatCurrency(inputs.premiumSold)} premium
+          </p>
+        </div>
 
         {/* Close Rate Card */}
-        <Card className="bg-card/50 border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-              <Target className="h-4 w-4" />
-              CLOSE RATE
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${getCloseRateColor(derived.policyCloseRate)}`}>
-              {formatPercent(derived.policyCloseRate)}
-            </p>
-            <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all ${
-                  (derived.policyCloseRate || 0) >= 0.30 ? 'bg-green-500' :
-                  (derived.policyCloseRate || 0) >= 0.20 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${Math.min((derived.policyCloseRate || 0) * 100, 100)}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <div 
+          style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+          className="p-4 rounded-lg border"
+        >
+          <div className="flex items-center gap-2 pb-2">
+            <Target className="h-4 w-4" style={{ color: COLORS.textSecondary }} />
+            <span style={{ color: COLORS.textSecondary }} className="text-sm">CLOSE RATE</span>
+          </div>
+          <p 
+            style={{ color: getCloseRateColorHex(derived.policyCloseRate) }}
+            className="text-2xl font-bold"
+          >
+            {formatPercent(derived.policyCloseRate)}
+          </p>
+          <div 
+            style={{ backgroundColor: COLORS.bgCardAlt }}
+            className="mt-2 h-2 rounded-full overflow-hidden"
+          >
+            <div 
+              style={{ 
+                backgroundColor: getProgressBarColor(derived.policyCloseRate),
+                width: `${Math.min((derived.policyCloseRate || 0) * 100, 100)}%`
+              }}
+              className="h-full rounded-full transition-all"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Activity Stats */}
-      <Card className="bg-card/50 border-border">
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            ACTIVITY BREAKDOWN
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{inputs.inboundCalls || '--'}</p>
-              <p className="text-sm text-muted-foreground">Inbound Calls</p>
+      <div 
+        style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+        className="p-4 rounded-lg border"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="h-4 w-4" style={{ color: COLORS.textPrimary }} />
+          <span style={{ color: COLORS.textPrimary }} className="text-sm font-semibold">ACTIVITY BREAKDOWN</span>
+        </div>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          {[
+            { value: inputs.inboundCalls, label: 'Inbound Calls' },
+            { value: inputs.quotedHH, label: 'Households Quoted' },
+            { value: inputs.closedHH, label: 'Households Closed' },
+            { value: inputs.policiesSold, label: 'Policies Sold' },
+          ].map((item, i) => (
+            <div 
+              key={i}
+              style={{ backgroundColor: COLORS.bgCardAlt }}
+              className="text-center p-4 rounded-lg"
+            >
+              <p style={{ color: COLORS.textPrimary }} className="text-3xl font-bold">
+                {item.value || '--'}
+              </p>
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">{item.label}</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{inputs.quotedHH || '--'}</p>
-              <p className="text-sm text-muted-foreground">Households Quoted</p>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{inputs.closedHH || '--'}</p>
-              <p className="text-sm text-muted-foreground">Households Closed</p>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{inputs.policiesSold || '--'}</p>
-              <p className="text-sm text-muted-foreground">Policies Sold</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </div>
 
       {/* Cost Analysis */}
-      <Card className="bg-card/50 border-border">
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            COST ANALYSIS
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Cost per Call</p>
-              <p className={`text-xl font-bold ${getCostColor(derived.avgCostPerCall, 100)}`}>
-                {formatCurrency(derived.avgCostPerCall)}
+      <div 
+        style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+        className="p-4 rounded-lg border"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <FileText className="h-4 w-4" style={{ color: COLORS.textPrimary }} />
+          <span style={{ color: COLORS.textPrimary }} className="text-sm font-semibold">COST ANALYSIS</span>
+        </div>
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[
+            { value: derived.avgCostPerCall, label: 'Cost per Call', threshold: 100 },
+            { value: derived.costPerQuotedHH, label: 'Cost per Quoted HH', threshold: 150 },
+            { value: derived.costPerSoldPolicy, label: 'Cost per Sold Policy', threshold: 300 },
+            { value: derived.cpa, label: 'CPA (Acquisition)', threshold: 400 },
+          ].map((item, i) => (
+            <div 
+              key={i}
+              style={{ backgroundColor: COLORS.bgCardAlt }}
+              className="p-4 rounded-lg"
+            >
+              <p style={{ color: COLORS.textSecondary }} className="text-sm">{item.label}</p>
+              <p 
+                style={{ color: getCostColorHex(item.value, item.threshold) }}
+                className="text-xl font-bold"
+              >
+                {formatCurrency(item.value)}
               </p>
             </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Cost per Quoted HH</p>
-              <p className={`text-xl font-bold ${getCostColor(derived.costPerQuotedHH, 150)}`}>
-                {formatCurrency(derived.costPerQuotedHH)}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Cost per Sold Policy</p>
-              <p className={`text-xl font-bold ${getCostColor(derived.costPerSoldPolicy, 300)}`}>
-                {formatCurrency(derived.costPerSoldPolicy)}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">CPA (Acquisition)</p>
-              <p className={`text-xl font-bold ${getCostColor(derived.cpa, 400)}`}>
-                {formatCurrency(derived.cpa)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </div>
 
       {/* Value Metrics */}
-      <Card className="bg-card/50 border-border">
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            VALUE METRICS
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Average Policy Value</p>
-              <p className="text-xl font-bold text-blue-500">
-                {formatCurrency(derived.averagePolicyValue)}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Average Item Value</p>
-              <p className="text-xl font-bold text-blue-500">
-                {formatCurrency(derived.averageItemValue)}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">Total Premium Sold</p>
-              <p className="text-xl font-bold text-green-500">
-                {formatCurrency(inputs.premiumSold)}
-              </p>
-            </div>
+      <div 
+        style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
+        className="p-4 rounded-lg border"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <DollarSign className="h-4 w-4" style={{ color: COLORS.textPrimary }} />
+          <span style={{ color: COLORS.textPrimary }} className="text-sm font-semibold">VALUE METRICS</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div style={{ backgroundColor: COLORS.bgCardAlt }} className="p-4 rounded-lg">
+            <p style={{ color: COLORS.textSecondary }} className="text-sm">Average Policy Value</p>
+            <p style={{ color: COLORS.blue }} className="text-xl font-bold">
+              {formatCurrency(derived.averagePolicyValue)}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <div style={{ backgroundColor: COLORS.bgCardAlt }} className="p-4 rounded-lg">
+            <p style={{ color: COLORS.textSecondary }} className="text-sm">Average Item Value</p>
+            <p style={{ color: COLORS.blue }} className="text-xl font-bold">
+              {formatCurrency(derived.averageItemValue)}
+            </p>
+          </div>
+          <div style={{ backgroundColor: COLORS.bgCardAlt }} className="p-4 rounded-lg">
+            <p style={{ color: COLORS.textSecondary }} className="text-sm">Total Premium Sold</p>
+            <p style={{ color: COLORS.green }} className="text-xl font-bold">
+              {formatCurrency(inputs.premiumSold)}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Recommendation Box */}
-      <Card className={`border-2 ${
-        verdict.color === 'green' ? 'bg-green-500/10 border-green-500/30' :
-        verdict.color === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/30' :
-        verdict.color === 'red' ? 'bg-red-500/10 border-red-500/30' :
-        'bg-card border-border'
-      }`}>
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className={`p-3 rounded-full ${
-              verdict.color === 'green' ? 'bg-green-500/20' :
-              verdict.color === 'yellow' ? 'bg-yellow-500/20' :
-              verdict.color === 'red' ? 'bg-red-500/20' :
-              'bg-muted'
-            }`}>
-              <verdict.icon className={`h-6 w-6 ${
-                verdict.color === 'green' ? 'text-green-500' :
-                verdict.color === 'yellow' ? 'text-yellow-500' :
-                verdict.color === 'red' ? 'text-red-500' :
-                'text-muted-foreground'
-              }`} />
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg">Recommendation</h3>
-              <p className="text-muted-foreground mt-1">
-                {verdict.color === 'green' && roi !== null && roi >= 50 && (
-                  `Excellent performance! ${inputs.vendorName} is generating strong returns. Consider increasing spend to scale results.`
-                )}
-                {verdict.color === 'green' && roi !== null && roi < 50 && (
-                  `${inputs.vendorName} is profitable. Monitor close rates and continue optimizing to improve ROI further.`
-                )}
-                {verdict.color === 'yellow' && (
-                  `${inputs.vendorName} is borderline. Review your follow-up process and quoting efficiency to improve conversion.`
-                )}
-                {verdict.color === 'red' && (
-                  `${inputs.vendorName} is not generating positive returns. Consider pausing spend and analyzing what's not working.`
-                )}
-                {verdict.color === 'gray' && (
-                  `Add more data to get a complete analysis. Ensure you've entered premium sold and commission percentage.`
-                )}
-              </p>
-            </div>
+      <div 
+        style={{ 
+          backgroundColor: verdictColors.bg, 
+          borderColor: verdictColors.border 
+        }}
+        className="p-6 rounded-lg border-2"
+      >
+        <div className="flex items-start gap-4">
+          <div 
+            style={{ backgroundColor: verdictColors.bg }}
+            className="p-3 rounded-full"
+          >
+            <VerdictIcon className="h-6 w-6" style={{ color: verdictColors.text }} />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h3 style={{ color: COLORS.textPrimary }} className="font-semibold text-lg">Recommendation</h3>
+            <p style={{ color: COLORS.textSecondary }} className="mt-1">
+              {verdict.color === 'green' && roi !== null && roi >= 50 && (
+                `Excellent performance! ${inputs.vendorName} is generating strong returns. Consider increasing spend to scale results.`
+              )}
+              {verdict.color === 'green' && roi !== null && roi < 50 && (
+                `${inputs.vendorName} is profitable. Monitor close rates and continue optimizing to improve ROI further.`
+              )}
+              {verdict.color === 'yellow' && (
+                `${inputs.vendorName} is borderline. Review your follow-up process and quoting efficiency to improve conversion.`
+              )}
+              {verdict.color === 'red' && (
+                `${inputs.vendorName} is not generating positive returns. Consider pausing spend and analyzing what's not working.`
+              )}
+              {verdict.color === 'gray' && (
+                `Add more data to get a complete analysis. Ensure you've entered premium sold and commission percentage.`
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Branding footer for exports */}
-      <div className="flex items-center justify-between pt-4 mt-4 border-t border-border text-sm text-muted-foreground">
+      <div 
+        style={{ borderColor: COLORS.borderColor, color: COLORS.textSecondary }}
+        className="flex items-center justify-between pt-4 mt-4 border-t text-sm"
+      >
         <span>Generated by AgencyBrain</span>
         <span>{new Date().toLocaleDateString()}</span>
       </div>
