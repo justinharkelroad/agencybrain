@@ -17,7 +17,7 @@ import {
   Save
 } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { VendorVerifierFormInputs, VendorVerifierDerived } from '@/utils/vendorVerifier';
 
@@ -138,16 +138,19 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
+      const dataUrl = await toPng(reportRef.current, {
+        quality: 1,
+        pixelRatio: 2,
         backgroundColor: COLORS.bgPrimary,
-        scale: 2,
-        useCORS: true,
-        logging: false,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        },
       });
       
       const link = document.createElement('a');
       link.download = getFileName('png');
-      link.href = canvas.toDataURL('image/png', 1.0);
+      link.href = dataUrl;
       link.click();
       
       toast.success('Report exported as PNG');
@@ -164,16 +167,23 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
+      const dataUrl = await toPng(reportRef.current, {
+        quality: 1,
+        pixelRatio: 2,
         backgroundColor: COLORS.bgPrimary,
-        scale: 2,
-        useCORS: true,
-        logging: false,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+        },
       });
       
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
+      // Create image to get dimensions
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => { img.onload = resolve; });
+      
+      const imgWidth = img.width;
+      const imgHeight = img.height;
       
       const pdfWidth = 210;
       const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
@@ -184,7 +194,7 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
         format: [pdfWidth, pdfHeight],
       });
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(getFileName('pdf'));
       
       toast.success('Report exported as PDF');
