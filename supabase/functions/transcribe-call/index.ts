@@ -249,6 +249,20 @@ serve(async (req) => {
       
       callRecord = result;
       console.log("Call record saved:", callRecord.id);
+
+      // Update usage tracking ONLY after successful insert
+      const currentMonth = new Date().toISOString().slice(0, 10);
+      const { error: usageError } = await supabase.rpc("increment_call_usage", {
+        p_agency_id: agencyId,
+        p_month: currentMonth,
+      });
+
+      if (usageError) {
+        console.error("Failed to update usage:", usageError);
+      } else {
+        console.log("Usage incremented for agency:", agencyId);
+      }
+
     } catch (err) {
       insertError = err;
       console.error("Failed to save call record after retries:", insertError);
@@ -287,16 +301,6 @@ serve(async (req) => {
       });
     }
 
-    // Update usage tracking
-    const currentMonth = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const { error: usageError } = await supabase.rpc("increment_call_usage", {
-      p_agency_id: agencyId,
-      p_month: currentMonth,
-    });
-
-    if (usageError) {
-      console.error("Failed to update usage:", usageError);
-    }
 
     // Return success response with call_id
     return new Response(
