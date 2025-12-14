@@ -5136,6 +5136,10 @@ export type Database = {
               team_member_name: string
             }[]
           }
+      get_staff_call_details: {
+        Args: { p_call_id: string; p_team_member_id: string }
+        Returns: Json
+      }
       get_staff_call_scoring_data: {
         Args: { p_agency_id: string; p_team_member_id?: string }
         Returns: Json

@@ -91,6 +91,7 @@ export default function CallScoring() {
   // Scorecard modal state
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [loadingCallDetails, setLoadingCallDetails] = useState(false);
 
   // Detect staff user by verifying session token (same as useStaffAuth hook)
   useEffect(() => {
@@ -648,84 +649,93 @@ export default function CallScoring() {
 
   const handleCallClick = async (call: RecentCall | any) => {
     console.log('=== Call clicked ===');
-    console.log('Full call object:', call);
-    console.log('skill_scores:', call.skill_scores);
-    console.log('overall_score:', call.overall_score);
-    console.log('section_scores:', call.section_scores);
-    console.log('discovery_wins:', call.discovery_wins);
-    console.log('critical_gaps:', call.critical_gaps);
-    console.log('client_profile:', call.client_profile);
-    console.log('coaching_recommendations:', call.coaching_recommendations);
-    console.log('potential_rank:', call.potential_rank);
+    console.log('Call ID:', call.id);
     
-    // For staff users, the call already has full data from RPC - use it directly
-    if (isStaffUser) {
-      console.log('Staff user - using call data directly from RPC');
-      setSelectedCall({
-        ...call,
-        team_member_name: call.team_member_name
-      });
-      setScorecardOpen(true);
-      return;
-    }
-    
-    // For regular users, fetch full call data from database
-    console.log('Regular user - fetching full call data from database...');
-    const { data: fullCall, error } = await supabase
-      .from('agency_calls')
-      .select(`
-        id,
-        original_filename,
-        call_duration_seconds,
-        status,
-        overall_score,
-        potential_rank,
-        skill_scores,
-        section_scores,
-        discovery_wins,
-        critical_gaps,
-        closing_attempts,
-        missed_signals,
-        client_profile,
-        premium_analysis,
-        coaching_recommendations,
-        notable_quotes,
-        summary,
-        transcript,
-        created_at,
-        analyzed_at,
-        acknowledged_at,
-        staff_feedback_positive,
-        staff_feedback_improvement,
-        agent_talk_seconds,
-        customer_talk_seconds,
-        dead_air_seconds,
-        agent_talk_percent,
-        customer_talk_percent,
-        dead_air_percent,
-        team_member_id
-      `)
-      .eq('id', call.id)
-      .single();
-    
-    console.log('Fetched full call:', fullCall);
-    console.log('Fetch error:', error);
-    
-    if (error) {
-      console.error('Error fetching call details:', error);
-      toast.error('Failed to load call details');
-      return;
-    }
-    
-    // Merge with the team member name from the list
-    const mergedCall = {
-      ...fullCall,
-      team_member_name: call.team_member_name
-    };
-    console.log('Merged call for scorecard:', mergedCall);
-    
-    setSelectedCall(mergedCall);
+    // Open modal immediately with loading state
     setScorecardOpen(true);
+    setLoadingCallDetails(true);
+    
+    try {
+      if (isStaffUser) {
+        // Staff users use RPC to bypass RLS
+        console.log('Staff user - fetching full call via RPC...');
+        const { data: fullCall, error } = await supabase.rpc('get_staff_call_details', {
+          p_call_id: call.id,
+          p_team_member_id: staffTeamMemberId
+        });
+
+        if (error) {
+          console.error('Error fetching call details:', error);
+          toast.error('Failed to load call details');
+          setScorecardOpen(false);
+          return;
+        }
+
+        console.log('Staff RPC full call:', fullCall);
+        setSelectedCall(fullCall);
+      } else {
+        // Regular users fetch directly from database
+        console.log('Regular user - fetching full call from database...');
+        const { data: fullCall, error } = await supabase
+          .from('agency_calls')
+          .select(`
+            id,
+            original_filename,
+            call_duration_seconds,
+            status,
+            overall_score,
+            potential_rank,
+            skill_scores,
+            section_scores,
+            discovery_wins,
+            critical_gaps,
+            closing_attempts,
+            missed_signals,
+            client_profile,
+            premium_analysis,
+            coaching_recommendations,
+            notable_quotes,
+            summary,
+            transcript,
+            created_at,
+            analyzed_at,
+            acknowledged_at,
+            acknowledged_by,
+            staff_feedback_positive,
+            staff_feedback_improvement,
+            agent_talk_seconds,
+            customer_talk_seconds,
+            dead_air_seconds,
+            agent_talk_percent,
+            customer_talk_percent,
+            dead_air_percent,
+            team_member_id,
+            team_members(id, name)
+          `)
+          .eq('id', call.id)
+          .single();
+        
+        console.log('Fetched full call:', fullCall);
+        
+        if (error) {
+          console.error('Error fetching call details:', error);
+          toast.error('Failed to load call details');
+          setScorecardOpen(false);
+          return;
+        }
+        
+        // Merge with team member name
+        const mergedCall = {
+          ...fullCall,
+          team_member_name: fullCall?.team_members?.name || call.team_member_name
+        };
+        console.log('Merged call for scorecard:', mergedCall);
+        
+        setSelectedCall(mergedCall);
+      }
+    } finally {
+      setLoadingCallDetails(false);
+    }
   };
 
   const handleStaffAcknowledge = async (positive: string, improvement: string) => {
@@ -1084,6 +1094,7 @@ export default function CallScoring() {
         staffFeedbackPositive={selectedCall?.staff_feedback_positive}
         staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
         onAcknowledge={handleStaffAcknowledge}
+        loading={loadingCallDetails}
       />
     </div>
   );

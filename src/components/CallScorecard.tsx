@@ -30,6 +30,7 @@ interface CallScorecardProps {
   staffFeedbackPositive?: string | null;
   staffFeedbackImprovement?: string | null;
   onAcknowledge?: (positive: string, improvement: string) => Promise<void>;
+  loading?: boolean;
 }
 
 export function CallScorecard({ 
@@ -41,7 +42,8 @@ export function CallScorecard({
   acknowledgedAt,
   staffFeedbackPositive,
   staffFeedbackImprovement,
-  onAcknowledge
+  onAcknowledge,
+  loading = false
 }: CallScorecardProps) {
   const [showCrmNotes, setShowCrmNotes] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -165,6 +167,19 @@ export function CallScorecard({
     navigator.clipboard.writeText(`${window.location.origin}/call-scoring?call=${call.id}`);
     toast.success('Link copied to clipboard');
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
