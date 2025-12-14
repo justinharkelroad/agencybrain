@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { toPng } from 'html-to-image';
 import { StaffROIInputs, StaffROIResults } from '@/utils/staffROICalculator';
+import { SaveStaffROIReportButton } from '@/components/SaveStaffROIReportButton';
 import {
   Select,
   SelectContent,
@@ -437,6 +438,7 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }:
 
       {/* Action Buttons - Outside ref for export */}
       <div className="flex gap-3 mt-4 justify-end">
+        <SaveStaffROIReportButton input={inputs} results={results} />
         <Button
           variant="outline"
           onClick={handleCopy}
