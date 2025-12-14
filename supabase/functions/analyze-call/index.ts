@@ -230,6 +230,19 @@ ${call.transcript}`;
     const openaiResult = await openaiResponse.json();
     const analysisText = openaiResult.choices?.[0]?.message?.content;
 
+    // Extract token usage and calculate costs
+    const usage = openaiResult.usage;
+    const inputTokens = usage?.prompt_tokens || 0;
+    const outputTokens = usage?.completion_tokens || 0;
+    
+    // GPT-4o pricing: $2.50/1M input, $10/1M output
+    const inputCost = (inputTokens / 1000000) * 2.50;
+    const outputCost = (outputTokens / 1000000) * 10.00;
+    const gptCost = inputCost + outputCost;
+    
+    console.log(`GPT-4o usage - Input: ${inputTokens} tokens, Output: ${outputTokens} tokens`);
+    console.log(`GPT-4o cost: $${gptCost.toFixed(4)} (input: $${inputCost.toFixed(4)}, output: $${outputCost.toFixed(4)})`);
+
     if (!analysisText) {
       return new Response(
         JSON.stringify({ error: "No analysis returned from AI" }),
@@ -266,6 +279,17 @@ ${call.transcript}`;
     const overallScore = Math.round(
       (analysis.rapport_score + analysis.coverage_score + analysis.closing_score) / 3
     );
+
+    // Get existing whisper cost to calculate total
+    const { data: existingCall } = await supabase
+      .from("agency_calls")
+      .select("whisper_cost")
+      .eq("id", call_id)
+      .single();
+
+    const whisperCost = existingCall?.whisper_cost || 0;
+    const totalCost = whisperCost + gptCost;
+    console.log(`Total call cost: $${totalCost.toFixed(4)} (whisper: $${whisperCost.toFixed(4)}, gpt: $${gptCost.toFixed(4)})`);
 
     // Update the call record with analysis results - mapped to new structure
     const { error: updateError } = await supabase
@@ -309,6 +333,10 @@ ${call.transcript}`;
         },
         closing_attempts: analysis.crm_notes,
         summary: analysis.summary,
+        gpt_input_tokens: inputTokens,
+        gpt_output_tokens: outputTokens,
+        gpt_cost: gptCost,
+        total_cost: totalCost,
         status: "analyzed",
         analyzed_at: new Date().toISOString(),
       })
