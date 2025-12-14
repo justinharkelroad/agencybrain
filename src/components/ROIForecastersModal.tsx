@@ -552,39 +552,41 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         </div>
       </GridTwoCols>
 
-      <section>
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
-        <GridTwoCols>
-          <div>
-            <Label>Total Leads</Label>
-            <Input disabled value={canTotalLeads ? formatInteger(derived.totalLeads) : ""} />
-          </div>
-          <div>
-            <Label>Quoted HH</Label>
-            <Input disabled value={canQuotedHH ? formatInteger(derived.quotedHH) : ""} />
-          </div>
-          <div>
-            <Label>Cost Per Quoted HH</Label>
-            <Input disabled value={canQuotedHH ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
-          </div>
-          <div>
-            <Label>Closed HH</Label>
-            <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
-          </div>
-          <div>
-            <Label>Sold Items</Label>
-            <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
-          </div>
-          <div>
-            <Label>Sold Premium</Label>
-            <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
-          </div>
-          <div>
-            <Label>Total Compensation</Label>
-            <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
-          </div>
-        </GridTwoCols>
-      </section>
+      {!showReportCard && (
+        <section>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
+          <GridTwoCols>
+            <div>
+              <Label>Total Leads</Label>
+              <Input disabled value={canTotalLeads ? formatInteger(derived.totalLeads) : ""} />
+            </div>
+            <div>
+              <Label>Quoted HH</Label>
+              <Input disabled value={canQuotedHH ? formatInteger(derived.quotedHH) : ""} />
+            </div>
+            <div>
+              <Label>Cost Per Quoted HH</Label>
+              <Input disabled value={canQuotedHH ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
+            </div>
+            <div>
+              <Label>Closed HH</Label>
+              <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
+            </div>
+            <div>
+              <Label>Sold Items</Label>
+              <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
+            </div>
+            <div>
+              <Label>Sold Premium</Label>
+              <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
+            </div>
+            <div>
+              <Label>Total Compensation</Label>
+              <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
+            </div>
+          </GridTwoCols>
+        </section>
+      )}
 
       <div className="mt-2 flex items-center justify-between">
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
@@ -624,6 +626,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
 // ========== Mailer Form ==========
 function MailerForm({ onBack }: { onBack: () => void }) {
   const STORAGE_KEY = "roiForecasters:mailerInputs";
+  const [showReportCard, setShowReportCard] = useState(false);
   const { register, watch, setValue, reset, formState: { errors } } = useForm<MailerInputs>({ mode: "onChange", defaultValues: {} as any });
 
   useEffect(() => {
@@ -807,43 +810,45 @@ function MailerForm({ onBack }: { onBack: () => void }) {
         </div>
       </GridTwoCols>
 
-      <section>
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
-        <GridTwoCols>
-          <div>
-            <Label>Total Mailers Sent</Label>
-            <Input disabled value={canMailers ? formatInteger(derived.totalMailersSent) : ""} />
-          </div>
-          <div>
-            <Label>Inbound Calls</Label>
-            <Input disabled value={canCalls ? formatInteger(derived.inboundCalls) : ""} />
-          </div>
-          <div>
-            <Label>Quoted HH</Label>
-            <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
-          </div>
-          <div>
-            <Label>Cost Per Quoted HH</Label>
-            <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
-          </div>
-          <div>
-            <Label>Closed HH</Label>
-            <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
-          </div>
-          <div>
-            <Label>Sold Items</Label>
-            <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
-          </div>
-          <div>
-            <Label>Sold Premium</Label>
-            <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
-          </div>
-          <div>
-            <Label>Total Compensation</Label>
-            <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
-          </div>
-        </GridTwoCols>
-      </section>
+      {!showReportCard && (
+        <section>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
+          <GridTwoCols>
+            <div>
+              <Label>Total Mailers Sent</Label>
+              <Input disabled value={canMailers ? formatInteger(derived.totalMailersSent) : ""} />
+            </div>
+            <div>
+              <Label>Inbound Calls</Label>
+              <Input disabled value={canCalls ? formatInteger(derived.inboundCalls) : ""} />
+            </div>
+            <div>
+              <Label>Quoted HH</Label>
+              <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
+            </div>
+            <div>
+              <Label>Cost Per Quoted HH</Label>
+              <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
+            </div>
+            <div>
+              <Label>Closed HH</Label>
+              <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
+            </div>
+            <div>
+              <Label>Sold Items</Label>
+              <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
+            </div>
+            <div>
+              <Label>Sold Premium</Label>
+              <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
+            </div>
+            <div>
+              <Label>Total Compensation</Label>
+              <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
+            </div>
+          </GridTwoCols>
+        </section>
+      )}
 
       <div className="mt-2 flex items-center justify-between">
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
@@ -859,6 +864,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
 // ========== Live Transfer Form ==========
 function TransferForm({ onBack }: { onBack: () => void }) {
   const STORAGE_KEY = "roiForecasters:transferInputs";
+  const [showReportCard, setShowReportCard] = useState(false);
   const { register, watch, setValue, reset, formState: { errors } } = useForm<TransferInputs>({ mode: "onChange", defaultValues: {} as any });
 
   useEffect(() => {
@@ -1022,39 +1028,41 @@ function TransferForm({ onBack }: { onBack: () => void }) {
         </div>
       </GridTwoCols>
 
-      <section>
-        <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
-        <GridTwoCols>
-          <div>
-            <Label>Total Transfers</Label>
-            <Input disabled value={canTransfers ? formatInteger(derived.totalTransfers) : ""} />
-          </div>
-          <div>
-            <Label>Quoted HH</Label>
-            <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
-          </div>
-          <div>
-            <Label>Cost Per Quoted HH</Label>
-            <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
-          </div>
-          <div>
-            <Label>Closed HH</Label>
-            <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
-          </div>
-          <div>
-            <Label>Sold Items</Label>
-            <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
-          </div>
-          <div>
-            <Label>Sold Premium</Label>
-            <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
-          </div>
-          <div>
-            <Label>Total Compensation</Label>
-            <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
-          </div>
-        </GridTwoCols>
-      </section>
+      {!showReportCard && (
+        <section>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Derived Metrics</h4>
+          <GridTwoCols>
+            <div>
+              <Label>Total Transfers</Label>
+              <Input disabled value={canTransfers ? formatInteger(derived.totalTransfers) : ""} />
+            </div>
+            <div>
+              <Label>Quoted HH</Label>
+              <Input disabled value={canQuoted ? formatInteger(derived.quotedHH) : ""} />
+            </div>
+            <div>
+              <Label>Cost Per Quoted HH</Label>
+              <Input disabled value={canQuoted ? (derived.quotedHH === 0 ? "—" : formatCurrency(derived.costPerQuotedHH || 0)) : ""} />
+            </div>
+            <div>
+              <Label>Closed HH</Label>
+              <Input disabled value={canClosedHH ? formatInteger(derived.closedHH) : ""} />
+            </div>
+            <div>
+              <Label>Sold Items</Label>
+              <Input disabled value={canSoldItems ? formatInteger(derived.soldItems) : ""} />
+            </div>
+            <div>
+              <Label>Sold Premium</Label>
+              <Input disabled value={canSoldPremium ? formatCurrency(derived.soldPremium) : ""} />
+            </div>
+            <div>
+              <Label>Total Compensation</Label>
+              <Input disabled value={canTotalComp ? formatCurrency(derived.totalComp) : ""} />
+            </div>
+          </GridTwoCols>
+        </section>
+      )}
 
       <div className="mt-2 flex items-center justify-between">
         <Button variant="secondary" onClick={handleReset}>Reset</Button>
