@@ -49,7 +49,7 @@ const EMPTY_INPUTS: StaffROIInputs = {
   homeRenewalRate: 0,
   retentionRate: 0,
   marketingSpend: 0,
-  autoRenewalPeriod: 'annual',
+  autoRenewalPeriod: '6months',
 };
 
 export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
