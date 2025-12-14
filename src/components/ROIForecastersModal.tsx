@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users, PhoneForwarded } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -35,6 +35,7 @@ import { DataLeadReportCard } from "@/components/tools/DataLeadReportCard";
 import { MailerReportCard } from "@/components/tools/MailerReportCard";
 import { LiveTransferReportCard } from "@/components/tools/LiveTransferReportCard";
 import { useNavigate } from "react-router-dom";
+import { CallEfficiencyTool } from "@/components/tools/CallEfficiencyTool";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -271,6 +272,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             <CardDescription>One quick upload and get some valuable insights.</CardDescription>
           </CardHeader>
         </Card>
+        <Card
+          className={cardBase}
+          role="button"
+          onClick={() => onPick("call_efficiency")}
+          aria-label="Open Call Efficiency Tool"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PhoneForwarded className="h-5 w-5" /> Call Efficiency Tool
+            </CardTitle>
+            <CardDescription>Analyze call logs to measure team performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "call_efficiency" && (
+              <span className="text-xs text-muted-foreground">Last used</span>
+            )}
+          </CardContent>
+        </Card>
       </div>
       
       {/* Upgrade Dialog for Restricted Access */}
@@ -294,7 +313,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -349,6 +368,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "staff_roi" && (
           <div className="animate-enter">
             <StaffROICalculator onBack={() => setMode(null)} />
+          </div>
+        )}
+        {mode === "call_efficiency" && (
+          <div className="animate-enter">
+            <CallEfficiencyTool onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>
