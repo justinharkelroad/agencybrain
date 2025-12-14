@@ -69,6 +69,16 @@ export function CallScorecard({
     }
   };
   
+  // Debug logging
+  console.log('=== CallScorecard received call ===');
+  console.log('call object:', call);
+  console.log('call.section_scores:', call?.section_scores);
+  console.log('call.skill_scores:', call?.skill_scores);
+  console.log('call.critical_gaps:', call?.critical_gaps);
+  console.log('call.summary:', call?.summary);
+  console.log('call.potential_rank:', call?.potential_rank);
+  console.log('call.client_profile:', call?.client_profile);
+  
   if (!call) return null;
 
   const getRankColor = (rank: string) => {
