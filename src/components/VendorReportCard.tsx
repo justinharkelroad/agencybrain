@@ -96,15 +96,34 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     setIsExporting(true);
     try {
       const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: '#0f172a',
         scale: 2,
         logging: false,
         useCORS: true,
+        allowTaint: true,
+        onclone: (_clonedDoc, element) => {
+          const allElements = element.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const computed = window.getComputedStyle(el as Element);
+            const htmlEl = el as HTMLElement;
+            
+            if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              htmlEl.style.backgroundColor = computed.backgroundColor;
+            }
+            if (computed.color) {
+              htmlEl.style.color = computed.color;
+            }
+            if (computed.borderColor) {
+              htmlEl.style.borderColor = computed.borderColor;
+            }
+          });
+          element.style.backgroundColor = '#0f172a';
+        }
       });
       
       const link = document.createElement('a');
       link.download = getFileName('png');
-      link.href = canvas.toDataURL('image/png');
+      link.href = canvas.toDataURL('image/png', 1.0);
       link.click();
       
       toast.success('Report exported as PNG');
@@ -122,13 +141,32 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     setIsExporting(true);
     try {
       const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: '#0f172a',
         scale: 2,
         logging: false,
         useCORS: true,
+        allowTaint: true,
+        onclone: (_clonedDoc, element) => {
+          const allElements = element.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const computed = window.getComputedStyle(el as Element);
+            const htmlEl = el as HTMLElement;
+            
+            if (computed.backgroundColor && computed.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+              htmlEl.style.backgroundColor = computed.backgroundColor;
+            }
+            if (computed.color) {
+              htmlEl.style.color = computed.color;
+            }
+            if (computed.borderColor) {
+              htmlEl.style.borderColor = computed.borderColor;
+            }
+          });
+          element.style.backgroundColor = '#0f172a';
+        }
       });
       
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
       
