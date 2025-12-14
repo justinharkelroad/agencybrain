@@ -136,6 +136,8 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }:
       `Commission (${inputs.commissionRate}%): ${formatCurrency(results.commissionAmount)}`,
       `Payroll Taxes (${inputs.payrollTaxRate}%): ${formatCurrency(results.payrollTaxAmount)}`,
       inputs.marketingSpend > 0 ? `Marketing Spend: ${formatCurrency(results.marketingSpend)}` : null,
+      inputs.benefits > 0 ? `Benefits: ${formatCurrency(results.benefits)}` : null,
+      inputs.promoPayOuts > 0 ? `Promo Pay Outs: ${formatCurrency(results.promoPayOuts)}` : null,
       `Total Expenses: ${formatCurrency(results.totalExpenses)}`,
       ``,
       `Month 1 Net: ${formatCurrency(results.month1NetProfitLoss)}`,
@@ -355,6 +357,22 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }:
                 <tr>
                   <td style={{ color: COLORS.textSecondary, padding: '12px 12px 12px 24px' }}>Marketing Spend</td>
                   <td style={{ color: COLORS.red, padding: '12px', textAlign: 'right' }}>{formatCurrency(results.marketingSpend)}</td>
+                  {show6Month && <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>}
+                  <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>
+                </tr>
+              )}
+              {inputs.benefits > 0 && (
+                <tr>
+                  <td style={{ color: COLORS.textSecondary, padding: '12px 12px 12px 24px' }}>Benefits</td>
+                  <td style={{ color: COLORS.red, padding: '12px', textAlign: 'right' }}>{formatCurrency(results.benefits)}</td>
+                  {show6Month && <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>}
+                  <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>
+                </tr>
+              )}
+              {inputs.promoPayOuts > 0 && (
+                <tr>
+                  <td style={{ color: COLORS.textSecondary, padding: '12px 12px 12px 24px' }}>Promo Pay Outs</td>
+                  <td style={{ color: COLORS.red, padding: '12px', textAlign: 'right' }}>{formatCurrency(results.promoPayOuts)}</td>
                   {show6Month && <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>}
                   <td style={{ color: COLORS.textSecondary, padding: '12px', textAlign: 'right' }}>—</td>
                 </tr>
