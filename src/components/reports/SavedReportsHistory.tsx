@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,8 +25,10 @@ import { useSavedReports, SavedReport } from '@/hooks/useSavedReports';
 import { toast } from 'sonner';
 import { StaffROIInputs, StaffROIResults } from '@/utils/staffROICalculator';
 import StaffROIReportCard from '@/components/tools/StaffROIReportCard';
+import { DataLeadReportCard } from '@/components/tools/DataLeadReportCard';
+import { MarketingInputs, MarketingDerived } from '@/utils/marketingCalculator';
 
-type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier';
+type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer';
 
 export function SavedReportsHistory() {
   const [filter, setFilter] = useState<ReportFilter>('all');
@@ -54,6 +56,8 @@ export function SavedReportsHistory() {
         return <Users className="h-4 w-4" />;
       case 'vendor_verifier':
         return <Calculator className="h-4 w-4" />;
+      case 'data_lead':
+        return <BarChart3 className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -65,6 +69,8 @@ export function SavedReportsHistory() {
         return <Badge variant="secondary">Staff ROI</Badge>;
       case 'vendor_verifier':
         return <Badge variant="outline">Vendor Verifier</Badge>;
+      case 'data_lead':
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Data Lead</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -83,7 +89,19 @@ export function SavedReportsHistory() {
       );
     }
 
-    // Vendor Verifier - show basic data for now
+    if (report.report_type === 'data_lead') {
+      return (
+        <div className="mt-4 border-t border-border/20 pt-4">
+          <DataLeadReportCard
+            inputs={report.input_data as unknown as MarketingInputs}
+            derived={report.results_data as unknown as MarketingDerived}
+            isReadOnly={true}
+          />
+        </div>
+      );
+    }
+
+    // Vendor Verifier and others - show basic data for now
     return (
       <div className="mt-4 border-t border-border/20 pt-4">
         <pre className="text-xs bg-muted/30 p-4 rounded-lg overflow-auto max-h-64">
@@ -115,6 +133,7 @@ export function SavedReportsHistory() {
             <SelectItem value="all">All Reports</SelectItem>
             <SelectItem value="staff_roi">Staff ROI</SelectItem>
             <SelectItem value="vendor_verifier">Vendor Verifier</SelectItem>
+            <SelectItem value="data_lead">Data Lead</SelectItem>
           </SelectContent>
         </Select>
       </div>

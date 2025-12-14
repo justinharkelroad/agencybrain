@@ -15,7 +15,7 @@ export type SavedReport = {
   created_at: string;
 };
 
-export function useSavedReports(reportType?: 'staff_roi' | 'vendor_verifier') {
+export function useSavedReports(reportType?: ReportType) {
   const { user } = useAuth();
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -31,6 +31,7 @@ import {
 } from "@/utils/marketingCalculator";
 import { VendorVerifierForm } from "@/components/VendorVerifierForm";
 import { StaffROICalculator } from "@/components/tools/StaffROICalculator";
+import { DataLeadReportCard } from "@/components/tools/DataLeadReportCard";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -370,6 +371,7 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 // ========== Data Lead Form ==========
 function DataLeadForm({ onBack }: { onBack: () => void }) {
   const STORAGE_KEY = "roiForecasters:dataInputs";
+  const [showReportCard, setShowReportCard] = useState(false);
   const { register, watch, setValue, reset, formState: { errors } } = useForm<MarketingInputs>({ mode: "onChange", defaultValues: {} as any });
 
   // persist
@@ -589,8 +591,32 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
         <div className="flex gap-2">
           <Button variant="ghost" onClick={loadLast}>Load last inputs</Button>
           <Button variant="flat" onClick={handleCopy}>Copy results</Button>
+          <Button 
+            onClick={() => setShowReportCard(true)}
+            disabled={!canTotalComp || derived.totalLeads === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            Generate Report
+          </Button>
         </div>
       </div>
+
+      {showReportCard && derived.totalLeads > 0 && (
+        <DataLeadReportCard
+          inputs={{
+            leadSource: values.leadSource || '',
+            spend: Number(values.spend) || 0,
+            cpl: Number(values.cpl) || 0,
+            quoteRatePct: Number(values.quoteRatePct) || 0,
+            closeRatePct: Number(values.closeRatePct) || 0,
+            avgItemValue: Number(values.avgItemValue) || 0,
+            avgItemsPerHH: Number(values.avgItemsPerHH) || 0,
+            commissionPct: Number(values.commissionPct) || 0,
+          }}
+          derived={derived}
+          onClose={() => setShowReportCard(false)}
+        />
+      )}
     </div>
   );
 }
