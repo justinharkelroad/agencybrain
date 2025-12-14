@@ -9,8 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe, Building, Search, Copy } from 'lucide-react';
+import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe, Building, Search, Copy, FileText, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
+import AdminCallScoringDashboard from './AdminCallScoringDashboard';
 
 interface CallScoringTemplate {
   id: string;
@@ -30,6 +31,7 @@ interface Agency {
 }
 
 export default function CallScoringTemplates() {
+  const [activeTab, setActiveTab] = useState<'templates' | 'analytics'>('templates');
   const [templates, setTemplates] = useState<CallScoringTemplate[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,6 @@ export default function CallScoringTemplates() {
   const [editingTemplate, setEditingTemplate] = useState<CallScoringTemplate | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  
   // Search/Filter/Sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'global' | 'agency'>('all');
@@ -394,13 +395,42 @@ export default function CallScoringTemplates() {
   );
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-8 px-4 space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Phone className="h-6 w-6" />
+          Call Scoring
+        </h1>
+        <p className="text-muted-foreground">Manage templates and view cost analytics</p>
+      </div>
+
+      {/* Tab Buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant={activeTab === 'templates' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('templates')}
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Templates
+        </Button>
+        <Button
+          variant={activeTab === 'analytics' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('analytics')}
+        >
+          <BarChart3 className="h-4 w-4 mr-2" />
+          Cost Analytics
+        </Button>
+      </div>
+
+      {activeTab === 'analytics' ? (
+        <AdminCallScoringDashboard />
+      ) : (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
-              Call Scoring Templates
+              Scoring Templates
             </CardTitle>
             <CardDescription>
               Manage AI prompts used for analyzing sales calls
@@ -542,6 +572,7 @@ export default function CallScoringTemplates() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
