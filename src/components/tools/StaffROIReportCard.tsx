@@ -47,11 +47,12 @@ const COLORS = {
 interface StaffROIReportCardProps {
   inputs: StaffROIInputs;
   results: StaffROIResults;
-  onClose: () => void;
-  onRenewalPeriodChange: (period: '6months' | 'annual') => void;
+  onClose?: () => void;
+  onRenewalPeriodChange?: (period: '6months' | 'annual') => void;
+  isReadOnly?: boolean; // For viewing saved reports
 }
 
-const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }: StaffROIReportCardProps) => {
+const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange, isReadOnly = false }: StaffROIReportCardProps) => {
   const reportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -239,24 +240,26 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }:
         </div>
 
         {/* Period Toggle */}
-        <div className="flex items-center gap-4">
-          <span style={{ color: COLORS.textSecondary }} className="text-sm">Auto Renewal Period:</span>
-          <Select 
-            value={inputs.autoRenewalPeriod} 
-            onValueChange={(v) => onRenewalPeriodChange(v as '6months' | 'annual')}
-          >
-            <SelectTrigger 
-              className="w-40" 
-              style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor, color: COLORS.textPrimary }}
+        {!isReadOnly && onRenewalPeriodChange && (
+          <div className="flex items-center gap-4">
+            <span style={{ color: COLORS.textSecondary }} className="text-sm">Auto Renewal Period:</span>
+            <Select 
+              value={inputs.autoRenewalPeriod} 
+              onValueChange={(v) => onRenewalPeriodChange(v as '6months' | 'annual')}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="annual">Annual</SelectItem>
-              <SelectItem value="6months">6 Months</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+              <SelectTrigger 
+                className="w-40" 
+                style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor, color: COLORS.textPrimary }}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="annual">Annual</SelectItem>
+                <SelectItem value="6months">6 Months</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Results Table */}
         <div className="overflow-x-auto">
@@ -438,7 +441,7 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange }:
 
       {/* Action Buttons - Outside ref for export */}
       <div className="flex gap-3 mt-4 justify-end">
-        <SaveStaffROIReportButton input={inputs} results={results} />
+        {!isReadOnly && <SaveStaffROIReportButton input={inputs} results={results} />}
         <Button
           variant="outline"
           onClick={handleCopy}
