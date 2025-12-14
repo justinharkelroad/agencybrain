@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
+export type ReportType = 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer';
+
 export type SavedReport = {
   id: string;
   user_id: string;
   agency_id: string;
-  report_type: 'staff_roi' | 'vendor_verifier';
+  report_type: ReportType;
   title: string;
   input_data: Record<string, unknown>;
   results_data: Record<string, unknown>;
@@ -85,7 +87,7 @@ export function useSavedReports(reportType?: 'staff_roi' | 'vendor_verifier') {
 }
 
 export async function saveReportToDatabase(
-  report_type: 'staff_roi' | 'vendor_verifier',
+  report_type: ReportType,
   title: string,
   input_data: Record<string, unknown>,
   results_data: Record<string, unknown>
