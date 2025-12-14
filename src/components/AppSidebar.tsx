@@ -57,7 +57,6 @@ const adminOnlyItems = [
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
-  { title: "Call Scoring Analytics", url: "/admin/call-scoring-dashboard", icon: BarChart3 },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },

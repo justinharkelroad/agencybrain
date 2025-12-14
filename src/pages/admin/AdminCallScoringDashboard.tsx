@@ -180,11 +180,7 @@ const AdminCallScoringDashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Call Scoring Analytics</h1>
-        <p className="text-muted-foreground">Cost tracking and usage metrics across all agencies</p>
-      </div>
+    <div className="space-y-6">
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
