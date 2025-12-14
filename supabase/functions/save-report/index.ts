@@ -59,7 +59,7 @@ serve(async (req) => {
       );
     }
 
-    if (!['staff_roi', 'vendor_verifier'].includes(report_type)) {
+    if (!['staff_roi', 'vendor_verifier', 'data_lead', 'mailer', 'live_transfer'].includes(report_type)) {
       return new Response(
         JSON.stringify({ error: 'Invalid report type' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
