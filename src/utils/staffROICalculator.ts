@@ -10,6 +10,8 @@ export interface StaffROIInputs {
   homeRenewalRate: number;
   retentionRate: number; // annual retention %
   marketingSpend: number;
+  benefits: number; // optional
+  promoPayOuts: number; // optional
   autoRenewalPeriod: '6months' | 'annual';
 }
 
@@ -27,6 +29,8 @@ export interface StaffROIResults {
   commissionAmount: number;
   payrollTaxAmount: number;
   marketingSpend: number;
+  benefits: number;
+  promoPayOuts: number;
   totalExpenses: number;
   
   // Month 1 Net
@@ -62,6 +66,8 @@ export function computeStaffROI(inputs: StaffROIInputs): StaffROIResults {
     homeRenewalRate,
     retentionRate,
     marketingSpend,
+    benefits,
+    promoPayOuts,
     autoRenewalPeriod,
   } = inputs;
 
@@ -77,7 +83,7 @@ export function computeStaffROI(inputs: StaffROIInputs): StaffROIResults {
   // Expenses
   const commissionAmount = month1TotalPremium * (commissionRate / 100);
   const payrollTaxAmount = (baseSalary + commissionAmount) * (payrollTaxRate / 100);
-  const totalExpenses = baseSalary + commissionAmount + payrollTaxAmount + marketingSpend;
+  const totalExpenses = baseSalary + commissionAmount + payrollTaxAmount + marketingSpend + benefits + promoPayOuts;
 
   // Month 1 Net
   const month1NetProfitLoss = month1TotalRevenue - totalExpenses;
@@ -122,6 +128,8 @@ export function computeStaffROI(inputs: StaffROIInputs): StaffROIResults {
     commissionAmount,
     payrollTaxAmount,
     marketingSpend,
+    benefits,
+    promoPayOuts,
     totalExpenses,
     month1NetProfitLoss,
     sixMonthAutoRenewalPremium,
@@ -149,5 +157,7 @@ export const DEFAULT_STAFF_ROI_INPUTS: StaffROIInputs = {
   homeRenewalRate: 10,
   retentionRate: 90,
   marketingSpend: 0,
+  benefits: 0,
+  promoPayOuts: 0,
   autoRenewalPeriod: 'annual',
 };

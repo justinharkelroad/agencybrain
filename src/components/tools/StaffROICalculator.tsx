@@ -49,6 +49,8 @@ const EMPTY_INPUTS: StaffROIInputs = {
   homeRenewalRate: 0,
   retentionRate: 0,
   marketingSpend: 0,
+  benefits: 0,
+  promoPayOuts: 0,
   autoRenewalPeriod: '6months',
 };
 
@@ -135,7 +137,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
       <div className="space-y-6">
         {/* Premium Section */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Premium written by team member</h4>
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Premium Written by Team Member</h4>
           <GridTwoCols>
             <div>
               <Label htmlFor="autoPremium">Auto Premium</Label>
@@ -171,7 +173,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
 
         {/* Team Member Cost Section */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Team member cost</h4>
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Team Member Cost</h4>
           <GridTwoCols>
             <div>
               <Label htmlFor="commissionRate">Commission Rate</Label>
@@ -217,7 +219,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
 
         {/* Agency Commissions - New Business */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Agency commissions for new business</h4>
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Agency Commissions for New Business</h4>
           <GridTwoCols>
             <div>
               <Label htmlFor="autoCommissionRate">Auto Commission Rate</Label>
@@ -250,7 +252,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
 
         {/* Agency Commissions - Renewals */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Agency commissions for renewals</h4>
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Agency Commissions for Renewals</h4>
           <GridTwoCols>
             <div>
               <Label htmlFor="autoRenewalRate">Auto Renewal Commission Rate</Label>
@@ -313,17 +315,45 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
 
         {/* Optional Section */}
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-foreground">Optional</h4>
+          <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">Optional</h4>
+          <GridTwoCols>
+            <div>
+              <Label htmlFor="marketingSpend">Average Monthly Marketing Spend per Agent</Label>
+              <InputAffix prefix="$">
+                <Input
+                  id="marketingSpend"
+                  type="number"
+                  placeholder="0"
+                  className="pl-7"
+                  value={inputs.marketingSpend || ''}
+                  onChange={(e) => updateInput('marketingSpend', parseFloat(e.target.value) || 0)}
+                />
+              </InputAffix>
+            </div>
+            <div>
+              <Label htmlFor="benefits">Benefits</Label>
+              <InputAffix prefix="$">
+                <Input
+                  id="benefits"
+                  type="number"
+                  placeholder="0"
+                  className="pl-7"
+                  value={inputs.benefits || ''}
+                  onChange={(e) => updateInput('benefits', parseFloat(e.target.value) || 0)}
+                />
+              </InputAffix>
+            </div>
+          </GridTwoCols>
           <div className="w-full md:w-1/2">
-            <Label htmlFor="marketingSpend">Average Monthly Marketing Spend per Agent</Label>
+            <Label htmlFor="promoPayOuts">Promo Pay Outs</Label>
             <InputAffix prefix="$">
               <Input
-                id="marketingSpend"
+                id="promoPayOuts"
                 type="number"
                 placeholder="0"
                 className="pl-7"
-                value={inputs.marketingSpend || ''}
-                onChange={(e) => updateInput('marketingSpend', parseFloat(e.target.value) || 0)}
+                value={inputs.promoPayOuts || ''}
+                onChange={(e) => updateInput('promoPayOuts', parseFloat(e.target.value) || 0)}
               />
             </InputAffix>
           </div>
