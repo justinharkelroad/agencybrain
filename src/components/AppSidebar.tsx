@@ -49,12 +49,15 @@ const mainItems = [
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
 ];
 
+import { BarChart3 } from "lucide-react";
+
 // Admin-only items (system-wide admin access)
 const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
+  { title: "Call Scoring Analytics", url: "/admin/call-scoring-dashboard", icon: BarChart3 },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
