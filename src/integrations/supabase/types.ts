@@ -2883,6 +2883,47 @@ export type Database = {
           },
         ]
       }
+      saved_reports: {
+        Row: {
+          agency_id: string | null
+          created_at: string
+          id: string
+          input_data: Json
+          report_type: string
+          results_data: Json
+          title: string
+          user_id: string
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          input_data: Json
+          report_type: string
+          results_data: Json
+          title: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          input_data?: Json
+          report_type?: string
+          results_data?: Json
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scorecard_rules: {
         Row: {
           agency_id: string

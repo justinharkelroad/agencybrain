@@ -74,12 +74,18 @@ export async function saveVendorVerifierReport<TData>(
     data,
   }
 
-  const w = (globalThis as any) as { reportsClient?: { save?: (e: ReportEntry<TData>) => Promise<any> } }
-  const client = w?.reportsClient
-
-  if (client?.save) {
-    await client.save(entry)
+  // Try database first
+  try {
+    const { saveReportToDatabase } = await import("@/hooks/useSavedReports")
+    await saveReportToDatabase(
+      "vendor_verifier",
+      entry.title,
+      { ...input, derived } as unknown as Record<string, unknown>,
+      data as unknown as Record<string, unknown>
+    )
     return entry
+  } catch (err) {
+    console.warn("Database save failed, falling back to localStorage:", err)
   }
 
   // localStorage fallback stub

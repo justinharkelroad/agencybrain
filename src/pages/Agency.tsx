@@ -24,6 +24,7 @@ import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesM
 import { UploadsContent } from "@/components/UploadsContent";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
+import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -680,7 +681,7 @@ export default function Agency() {
         <h1 className="sr-only">My Agency</h1>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 md:grid-cols-6">
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Agency Info
@@ -692,6 +693,10 @@ export default function Agency() {
             <TabsTrigger value="files" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Files
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Reports
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -1097,6 +1102,10 @@ export default function Agency() {
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="reports" className="space-y-6">
+        <SavedReportsHistory />
       </TabsContent>
 
       <TabsContent value="vault" className="space-y-6">

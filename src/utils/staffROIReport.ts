@@ -57,12 +57,18 @@ export async function saveStaffROIReport(
     results,
   }
 
-  const w = (globalThis as any) as { reportsClient?: { save?: (e: StaffROIReportEntry) => Promise<any> } }
-  const client = w?.reportsClient
-
-  if (client?.save) {
-    await client.save(entry)
+  // Try database first
+  try {
+    const { saveReportToDatabase } = await import("@/hooks/useSavedReports")
+    await saveReportToDatabase(
+      "staff_roi",
+      entry.title,
+      input as unknown as Record<string, unknown>,
+      results as unknown as Record<string, unknown>
+    )
     return entry
+  } catch (err) {
+    console.warn("Database save failed, falling back to localStorage:", err)
   }
 
   // localStorage fallback
