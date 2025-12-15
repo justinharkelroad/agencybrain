@@ -136,7 +136,7 @@ export default function CallScoringTemplates() {
 
   const handleEdit = (template: CallScoringTemplate) => {
     setEditingTemplate(template);
-    setFormData({
+    setFormData(() => ({
       name: template.name,
       system_prompt: template.system_prompt,
       skill_categories: Array.isArray(template.skill_categories) 
@@ -145,7 +145,7 @@ export default function CallScoringTemplates() {
       is_global: template.is_global || false,
       agency_id: template.agency_id,
       call_type: template.call_type || 'sales'
-    });
+    }));
     setEditDialogOpen(true);
   };
 
@@ -289,14 +289,14 @@ export default function CallScoringTemplates() {
   };
 
   const resetForm = () => {
-    setFormData({
+    setFormData(() => ({
       name: '',
       system_prompt: '',
       skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
       is_global: true,
       agency_id: null,
       call_type: 'sales'
-    });
+    }));
   };
 
   const openCreateDialog = () => {
@@ -357,69 +357,8 @@ export default function CallScoringTemplates() {
     }
   };
 
-  const TemplateAssignmentSection = () => (
-    <div className="space-y-4">
-      <Label className="text-base font-semibold">Template Assignment</Label>
-      
-      <RadioGroup 
-        value={formData.is_global ? 'global' : 'agency'}
-        onValueChange={(v) => handleDeploymentChange(v as 'global' | 'agency')}
-      >
-        <div 
-          className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
-          onClick={() => handleDeploymentChange('global')}
-        >
-          <RadioGroupItem value="global" id="deploy-global" className="mt-1" />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-green-500" />
-              <span className="font-medium">Global Template</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Available to all agencies with call scoring enabled
-            </p>
-          </div>
-        </div>
-        
-        <div 
-          className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
-          onClick={() => handleDeploymentChange('agency')}
-        >
-          <RadioGroupItem value="agency" id="deploy-agency" className="mt-1" />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Building className="h-4 w-4 text-blue-500" />
-              <span className="font-medium">Specific Agency</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Only available to the selected agency
-            </p>
-          </div>
-        </div>
-      </RadioGroup>
-      
-      {!formData.is_global && (
-        <div className="ml-6 mt-3">
-          <Label htmlFor="agency_select">Select Agency</Label>
-          <Select 
-            value={formData.agency_id || ''} 
-            onValueChange={(v) => setFormData({ ...formData, agency_id: v })}
-          >
-            <SelectTrigger id="agency_select" className="mt-1">
-              <SelectValue placeholder="Choose an agency..." />
-            </SelectTrigger>
-            <SelectContent>
-              {agencies.map((agency) => (
-                <SelectItem key={agency.id} value={agency.id}>
-                  {agency.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-    </div>
-  );
+  // NOTE: Template assignment UI is inlined in the dialogs below.
+  // Defining it as an inner component caused remounts that interfered with clicking/selection.
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-6">
@@ -621,7 +560,7 @@ export default function CallScoringTemplates() {
               <Label htmlFor="edit-callType">Call Type</Label>
               <Select 
                 value={formData.call_type} 
-                onValueChange={(v) => setFormData({ ...formData, call_type: v as 'sales' | 'service' })}
+                onValueChange={(v) => setFormData(prev => ({ ...prev, call_type: v as 'sales' | 'service' }))}
               >
                 <SelectTrigger id="edit-callType">
                   <SelectValue placeholder="Select call type..." />
@@ -640,7 +579,7 @@ export default function CallScoringTemplates() {
               <Input
                 id="edit-name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Template name"
               />
             </div>
@@ -654,7 +593,67 @@ export default function CallScoringTemplates() {
               onSkillCategoriesChange={(config) => setFormData(prev => ({ ...prev, skill_categories: JSON.stringify(config) }))}
             />
             
-            <TemplateAssignmentSection />
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Template Assignment</Label>
+
+              <RadioGroup
+                value={formData.is_global ? 'global' : 'agency'}
+                onValueChange={(v) => handleDeploymentChange(v as 'global' | 'agency')}
+              >
+                <div
+                  className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleDeploymentChange('global')}
+                >
+                  <RadioGroupItem value="global" id="deploy-global" className="mt-1" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-green-500" />
+                      <span className="font-medium">Global Template</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Available to all agencies with call scoring enabled
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleDeploymentChange('agency')}
+                >
+                  <RadioGroupItem value="agency" id="deploy-agency" className="mt-1" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">Specific Agency</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Only available to the selected agency
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+
+              {!formData.is_global && (
+                <div className="ml-6 mt-3">
+                  <Label htmlFor="agency_select">Select Agency</Label>
+                  <Select
+                    value={formData.agency_id || ''}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, agency_id: v }))}
+                  >
+                    <SelectTrigger id="agency_select" className="mt-1">
+                      <SelectValue placeholder="Choose an agency..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {agencies.map((agency) => (
+                        <SelectItem key={agency.id} value={agency.id}>
+                          {agency.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
@@ -679,7 +678,7 @@ export default function CallScoringTemplates() {
               <Label htmlFor="create-callType">Call Type</Label>
               <Select 
                 value={formData.call_type} 
-                onValueChange={(v) => setFormData({ ...formData, call_type: v as 'sales' | 'service' })}
+                onValueChange={(v) => setFormData(prev => ({ ...prev, call_type: v as 'sales' | 'service' }))}
               >
                 <SelectTrigger id="create-callType">
                   <SelectValue placeholder="Select call type..." />
@@ -698,7 +697,7 @@ export default function CallScoringTemplates() {
               <Input
                 id="create-name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., Standard Insurance Sales Review"
               />
             </div>
@@ -712,7 +711,67 @@ export default function CallScoringTemplates() {
               onSkillCategoriesChange={(config) => setFormData(prev => ({ ...prev, skill_categories: JSON.stringify(config) }))}
             />
             
-            <TemplateAssignmentSection />
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Template Assignment</Label>
+
+              <RadioGroup
+                value={formData.is_global ? 'global' : 'agency'}
+                onValueChange={(v) => handleDeploymentChange(v as 'global' | 'agency')}
+              >
+                <div
+                  className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleDeploymentChange('global')}
+                >
+                  <RadioGroupItem value="global" id="deploy-global" className="mt-1" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-green-500" />
+                      <span className="font-medium">Global Template</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Available to all agencies with call scoring enabled
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleDeploymentChange('agency')}
+                >
+                  <RadioGroupItem value="agency" id="deploy-agency" className="mt-1" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">Specific Agency</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Only available to the selected agency
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+
+              {!formData.is_global && (
+                <div className="ml-6 mt-3">
+                  <Label htmlFor="agency_select">Select Agency</Label>
+                  <Select
+                    value={formData.agency_id || ''}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, agency_id: v }))}
+                  >
+                    <SelectTrigger id="agency_select" className="mt-1">
+                      <SelectValue placeholder="Choose an agency..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {agencies.map((agency) => (
+                        <SelectItem key={agency.id} value={agency.id}>
+                          {agency.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={saving}>
