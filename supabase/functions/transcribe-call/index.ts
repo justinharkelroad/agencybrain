@@ -243,54 +243,50 @@ serve(async (req) => {
       );
     }
 
-    const formData = await req.formData();
-    const audioFile = formData.get("audio") as File;
-    const teamMemberId = formData.get("team_member_id") as string;
-    const templateId = formData.get("template_id") as string;
-    const agencyId = formData.get("agency_id") as string;
-    const fileName = formData.get("file_name") as string;
+    // Parse JSON body (client uploads to Storage first, then sends path here)
+    const {
+      storagePath,
+      originalFilename,
+      fileSizeBytes,
+      mimeType,
+      callId,
+      agencyId,
+      teamMemberId,
+      templateId,
+    } = await req.json();
 
-    if (!audioFile || !teamMemberId || !templateId || !agencyId) {
+    if (!storagePath || !teamMemberId || !templateId || !agencyId) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: audio, team_member_id, template_id, agency_id" }),
+        JSON.stringify({ error: "Missing required fields: storagePath, team_member_id, template_id, agency_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Processing audio file: ${fileName}, size: ${audioFile.size} bytes`);
+    console.log(`Processing file from storage: ${storagePath}, size: ${fileSizeBytes} bytes`);
 
-    // Get original file buffer
-    const originalBuffer = await audioFile.arrayBuffer();
-    const originalFileSizeBytes = originalBuffer.byteLength;
-    let audioBuffer = originalBuffer;
-    let audioFilename = fileName;
-    let audioMimeType = audioFile.type;
-    let convertedFileSizeBytes = originalFileSizeBytes;
-    let conversionRequired = false;
-
-    // Generate unique storage path
-    const timestamp = Date.now();
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `${agencyId}/${teamMemberId}/${timestamp}_${sanitizedFileName}`;
-
-    // STEP 1: Upload original file to storage FIRST (before any conversion check)
-    console.log("Uploading original file to storage...");
-    const { error: uploadError } = await supabase.storage
+    // Download file from Storage (client already uploaded it)
+    const { data: fileData, error: downloadError } = await supabase.storage
       .from("call-recordings")
-      .upload(storagePath, originalBuffer, {
-        contentType: audioFile.type,
-        upsert: true,
-      });
+      .download(storagePath);
 
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
+    if (downloadError || !fileData) {
+      console.error("Storage download error:", downloadError);
       return new Response(
-        JSON.stringify({ error: "Failed to upload audio file", details: uploadError.message }),
+        JSON.stringify({ error: "Failed to download audio file from storage", details: downloadError?.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Original file uploaded to storage:", storagePath);
+    // Get file buffer
+    const originalBuffer = await fileData.arrayBuffer();
+    const originalFileSizeBytes = fileSizeBytes || originalBuffer.byteLength;
+    let audioBuffer = originalBuffer;
+    let audioFilename = originalFilename || storagePath.split('/').pop() || 'audio.wav';
+    let audioMimeType = mimeType || 'audio/wav';
+    let convertedFileSizeBytes = originalFileSizeBytes;
+    let conversionRequired = false;
+
+    console.log("File downloaded from storage:", storagePath);
 
     // STEP 2: Check if conversion needed for large files
     if (originalFileSizeBytes > MAX_WHISPER_SIZE_BYTES) {
