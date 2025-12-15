@@ -40,6 +40,17 @@ async function withRetry<T>(
   throw lastError;
 }
 
+// Helper to cleanup storage on error
+async function cleanupStorage(supabase: any, storagePath: string | null) {
+  if (!storagePath) return;
+  try {
+    await supabase.storage.from("call-recordings").remove([storagePath]);
+    console.log(`Cleaned up file after error: ${storagePath}`);
+  } catch (cleanupError) {
+    console.warn('Failed to cleanup after error:', cleanupError);
+  }
+}
+
 // Convert large files to OGG using Convertio API with URL input (not base64)
 async function convertWithConvertio(
   signedUrl: string,
@@ -284,6 +295,7 @@ serve(async (req) => {
     // STEP 2: Check if conversion needed for large files
     if (originalFileSizeBytes > MAX_WHISPER_SIZE_BYTES) {
       if (!CONVERTIO_API_KEY) {
+        await cleanupStorage(supabase, storagePath);
         return new Response(
           JSON.stringify({ error: "Large file processing not configured. Please contact support." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -300,6 +312,7 @@ serve(async (req) => {
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
         console.error("Failed to create signed URL:", signedUrlError);
+        await cleanupStorage(supabase, storagePath);
         return new Response(
           JSON.stringify({ error: "Failed to create signed URL for conversion", details: signedUrlError?.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -319,6 +332,7 @@ serve(async (req) => {
         console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
       } catch (conversionError) {
         console.error("Conversion failed:", conversionError);
+        await cleanupStorage(supabase, storagePath);
         return new Response(
           JSON.stringify({ error: conversionError.message || "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -359,6 +373,7 @@ serve(async (req) => {
       } catch (error) {
         console.error(`Whisper attempt ${whisperAttempts} failed:`, error);
         if (whisperAttempts === maxWhisperAttempts) {
+          await cleanupStorage(supabase, storagePath);
           return new Response(
             JSON.stringify({ error: "Transcription failed. Please try again.", details: error.message }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -433,6 +448,7 @@ serve(async (req) => {
 
     } catch (err) {
       console.error("Failed to save call record after retries:", err);
+      await cleanupStorage(supabase, storagePath);
       return new Response(
         JSON.stringify({ 
           error: "Failed to save call record. Please try uploading again.", 
@@ -465,11 +481,30 @@ serve(async (req) => {
       });
     }
 
+    // CLEANUP: Delete audio file from storage after successful processing
+    // We only need the transcript and analysis, not the audio file
+    try {
+      console.log(`Cleaning up: deleting ${storagePath} from storage...`);
+      
+      const { error: deleteError } = await supabase.storage
+        .from("call-recordings")
+        .remove([storagePath]);
+      
+      if (deleteError) {
+        console.warn(`Failed to delete audio file: ${deleteError.message}`);
+        // Don't throw - cleanup failure shouldn't fail the whole operation
+      } else {
+        console.log(`Successfully deleted ${storagePath} from storage`);
+      }
+    } catch (cleanupError) {
+      console.warn('Storage cleanup error:', cleanupError);
+      // Continue anyway - transcription/analysis succeeded
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         call_id: callRecord?.id,
-        storage_path: storagePath,
         transcript: whisperResult.text,
         duration_seconds: Math.round(whisperResult.duration),
         segments: whisperResult.segments || [],
@@ -489,3 +524,7 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper to cleanup storage on early failures (called from error paths above)
+// Note: For errors after storage upload, we should also clean up
+// This is handled inline in the main try block for specific error cases
