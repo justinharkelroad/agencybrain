@@ -47,8 +47,11 @@ interface AnalyticsCall {
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
-const MAX_SIZE_MB = 25;
+const MAX_SIZE_MB = 100; // Allow up to 100MB (will be converted if > 25MB)
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const WHISPER_MAX_SIZE_MB = 25; // Files over this will be converted
+const WHISPER_MAX_SIZE_BYTES = WHISPER_MAX_SIZE_MB * 1024 * 1024;
+const MAX_DURATION_MINUTES = 75; // Maximum call duration
 
 export default function CallScoring() {
   const { user, isAdmin } = useAuth();
@@ -478,7 +481,7 @@ export default function CallScoring() {
     setTemplates(allTemplates);
   };
 
-  const handleFileSelect = (file: File | null) => {
+  const handleFileSelect = async (file: File | null) => {
     setFileError(null);
     
     if (!file) {
@@ -497,6 +500,32 @@ export default function CallScoring() {
       setFileError(`File too large. Maximum size: ${MAX_SIZE_MB}MB`);
       setSelectedFile(null);
       return;
+    }
+
+    // For large files (> 25MB), check duration before accepting
+    if (file.size > WHISPER_MAX_SIZE_BYTES) {
+      try {
+        const audioContext = new AudioContext();
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const durationMinutes = audioBuffer.duration / 60;
+        
+        audioContext.close();
+        
+        if (durationMinutes > MAX_DURATION_MINUTES) {
+          setFileError(`Call recordings over ${MAX_DURATION_MINUTES} minutes cannot be processed.`);
+          setSelectedFile(null);
+          return;
+        }
+        
+        // Show info message for large files
+        toast.info("This file is larger and may take a couple extra minutes to process.", {
+          duration: 5000,
+        });
+      } catch (err) {
+        console.error('Error checking audio duration:', err);
+        // Allow file if we can't check duration - server will validate
+      }
     }
 
     setSelectedFile(file);
