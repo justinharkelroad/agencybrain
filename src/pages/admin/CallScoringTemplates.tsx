@@ -45,13 +45,20 @@ export default function CallScoringTemplates() {
   const [filterType, setFilterType] = useState<'all' | 'global' | 'agency'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'agency'>('name');
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    system_prompt: string;
+    skill_categories: any; // Can be object (from builder) or string (legacy)
+    is_global: boolean;
+    agency_id: string | null;
+    call_type: 'sales' | 'service';
+  }>({
     name: '',
     system_prompt: '',
-    skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
+    skill_categories: null,
     is_global: true,
-    agency_id: null as string | null,
-    call_type: 'sales' as 'sales' | 'service'
+    agency_id: null,
+    call_type: 'sales'
   });
 
   useEffect(() => {
@@ -139,9 +146,8 @@ export default function CallScoringTemplates() {
     setFormData(() => ({
       name: template.name,
       system_prompt: template.system_prompt,
-      skill_categories: Array.isArray(template.skill_categories) 
-        ? template.skill_categories.join(', ') 
-        : '',
+      // Keep skill_categories as object/null - PromptBuilderWrapper handles it
+      skill_categories: template.skill_categories || null,
       is_global: template.is_global || false,
       agency_id: template.agency_id,
       call_type: template.call_type || 'sales'
@@ -177,15 +183,16 @@ export default function CallScoringTemplates() {
     // Parse skill_categories - could be JSON string from builder or already an object
     let skillsData: any;
     try {
-      skillsData = typeof formData.skill_categories === 'string' 
-        ? JSON.parse(formData.skill_categories)
-        : formData.skill_categories;
+      if (!formData.skill_categories) {
+        skillsData = null;
+      } else if (typeof formData.skill_categories === 'string') {
+        skillsData = JSON.parse(formData.skill_categories);
+      } else {
+        skillsData = formData.skill_categories;
+      }
     } catch {
-      // Fallback to comma-separated string for backward compatibility
-      skillsData = formData.skill_categories
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
+      // If JSON parse fails, keep as-is
+      skillsData = formData.skill_categories;
     }
 
     const { error } = await supabase
@@ -292,7 +299,7 @@ export default function CallScoringTemplates() {
     setFormData(() => ({
       name: '',
       system_prompt: '',
-      skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
+      skill_categories: null,
       is_global: true,
       agency_id: null,
       call_type: 'sales'
@@ -321,15 +328,16 @@ export default function CallScoringTemplates() {
     // Parse skill_categories - could be JSON string from builder or already an object
     let skillsData: any;
     try {
-      skillsData = typeof formData.skill_categories === 'string' 
-        ? JSON.parse(formData.skill_categories)
-        : formData.skill_categories;
+      if (!formData.skill_categories) {
+        skillsData = null;
+      } else if (typeof formData.skill_categories === 'string') {
+        skillsData = JSON.parse(formData.skill_categories);
+      } else {
+        skillsData = formData.skill_categories;
+      }
     } catch {
-      // Fallback to comma-separated string for backward compatibility
-      skillsData = formData.skill_categories
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter((s: string) => s.length > 0);
+      // If JSON parse fails, keep as-is
+      skillsData = formData.skill_categories;
     }
 
     setSaving(true);
