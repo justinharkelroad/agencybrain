@@ -52,23 +52,24 @@ async function cleanupStorage(supabase: any, storagePath: string | null) {
 }
 
 // Convert large files to OGG using Convertio API with URL input (not base64)
+// Returns both the converted buffer AND the number of attempts used
 async function convertWithConvertio(
   signedUrl: string,
   originalFilename: string
-): Promise<ArrayBuffer> {
+): Promise<{ buffer: ArrayBuffer; attempts: number }> {
   const maxAttempts = 5;
   const backoffDelays = [0, 30000, 60000, 90000, 120000]; // ms
   const timeoutPerAttempt = 5 * 60 * 1000; // 5 minutes
   
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // Wait before retry (exponential backoff)
-    if (backoffDelays[attempt] > 0) {
-      console.log(`Waiting ${backoffDelays[attempt] / 1000}s before Convertio retry ${attempt + 1}...`);
-      await new Promise(resolve => setTimeout(resolve, backoffDelays[attempt]));
+    if (backoffDelays[attempt - 1] > 0) {
+      console.log(`Waiting ${backoffDelays[attempt - 1] / 1000}s before Convertio retry ${attempt}...`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelays[attempt - 1]));
     }
     
     try {
-      console.log(`Convertio attempt ${attempt + 1}/${maxAttempts}...`);
+      console.log(`Convertio attempt ${attempt}/${maxAttempts}...`);
       
       // Step 1: Start conversion job using URL input (NOT base64)
       const startResponse = await fetch('https://api.convertio.co/convert', {
@@ -130,7 +131,7 @@ async function convertWithConvertio(
             console.warn('Failed to cleanup Convertio job:', cleanupError);
           }
           
-          return convertedBuffer;
+          return { buffer: convertedBuffer, attempts: attempt };
         }
         
         if (jobStatus === 'error') {
@@ -147,9 +148,9 @@ async function convertWithConvertio(
       throw new Error('Convertio conversion timed out');
       
     } catch (error) {
-      console.error(`Convertio attempt ${attempt + 1} failed:`, error);
+      console.error(`Convertio attempt ${attempt} failed:`, error);
       
-      if (attempt === maxAttempts - 1) {
+      if (attempt === maxAttempts) {
         throw new Error('Unable to process this file due to size. Please contact AgencyBrain with questions.');
       }
       // Continue to next attempt
@@ -284,9 +285,10 @@ serve(async (req) => {
     let audioFilename = originalFilename || storagePath.split('/').pop() || 'audio.wav';
     let audioMimeType = mimeType || 'audio/wav';
     let convertedFileSizeBytes = originalFileSizeBytes;
-    let conversionRequired = false;
+  let conversionRequired = false;
+  let conversionAttempts = 0;
 
-    console.log("File downloaded from storage:", storagePath);
+  console.log("File downloaded from storage:", storagePath);
 
     // STEP 2: Check if conversion needed for large files
     if (originalFileSizeBytes > MAX_WHISPER_SIZE_BYTES) {
@@ -320,11 +322,13 @@ serve(async (req) => {
       
       try {
         // Pass the signed URL to Convertio (no base64 encoding needed!)
-        audioBuffer = await convertWithConvertio(signedUrl, audioFilename);
+        const conversionResult = await convertWithConvertio(signedUrl, audioFilename);
+        audioBuffer = conversionResult.buffer;
+        conversionAttempts = conversionResult.attempts;
         audioFilename = audioFilename.replace(/\.[^.]+$/, '.ogg');
         audioMimeType = 'audio/ogg';
         convertedFileSizeBytes = audioBuffer.byteLength;
-        console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
+        console.log(`Conversion complete in ${conversionAttempts} attempt(s): ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
       } catch (conversionError) {
         console.error("Conversion failed:", conversionError);
         await cleanupStorage(supabase, storagePath);
@@ -414,6 +418,7 @@ serve(async (req) => {
             dead_air_percent: talkMetrics.deadAirPercent,
             whisper_cost: whisperCost,
             conversion_required: conversionRequired,
+            conversion_attempts: conversionAttempts > 0 ? conversionAttempts : null,
             original_file_size_bytes: originalFileSizeBytes,
             converted_file_size_bytes: convertedFileSizeBytes,
             status: "transcribed",
