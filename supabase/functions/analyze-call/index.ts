@@ -110,7 +110,111 @@ Voice profile:
 
 You must respond with ONLY valid JSON - no markdown, no explanation.`;
 
-    const userPrompt = `Analyze this insurance sales call transcript and provide a structured evaluation.
+    // Service call user prompt
+    const serviceUserPrompt = `Analyze this insurance service/customer support call transcript and provide a structured evaluation.
+
+## SCORING FRAMEWORK
+
+**1. OPENING & RAPPORT**
+- Did the CSR greet warmly and identify themselves?
+- Did they confirm the client's identity appropriately?
+- Did they establish a positive tone?
+
+**2. LISTENING & UNDERSTANDING**
+- Did they let the client fully explain their issue?
+- Did they ask clarifying questions?
+- Did they summarize the concern to confirm understanding?
+
+**3. PROBLEM RESOLUTION**
+- Did they provide clear, accurate information?
+- Did they take ownership of the issue?
+- Did they follow through on commitments?
+
+**4. PROACTIVE SERVICE**
+- Did they offer a policy review?
+- Did they identify any coverage gaps or cross-sell opportunities?
+- Did they ask for referrals?
+
+**5. CLOSING & FOLLOW-UP**
+- Did they confirm the resolution?
+- Did they set clear expectations for next steps?
+- Did they thank the client?
+
+## REQUIRED JSON RESPONSE FORMAT
+
+{
+  "csr_name": "<first name only>",
+  "client_first_name": "<first name only>",
+  "section_scores": [
+    {
+      "section_name": "Opening & Rapport",
+      "score": 8,
+      "max_score": 10,
+      "feedback": "<2-3 sentences of specific feedback>",
+      "tip": "<1 sentence improvement tip>"
+    },
+    {
+      "section_name": "Listening & Understanding",
+      "score": 7,
+      "max_score": 10,
+      "feedback": "<2-3 sentences of specific feedback>",
+      "tip": "<1 sentence improvement tip>"
+    },
+    {
+      "section_name": "Problem Resolution",
+      "score": 9,
+      "max_score": 10,
+      "feedback": "<2-3 sentences of specific feedback>",
+      "tip": "<1 sentence improvement tip>"
+    },
+    {
+      "section_name": "Proactive Service",
+      "score": 5,
+      "max_score": 10,
+      "feedback": "<2-3 sentences of specific feedback>",
+      "tip": "<1 sentence improvement tip>"
+    },
+    {
+      "section_name": "Closing & Follow-Up",
+      "score": 8,
+      "max_score": 10,
+      "feedback": "<2-3 sentences of specific feedback>",
+      "tip": "<1 sentence improvement tip>"
+    }
+  ],
+  "overall_score": 7.4,
+  "summary": "<2-3 sentences: why call occurred, how it was handled, outcome>",
+  "crm_notes": "**Personal Details**\\n- [any personal info mentioned]\\n\\n**Vehicles & Policies**\\n- [policy/vehicle details if discussed]\\n\\n**Coverage Details**\\n- [coverage info discussed]\\n\\n**Resolution / Next Step**\\n- [what was resolved or scheduled]",
+  "suggestions": [
+    "<specific improvement suggestion 1>",
+    "<specific improvement suggestion 2>",
+    "<specific improvement suggestion 3>"
+  ],
+  "checklist": [
+    { "label": "Greeted warmly", "checked": true, "evidence": "<quote from call>" },
+    { "label": "Confirmed identity", "checked": true, "evidence": "<quote>" },
+    { "label": "Summarized concern", "checked": false, "evidence": null },
+    { "label": "Took ownership", "checked": true, "evidence": "<quote>" },
+    { "label": "Offered policy review", "checked": false, "evidence": null },
+    { "label": "Asked for referral", "checked": false, "evidence": null },
+    { "label": "Set clear next steps", "checked": true, "evidence": "<quote>" },
+    { "label": "Thanked client", "checked": true, "evidence": "<quote>" }
+  ]
+}
+
+IMPORTANT RULES:
+- Score each section 0-10
+- Overall score is the average of all section scores (one decimal place)
+- Be specific with feedback - cite quotes when possible
+- CRM notes should be formatted with markdown headers
+- Checklist evidence should quote the transcript when checked=true
+- First names only - no last names or PII
+
+## TRANSCRIPT
+${call.transcript}`;
+
+    // Sales call user prompt (existing)
+    const salesUserPrompt = `Analyze this insurance sales call transcript and provide a structured evaluation.
 
 ## SCORING FRAMEWORK
 
@@ -221,6 +325,8 @@ IMPORTANT RULES:
 ## TRANSCRIPT
 ${call.transcript}`;
 
+    const userPrompt = callType === 'service' ? serviceUserPrompt : salesUserPrompt;
+
     console.log("Sending transcript to GPT-4o for analysis...");
 
     // Call OpenAI API
@@ -298,10 +404,21 @@ ${call.transcript}`;
       );
     }
 
-    // Calculate overall score as average of the three sections
-    const overallScore = Math.round(
-      (analysis.rapport_score + analysis.coverage_score + analysis.closing_score) / 3
-    );
+    // Calculate overall score based on call type
+    let overallScore: number;
+    if (callType === 'service') {
+      // Service calls: average of section_scores array
+      const sectionScores = analysis.section_scores || [];
+      const totalScore = sectionScores.reduce((sum: number, s: any) => sum + (s.score || 0), 0);
+      overallScore = sectionScores.length > 0 
+        ? Math.round((totalScore / sectionScores.length) * 10) // Convert 0-10 to 0-100
+        : 0;
+    } else {
+      // Sales calls: average of the three main sections
+      overallScore = Math.round(
+        (analysis.rapport_score + analysis.coverage_score + analysis.closing_score) / 3
+      );
+    }
 
     // Get existing whisper cost to calculate total
     const { data: existingCall } = await supabase
@@ -314,11 +431,36 @@ ${call.transcript}`;
     const totalCost = whisperCost + gptCost;
     console.log(`Total call cost: $${totalCost.toFixed(4)} (whisper: $${whisperCost.toFixed(4)}, gpt: $${gptCost.toFixed(4)})`);
 
-    // Update the call record with analysis results - mapped to new structure
-    const { error: updateError } = await supabase
-      .from("agency_calls")
-      .update({
-        overall_score: overallScore,
+    // Build update payload based on call type
+    let updatePayload: Record<string, any> = {
+      overall_score: overallScore,
+      call_type: callType, // Save call_type on the call record
+      summary: analysis.summary,
+      gpt_input_tokens: inputTokens,
+      gpt_output_tokens: outputTokens,
+      gpt_cost: gptCost,
+      total_cost: totalCost,
+      status: "analyzed",
+      analyzed_at: new Date().toISOString(),
+    };
+
+    if (callType === 'service') {
+      // Service call specific fields
+      updatePayload = {
+        ...updatePayload,
+        section_scores: analysis.section_scores,
+        closing_attempts: analysis.crm_notes, // Using closing_attempts to store CRM notes
+        coaching_recommendations: analysis.suggestions,
+        discovery_wins: analysis.checklist,
+        client_profile: {
+          csr_name: analysis.csr_name,
+          client_first_name: analysis.client_first_name,
+        },
+      };
+    } else {
+      // Sales call specific fields
+      updatePayload = {
+        ...updatePayload,
         potential_rank: analysis.potential_rank,
         skill_scores: {
           rapport: analysis.rapport_score,
@@ -355,14 +497,13 @@ ${call.transcript}`;
           corrective_plan: analysis.corrective_action_plan
         },
         closing_attempts: analysis.crm_notes,
-        summary: analysis.summary,
-        gpt_input_tokens: inputTokens,
-        gpt_output_tokens: outputTokens,
-        gpt_cost: gptCost,
-        total_cost: totalCost,
-        status: "analyzed",
-        analyzed_at: new Date().toISOString(),
-      })
+      };
+    }
+
+    // Update the call record with analysis results
+    const { error: updateError } = await supabase
+      .from("agency_calls")
+      .update(updatePayload)
       .eq("id", call_id);
 
     if (updateError) {
