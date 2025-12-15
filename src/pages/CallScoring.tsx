@@ -29,6 +29,7 @@ interface RecentCall {
   potential_rank: string | null;
   created_at: string;
   team_member_name: string;
+  call_type?: 'sales' | 'service' | null;
   acknowledged_at?: string | null;
   acknowledged_by?: string | null;
   staff_feedback_positive?: string | null;
@@ -338,10 +339,10 @@ export default function CallScoring() {
         setUsage({ calls_used: 0, calls_limit: 20 });
       }
 
-      // Build base query for recent calls - include acknowledgment fields
+      // Build base query for recent calls - include acknowledgment fields and call_type
       let callsQuery = supabase
         .from('agency_calls')
-        .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id, acknowledged_at, acknowledged_by, staff_feedback_positive, staff_feedback_improvement')
+        .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id, call_type, acknowledged_at, acknowledged_by, staff_feedback_positive, staff_feedback_improvement')
         .eq('agency_id', agency)
         .order('created_at', { ascending: false })
         .limit(10);
@@ -391,6 +392,7 @@ export default function CallScoring() {
           potential_rank: call.potential_rank,
           created_at: call.created_at,
           team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
+          call_type: call.call_type as 'sales' | 'service' | null,
           acknowledged_at: call.acknowledged_at,
           acknowledged_by: call.acknowledged_by,
           staff_feedback_positive: call.staff_feedback_positive,
@@ -677,7 +679,7 @@ export default function CallScoring() {
         .single();
 
       if (data?.status === 'analyzed' && data?.overall_score !== null) {
-        toast.success(`"${fileName}" analysis complete: ${data.overall_score}%`, {
+        toast.success(`"${fileName}" analysis complete: ${data.overall_score}`, {
           duration: 5000,
         });
         if (agencyId) {
@@ -1087,7 +1089,7 @@ export default function CallScoring() {
                           {new Date(call.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      {/* Status Badge - show potential rank for analyzed calls */}
+                      {/* Status Badge - show potential rank for sales calls, score for service calls */}
                       {call.status === 'analyzed' && call.potential_rank ? (
                         <Badge className={`text-xs ${
                           call.potential_rank === 'VERY HIGH' || call.potential_rank === 'HIGH' 
@@ -1100,11 +1102,22 @@ export default function CallScoring() {
                         </Badge>
                       ) : call.status === 'analyzed' && call.overall_score !== null ? (
                         <div className={`px-2 py-1 rounded text-sm font-medium ${
-                          call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
-                          call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-red-500/20 text-red-400'
+                          call.call_type === 'service'
+                            ? (call.overall_score >= 8 ? 'bg-green-500/20 text-green-400' :
+                               call.overall_score >= 6 ? 'bg-yellow-500/20 text-yellow-400' :
+                               'bg-red-500/20 text-red-400')
+                            : (call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
+                               call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
+                               'bg-red-500/20 text-red-400')
                         }`}>
-                          {call.overall_score}%
+                          {call.call_type === 'service' 
+                            ? `${call.overall_score}/10`
+                            : `${call.overall_score}%`
+                          }
+                        </div>
+                      ) : call.status === 'analyzed' ? (
+                        <div className="px-2 py-1 rounded text-sm bg-muted text-muted-foreground">
+                          Analyzed
                         </div>
                       ) : call.status === 'analyzing' ? (
                         <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-400 flex items-center gap-1">
