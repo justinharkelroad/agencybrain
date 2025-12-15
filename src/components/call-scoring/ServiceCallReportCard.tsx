@@ -34,11 +34,20 @@ interface ServiceCallReportCardProps {
     overall_score?: number;
     section_scores?: ServiceSectionScore[];
     summary?: string;
+    // Direct fields
     crm_notes?: string;
     suggestions?: string[];
     checklist?: ChecklistItem[];
     client_first_name?: string;
     csr_name?: string;
+    // Database column mappings (alternative field names)
+    closing_attempts?: string;           // Maps to crm_notes
+    coaching_recommendations?: string[]; // Maps to suggestions
+    discovery_wins?: ChecklistItem[];    // Maps to checklist
+    client_profile?: {
+      csr_name?: string;
+      client_first_name?: string;
+    };
   };
   open: boolean;
   onClose: () => void;
@@ -73,6 +82,13 @@ export function ServiceCallReportCard({
 
   if (!call) return null;
 
+  // Map database columns to expected field names (handle both direct fields and DB column names)
+  const mappedCrmNotes = call.crm_notes || call.closing_attempts;
+  const mappedSuggestions = call.suggestions || call.coaching_recommendations || [];
+  const mappedChecklist = call.checklist || call.discovery_wins || [];
+  const mappedCsrName = call.csr_name || call.client_profile?.csr_name || call.team_member_name;
+  const mappedClientName = call.client_first_name || call.client_profile?.client_first_name;
+
   const getScoreColor = (score: number) => {
     if (score >= 7) return { text: COLORS.green, bg: COLORS.greenBg };
     if (score >= 5) return { text: COLORS.yellow, bg: COLORS.yellowBg };
@@ -97,7 +113,7 @@ export function ServiceCallReportCard({
   const handleExportPNG = async () => {
     if (!reportRef.current) return;
     setExporting(true);
-    const filename = `service-scorecard-${call.csr_name || 'agent'}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${new Date().toISOString().split('T')[0]}`;
     const success = await exportScorecardAsPNG(reportRef.current, filename);
     if (success) toast.success('Downloaded as PNG');
     else toast.error('Export failed');
@@ -107,7 +123,7 @@ export function ServiceCallReportCard({
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setExporting(true);
-    const filename = `service-scorecard-${call.csr_name || 'agent'}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${new Date().toISOString().split('T')[0]}`;
     const success = await exportScorecardAsPDF(reportRef.current, filename);
     if (success) toast.success('Downloaded as PDF');
     else toast.error('Export failed');
@@ -117,15 +133,15 @@ export function ServiceCallReportCard({
   const copyResults = () => {
     const text = `
 SERVICE CALL GRADED RESULT
-CSR: ${call.csr_name || call.team_member_name || 'Agent'}
-Client: ${call.client_first_name || 'Unknown'}
+CSR: ${mappedCsrName || 'Agent'}
+Client: ${mappedClientName || 'Unknown'}
 Date: ${formatDate(call.created_at)}
 Overall Score: ${call.overall_score}/10
 
 ${call.section_scores?.map(s => `${s.section_name}: ${s.score}/${s.max_score}\n${s.feedback}`).join('\n\n') || ''}
 
 CRM NOTES:
-${call.crm_notes || 'None'}
+${mappedCrmNotes || 'None'}
 
 SUGGESTIONS:
 ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
@@ -137,8 +153,6 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
 
   const scoreColors = getScoreColor(call.overall_score || 0);
   const sectionScores = call.section_scores || [];
-  const checklist = call.checklist || [];
-  const suggestions = call.suggestions || [];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -196,7 +210,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                   </p>
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight">
-                  CSR: {(call.csr_name || call.team_member_name || 'Agent').toUpperCase()}
+                  CSR: {(mappedCsrName || 'Agent').toUpperCase()}
                 </h1>
                 <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: COLORS.textMuted }}>
                   <span className="flex items-center gap-1">
@@ -235,11 +249,11 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>CSR</p>
-                  <p className="font-medium">{call.csr_name || call.team_member_name || 'Unknown'}</p>
+                  <p className="font-medium">{mappedCsrName || 'Unknown'}</p>
                 </div>
                 <div>
                   <p className="text-xs" style={{ color: COLORS.textMuted }}>CLIENT</p>
-                  <p className="font-medium">{call.client_first_name || 'Unknown'}</p>
+                  <p className="font-medium">{mappedClientName || 'Unknown'}</p>
                 </div>
               </div>
               <p className="text-xs mt-3" style={{ color: COLORS.textMuted }}>
@@ -310,7 +324,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
           </Card>
 
           {/* CRM Notes Section */}
-          {call.crm_notes && (
+          {mappedCrmNotes && (
             <Card 
               className="mb-6"
               style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
@@ -326,7 +340,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                   className="text-sm whitespace-pre-wrap"
                   style={{ color: COLORS.textMuted }}
                 >
-                  {call.crm_notes}
+                  {mappedCrmNotes}
                 </div>
               </CardContent>
             </Card>
@@ -350,7 +364,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
           )}
 
           {/* Top 3 Suggestions */}
-          {suggestions.length > 0 && (
+          {mappedSuggestions.length > 0 && (
             <Card 
               className="mb-6"
               style={{ 
@@ -367,7 +381,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               </CardHeader>
               <CardContent>
                 <ol className="space-y-2">
-                  {suggestions.slice(0, 3).map((suggestion, i) => (
+                  {mappedSuggestions.slice(0, 3).map((suggestion, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
                       <span 
                         className="font-bold min-w-[20px]"
@@ -387,7 +401,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
           )}
 
           {/* Final Checklist */}
-          {checklist.length > 0 && (
+          {mappedChecklist.length > 0 && (
             <Card 
               style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
             >
@@ -399,7 +413,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {checklist.map((item, i) => (
+                  {mappedChecklist.map((item, i) => (
                     <div 
                       key={i}
                       className="p-3 rounded-lg"

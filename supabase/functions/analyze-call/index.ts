@@ -415,11 +415,11 @@ ${call.transcript}`;
     // Calculate overall score based on call type
     let overallScore: number;
     if (callType === 'service') {
-      // Service calls: average of section_scores array
+      // Service calls: average of section_scores array (keep 0-10 scale with 1 decimal)
       const sectionScores = analysis.section_scores || [];
       const totalScore = sectionScores.reduce((sum: number, s: any) => sum + (s.score || 0), 0);
       overallScore = sectionScores.length > 0 
-        ? Math.round((totalScore / sectionScores.length) * 10) // Convert 0-10 to 0-100
+        ? parseFloat((totalScore / sectionScores.length).toFixed(1))
         : 0;
     } else {
       // Sales calls: average of the three main sections
