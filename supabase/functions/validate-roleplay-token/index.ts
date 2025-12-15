@@ -15,10 +15,10 @@ serve(async (req) => {
       );
     }
 
-    // Create supabase client without auth (public access)
+    // Use service role to bypass RLS - this endpoint must work for unauthenticated users
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
     // Query token
