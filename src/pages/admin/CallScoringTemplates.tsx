@@ -72,11 +72,11 @@ export default function CallScoringTemplates() {
     } else {
       const parsed = (data || []).map(t => ({
         ...t,
-        skill_categories: Array.isArray(t.skill_categories) 
-          ? t.skill_categories 
+        skill_categories: t.skill_categories && typeof t.skill_categories === 'object'
+          ? t.skill_categories
           : typeof t.skill_categories === 'string'
             ? JSON.parse(t.skill_categories)
-            : [],
+            : null,
         is_global: t.is_global || false,
         agency_id: t.agency_id || null,
         call_type: t.call_type || 'sales'
