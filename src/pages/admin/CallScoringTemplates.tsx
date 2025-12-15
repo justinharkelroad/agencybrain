@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe, Building, Search, Copy, FileText, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminCallScoringDashboard from './AdminCallScoringDashboard';
+import PromptBuilderWrapper from '@/components/admin/call-scoring/PromptBuilderWrapper';
 
 interface CallScoringTemplate {
   id: string;
@@ -173,17 +173,27 @@ export default function CallScoringTemplates() {
     }
     
     setSaving(true);
-    const skillsArray = formData.skill_categories
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+    
+    // Parse skill_categories - could be JSON string from builder or already an object
+    let skillsData: any;
+    try {
+      skillsData = typeof formData.skill_categories === 'string' 
+        ? JSON.parse(formData.skill_categories)
+        : formData.skill_categories;
+    } catch {
+      // Fallback to comma-separated string for backward compatibility
+      skillsData = formData.skill_categories
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
+    }
 
     const { error } = await supabase
       .from('call_scoring_templates')
       .update({
         name: formData.name.trim(),
         system_prompt: formData.system_prompt,
-        skill_categories: skillsArray,
+        skill_categories: skillsData,
         is_global: formData.is_global,
         agency_id: formData.is_global ? null : formData.agency_id,
         call_type: formData.call_type,
@@ -308,14 +318,18 @@ export default function CallScoringTemplates() {
       return;
     }
 
-    const skillsArray = formData.skill_categories
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-
-    if (skillsArray.length === 0) {
-      toast.error('At least one skill category is required');
-      return;
+    // Parse skill_categories - could be JSON string from builder or already an object
+    let skillsData: any;
+    try {
+      skillsData = typeof formData.skill_categories === 'string' 
+        ? JSON.parse(formData.skill_categories)
+        : formData.skill_categories;
+    } catch {
+      // Fallback to comma-separated string for backward compatibility
+      skillsData = formData.skill_categories
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter((s: string) => s.length > 0);
     }
 
     setSaving(true);
@@ -324,7 +338,7 @@ export default function CallScoringTemplates() {
       .insert({
         name: formData.name.trim(),
         system_prompt: formData.system_prompt.trim(),
-        skill_categories: skillsArray,
+        skill_categories: skillsData,
         is_active: true,
         is_global: formData.is_global,
         agency_id: formData.is_global ? null : formData.agency_id,
@@ -592,7 +606,7 @@ export default function CallScoringTemplates() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Template</DialogTitle>
           </DialogHeader>
@@ -624,27 +638,15 @@ export default function CallScoringTemplates() {
                 placeholder="Template name"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-system_prompt">System Prompt *</Label>
-              <Textarea
-                id="edit-system_prompt"
-                value={formData.system_prompt}
-                onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
-                placeholder="AI system prompt for analyzing calls..."
-                rows={10}
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-skill_categories">Skill Categories</Label>
-              <Input
-                id="edit-skill_categories"
-                value={formData.skill_categories}
-                onChange={(e) => setFormData({ ...formData, skill_categories: e.target.value })}
-                placeholder="Rapport, Discovery, Coverage, Closing, Cross-Sell"
-              />
-              <p className="text-xs text-muted-foreground">Comma-separated list of skills to score</p>
-            </div>
+            
+            <PromptBuilderWrapper
+              callType={formData.call_type}
+              templateName={formData.name}
+              systemPrompt={formData.system_prompt}
+              skillCategories={editingTemplate?.skill_categories}
+              onSystemPromptChange={(prompt) => setFormData({ ...formData, system_prompt: prompt })}
+              onSkillCategoriesChange={(config) => setFormData({ ...formData, skill_categories: JSON.stringify(config) })}
+            />
             
             <TemplateAssignmentSection />
           </div>
@@ -662,7 +664,7 @@ export default function CallScoringTemplates() {
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Scoring Template</DialogTitle>
           </DialogHeader>
@@ -694,32 +696,15 @@ export default function CallScoringTemplates() {
                 placeholder="e.g., Standard Insurance Sales Review"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-prompt">System Prompt *</Label>
-              <Textarea
-                id="create-prompt"
-                value={formData.system_prompt}
-                onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
-                placeholder="Enter the AI prompt that will analyze call transcripts..."
-                className="font-mono text-sm"
-                rows={12}
-              />
-              <p className="text-xs text-muted-foreground">
-                This prompt instructs the AI how to analyze and score calls.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-skills">Skill Categories</Label>
-              <Input
-                id="create-skills"
-                value={formData.skill_categories}
-                onChange={(e) => setFormData({ ...formData, skill_categories: e.target.value })}
-                placeholder="Rapport, Discovery, Coverage, Closing, Cross-Sell"
-              />
-              <p className="text-xs text-muted-foreground">
-                Comma-separated list of skills to score (e.g., Rapport, Discovery, Closing)
-              </p>
-            </div>
+            
+            <PromptBuilderWrapper
+              callType={formData.call_type}
+              templateName={formData.name}
+              systemPrompt={formData.system_prompt}
+              skillCategories={null}
+              onSystemPromptChange={(prompt) => setFormData({ ...formData, system_prompt: prompt })}
+              onSkillCategoriesChange={(config) => setFormData({ ...formData, skill_categories: JSON.stringify(config) })}
+            />
             
             <TemplateAssignmentSection />
           </div>
