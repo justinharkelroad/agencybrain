@@ -41,7 +41,8 @@ serve(async (req) => {
         call_scoring_templates (
           name,
           system_prompt,
-          skill_categories
+          skill_categories,
+          call_type
         )
       `)
       .eq("id", call_id)
@@ -61,8 +62,30 @@ serve(async (req) => {
       );
     }
 
-    // Build the analysis prompt - custom insurance sales methodology
-    const systemPrompt = `You are an advanced sales-performance evaluator analyzing a transcribed insurance sales call. Your mission is to:
+    // Determine call type from template
+    const callType = call.call_scoring_templates?.call_type || 'sales';
+    console.log(`Analyzing ${callType} call...`);
+
+    // Build the analysis prompt based on call type
+    const systemPrompt = callType === 'service' 
+      ? `You are an advanced service-call evaluator analyzing a transcribed insurance service/customer support call. Your mission is to:
+- Evaluate CSR performance across key service dimensions
+- Extract CRM-worthy data points for follow-up
+- Surface coaching insights tied to best practices
+- Maintain an evidence-backed, professional tone
+
+All analysis must be:
+- Specific — No vagueness or conjecture.
+- Grounded — Each conclusion must cite transcript-based observations.
+- No PII — Never include last names, DOBs, specific addresses, bank/card info, SSNs.
+
+Voice profile:
+- Tone: supportive, constructive, clear.
+- Sentences: short, active, present tense.
+- POV: second person ("you"). Address the CSR directly.
+
+You must respond with ONLY valid JSON - no markdown, no explanation.`
+      : `You are an advanced sales-performance evaluator analyzing a transcribed insurance sales call. Your mission is to:
 - Extract CRM-worthy data points that directly reflect the talk path.
 - Surface precision-targeted coaching insights tied to the agency's script.
 - Maintain an evidence-backed, judgment-free tone.

@@ -21,6 +21,7 @@ interface CallScoringTemplate {
   is_active: boolean;
   is_global: boolean;
   agency_id: string | null;
+  call_type: 'sales' | 'service';
   created_at: string;
   updated_at: string;
 }
@@ -49,7 +50,8 @@ export default function CallScoringTemplates() {
     system_prompt: '',
     skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
     is_global: true,
-    agency_id: null as string | null
+    agency_id: null as string | null,
+    call_type: 'sales' as 'sales' | 'service'
   });
 
   useEffect(() => {
@@ -76,7 +78,8 @@ export default function CallScoringTemplates() {
             ? JSON.parse(t.skill_categories)
             : [],
         is_global: t.is_global || false,
-        agency_id: t.agency_id || null
+        agency_id: t.agency_id || null,
+        call_type: t.call_type || 'sales'
       }));
       setTemplates(parsed);
     }
@@ -140,7 +143,8 @@ export default function CallScoringTemplates() {
         ? template.skill_categories.join(', ') 
         : '',
       is_global: template.is_global || false,
-      agency_id: template.agency_id
+      agency_id: template.agency_id,
+      call_type: template.call_type || 'sales'
     });
     setEditDialogOpen(true);
   };
@@ -182,6 +186,7 @@ export default function CallScoringTemplates() {
         skill_categories: skillsArray,
         is_global: formData.is_global,
         agency_id: formData.is_global ? null : formData.agency_id,
+        call_type: formData.call_type,
         updated_at: new Date().toISOString()
       })
       .eq('id', editingTemplate.id);
@@ -279,7 +284,8 @@ export default function CallScoringTemplates() {
       system_prompt: '',
       skill_categories: 'Rapport, Discovery, Coverage, Closing, Cross-Sell',
       is_global: true,
-      agency_id: null
+      agency_id: null,
+      call_type: 'sales'
     });
   };
 
@@ -321,7 +327,8 @@ export default function CallScoringTemplates() {
         skill_categories: skillsArray,
         is_active: true,
         is_global: formData.is_global,
-        agency_id: formData.is_global ? null : formData.agency_id
+        agency_id: formData.is_global ? null : formData.agency_id,
+        call_type: formData.call_type
       });
 
     setSaving(false);
@@ -509,6 +516,15 @@ export default function CallScoringTemplates() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold truncate">{template.name}</h3>
+                          <Badge 
+                            className={`shrink-0 ${
+                              template.call_type === 'service' 
+                                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                            }`}
+                          >
+                            {template.call_type === 'service' ? 'Service' : 'Sales'}
+                          </Badge>
                           {template.is_global ? (
                             <Badge className="bg-green-500/20 text-green-400 border-green-500/30 shrink-0">
                               <Globe className="h-3 w-3 mr-1" />
@@ -582,6 +598,24 @@ export default function CallScoringTemplates() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="edit-callType">Call Type</Label>
+              <Select 
+                value={formData.call_type} 
+                onValueChange={(v) => setFormData({ ...formData, call_type: v as 'sales' | 'service' })}
+              >
+                <SelectTrigger id="edit-callType">
+                  <SelectValue placeholder="Select call type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales">Sales Call</SelectItem>
+                  <SelectItem value="service">Service Call</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This determines the report card format used for scored calls.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-name">Name *</Label>
               <Input
                 id="edit-name"
@@ -634,6 +668,24 @@ export default function CallScoringTemplates() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="create-callType">Call Type</Label>
+              <Select 
+                value={formData.call_type} 
+                onValueChange={(v) => setFormData({ ...formData, call_type: v as 'sales' | 'service' })}
+              >
+                <SelectTrigger id="create-callType">
+                  <SelectValue placeholder="Select call type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sales">Sales Call</SelectItem>
+                  <SelectItem value="service">Service Call</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This determines the report card format used for scored calls.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="create-name">Name *</Label>
               <Input
                 id="create-name"
@@ -653,7 +705,7 @@ export default function CallScoringTemplates() {
                 rows={12}
               />
               <p className="text-xs text-muted-foreground">
-                This prompt instructs the AI how to analyze and score sales calls.
+                This prompt instructs the AI how to analyze and score calls.
               </p>
             </div>
             <div className="space-y-2">
