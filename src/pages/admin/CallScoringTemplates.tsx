@@ -365,9 +365,12 @@ export default function CallScoringTemplates() {
         value={formData.is_global ? 'global' : 'agency'}
         onValueChange={(v) => handleDeploymentChange(v as 'global' | 'agency')}
       >
-        <div className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+        <div 
+          className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+          onClick={() => handleDeploymentChange('global')}
+        >
           <RadioGroupItem value="global" id="deploy-global" className="mt-1" />
-          <Label htmlFor="deploy-global" className="flex-1 cursor-pointer">
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4 text-green-500" />
               <span className="font-medium">Global Template</span>
@@ -375,12 +378,15 @@ export default function CallScoringTemplates() {
             <p className="text-sm text-muted-foreground mt-1">
               Available to all agencies with call scoring enabled
             </p>
-          </Label>
+          </div>
         </div>
         
-        <div className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
+        <div 
+          className="flex items-start space-x-2 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer"
+          onClick={() => handleDeploymentChange('agency')}
+        >
           <RadioGroupItem value="agency" id="deploy-agency" className="mt-1" />
-          <Label htmlFor="deploy-agency" className="flex-1 cursor-pointer">
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <Building className="h-4 w-4 text-blue-500" />
               <span className="font-medium">Specific Agency</span>
@@ -388,7 +394,7 @@ export default function CallScoringTemplates() {
             <p className="text-sm text-muted-foreground mt-1">
               Only available to the selected agency
             </p>
-          </Label>
+          </div>
         </div>
       </RadioGroup>
       
