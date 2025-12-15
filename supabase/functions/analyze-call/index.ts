@@ -66,9 +66,10 @@ serve(async (req) => {
     const callType = call.call_scoring_templates?.call_type || 'sales';
     console.log(`Analyzing ${callType} call...`);
 
-    // Build the analysis prompt based on call type
-    const systemPrompt = callType === 'service' 
-      ? `You are an advanced service-call evaluator analyzing a transcribed insurance service/customer support call. Your mission is to:
+    // Use template prompt if available, otherwise fall back to hardcoded defaults
+    const templatePrompt = call.call_scoring_templates?.system_prompt;
+    
+    const defaultServicePrompt = `You are an advanced service-call evaluator analyzing a transcribed insurance service/customer support call. Your mission is to:
 - Evaluate CSR performance across key service dimensions
 - Extract CRM-worthy data points for follow-up
 - Surface coaching insights tied to best practices
@@ -84,8 +85,9 @@ Voice profile:
 - Sentences: short, active, present tense.
 - POV: second person ("you"). Address the CSR directly.
 
-You must respond with ONLY valid JSON - no markdown, no explanation.`
-      : `You are an advanced sales-performance evaluator analyzing a transcribed insurance sales call. Your mission is to:
+You must respond with ONLY valid JSON - no markdown, no explanation.`;
+
+    const defaultSalesPrompt = `You are an advanced sales-performance evaluator analyzing a transcribed insurance sales call. Your mission is to:
 - Extract CRM-worthy data points that directly reflect the talk path.
 - Surface precision-targeted coaching insights tied to the agency's script.
 - Maintain an evidence-backed, judgment-free tone.
@@ -109,6 +111,12 @@ Voice profile:
 - Use imperatives for fixes.
 
 You must respond with ONLY valid JSON - no markdown, no explanation.`;
+
+    const systemPrompt = templatePrompt && templatePrompt.trim().length > 0
+      ? templatePrompt  // Use the custom prompt from the template
+      : (callType === 'service' ? defaultServicePrompt : defaultSalesPrompt);
+    
+    console.log('Using prompt source:', templatePrompt && templatePrompt.trim().length > 0 ? 'TEMPLATE' : 'HARDCODED DEFAULT');
 
     // Service call user prompt
     const serviceUserPrompt = `Analyze this insurance service/customer support call transcript and provide a structured evaluation.
