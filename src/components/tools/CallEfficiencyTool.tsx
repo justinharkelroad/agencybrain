@@ -97,11 +97,17 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
     }
   };
 
+  const dateFilter = startDate && endDate
+    ? { start: new Date(startDate), end: new Date(endDate) }
+    : null;
+
   if (showReport && results && parsedData) {
     return (
       <CallEfficiencyReportCard
         results={results}
         parsedData={parsedData}
+        fileName={fileName}
+        dateFilter={dateFilter}
         onClose={() => setShowReport(false)}
       />
     );

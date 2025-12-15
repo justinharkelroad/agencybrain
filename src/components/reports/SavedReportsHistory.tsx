@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3, Mail, PhoneCall } from 'lucide-react';
+import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3, Mail, PhoneCall, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +28,11 @@ import StaffROIReportCard from '@/components/tools/StaffROIReportCard';
 import { DataLeadReportCard } from '@/components/tools/DataLeadReportCard';
 import { MailerReportCard } from '@/components/tools/MailerReportCard';
 import { LiveTransferReportCard } from '@/components/tools/LiveTransferReportCard';
+import CallEfficiencyReportCard from '@/components/tools/CallEfficiencyReportCard';
 import { MarketingInputs, MarketingDerived, MailerInputs, MailerDerived, TransferInputs, TransferDerived } from '@/utils/marketingCalculator';
+import { CallEfficiencyResults } from '@/utils/callEfficiencyCalculator';
 
-type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer';
+type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer' | 'call_efficiency';
 
 export function SavedReportsHistory() {
   const [filter, setFilter] = useState<ReportFilter>('all');
@@ -64,6 +66,8 @@ export function SavedReportsHistory() {
         return <Mail className="h-4 w-4" />;
       case 'live_transfer':
         return <PhoneCall className="h-4 w-4" />;
+      case 'call_efficiency':
+        return <Clock className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
     }
@@ -81,6 +85,8 @@ export function SavedReportsHistory() {
         return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Mailer</Badge>;
       case 'live_transfer':
         return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Live Transfer</Badge>;
+      case 'call_efficiency':
+        return <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30">Call Efficiency</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -135,6 +141,30 @@ export function SavedReportsHistory() {
       );
     }
 
+    if (report.report_type === 'call_efficiency') {
+      const resultsData = report.results_data as Record<string, unknown>;
+      // Reconstruct dates from ISO strings
+      const reconstructedResults: CallEfficiencyResults = {
+        thresholdMinutes: resultsData.thresholdMinutes as number,
+        totals: resultsData.totals as CallEfficiencyResults['totals'],
+        users: resultsData.users as CallEfficiencyResults['users'],
+        dateRange: {
+          start: new Date(resultsData.dateRange ? (resultsData.dateRange as { start: string }).start : new Date()),
+          end: new Date(resultsData.dateRange ? (resultsData.dateRange as { end: string }).end : new Date()),
+        },
+      };
+      
+      return (
+        <div className="mt-4 border-t border-border/20 pt-4">
+          <CallEfficiencyReportCard
+            results={reconstructedResults}
+            parsedData={{ calls: [], users: [], dateRange: reconstructedResults.dateRange, parseErrors: [], format: 'generic' }}
+            isReadOnly={true}
+          />
+        </div>
+      );
+    }
+
     // Vendor Verifier and others - show basic data for now
     return (
       <div className="mt-4 border-t border-border/20 pt-4">
@@ -170,6 +200,7 @@ export function SavedReportsHistory() {
             <SelectItem value="data_lead">Data Lead</SelectItem>
             <SelectItem value="mailer">Mailer</SelectItem>
             <SelectItem value="live_transfer">Live Transfer</SelectItem>
+            <SelectItem value="call_efficiency">Call Efficiency</SelectItem>
           </SelectContent>
         </Select>
       </div>

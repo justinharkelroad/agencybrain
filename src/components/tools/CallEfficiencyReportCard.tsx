@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { X, Download, FileImage, Copy, Save } from "lucide-react";
+import { Download, FileImage, Copy } from "lucide-react";
 import { CallEfficiencyResults, formatDuration, formatTalkTime } from "@/utils/callEfficiencyCalculator";
 import { ParsedCallLog } from "@/utils/callLogParser";
 import { format } from "date-fns";
@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { SaveCallEfficiencyReportButton } from "./SaveCallEfficiencyReportButton";
 
 // Colors for export compatibility
 const COLORS = {
@@ -33,13 +34,19 @@ const COLORS = {
 interface CallEfficiencyReportCardProps {
   results: CallEfficiencyResults;
   parsedData: ParsedCallLog;
-  onClose: () => void;
+  fileName?: string;
+  dateFilter?: { start: Date; end: Date } | null;
+  onClose?: () => void;
+  isReadOnly?: boolean;
 }
 
 export default function CallEfficiencyReportCard({
   results,
   parsedData,
+  fileName = "Unknown",
+  dateFilter = null,
   onClose,
+  isReadOnly = false,
 }: CallEfficiencyReportCardProps) {
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -123,25 +130,33 @@ export default function CallEfficiencyReportCard({
   return (
     <div className="space-y-4">
       {/* Export Buttons - Outside ref */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          ← Back to Upload
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportPNG}>
-            <FileImage className="h-4 w-4 mr-1" />
-            PNG
+      {!isReadOnly && (
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            ← Back to Upload
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportPDF}>
-            <Download className="h-4 w-4 mr-1" />
-            PDF
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleCopyResults}>
-            <Copy className="h-4 w-4 mr-1" />
-            Copy
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportPNG}>
+              <FileImage className="h-4 w-4 mr-1" />
+              PNG
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPDF}>
+              <Download className="h-4 w-4 mr-1" />
+              PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleCopyResults}>
+              <Copy className="h-4 w-4 mr-1" />
+              Copy
+            </Button>
+            <SaveCallEfficiencyReportButton
+              fileName={fileName}
+              thresholdMinutes={results.thresholdMinutes}
+              dateFilter={dateFilter}
+              results={results}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Report Card */}
       <div
