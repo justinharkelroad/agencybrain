@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-export type ReportType = 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer';
+export type ReportType = 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer' | 'call_efficiency';
 
 export type SavedReport = {
   id: string;
