@@ -320,11 +320,10 @@ serve(async (req) => {
       
       try {
         // Pass the signed URL to Convertio (no base64 encoding needed!)
-        audioBuffer = await convertWithConvertio(signedUrl, fileName);
-        audioFilename = fileName.replace(/\.[^.]+$/, '.ogg');
+        audioBuffer = await convertWithConvertio(signedUrl, audioFilename);
+        audioFilename = audioFilename.replace(/\.[^.]+$/, '.ogg');
         audioMimeType = 'audio/ogg';
         convertedFileSizeBytes = audioBuffer.byteLength;
-        
         console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
       } catch (conversionError) {
         console.error("Conversion failed:", conversionError);
@@ -403,7 +402,7 @@ serve(async (req) => {
             team_member_id: teamMemberId,
             template_id: templateId,
             audio_storage_path: storagePath,
-            original_filename: fileName,
+            original_filename: originalFilename || audioFilename,
             transcript: whisperResult.text,
             transcript_segments: whisperResult.segments,
             call_duration_seconds: Math.round(whisperResult.duration),
