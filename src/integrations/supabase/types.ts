@@ -176,6 +176,9 @@ export type Database = {
           client_profile: Json | null
           closing_attempts: Json | null
           coaching_recommendations: Json | null
+          conversion_attempts: number | null
+          conversion_required: boolean | null
+          converted_file_size_bytes: number | null
           created_at: string | null
           critical_gaps: Json | null
           customer_talk_percent: number | null
@@ -189,6 +192,7 @@ export type Database = {
           id: string
           missed_signals: Json | null
           notable_quotes: Json | null
+          original_file_size_bytes: number | null
           original_filename: string | null
           overall_score: number | null
           potential_rank: string | null
@@ -218,6 +222,9 @@ export type Database = {
           client_profile?: Json | null
           closing_attempts?: Json | null
           coaching_recommendations?: Json | null
+          conversion_attempts?: number | null
+          conversion_required?: boolean | null
+          converted_file_size_bytes?: number | null
           created_at?: string | null
           critical_gaps?: Json | null
           customer_talk_percent?: number | null
@@ -231,6 +238,7 @@ export type Database = {
           id?: string
           missed_signals?: Json | null
           notable_quotes?: Json | null
+          original_file_size_bytes?: number | null
           original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null
@@ -260,6 +268,9 @@ export type Database = {
           client_profile?: Json | null
           closing_attempts?: Json | null
           coaching_recommendations?: Json | null
+          conversion_attempts?: number | null
+          conversion_required?: boolean | null
+          converted_file_size_bytes?: number | null
           created_at?: string | null
           critical_gaps?: Json | null
           customer_talk_percent?: number | null
@@ -273,6 +284,7 @@ export type Database = {
           id?: string
           missed_signals?: Json | null
           notable_quotes?: Json | null
+          original_file_size_bytes?: number | null
           original_filename?: string | null
           overall_score?: number | null
           potential_rank?: string | null

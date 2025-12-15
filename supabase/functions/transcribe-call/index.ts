@@ -6,7 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Calculate talk metrics from Whisper segments
+const CONVERTIO_API_KEY = Deno.env.get('CONVERTIO_API_KEY');
+const MAX_WHISPER_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+
 // Retry helper for transient network errors
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -29,7 +31,7 @@ async function withRetry<T>(
         throw error;
       }
       
-      const delay = baseDelayMs * Math.pow(2, attempt - 1); // Exponential backoff
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
       console.log(`Retry attempt ${attempt}/${maxAttempts} after ${delay}ms due to: ${error.message}`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -38,19 +40,122 @@ async function withRetry<T>(
   throw lastError;
 }
 
+// Convert large files to OGG using Convertio API
+async function convertWithConvertio(
+  fileBuffer: ArrayBuffer, 
+  originalFilename: string
+): Promise<ArrayBuffer> {
+  const maxAttempts = 5;
+  const backoffDelays = [0, 30000, 60000, 90000, 120000]; // ms
+  const timeoutPerAttempt = 5 * 60 * 1000; // 5 minutes
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Wait before retry (exponential backoff)
+    if (backoffDelays[attempt] > 0) {
+      console.log(`Waiting ${backoffDelays[attempt] / 1000}s before Convertio retry ${attempt + 1}...`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelays[attempt]));
+    }
+    
+    try {
+      console.log(`Convertio attempt ${attempt + 1}/${maxAttempts}...`);
+      
+      // Convert ArrayBuffer to base64
+      const uint8Array = new Uint8Array(fileBuffer);
+      let binary = '';
+      const chunkSize = 32768; // Process in chunks to avoid call stack issues
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      const base64Data = btoa(binary);
+      
+      // Step 1: Start conversion job
+      const startResponse = await fetch('https://api.convertio.co/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apikey: CONVERTIO_API_KEY,
+          input: 'base64',
+          file: base64Data,
+          filename: originalFilename,
+          outputformat: 'ogg'
+        })
+      });
+      
+      const startData = await startResponse.json();
+      if (startData.status !== 'ok') {
+        throw new Error(`Convertio start failed: ${startData.error || JSON.stringify(startData)}`);
+      }
+      
+      const jobId = startData.data.id;
+      console.log(`Convertio job started: ${jobId}`);
+      
+      // Step 2: Poll for completion
+      const startTime = Date.now();
+      let status = 'processing';
+      
+      while (status !== 'finished' && (Date.now() - startTime) < timeoutPerAttempt) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+        
+        const statusResponse = await fetch(`https://api.convertio.co/convert/${jobId}/status`);
+        const statusData = await statusResponse.json();
+        
+        if (statusData.status !== 'ok') {
+          throw new Error(`Convertio status check failed: ${statusData.error || JSON.stringify(statusData)}`);
+        }
+        
+        status = statusData.data.step;
+        console.log(`Convertio job ${jobId} status: ${status}`);
+        
+        if (status === 'finish') {
+          // Step 3: Download converted file
+          const downloadUrl = statusData.data.output.url;
+          console.log(`Downloading converted file from: ${downloadUrl}`);
+          
+          const downloadResponse = await fetch(downloadUrl);
+          const convertedBuffer = await downloadResponse.arrayBuffer();
+          
+          // Step 4: Clean up job
+          await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+          
+          console.log(`Conversion complete: ${fileBuffer.byteLength} → ${convertedBuffer.byteLength} bytes`);
+          return convertedBuffer;
+        }
+        
+        if (status === 'error') {
+          throw new Error(`Convertio conversion failed: ${statusData.data.error || 'Unknown error'}`);
+        }
+      }
+      
+      // Timeout reached
+      await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+      throw new Error('Convertio conversion timed out');
+      
+    } catch (error) {
+      console.error(`Convertio attempt ${attempt + 1} failed:`, error);
+      
+      if (attempt === maxAttempts - 1) {
+        throw new Error('Unable to process this file due to size. Please contact AgencyBrain with questions.');
+      }
+      // Continue to next attempt
+    }
+  }
+  
+  throw new Error('Unable to process this file due to size. Please contact AgencyBrain with questions.');
+}
+
 // Calculate talk metrics from Whisper segments
 function calculateTalkMetrics(segments: any[], totalDuration: number) {
   let agentSeconds = 0;
   let customerSeconds = 0;
   let lastEndTime = 0;
   let deadAirSeconds = 0;
-  let currentSpeaker = 'agent'; // Agent usually speaks first (greeting)
+  let currentSpeaker = 'agent';
   
   segments.forEach((segment, index) => {
     const segmentDuration = segment.end - segment.start;
     const text = segment.text?.toLowerCase() || '';
     
-    // Calculate dead air (gaps between segments > 0.5s)
     if (segment.start > lastEndTime) {
       const gap = segment.start - lastEndTime;
       if (gap > 0.5) {
@@ -59,12 +164,10 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     }
     lastEndTime = segment.end;
     
-    // Speaker detection heuristics
     const isGreeting = /^(hi|hello|hey|thank you for calling|thanks for calling|good morning|good afternoon)/i.test(text.trim());
     const isAgentPhrase = /(let me|i can|we offer|your policy|your coverage|your premium|i'll send|i'll email|what i can do|i'm going to|looking at your)/i.test(text);
     const isCustomerPhrase = /(i need|i want|i'm looking|how much|what about|can you|do you|i have a question|my current|i was wondering)/i.test(text);
     
-    // Determine speaker
     if (index === 0 && isGreeting) {
       currentSpeaker = 'agent';
     } else if (isAgentPhrase) {
@@ -72,11 +175,9 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     } else if (isCustomerPhrase) {
       currentSpeaker = 'customer';
     } else if (index > 0 && segment.start - segments[index - 1].end > 1.0) {
-      // Alternate on significant pauses
       currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
     }
     
-    // Assign time
     if (currentSpeaker === 'agent') {
       agentSeconds += segmentDuration;
     } else {
@@ -84,12 +185,10 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     }
   });
 
-  // Round values
   agentSeconds = Math.round(agentSeconds);
   customerSeconds = Math.round(customerSeconds);
   deadAirSeconds = Math.round(deadAirSeconds);
 
-  // Calculate percentages
   const total = agentSeconds + customerSeconds + deadAirSeconds;
   const effectiveTotal = total > 0 ? total : totalDuration;
 
@@ -104,13 +203,11 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -119,12 +216,10 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get OpenAI API key
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiApiKey) {
       return new Response(
@@ -133,7 +228,6 @@ serve(async (req) => {
       );
     }
 
-    // Parse form data
     const formData = await req.formData();
     const audioFile = formData.get("audio") as File;
     const teamMemberId = formData.get("team_member_id") as string;
@@ -150,17 +244,54 @@ serve(async (req) => {
 
     console.log(`Processing audio file: ${fileName}, size: ${audioFile.size} bytes`);
 
+    // Get original file buffer
+    let audioBuffer = await audioFile.arrayBuffer();
+    let audioFilename = fileName;
+    let audioMimeType = audioFile.type;
+    const originalFileSizeBytes = audioBuffer.byteLength;
+    let convertedFileSizeBytes = originalFileSizeBytes;
+    let conversionRequired = false;
+    let conversionAttempts = 0;
+
+    // Check if conversion needed
+    if (audioBuffer.byteLength > MAX_WHISPER_SIZE_BYTES) {
+      if (!CONVERTIO_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Large file processing not configured. Please contact support." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      conversionRequired = true;
+      console.log(`File size ${audioBuffer.byteLength} exceeds 25MB, converting via Convertio...`);
+      
+      try {
+        audioBuffer = await convertWithConvertio(audioBuffer, fileName);
+        audioFilename = fileName.replace(/\.[^.]+$/, '.ogg');
+        audioMimeType = 'audio/ogg';
+        convertedFileSizeBytes = audioBuffer.byteLength;
+        conversionAttempts = 1; // Will be updated if retries occurred
+        
+        console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
+      } catch (conversionError) {
+        console.error("Conversion failed:", conversionError);
+        return new Response(
+          JSON.stringify({ error: conversionError.message || "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Generate unique storage path
     const timestamp = Date.now();
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const sanitizedFileName = audioFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
     const storagePath = `${agencyId}/${teamMemberId}/${timestamp}_${sanitizedFileName}`;
 
     // Upload to Supabase Storage
-    const arrayBuffer = await audioFile.arrayBuffer();
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("call-recordings")
-      .upload(storagePath, arrayBuffer, {
-        contentType: audioFile.type,
+      .upload(storagePath, audioBuffer, {
+        contentType: audioMimeType,
         upsert: false,
       });
 
@@ -174,34 +305,48 @@ serve(async (req) => {
 
     console.log("File uploaded to storage:", uploadData.path);
 
-    // Prepare file for OpenAI Whisper API
-    const whisperFormData = new FormData();
-    whisperFormData.append("file", new Blob([arrayBuffer], { type: audioFile.type }), fileName);
-    whisperFormData.append("model", "whisper-1");
-    whisperFormData.append("response_format", "verbose_json");
-    whisperFormData.append("timestamp_granularities[]", "segment");
+    // Send to Whisper API with retry
+    let whisperResult: any = null;
+    let whisperAttempts = 0;
+    const maxWhisperAttempts = 3;
 
-    console.log("Sending to OpenAI Whisper API...");
+    while (!whisperResult && whisperAttempts < maxWhisperAttempts) {
+      whisperAttempts++;
+      try {
+        const whisperFormData = new FormData();
+        whisperFormData.append("file", new Blob([audioBuffer], { type: audioMimeType }), audioFilename);
+        whisperFormData.append("model", "whisper-1");
+        whisperFormData.append("response_format", "verbose_json");
+        whisperFormData.append("timestamp_granularities[]", "segment");
 
-    // Call OpenAI Whisper API
-    const whisperResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openaiApiKey}`,
-      },
-      body: whisperFormData,
-    });
+        console.log(`Whisper API attempt ${whisperAttempts}/${maxWhisperAttempts}...`);
 
-    if (!whisperResponse.ok) {
-      const errorText = await whisperResponse.text();
-      console.error("Whisper API error:", errorText);
-      return new Response(
-        JSON.stringify({ error: "Transcription failed", details: errorText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        const whisperResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+          },
+          body: whisperFormData,
+        });
+
+        if (!whisperResponse.ok) {
+          const errorText = await whisperResponse.text();
+          throw new Error(`Whisper API error: ${errorText}`);
+        }
+
+        whisperResult = await whisperResponse.json();
+      } catch (error) {
+        console.error(`Whisper attempt ${whisperAttempts} failed:`, error);
+        if (whisperAttempts === maxWhisperAttempts) {
+          return new Response(
+            JSON.stringify({ error: "Transcription failed. Please try again.", details: error.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
     }
 
-    const whisperResult = await whisperResponse.json();
     console.log("Transcription complete. Duration:", whisperResult.duration, "seconds");
     console.log("Segments received:", whisperResult.segments?.length || 0);
 
@@ -210,13 +355,12 @@ serve(async (req) => {
     const whisperCost = durationMinutes * 0.006;
     console.log(`Whisper cost for ${durationMinutes.toFixed(2)} minutes: $${whisperCost.toFixed(4)}`);
 
-    // Calculate talk metrics from segments
+    // Calculate talk metrics
     const talkMetrics = calculateTalkMetrics(whisperResult.segments || [], whisperResult.duration);
     console.log("Talk metrics calculated:", talkMetrics);
 
-    // Save to agency_calls table with talk metrics (with retry for transient errors)
+    // Save to agency_calls table with conversion tracking
     let callRecord: any = null;
-    let insertError: any = null;
     
     try {
       const result = await withRetry(async () => {
@@ -238,6 +382,10 @@ serve(async (req) => {
             customer_talk_percent: talkMetrics.customerPercent,
             dead_air_percent: talkMetrics.deadAirPercent,
             whisper_cost: whisperCost,
+            conversion_required: conversionRequired,
+            conversion_attempts: conversionAttempts,
+            original_file_size_bytes: originalFileSizeBytes,
+            converted_file_size_bytes: convertedFileSizeBytes,
             status: "transcribed",
           })
           .select()
@@ -264,25 +412,21 @@ serve(async (req) => {
       }
 
     } catch (err) {
-      insertError = err;
-      console.error("Failed to save call record after retries:", insertError);
-      
-      // Return error to frontend so user knows to retry
+      console.error("Failed to save call record after retries:", err);
       return new Response(
         JSON.stringify({ 
           error: "Failed to save call record. Please try uploading again.", 
-          details: insertError.message,
+          details: err.message,
           retryable: true 
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Trigger AI analysis automatically (fire and forget - don't wait)
+    // Trigger AI analysis automatically (fire and forget)
     if (callRecord?.id) {
       console.log("Triggering AI analysis for call:", callRecord.id);
       
-      // Fire and forget - don't await, let it run in background
       fetch(`${supabaseUrl}/functions/v1/analyze-call`, {
         method: "POST",
         headers: {
@@ -301,8 +445,6 @@ serve(async (req) => {
       });
     }
 
-
-    // Return success response with call_id
     return new Response(
       JSON.stringify({
         success: true,
@@ -312,6 +454,9 @@ serve(async (req) => {
         duration_seconds: Math.round(whisperResult.duration),
         segments: whisperResult.segments || [],
         language: whisperResult.language,
+        conversion_required: conversionRequired,
+        original_size_bytes: originalFileSizeBytes,
+        converted_size_bytes: convertedFileSizeBytes,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
