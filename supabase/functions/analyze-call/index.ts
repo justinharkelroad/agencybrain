@@ -118,7 +118,10 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
     const systemPrompt = templatePrompt && templatePrompt.trim().length > 0
       ? templatePrompt  // Use the custom prompt from the template
       : (callType === 'service' ? defaultServicePrompt : defaultSalesPrompt);
-    
+
+    // Enforce JSON-only output even if a custom template prompt asks for formatting.
+    const enforcedSystemPrompt = `${systemPrompt}\n\nCRITICAL OUTPUT FORMAT: Respond with ONLY valid JSON. Do NOT use markdown. Do NOT use HTML. Do NOT add commentary.`;
+
     console.log('Using prompt source:', templatePrompt && templatePrompt.trim().length > 0 ? 'TEMPLATE' : 'HARDCODED DEFAULT');
 
     // Service call user prompt
@@ -350,9 +353,10 @@ ${call.transcript}`;
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: enforcedSystemPrompt },
           { role: "user", content: userPrompt },
         ],
+        response_format: { type: "json_object" },
         temperature: 0.3,
         max_tokens: 4096,
       }),
