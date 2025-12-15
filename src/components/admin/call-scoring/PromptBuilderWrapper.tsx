@@ -69,7 +69,7 @@ export default function PromptBuilderWrapper({
       onSkillCategoriesChange(callType === 'sales' ? salesConfig : serviceConfig);
       setRawPromptEdited(false);
     }
-  }, [salesConfig, serviceConfig, callType, editorMode]);
+  }, [salesConfig, serviceConfig, callType, editorMode, onSystemPromptChange, onSkillCategoriesChange]);
 
   // Update template name in config when it changes
   useEffect(() => {

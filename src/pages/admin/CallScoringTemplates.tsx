@@ -644,8 +644,8 @@ export default function CallScoringTemplates() {
               templateName={formData.name}
               systemPrompt={formData.system_prompt}
               skillCategories={editingTemplate?.skill_categories}
-              onSystemPromptChange={(prompt) => setFormData({ ...formData, system_prompt: prompt })}
-              onSkillCategoriesChange={(config) => setFormData({ ...formData, skill_categories: JSON.stringify(config) })}
+              onSystemPromptChange={(prompt) => setFormData(prev => ({ ...prev, system_prompt: prompt }))}
+              onSkillCategoriesChange={(config) => setFormData(prev => ({ ...prev, skill_categories: JSON.stringify(config) }))}
             />
             
             <TemplateAssignmentSection />
@@ -702,8 +702,8 @@ export default function CallScoringTemplates() {
               templateName={formData.name}
               systemPrompt={formData.system_prompt}
               skillCategories={null}
-              onSystemPromptChange={(prompt) => setFormData({ ...formData, system_prompt: prompt })}
-              onSkillCategoriesChange={(config) => setFormData({ ...formData, skill_categories: JSON.stringify(config) })}
+              onSystemPromptChange={(prompt) => setFormData(prev => ({ ...prev, system_prompt: prompt }))}
+              onSkillCategoriesChange={(config) => setFormData(prev => ({ ...prev, skill_categories: JSON.stringify(config) }))}
             />
             
             <TemplateAssignmentSection />
