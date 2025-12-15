@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
-import { SalesPromptConfig, ScoredSection } from './promptBuilderTypes';
+import { SalesPromptConfig, ScoredSection, ChecklistItem } from './promptBuilderTypes';
 
 interface SalesPromptBuilderProps {
   config: SalesPromptConfig;
@@ -28,6 +28,20 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
 
   const removeSection = (index: number) => {
     updateField('scoredSections', config.scoredSections.filter((_, i) => i !== index));
+  };
+
+  const updateChecklistItem = (index: number, field: keyof ChecklistItem, value: string) => {
+    const newItems = [...(config.checklistItems || [])];
+    newItems[index] = { ...newItems[index], [field]: value };
+    updateField('checklistItems', newItems);
+  };
+
+  const addChecklistItem = () => {
+    updateField('checklistItems', [...(config.checklistItems || []), { label: '', criteria: '' }]);
+  };
+
+  const removeChecklistItem = (index: number) => {
+    updateField('checklistItems', (config.checklistItems || []).filter((_, i) => i !== index));
   };
 
   return (
@@ -170,6 +184,39 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
             placeholder="e.g., Focus on closing techniques, objection handling, building urgency, asking for referrals"
             rows={3}
           />
+        </CardContent>
+      </Card>
+
+      {/* Section 7: Execution Clean Sheet (Checklist) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Execution Clean Sheet</CardTitle>
+          <CardDescription>Yes/No checklist items that appear at the bottom of the report. These track specific behaviors you want to see on every call.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(config.checklistItems || []).map((item, idx) => (
+            <div key={idx} className="border border-border rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center gap-2">
+                <Input
+                  value={item.label}
+                  onChange={(e) => updateChecklistItem(idx, 'label', e.target.value)}
+                  placeholder="e.g., Ask for Sale"
+                />
+                <Button variant="ghost" size="sm" onClick={() => removeChecklistItem(idx)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              <Textarea
+                value={item.criteria}
+                onChange={(e) => updateChecklistItem(idx, 'criteria', e.target.value)}
+                placeholder="What counts as 'Yes'? e.g., 'Rep directly asked the prospect to move forward, bind coverage, or commit to a start date'"
+                rows={2}
+              />
+            </div>
+          ))}
+          <Button variant="outline" onClick={addChecklistItem}>
+            <Plus className="h-4 w-4 mr-2" /> Add Checklist Item
+          </Button>
         </CardContent>
       </Card>
     </div>

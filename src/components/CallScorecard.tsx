@@ -660,18 +660,42 @@ export function CallScorecard({
             <CardContent className="pt-4">
               <h3 className="font-bold text-sm mb-4">EXECUTION CLEAN SHEET</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {Object.entries(executionChecklist).map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <div className={`w-4 h-4 border rounded flex items-center justify-center ${
-                      value ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
-                    }`}>
-                      {value && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                {/* Support new checklist array format */}
+                {Array.isArray(call.checklist) && call.checklist.length > 0 ? (
+                  call.checklist.map((item: { label: string; checked: boolean; evidence?: string | null }, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        item.checked ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
+                      }`}>
+                        {item.checked && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-muted-foreground uppercase block">
+                          {item.label}
+                        </span>
+                        {item.evidence && (
+                          <p className="text-xs text-muted-foreground/70 italic mt-1 line-clamp-2">
+                            "{item.evidence}"
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs text-muted-foreground uppercase">
-                      {key.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  /* Legacy format: discovery_wins as object */
+                  Object.entries(executionChecklist).map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                        value ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
+                      }`}>
+                        {value && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                      </div>
+                      <span className="text-xs text-muted-foreground uppercase">
+                        {key.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

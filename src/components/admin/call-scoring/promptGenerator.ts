@@ -5,6 +5,15 @@ export function generateSalesPrompt(config: SalesPromptConfig): string {
     .map((s, i) => `${i + 1}. **${s.name}** – ${s.criteria}`)
     .join('\n');
 
+  const checklistText = (config.checklistItems || [])
+    .map(item => `- ${item.label}: ${item.criteria}`)
+    .join('\n');
+
+  const checklistSection = checklistText ? `
+EXECUTION CLEAN SHEET (mark Yes/No with evidence quote):
+${checklistText}
+` : '';
+
   return `
 INSTRUCTIONS TO AI GRADER — SALES CALL EDITION
 ================================================
@@ -33,7 +42,7 @@ DISCOVERY WINS: ${config.discoveryWinsCriteria}
 CLOSING ATTEMPTS: ${config.closingAttemptsCriteria}
 
 COACHING FOCUS: ${config.coachingFocus}
-
+${checklistSection}
 OUTPUT FORMAT:
 Return valid JSON with this exact structure:
 {
@@ -58,7 +67,14 @@ Return valid JSON with this exact structure:
   ],
   "discovery_wins": ["<win1>", "<win2>"],
   "closing_attempts": ["<attempt1>", "<attempt2>"],
-  "coaching_recommendations": ["<rec1>", "<rec2>", "<rec3>"]
+  "coaching_recommendations": ["<rec1>", "<rec2>", "<rec3>"],
+  "checklist": [
+    {
+      "label": "<item label>",
+      "checked": true | false,
+      "evidence": "<supporting quote or null>"
+    }
+  ]
 }
 `.trim();
 }
