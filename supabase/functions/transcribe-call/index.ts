@@ -40,9 +40,9 @@ async function withRetry<T>(
   throw lastError;
 }
 
-// Convert large files to OGG using Convertio API
+// Convert large files to OGG using Convertio API with URL input (not base64)
 async function convertWithConvertio(
-  fileBuffer: ArrayBuffer, 
+  signedUrl: string,
   originalFilename: string
 ): Promise<ArrayBuffer> {
   const maxAttempts = 5;
@@ -59,30 +59,21 @@ async function convertWithConvertio(
     try {
       console.log(`Convertio attempt ${attempt + 1}/${maxAttempts}...`);
       
-      // Convert ArrayBuffer to base64
-      const uint8Array = new Uint8Array(fileBuffer);
-      let binary = '';
-      const chunkSize = 32768; // Process in chunks to avoid call stack issues
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.slice(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, chunk);
-      }
-      const base64Data = btoa(binary);
-      
-      // Step 1: Start conversion job
+      // Step 1: Start conversion job using URL input (NOT base64)
       const startResponse = await fetch('https://api.convertio.co/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apikey: CONVERTIO_API_KEY,
-          input: 'base64',
-          file: base64Data,
+          input: 'url',           // Use URL instead of base64
+          file: signedUrl,        // Pass the signed URL
           filename: originalFilename,
           outputformat: 'ogg'
         })
       });
       
       const startData = await startResponse.json();
+      
       if (startData.status !== 'ok') {
         throw new Error(`Convertio start failed: ${startData.error || JSON.stringify(startData)}`);
       }
@@ -92,9 +83,9 @@ async function convertWithConvertio(
       
       // Step 2: Poll for completion
       const startTime = Date.now();
-      let status = 'processing';
+      let jobStatus = 'processing';
       
-      while (status !== 'finished' && (Date.now() - startTime) < timeoutPerAttempt) {
+      while ((Date.now() - startTime) < timeoutPerAttempt) {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
         
         const statusResponse = await fetch(`https://api.convertio.co/convert/${jobId}/status`);
@@ -104,31 +95,44 @@ async function convertWithConvertio(
           throw new Error(`Convertio status check failed: ${statusData.error || JSON.stringify(statusData)}`);
         }
         
-        status = statusData.data.step;
-        console.log(`Convertio job ${jobId} status: ${status}`);
+        jobStatus = statusData.data.step;
+        console.log(`Convertio job ${jobId} status: ${jobStatus}`);
         
-        if (status === 'finish') {
+        if (jobStatus === 'finish') {
           // Step 3: Download converted file
           const downloadUrl = statusData.data.output.url;
           console.log(`Downloading converted file from: ${downloadUrl}`);
           
           const downloadResponse = await fetch(downloadUrl);
+          
+          if (!downloadResponse.ok) {
+            throw new Error(`Failed to download converted file: ${downloadResponse.status}`);
+          }
+          
           const convertedBuffer = await downloadResponse.arrayBuffer();
+          console.log(`Converted file size: ${convertedBuffer.byteLength} bytes`);
           
           // Step 4: Clean up job
-          await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+          try {
+            await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+          } catch (cleanupError) {
+            console.warn('Failed to cleanup Convertio job:', cleanupError);
+          }
           
-          console.log(`Conversion complete: ${fileBuffer.byteLength} → ${convertedBuffer.byteLength} bytes`);
           return convertedBuffer;
         }
         
-        if (status === 'error') {
-          throw new Error(`Convertio conversion failed: ${statusData.data.error || 'Unknown error'}`);
+        if (jobStatus === 'error') {
+          throw new Error(`Convertio conversion error: ${statusData.data.error || 'Unknown error'}`);
         }
       }
       
-      // Timeout reached
-      await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+      // Timeout reached - clean up and throw
+      console.log(`Convertio timeout reached, cleaning up job ${jobId}`);
+      try {
+        await fetch(`https://api.convertio.co/convert/${jobId}`, { method: 'DELETE' });
+      } catch (e) { /* ignore cleanup errors */ }
+      
       throw new Error('Convertio conversion timed out');
       
     } catch (error) {
@@ -245,54 +249,26 @@ serve(async (req) => {
     console.log(`Processing audio file: ${fileName}, size: ${audioFile.size} bytes`);
 
     // Get original file buffer
-    let audioBuffer = await audioFile.arrayBuffer();
+    const originalBuffer = await audioFile.arrayBuffer();
+    const originalFileSizeBytes = originalBuffer.byteLength;
+    let audioBuffer = originalBuffer;
     let audioFilename = fileName;
     let audioMimeType = audioFile.type;
-    const originalFileSizeBytes = audioBuffer.byteLength;
     let convertedFileSizeBytes = originalFileSizeBytes;
     let conversionRequired = false;
-    let conversionAttempts = 0;
-
-    // Check if conversion needed
-    if (audioBuffer.byteLength > MAX_WHISPER_SIZE_BYTES) {
-      if (!CONVERTIO_API_KEY) {
-        return new Response(
-          JSON.stringify({ error: "Large file processing not configured. Please contact support." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      conversionRequired = true;
-      console.log(`File size ${audioBuffer.byteLength} exceeds 25MB, converting via Convertio...`);
-      
-      try {
-        audioBuffer = await convertWithConvertio(audioBuffer, fileName);
-        audioFilename = fileName.replace(/\.[^.]+$/, '.ogg');
-        audioMimeType = 'audio/ogg';
-        convertedFileSizeBytes = audioBuffer.byteLength;
-        conversionAttempts = 1; // Will be updated if retries occurred
-        
-        console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
-      } catch (conversionError) {
-        console.error("Conversion failed:", conversionError);
-        return new Response(
-          JSON.stringify({ error: conversionError.message || "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
 
     // Generate unique storage path
     const timestamp = Date.now();
-    const sanitizedFileName = audioFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
     const storagePath = `${agencyId}/${teamMemberId}/${timestamp}_${sanitizedFileName}`;
 
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // STEP 1: Upload original file to storage FIRST (before any conversion check)
+    console.log("Uploading original file to storage...");
+    const { error: uploadError } = await supabase.storage
       .from("call-recordings")
-      .upload(storagePath, audioBuffer, {
-        contentType: audioMimeType,
-        upsert: false,
+      .upload(storagePath, originalBuffer, {
+        contentType: audioFile.type,
+        upsert: true,
       });
 
     if (uploadError) {
@@ -303,7 +279,52 @@ serve(async (req) => {
       );
     }
 
-    console.log("File uploaded to storage:", uploadData.path);
+    console.log("Original file uploaded to storage:", storagePath);
+
+    // STEP 2: Check if conversion needed for large files
+    if (originalFileSizeBytes > MAX_WHISPER_SIZE_BYTES) {
+      if (!CONVERTIO_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: "Large file processing not configured. Please contact support." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      conversionRequired = true;
+      console.log(`File size ${originalFileSizeBytes} exceeds 25MB, converting via Convertio using URL...`);
+      
+      // Generate signed URL for Convertio to fetch the file (valid for 1 hour)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from("call-recordings")
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error("Failed to create signed URL:", signedUrlError);
+        return new Response(
+          JSON.stringify({ error: "Failed to create signed URL for conversion", details: signedUrlError?.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const signedUrl = signedUrlData.signedUrl;
+      console.log("Signed URL created for Convertio");
+      
+      try {
+        // Pass the signed URL to Convertio (no base64 encoding needed!)
+        audioBuffer = await convertWithConvertio(signedUrl, fileName);
+        audioFilename = fileName.replace(/\.[^.]+$/, '.ogg');
+        audioMimeType = 'audio/ogg';
+        convertedFileSizeBytes = audioBuffer.byteLength;
+        
+        console.log(`Conversion complete: ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
+      } catch (conversionError) {
+        console.error("Conversion failed:", conversionError);
+        return new Response(
+          JSON.stringify({ error: conversionError.message || "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Send to Whisper API with retry
     let whisperResult: any = null;
@@ -383,7 +404,6 @@ serve(async (req) => {
             dead_air_percent: talkMetrics.deadAirPercent,
             whisper_cost: whisperCost,
             conversion_required: conversionRequired,
-            conversion_attempts: conversionAttempts,
             original_file_size_bytes: originalFileSizeBytes,
             converted_file_size_bytes: convertedFileSizeBytes,
             status: "transcribed",
@@ -458,13 +478,13 @@ serve(async (req) => {
         original_size_bytes: originalFileSizeBytes,
         converted_size_bytes: convertedFileSizeBytes,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Transcription error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify({ error: error.message || "Failed to transcribe audio" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
