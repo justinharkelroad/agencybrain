@@ -602,15 +602,33 @@ export default function CallScoring() {
     fileName: string
   ) => {
     try {
-      const formData = new FormData();
-      formData.append('audio', file);
-      formData.append('team_member_id', teamMemberId);
-      formData.append('template_id', templateId);
-      formData.append('agency_id', agencyIdParam);
-      formData.append('file_name', file.name);
+      // STEP 1: Generate unique call ID and storage path
+      const callId = crypto.randomUUID();
+      const storagePath = `${agencyIdParam}/${callId}/${file.name}`;
 
+      // STEP 2: Upload file directly to Supabase Storage (NOT to edge function)
+      const { error: storageError } = await supabase.storage
+        .from('call-recordings')
+        .upload(storagePath, file, {
+          contentType: file.type || 'audio/wav',
+        });
+
+      if (storageError) {
+        throw new Error(`Storage upload failed: ${storageError.message}`);
+      }
+
+      // STEP 3: Call edge function with JSON (NOT FormData) - only the path
       const { data, error } = await supabase.functions.invoke('transcribe-call', {
-        body: formData,
+        body: {
+          storagePath,
+          originalFilename: file.name,
+          fileSizeBytes: file.size,
+          mimeType: file.type || 'audio/wav',
+          callId,
+          agencyId: agencyIdParam,
+          teamMemberId,
+          templateId,
+        }
       });
 
       // Remove from processing queue
@@ -863,7 +881,7 @@ export default function CallScoring() {
               Upload Call Recording
             </CardTitle>
             <CardDescription>
-              Upload an audio file to analyze (MP3, WAV, M4A, OGG - max 25MB)
+              Upload an audio file to analyze (MP3, WAV, M4A, OGG - up to 100MB)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -909,7 +927,7 @@ export default function CallScoring() {
                     Drag & drop an audio file, or click to browse
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    MP3, WAV, M4A, OGG up to 25MB
+                    MP3, WAV, M4A, OGG up to 100MB
                   </p>
                 </div>
               )}
