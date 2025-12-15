@@ -7,6 +7,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('analyze-call invoked');
+  console.log('Request method:', req.method);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -25,7 +28,7 @@ serve(async (req) => {
     }
 
     const { call_id } = await req.json();
-
+    console.log('Call ID received:', call_id);
     if (!call_id) {
       return new Response(
         JSON.stringify({ error: "Missing call_id" }),
