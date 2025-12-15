@@ -20,6 +20,7 @@ export interface SalesPromptConfig {
   discoveryWinsCriteria: string;
   closingAttemptsCriteria: string;
   coachingFocus: string;
+  checklistItems: ChecklistItem[];
 }
 
 export interface ServicePromptConfig {
@@ -47,6 +48,11 @@ export const DEFAULT_SALES_CONFIG: SalesPromptConfig = {
   discoveryWinsCriteria: 'Uncovering pain points with current carrier, learning about life changes (new home, new baby, teen driver), identifying cross-sell opportunities, getting budget information',
   closingAttemptsCriteria: 'Asking for the sale directly, offering to bind coverage today, suggesting a start date, overcoming objections, assumptive closes',
   coachingFocus: 'Focus on closing techniques, objection handling, building urgency, asking for referrals',
+  checklistItems: [
+    { label: 'HWF Framework Used', criteria: 'Rep asked about Home, Work, or Family to build rapport' },
+    { label: 'Ask for Sale', criteria: 'Rep directly asked the prospect to move forward, bind coverage, or commit to a start date' },
+    { label: 'Set Follow Up', criteria: 'Rep scheduled a specific follow-up call or next step before ending' },
+  ],
 };
 
 export const DEFAULT_SERVICE_CONFIG: ServicePromptConfig = {
