@@ -151,9 +151,9 @@ export default function CallScoringTemplates() {
 
   const handleDeploymentChange = (type: 'global' | 'agency') => {
     if (type === 'global') {
-      setFormData({ ...formData, is_global: true, agency_id: null });
+      setFormData(prev => ({ ...prev, is_global: true, agency_id: null }));
     } else {
-      setFormData({ ...formData, is_global: false });
+      setFormData(prev => ({ ...prev, is_global: false }));
     }
   };
 
