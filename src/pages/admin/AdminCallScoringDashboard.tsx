@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   DollarSign, 
@@ -7,7 +10,10 @@ import {
   TrendingUp, 
   Building, 
   Mic,
-  Brain
+  Brain,
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import {
   BarChart,
@@ -20,6 +26,10 @@ import {
   LineChart,
   Line,
 } from 'recharts';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, addMonths } from 'date-fns';
+import { cn } from '@/lib/utils';
+
+type DatePreset = 'this-month' | 'last-month' | 'this-week' | 'last-30-days' | 'custom';
 
 interface CostSummary {
   total_calls: number;
@@ -66,15 +76,77 @@ const AdminCallScoringDashboard = () => {
   const [agencyCosts, setAgencyCosts] = useState<AgencyCosts[]>([]);
   const [dailyCosts, setDailyCosts] = useState<DailyCosts[]>([]);
   const [recentCalls, setRecentCalls] = useState<CallRecord[]>([]);
+  
+  // Date range state - default to current month
+  const [startDate, setStartDate] = useState<Date>(() => startOfMonth(new Date()));
+  const [endDate, setEndDate] = useState<Date>(() => endOfMonth(new Date()));
+  const [activePreset, setActivePreset] = useState<DatePreset>('this-month');
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [startDate, endDate]);
+
+  const applyPreset = (preset: DatePreset) => {
+    const now = new Date();
+    setActivePreset(preset);
+    
+    switch (preset) {
+      case 'this-month':
+        setStartDate(startOfMonth(now));
+        setEndDate(endOfMonth(now));
+        break;
+      case 'last-month':
+        const lastMonth = subMonths(now, 1);
+        setStartDate(startOfMonth(lastMonth));
+        setEndDate(endOfMonth(lastMonth));
+        break;
+      case 'this-week':
+        setStartDate(startOfWeek(now, { weekStartsOn: 0 }));
+        setEndDate(endOfWeek(now, { weekStartsOn: 0 }));
+        break;
+      case 'last-30-days':
+        setStartDate(subDays(now, 30));
+        setEndDate(now);
+        break;
+      case 'custom':
+        // Keep current dates, just mark as custom
+        break;
+    }
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newStart = direction === 'prev' 
+      ? startOfMonth(subMonths(startDate, 1))
+      : startOfMonth(addMonths(startDate, 1));
+    const newEnd = endOfMonth(newStart);
+    
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    setActivePreset('custom');
+  };
+
+  const handleCustomDateChange = (type: 'start' | 'end', date: Date | undefined) => {
+    if (!date) return;
+    
+    if (type === 'start') {
+      setStartDate(date);
+    } else {
+      // Set end date to end of day
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      setEndDate(endOfDay);
+    }
+    setActivePreset('custom');
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
     
-    // Fetch overall summary
+    // Format dates for query - ensure end date includes full day
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
+    
+    // Fetch calls within date range
     const { data: calls } = await supabase
       .from('agency_calls')
       .select(`
@@ -91,7 +163,9 @@ const AdminCallScoringDashboard = () => {
         original_filename,
         agencies(name)
       `)
-      .eq('status', 'analyzed');
+      .eq('status', 'analyzed')
+      .gte('created_at', startISO)
+      .lte('created_at', endISO);
 
     if (calls) {
       const typedCalls = calls as CallRecord[];
@@ -136,31 +210,41 @@ const AdminCallScoringDashboard = () => {
       
       setAgencyCosts(agencyData);
 
-      // Group by day (last 30 days)
+      // Group by day within selected range
       const dailyMap = new Map<string, DailyCosts>();
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      typedCalls
-        .filter(c => new Date(c.created_at) >= thirtyDaysAgo)
-        .forEach(call => {
-          const date = new Date(call.created_at).toISOString().split('T')[0];
-          const existing = dailyMap.get(date) || { date, calls: 0, cost: 0 };
-          existing.calls += 1;
-          existing.cost += call.total_cost || 0;
-          dailyMap.set(date, existing);
-        });
+      typedCalls.forEach(call => {
+        const date = new Date(call.created_at).toISOString().split('T')[0];
+        const existing = dailyMap.get(date) || { date, calls: 0, cost: 0 };
+        existing.calls += 1;
+        existing.cost += call.total_cost || 0;
+        dailyMap.set(date, existing);
+      });
       
       const dailyData = Array.from(dailyMap.values()).sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
       setDailyCosts(dailyData);
 
-      // Recent calls with costs
+      // Recent calls within range
       const recent = typedCalls
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 10);
       setRecentCalls(recent);
+    } else {
+      // No data for selected range
+      setSummary({
+        total_calls: 0,
+        total_whisper_cost: 0,
+        total_gpt_cost: 0,
+        total_cost: 0,
+        avg_cost_per_call: 0,
+        avg_call_minutes: 0,
+        total_minutes: 0,
+      });
+      setAgencyCosts([]);
+      setDailyCosts([]);
+      setRecentCalls([]);
     }
 
     setLoading(false);
@@ -171,16 +255,100 @@ const AdminCallScoringDashboard = () => {
 
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const presetButtons: { key: DatePreset; label: string }[] = [
+    { key: 'this-month', label: 'This Month' },
+    { key: 'last-month', label: 'Last Month' },
+    { key: 'this-week', label: 'This Week' },
+    { key: 'last-30-days', label: 'Last 30 Days' },
+  ];
 
   return (
     <div className="space-y-6">
+      {/* Date Range Controls */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-col gap-4">
+            {/* Quick-select presets */}
+            <div className="flex flex-wrap gap-2">
+              {presetButtons.map((preset) => (
+                <Button
+                  key={preset.key}
+                  variant={activePreset === preset.key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => applyPreset(preset.key)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Date range display and pickers */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateMonth('prev')}
+                className="h-8 w-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(startDate, 'MMM d, yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(date) => handleCustomDateChange('start', date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <span className="text-muted-foreground">to</span>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(endDate, 'MMM d, yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => handleCustomDateChange('end', date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateMonth('next')}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              
+              {loading && (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary ml-2"></div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -231,7 +399,7 @@ const AdminCallScoringDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">{agencyCosts.length}</div>
             <p className="text-xs text-muted-foreground">
-              Using call scoring
+              In selected period
             </p>
           </CardContent>
         </Card>
@@ -279,28 +447,36 @@ const AdminCallScoringDashboard = () => {
         {/* Daily Costs Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Daily Costs (Last 30 Days)</CardTitle>
+            <CardTitle className="text-sm">
+              Daily Costs ({format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={dailyCosts}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis 
-                    dataKey="date" 
-                    className="text-muted-foreground"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  />
-                  <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v.toFixed(2)}`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                    formatter={(value: number) => [`$${value.toFixed(4)}`, 'Cost']}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                  />
-                  <Line type="monotone" dataKey="cost" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              {dailyCosts.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dailyCosts}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis 
+                      dataKey="date" 
+                      className="text-muted-foreground"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v.toFixed(2)}`} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      formatter={(value: number) => [`$${value.toFixed(4)}`, 'Cost']}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    />
+                    <Line type="monotone" dataKey="cost" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No data for selected period
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -308,27 +484,35 @@ const AdminCallScoringDashboard = () => {
         {/* Calls per Day Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Calls per Day (Last 30 Days)</CardTitle>
+            <CardTitle className="text-sm">
+              Calls per Day ({format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyCosts}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis 
-                    dataKey="date" 
-                    className="text-muted-foreground"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  />
-                  <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                  />
-                  <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {dailyCosts.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyCosts}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis 
+                      dataKey="date" 
+                      className="text-muted-foreground"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    />
+                    <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    />
+                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No data for selected period
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -361,7 +545,7 @@ const AdminCallScoringDashboard = () => {
               </div>
             ))}
             {agencyCosts.length === 0 && (
-              <p className="text-muted-foreground text-center py-4">No data yet</p>
+              <p className="text-muted-foreground text-center py-4">No data for selected period</p>
             )}
           </div>
         </CardContent>
@@ -415,7 +599,7 @@ const AdminCallScoringDashboard = () => {
                 {recentCalls.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-4 text-center text-muted-foreground">
-                      No calls with cost data yet
+                      No calls in selected period
                     </td>
                   </tr>
                 )}
