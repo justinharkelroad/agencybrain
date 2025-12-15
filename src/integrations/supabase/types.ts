@@ -173,6 +173,7 @@ export type Database = {
           analyzed_at: string | null
           audio_storage_path: string | null
           call_duration_seconds: number | null
+          call_type: Database["public"]["Enums"]["call_type_enum"] | null
           client_profile: Json | null
           closing_attempts: Json | null
           coaching_recommendations: Json | null
@@ -219,6 +220,7 @@ export type Database = {
           analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
+          call_type?: Database["public"]["Enums"]["call_type_enum"] | null
           client_profile?: Json | null
           closing_attempts?: Json | null
           coaching_recommendations?: Json | null
@@ -265,6 +267,7 @@ export type Database = {
           analyzed_at?: string | null
           audio_storage_path?: string | null
           call_duration_seconds?: number | null
+          call_type?: Database["public"]["Enums"]["call_type_enum"] | null
           client_profile?: Json | null
           closing_attempts?: Json | null
           coaching_recommendations?: Json | null
@@ -619,6 +622,7 @@ export type Database = {
       call_scoring_templates: {
         Row: {
           agency_id: string | null
+          call_type: Database["public"]["Enums"]["call_type_enum"] | null
           created_at: string | null
           description: string | null
           id: string
@@ -632,6 +636,7 @@ export type Database = {
         }
         Insert: {
           agency_id?: string | null
+          call_type?: Database["public"]["Enums"]["call_type_enum"] | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -645,6 +650,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string | null
+          call_type?: Database["public"]["Enums"]["call_type_enum"] | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -5350,6 +5356,7 @@ export type Database = {
       app_member_role: "Sales" | "Service" | "Hybrid" | "Manager"
       app_member_status: "active" | "inactive"
       app_role: "admin" | "user"
+      call_type_enum: "sales" | "service"
       membership_tier: "1:1 Coaching" | "Boardroom"
     }
     CompositeTypes: {
@@ -5482,6 +5489,7 @@ export const Constants = {
       app_member_role: ["Sales", "Service", "Hybrid", "Manager"],
       app_member_status: ["active", "inactive"],
       app_role: ["admin", "user"],
+      call_type_enum: ["sales", "service"],
       membership_tier: ["1:1 Coaching", "Boardroom"],
     },
   },

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
+import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 
 interface UsageInfo {
@@ -757,6 +758,7 @@ export default function CallScoring() {
             customer_talk_percent,
             dead_air_percent,
             team_member_id,
+            call_type,
             team_members(id, name)
           `)
           .eq('id', call.id)
@@ -1131,18 +1133,27 @@ export default function CallScoring() {
         )}
       </Tabs>
       
-      <CallScorecard 
-        call={selectedCall}
-        open={scorecardOpen}
-        onClose={() => setScorecardOpen(false)}
-        isStaffUser={isStaffUser}
-        staffTeamMemberId={staffTeamMemberId || undefined}
-        acknowledgedAt={selectedCall?.acknowledged_at}
-        staffFeedbackPositive={selectedCall?.staff_feedback_positive}
-        staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
-        onAcknowledge={handleStaffAcknowledge}
-        loading={loadingCallDetails}
-      />
+      {selectedCall?.call_type === 'service' ? (
+        <ServiceCallReportCard 
+          call={selectedCall}
+          open={scorecardOpen}
+          onClose={() => setScorecardOpen(false)}
+          isReadOnly={false}
+        />
+      ) : (
+        <CallScorecard 
+          call={selectedCall}
+          open={scorecardOpen}
+          onClose={() => setScorecardOpen(false)}
+          isStaffUser={isStaffUser}
+          staffTeamMemberId={staffTeamMemberId || undefined}
+          acknowledgedAt={selectedCall?.acknowledged_at}
+          staffFeedbackPositive={selectedCall?.staff_feedback_positive}
+          staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
+          onAcknowledge={handleStaffAcknowledge}
+          loading={loadingCallDetails}
+        />
+      )}
     </div>
   );
 }
