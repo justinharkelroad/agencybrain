@@ -59,6 +59,24 @@ export default function PromptBuilderWrapper({
   // Track if raw prompt has been manually edited
   const [rawPromptEdited, setRawPromptEdited] = useState(false);
 
+  // Re-sync config when skillCategories prop changes (e.g., editing a different template)
+  useEffect(() => {
+    if (skillCategories && typeof skillCategories === 'object') {
+      if (callType === 'sales' && skillCategories.summaryInstructions) {
+        setSalesConfig({ ...DEFAULT_SALES_CONFIG, ...skillCategories, templateName });
+      } else if (callType === 'service' && skillCategories.checklistItems) {
+        setServiceConfig({ ...DEFAULT_SERVICE_CONFIG, ...skillCategories, templateName });
+      }
+    } else if (!skillCategories) {
+      // Reset to defaults when creating new template (skillCategories is null)
+      if (callType === 'sales') {
+        setSalesConfig({ ...DEFAULT_SALES_CONFIG, templateName });
+      } else {
+        setServiceConfig({ ...DEFAULT_SERVICE_CONFIG, templateName });
+      }
+    }
+  }, [skillCategories, callType, templateName]);
+
   // Generate prompt when config changes
   useEffect(() => {
     if (editorMode === 'builder') {
