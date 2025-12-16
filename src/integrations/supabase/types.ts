@@ -2849,7 +2849,7 @@ export type Database = {
           staff_email: string
           staff_name: string
           started_at: string | null
-          token_id: string
+          token_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2865,7 +2865,7 @@ export type Database = {
           staff_email: string
           staff_name: string
           started_at?: string | null
-          token_id: string
+          token_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2881,7 +2881,7 @@ export type Database = {
           staff_email?: string
           staff_name?: string
           started_at?: string | null
-          token_id?: string
+          token_id?: string | null
           updated_at?: string
         }
         Relationships: [
