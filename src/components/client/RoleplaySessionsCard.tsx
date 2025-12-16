@@ -35,59 +35,85 @@ export default function RoleplaySessionsCard() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
-  const { data: profile } = useQuery({
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    error: profileError,
+  } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      if (!user?.id) throw new Error('Not authenticated');
-      
+      if (!user?.id) return null;
+
       const { data, error } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
-        .single();
-      
-      if (error) throw error;
+        .maybeSingle();
+
+      if (error) {
+        console.error('RoleplaySessionsCard - profile fetch error:', {
+          userId: user.id,
+          error,
+        });
+        return null;
+      }
+
+      if (!data?.agency_id) {
+        console.warn('RoleplaySessionsCard - no agency_id found for user profile:', {
+          userId: user.id,
+          profile: data,
+        });
+      }
+
       return data;
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
   });
 
   const { data: totalCount } = useQuery({
     queryKey: ['roleplay-sessions-count', profile?.agency_id],
     queryFn: async () => {
-      if (!profile?.agency_id) throw new Error('No agency ID');
-      
+      if (!profile?.agency_id) return 0;
+
       const { count, error } = await supabase
         .from('roleplay_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('agency_id', profile.agency_id);
-      
-      if (error) throw error;
+
+      if (error) {
+        console.error('RoleplaySessionsCard - count fetch error:', error);
+        return 0;
+      }
+
       return count || 0;
     },
-    enabled: !!profile?.agency_id
+    enabled: !!profile?.agency_id,
   });
 
   const { data: allSessions } = useQuery({
     queryKey: ['roleplay-sessions-all', profile?.agency_id],
     queryFn: async () => {
-      if (!profile?.agency_id) throw new Error('No agency ID');
+      if (!profile?.agency_id) return [];
 
       const { data, error } = await supabase
         .from('roleplay_sessions')
         .select('overall_score')
         .eq('agency_id', profile.agency_id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('RoleplaySessionsCard - sessions summary fetch error:', error);
+        return [];
+      }
+
       return data;
     },
-    enabled: !!profile?.agency_id
+    enabled: !!profile?.agency_id,
   });
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['roleplay-sessions-dashboard', profile?.agency_id, currentPage],
     queryFn: async () => {
-      if (!profile?.agency_id) throw new Error('No agency ID');
+      if (!profile?.agency_id) return [];
 
       const { data, error } = await supabase
         .from('roleplay_sessions')
@@ -96,10 +122,14 @@ export default function RoleplaySessionsCard() {
         .order('completed_at', { ascending: false })
         .range((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE - 1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('RoleplaySessionsCard - sessions fetch error:', error);
+        return [];
+      }
+
       return data as RoleplaySession[];
     },
-    enabled: !!profile?.agency_id
+    enabled: !!profile?.agency_id,
   });
 
   const totalPages = Math.ceil((totalCount || 0) / ITEMS_PER_PAGE);
@@ -317,48 +347,52 @@ export default function RoleplaySessionsCard() {
 
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Performance Breakdown</h3>
-                {Object.entries(selectedSession.grading_data).map(([key, value]: [string, any]) => {
-                  if (key === 'overall_score' || !value.score) return null;
-                  
-                  const sectionTitles: Record<string, string> = {
-                    greeting: 'Greeting & Introduction',
-                    needs_discovery: 'Needs Discovery',
-                    product_knowledge: 'Product Knowledge',
-                    objection_handling: 'Objection Handling',
-                    closing: 'Closing Technique'
-                  };
+                {selectedSession.grading_data && typeof selectedSession.grading_data === 'object' ? (
+                  Object.entries(selectedSession.grading_data as Record<string, any>).map(([key, value]) => {
+                    if (key === 'overall_score' || !value?.score) return null;
 
-                  return (
-                    <Card key={key}>
-                      <CardHeader>
-                        <CardTitle className="text-base">{sectionTitles[key]}</CardTitle>
-                        <CardDescription>Score: {value.score}/5</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {value.strengths && value.strengths.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-green-600 mb-1">Strengths</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              {value.strengths.map((strength: string, i: number) => (
-                                <li key={i} className="text-sm">{strength}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {value.improvements && value.improvements.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-red-600 mb-1">Areas for Improvement</p>
-                            <ul className="list-disc list-inside space-y-1">
-                              {value.improvements.map((improvement: string, i: number) => (
-                                <li key={i} className="text-sm">{improvement}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                    const sectionTitles: Record<string, string> = {
+                      greeting: 'Greeting & Introduction',
+                      needs_discovery: 'Needs Discovery',
+                      product_knowledge: 'Product Knowledge',
+                      objection_handling: 'Objection Handling',
+                      closing: 'Closing Technique',
+                    };
+
+                    return (
+                      <Card key={key}>
+                        <CardHeader>
+                          <CardTitle className="text-base">{sectionTitles[key] ?? key}</CardTitle>
+                          <CardDescription>Score: {value.score}/5</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {value.strengths && value.strengths.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-green-600 mb-1">Strengths</p>
+                              <ul className="list-disc list-inside space-y-1">
+                                {value.strengths.map((strength: string, i: number) => (
+                                  <li key={i} className="text-sm">{strength}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {value.improvements && value.improvements.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-red-600 mb-1">Areas for Improvement</p>
+                              <ul className="list-disc list-inside space-y-1">
+                                {value.improvements.map((improvement: string, i: number) => (
+                                  <li key={i} className="text-sm">{improvement}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">No detailed breakdown available for this session.</p>
+                )}
               </div>
 
               <Button onClick={() => handleDownloadPDF(selectedSession)} className="w-full">
