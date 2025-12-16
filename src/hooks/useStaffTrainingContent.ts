@@ -5,6 +5,7 @@ interface TrainingLesson {
   id: string;
   title: string;
   content: string | null;
+  thumbnail_url: string | null;
   sort_order: number;
   video_url: string | null;
   module_id: string;
@@ -112,7 +113,8 @@ export function useStaffTrainingContent(agencyId: string | undefined) {
               .map((lesson: any) => ({
                 ...lesson,
                 title: lesson.name, // Add title alias for UI
-                content: lesson.content_html // Add content alias for UI
+                content: lesson.content_html, // Add content alias for UI
+                thumbnail_url: lesson.thumbnail_url || null // Include thumbnail
               }))
               .sort((a: any, b: any) => a.sort_order - b.sort_order)
           }))

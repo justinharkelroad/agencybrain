@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Edit, Plus, Trash2, ArrowLeft, Download, FileIcon } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowLeft, Download, FileIcon, Upload, X, ImageIcon } from "lucide-react";
 import { useTrainingCategories } from "@/hooks/useTrainingCategories";
 import { useTrainingModules } from "@/hooks/useTrainingModules";
 import { useTrainingLessons } from "@/hooks/useTrainingLessons";
@@ -62,7 +62,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     description: '',
     sort_order: 0,
     is_active: true,
+    thumbnail_url: '',
   });
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   // Delete confirmation
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -103,6 +105,53 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
       fileUrl: attachment.file_url,
       isExternal: attachment.is_external_link || false,
     });
+  };
+
+  // Thumbnail upload handler
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+    
+    setUploadingThumbnail(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `training-thumbnails/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('training-assets')
+        .upload(filePath, file);
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast.error('Failed to upload image');
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('training-assets')
+        .getPublicUrl(filePath);
+      
+      setLessonForm(prev => ({ ...prev, thumbnail_url: publicUrl }));
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingThumbnail(false);
+    }
   };
 
   // Quiz save handler
@@ -230,6 +279,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
       description: '',
       sort_order: 0,
       is_active: true,
+      thumbnail_url: '',
     });
   };
 
@@ -244,6 +294,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: lesson.description || '',
         sort_order: lesson.sort_order || 0,
         is_active: lesson.is_active !== false,
+        thumbnail_url: lesson.thumbnail_url || '',
       });
     } else {
       setEditingLesson(null);
@@ -255,6 +306,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: '',
         sort_order: lessons?.length || 0,
         is_active: true,
+        thumbnail_url: '',
       });
     }
     setLessonTab('basic');
@@ -782,6 +834,62 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                   placeholder="Lesson description"
                 />
               </div>
+              
+              {/* Thumbnail Image */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  Header Image
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Add a header image that displays above the video (optional)
+                </p>
+                
+                {lessonForm.thumbnail_url ? (
+                  <div className="relative">
+                    <img 
+                      src={lessonForm.thumbnail_url} 
+                      alt="Lesson thumbnail" 
+                      className="w-full max-h-48 object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => setLessonForm({ ...lessonForm, thumbnail_url: '' })}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleThumbnailUpload}
+                      className="hidden"
+                      id="thumbnail-upload"
+                      disabled={uploadingThumbnail}
+                    />
+                    <label 
+                      htmlFor="thumbnail-upload"
+                      className="cursor-pointer flex flex-col items-center gap-2"
+                    >
+                      {uploadingThumbnail ? (
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      ) : (
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {uploadingThumbnail ? 'Uploading...' : 'Click to upload header image'}
+                      </span>
+                      <span className="text-xs text-muted-foreground/70">PNG, JPG up to 5MB</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="video-platform">Video Platform</Label>
@@ -811,12 +919,15 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                 </div>
               </div>
               <div>
-                <Label htmlFor="content-html">Content (HTML)</Label>
+                <Label htmlFor="content-html">Lesson Content</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Supports plain text with line breaks, or HTML tags for formatting
+                </p>
                 <Textarea
                   id="content-html"
                   value={lessonForm.content_html}
                   onChange={(e) => setLessonForm({ ...lessonForm, content_html: e.target.value })}
-                  placeholder="<p>Lesson content...</p>"
+                  placeholder="Enter lesson content...&#10;&#10;Use line breaks for paragraphs, or HTML like:&#10;<p>Paragraph</p>&#10;<ul><li>Bullet point</li></ul>"
                   className="font-mono text-sm min-h-[150px]"
                 />
               </div>

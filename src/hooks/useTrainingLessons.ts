@@ -11,6 +11,7 @@ export interface TrainingLesson {
   video_url: string | null;
   video_platform: string | null;
   content_html: string | null;
+  thumbnail_url: string | null;
   sort_order: number | null;
   is_active: boolean | null;
   created_at: string;
@@ -25,6 +26,7 @@ export interface TrainingLessonInsert {
   video_url?: string | null;
   video_platform?: string | null;
   content_html?: string | null;
+  thumbnail_url?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
 }
@@ -35,6 +37,7 @@ export interface TrainingLessonUpdate {
   video_url?: string | null;
   video_platform?: string | null;
   content_html?: string | null;
+  thumbnail_url?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
 }

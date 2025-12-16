@@ -33,6 +33,7 @@ export default function StaffTraining() {
     title: string;
     content: string | null;
     video_url: string | null;
+    thumbnail_url: string | null;
   } | null>(null);
   
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
@@ -328,6 +329,16 @@ export default function StaffTraining() {
                       </div>
                     ) : (
                       <div className="space-y-6">
+                        {/* Thumbnail Image - above video */}
+                        {selectedLesson.thumbnail_url && (
+                          <img 
+                            src={selectedLesson.thumbnail_url}
+                            alt={selectedLesson.title}
+                            className="w-full rounded-lg object-cover"
+                            style={{ maxHeight: '300px' }}
+                          />
+                        )}
+                        
                         {selectedLesson.video_url && (
                           <VideoEmbed url={selectedLesson.video_url} />
                         )}
@@ -336,7 +347,12 @@ export default function StaffTraining() {
                           <>
                             <Separator />
                             <div className="prose prose-sm dark:prose-invert max-w-none">
-                              <div dangerouslySetInnerHTML={{ __html: selectedLesson.content }} />
+                              {/* Support both HTML and plain text with line breaks */}
+                              {/<[^>]+>/.test(selectedLesson.content) ? (
+                                <div dangerouslySetInnerHTML={{ __html: selectedLesson.content }} />
+                              ) : (
+                                <div className="whitespace-pre-wrap">{selectedLesson.content}</div>
+                              )}
                             </div>
                           </>
                         )}

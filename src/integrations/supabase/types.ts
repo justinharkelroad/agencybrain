@@ -4374,6 +4374,7 @@ export type Database = {
           module_id: string
           name: string
           sort_order: number | null
+          thumbnail_url: string | null
           updated_at: string
           video_platform: string | null
           video_url: string | null
@@ -4389,6 +4390,7 @@ export type Database = {
           module_id: string
           name: string
           sort_order?: number | null
+          thumbnail_url?: string | null
           updated_at?: string
           video_platform?: string | null
           video_url?: string | null
@@ -4404,6 +4406,7 @@ export type Database = {
           module_id?: string
           name?: string
           sort_order?: number | null
+          thumbnail_url?: string | null
           updated_at?: string
           video_platform?: string | null
           video_url?: string | null
