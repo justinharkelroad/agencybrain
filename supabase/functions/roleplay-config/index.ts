@@ -23,20 +23,14 @@ serve(async (req) => {
     
     // Allow either authenticated users OR valid token
     const supabase = supaFromReq(req);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    // If not authenticated, validate token
-    if (!user) {
-      if (!token) {
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: No user or token provided' }),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-
+    // If authenticated user, allow access
+    if (user) {
+      console.log('Authenticated user accessing roleplay-config:', user.id);
+    } 
+    // If not authenticated, require and validate token
+    else if (token) {
       // Validate token from roleplay_access_tokens table
       const { data: tokenData, error: tokenError } = await supabase
         .from('roleplay_access_tokens')
@@ -86,6 +80,15 @@ serve(async (req) => {
           }
         );
       }
+    } else {
+      // No user and no token - unauthorized
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: No user or token provided' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const elevenApiKey = Deno.env.get('ELEVEN_API_KEY');
