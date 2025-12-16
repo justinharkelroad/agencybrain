@@ -9,9 +9,9 @@ serve(async (req) => {
   try {
     const { token, messages, gradingData } = await req.json();
 
-    if (!token || !messages || !gradingData) {
+    if (!messages || !gradingData) {
       return new Response(
-        JSON.stringify({ error: 'token, messages, and gradingData are required' }),
+        JSON.stringify({ error: 'messages and gradingData are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -22,53 +22,109 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Validate token
-    const { data: tokenData, error: tokenError } = await supabaseAdmin
-      .from('roleplay_access_tokens')
-      .select('*')
-      .eq('token', token)
-      .single();
+    let staffName: string;
+    let staffEmail: string;
+    let agencyId: string;
+    let createdBy: string;
+    let tokenId: string | null = null;
 
-    if (tokenError || !tokenData) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // Two modes: token-based (for staff links) or auth-based (for logged-in users)
+    if (token) {
+      // TOKEN-BASED FLOW (existing flow for staff links)
+      const { data: tokenData, error: tokenError } = await supabaseAdmin
+        .from('roleplay_access_tokens')
+        .select('*')
+        .eq('token', token)
+        .single();
+
+      if (tokenError || !tokenData) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid token' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (tokenData.session_completed) {
+        return new Response(
+          JSON.stringify({ error: 'Session already saved for this token' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (new Date(tokenData.expires_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'Token expired' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (tokenData.invalidated) {
+        return new Response(
+          JSON.stringify({ error: 'Token has been revoked' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!tokenData.staff_name || !tokenData.staff_email) {
+        return new Response(
+          JSON.stringify({ error: 'Staff identity not submitted' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      staffName = tokenData.staff_name;
+      staffEmail = tokenData.staff_email;
+      agencyId = tokenData.agency_id;
+      createdBy = tokenData.created_by;
+      tokenId = tokenData.id;
+    } else {
+      // AUTH-BASED FLOW (for logged-in users)
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: 'Authorization required (no token or auth header)' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Create user client to get authenticated user
+      const supabaseUser = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
       );
+
+      const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+      if (userError || !user) {
+        console.error('Auth error:', userError);
+        return new Response(
+          JSON.stringify({ error: 'Invalid authentication' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get user's profile to find agency_id
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile?.agency_id) {
+        console.error('Profile error:', profileError);
+        return new Response(
+          JSON.stringify({ error: 'User has no agency associated' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      staffName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Agency Owner';
+      staffEmail = user.email || 'unknown@email.com';
+      agencyId = profile.agency_id;
+      createdBy = user.id;
     }
 
-    // Check if already saved
-    if (tokenData.session_completed) {
-      return new Response(
-        JSON.stringify({ error: 'Session already saved for this token' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check expiration
-    if (new Date(tokenData.expires_at) < new Date()) {
-      return new Response(
-        JSON.stringify({ error: 'Token expired' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if invalidated
-    if (tokenData.invalidated) {
-      return new Response(
-        JSON.stringify({ error: 'Token has been revoked' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if identity submitted
-    if (!tokenData.staff_name || !tokenData.staff_email) {
-      return new Response(
-        JSON.stringify({ error: 'Staff identity not submitted' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Generating PDF for session:', tokenData.id);
+    console.log('Generating PDF for session, agency:', agencyId);
 
     // Generate PDF server-side
     const doc = new jsPDF();
@@ -86,9 +142,9 @@ serve(async (req) => {
     // Staff Info
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Staff: ${tokenData.staff_name}`, margin, yPosition);
+    doc.text(`Staff: ${staffName}`, margin, yPosition);
     yPosition += 6;
-    doc.text(`Email: ${tokenData.staff_email}`, margin, yPosition);
+    doc.text(`Email: ${staffEmail}`, margin, yPosition);
     yPosition += 6;
     doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPosition);
     yPosition += 15;
@@ -174,8 +230,9 @@ serve(async (req) => {
     const pdfBuffer = doc.output('arraybuffer');
     const pdfBlob = new Uint8Array(pdfBuffer);
 
-    // Upload PDF to storage
-    const fileName = `${tokenData.agency_id}/${tokenData.id}.pdf`;
+    // Upload PDF to storage - use unique ID for auth-based sessions
+    const sessionUuid = crypto.randomUUID();
+    const fileName = `${agencyId}/${tokenId || sessionUuid}.pdf`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from('roleplay-pdfs')
       .upload(fileName, pdfBlob, {
@@ -197,11 +254,11 @@ serve(async (req) => {
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('roleplay_sessions')
       .insert({
-        token_id: tokenData.id,
-        agency_id: tokenData.agency_id,
-        staff_name: tokenData.staff_name,
-        staff_email: tokenData.staff_email,
-        created_by: tokenData.created_by,
+        token_id: tokenId, // null for auth-based sessions
+        agency_id: agencyId,
+        staff_name: staffName,
+        staff_email: staffEmail,
+        created_by: createdBy,
         conversation_transcript: messages,
         grading_data: gradingData,
         overall_score: gradingData.overall_score,
@@ -222,11 +279,13 @@ serve(async (req) => {
       );
     }
 
-    // Update token as completed
-    await supabaseAdmin
-      .from('roleplay_access_tokens')
-      .update({ session_completed: true })
-      .eq('id', tokenData.id);
+    // Update token as completed (only for token-based flow)
+    if (tokenId) {
+      await supabaseAdmin
+        .from('roleplay_access_tokens')
+        .update({ session_completed: true })
+        .eq('id', tokenId);
+    }
 
     console.log('Session saved successfully:', session.id);
 

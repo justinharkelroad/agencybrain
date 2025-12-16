@@ -101,6 +101,7 @@ const RoleplayBot = () => {
   const [gradingReport, setGradingReport] = useState<any>(null);
   const [showGrading, setShowGrading] = useState(false);
   const [hasBeenGraded, setHasBeenGraded] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
@@ -196,6 +197,7 @@ const RoleplayBot = () => {
       setHasBeenGraded(false);
       setGradingReport(null);
       setShowGrading(false);
+      setIsSaved(false);
       
       // Request microphone access
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -269,6 +271,30 @@ const RoleplayBot = () => {
         title: "Grading Complete",
         description: "Your performance has been analyzed.",
       });
+
+      // Save session to database (auth-based, no token needed)
+      try {
+        const { data: saveData, error: saveError } = await supabase.functions.invoke('save-roleplay-session', {
+          body: { messages, gradingData: data }
+        });
+        
+        if (saveError) {
+          console.error('Save error:', saveError);
+          toast({
+            title: "Save Warning",
+            description: "Session graded but failed to save to dashboard.",
+            variant: "destructive",
+          });
+        } else {
+          setIsSaved(true);
+          toast({
+            title: "Session Saved",
+            description: "Your roleplay session has been saved to your dashboard.",
+          });
+        }
+      } catch (saveErr) {
+        console.error('Save error:', saveErr);
+      }
     } catch (error: any) {
       console.error('Grading error:', error);
       
