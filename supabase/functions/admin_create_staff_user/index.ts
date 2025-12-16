@@ -143,12 +143,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if username already exists
+    // Check if username already exists among ACTIVE users
     const { data: existingUser } = await supabase
       .from('staff_users')
       .select('id')
       .eq('username', username)
-      .single();
+      .eq('is_active', true)  // Only check active users - deactivated usernames can be reused
+      .maybeSingle();
 
     if (existingUser) {
       return new Response(
