@@ -79,7 +79,15 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
         .from('profiles')
         .select('agency_id, role')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Sidebar - Profile fetch error:', {
+          userId,
+          userEmail,
+          error: profileError,
+        });
+      }
 
       console.log('Sidebar - Profile:', profile, 'Error:', profileError);
 
@@ -97,6 +105,13 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           .select('enabled')
           .eq('agency_id', profile.agency_id)
           .maybeSingle();
+
+        if (settingsError) {
+          console.error('Sidebar - Call scoring settings fetch error:', {
+            agencyId: profile.agency_id,
+            error: settingsError,
+          });
+        }
 
         console.log('Sidebar - Call scoring settings:', settings, 'Error:', settingsError);
         setCallScoringEnabled(settings?.enabled ?? false);
