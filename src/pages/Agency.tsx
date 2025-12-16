@@ -736,10 +736,24 @@ export default function Agency() {
                       onClick={async () => {
                         if (!agencyId) return;
                         try {
+                          // Delete old file from storage if it exists
+                          if (agencyLogo) {
+                            try {
+                              // Extract path from URL - format: .../agency-logos/agencyId/filename
+                              const urlPath = new URL(agencyLogo).pathname;
+                              const storagePath = urlPath.split('/agency-logos/')[1]?.split('?')[0];
+                              if (storagePath) {
+                                await supabase.storage.from('agency-logos').remove([storagePath]);
+                              }
+                            } catch (storageErr) {
+                              console.warn('Could not delete old logo from storage:', storageErr);
+                            }
+                          }
                           await supabase.from("agencies").update({ logo_url: null }).eq("id", agencyId);
                           setAgencyLogo(null);
                           toast.success("Logo removed");
                         } catch (e: any) {
+                          console.error('Logo remove error:', e);
                           toast.error("Failed to remove logo");
                         }
                       }}
@@ -770,7 +784,9 @@ export default function Agency() {
                         setUploadingLogo(true);
                         try {
                           const ext = file.name.split('.').pop();
-                          const filePath = `${agencyId}/logo.${ext}`;
+                          // Use timestamp in filename to avoid caching issues
+                          const timestamp = Date.now();
+                          const filePath = `${agencyId}/logo-${timestamp}.${ext}`;
                           
                           const { error: uploadError } = await supabase.storage
                             .from('agency-logos')
@@ -782,14 +798,18 @@ export default function Agency() {
                             .from('agency-logos')
                             .getPublicUrl(filePath);
 
-                          await supabase.from("agencies").update({ logo_url: publicUrl }).eq("id", agencyId);
+                          const { error: dbError } = await supabase.from("agencies").update({ logo_url: publicUrl }).eq("id", agencyId);
+                          if (dbError) throw dbError;
+                          
                           setAgencyLogo(publicUrl);
                           toast.success("Logo uploaded!");
                         } catch (e: any) {
-                          console.error(e);
+                          console.error('Logo upload error:', e);
                           toast.error(e?.message || "Failed to upload logo");
                         } finally {
                           setUploadingLogo(false);
+                          // Reset file input so same file can be selected again
+                          e.target.value = '';
                         }
                       }}
                     />
