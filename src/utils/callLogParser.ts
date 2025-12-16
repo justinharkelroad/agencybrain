@@ -22,9 +22,20 @@ type CSVRow = Record<string, string>;
 /**
  * Parse phone number from RingCentral "From Name" field
  * "Nate Carty (806) 866-0619" → "Nate Carty"
+ * "Gunnar Direct - 8067916430 - CARNELL JEFF (806) 544-6415" → "Gunnar Direct"
  */
 export function parseRingCentralName(fromName: string): string {
   if (!fromName) return 'Unknown';
+  
+  // Detect "Direct" line pattern: "FirstName Direct - 1234567890 - CALLER INFO..."
+  // Normalize to just "FirstName Direct" to consolidate all calls to that direct line
+  const directMatch = fromName.match(/^(\w+)\s+Direct\s*-/i);
+  if (directMatch) {
+    const firstName = directMatch[1].charAt(0).toUpperCase() + directMatch[1].slice(1).toLowerCase();
+    return `${firstName} Direct`;
+  }
+  
+  // Original logic: strip trailing phone number
   return fromName.replace(/\s*\(\d{3}\)\s*\d{3}-\d{4}.*$/, '').trim() || 'Unknown';
 }
 
