@@ -285,8 +285,17 @@ export default function StaffSPLesson() {
       {/* Content */}
       {lesson.content_html && (
         <Card className="mb-6">
-          <CardContent className="p-6 prose prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: lesson.content_html }} />
+          <CardContent className="p-6">
+            {/<[^>]+>/.test(lesson.content_html) ? (
+              <div 
+                className="prose prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: lesson.content_html }} 
+              />
+            ) : (
+              <div className="whitespace-pre-wrap text-slate-300 leading-relaxed">
+                {lesson.content_html}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
