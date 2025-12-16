@@ -130,33 +130,37 @@ export default function CallEfficiencyReportCard({
   return (
     <div className="space-y-4">
       {/* Export Buttons - Outside ref */}
-      {!isReadOnly && (
-        <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between">
+        {!isReadOnly ? (
           <Button variant="ghost" size="sm" onClick={onClose}>
             ← Back to Upload
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportPNG}>
-              <FileImage className="h-4 w-4 mr-1" />
-              PNG
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF}>
-              <Download className="h-4 w-4 mr-1" />
-              PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleCopyResults}>
-              <Copy className="h-4 w-4 mr-1" />
-              Copy
-            </Button>
+        ) : (
+          <div /> 
+        )}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPNG}>
+            <FileImage className="h-4 w-4 mr-1" />
+            PNG
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <Download className="h-4 w-4 mr-1" />
+            PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCopyResults}>
+            <Copy className="h-4 w-4 mr-1" />
+            Copy
+          </Button>
+          {!isReadOnly && (
             <SaveCallEfficiencyReportButton
               fileName={fileName}
               thresholdMinutes={results.thresholdMinutes}
               dateFilter={dateFilter}
               results={results}
             />
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Report Card */}
       <div
