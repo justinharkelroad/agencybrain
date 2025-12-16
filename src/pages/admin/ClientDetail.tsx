@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ArrowLeft, Upload, FileText, Download, Trash2, ChevronDown, ChevronUp, Send, Share2, MessageSquare, Calendar, DollarSign, Users, TrendingUp, BarChart3, Target, Clock, CheckCircle, AlertCircle, Info, Folder, Plus, Link as LinkIcon } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchChatMessages, insertChatMessage, clearChatMessages, markMessageShared } from "@/utils/chatPersistence";
@@ -118,6 +119,9 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
   const [createFocusDialogOpen, setCreateFocusDialogOpen] = useState(false);
   const [editingFocusItem, setEditingFocusItem] = useState<FocusItem | null>(null);
   const { items: focusItems, isLoading: focusLoading, createItem, updateItem, deleteItem, moveItem } = useAdminFocusItems(clientId);
+
+  // Team members state
+  const [teamMembers, setTeamMembers] = useState<Array<{id: string; name: string; email: string; role: string; status: string}>>([]);
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -368,9 +372,23 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
           } else {
             setAgencyName(agency?.name || 'Client');
           }
+          
+          // Fetch team members for this agency
+          const { data: teamData, error: teamError } = await supabase
+            .from('team_members')
+            .select('id, name, email, role, status')
+            .eq('agency_id', clientData.agency_id)
+            .order('name', { ascending: true });
+          
+          if (teamError) {
+            console.warn('[ClientDetail] Failed to fetch team members', teamError);
+          } else {
+            setTeamMembers(teamData || []);
+          }
         } else {
           setClientAgencyId(null);
           setAgencyName('Client');
+          setTeamMembers([]);
         }
       } catch (e) {
         console.warn('[ClientDetail] Agency name lookup failed', e);
@@ -1004,6 +1022,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
           <TabsTrigger value="uploads">Files</TabsTrigger>
           <TabsTrigger value="process-vault">Process Vault</TabsTrigger>
           <TabsTrigger value="focus">Focus</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="coaching">Coaching</TabsTrigger>
           <TabsTrigger value="analyze">Analyze</TabsTrigger>
           <TabsTrigger value="analyses">Results</TabsTrigger>
@@ -1082,6 +1101,48 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
               }}
             />
           )}
+        </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Users className="h-5 w-5 mr-2" />
+                Team Members
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {teamMembers.length === 0 ? (
+                <p className="text-muted-foreground">No team members found for this agency.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamMembers.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell>{member.email || '-'}</TableCell>
+                        <TableCell><Badge variant="outline">{member.role}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                            {member.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Coaching Tab */}
