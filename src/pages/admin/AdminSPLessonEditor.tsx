@@ -18,6 +18,8 @@ import {
   Plus,
   Trash2,
   GripVertical,
+  ImageIcon,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,6 +58,8 @@ export default function AdminSPLessonEditor() {
   const [documents, setDocuments] = useState<LessonDocument[]>([]);
   const [estimatedMinutes, setEstimatedMinutes] = useState(10);
   const [hasQuiz, setHasQuiz] = useState(true);
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   // Quiz questions (multiple choice - optional)
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -117,6 +121,7 @@ export default function AdminSPLessonEditor() {
       }
       setEstimatedMinutes(lesson.estimated_minutes || 10);
       setHasQuiz(lesson.has_quiz ?? true);
+      setThumbnailUrl(lesson.thumbnail_url || '');
 
       // Load quiz if exists
       const { data: quiz, error: quizError } = await supabase
@@ -189,6 +194,46 @@ export default function AdminSPLessonEditor() {
     setQuizQuestions(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Image must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    setUploadingThumbnail(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `sp-lesson-${Date.now()}.${fileExt}`;
+      const filePath = `training-thumbnails/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('training-assets')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('training-assets')
+        .getPublicUrl(filePath);
+
+      setThumbnailUrl(publicUrl);
+      toast({ title: 'Thumbnail uploaded!' });
+    } catch (err) {
+      console.error('Error uploading thumbnail:', err);
+      toast({ title: 'Error uploading thumbnail', variant: 'destructive' });
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast({ title: 'Name is required', variant: 'destructive' });
@@ -228,6 +273,7 @@ export default function AdminSPLessonEditor() {
         documents_json: validDocuments,
         estimated_minutes: estimatedMinutes,
         has_quiz: hasQuiz,
+        thumbnail_url: thumbnailUrl || null,
       };
 
       let savedLessonId = lessonId;
@@ -384,6 +430,54 @@ export default function AdminSPLessonEditor() {
                 min={1}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Header Image */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Header Image
+            </CardTitle>
+            <CardDescription>
+              Optional image displayed above the video
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {thumbnailUrl ? (
+              <div className="relative inline-block">
+                <img
+                  src={thumbnailUrl}
+                  alt="Lesson thumbnail"
+                  className="max-w-md rounded-lg border border-border"
+                />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8"
+                  onClick={() => setThumbnailUrl('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailUpload}
+                  disabled={uploadingThumbnail}
+                  className="max-w-xs"
+                />
+                {uploadingThumbnail && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              PNG or JPG, max 5MB
+            </p>
           </CardContent>
         </Card>
 

@@ -3162,6 +3162,7 @@ export type Database = {
           name: string
           published_at: string | null
           slug: string
+          thumbnail_url: string | null
           updated_at: string | null
           video_url: string | null
         }
@@ -3181,6 +3182,7 @@ export type Database = {
           name: string
           published_at?: string | null
           slug: string
+          thumbnail_url?: string | null
           updated_at?: string | null
           video_url?: string | null
         }
@@ -3200,6 +3202,7 @@ export type Database = {
           name?: string
           published_at?: string | null
           slug?: string
+          thumbnail_url?: string | null
           updated_at?: string | null
           video_url?: string | null
         }

@@ -44,6 +44,7 @@ interface SPLesson {
   documents_json: LessonDocument[] | null;
   has_quiz: boolean;
   estimated_minutes: number;
+  thumbnail_url: string | null;
   module?: {
     id: string;
     name: string;
@@ -304,6 +305,17 @@ export default function TrainingLesson() {
           </div>
         </div>
       </div>
+
+      {/* Header Image */}
+      {lesson.thumbnail_url && (
+        <Card className="mb-6 overflow-hidden">
+          <img
+            src={lesson.thumbnail_url}
+            alt={lesson.name}
+            className="w-full h-auto"
+          />
+        </Card>
+      )}
 
       {/* Video */}
       {embedUrl && (
