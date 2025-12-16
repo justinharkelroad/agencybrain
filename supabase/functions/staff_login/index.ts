@@ -100,11 +100,11 @@ Deno.serve(async (req) => {
       agencyId = agency.id;
     }
 
-    // Find staff user by username (and optionally agency)
+    // Find staff user by username OR email (and optionally agency)
     let query = supabase
       .from('staff_users')
       .select('*')
-      .eq('username', username)
+      .or(`username.eq.${username},email.ilike.${username}`)
       .eq('is_active', true);
 
     if (agencyId) {
