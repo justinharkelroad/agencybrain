@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   Download,
   Send,
+  ZoomIn,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -77,6 +79,7 @@ export default function StaffSPLesson() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [mcAnswers, setMcAnswers] = useState<Record<string, number>>({});
   const [reflections, setReflections] = useState<string[]>(['', '', '']);
+  const [showImageLightbox, setShowImageLightbox] = useState(false);
 
   // Navigation
   const [nextLesson, setNextLesson] = useState<{ slug: string; name: string } | null>(null);
@@ -271,13 +274,34 @@ export default function StaffSPLesson() {
 
       {/* Header Image */}
       {lesson.thumbnail_url && (
-        <Card className="mb-6 overflow-hidden">
-          <img
-            src={lesson.thumbnail_url}
-            alt={lesson.name}
-            className="w-full h-auto"
-          />
-        </Card>
+        <>
+          <Card 
+            className="mb-6 overflow-hidden cursor-pointer group relative"
+            onClick={() => setShowImageLightbox(true)}
+          >
+            <img
+              src={lesson.thumbnail_url}
+              alt={lesson.name}
+              className="w-full h-auto transition-opacity group-hover:opacity-90"
+            />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/30 transition-opacity">
+              <div className="flex items-center gap-2 text-white text-sm font-medium bg-black/50 px-3 py-1.5 rounded-full">
+                <ZoomIn className="h-4 w-4" />
+                Click to enlarge
+              </div>
+            </div>
+          </Card>
+          
+          <Dialog open={showImageLightbox} onOpenChange={setShowImageLightbox}>
+            <DialogContent className="max-w-5xl p-0 bg-transparent border-none shadow-none">
+              <img
+                src={lesson.thumbnail_url}
+                alt={lesson.name}
+                className="w-full h-auto rounded-lg"
+              />
+            </DialogContent>
+          </Dialog>
+        </>
       )}
 
       {/* Video */}
