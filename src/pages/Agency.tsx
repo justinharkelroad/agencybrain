@@ -196,28 +196,18 @@ export default function Agency() {
             .eq("agency_id", aId);
           if (!sErr) setStaffUsers(staff || []);
 
-          // Fetch key employees with their profile info
-          const { data: keyEmp, error: kErr } = await supabase
-            .from("key_employees")
-            .select("id, user_id, agency_id, created_at")
-            .eq("agency_id", aId);
-          if (!kErr && keyEmp) {
-            // Fetch profile data for key employees
-            if (keyEmp.length > 0) {
-              const { data: profiles } = await supabase
-                .from("profiles")
-                .select("id, email, full_name")
-                .in("id", keyEmp.map(k => k.user_id));
-              const profileMap = new Map<string, { id: string; email: string | null; full_name: string | null }>();
-              (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
-              setKeyEmployees(keyEmp.map(k => ({
-                ...k,
-                email: profileMap.get(k.user_id)?.email || undefined,
-                full_name: profileMap.get(k.user_id)?.full_name || undefined,
-              })));
+          // Fetch key employees using edge function (bypasses RLS safely)
+          try {
+            const { data: keData, error: keError } = await supabase.functions.invoke('get-key-employees');
+            if (!keError && keData?.data) {
+              setKeyEmployees(keData.data);
             } else {
+              console.error('Error fetching key employees:', keError);
               setKeyEmployees([]);
             }
+          } catch (keErr) {
+            console.error('Failed to fetch key employees:', keErr);
+            setKeyEmployees([]);
           }
         }
       } catch (e: any) {
@@ -244,26 +234,18 @@ export default function Agency() {
       .eq("agency_id", aId);
     if (!sErr) setStaffUsers(staff || []);
 
-    const { data: keyEmp, error: kErr } = await supabase
-      .from("key_employees")
-      .select("id, user_id, agency_id, created_at")
-      .eq("agency_id", aId);
-    if (!kErr && keyEmp) {
-      if (keyEmp.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, email, full_name")
-          .in("id", keyEmp.map(k => k.user_id));
-        const profileMap = new Map<string, { id: string; email: string | null; full_name: string | null }>();
-        (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
-        setKeyEmployees(keyEmp.map(k => ({
-          ...k,
-          email: profileMap.get(k.user_id)?.email || undefined,
-          full_name: profileMap.get(k.user_id)?.full_name || undefined,
-        })));
+    // Fetch key employees using edge function (bypasses RLS safely)
+    try {
+      const { data: keData, error: keError } = await supabase.functions.invoke('get-key-employees');
+      if (!keError && keData?.data) {
+        setKeyEmployees(keData.data);
       } else {
+        console.error('Error fetching key employees:', keError);
         setKeyEmployees([]);
       }
+    } catch (keErr) {
+      console.error('Failed to fetch key employees:', keErr);
+      setKeyEmployees([]);
     }
   };
 
