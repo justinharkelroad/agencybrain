@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle } from 'lucide-react';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface UsageInfo {
   calls_used: number;
@@ -57,6 +58,7 @@ const MAX_DURATION_MINUTES = 75; // Maximum call duration
 
 export default function CallScoring() {
   const { user, isAdmin } = useAuth();
+  const { canUploadCallRecordings, loading: permissionsLoading } = useUserPermissions();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
