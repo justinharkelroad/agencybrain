@@ -1,6 +1,19 @@
 // src/lib/custom-elements-guard.ts
 // GLOBAL LOCK: Prevent multiple guard initializations
 if (typeof window !== "undefined") {
+  // Pre-register problematic custom elements FIRST before any other code runs
+  const MCE_KEY = "__MCE_AUTOSIZE_DEFINED__";
+  if (window.customElements && !window.customElements.get("mce-autosize-textarea") && !(window as any)[MCE_KEY]) {
+    try {
+      window.customElements.define("mce-autosize-textarea", class extends HTMLElement {});
+      (window as any)[MCE_KEY] = true;
+      if (import.meta.env.DEV) {
+        console.log("🛡️ Pre-defined mce-autosize-textarea");
+      }
+    } catch (e) {
+      // Already defined, that's fine
+    }
+  }
   const GUARD_KEY = '__customElementsGuardInitialized__';
   
   if (!(window as any)[GUARD_KEY]) {

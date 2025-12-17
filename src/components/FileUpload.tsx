@@ -135,12 +135,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
     }
   }, [user, uploadedFiles, maxFiles, maxSize, allowedTypes, category, onUploadComplete, toast]);
 
+  // Convert file extensions to proper MIME types for react-dropzone
+  const getMimeTypeAccept = () => {
+    const mimeMap: Record<string, string[]> = {
+      'text/csv': ['.csv'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/pdf': ['.pdf'],
+      'text/plain': ['.txt'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    };
+    
+    const result: Record<string, string[]> = {};
+    for (const [mime, exts] of Object.entries(mimeMap)) {
+      if (exts.some(ext => allowedTypes.includes(ext))) {
+        result[mime] = exts.filter(ext => allowedTypes.includes(ext));
+      }
+    }
+    return result;
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: allowedTypes.reduce((acc, type) => {
-      acc[type] = [];
-      return acc;
-    }, {} as Record<string, string[]>),
+    accept: getMimeTypeAccept(),
     maxSize,
     maxFiles: maxFiles - uploadedFiles.length,
     disabled: uploading || uploadedFiles.length >= maxFiles
