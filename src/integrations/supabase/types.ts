@@ -1195,6 +1195,7 @@ export type Database = {
           description: string | null
           id: string
           priority_level: string
+          team_member_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -1208,6 +1209,7 @@ export type Database = {
           description?: string | null
           id?: string
           priority_level: string
+          team_member_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -1221,6 +1223,7 @@ export type Database = {
           description?: string | null
           id?: string
           priority_level?: string
+          team_member_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -1231,6 +1234,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "focus_items_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
