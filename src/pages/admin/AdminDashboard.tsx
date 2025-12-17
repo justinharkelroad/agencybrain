@@ -161,7 +161,7 @@ const { toast } = useToast();
       })));
 
       // Fetch recent submissions (periods)
-      const { data: periodsData, error: periodsError } = await supa
+      const { data: periodsData, error: periodsError } = await supabase
         .from('periods')
         .select('*')
         .order('created_at', { ascending: false })
@@ -171,7 +171,7 @@ const { toast } = useToast();
       setRecentSubmissions(periodsData || []);
 
       // Fetch recent uploads
-      const { data: uploadsData, error: uploadsError } = await supa
+      const { data: uploadsData, error: uploadsError } = await supabase
         .from('uploads')
         .select('*')
         .order('created_at', { ascending: false })
@@ -181,7 +181,7 @@ const { toast } = useToast();
       setRecentUploads(uploadsData || []);
 
 // Build status sets (no limit)
-const { data: periodsAllData, error: periodsAllError } = await supa
+const { data: periodsAllData, error: periodsAllError } = await supabase
   .from('periods')
   .select('user_id, status, form_data');
 if (periodsAllError) throw periodsAllError;
@@ -189,7 +189,7 @@ if (periodsAllError) throw periodsAllError;
 const activeSet = new Set<string>((periodsAllData || []).filter((p: any) => p.status === 'active').map((p: any) => p.user_id));
 const completedSet = new Set<string>((periodsAllData || []).filter((p: any) => p.form_data && Object.keys(p.form_data).length > 0).map((p: any) => p.user_id));
 
-const { data: uploadsAllData, error: uploadsAllError } = await supa
+const { data: uploadsAllData, error: uploadsAllError } = await supabase
   .from('uploads')
   .select('user_id');
 if (uploadsAllError) throw uploadsAllError;
