@@ -95,6 +95,14 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
         });
 
       if (error) throw error;
+
+      // Also update the current usage tracking record's limit
+      await supabase
+        .from('call_usage_tracking')
+        .update({ calls_limit: settings.calls_limit })
+        .eq('agency_id', agencyId)
+        .gte('period_end', new Date().toISOString());
+
       toast.success('Call scoring settings saved');
       await fetchSettings(); // Refresh usage data with new period dates
     } catch (err: any) {
