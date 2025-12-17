@@ -5172,6 +5172,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
       get_current_user_role: { Args: never; Returns: string }
       get_dashboard_daily:
         | {

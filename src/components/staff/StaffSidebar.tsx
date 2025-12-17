@@ -9,6 +9,9 @@ import {
   Sparkles,
   Sun,
   Phone,
+  Users,
+  BarChart3,
+  FileText,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -35,6 +38,13 @@ const navItems = [
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/staff/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
+];
+
+// Manager-only navigation items
+const managerNavItems = [
+  { title: "Team Performance", url: "/staff/team-performance", icon: BarChart3 },
+  { title: "Team Members", url: "/staff/team-members", icon: Users },
+  { title: "Roleplay Reports", url: "/staff/roleplay-reports", icon: FileText },
 ];
 
 const bottomItems = [
@@ -68,6 +78,8 @@ export function StaffSidebar() {
 
     checkCallScoringAccess();
   }, [user?.agency_id]);
+
+  const isManager = user?.role === 'Manager';
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -148,6 +160,32 @@ export function StaffSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* Manager-Only Navigation */}
+          {isManager && (
+            <SidebarGroup>
+              {sidebarOpen && <SidebarGroupLabel>Management</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {managerNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.url);
+                    
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={active}>
+                          <Link to={item.url} className="flex items-center gap-2">
+                            <Icon className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>{item.title}</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
 
           {/* Account Section */}
           <SidebarGroup>
