@@ -37,14 +37,7 @@ serve(async (req) => {
           id,
           username,
           agency_id,
-          role,
-          team_member_id,
-          team_members (
-            id,
-            first_name,
-            last_name,
-            role
-          )
+          team_member_id
         )
       `)
       .eq('session_token', staffSessionToken)
@@ -60,9 +53,20 @@ serve(async (req) => {
     }
 
     const staffUser = session.staff_users as any;
-    const teamMember = staffUser?.team_members;
     const agencyId = staffUser?.agency_id;
-    const isManager = staffUser?.role === 'Manager';
+    const teamMemberId = staffUser?.team_member_id;
+
+    // Get the team member's role from team_members table
+    let isManager = false;
+    if (teamMemberId) {
+      const { data: teamMember } = await supabase
+        .from('team_members')
+        .select('role')
+        .eq('id', teamMemberId)
+        .single();
+      
+      isManager = teamMember?.role === 'Manager';
+    }
 
     const { type } = await req.json();
     console.log('Request type:', type, 'Agency:', agencyId, 'isManager:', isManager);
@@ -99,10 +103,9 @@ serve(async (req) => {
 
         const { data: members, error } = await supabase
           .from('team_members')
-          .select('id, first_name, last_name, email, phone, role, is_active')
+          .select('id, name, email, role, status')
           .eq('agency_id', agencyId)
-          .eq('is_active', true)
-          .order('first_name');
+          .order('name');
 
         if (error) {
           console.error('Error fetching team members:', error);
@@ -141,10 +144,10 @@ serve(async (req) => {
         const memberIds = [...new Set(metrics?.map(m => m.team_member_id) || [])];
         const { data: members } = await supabase
           .from('team_members')
-          .select('id, first_name, last_name')
+          .select('id, name')
           .in('id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
 
-        const memberMap = new Map(members?.map(m => [m.id, `${m.first_name} ${m.last_name}`]) || []);
+        const memberMap = new Map(members?.map(m => [m.id, m.name]) || []);
 
         const enrichedMetrics = (metrics || []).map(m => ({
           ...m,
