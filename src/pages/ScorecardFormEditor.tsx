@@ -295,7 +295,7 @@ export default function ScorecardFormEditor() {
   const addCustomField = () => {
     if (!formSchema) return;
     const newField: CustomField = {
-      key: `field_${formSchema.customFields?.length || 0}`,
+      key: `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       label: 'New Field',
       type: 'text',
       required: false
