@@ -1364,7 +1364,7 @@ export type Database = {
           {
             foreignKeyName: "fk_form_links_form_template_id"
             columns: ["form_template_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "form_templates"
             referencedColumns: ["id"]
           },
