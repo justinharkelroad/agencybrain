@@ -38,6 +38,8 @@ interface Profile {
   agency: Agency;
   mrr?: string | number;
   membership_tier?: string;
+  full_name?: string;
+  email?: string;
 }
 
 interface Period {
@@ -140,12 +142,14 @@ const { toast } = useToast();
   const fetchAdminData = async () => {
     try {
       // Fetch all clients (profiles with agencies)
-      const { data: profilesData, error: profilesError } = await supa
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select(`
           *,
           agency:agencies(*),
-          membership_tier
+          membership_tier,
+          full_name,
+          email
         `)
         .neq('role', 'admin')
         .order('created_at', { ascending: false });
@@ -329,7 +333,11 @@ const getSubmissionStatus = (profile: Profile) => {
 };
 
   const filteredClients = clients.filter(client => {
-    const matchesSearch = client.agency?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      client.agency?.name?.toLowerCase().includes(searchLower) ||
+      client.full_name?.toLowerCase().includes(searchLower) ||
+      client.email?.toLowerCase().includes(searchLower);
     const matchesTier = tierFilter === 'all' || client.membership_tier === tierFilter;
     return matchesSearch && matchesTier;
   });
@@ -491,7 +499,8 @@ const getSubmissionStatus = (profile: Profile) => {
                     <SelectContent>
                       {clients.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.agency?.name || c.id}
+                          {c.agency?.name || c.full_name || c.email || c.id}
+                          {c.full_name && ` (${c.full_name})`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -561,7 +570,10 @@ const getSubmissionStatus = (profile: Profile) => {
                         <div className="flex items-center gap-3">
                           <div>
                             <h3 className="font-medium">{client.agency?.name}</h3>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-foreground/80">
+                              {client.full_name || 'No name'} • {client.email || 'No email'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
                               Joined {new Date(client.created_at).toLocaleDateString()}
                             </p>
                           </div>
