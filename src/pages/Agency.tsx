@@ -27,7 +27,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 // Reuse enums consistent with AdminTeam
-const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager", "Key Employee"] as const;
+const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
 const MEMBER_STATUS = ["active", "inactive"] as const;
 
@@ -49,6 +49,8 @@ interface KeyEmployee {
   user_id: string;
   agency_id: string;
   created_at: string;
+  email?: string;
+  full_name?: string;
 }
 
 const generateRandomPassword = () => {
@@ -125,13 +127,18 @@ export default function Agency() {
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
   const [memberToDeactivate, setMemberToDeactivate] = useState<any>(null);
 
+  // Key Employee dialog state
+  const [keyEmployeeDialogOpen, setKeyEmployeeDialogOpen] = useState(false);
+  const [keyEmployeeForm, setKeyEmployeeForm] = useState({ name: '', email: '', password: '' });
+  const [keyEmployeeLoading, setKeyEmployeeLoading] = useState(false);
+  const [showKeyEmployeePassword, setShowKeyEmployeePassword] = useState(false);
+  const [removeKeyEmployeeDialogOpen, setRemoveKeyEmployeeDialogOpen] = useState(false);
+  const [keyEmployeeToRemove, setKeyEmployeeToRemove] = useState<KeyEmployee | null>(null);
+
   // Build staff user lookup map
   const staffByTeamMemberId = useMemo(() => {
     return new Map(staffUsers.filter(s => s.team_member_id).map(s => [s.team_member_id, s]));
   }, [staffUsers]);
-
-  // Build key employee lookup by email (lowercase for matching)
-  const [keyEmployeeEmails, setKeyEmployeeEmails] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = "My Agency | AgencyBrain";
@@ -189,24 +196,27 @@ export default function Agency() {
             .eq("agency_id", aId);
           if (!sErr) setStaffUsers(staff || []);
 
-          // Fetch key employees with their profile emails
+          // Fetch key employees with their profile info
           const { data: keyEmp, error: kErr } = await supabase
             .from("key_employees")
             .select("id, user_id, agency_id, created_at")
             .eq("agency_id", aId);
-          if (!kErr) {
-            setKeyEmployees(keyEmp || []);
-            // Fetch emails for key employees
-            if (keyEmp && keyEmp.length > 0) {
+          if (!kErr && keyEmp) {
+            // Fetch profile data for key employees
+            if (keyEmp.length > 0) {
               const { data: profiles } = await supabase
                 .from("profiles")
-                .select("id, email")
+                .select("id, email, full_name")
                 .in("id", keyEmp.map(k => k.user_id));
-              if (profiles) {
-                setKeyEmployeeEmails(new Set(profiles.filter(p => p.email).map(p => p.email!.toLowerCase())));
-              }
+              const profileMap = new Map<string, { id: string; email: string | null; full_name: string | null }>();
+              (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
+              setKeyEmployees(keyEmp.map(k => ({
+                ...k,
+                email: profileMap.get(k.user_id)?.email || undefined,
+                full_name: profileMap.get(k.user_id)?.full_name || undefined,
+              })));
             } else {
-              setKeyEmployeeEmails(new Set());
+              setKeyEmployees([]);
             }
           }
         }
@@ -238,18 +248,21 @@ export default function Agency() {
       .from("key_employees")
       .select("id, user_id, agency_id, created_at")
       .eq("agency_id", aId);
-    if (!kErr) {
-      setKeyEmployees(keyEmp || []);
-      if (keyEmp && keyEmp.length > 0) {
+    if (!kErr && keyEmp) {
+      if (keyEmp.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, email")
+          .select("id, email, full_name")
           .in("id", keyEmp.map(k => k.user_id));
-        if (profiles) {
-          setKeyEmployeeEmails(new Set(profiles.filter(p => p.email).map(p => p.email!.toLowerCase())));
-        }
+        const profileMap = new Map<string, { id: string; email: string | null; full_name: string | null }>();
+        (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
+        setKeyEmployees(keyEmp.map(k => ({
+          ...k,
+          email: profileMap.get(k.user_id)?.email || undefined,
+          full_name: profileMap.get(k.user_id)?.full_name || undefined,
+        })));
       } else {
-        setKeyEmployeeEmails(new Set());
+        setKeyEmployees([]);
       }
     }
   };
@@ -963,17 +976,29 @@ export default function Agency() {
           <TabsContent value="team" className="space-y-6">
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle>Team</CardTitle>
+                  <CardTitle>Team Members</CardTitle>
                   <CardDescription>Manage your roster and staff logins</CardDescription>
                 </div>
-                <Dialog open={memberDialogOpen} onOpenChange={(o) => { setMemberDialogOpen(o); if (!o) setEditingId(null); }}>
-                  <DialogTrigger asChild>
-                    <Button className="rounded-full" onClick={startCreate} disabled={!agencyId}>
-                      <Plus className="h-4 w-4 mr-2" /> Add Member
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="rounded-full" 
+                    onClick={() => {
+                      setKeyEmployeeForm({ name: '', email: '', password: generateRandomPassword() });
+                      setKeyEmployeeDialogOpen(true);
+                    }} 
+                    disabled={!agencyId}
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-2" /> Add Key Employee
+                  </Button>
+                  <Dialog open={memberDialogOpen} onOpenChange={(o) => { setMemberDialogOpen(o); if (!o) setEditingId(null); }}>
+                    <DialogTrigger asChild>
+                      <Button className="rounded-full" onClick={startCreate} disabled={!agencyId}>
+                        <Plus className="h-4 w-4 mr-2" /> Add Member
+                      </Button>
+                    </DialogTrigger>
               <DialogContent className="glass-surface">
                 <DialogHeader>
                   <DialogTitle>{editingId ? "Edit Member" : "Add Member"}</DialogTitle>
@@ -1065,6 +1090,7 @@ export default function Agency() {
                 </div>
               </DialogContent>
             </Dialog>
+                </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -1083,8 +1109,6 @@ export default function Agency() {
               <TableBody>
                 {members.map((m) => {
                   const staffUser = staffByTeamMemberId.get(m.id);
-                  const isKeyEmployeeRole = m.role === 'Key Employee';
-                  const hasKeyEmployeeAccess = isKeyEmployeeRole && m.email && keyEmployeeEmails.has(m.email.toLowerCase());
                   return (
                     <TableRow key={m.id} className={m.status === 'inactive' ? 'opacity-60' : ''}>
                       <TableCell>
@@ -1101,26 +1125,7 @@ export default function Agency() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {isKeyEmployeeRole ? (
-                          // Key Employee - different login system
-                          hasKeyEmployeeAccess ? (
-                            <Badge 
-                              variant="outline" 
-                              className="bg-blue-500/10 text-blue-500 border-blue-500/20"
-                            >
-                              ✅ Owner Access
-                            </Badge>
-                          ) : (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => openInviteModal(m)}
-                            >
-                              <Send className="h-3 w-3 mr-1" />
-                              Create Login
-                            </Button>
-                          )
-                        ) : staffUser ? (
+                        {staffUser ? (
                           staffUser.is_active ? (
                             <div className="flex items-center gap-2">
                               <Badge 
@@ -1211,6 +1216,62 @@ export default function Agency() {
               </TableBody>
             </Table>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Key Employees Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Key Employees
+            </CardTitle>
+            <CardDescription>
+              Key employees have full owner-level dashboard access. They log in at myagencybrain.com/auth
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {keyEmployees.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No key employees yet. Add a key employee to give them owner-level access to your dashboard.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Added</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {keyEmployees.map((ke) => (
+                      <TableRow key={ke.id}>
+                        <TableCell className="font-medium">{ke.full_name || 'Unknown'}</TableCell>
+                        <TableCell>{ke.email || 'No email'}</TableCell>
+                        <TableCell>{new Date(ke.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                            onClick={() => {
+                              setKeyEmployeeToRemove(ke);
+                              setRemoveKeyEmployeeDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </TabsContent>
@@ -1702,6 +1763,192 @@ export default function Agency() {
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             Deactivate
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Add Key Employee Dialog */}
+    <Dialog open={keyEmployeeDialogOpen} onOpenChange={setKeyEmployeeDialogOpen}>
+      <DialogContent className="glass-surface max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Key Employee</DialogTitle>
+          <DialogDescription>
+            Create an account with owner-level dashboard access. They will log in at myagencybrain.com/auth
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="ke-name">Name</Label>
+            <Input
+              id="ke-name"
+              value={keyEmployeeForm.name}
+              onChange={(e) => setKeyEmployeeForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Enter name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ke-email">Email (used for login)</Label>
+            <Input
+              id="ke-email"
+              type="email"
+              value={keyEmployeeForm.email}
+              onChange={(e) => setKeyEmployeeForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="Enter email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ke-password">Password</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="ke-password"
+                  type={showKeyEmployeePassword ? "text" : "password"}
+                  value={keyEmployeeForm.password}
+                  onChange={(e) => setKeyEmployeeForm(f => ({ ...f, password: e.target.value }))}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full"
+                  onClick={() => setShowKeyEmployeePassword(!showKeyEmployeePassword)}
+                >
+                  {showKeyEmployeePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setKeyEmployeeForm(f => ({ ...f, password: generateRandomPassword() }))}
+                title="Generate new password"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => copyToClipboard(keyEmployeeForm.password)}
+                title="Copy password"
+              >
+                <Key className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setKeyEmployeeDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={async () => {
+              if (!keyEmployeeForm.name.trim() || !keyEmployeeForm.email.trim()) {
+                toast.error("Name and email are required");
+                return;
+              }
+              if (keyEmployeeForm.password.length < 8) {
+                toast.error("Password must be at least 8 characters");
+                return;
+              }
+              
+              setKeyEmployeeLoading(true);
+              try {
+                const { data, error } = await supabase.functions.invoke("create_key_employee_account", {
+                  body: {
+                    agency_id: agencyId,
+                    email: keyEmployeeForm.email.trim(),
+                    password: keyEmployeeForm.password,
+                    display_name: keyEmployeeForm.name.trim(),
+                  },
+                });
+
+                if (error) {
+                  let errorData: any = {};
+                  if (error.context?.json) {
+                    try {
+                      errorData = await error.context.json();
+                    } catch (parseError) {
+                      console.error('Could not parse error response:', parseError);
+                    }
+                  }
+                  
+                  if (errorData.error === 'email_conflict') {
+                    toast.error(errorData.message || "This email is already a key employee.");
+                    return;
+                  }
+                  
+                  throw new Error(errorData.message || error.message || 'Failed to create key employee');
+                }
+                
+                if (data?.error) {
+                  throw new Error(data.message || data.error);
+                }
+
+                await copyToClipboard(keyEmployeeForm.password);
+                toast.success(`Key Employee account created! Password copied.`);
+                setKeyEmployeeDialogOpen(false);
+                setKeyEmployeeForm({ name: '', email: '', password: '' });
+                if (agencyId) await refreshData(agencyId);
+              } catch (e: any) {
+                console.error("Create key employee error:", e);
+                toast.error(e?.message || "Failed to create key employee");
+              } finally {
+                setKeyEmployeeLoading(false);
+              }
+            }}
+            disabled={keyEmployeeLoading}
+          >
+            {keyEmployeeLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Account"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Remove Key Employee Confirmation Dialog */}
+    <AlertDialog open={removeKeyEmployeeDialogOpen} onOpenChange={setRemoveKeyEmployeeDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remove Key Employee</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will remove <strong>{keyEmployeeToRemove?.full_name || keyEmployeeToRemove?.email || 'this user'}</strong> as a key employee. 
+            They will no longer have owner-level access to this agency's dashboard. Their user account will remain active.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setKeyEmployeeToRemove(null)}>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={async () => {
+              if (!keyEmployeeToRemove || !agencyId) return;
+              
+              try {
+                const { error } = await supabase
+                  .from("key_employees")
+                  .delete()
+                  .eq("id", keyEmployeeToRemove.id);
+                
+                if (error) throw error;
+                
+                toast.success("Key employee removed");
+                await refreshData(agencyId);
+              } catch (e: any) {
+                console.error("Remove key employee error:", e);
+                toast.error("Failed to remove key employee");
+              } finally {
+                setRemoveKeyEmployeeDialogOpen(false);
+                setKeyEmployeeToRemove(null);
+              }
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Remove
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
