@@ -1,101 +1,128 @@
-import { useState, useEffect } from 'react';
-import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Target, CheckCircle2, Clock, Calendar } from 'lucide-react';
+import { useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Target } from "lucide-react";
+import { StaffFocusColumn } from "./StaffFocusColumn";
+import { StaffFocusItemCard } from "./StaffFocusItemCard";
+import { CreateFocusItemDialog } from "@/components/focus/CreateFocusItemDialog";
+import { EditFocusItemDialog } from "@/components/focus/EditFocusItemDialog";
+import { useStaffFocusItems, type StaffFocusItem, type ColumnStatus } from "@/hooks/useStaffFocusItems";
 
-interface FocusItem {
-  id: string;
-  title: string;
-  description: string | null;
-  priority_level: 'top' | 'mid' | 'low';
-  column_status: string;
-  created_at: string;
-  completed_at: string | null;
-}
-
-const PRIORITY_COLORS = {
-  top: 'bg-red-500/10 text-red-600 border-red-500/20',
-  mid: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  low: 'bg-green-500/10 text-green-600 border-green-500/20',
-};
-
-const COLUMN_LABELS: Record<string, string> = {
-  week1: 'Within 1 Week',
-  week2: 'Within 2 Weeks',
-  next_call: 'Before Next Call',
-  backlog: 'Backlog',
-  completed: 'Completed',
-};
+const columns: { id: ColumnStatus; title: string }[] = [
+  { id: "backlog", title: "Focus List" },
+  { id: "week1", title: "Within 1 Week" },
+  { id: "week2", title: "Within 2 Weeks" },
+  { id: "next_call", title: "Before Next Booked Call" },
+  { id: "completed", title: "COMPLETED" },
+];
 
 export function StaffFocusTargets() {
-  const { user, sessionToken } = useStaffAuth();
-  const [focusItems, setFocusItems] = useState<FocusItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items, isLoading, createItem, updateItem, deleteItem, moveItem } = useStaffFocusItems();
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<StaffFocusItem | null>(null);
 
-  useEffect(() => {
-    async function fetchFocusItems() {
-      if (!sessionToken) {
-        setLoading(false);
-        return;
-      }
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-      try {
-        const { data, error } = await supabase.functions.invoke('get_staff_team_data', {
-          headers: { 'x-staff-session': sessionToken },
-          body: { type: 'focus_items' },
+  const getItemsByColumn = (columnId: ColumnStatus) => {
+    return items.filter((item) => item.column_status === columnId);
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const activeItem = items.find((item) => item.id === active.id);
+    if (!activeItem) return;
+
+    const overId = over.id as string;
+    const overColumn = columns.find((col) => col.id === overId);
+
+    if (overColumn) {
+      // Dropped onto a column
+      const targetItems = getItemsByColumn(overColumn.id);
+      moveItem.mutate({
+        id: activeItem.id,
+        column_status: overColumn.id,
+        column_order: targetItems.length,
+      });
+    } else {
+      // Dropped onto another item
+      const overItem = items.find((item) => item.id === overId);
+      if (!overItem) return;
+
+      if (activeItem.column_status !== overItem.column_status) {
+        // Moving to different column
+        const targetItems = getItemsByColumn(overItem.column_status);
+        const overIndex = targetItems.findIndex((item) => item.id === overId);
+        moveItem.mutate({
+          id: activeItem.id,
+          column_status: overItem.column_status,
+          column_order: overIndex,
         });
+      } else {
+        // Reordering within same column
+        const columnItems = getItemsByColumn(activeItem.column_status);
+        const oldIndex = columnItems.findIndex((item) => item.id === active.id);
+        const newIndex = columnItems.findIndex((item) => item.id === overId);
 
-        if (error) {
-          console.error('Error fetching focus items:', error);
-        } else if (data?.focus_items) {
-          setFocusItems(data.focus_items);
+        if (oldIndex !== newIndex) {
+          const reordered = arrayMove(columnItems, oldIndex, newIndex);
+          reordered.forEach((item, index) => {
+            if (item.column_order !== index) {
+              moveItem.mutate({
+                id: item.id,
+                column_status: item.column_status,
+                column_order: index,
+              });
+            }
+          });
         }
-      } catch (err) {
-        console.error('Error fetching focus items:', err);
-      } finally {
-        setLoading(false);
       }
     }
+  };
 
-    fetchFocusItems();
-  }, [sessionToken]);
+  const activeItem = activeId ? items.find((item) => item.id === activeId) : null;
 
-  // Filter to show active items (not completed)
-  const activeItems = focusItems.filter(item => item.column_status !== 'completed');
-  const completedItems = focusItems.filter(item => item.column_status === 'completed');
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border/10 bg-muted/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 font-medium">
+            <Target className="h-5 w-5" strokeWidth={1.5} />
             My Focus Targets
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4 text-muted-foreground">Loading...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (focusItems.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            My Focus Targets
-          </CardTitle>
-          <CardDescription>Your current focus items and goals</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No focus targets assigned yet.</p>
+          <div className="flex items-center justify-center h-32 text-muted-foreground/70">
+            Loading...
           </div>
         </CardContent>
       </Card>
@@ -103,69 +130,71 @@ export function StaffFocusTargets() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5" />
-          My Focus Targets
-        </CardTitle>
-        <CardDescription>
-          {activeItems.length} active • {completedItems.length} completed
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Active Items */}
-        {activeItems.length > 0 && (
-          <div className="space-y-3">
-            {activeItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card"
-              >
-                <div className="flex-shrink-0 mt-0.5">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{item.title}</span>
-                    <Badge variant="outline" className={PRIORITY_COLORS[item.priority_level]}>
-                      {item.priority_level === 'top' ? 'High' : item.priority_level === 'mid' ? 'Medium' : 'Low'}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {COLUMN_LABELS[item.column_status] || item.column_status}
-                    </Badge>
-                  </div>
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+    <>
+      <Card className="border-border/10 bg-muted/20">
+        <CardHeader className="border-b border-border/5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 font-medium">
+              <Target className="h-5 w-5" strokeWidth={1.5} />
+              My Focus Targets
+            </CardTitle>
+            <Button onClick={() => setCreateDialogOpen(true)} variant="ghost" className="gap-2 w-full sm:w-auto">
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
+              New Focus Item
+            </Button>
           </div>
-        )}
-
-        {/* Completed Items (collapsible/summary) */}
-        {completedItems.length > 0 && (
-          <div className="pt-3 border-t">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>{completedItems.length} completed items</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {completedItems.slice(0, 3).map((item) => (
-                <Badge key={item.id} variant="outline" className="text-muted-foreground line-through">
-                  {item.title}
-                </Badge>
+        </CardHeader>
+        <CardContent className="p-6">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {columns.map((column) => (
+                <StaffFocusColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  items={getItemsByColumn(column.id)}
+                  onEdit={setEditItem}
+                  onDelete={(id) => {
+                    if (confirm("Are you sure you want to delete this focus item?")) {
+                      deleteItem.mutate(id);
+                    }
+                  }}
+                />
               ))}
-              {completedItems.length > 3 && (
-                <Badge variant="outline" className="text-muted-foreground">
-                  +{completedItems.length - 3} more
-                </Badge>
-              )}
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+
+            <DragOverlay>
+              {activeItem && (
+                <div className="cursor-grabbing">
+                  <StaffFocusItemCard
+                    item={activeItem}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                  />
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        </CardContent>
+      </Card>
+
+      <CreateFocusItemDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreate={(data) => createItem.mutate(data)}
+      />
+
+      <EditFocusItemDialog
+        item={editItem as any}
+        open={!!editItem}
+        onOpenChange={(open) => !open && setEditItem(null)}
+        onUpdate={(id, data) => updateItem.mutate({ id, updates: data })}
+      />
+    </>
   );
 }

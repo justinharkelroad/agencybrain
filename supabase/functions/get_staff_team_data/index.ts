@@ -56,31 +56,36 @@ serve(async (req) => {
     const agencyId = staffUser?.agency_id;
     const teamMemberId = staffUser?.team_member_id;
 
-    // Get the team member's role from team_members table
-    let isManager = false;
-    if (teamMemberId) {
-      const { data: teamMember } = await supabase
-        .from('team_members')
-        .select('role')
-        .eq('id', teamMemberId)
-        .single();
-      
-      isManager = teamMember?.role === 'Manager';
+    if (!teamMemberId) {
+      return new Response(
+        JSON.stringify({ error: 'Staff user not linked to team member' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const { type } = await req.json();
-    console.log('Request type:', type, 'Agency:', agencyId, 'isManager:', isManager);
+    // Get the team member's role from team_members table
+    let isManager = false;
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('id', teamMemberId)
+      .single();
+    
+    isManager = teamMember?.role === 'Manager';
+
+    const body = await req.json();
+    const { type } = body;
+    console.log('Request type:', type, 'Agency:', agencyId, 'TeamMember:', teamMemberId, 'isManager:', isManager);
 
     let responseData: any = {};
 
     switch (type) {
       case 'focus_items': {
-        // Focus items - available to ALL staff users
-        // Get focus items for the agency
+        // Focus items - get items for this team member
         const { data: focusItems, error } = await supabase
           .from('focus_items')
           .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order')
-          .eq('agency_id', agencyId)
+          .eq('team_member_id', teamMemberId)
           .order('column_order', { ascending: true });
 
         if (error) {
@@ -89,6 +94,148 @@ serve(async (req) => {
         }
 
         responseData = { focus_items: focusItems || [] };
+        break;
+      }
+
+      case 'create_focus_item': {
+        // Create a new focus item
+        const { title, description, priority_level, column_status = 'backlog', column_order = 0 } = body;
+        
+        if (!title || !priority_level) {
+          return new Response(
+            JSON.stringify({ error: 'Title and priority_level are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: newItem, error } = await supabase
+          .from('focus_items')
+          .insert({
+            title,
+            description: description || null,
+            priority_level,
+            column_status,
+            column_order,
+            team_member_id: teamMemberId,
+            user_id: staffUser.id, // Use staff_user id as user_id to satisfy NOT NULL constraint
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error creating focus item:', error);
+          throw error;
+        }
+
+        responseData = { focus_item: newItem };
+        break;
+      }
+
+      case 'update_focus_item': {
+        // Update an existing focus item
+        const { id, title, description, priority_level, column_status, column_order } = body;
+        
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Build update object with only provided fields
+        const updateData: any = { updated_at: new Date().toISOString() };
+        if (title !== undefined) updateData.title = title;
+        if (description !== undefined) updateData.description = description;
+        if (priority_level !== undefined) updateData.priority_level = priority_level;
+        if (column_status !== undefined) {
+          updateData.column_status = column_status;
+          if (column_status === 'completed') {
+            updateData.completed_at = new Date().toISOString();
+          }
+        }
+        if (column_order !== undefined) updateData.column_order = column_order;
+
+        const { data: updatedItem, error } = await supabase
+          .from('focus_items')
+          .update(updateData)
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId) // Security: only update own items
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error updating focus item:', error);
+          throw error;
+        }
+
+        responseData = { focus_item: updatedItem };
+        break;
+      }
+
+      case 'delete_focus_item': {
+        // Delete a focus item
+        const { id } = body;
+        
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error } = await supabase
+          .from('focus_items')
+          .delete()
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId); // Security: only delete own items
+
+        if (error) {
+          console.error('Error deleting focus item:', error);
+          throw error;
+        }
+
+        responseData = { success: true };
+        break;
+      }
+
+      case 'move_focus_item': {
+        // Move a focus item to different column/position
+        const { id, column_status, column_order } = body;
+        
+        if (!id || column_status === undefined || column_order === undefined) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID, column_status, and column_order are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const updateData: any = {
+          column_status,
+          column_order,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Mark as completed if moving to completed column
+        if (column_status === 'completed') {
+          updateData.completed_at = new Date().toISOString();
+        } else {
+          updateData.completed_at = null;
+        }
+
+        const { data: movedItem, error } = await supabase
+          .from('focus_items')
+          .update(updateData)
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId) // Security: only move own items
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error moving focus item:', error);
+          throw error;
+        }
+
+        responseData = { focus_item: movedItem };
         break;
       }
 
