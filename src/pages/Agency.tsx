@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings } from "lucide-react";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
@@ -78,6 +79,7 @@ export default function Agency() {
   const [agencyPhone, setAgencyPhone] = useState("");
   const [agencyLogo, setAgencyLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [staffCanUploadCalls, setStaffCanUploadCalls] = useState(true);
 
   // Team state
   const [members, setMembers] = useState<any[]>([]);
@@ -152,7 +154,7 @@ export default function Agency() {
         if (aId) {
           const { data: agency, error: aErr } = await supabase
             .from("agencies")
-            .select("id,name,agency_email,phone,logo_url")
+            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls")
             .eq("id", aId)
             .maybeSingle();
           if (aErr) throw aErr;
@@ -160,6 +162,7 @@ export default function Agency() {
           setAgencyEmail(agency?.agency_email || "");
           setAgencyPhone(agency?.phone || "");
           setAgencyLogo(agency?.logo_url || null);
+          setStaffCanUploadCalls(agency?.staff_can_upload_calls ?? true);
 
           const { data: team, error: tErr } = await supabase
             .from("team_members")
@@ -1119,6 +1122,40 @@ export default function Agency() {
                 Manage the policy types that appear when your team logs quoted and sold policies.
               </p>
               {agencyId && <PolicyTypeManager agencyId={agencyId} />}
+            </div>
+            
+            {/* Staff Call Recording Access Section */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-2">Staff Call Recording Access</h3>
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <Label className="text-base font-medium">Allow Staff Uploads</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Allow Sales, Service, and Hybrid team members to upload call recordings for scoring
+                  </p>
+                </div>
+                <Switch
+                  checked={staffCanUploadCalls}
+                  onCheckedChange={async (checked) => {
+                    if (!agencyId) return;
+                    setStaffCanUploadCalls(checked);
+                    const { error } = await supabase
+                      .from("agencies")
+                      .update({ staff_can_upload_calls: checked })
+                      .eq("id", agencyId);
+                    if (error) {
+                      console.error("Failed to update setting:", error);
+                      setStaffCanUploadCalls(!checked); // Revert on error
+                      toast.error("Failed to update setting");
+                    } else {
+                      toast.success(checked ? "Staff can now upload calls" : "Staff call uploads disabled");
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Note: Managers and agency owners can always upload calls regardless of this setting.
+              </p>
             </div>
           </CardContent>
         </Card>

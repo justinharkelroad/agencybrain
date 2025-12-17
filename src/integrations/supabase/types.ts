@@ -36,6 +36,7 @@ export type Database = {
           phone: string | null
           reminder_times_json: Json | null
           slug: string | null
+          staff_can_upload_calls: boolean | null
           suppress_if_final_exists: boolean | null
           timezone: string | null
           updated_at: string
@@ -61,6 +62,7 @@ export type Database = {
           phone?: string | null
           reminder_times_json?: Json | null
           slug?: string | null
+          staff_can_upload_calls?: boolean | null
           suppress_if_final_exists?: boolean | null
           timezone?: string | null
           updated_at?: string
@@ -86,6 +88,7 @@ export type Database = {
           phone?: string | null
           reminder_times_json?: Json | null
           slug?: string | null
+          staff_can_upload_calls?: boolean | null
           suppress_if_final_exists?: boolean | null
           timezone?: string | null
           updated_at?: string

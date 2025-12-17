@@ -16,10 +16,20 @@ import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
-
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 const Dashboard = () => {
   const { user, signOut, isAdmin, membershipTier } = useAuth();
-  
+  const {
+    canViewPerformanceMetrics,
+    canViewMonthOverMonthTrends,
+    canViewSharedInsights,
+    canViewReportingPeriods,
+    canSubmitCoachingCall,
+    canSubmitMetrics,
+    canViewFocusTargets,
+    canViewRoleplaySessions,
+    loading: permissionsLoading,
+  } = useUserPermissions();
 
   if (!user) {
     return <Navigate to="/auth" replace />;
@@ -75,7 +85,7 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          {membershipTier === '1:1 Coaching' && (
+          {canSubmitCoachingCall && membershipTier === '1:1 Coaching' && (
             <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
               <Link to="/submit?mode=new">
                 <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
@@ -83,7 +93,7 @@ const Dashboard = () => {
               </Link>
             </Button>
           )}
-          {membershipTier === 'Boardroom' && (
+          {canSubmitMetrics && membershipTier === 'Boardroom' && (
             <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
               <Link to="/submit?mode=new&tier=boardroom">
                 <span className="hidden sm:inline">Submit Dashboard Metrics</span>
@@ -93,10 +103,10 @@ const Dashboard = () => {
           )}
         </div>
         <PeriodRefreshProvider>
-          <PerformanceMetrics />
-          <MyCurrentFocus />
-          <MonthOverMonthTrends />
-          <RoleplaySessionsCard />
+          {canViewPerformanceMetrics && <PerformanceMetrics />}
+          {canViewFocusTargets && <MyCurrentFocus />}
+          {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
+          {canViewRoleplaySessions && <RoleplaySessionsCard />}
           {enableMetrics && (
             <section>
               <Card className="border-border/10 bg-muted/20">
@@ -112,8 +122,8 @@ const Dashboard = () => {
               </Card>
             </section>
           )}
-          <SharedInsights />
-          <ReportingPeriods />
+          {canViewSharedInsights && <SharedInsights />}
+          {canViewReportingPeriods && <ReportingPeriods />}
         </PeriodRefreshProvider>
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
           Version: {versionLabel}
