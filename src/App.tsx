@@ -107,6 +107,9 @@ import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
 import CallScoring from "./pages/CallScoring";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
+import StaffTeamMembers from "./pages/staff/StaffTeamMembers";
+import StaffTeamPerformance from "./pages/staff/StaffTeamPerformance";
+import StaffRoleplayReports from "./pages/staff/StaffRoleplayReports";
 
 // Training pages
 import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
@@ -748,6 +751,10 @@ const App = () => (
               <Route path="flows/library" element={<FlowLibrary />} />
               {/* Call Scoring */}
               <Route path="call-scoring" element={<CallScoring />} />
+              {/* Manager-only Routes */}
+              <Route path="team-performance" element={<StaffTeamPerformance />} />
+              <Route path="team-members" element={<StaffTeamMembers />} />
+              <Route path="roleplay-reports" element={<StaffRoleplayReports />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={

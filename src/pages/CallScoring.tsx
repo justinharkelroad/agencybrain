@@ -14,6 +14,7 @@ import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 
 interface UsageInfo {
   calls_used: number;
@@ -58,7 +59,8 @@ const MAX_DURATION_MINUTES = 75; // Maximum call duration
 
 export default function CallScoring() {
   const { user, isAdmin } = useAuth();
-  const { canUploadCallRecordings, loading: permissionsLoading } = useUserPermissions();
+  const { canUploadCallRecordings: ownerCanUpload, loading: permissionsLoading } = useUserPermissions();
+  const { canUploadCallRecordings: staffCanUpload, isManager: isStaffManager, loading: staffPermissionsLoading } = useStaffPermissions();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
@@ -133,7 +135,9 @@ export default function CallScoring() {
         setStaffTeamMemberId(data.user.team_member_id);
         setAgencyId(data.user.agency_id);
         setUserTeamMemberId(data.user.team_member_id);
-        setUserRole('staff');
+        // Set role based on team member role from session
+        const staffRole = data.user.role === 'Manager' ? 'manager' : 'staff';
+        setUserRole(staffRole);
         setStaffDataLoaded(true);
       } catch (err) {
         console.error('Error detecting staff user:', err);
@@ -891,6 +895,15 @@ export default function CallScoring() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Check upload permission - staff users use staffCanUpload, owners use ownerCanUpload */}
+            {((isStaffUser && !staffCanUpload) || (!isStaffUser && !ownerCanUpload && !isAdmin)) ? (
+              <div className="text-center p-8 text-muted-foreground">
+                <Lock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">Call recording uploads are disabled for your account.</p>
+                <p className="text-sm mt-2">Contact your agency owner to request access.</p>
+              </div>
+            ) : (
+            <>
             {/* Dropzone */}
             <div
               onDrop={handleDrop}
@@ -997,6 +1010,8 @@ export default function CallScoring() {
               <Sparkles className="h-4 w-4 mr-2" />
               Analyze Call
             </Button>
+            </>
+            )}
           </CardContent>
         </Card>
 
