@@ -13,6 +13,7 @@ import { PublicFormErrorBoundary } from "@/components/PublicFormErrorBoundary";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { LifeTargetsGuard } from "@/components/LifeTargetsGuard";
 import { enableMetrics } from "@/lib/featureFlags";
+import { useSessionRecovery } from "@/hooks/useSessionRecovery";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
 import ProspectSettings from "./pages/ProspectSettings";
@@ -142,6 +143,12 @@ const URLFixer = () => {
   return null;
 };
 
+// Global session recovery - detects invalid sessions and redirects to login
+const SessionRecoveryHandler = () => {
+  useSessionRecovery();
+  return null;
+};
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -152,6 +159,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
             <URLFixer />
+            <SessionRecoveryHandler />
             <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
