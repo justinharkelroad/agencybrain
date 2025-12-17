@@ -188,3 +188,6 @@ verify_jwt = false
 
 [functions.save-report]
 verify_jwt = true
+
+[functions.get_staff_sp_content]
+verify_jwt = false

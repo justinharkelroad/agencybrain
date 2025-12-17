@@ -51,98 +51,20 @@ export default function StaffSPTrainingHub() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch staff-accessible categories (access_tiers contains 'staff')
-      const { data: catData, error: catError } = await supabase
-        .from('sp_categories')
-        .select(`
-          *,
-          sp_modules(
-            id,
-            sp_lessons(id)
-          )
-        `)
-        .eq('is_published', true)
-        .contains('access_tiers', ['staff'])
-        .order('display_order', { ascending: true });
-
-      if (catError) throw catError;
-
-      // Get staff's progress
-      const { data: progressData, error: progressError } = await supabase
-        .from('sp_progress_staff')
-        .select('lesson_id, completed_at')
-        .eq('staff_user_id', user!.id)
-        .eq('quiz_passed', true);
-
-      if (progressError) throw progressError;
-
-      const completedLessonIds = new Set(progressData?.map(p => p.lesson_id) || []);
-
-      // Calculate category stats
-      const categoriesWithStats = (catData || []).map(cat => {
-        let lessonCount = 0;
-        let completedCount = 0;
-
-        cat.sp_modules?.forEach((mod: any) => {
-          mod.sp_lessons?.forEach((lesson: any) => {
-            lessonCount++;
-            if (completedLessonIds.has(lesson.id)) {
-              completedCount++;
-            }
-          });
-        });
-
-        return {
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug,
-          description: cat.description,
-          icon: cat.icon,
-          color: cat.color || '#1e283a',
-          module_count: cat.sp_modules?.length || 0,
-          lesson_count: lessonCount,
-          completed_count: completedCount,
-        };
-      });
-
-      setCategories(categoriesWithStats);
-
-      // Calculate overall stats
-      const totalLessons = categoriesWithStats.reduce((sum, c) => sum + c.lesson_count, 0);
-      const completedLessons = categoriesWithStats.reduce((sum, c) => sum + c.completed_count, 0);
-
-      // Calculate streak
-      const completionDates = progressData
-        ?.filter(p => p.completed_at)
-        .map(p => new Date(p.completed_at).toDateString())
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-
-      let streak = 0;
-      if (completionDates && completionDates.length > 0) {
-        const today = new Date().toDateString();
-        const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-        if (completionDates[0] === today || completionDates[0] === yesterday) {
-          streak = 1;
-          let checkDate = new Date(completionDates[0]);
-
-          for (let i = 1; i < completionDates.length; i++) {
-            checkDate = new Date(checkDate.getTime() - 86400000);
-            if (completionDates[i] === checkDate.toDateString()) {
-              streak++;
-            } else {
-              break;
-            }
-          }
-        }
+      const sessionToken = localStorage.getItem('staff_session_token');
+      if (!sessionToken) {
+        console.error('No session token found');
+        return;
       }
 
-      setStats({
-        totalLessons,
-        completedLessons,
-        currentStreak: streak,
+      const { data, error } = await supabase.functions.invoke('get_staff_sp_content', {
+        body: { session_token: sessionToken }
       });
+
+      if (error) throw error;
+
+      setCategories(data.categories || []);
+      setStats(data.stats || null);
     } catch (err) {
       console.error('Error fetching training data:', err);
     } finally {
