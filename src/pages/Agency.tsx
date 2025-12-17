@@ -26,6 +26,7 @@ import { UploadsContent } from "@/components/UploadsContent";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
+import { KeyEmployeesManager } from "@/components/KeyEmployeesManager";
 
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -1159,6 +1160,9 @@ export default function Agency() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Key Employees Section */}
+        {agencyId && <KeyEmployeesManager agencyId={agencyId} />}
       </TabsContent>
 
       <TabsContent value="reports" className="space-y-6">

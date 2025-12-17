@@ -13,6 +13,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isAgencyOwner: boolean;
+  isKeyEmployee: boolean;
+  keyEmployeeAgencyId: string | null;
   membershipTier: string | null;
   hasTierAccess: (feature: string) => boolean;
 }
@@ -26,6 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [adminLoading, setAdminLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAgencyOwner, setIsAgencyOwner] = useState(false);
+  const [isKeyEmployee, setIsKeyEmployee] = useState(false);
+  const [keyEmployeeAgencyId, setKeyEmployeeAgencyId] = useState<string | null>(null);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -67,10 +71,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMembershipTier(null);
         setIsAgencyOwner(false);
       }
+
+      // Check if user is a key employee
+      const { data: keyEmployeeData } = await supabase
+        .from('key_employees')
+        .select('agency_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (keyEmployeeData) {
+        setIsKeyEmployee(true);
+        setKeyEmployeeAgencyId(keyEmployeeData.agency_id);
+      } else {
+        setIsKeyEmployee(false);
+        setKeyEmployeeAgencyId(null);
+      }
     } catch (error) {
       console.error('Error checking membership tier:', error);
       setMembershipTier(null);
       setIsAgencyOwner(false);
+      setIsKeyEmployee(false);
+      setKeyEmployeeAgencyId(null);
     }
   }, []);
 
@@ -99,6 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAdminLoading(false);
           setMembershipTier(null);
           setIsAgencyOwner(false);
+          setIsKeyEmployee(false);
+          setKeyEmployeeAgencyId(null);
         }
       }
     );
@@ -156,6 +179,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setSession(null);
       setIsAdmin(false);
+      setIsKeyEmployee(false);
+      setKeyEmployeeAgencyId(null);
       setMembershipTier(null);
       
       // Then attempt to sign out from Supabase
@@ -188,6 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     isAdmin,
     isAgencyOwner,
+    isKeyEmployee,
+    keyEmployeeAgencyId,
     membershipTier,
     hasTierAccess,
   };

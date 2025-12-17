@@ -1532,6 +1532,79 @@ export type Database = {
         }
         Relationships: []
       }
+      key_employee_invites: {
+        Row: {
+          accepted_at: string | null
+          agency_id: string
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          agency_id: string
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          agency_id?: string
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_employee_invites_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      key_employees: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          id: string
+          invited_by: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          id?: string
+          invited_by: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          id?: string
+          invited_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_employees_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kpi_audit: {
         Row: {
           action: string
@@ -5236,6 +5309,10 @@ export type Database = {
               team_member_name: string
             }[]
           }
+      get_key_employee_agency_id: {
+        Args: { _user_id: string }
+        Returns: string
+      }
       get_staff_call_details: {
         Args: { p_call_id: string; p_team_member_id: string }
         Returns: Json
@@ -5323,6 +5400,10 @@ export type Database = {
       }
       is_call_scoring_enabled: {
         Args: { p_agency_id: string }
+        Returns: boolean
+      }
+      is_key_employee: {
+        Args: { _agency_id: string; _user_id: string }
         Returns: boolean
       }
       is_now_agency_time: {
