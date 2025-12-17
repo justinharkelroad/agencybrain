@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AlertTriangle, CheckCircle, XCircle, Target } from 'lucide-react';
 import { RING_COLORS } from '@/components/rings/colors';
+import { StaffFocusTargets } from './StaffFocusTargets';
+import { StaffTeamOverview } from './StaffTeamOverview';
+import { StaffRoleplaySessions } from './StaffRoleplaySessions';
 
 interface KPIData {
   key: string;
@@ -89,6 +92,7 @@ export function StaffDashboard() {
   const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
   
+  const isManager = user?.role === 'Manager';
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
   const displayDate = format(previousBusinessDay, 'EEEE, MMMM d');
@@ -290,6 +294,17 @@ export function StaffDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Focus Targets Section - All staff see this */}
+      <StaffFocusTargets />
+
+      {/* Manager-only sections */}
+      {isManager && (
+        <>
+          <StaffTeamOverview />
+          <StaffRoleplaySessions />
+        </>
+      )}
     </div>
   );
 }
