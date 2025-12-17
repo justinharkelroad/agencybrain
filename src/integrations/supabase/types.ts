@@ -2368,6 +2368,8 @@ export type Database = {
         Row: {
           agency_id: string | null
           created_at: string
+          email: string | null
+          full_name: string | null
           id: string
           membership_tier: Database["public"]["Enums"]["membership_tier"]
           mrr: number | null
@@ -2377,6 +2379,8 @@ export type Database = {
         Insert: {
           agency_id?: string | null
           created_at?: string
+          email?: string | null
+          full_name?: string | null
           id: string
           membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
@@ -2386,6 +2390,8 @@ export type Database = {
         Update: {
           agency_id?: string | null
           created_at?: string
+          email?: string | null
+          full_name?: string | null
           id?: string
           membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
