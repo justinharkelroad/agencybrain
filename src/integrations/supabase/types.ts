@@ -5353,6 +5353,7 @@ export type Database = {
           team_member_id: string
         }[]
       }
+      get_user_agency_id: { Args: { _user_id: string }; Returns: string }
       get_versioned_dashboard_data:
         | {
             Args: {
