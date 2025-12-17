@@ -350,7 +350,7 @@ export default function RepeaterSectionManager({
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => window.open('/settings', '_blank')}
+                                          onClick={() => navigate('/agency?tab=settings')}
                                           className="text-xs h-6"
                                         >
                                           <ExternalLink className="h-3 w-3 mr-1" />
@@ -365,7 +365,7 @@ export default function RepeaterSectionManager({
                                             <Button
                                               variant="outline"
                                               size="sm"
-                                              onClick={() => window.open('/settings', '_blank')}
+                                              onClick={() => navigate('/agency?tab=settings')}
                                               className="text-xs h-6"
                                             >
                                               <ExternalLink className="h-3 w-3 mr-1" />
