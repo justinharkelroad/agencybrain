@@ -227,6 +227,43 @@ IMPORTANT RULES:
 ## TRANSCRIPT
 ${call.transcript}`;
 
+    // Extract custom checklist items from template's skill_categories
+    const skillCategories = call.call_scoring_templates?.skill_categories as any;
+    const customChecklistItems = skillCategories?.checklistItems || [];
+    
+    // Build dynamic checklist for sales calls
+    const defaultSalesChecklist = [
+      { label: "HWF Framework", key: "hwf_framework" },
+      { label: "Ask About Work", key: "ask_about_work" },
+      { label: "Explain Coverage", key: "explain_coverage" },
+      { label: "Deductible Value", key: "deductible_value" },
+      { label: "Advisor Frame", key: "advisor_frame" },
+      { label: "Assumptive Close", key: "assumptive_close" },
+      { label: "Ask for Sale", key: "ask_for_sale" },
+      { label: "Set Follow Up", key: "set_follow_up" }
+    ];
+    
+    // Use custom checklist if defined, otherwise use defaults
+    const salesChecklistItems = customChecklistItems.length > 0
+      ? customChecklistItems.map((item: any, idx: number) => ({
+          label: item.label,
+          key: item.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+          criteria: item.criteria
+        }))
+      : defaultSalesChecklist;
+    
+    // Generate the execution_checklist JSON structure for the prompt
+    const checklistJsonStructure = salesChecklistItems
+      .map((item: any) => `    "${item.key}": <true/false>`)
+      .join(',\n');
+    
+    // Generate checklist criteria explanation if custom
+    const checklistCriteriaExplanation = customChecklistItems.length > 0
+      ? `\n\n## EXECUTION CHECKLIST CRITERIA\n${customChecklistItems.map((item: any) => 
+          `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`
+        ).join('\n')}`
+      : '';
+
     // Sales call user prompt (existing)
     const salesUserPrompt = `Analyze this insurance sales call transcript and provide a structured evaluation.
 
@@ -260,6 +297,7 @@ Objective: Use the Objection Loop to overcome resistance.
 - Did they Address/Reframe with value or proof?
 - Did they Check if resolved ("does that solve it?")?
 - Did they Ask again after handling?
+${checklistCriteriaExplanation}
 
 ## REQUIRED JSON RESPONSE FORMAT
 
@@ -289,14 +327,7 @@ Objective: Use the Objection Loop to overcome resistance.
   "discovery_score": <0-100>,
   
   "execution_checklist": {
-    "hwf_framework": <true/false>,
-    "ask_about_work": <true/false>,
-    "explain_coverage": <true/false>,
-    "deductible_value": <true/false>,
-    "advisor_frame": <true/false>,
-    "assumptive_close": <true/false>,
-    "ask_for_sale": <true/false>,
-    "set_follow_up": <true/false>
+${checklistJsonStructure}
   },
   
   "corrective_action_plan": {
