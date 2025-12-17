@@ -69,62 +69,38 @@ export default function StaffSPCategory() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch category
-      const { data: catData, error: catError } = await supabase
-        .from('sp_categories')
-        .select('*')
-        .eq('slug', categorySlug)
-        .eq('is_published', true)
-        .contains('access_tiers', ['staff'])
-        .single();
+      const sessionToken = localStorage.getItem('staff_session_token');
+      if (!sessionToken) {
+        console.error('No session token found');
+        navigate('/staff/training/standard');
+        return;
+      }
 
-      if (catError) throw catError;
-      setCategory(catData);
+      const { data, error } = await supabase.functions.invoke('get_staff_sp_content', {
+        body: { 
+          session_token: sessionToken,
+          category_slug: categorySlug
+        }
+      });
 
-      // Fetch modules with lessons
-      const { data: modData, error: modError } = await supabase
-        .from('sp_modules')
-        .select(`
-          *,
-          sp_lessons(*)
-        `)
-        .eq('category_id', catData.id)
-        .eq('is_published', true)
-        .order('display_order', { ascending: true });
+      if (error) throw error;
 
-      if (modError) throw modError;
+      if (!data.category) {
+        navigate('/staff/training/standard');
+        return;
+      }
 
-      // Fetch staff progress
-      const { data: progressData } = await supabase
-        .from('sp_progress_staff')
-        .select('lesson_id')
-        .eq('staff_user_id', user!.id)
-        .eq('quiz_passed', true);
-
-      const completedLessonIds = new Set(progressData?.map(p => p.lesson_id) || []);
-
-      // Build modules with completion status
-      const modulesWithProgress = (modData || []).map(mod => ({
-        ...mod,
-        lessons: (mod.sp_lessons || [])
-          .filter((l: any) => l.is_published)
-          .sort((a: any, b: any) => a.display_order - b.display_order)
-          .map((lesson: any) => ({
-            ...lesson,
-            completed: completedLessonIds.has(lesson.id),
-          })),
-      }));
-
-      setModules(modulesWithProgress);
+      setCategory(data.category);
+      setModules(data.modules || []);
 
       // Auto-expand first incomplete module
-      const firstIncomplete = modulesWithProgress.find(m =>
+      const firstIncomplete = (data.modules || []).find((m: SPModule) =>
         m.lessons.some((l: SPLesson) => !l.completed)
       );
       if (firstIncomplete) {
         setExpandedModules(new Set([firstIncomplete.id]));
-      } else if (modulesWithProgress.length > 0) {
-        setExpandedModules(new Set([modulesWithProgress[0].id]));
+      } else if (data.modules?.length > 0) {
+        setExpandedModules(new Set([data.modules[0].id]));
       }
     } catch (err) {
       console.error('Error fetching category:', err);

@@ -93,62 +93,31 @@ export default function StaffSPLesson() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch lesson with module and category
-      const { data: lessonData, error: lessonError } = await supabase
-        .from('sp_lessons')
-        .select(`
-          *,
-          module:sp_modules(
-            id, name, slug,
-            category:sp_categories(id, name, slug)
-          )
-        `)
-        .eq('slug', lessonSlug)
-        .eq('is_published', true)
-        .single();
+      const sessionToken = localStorage.getItem('staff_session_token');
+      if (!sessionToken) {
+        console.error('No session token found');
+        navigate('/staff/training/standard');
+        return;
+      }
 
-      if (lessonError) throw lessonError;
-      setLesson(lessonData);
-
-      // Fetch quiz if has_quiz
-      if (lessonData.has_quiz) {
-        const { data: quizData } = await supabase
-          .from('sp_quizzes')
-          .select('*')
-          .eq('lesson_id', lessonData.id)
-          .single();
-
-        if (quizData) {
-          setQuiz(quizData);
+      const { data, error } = await supabase.functions.invoke('get_staff_sp_content', {
+        body: { 
+          session_token: sessionToken,
+          lesson_slug: lessonSlug
         }
+      });
+
+      if (error) throw error;
+
+      if (!data.lesson) {
+        navigate('/staff/training/standard');
+        return;
       }
 
-      // Check if already completed
-      const { data: progressData } = await supabase
-        .from('sp_progress_staff')
-        .select('quiz_passed')
-        .eq('staff_user_id', user!.id)
-        .eq('lesson_id', lessonData.id)
-        .single();
-
-      if (progressData?.quiz_passed) {
-        setCompleted(true);
-      }
-
-      // Find next lesson
-      const { data: lessonsInModule } = await supabase
-        .from('sp_lessons')
-        .select('slug, name, display_order')
-        .eq('module_id', lessonData.module_id)
-        .eq('is_published', true)
-        .order('display_order', { ascending: true });
-
-      if (lessonsInModule) {
-        const currentIndex = lessonsInModule.findIndex(l => l.slug === lessonSlug);
-        if (currentIndex >= 0 && currentIndex < lessonsInModule.length - 1) {
-          setNextLesson(lessonsInModule[currentIndex + 1]);
-        }
-      }
+      setLesson(data.lesson);
+      setQuiz(data.quiz || null);
+      setCompleted(data.completed || false);
+      setNextLesson(data.nextLesson || null);
     } catch (err) {
       console.error('Error fetching lesson:', err);
       navigate('/staff/training/standard');
