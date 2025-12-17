@@ -200,3 +200,6 @@ verify_jwt = true
 
 [functions.accept_key_employee_invite]
 verify_jwt = true
+
+[functions.create_key_employee_account]
+verify_jwt = true
