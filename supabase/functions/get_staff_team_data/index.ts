@@ -117,7 +117,7 @@ serve(async (req) => {
             column_status,
             column_order,
             team_member_id: teamMemberId,
-            user_id: staffUser.id, // Use staff_user id as user_id to satisfy NOT NULL constraint
+            // user_id left null for staff-created items (they don't have Supabase auth)
           })
           .select()
           .single();

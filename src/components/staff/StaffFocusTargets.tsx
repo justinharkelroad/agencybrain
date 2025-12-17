@@ -24,7 +24,7 @@ const columns: { id: ColumnStatus; title: string }[] = [
   { id: "backlog", title: "Focus List" },
   { id: "week1", title: "Within 1 Week" },
   { id: "week2", title: "Within 2 Weeks" },
-  { id: "next_call", title: "Before Next Booked Call" },
+  { id: "next_call", title: "Within 1 Month" },
   { id: "completed", title: "COMPLETED" },
 ];
 
