@@ -18,6 +18,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [membershipTier, setMembershipTier] = useState('1:1 Coaching');
   const [inviteCode, setInviteCode] = useState('');
   const { signIn, signUp, user } = useAuth();
@@ -84,7 +85,7 @@ export default function Auth() {
       }
 
       // If validation passes, proceed with signup
-      const { error } = await signUp(email, password, agencyName, membershipTier);
+      const { error } = await signUp(email, password, agencyName, fullName, membershipTier);
       
       if (error) {
         toast({
@@ -166,6 +167,17 @@ export default function Auth() {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="full-name">Your Name</Label>
+                  <Input
+                    id="full-name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="agency-name">Agency Name</Label>
                   <Input
