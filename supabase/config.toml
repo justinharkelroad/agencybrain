@@ -194,3 +194,9 @@ verify_jwt = false
 
 [functions.get_staff_team_data]
 verify_jwt = false
+
+[functions.invite_key_employee]
+verify_jwt = true
+
+[functions.accept_key_employee_invite]
+verify_jwt = true

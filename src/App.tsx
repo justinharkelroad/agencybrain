@@ -81,6 +81,7 @@ import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffLayout, StaffDashboard, StaffAccountSettings, StaffSubmitWrapper } from "./components/staff";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AcceptKeyEmployeeInvite from "./pages/AcceptKeyEmployeeInvite";
 // Lazy load Life Targets pages for better performance
 const LifeTargets = lazy(() => import("./pages/LifeTargets"));
 const LifeTargetsBrainstorm = lazy(() => import("./pages/LifeTargetsBrainstorm"));
@@ -154,6 +155,7 @@ const App = () => (
             <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/accept-key-employee-invite" element={<AcceptKeyEmployeeInvite />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>

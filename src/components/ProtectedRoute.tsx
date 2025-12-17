@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOwner = false }: ProtectedRouteProps) {
-  const { user, loading, isAdmin, isAgencyOwner, adminLoading } = useAuth();
+  const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading } = useAuth();
 
   if (loading || (requireAdmin && adminLoading) || (requireAgencyOwner && adminLoading)) {
     return (
@@ -26,8 +26,8 @@ export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOw
     return <Navigate to="/dashboard" />;
   }
 
-  // Agency owner routes: allow if admin OR agency owner
-  if (requireAgencyOwner && !isAdmin && !isAgencyOwner) {
+  // Agency owner routes: allow if admin OR agency owner OR key employee
+  if (requireAgencyOwner && !isAdmin && !isAgencyOwner && !isKeyEmployee) {
     return <Navigate to="/dashboard" />;
   }
 

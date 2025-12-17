@@ -12,7 +12,7 @@ interface UserPermissionsState {
 }
 
 export function useUserPermissions() {
-  const { user, isAdmin, isAgencyOwner } = useAuth();
+  const { user, isAdmin, isAgencyOwner, isKeyEmployee, keyEmployeeAgencyId } = useAuth();
   const [state, setState] = useState<UserPermissionsState>({
     effectiveRole: 'staff',
     agencySettings: null,
@@ -36,6 +36,29 @@ export function useUserPermissions() {
           loading: false,
           teamMemberRole: null,
           agencyId: null,
+        });
+        return;
+      }
+
+      // If key employee, treat as owner with their key employee agency
+      if (isKeyEmployee && keyEmployeeAgencyId) {
+        // Fetch agency settings for key employee's agency
+        const { data: agency } = await supabase
+          .from('agencies')
+          .select('staff_can_upload_calls')
+          .eq('id', keyEmployeeAgencyId)
+          .maybeSingle();
+
+        const agencySettings: AgencySettings = {
+          staff_can_upload_calls: agency?.staff_can_upload_calls ?? true,
+        };
+
+        setState({
+          effectiveRole: 'owner',
+          agencySettings,
+          loading: false,
+          teamMemberRole: null,
+          agencyId: keyEmployeeAgencyId,
         });
         return;
       }
@@ -114,7 +137,7 @@ export function useUserPermissions() {
       console.error('Error fetching permission data:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
-  }, [user?.id, isAdmin, isAgencyOwner]);
+  }, [user?.id, isAdmin, isAgencyOwner, isKeyEmployee, keyEmployeeAgencyId]);
 
   useEffect(() => {
     fetchPermissionData();
