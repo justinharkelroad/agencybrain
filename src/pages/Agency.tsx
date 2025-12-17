@@ -26,10 +26,8 @@ import { UploadsContent } from "@/components/UploadsContent";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
-import { KeyEmployeesManager } from "@/components/KeyEmployeesManager";
-
 // Reuse enums consistent with AdminTeam
-const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
+const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager", "Key Employee"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
 const MEMBER_STATUS = ["active", "inactive"] as const;
 
@@ -44,6 +42,13 @@ interface StaffUser {
   last_login_at: string | null;
   email: string | null;
   team_member_id: string | null;
+}
+
+interface KeyEmployee {
+  id: string;
+  user_id: string;
+  agency_id: string;
+  created_at: string;
 }
 
 const generateRandomPassword = () => {
@@ -85,6 +90,7 @@ export default function Agency() {
   // Team state
   const [members, setMembers] = useState<any[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [keyEmployees, setKeyEmployees] = useState<KeyEmployee[]>([]);
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [memberForm, setMemberForm] = useState({
@@ -123,6 +129,9 @@ export default function Agency() {
   const staffByTeamMemberId = useMemo(() => {
     return new Map(staffUsers.filter(s => s.team_member_id).map(s => [s.team_member_id, s]));
   }, [staffUsers]);
+
+  // Build key employee lookup by email (lowercase for matching)
+  const [keyEmployeeEmails, setKeyEmployeeEmails] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     document.title = "My Agency | AgencyBrain";
@@ -179,6 +188,27 @@ export default function Agency() {
             .select("id, username, is_active, last_login_at, email, team_member_id")
             .eq("agency_id", aId);
           if (!sErr) setStaffUsers(staff || []);
+
+          // Fetch key employees with their profile emails
+          const { data: keyEmp, error: kErr } = await supabase
+            .from("key_employees")
+            .select("id, user_id, agency_id, created_at")
+            .eq("agency_id", aId);
+          if (!kErr) {
+            setKeyEmployees(keyEmp || []);
+            // Fetch emails for key employees
+            if (keyEmp && keyEmp.length > 0) {
+              const { data: profiles } = await supabase
+                .from("profiles")
+                .select("id, email")
+                .in("id", keyEmp.map(k => k.user_id));
+              if (profiles) {
+                setKeyEmployeeEmails(new Set(profiles.filter(p => p.email).map(p => p.email!.toLowerCase())));
+              }
+            } else {
+              setKeyEmployeeEmails(new Set());
+            }
+          }
         }
       } catch (e: any) {
         console.error(e);
@@ -203,6 +233,25 @@ export default function Agency() {
       .select("id, username, is_active, last_login_at, email, team_member_id")
       .eq("agency_id", aId);
     if (!sErr) setStaffUsers(staff || []);
+
+    const { data: keyEmp, error: kErr } = await supabase
+      .from("key_employees")
+      .select("id, user_id, agency_id, created_at")
+      .eq("agency_id", aId);
+    if (!kErr) {
+      setKeyEmployees(keyEmp || []);
+      if (keyEmp && keyEmp.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .in("id", keyEmp.map(k => k.user_id));
+        if (profiles) {
+          setKeyEmployeeEmails(new Set(profiles.filter(p => p.email).map(p => p.email!.toLowerCase())));
+        }
+      } else {
+        setKeyEmployeeEmails(new Set());
+      }
+    }
   };
 
   const upsertAgency = async () => {
@@ -370,6 +419,64 @@ export default function Agency() {
     try {
       if (!selectedMember || !agencyId) return;
       
+      const isKeyEmployee = selectedMember.role === 'Key Employee';
+      
+      // Key Employees require an email address (they use Supabase auth)
+      if (isKeyEmployee) {
+        if (!selectedMember.email) {
+          toast.error("Key Employee requires an email address");
+          return;
+        }
+        if (manualPassword.length < 8) {
+          toast.error("Password must be at least 8 characters");
+          return;
+        }
+
+        setInviteLoading(true);
+
+        const { data, error } = await supabase.functions.invoke("create_key_employee_account", {
+          body: {
+            agency_id: agencyId,
+            email: selectedMember.email,
+            password: manualPassword,
+            display_name: selectedMember.name,
+            team_member_id: selectedMember.id,
+          },
+        });
+
+        if (error) {
+          let errorData: any = {};
+          if (error.context?.json) {
+            try {
+              errorData = await error.context.json();
+            } catch (parseError) {
+              console.error('Could not parse error response:', parseError);
+            }
+          }
+          
+          if (errorData.error === 'email_conflict') {
+            toast.error(errorData.message || "This email is already a key employee.", { duration: 8000 });
+            return;
+          }
+          
+          throw new Error(errorData.message || error.message || 'Failed to create key employee');
+        }
+        
+        if (data?.error) {
+          throw new Error(data.message || data.error);
+        }
+
+        await copyToClipboard(manualPassword);
+        toast.success(`Key Employee account created! Password copied. Login at myagencybrain.com/auth`);
+        setInviteDialogOpen(false);
+        setSelectedMember(null);
+        setManualUsername('');
+        setManualPassword('');
+        await refreshData(agencyId);
+        return;
+      }
+      
+      // Regular staff user flow
       if (!manualUsername.trim()) {
         toast.error("Username is required");
         return;
@@ -434,7 +541,7 @@ export default function Agency() {
     } catch (e: any) {
       console.error('handleCreateWithPassword error:', e);
       
-      let errorMessage = "Failed to create staff login";
+      let errorMessage = "Failed to create login";
       
       try {
         // FunctionsHttpError has response body in e.context
@@ -443,9 +550,9 @@ export default function Agency() {
           console.log('Error data from edge function:', errorData);
           
           if (errorData?.error === 'email_conflict' || errorData?.message?.includes('email')) {
-            errorMessage = errorData.message || "This email is already in use by another staff account.";
+            errorMessage = errorData.message || "This email is already in use.";
           } else if (errorData?.error === 'team_member_already_linked') {
-            errorMessage = errorData.message || "This team member already has a staff login.";
+            errorMessage = errorData.message || "This team member already has a login.";
           } else if (errorData?.message) {
             errorMessage = errorData.message;
           }
@@ -976,6 +1083,8 @@ export default function Agency() {
               <TableBody>
                 {members.map((m) => {
                   const staffUser = staffByTeamMemberId.get(m.id);
+                  const isKeyEmployeeRole = m.role === 'Key Employee';
+                  const hasKeyEmployeeAccess = isKeyEmployeeRole && m.email && keyEmployeeEmails.has(m.email.toLowerCase());
                   return (
                     <TableRow key={m.id} className={m.status === 'inactive' ? 'opacity-60' : ''}>
                       <TableCell>
@@ -992,9 +1101,27 @@ export default function Agency() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {staffUser ? (
+                        {isKeyEmployeeRole ? (
+                          // Key Employee - different login system
+                          hasKeyEmployeeAccess ? (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-blue-500/10 text-blue-500 border-blue-500/20"
+                            >
+                              ✅ Owner Access
+                            </Badge>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => openInviteModal(m)}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              Create Login
+                            </Button>
+                          )
+                        ) : staffUser ? (
                           staffUser.is_active ? (
-                            // Active staff login
                             <div className="flex items-center gap-2">
                               <Badge 
                                 variant="outline" 
@@ -1011,7 +1138,6 @@ export default function Agency() {
                               </Button>
                             </div>
                           ) : (
-                            // Invite pending (inactive staff user)
                             <div className="flex items-center gap-2">
                               <Badge 
                                 variant="outline" 
@@ -1031,7 +1157,6 @@ export default function Agency() {
                             </div>
                           )
                         ) : (
-                          // No staff user - show invite button
                           <Button 
                             variant="outline" 
                             size="sm" 
@@ -1160,9 +1285,6 @@ export default function Agency() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Key Employees Section */}
-        {agencyId && <KeyEmployeesManager agencyId={agencyId} />}
       </TabsContent>
 
       <TabsContent value="reports" className="space-y-6">
@@ -1179,63 +1301,137 @@ export default function Agency() {
     <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
       <DialogContent className="glass-surface max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Staff Login: {selectedMember?.name}</DialogTitle>
+          <DialogTitle>
+            {selectedMember?.role === 'Key Employee' 
+              ? `Add Key Employee Login: ${selectedMember?.name}`
+              : `Add Staff Login: ${selectedMember?.name}`
+            }
+          </DialogTitle>
           <DialogDescription>
-            Choose how to create their staff portal access.
+            {selectedMember?.role === 'Key Employee' 
+              ? 'Create their owner-level dashboard access. They will log in at myagencybrain.com/auth'
+              : 'Choose how to create their staff portal access.'
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          {/* Mode Selection */}
-          <div className="space-y-3">
-            <div 
-              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                inviteMode === 'manual' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border hover:border-primary/50'
-              }`}
-              onClick={() => setInviteMode('manual')}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  inviteMode === 'manual' ? 'border-primary' : 'border-muted-foreground'
-                }`}>
-                  {inviteMode === 'manual' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                </div>
-                <span className="font-medium">Create with Password</span>
-                <Badge variant="secondary" className="ml-auto text-xs">Recommended</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1 ml-6">
-                Set their password now and share it directly
+          {/* Key Employee requires email - show warning if missing */}
+          {selectedMember?.role === 'Key Employee' && !selectedMember?.email && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+              <p className="text-sm text-destructive font-medium">Email Required</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Key Employees require an email address. Please edit this team member to add their email first.
               </p>
             </div>
-            
-            <div 
-              className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                inviteMode === 'email' 
-                  ? 'border-primary bg-primary/5' 
-                  : 'border-border hover:border-primary/50'
-              } ${!selectedMember?.email ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={() => selectedMember?.email && setInviteMode('email')}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  inviteMode === 'email' ? 'border-primary' : 'border-muted-foreground'
-                }`}>
-                  {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                </div>
-                <span className="font-medium">Send Email Invite</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1 ml-6">
-                {selectedMember?.email 
-                  ? `Email invite to ${selectedMember.email}`
-                  : 'Requires email address on team member'
-                }
-              </p>
-            </div>
-          </div>
+          )}
 
-          {/* Manual Password Fields */}
-          {inviteMode === 'manual' && (
+          {/* Mode Selection - only for non-Key Employees */}
+          {selectedMember?.role !== 'Key Employee' && (
+            <div className="space-y-3">
+              <div 
+                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                  inviteMode === 'manual' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onClick={() => setInviteMode('manual')}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    inviteMode === 'manual' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {inviteMode === 'manual' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="font-medium">Create with Password</span>
+                  <Badge variant="secondary" className="ml-auto text-xs">Recommended</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 ml-6">
+                  Set their password now and share it directly
+                </p>
+              </div>
+              
+              <div 
+                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                  inviteMode === 'email' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                } ${!selectedMember?.email ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => selectedMember?.email && setInviteMode('email')}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                    inviteMode === 'email' ? 'border-primary' : 'border-muted-foreground'
+                  }`}>
+                    {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <span className="font-medium">Send Email Invite</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 ml-6">
+                  {selectedMember?.email 
+                    ? `Email invite to ${selectedMember.email}`
+                    : 'Requires email address on team member'
+                  }
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Key Employee Password Fields */}
+          {selectedMember?.role === 'Key Employee' && selectedMember?.email && (
+            <div className="space-y-4 pt-2">
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <p className="text-sm text-muted-foreground">Login Email</p>
+                <p className="font-medium">{selectedMember.email}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-password">Password</Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="manual-password"
+                      type={showManualPassword ? "text" : "password"}
+                      value={manualPassword}
+                      onChange={(e) => setManualPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full"
+                      onClick={() => setShowManualPassword(!showManualPassword)}
+                    >
+                      {showManualPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setManualPassword(generateRandomPassword())}
+                    title="Generate new password"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(manualPassword)}
+                    title="Copy password"
+                  >
+                    <Key className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                They will have full owner-level access to the agency dashboard.
+              </p>
+            </div>
+          )}
+
+          {/* Manual Password Fields - for non-Key Employees */}
+          {inviteMode === 'manual' && selectedMember?.role !== 'Key Employee' && (
             <div className="space-y-4 pt-2 border-t border-border/50">
               <div className="space-y-2">
                 <Label htmlFor="manual-username">Username</Label>
@@ -1305,7 +1501,24 @@ export default function Agency() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-          {inviteMode === 'manual' ? (
+          {selectedMember?.role === 'Key Employee' ? (
+            <Button 
+              onClick={handleCreateWithPassword} 
+              disabled={inviteLoading || !selectedMember?.email}
+            >
+              {inviteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Create Key Employee Login
+                </>
+              )}
+            </Button>
+          ) : inviteMode === 'manual' ? (
             <Button onClick={handleCreateWithPassword} disabled={inviteLoading}>
               {inviteLoading ? (
                 <>
