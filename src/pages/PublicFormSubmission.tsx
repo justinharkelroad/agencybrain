@@ -525,9 +525,17 @@ export default function PublicFormSubmission() {
                         <div className="relative">
                           <input 
                             type="number" 
+                            step="any"
+                            inputMode="decimal"
                             min={0} 
                             value={values[kpi.key] ?? ""} 
-                            onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
+                            onChange={e=>onChange(kpi.key, e.target.value)}
+                            onBlur={e => {
+                              const numVal = parseFloat(e.target.value);
+                              if (!isNaN(numVal)) {
+                                onChange(kpi.key, numVal);
+                              }
+                            }}
                             className={`w-full px-3 py-2 pr-10 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
                               passStatus === true ? 'border-green-500 focus:ring-green-500' : 
                               passStatus === false ? 'border-red-500 focus:ring-red-500' : 'border-input'
@@ -548,10 +556,17 @@ export default function PublicFormSubmission() {
                         <div className="relative">
                           <input 
                             type="number" 
+                            step="any"
+                            inputMode="decimal"
                             min={0} 
-                            step="0.01" 
                             value={values[kpi.key] ?? ""} 
-                            onChange={e=>onChange(kpi.key, parseFloat(e.target.value) || 0)}
+                            onChange={e=>onChange(kpi.key, e.target.value)}
+                            onBlur={e => {
+                              const numVal = parseFloat(e.target.value);
+                              if (!isNaN(numVal)) {
+                                onChange(kpi.key, numVal);
+                              }
+                            }}
                             className={`w-full px-3 py-2 pr-10 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground ${
                               passStatus === true ? 'border-green-500 focus:ring-green-500' : 
                               passStatus === false ? 'border-red-500 focus:ring-red-500' : 'border-input'

@@ -516,11 +516,18 @@ export default function StaffFormSubmission() {
                           <Input
                             id={kpi.key}
                             type={kpi.type === 'number' || kpi.type === 'currency' ? 'number' : 'text'}
+                            step="any"
+                            inputMode="decimal"
                             value={values[kpi.key] ?? ''}
-                            onChange={(e) => handleInputChange(
-                              kpi.key, 
-                              kpi.type === 'number' || kpi.type === 'currency' ? Number(e.target.value) : e.target.value
-                            )}
+                            onChange={(e) => handleInputChange(kpi.key, e.target.value)}
+                            onBlur={(e) => {
+                              if (kpi.type === 'number' || kpi.type === 'currency') {
+                                const numVal = parseFloat(e.target.value);
+                                if (!isNaN(numVal)) {
+                                  handleInputChange(kpi.key, numVal);
+                                }
+                              }
+                            }}
                             required={kpi.required}
                             min={kpi.type === 'number' || kpi.type === 'currency' ? 0 : undefined}
                             className={`pr-10 ${
@@ -570,9 +577,17 @@ export default function StaffFormSubmission() {
                           <Input
                             id={field.key}
                             type="number"
+                            step="any"
+                            inputMode="decimal"
                             min={0}
                             value={values[field.key] ?? ''}
-                            onChange={(e) => handleInputChange(field.key, Number(e.target.value))}
+                            onChange={(e) => handleInputChange(field.key, e.target.value)}
+                            onBlur={(e) => {
+                              const numVal = parseFloat(e.target.value);
+                              if (!isNaN(numVal)) {
+                                handleInputChange(field.key, numVal);
+                              }
+                            }}
                             className={`pr-10 ${
                               passStatus === true ? 'border-green-500 focus-visible:ring-green-500' : 
                               passStatus === false ? 'border-red-500 focus-visible:ring-red-500' : ''
