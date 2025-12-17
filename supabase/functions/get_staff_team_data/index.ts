@@ -37,10 +37,12 @@ serve(async (req) => {
           id,
           username,
           agency_id,
+          role,
           team_member_id,
           team_members (
             id,
-            name,
+            first_name,
+            last_name,
             role
           )
         )
@@ -60,29 +62,47 @@ serve(async (req) => {
     const staffUser = session.staff_users as any;
     const teamMember = staffUser?.team_members;
     const agencyId = staffUser?.agency_id;
-
-    // Check if user is a manager
-    if (teamMember?.role !== 'Manager') {
-      return new Response(
-        JSON.stringify({ error: 'Manager access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const isManager = staffUser?.role === 'Manager';
 
     const { type } = await req.json();
-    console.log('Request type:', type, 'Agency:', agencyId);
+    console.log('Request type:', type, 'Agency:', agencyId, 'isManager:', isManager);
 
     let responseData: any = {};
 
     switch (type) {
+      case 'focus_items': {
+        // Focus items - available to ALL staff users
+        // Get focus items for the agency
+        const { data: focusItems, error } = await supabase
+          .from('focus_items')
+          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order')
+          .eq('agency_id', agencyId)
+          .order('column_order', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching focus items:', error);
+          throw error;
+        }
+
+        responseData = { focus_items: focusItems || [] };
+        break;
+      }
+
       case 'team_members': {
-        // Fetch all team members for the agency
+        // Manager-only: Fetch all team members for the agency
+        if (!isManager) {
+          return new Response(
+            JSON.stringify({ error: 'Manager access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const { data: members, error } = await supabase
           .from('team_members')
-          .select('id, name, email, phone, role, status')
+          .select('id, first_name, last_name, email, phone, role, is_active')
           .eq('agency_id', agencyId)
-          .eq('status', 'active')
-          .order('name');
+          .eq('is_active', true)
+          .order('first_name');
 
         if (error) {
           console.error('Error fetching team members:', error);
@@ -94,7 +114,14 @@ serve(async (req) => {
       }
 
       case 'performance': {
-        // Fetch recent metrics for all team members in the agency (last 7 days)
+        // Manager-only: Fetch recent metrics for all team members in the agency (last 7 days)
+        if (!isManager) {
+          return new Response(
+            JSON.stringify({ error: 'Manager access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -114,57 +141,43 @@ serve(async (req) => {
         const memberIds = [...new Set(metrics?.map(m => m.team_member_id) || [])];
         const { data: members } = await supabase
           .from('team_members')
-          .select('id, name')
+          .select('id, first_name, last_name')
           .in('id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
 
-        const memberMap = new Map(members?.map(m => [m.id, m.name]) || []);
+        const memberMap = new Map(members?.map(m => [m.id, `${m.first_name} ${m.last_name}`]) || []);
 
         const enrichedMetrics = (metrics || []).map(m => ({
           ...m,
           team_member_name: memberMap.get(m.team_member_id) || 'Unknown'
         }));
 
-        responseData = { metrics: enrichedMetrics };
+        responseData = { performance: enrichedMetrics };
         break;
       }
 
       case 'roleplay': {
-        // Fetch roleplay sessions for all team members in the agency
+        // Manager-only: Fetch roleplay sessions for the agency
+        if (!isManager) {
+          return new Response(
+            JSON.stringify({ error: 'Manager access required' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const { data: sessions, error: sessionsError } = await supabase
           .from('roleplay_sessions')
-          .select(`
-            id,
-            staff_name,
-            overall_score,
-            completed_at,
-            pdf_file_path,
-            roleplay_tokens (
-              team_member_id
-            )
-          `)
+          .select('id, staff_name, staff_email, overall_score, completed_at, pdf_file_path')
+          .eq('agency_id', agencyId)
           .not('completed_at', 'is', null)
           .order('completed_at', { ascending: false })
-          .limit(50);
+          .limit(20);
 
         if (sessionsError) {
           console.error('Error fetching roleplay sessions:', sessionsError);
           throw sessionsError;
         }
 
-        // Filter to only sessions from team members in this agency
-        const { data: agencyMembers } = await supabase
-          .from('team_members')
-          .select('id')
-          .eq('agency_id', agencyId);
-
-        const agencyMemberIds = new Set(agencyMembers?.map(m => m.id) || []);
-
-        const filteredSessions = (sessions || []).filter(s => {
-          const token = s.roleplay_tokens as any;
-          return token?.team_member_id && agencyMemberIds.has(token.team_member_id);
-        });
-
-        responseData = { sessions: filteredSessions };
+        responseData = { roleplay_sessions: sessions || [] };
         break;
       }
 
