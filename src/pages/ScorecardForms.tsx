@@ -12,6 +12,7 @@ import MetricsDashboard from "@/pages/MetricsDashboard";
 import Explorer from "@/pages/Explorer";
 import { UnifiedSettingsDialog } from "@/components/dialogs/UnifiedSettingsDialog";
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
+import { DailyAgencyGoalsConfig } from "@/components/settings/DailyAgencyGoalsConfig";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -275,6 +276,9 @@ export default function ScorecardForms() {
           </TabsContent>
 
           <TabsContent value="targets" className="space-y-6">
+            {/* Daily Agency Goals */}
+            {agencyId && <DailyAgencyGoalsConfig agencyId={agencyId} />}
+            
             <Card>
               <CardHeader>
                 <CardTitle>Performance Targets & Scoring</CardTitle>
