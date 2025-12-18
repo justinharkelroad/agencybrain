@@ -808,6 +808,189 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_detail_collections: {
+        Row: {
+          agency_id: string
+          controlling_kpi_key: string | null
+          created_at: string | null
+          description: string | null
+          field_order: number | null
+          form_template_id: string
+          id: string
+          is_enabled: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          controlling_kpi_key?: string | null
+          created_at?: string | null
+          description?: string | null
+          field_order?: number | null
+          form_template_id: string
+          id?: string
+          is_enabled?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          controlling_kpi_key?: string | null
+          created_at?: string | null
+          description?: string | null
+          field_order?: number | null
+          form_template_id?: string
+          id?: string
+          is_enabled?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_detail_collections_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_detail_collections_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_detail_entries: {
+        Row: {
+          agency_id: string
+          collection_id: string
+          created_at: string | null
+          entry_index: number
+          field_values: Json
+          id: string
+          submission_id: string
+          team_member_id: string
+          updated_at: string | null
+          work_date: string
+        }
+        Insert: {
+          agency_id: string
+          collection_id: string
+          created_at?: string | null
+          entry_index: number
+          field_values: Json
+          id?: string
+          submission_id: string
+          team_member_id: string
+          updated_at?: string | null
+          work_date: string
+        }
+        Update: {
+          agency_id?: string
+          collection_id?: string
+          created_at?: string | null
+          entry_index?: number
+          field_values?: Json
+          id?: string
+          submission_id?: string
+          team_member_id?: string
+          updated_at?: string | null
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_detail_entries_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_detail_entries_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "custom_detail_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_detail_entries_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_detail_entries_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_flattening_health"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "custom_detail_entries_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "vw_submission_metrics"
+            referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "custom_detail_entries_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_detail_fields: {
+        Row: {
+          collection_id: string
+          created_at: string | null
+          field_key: string
+          field_order: number | null
+          field_type: string
+          id: string
+          is_required: boolean | null
+          label: string
+          options: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string | null
+          field_key: string
+          field_order?: number | null
+          field_type: string
+          id?: string
+          is_required?: boolean | null
+          label: string
+          options?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string | null
+          field_key?: string
+          field_order?: number | null
+          field_type?: string
+          id?: string
+          is_required?: boolean | null
+          label?: string
+          options?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_detail_fields_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "custom_detail_collections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dictionaries: {
         Row: {
           agency_id: string
