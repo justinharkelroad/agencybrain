@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Home, Check, Clock, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { CallScorecard } from '@/components/CallScorecard';
+import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 
 interface CallScoringSubmissionsProps {
   agencyId: string;
@@ -24,6 +26,7 @@ export interface CallScoringData {
   potential_rank: string | null;
   created_at: string;
   call_duration_seconds: number | null;
+  call_type?: string;
 }
 
 export function CallScoringSubmissionsSection({
@@ -34,9 +37,11 @@ export function CallScoringSubmissionsSection({
   endDate,
   onDataChange,
 }: CallScoringSubmissionsProps) {
-  const navigate = useNavigate();
   const [submissions, setSubmissions] = useState<CallScoringData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [loadingCallDetails, setLoadingCallDetails] = useState(false);
 
   useEffect(() => {
     const fetchSubmissions = async () => {
@@ -53,7 +58,7 @@ export function CallScoringSubmissionsSection({
 
         const { data, error } = await supabase
           .from('agency_calls')
-          .select('id, original_filename, status, overall_score, potential_rank, created_at, call_duration_seconds')
+          .select('id, original_filename, status, overall_score, potential_rank, created_at, call_duration_seconds, call_type')
           .eq('team_member_id', teamMemberId)
           .eq('agency_id', agencyId)
           .gte('created_at', startStr)
@@ -78,9 +83,35 @@ export function CallScoringSubmissionsSection({
     fetchSubmissions();
   }, [agencyId, teamMemberId, startDate, endDate, onDataChange]);
 
-  const handleViewCallScore = (submissionId: string) => {
-    // Navigate to Call Scoring page with the submission ID as a query param
-    navigate(`/call-scoring?id=${submissionId}`);
+  const handleViewCallScore = async (submissionId: string) => {
+    setLoadingCallDetails(true);
+    try {
+      // Fetch full call details for the scorecard
+      const { data, error } = await supabase
+        .from('agency_calls')
+        .select('*')
+        .eq('id', submissionId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching call details:', error);
+        toast.error('Failed to load call details');
+        return;
+      }
+
+      setSelectedCall(data);
+      setScorecardOpen(true);
+    } catch (err) {
+      console.error('Error fetching call details:', err);
+      toast.error('Failed to load call details');
+    } finally {
+      setLoadingCallDetails(false);
+    }
+  };
+
+  const handleCloseScorecard = () => {
+    setScorecardOpen(false);
+    setSelectedCall(null);
   };
 
   const formatDuration = (seconds: number | null): string => {
@@ -144,7 +175,10 @@ export function CallScoringSubmissionsSection({
             return (
               <Card
                 key={submission.id}
-                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                className={cn(
+                  "p-4 cursor-pointer hover:bg-muted/50 transition-colors",
+                  loadingCallDetails && "opacity-50 pointer-events-none"
+                )}
                 onClick={() => handleViewCallScore(submission.id)}
               >
                 <div className="flex items-center justify-between gap-4">
@@ -216,6 +250,23 @@ export function CallScoringSubmissionsSection({
             );
           })}
         </div>
+      )}
+
+      {/* Call Scorecard Modal */}
+      {selectedCall?.call_type === 'service' ? (
+        <ServiceCallReportCard
+          call={selectedCall}
+          open={scorecardOpen}
+          onClose={handleCloseScorecard}
+          isReadOnly={true}
+        />
+      ) : (
+        <CallScorecard
+          call={selectedCall}
+          open={scorecardOpen}
+          onClose={handleCloseScorecard}
+          isStaffUser={false}
+        />
       )}
     </div>
   );
