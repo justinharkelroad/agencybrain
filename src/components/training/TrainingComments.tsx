@@ -70,12 +70,34 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
 
     setSubmitting(true);
     try {
-      // Get name from multiple sources - simplest approach
-      const userName = 
-        user.user_metadata?.full_name ||  // From auth metadata
-        user.user_metadata?.name ||       // Alternative metadata field
-        user.email?.split('@')[0] ||      // Use email prefix as fallback
-        'Anonymous';
+      let userName = 'Anonymous';
+      
+      // 1. Try user's own profile (RLS allows reading own profile)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, agency_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.full_name) {
+        userName = profile.full_name;
+      } else if (profile?.agency_id) {
+        // 2. Try agency name as fallback
+        const { data: agency } = await supabase
+          .from('agencies')
+          .select('name')
+          .eq('id', profile.agency_id)
+          .single();
+        
+        if (agency?.name) {
+          userName = agency.name;
+        }
+      }
+      
+      // 3. Final fallback to email prefix
+      if (userName === 'Anonymous') {
+        userName = user.email?.split('@')[0] || 'Anonymous';
+      }
 
       const { error } = await supabase
         .from('training_comments')
@@ -104,11 +126,34 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
 
     setSubmitting(true);
     try {
-      const userName = 
-        user.user_metadata?.full_name ||
-        user.user_metadata?.name ||
-        user.email?.split('@')[0] ||
-        'Anonymous';
+      let userName = 'Anonymous';
+      
+      // 1. Try user's own profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, agency_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.full_name) {
+        userName = profile.full_name;
+      } else if (profile?.agency_id) {
+        // 2. Try agency name as fallback
+        const { data: agency } = await supabase
+          .from('agencies')
+          .select('name')
+          .eq('id', profile.agency_id)
+          .single();
+        
+        if (agency?.name) {
+          userName = agency.name;
+        }
+      }
+      
+      // 3. Final fallback to email prefix
+      if (userName === 'Anonymous') {
+        userName = user.email?.split('@')[0] || 'Anonymous';
+      }
 
       const { error } = await supabase
         .from('training_comments')
