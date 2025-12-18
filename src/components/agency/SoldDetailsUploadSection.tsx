@@ -185,17 +185,13 @@ export function SoldDetailsUploadSection({
     <Card className="p-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="font-bold uppercase tracking-wide text-foreground">Sold Details</span>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processing}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              {processing ? 'Processing...' : 'UPLOAD'}
-            </Button>
+          <span className="font-bold uppercase tracking-wide text-foreground">Sold Details</span>
+          <div className="flex items-center gap-2">
+            {soldData && (
+              <Button variant="ghost" size="sm" onClick={handleClear}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
             <input
               type="file"
               ref={fileInputRef}
@@ -203,12 +199,16 @@ export function SoldDetailsUploadSection({
               onChange={(e) => handleUpload(e.target.files?.[0])}
               className="hidden"
             />
-          </div>
-          {soldData && (
-            <Button variant="ghost" size="sm" onClick={handleClear}>
-              <X className="h-4 w-4" />
+            <Button 
+              size="sm"
+              className="bg-red-700 hover:bg-red-800 text-white"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={processing}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {processing ? 'Processing...' : 'UPLOAD'}
             </Button>
-          )}
+          </div>
         </div>
 
         {soldData && (

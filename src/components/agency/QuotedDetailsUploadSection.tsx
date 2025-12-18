@@ -308,11 +308,16 @@ export function QuotedDetailsUploadSection({
     <Card className="p-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="font-bold uppercase tracking-wide text-foreground">Quoted Details</span>
+          <span className="font-bold uppercase tracking-wide text-foreground">Quoted Details</span>
+          <div className="flex items-center gap-2">
+            {quotedData && (
+              <Button variant="ghost" size="sm" onClick={handleClear}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
             <Button 
-              variant="destructive" 
-              size="sm" 
+              size="sm"
+              className="bg-red-700 hover:bg-red-800 text-white"
               onClick={() => fileInputRef.current?.click()}
               disabled={processing}
             >
@@ -327,11 +332,6 @@ export function QuotedDetailsUploadSection({
               className="hidden"
             />
           </div>
-          {quotedData && (
-            <Button variant="ghost" size="sm" onClick={handleClear}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
         </div>
 
         {quotedData && (
