@@ -112,29 +112,24 @@ export default function UnifiedTrainingHub() {
           setAgencyInfo(agency);
         }
 
-        // Count assigned training modules - use separate queries
-        const { data: assignments } = await supabase
-          .from('training_assignments')
-          .select('id, module_id')
-          .eq('user_id', user!.id);
+        // For agency owners, get ALL modules for their agency (they own the training, not assigned)
+        const { data: modules } = await supabase
+          .from('training_modules')
+          .select('id, training_lessons(id)')
+          .eq('agency_id', profile.agency_id)
+          .eq('is_active', true);
 
-        const moduleIds = assignments?.map(a => a.module_id).filter(Boolean) || [];
+        const moduleIds = modules?.map(m => m.id).filter(Boolean) || [];
         
         let agencyTotalLessons = 0;
         let agencyCompletedLessons = 0;
 
         if (moduleIds.length > 0) {
-          // Fetch modules with their lessons
-          const { data: modules } = await supabase
-            .from('training_modules')
-            .select('id, training_lessons(id)')
-            .in('id', moduleIds);
-
-          // Fetch lesson progress
+          // Fetch lesson progress for this user
           const { data: lessonProgress } = await supabase
             .from('training_lesson_progress')
             .select('lesson_id')
-            .eq('user_id', user!.id)
+            .eq('staff_user_id', user!.id)
             .eq('completed', true);
 
           const completedAgencyLessons = new Set(lessonProgress?.map(p => p.lesson_id) || []);
@@ -266,7 +261,7 @@ export default function UnifiedTrainingHub() {
               {/* Stats */}
               <div className="space-y-3 mb-4">
                 <div className="text-sm text-muted-foreground">
-                  {agencyStats?.moduleCount || 0} modules assigned
+                  {agencyStats?.moduleCount || 0} modules
                 </div>
                 <div className="flex items-center gap-3">
                   <Progress value={agencyProgressPercent} className="flex-1 h-2" />
