@@ -302,12 +302,30 @@ export default function ScorecardFormBuilder() {
 
     setLoading(true);
     try {
-      const slug = formSchema.title.toLowerCase().replace(/\s+/g, '-');
+      let baseSlug = formSchema.title.toLowerCase().replace(/\s+/g, '-');
+      let slug = baseSlug;
       
-      // Create form template (upsert to handle duplicate slug)
-      const { data: template, error: templateError } = await supa
+      // Check if slug already exists for this agency
+      const { data: existingForms } = await supabase
         .from('form_templates')
-        .upsert({
+        .select('slug')
+        .eq('agency_id', agencyId)
+        .like('slug', `${baseSlug}%`);
+      
+      if (existingForms && existingForms.length > 0) {
+        // Find a unique slug by appending a number
+        const existingSlugs = new Set(existingForms.map(f => f.slug));
+        let counter = 2;
+        while (existingSlugs.has(slug)) {
+          slug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+      
+      // Insert new form template
+      const { data: template, error: templateError } = await supabase
+        .from('form_templates')
+        .insert({
           agency_id: agencyId,
           name: formSchema.title,
           slug: slug,
@@ -316,35 +334,34 @@ export default function ScorecardFormBuilder() {
           settings_json: formSchema.settings as any,
           field_mappings: formSchema.fieldMappings as any,
           is_active: true,
-        }, { onConflict: 'agency_id,slug' })
+        })
         .select()
         .single();
 
       if (templateError) throw templateError;
 
-      // Upsert form link (handles existing links gracefully)
+      // Create form link
       const token = crypto.randomUUID();
-      const { error: linkError } = await supa
+      const { error: linkError } = await supabase
         .from('form_links')
-        .upsert({
+        .insert({
           form_template_id: template.id,
           agency_id: agencyId,
           token: token,
           enabled: true,
-        }, { onConflict: 'form_template_id' });
+        });
 
-      if (linkError && !linkError.message?.includes('duplicate')) {
+      if (linkError) {
         console.error('Form link error:', linkError);
       }
 
       // Bind KPI fields to their versions
-      const { error: bindError } = await supa.rpc('bind_form_kpis', {
+      const { error: bindError } = await supabase.rpc('bind_form_kpis', {
         p_form: template.id
       });
 
       if (bindError) {
         console.error('Error binding KPIs:', bindError);
-        // Don't fail the form creation, just warn
         toast.error("Form created but KPI bindings failed: " + bindError.message);
       }
 
