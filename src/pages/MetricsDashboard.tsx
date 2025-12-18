@@ -282,7 +282,7 @@ export default function MetricsDashboard() {
 
         {/* Agency Daily Goals */}
         {agencyId && (
-          <AgencyDailyGoals agencyId={agencyId} showDate />
+          <AgencyDailyGoals agencyId={agencyId} date={format(selectedDate, "yyyy-MM-dd")} showDate />
         )}
 
         {/* Team Member Performance Rings */}
