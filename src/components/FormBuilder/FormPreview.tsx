@@ -57,6 +57,21 @@ interface FormSchema {
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;
+    customCollections?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      controllingKpiKey: string;
+      enabled: boolean;
+      fields: Array<{
+        id: string;
+        label: string;
+        fieldKey: string;
+        type: string;
+        required: boolean;
+        options?: string[];
+      }>;
+    }>;
   };
   settings: {
     dueBy: string;
@@ -275,6 +290,24 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
                 </div>
               </div>
             )}
+
+            {/* Custom Collections Preview */}
+            {formSchema.repeaterSections?.customCollections?.filter(c => c.enabled).map(collection => (
+              <div key={collection.id} className="border-t pt-4">
+                <h4 className="font-medium mb-3">{collection.name}</h4>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  {collection.description && <p className="mb-2">{collection.description}</p>}
+                  {collection.fields.map(field => (
+                    <p key={field.id}>
+                      • {field.label} {field.required && <span className="text-destructive">*</span>}
+                    </p>
+                  ))}
+                  {collection.fields.length === 0 && (
+                    <p className="italic">No fields configured</p>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </CardContent>
