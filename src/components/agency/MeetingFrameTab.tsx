@@ -261,8 +261,9 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const handleViewHistoricalFrame = (frame: MeetingFrame) => {
     setViewMode('new');
     setSelectedMember(frame.team_member_id);
-    setStartDate(new Date(frame.start_date));
-    setEndDate(new Date(frame.end_date));
+    // Parse dates with time component to ensure local timezone interpretation
+    setStartDate(new Date(frame.start_date + 'T00:00:00'));
+    setEndDate(new Date(frame.end_date + 'T00:00:00'));
     setKpiTotals((frame.kpi_totals as unknown as KPITotal[]) || []);
     setCallLogData((frame.call_log_data as unknown as CallLogData) || null);
     setQuotedData((frame.quoted_data as unknown as QuotedData) || null);
@@ -438,7 +439,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
                       <div>
                         <p className="font-medium text-foreground">{frame.team_members?.name || 'Unknown'}</p>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(frame.start_date), 'MMM d')} - {format(new Date(frame.end_date), 'MMM d, yyyy')}
+                          {format(new Date(frame.start_date + 'T00:00:00'), 'MMM d')} - {format(new Date(frame.end_date + 'T00:00:00'), 'MMM d, yyyy')}
                         </p>
                       </div>
                     </div>
