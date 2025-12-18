@@ -27,6 +27,8 @@ export type Database = {
           cc_owner_on_reminders: boolean | null
           contest_board_enabled: boolean
           created_at: string
+          daily_quoted_households_target: number | null
+          daily_sold_items_target: number | null
           description: string | null
           email_from: string | null
           id: string
@@ -53,6 +55,8 @@ export type Database = {
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
           created_at?: string
+          daily_quoted_households_target?: number | null
+          daily_sold_items_target?: number | null
           description?: string | null
           email_from?: string | null
           id?: string
@@ -79,6 +83,8 @@ export type Database = {
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
           created_at?: string
+          daily_quoted_households_target?: number | null
+          daily_sold_items_target?: number | null
           description?: string | null
           email_from?: string | null
           id?: string

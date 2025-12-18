@@ -206,3 +206,6 @@ verify_jwt = true
 
 [functions.get-key-employees]
 verify_jwt = true
+
+[functions.get-daily-agency-progress]
+verify_jwt = true

@@ -88,6 +88,8 @@ export default function Agency() {
   const [agencyLogo, setAgencyLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [staffCanUploadCalls, setStaffCanUploadCalls] = useState(true);
+  const [dailyQuotedTarget, setDailyQuotedTarget] = useState(15);
+  const [dailySoldTarget, setDailySoldTarget] = useState(8);
 
   // Team state
   const [members, setMembers] = useState<any[]>([]);
@@ -171,7 +173,7 @@ export default function Agency() {
         if (aId) {
           const { data: agency, error: aErr } = await supabase
             .from("agencies")
-            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls")
+            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls,daily_quoted_households_target,daily_sold_items_target")
             .eq("id", aId)
             .maybeSingle();
           if (aErr) throw aErr;
@@ -180,6 +182,8 @@ export default function Agency() {
           setAgencyPhone(agency?.phone || "");
           setAgencyLogo(agency?.logo_url || null);
           setStaffCanUploadCalls(agency?.staff_can_upload_calls ?? true);
+          setDailyQuotedTarget(agency?.daily_quoted_households_target ?? 15);
+          setDailySoldTarget(agency?.daily_sold_items_target ?? 8);
 
           const { data: team, error: tErr } = await supabase
             .from("team_members")
@@ -1325,6 +1329,74 @@ export default function Agency() {
               <p className="text-xs text-muted-foreground mt-2">
                 Note: Managers and agency owners can always upload calls regardless of this setting.
               </p>
+            </div>
+            
+            {/* Daily Agency Goals Section */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-2">Daily Agency Goals</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Set daily targets for your team. Progress displays on the metrics dashboard and staff portal.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="quoted-target">Quoted Households Target</Label>
+                  <Input
+                    id="quoted-target"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={dailyQuotedTarget}
+                    onChange={async (e) => {
+                      const val = parseInt(e.target.value) || 15;
+                      setDailyQuotedTarget(val);
+                      if (agencyId) {
+                        const { error } = await supabase
+                          .from("agencies")
+                          .update({ daily_quoted_households_target: val })
+                          .eq("id", agencyId);
+                        if (error) {
+                          console.error("Failed to update target:", error);
+                          toast.error("Failed to save target");
+                        } else {
+                          toast.success("Target updated");
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    How many households should be quoted per day
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sold-target">Sold Items Target</Label>
+                  <Input
+                    id="sold-target"
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={dailySoldTarget}
+                    onChange={async (e) => {
+                      const val = parseInt(e.target.value) || 8;
+                      setDailySoldTarget(val);
+                      if (agencyId) {
+                        const { error } = await supabase
+                          .from("agencies")
+                          .update({ daily_sold_items_target: val })
+                          .eq("id", agencyId);
+                        if (error) {
+                          console.error("Failed to update target:", error);
+                          toast.error("Failed to save target");
+                        } else {
+                          toast.success("Target updated");
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    How many items should be sold per day
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
