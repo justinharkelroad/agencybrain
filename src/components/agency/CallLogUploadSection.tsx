@@ -184,12 +184,12 @@ export function CallLogUploadSection({
       <div className="flex flex-col gap-4">
         {/* Header row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Call Log</h3>
-            {fileName && (
-              <span className="text-sm text-muted-foreground">({fileName})</span>
-            )}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">Call Log</h3>
+            </div>
+            <span className="text-sm text-muted-foreground">Upload call history via your VOIP provider</span>
           </div>
           
           <div className="flex items-center gap-2">
