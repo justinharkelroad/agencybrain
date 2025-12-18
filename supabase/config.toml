@@ -209,3 +209,6 @@ verify_jwt = true
 
 [functions.get-daily-agency-progress]
 verify_jwt = true
+
+[functions.staff-training-comments]
+verify_jwt = false
