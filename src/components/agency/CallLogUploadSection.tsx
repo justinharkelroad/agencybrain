@@ -206,8 +206,8 @@ export function CallLogUploadSection({
               className="hidden"
             />
             <Button 
-              variant="outline" 
               size="sm"
+              className="bg-red-700 hover:bg-red-800 text-white"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-4 w-4 mr-2" />
