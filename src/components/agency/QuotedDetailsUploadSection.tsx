@@ -34,7 +34,7 @@ const formatPremium = (cents: number): string => {
 };
 
 const cleanName = (rawName: string): string => {
-  // Strip number prefixes like "775-" or "108-"
+  // Strip number prefixes like "775-" or "108-" or "011-"
   return rawName.replace(/^\d+-/, '').trim().toLowerCase();
 };
 
@@ -49,25 +49,35 @@ const fuzzyMatchName = (fileName: string, targetName: string): boolean => {
     return true;
   }
   
-  // Split into parts and check overlap
+  // Split into parts and check if all target parts appear in file name
   const fileParts = cleanFileName.split(/[\s-]+/).filter(p => p.length > 1);
   const targetParts = cleanTarget.split(/[\s-]+/).filter(p => p.length > 1);
   
-  // Check if first and last name match
-  const matchingParts = fileParts.filter(fp => 
+  // Check if all parts of target name appear in file name
+  const allTargetPartsMatch = targetParts.every(tp => 
+    fileParts.some(fp => fp.includes(tp) || tp.includes(fp))
+  );
+  
+  // Check if all parts of file name appear in target name
+  const allFilePartsMatch = fileParts.every(fp => 
     targetParts.some(tp => fp.includes(tp) || tp.includes(fp))
   );
   
-  return matchingParts.length >= 2;
+  return allTargetPartsMatch || allFilePartsMatch;
 };
 
-const parseDate = (value: any): Date | null => {
+const parseExcelDate = (value: any): Date | null => {
   if (!value) return null;
   
   // Handle Excel serial date numbers
   if (typeof value === 'number') {
     const excelEpoch = new Date(1899, 11, 30);
     return new Date(excelEpoch.getTime() + value * 86400000);
+  }
+  
+  // If it's already a Date
+  if (value instanceof Date) {
+    return value;
   }
   
   const str = String(value).trim();
@@ -93,16 +103,6 @@ const parseDate = (value: any): Date | null => {
   return isNaN(parsed) ? null : new Date(parsed);
 };
 
-const findHeaderRow = (rows: any[][], searchTerms: string[]): number => {
-  for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const rowStr = rows[i]?.map(c => String(c || '')).join(' ').toLowerCase() || '';
-    if (searchTerms.some(term => rowStr.includes(term.toLowerCase()))) {
-      return i;
-    }
-  }
-  return -1;
-};
-
 const findColumnIndex = (headers: string[], searchTerms: string[]): number => {
   return headers.findIndex(h => 
     searchTerms.some(term => h.includes(term.toLowerCase()))
@@ -119,11 +119,65 @@ export function QuotedDetailsUploadSection({
   const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseFile = async (file: File): Promise<any[][]> => {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+  const findTargetSheet = (workbook: XLSX.WorkBook): string => {
+    console.log('Sheet names:', workbook.SheetNames);
+    
+    // Look for sheet with "Detail" or "Conversion" in the name
+    for (const sheetName of workbook.SheetNames) {
+      const lowerName = sheetName.toLowerCase();
+      if (lowerName.includes('detail') || lowerName.includes('conversion')) {
+        console.log('Found target sheet by name:', sheetName);
+        return sheetName;
+      }
+    }
+    
+    // If no "detail" sheet found, find the sheet with the most rows
+    if (workbook.SheetNames.length > 1) {
+      let maxRows = 0;
+      let targetSheet = workbook.SheetNames[0];
+      
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+        if (data.length > maxRows) {
+          maxRows = data.length;
+          targetSheet = sheetName;
+        }
+      }
+      console.log('Using sheet with most rows:', targetSheet, 'rows:', maxRows);
+      return targetSheet;
+    }
+    
+    return workbook.SheetNames[0];
+  };
+
+  const findHeaderRow = (rows: any[][]): { index: number; headers: string[] } => {
+    // Look for row containing "Sub Producer" or similar columns
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const row = rows[i];
+      if (!row) continue;
+      
+      const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
+      if (rowStr.includes('sub producer') || 
+          rowStr.includes('production date') || 
+          rowStr.includes('quoted premium') ||
+          rowStr.includes('written by')) {
+        const headers = row.map((cell: any) => String(cell || '').toLowerCase().trim());
+        console.log('Found header row at index:', i, 'headers:', headers);
+        return { index: i, headers };
+      }
+    }
+    
+    // If no header row found, assume first non-empty row is headers
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      if (rows[i] && rows[i].length > 3) {
+        const headers = rows[i].map((cell: any) => String(cell || '').toLowerCase().trim());
+        console.log('Using first non-empty row as headers at index:', i);
+        return { index: i, headers };
+      }
+    }
+    
+    return { index: -1, headers: [] };
   };
 
   const handleUpload = async (file: File | undefined) => {
@@ -131,28 +185,37 @@ export function QuotedDetailsUploadSection({
 
     setProcessing(true);
     try {
-      const rows = await parseFile(file);
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      
+      // Find the correct sheet
+      const targetSheetName = findTargetSheet(workbook);
+      console.log('Using sheet:', targetSheetName);
+      
+      const sheet = workbook.Sheets[targetSheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
 
-      // Find header row - look for "Production Date", "Quote Date", or "Written By"
-      const headerIndex = findHeaderRow(rows, ['production date', 'quote date', 'written by', 'sub producer']);
-      if (headerIndex === -1) {
-        toast.error('Could not find header row in file. Looking for columns like "Production Date" or "Sub Producer".');
+      // Find header row
+      const { index: headerIndex, headers } = findHeaderRow(rows);
+      
+      if (headerIndex === -1 || headers.length === 0) {
+        toast.error('Could not find header row in file. Looking for columns like "Sub Producer" or "Production Date".');
         setProcessing(false);
         return;
       }
 
-      const headers = rows[headerIndex].map((h: any) => String(h || '').toLowerCase().trim());
       const dataRows = rows.slice(headerIndex + 1);
 
       // Find column indices
-      const subProducerIdx = findColumnIndex(headers, ['sub producer', 'written by', 'producer']);
-      const dateIdx = findColumnIndex(headers, ['production date', 'quote date', 'date']);
-      const premiumIdx = findColumnIndex(headers, ['premium', 'quoted premium']);
-      const itemIdx = findColumnIndex(headers, ['item count', 'items', 'count']);
-      const productIdx = findColumnIndex(headers, ['product', 'line of business', 'lob']);
+      const subProducerIdx = findColumnIndex(headers, ['sub producer', 'subproducer', 'written by', 'producer']);
+      const dateIdx = findColumnIndex(headers, ['production date', 'quote date']);
+      const premiumIdx = findColumnIndex(headers, ['quoted premium', 'premium']);
+      const itemIdx = findColumnIndex(headers, ['item count', 'quoted item', 'items', 'count']);
+
+      console.log('Column indices - SubProducer:', subProducerIdx, 'Date:', dateIdx, 'Premium:', premiumIdx, 'Items:', itemIdx);
 
       if (subProducerIdx === -1) {
-        toast.error('Could not find Sub Producer/Written By column');
+        toast.error('Could not find Sub Producer/Written By column in file');
         setProcessing(false);
         return;
       }
@@ -170,7 +233,7 @@ export function QuotedDetailsUploadSection({
         if (!row || row.length === 0) return;
         
         const rawName = String(row[subProducerIdx] || '');
-        if (rawName) {
+        if (rawName && rawName.trim()) {
           uniqueNames.add(rawName);
         }
 
@@ -178,22 +241,36 @@ export function QuotedDetailsUploadSection({
         if (fuzzyMatchName(rawName, teamMemberName)) {
           matchedName = rawName;
           
-          // Check date range
-          const rowDate = dateIdx >= 0 ? parseDate(row[dateIdx]) : null;
-          const inDateRange = !rowDate || (rowDate >= startDate && rowDate <= endDate);
-          
-          if (inDateRange) {
-            policies += 1;
-            items += Number(row[itemIdx]) || 1;
-            const premium = parseFloat(String(row[premiumIdx] || '0').replace(/[$,]/g, ''));
-            premiumCents += Math.round((isNaN(premium) ? 0 : premium) * 100);
+          // Check date range if date column exists
+          if (dateIdx >= 0) {
+            const rowDate = parseExcelDate(row[dateIdx]);
+            if (rowDate) {
+              // Set dates to start/end of day for comparison
+              const rowDateStart = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate());
+              const startDateStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+              const endDateEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+              
+              if (rowDateStart < startDateStart || rowDateStart > endDateEnd) {
+                return; // Skip if outside date range
+              }
+            }
           }
+          
+          policies += 1;
+          items += Number(row[itemIdx]) || 1;
+          const premium = parseFloat(String(row[premiumIdx] || '0').replace(/[$,]/g, ''));
+          premiumCents += Math.round((isNaN(premium) ? 0 : premium) * 100);
         }
       });
 
+      console.log('Matched records:', policies);
+      console.log('Unique names found:', Array.from(uniqueNames));
+
       if (policies === 0) {
-        const namesList = Array.from(uniqueNames).slice(0, 10).join(', ');
-        toast.error(`No records found for "${teamMemberName}". Found names: ${namesList}${uniqueNames.size > 10 ? '...' : ''}`);
+        const namesList = Array.from(uniqueNames).slice(0, 15).join('\n• ');
+        toast.error(`No records found for "${teamMemberName}". Found names:\n• ${namesList}${uniqueNames.size > 15 ? '\n...' : ''}`, {
+          duration: 8000,
+        });
         setProcessing(false);
         return;
       }
@@ -205,12 +282,12 @@ export function QuotedDetailsUploadSection({
         file_name: file.name,
         matched_name: matchedName,
         rows_matched: policies,
-        date_range_applied: true,
+        date_range_applied: dateIdx >= 0,
       };
 
       setQuotedData(data);
       onDataChange(data);
-      toast.success(`Parsed ${policies} quoted records for ${matchedName}`);
+      toast.success(`Parsed ${policies} quoted records for ${cleanName(matchedName) || teamMemberName}`);
     } catch (err) {
       console.error('Error parsing quoted details file:', err);
       toast.error('Failed to parse file');
