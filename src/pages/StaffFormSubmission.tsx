@@ -170,6 +170,8 @@ export default function StaffFormSubmission() {
     const schema = formTemplate?.schema_json;
     if (schema?.repeaterSections) {
       Object.entries(schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
+        // Skip customCollections array - handled separately below
+        if (sectionKey === 'customCollections') return;
         if (section.enabled && section.triggerKPI === key) {
           const cap = schema?.settings?.spawnCap ?? 25;
           const rows = Math.max(0, Math.min(Number(value) || 0, cap));
@@ -177,6 +179,20 @@ export default function StaffFormSubmission() {
             ...v, 
             [key]: value,
             [sectionKey]: Array.from({length: rows}).map((_,i) => v[sectionKey]?.[i] || {}) 
+          }));
+        }
+      });
+      
+      // Handle custom collections - they use controllingKpiKey, not triggerKPI
+      const customCollections = schema.repeaterSections?.customCollections || [];
+      customCollections.forEach((collection: any) => {
+        if (collection.enabled && collection.controllingKpiKey === key) {
+          const cap = schema?.settings?.spawnCap ?? 25;
+          const rows = Math.max(0, Math.min(Number(value) || 0, cap));
+          setValues(v => ({ 
+            ...v, 
+            [key]: value,
+            [collection.id]: Array.from({length: rows}).map((_,i) => v[collection.id]?.[i] || {}) 
           }));
         }
       });
@@ -799,6 +815,111 @@ export default function StaffFormSubmission() {
                                     <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                   )}
                                 </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Custom Collections (Dynamic Repeater Sections) */}
+              {formTemplate?.schema_json?.repeaterSections?.customCollections?.map((collection: any) => {
+                if (!collection.enabled) return null;
+                
+                const triggerValue = values[collection.controllingKpiKey];
+                const rows: any[] = values[collection.id] || [];
+                
+                if (!triggerValue || triggerValue <= 0 || rows.length === 0) return null;
+                
+                return (
+                  <div key={collection.id} className="space-y-4">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">{collection.name}</h3>
+                    <div className="bg-muted/30 border border-border rounded-lg p-4">
+                      {rows.map((row, i) => (
+                        <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end p-3 bg-background rounded-md mb-3 last:mb-0">
+                          <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
+                            {collection.name} #{i + 1}
+                          </div>
+                          {collection.fields?.map((field: any) => (
+                            <div key={field.key} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
+                              <label className="text-xs font-medium text-muted-foreground">
+                                {field.label}{field.required && <span className="text-destructive"> *</span>}
+                              </label>
+                              {field.type === "select" || field.type === "dropdown" ? (
+                                <select
+                                  required={field.required}
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      const currentArray = [...(prev[collection.id] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [collection.id]: currentArray };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                                >
+                                  <option value="">Select</option>
+                                  {(field.options || []).map((o: string) => (
+                                    <option key={o} value={o}>{o}</option>
+                                  ))}
+                                </select>
+                              ) : field.type === "longtext" || field.type === "textarea" ? (
+                                <textarea
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      const currentArray = [...(prev[collection.id] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [collection.id]: currentArray };
+                                    });
+                                  }}
+                                  rows={3}
+                                  className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground resize-vertical"
+                                />
+                              ) : field.type === "checkbox" ? (
+                                <label className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={row[field.key] === "yes" || row[field.key] === true}
+                                    onChange={e => {
+                                      const v = e.target.checked ? "yes" : "no";
+                                      setValues(prev => {
+                                        const currentArray = [...(prev[collection.id] || [])];
+                                        const currentItem = { ...(currentArray[i] || {}) };
+                                        currentItem[field.key] = v;
+                                        currentArray[i] = currentItem;
+                                        return { ...prev, [collection.id]: currentArray };
+                                      });
+                                    }}
+                                    className="rounded border-input text-primary focus:ring-primary"
+                                  />
+                                  <span className="text-sm text-foreground">Yes</span>
+                                </label>
+                              ) : (
+                                <input
+                                  type={field.type === "number" ? "number" : "text"}
+                                  value={row[field.key] || ""}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    setValues(prev => {
+                                      const currentArray = [...(prev[collection.id] || [])];
+                                      const currentItem = { ...(currentArray[i] || {}) };
+                                      currentItem[field.key] = v;
+                                      currentArray[i] = currentItem;
+                                      return { ...prev, [collection.id]: currentArray };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+                                />
                               )}
                             </div>
                           ))}
