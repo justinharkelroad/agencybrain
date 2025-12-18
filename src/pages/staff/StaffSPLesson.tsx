@@ -18,6 +18,7 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { StaffTrainingComments } from '@/components/training/StaffTrainingComments';
 
 interface QuizQuestion {
   id: string;
@@ -427,6 +428,9 @@ export default function StaffSPLesson() {
           </CardContent>
         </Card>
       )}
+
+      {/* Community Discussion */}
+      {lesson?.id && <StaffTrainingComments lessonId={lesson.id} />}
     </div>
   );
 }

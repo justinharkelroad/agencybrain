@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { TrainingComments } from '@/components/training/TrainingComments';
 
 interface QuizQuestion {
   id: string;
@@ -514,6 +515,9 @@ export default function TrainingLesson() {
           </CardContent>
         </Card>
       )}
+
+      {/* Community Discussion */}
+      {lesson?.id && <TrainingComments lessonId={lesson.id} />}
     </div>
   );
 }
