@@ -222,24 +222,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             {last === "transfer" && <span className="text-xs text-muted-foreground">Last used</span>}
           </CardContent>
         </Card>
-        {hasTierAccess('bonus-grid') ? (
-          <Card className={cardBase} role="button" onClick={() => onPick("allstate_bonus_grid")} aria-label="Open Allstate Bonus Grid">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Allstate Bonus Grid</CardTitle>
-              <CardDescription>Enter your baseline and production to see bonus, daily points, and items</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {last === "allstate_bonus_grid" && <span className="text-xs text-muted-foreground">Last used</span>}
-            </CardContent>
-          </Card>
-        ) : (
-          <RestrictedCard
-            icon={Calculator}
-            title="Allstate Bonus Grid"
-            description="Enter your baseline and production to see bonus, daily points, and items"
-            last={last === "allstate_bonus_grid"}
-          />
-        )}
+        {/* Allstate Bonus Grid hidden from all users */}
         <Card
           className={cardBase}
           role="button"
