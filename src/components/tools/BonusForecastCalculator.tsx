@@ -275,7 +275,10 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
           <Button variant="ghost" size="sm" onClick={onBack} aria-label="Back to tools">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h3 className="text-base font-medium text-muted-foreground">Annual Bonus Forecast Calculator</h3>
+          <div>
+            <h3 className="text-base font-medium text-muted-foreground">Annual Bonus Forecast Calculator</h3>
+            <span className="text-xs font-semibold text-red-500">(BETA TESTING)</span>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={handleReset} className="gap-1">
           <RotateCcw className="h-3.5 w-3.5" />
