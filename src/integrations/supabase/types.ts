@@ -1979,6 +1979,69 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_frames: {
+        Row: {
+          agency_id: string
+          call_log_data: Json | null
+          call_scoring_data: Json | null
+          created_at: string | null
+          created_by: string
+          end_date: string
+          id: string
+          kpi_totals: Json | null
+          meeting_notes: string | null
+          quoted_data: Json | null
+          sold_data: Json | null
+          start_date: string
+          team_member_id: string
+        }
+        Insert: {
+          agency_id: string
+          call_log_data?: Json | null
+          call_scoring_data?: Json | null
+          created_at?: string | null
+          created_by: string
+          end_date: string
+          id?: string
+          kpi_totals?: Json | null
+          meeting_notes?: string | null
+          quoted_data?: Json | null
+          sold_data?: Json | null
+          start_date: string
+          team_member_id: string
+        }
+        Update: {
+          agency_id?: string
+          call_log_data?: Json | null
+          call_scoring_data?: Json | null
+          created_at?: string | null
+          created_by?: string
+          end_date?: string
+          id?: string
+          kpi_totals?: Json | null
+          meeting_notes?: string | null
+          quoted_data?: Json | null
+          sold_data?: Json | null
+          start_date?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_frames_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_frames_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_checklist_items: {
         Row: {
           attachments_count: number
