@@ -308,7 +308,10 @@ export function QuotedDetailsUploadSection({
     <Card className="p-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <span className="font-bold uppercase tracking-wide text-foreground">Quoted Details</span>
+          <div className="flex flex-col gap-1">
+            <span className="font-bold uppercase tracking-wide text-foreground">Quoted Details</span>
+            <span className="text-sm text-muted-foreground">Upload Quoted Detail and Conversion Rate Report</span>
+          </div>
           <div className="flex items-center gap-2">
             {quotedData && (
               <Button variant="ghost" size="sm" onClick={handleClear}>
