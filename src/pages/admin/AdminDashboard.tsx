@@ -141,8 +141,15 @@ const { toast } = useToast();
 
   const fetchAdminData = async () => {
     try {
-      // Fetch all clients (profiles with agencies)
-      const { data: profilesData, error: profilesError } = await supabase
+      // Fetch all clients (profiles with agencies) - exclude key employees
+      // Key employees should not appear as separate client entries
+      const { data: keyEmployeeIds } = await supabase
+        .from('key_employees')
+        .select('user_id');
+      
+      const keyEmpUserIds = (keyEmployeeIds || []).map(ke => ke.user_id);
+      
+      let query = supabase
         .from('profiles')
         .select(`
           *,
@@ -153,6 +160,13 @@ const { toast } = useToast();
         `)
         .neq('role', 'admin')
         .order('created_at', { ascending: false });
+      
+      // Filter out key employees from the client list
+      if (keyEmpUserIds.length > 0) {
+        query = query.not('id', 'in', `(${keyEmpUserIds.join(',')})`);
+      }
+      
+      const { data: profilesData, error: profilesError } = await query;
 
       if (profilesError) throw profilesError;
       setClients((profilesData || []).map(item => ({
