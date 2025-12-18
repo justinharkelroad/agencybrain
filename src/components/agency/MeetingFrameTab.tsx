@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { getMetricValue } from '@/lib/kpiKeyMapping';
 import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
 import { CallLogUploadSection, CallLogData } from './CallLogUploadSection';
+import { QuotedDetailsUploadSection, QuotedData } from './QuotedDetailsUploadSection';
+import { SoldDetailsUploadSection, SoldData } from './SoldDetailsUploadSection';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -48,6 +50,8 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [loading, setLoading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
   const [callLogData, setCallLogData] = useState<CallLogData | null>(null);
+  const [quotedData, setQuotedData] = useState<QuotedData | null>(null);
+  const [soldData, setSoldData] = useState<SoldData | null>(null);
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
@@ -324,11 +328,19 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
             onDataChange={setCallLogData}
           />
 
-          <Card className="p-6 bg-muted/30 border-dashed">
-            <p className="text-muted-foreground text-center">
-              📋 Quoted/Sold Details Upload (Phase 4)
-            </p>
-          </Card>
+          {/* Quoted Details Upload Section */}
+          <QuotedDetailsUploadSection
+            teamMemberName={selectedMemberName}
+            startDate={startDate!}
+            endDate={endDate!}
+            onDataChange={setQuotedData}
+          />
+
+          {/* Sold Details Upload Section */}
+          <SoldDetailsUploadSection
+            teamMemberName={selectedMemberName}
+            onDataChange={setSoldData}
+          />
 
           <Card className="p-6 bg-muted/30 border-dashed">
             <p className="text-muted-foreground text-center">
