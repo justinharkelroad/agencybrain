@@ -17,7 +17,6 @@ interface Comment {
   content: string;
   created_at: string;
   user_name?: string;
-  user_email?: string;
   replies?: Comment[];
 }
 
@@ -49,30 +48,9 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
 
       if (error) throw error;
 
-      const userIds = [...new Set(commentsData?.map(c => c.user_id) || [])];
-      
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
-
-      const { data: teamMembers } = await supabase
-        .from('team_members')
-        .select('user_id, name')
-        .in('user_id', userIds);
-
-      const commentsWithUsers = commentsData?.map(comment => {
-        const profile = profiles?.find(p => p.id === comment.user_id);
-        const teamMember = teamMembers?.find(tm => tm.user_id === comment.user_id);
-        return {
-          ...comment,
-          user_name: teamMember?.name || profile?.full_name || 'Anonymous',
-          user_email: profile?.email,
-        };
-      }) || [];
-
-      const parentComments = commentsWithUsers.filter(c => !c.parent_id);
-      const replies = commentsWithUsers.filter(c => c.parent_id);
+      // user_name is now stored directly in the comment
+      const parentComments = (commentsData || []).filter(c => !c.parent_id);
+      const replies = (commentsData || []).filter(c => c.parent_id);
 
       const organized = parentComments.map(parent => ({
         ...parent,
@@ -87,16 +65,47 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
     }
   };
 
+  const getUserName = async (): Promise<string> => {
+    if (!user) return 'Anonymous';
+    
+    // Try to get name from profiles first
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    
+    // Try team_members as fallback
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (teamMember?.name) {
+      return teamMember.name;
+    }
+    
+    return 'Anonymous';
+  };
+
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !user) return;
 
     setSubmitting(true);
     try {
+      const userName = await getUserName();
+
       const { error } = await supabase
         .from('training_comments')
         .insert({
           lesson_id: lessonId,
           user_id: user.id,
+          user_name: userName,
           content: newComment.trim(),
         });
 
@@ -118,12 +127,15 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
 
     setSubmitting(true);
     try {
+      const userName = await getUserName();
+
       const { error } = await supabase
         .from('training_comments')
         .insert({
           lesson_id: lessonId,
           user_id: user.id,
           parent_id: parentId,
+          user_name: userName,
           content: replyContent.trim(),
         });
 
@@ -259,7 +271,7 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium text-foreground">
-                      {comment.user_name}
+                      {comment.user_name || 'Anonymous'}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
@@ -313,7 +325,7 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
                   {replyingTo === comment.id && (
                     <div className="mt-3 pl-4 border-l-2 border-border">
                       <Textarea
-                        placeholder={`Reply to ${comment.user_name}...`}
+                        placeholder={`Reply to ${comment.user_name || 'Anonymous'}...`}
                         value={replyContent}
                         onChange={(e) => setReplyContent(e.target.value)}
                         className="mb-2 bg-background border-border min-h-[60px]"
@@ -355,7 +367,7 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium text-foreground text-sm">
-                                {reply.user_name}
+                                {reply.user_name || 'Anonymous'}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
