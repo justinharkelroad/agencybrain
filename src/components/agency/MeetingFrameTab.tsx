@@ -14,6 +14,7 @@ import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
 import { CallLogUploadSection, CallLogData } from './CallLogUploadSection';
 import { QuotedDetailsUploadSection, QuotedData } from './QuotedDetailsUploadSection';
 import { SoldDetailsUploadSection, SoldData } from './SoldDetailsUploadSection';
+import { CallScoringSubmissionsSection, CallScoringData } from './CallScoringSubmissionsSection';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -52,6 +53,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [callLogData, setCallLogData] = useState<CallLogData | null>(null);
   const [quotedData, setQuotedData] = useState<QuotedData | null>(null);
   const [soldData, setSoldData] = useState<SoldData | null>(null);
+  const [callScoringData, setCallScoringData] = useState<CallScoringData[]>([]);
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
@@ -342,11 +344,15 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
             onDataChange={setSoldData}
           />
 
-          <Card className="p-6 bg-muted/30 border-dashed">
-            <p className="text-muted-foreground text-center">
-              🎯 Call Scoring Submissions (Phase 5)
-            </p>
-          </Card>
+          {/* Call Scoring Submissions Section */}
+          <CallScoringSubmissionsSection
+            agencyId={agencyId}
+            teamMemberId={selectedMember}
+            teamMemberName={selectedMemberName}
+            startDate={startDate!}
+            endDate={endDate!}
+            onDataChange={setCallScoringData}
+          />
 
           <Card className="p-6 bg-muted/30 border-dashed">
             <p className="text-muted-foreground text-center">
