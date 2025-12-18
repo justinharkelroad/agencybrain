@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter } from "lucide-react";
+import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter, UserCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
@@ -101,13 +101,26 @@ export default function ScorecardForms() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Metrics</h1>
             <p className="text-muted-foreground mt-2">
               View performance analytics and manage KPI tracking forms
             </p>
           </div>
+        </div>
+
+        {/* Meeting Frame CTA */}
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate("/agency?tab=meeting-frame")}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
+            Create a 1-on-1 Meeting Frame with your team
+          </Button>
         </div>
 
         {/* GO-LIVE STATUS - Only show in dev mode or for admins with diagnostics enabled */}
