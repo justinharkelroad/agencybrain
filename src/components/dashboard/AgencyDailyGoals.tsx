@@ -93,7 +93,7 @@ export function AgencyDailyGoals({
         <div className="mb-4">
           <h3 className="text-sm font-medium text-muted-foreground">
             {date 
-              ? `Results for ${new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` 
+              ? `Results for ${new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` 
               : "Today's Progress"
             }
           </h3>
