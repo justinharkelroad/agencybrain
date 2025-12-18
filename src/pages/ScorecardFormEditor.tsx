@@ -12,7 +12,9 @@ import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
 import NotificationSettings from "@/components/FormBuilder/NotificationSettings";
 import FormPreview from "@/components/FormBuilder/FormPreview";
 import RepeaterSectionManager from "@/components/FormBuilder/RepeaterSectionManager";
+import CustomCollectionBuilder from "@/components/FormBuilder/CustomCollectionBuilder";
 import { FormKpiUpdateDialog } from "@/components/dialogs/FormKpiUpdateDialog";
+import { CustomCollectionSchemaItem } from "@/types/custom-collections";
 
 import { useFormKpiBindings, useCurrentKpiVersion } from "@/hooks/useKpiVersions";
 import { useAgencyKpis } from "@/hooks/useKpis";
@@ -71,6 +73,7 @@ interface FormSchema {
   repeaterSections?: {
     quotedDetails: RepeaterSection;
     soldDetails: RepeaterSection;
+    customCollections?: CustomCollectionSchemaItem[];
   };
   fieldMappings?: {
     repeater?: {
@@ -463,6 +466,52 @@ export default function ScorecardFormEditor() {
                       [key]: section
                     } as any
                   } : null);
+                }}
+              />
+
+              {/* Custom Collections Builder */}
+              <CustomCollectionBuilder
+                collections={formSchema.repeaterSections?.customCollections || []}
+                kpiFields={formSchema.kpis.map(kpi => ({ key: kpi.key, label: kpi.label }))}
+                onAddCollection={(collection) => {
+                  setFormSchema(prev => prev ? {
+                    ...prev,
+                    repeaterSections: {
+                      ...prev.repeaterSections,
+                      customCollections: [
+                        ...(prev.repeaterSections?.customCollections || []),
+                        collection
+                      ]
+                    } as any
+                  } : null);
+                }}
+                onUpdateCollection={(id, updates) => {
+                  setFormSchema(prev => {
+                    if (!prev) return null;
+                    const collections = prev.repeaterSections?.customCollections || [];
+                    return {
+                      ...prev,
+                      repeaterSections: {
+                        ...prev.repeaterSections,
+                        customCollections: collections.map(c => 
+                          c.id === id ? { ...c, ...updates } : c
+                        )
+                      } as any
+                    };
+                  });
+                }}
+                onDeleteCollection={(id) => {
+                  setFormSchema(prev => {
+                    if (!prev) return null;
+                    const collections = prev.repeaterSections?.customCollections || [];
+                    return {
+                      ...prev,
+                      repeaterSections: {
+                        ...prev.repeaterSections,
+                        customCollections: collections.filter(c => c.id !== id)
+                      } as any
+                    };
+                  });
                 }}
               />
 
