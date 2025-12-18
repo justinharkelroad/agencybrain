@@ -26,6 +26,7 @@ import { UploadsContent } from "@/components/UploadsContent";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
+import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -787,7 +788,7 @@ export default function Agency() {
         <h1 className="sr-only">My Agency</h1>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 md:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Agency Info
@@ -811,6 +812,10 @@ export default function Agency() {
             <TabsTrigger value="vault" className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
               Process Vault
+            </TabsTrigger>
+            <TabsTrigger value="meeting-frame" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Meeting Frame
             </TabsTrigger>
           </TabsList>
 
@@ -1337,6 +1342,10 @@ export default function Agency() {
 
       <TabsContent value="vault" className="space-y-6">
         <ProcessVaultContent />
+      </TabsContent>
+
+      <TabsContent value="meeting-frame" className="space-y-6">
+        {agencyId && <MeetingFrameTab agencyId={agencyId} />}
       </TabsContent>
 
     </Tabs>
