@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users, PhoneForwarded } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users, PhoneForwarded, TrendingUp } from "lucide-react";
+import BonusForecastCalculator from "@/components/tools/BonusForecastCalculator";
 import { Badge } from "@/components/ui/badge";
 import {
   clampPercent,
@@ -273,6 +274,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             )}
           </CardContent>
         </Card>
+        <Card
+          className={cardBase}
+          role="button"
+          onClick={() => onPick("bonus_forecast")}
+          aria-label="Open Bonus Forecast Calculator"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" /> Annual Bonus Forecast
+            </CardTitle>
+            <CardDescription>Calculate production needed for each bonus tier</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "bonus_forecast" && (
+              <span className="text-xs text-muted-foreground">Last used</span>
+            )}
+          </CardContent>
+        </Card>
       </div>
       
       {/* Upgrade Dialog for Restricted Access */}
@@ -296,7 +315,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency" | "bonus_forecast";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -356,6 +375,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "call_efficiency" && (
           <div className="animate-enter">
             <CallEfficiencyTool onBack={() => setMode(null)} />
+          </div>
+        )}
+        {mode === "bonus_forecast" && (
+          <div className="animate-enter">
+            <BonusForecastCalculator onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>
