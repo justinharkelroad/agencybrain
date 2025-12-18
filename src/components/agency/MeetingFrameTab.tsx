@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,11 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, differenceInDays, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
+import { format, differenceInDays, eachMonthOfInterval } from 'date-fns';
 import { CalendarIcon, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMetricValue } from '@/lib/kpiKeyMapping';
 import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
+import { CallLogUploadSection, CallLogData } from './CallLogUploadSection';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -46,6 +47,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [kpiTotals, setKpiTotals] = useState<KPITotal[]>([]);
   const [loading, setLoading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [callLogData, setCallLogData] = useState<CallLogData | null>(null);
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
@@ -314,11 +316,13 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
             </div>
           </div>
 
-          <Card className="p-6 bg-muted/30 border-dashed">
-            <p className="text-muted-foreground text-center">
-              📞 Call Log Upload Section (Phase 3)
-            </p>
-          </Card>
+          {/* Call Log Upload Section */}
+          <CallLogUploadSection
+            teamMemberName={selectedMemberName}
+            startDate={startDate!}
+            endDate={endDate!}
+            onDataChange={setCallLogData}
+          />
 
           <Card className="p-6 bg-muted/30 border-dashed">
             <p className="text-muted-foreground text-center">
