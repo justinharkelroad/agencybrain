@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { VideoEmbed } from '@/components/training/VideoEmbed';
 import { QuizTaker } from '@/components/training/QuizTaker';
+import { StaffTrainingComments } from '@/components/training/StaffTrainingComments';
 import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, ClipboardList, AlertCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
@@ -465,6 +466,11 @@ export default function StaffTraining() {
                           <p className="text-muted-foreground text-center py-8">
                             No content available for this lesson yet.
                           </p>
+                        )}
+
+                        {/* Community Discussion */}
+                        {selectedLesson?.id && (
+                          <StaffTrainingComments lessonId={selectedLesson.id} />
                         )}
                       </div>
                     )}
