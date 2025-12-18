@@ -470,7 +470,13 @@ export default function StaffTraining() {
 
                         {/* Community Discussion */}
                         {selectedLesson?.id && (
-                          <StaffTrainingComments lessonId={selectedLesson.id} />
+                          <StaffTrainingComments 
+                            lessonId={selectedLesson.id} 
+                            staffMember={{
+                              id: user?.id || '',
+                              name: user?.team_member_name || user?.display_name || 'Staff Member'
+                            }}
+                          />
                         )}
                       </div>
                     )}
