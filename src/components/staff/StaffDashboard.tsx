@@ -9,6 +9,7 @@ import { RING_COLORS } from '@/components/rings/colors';
 import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
+import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
 
 interface KPIData {
   key: string;
@@ -186,6 +187,17 @@ export function StaffDashboard() {
         <h1 className="text-3xl font-bold">Welcome, {firstName}!</h1>
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
+
+      {/* Yesterday's Team Goals */}
+      {user?.agency_id && (
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Yesterday's Team Results</h2>
+          <AgencyDailyGoals 
+            agencyId={user.agency_id} 
+            date={previousBusinessDayStr}
+          />
+        </div>
+      )}
 
       {/* Previous Day Performance Card */}
       <Card>

@@ -18,6 +18,7 @@ import { useAgencyProfile } from "@/hooks/useAgencyProfile";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { RING_LABELS } from "@/components/rings/colors";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
 
 
 type Role = "Sales" | "Service";
@@ -278,6 +279,11 @@ export default function MetricsDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Agency Daily Goals */}
+        {agencyId && (
+          <AgencyDailyGoals agencyId={agencyId} showDate />
+        )}
 
         {/* Team Member Performance Rings */}
         {agencyId && (
