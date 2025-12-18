@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -807,6 +808,73 @@ export default function StaffFormSubmission() {
                   </div>
                 );
               })}
+
+              {/* Additional Information - Custom Fields */}
+              {formTemplate?.schema_json?.customFields?.length > 0 && (
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold text-foreground">Additional Information</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {formTemplate.schema_json.customFields.map((field: any) => (
+                      <div key={field.key} className={`space-y-2 ${field.type === 'longtext' ? 'md:col-span-2' : ''}`}>
+                        <Label htmlFor={field.key}>
+                          {field.label}
+                          {field.required && <span className="text-destructive ml-1">*</span>}
+                        </Label>
+                        {field.type === 'dropdown' ? (
+                          <select
+                            id={field.key}
+                            required={field.required}
+                            value={values[field.key] || ''}
+                            onChange={(e) => handleInputChange(field.key, e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                          >
+                            <option value="">Select option...</option>
+                            {field.options?.map((opt: string) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : field.type === 'longtext' ? (
+                          <Textarea
+                            id={field.key}
+                            required={field.required}
+                            value={values[field.key] || ''}
+                            onChange={(e) => handleInputChange(field.key, e.target.value)}
+                            rows={3}
+                            className="resize-none"
+                          />
+                        ) : field.type === 'checkbox' ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={field.key}
+                              checked={values[field.key] === 'yes' || values[field.key] === true}
+                              onChange={(e) => handleInputChange(field.key, e.target.checked ? 'yes' : 'no')}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <span className="text-sm text-muted-foreground">{field.label}</span>
+                          </div>
+                        ) : field.type === 'date' ? (
+                          <Input
+                            type="date"
+                            id={field.key}
+                            required={field.required}
+                            value={values[field.key] || ''}
+                            onChange={(e) => handleInputChange(field.key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            type="text"
+                            id={field.key}
+                            required={field.required}
+                            value={values[field.key] || ''}
+                            onChange={(e) => handleInputChange(field.key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Performance Summary */}
               {performanceSummary.summary.totalKPIs > 0 && (
