@@ -124,22 +124,6 @@ export default function StaffTraining() {
   if (contentData?.no_assignments) {
     return (
       <div className="p-6">
-        {/* Daily Scorecard Card - always show */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Daily Scorecard</CardTitle>
-            <CardDescription>Submit your daily metrics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="w-full sm:w-auto">
-              <Link to="/staff/submit">
-                <Send className="h-4 w-4 mr-2" />
-                Submit Today's Numbers
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
         <div className="flex flex-col items-center justify-center text-center py-12">
           <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
           <p className="text-lg font-medium">No training assigned yet</p>
@@ -200,22 +184,6 @@ export default function StaffTraining() {
 
   return (
     <div className="p-6">
-      {/* Daily Scorecard Card */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Daily Scorecard</CardTitle>
-          <CardDescription>Submit your daily metrics</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild className="w-full sm:w-auto">
-            <Link to="/staff/submit">
-              <Send className="h-4 w-4 mr-2" />
-              Submit Today's Numbers
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* Progress Summary */}
       <div className="flex items-center gap-4 mb-6">
         <div className="text-sm">
