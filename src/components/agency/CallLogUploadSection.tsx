@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Upload, Clock, PhoneOutgoing, X } from 'lucide-react';
+import { Phone, Upload, Clock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseCallLogCSV, ParsedCall } from '@/utils/callLogParser';
 import { formatTalkTime } from '@/utils/callEfficiencyCalculator';
@@ -16,12 +16,11 @@ interface CallLogUploadSectionProps {
 }
 
 export interface CallLogData {
-  total_outbound_calls: number;
-  total_inbound_calls: number;
+  total_calls: number;
   calls_over_threshold: number;
   threshold_minutes: number;
   total_talk_time_seconds: number;
-  raw_user_match: string;
+  matched_name: string;
   file_name: string;
 }
 
@@ -88,12 +87,11 @@ export function CallLogUploadSection({
     const thresholdSeconds = threshold * 60;
     
     const data: CallLogData = {
-      total_outbound_calls: filteredCalls.filter(c => c.direction === 'outbound').length,
-      total_inbound_calls: filteredCalls.filter(c => c.direction === 'inbound').length,
+      total_calls: filteredCalls.length,
       calls_over_threshold: filteredCalls.filter(c => c.durationSeconds >= thresholdSeconds).length,
       threshold_minutes: threshold,
       total_talk_time_seconds: filteredCalls.reduce((sum, c) => sum + c.durationSeconds, 0),
-      raw_user_match: userName,
+      matched_name: userName,
       file_name: file,
     };
 
@@ -224,14 +222,14 @@ export function CallLogUploadSection({
             {/* Total Calls */}
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                <PhoneOutgoing className="h-4 w-4" />
+                <Phone className="h-4 w-4" />
                 <span className="text-xs font-medium uppercase">Calls</span>
               </div>
               <div className="text-2xl font-bold text-foreground">
-                {callLogData.total_outbound_calls}
+                {callLogData.total_calls}
               </div>
               <div className="text-xs text-muted-foreground">
-                outbound
+                total calls
               </div>
             </div>
 
