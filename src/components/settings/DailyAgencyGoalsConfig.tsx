@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface DailyAgencyGoalsConfigProps {
@@ -12,6 +13,11 @@ interface DailyAgencyGoalsConfigProps {
 export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps) {
   const [dailyQuotedTarget, setDailyQuotedTarget] = useState(15);
   const [dailySoldTarget, setDailySoldTarget] = useState(8);
+  const [initialQuoted, setInitialQuoted] = useState(15);
+  const [initialSold, setInitialSold] = useState(8);
+  const [saving, setSaving] = useState(false);
+
+  const hasChanges = dailyQuotedTarget !== initialQuoted || dailySoldTarget !== initialSold;
 
   useEffect(() => {
     if (!agencyId) return;
@@ -24,25 +30,37 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
         .single();
       
       if (data) {
-        setDailyQuotedTarget(data.daily_quoted_households_target ?? 15);
-        setDailySoldTarget(data.daily_sold_items_target ?? 8);
+        const quoted = data.daily_quoted_households_target ?? 15;
+        const sold = data.daily_sold_items_target ?? 8;
+        setDailyQuotedTarget(quoted);
+        setDailySoldTarget(sold);
+        setInitialQuoted(quoted);
+        setInitialSold(sold);
       }
     };
     
     fetchTargets();
   }, [agencyId]);
 
-  const updateTarget = async (field: string, value: number) => {
+  const saveTargets = async () => {
+    setSaving(true);
     const { error } = await supabase
       .from("agencies")
-      .update({ [field]: value })
+      .update({
+        daily_quoted_households_target: dailyQuotedTarget,
+        daily_sold_items_target: dailySoldTarget,
+      })
       .eq("id", agencyId);
     
+    setSaving(false);
+    
     if (error) {
-      console.error("Failed to update target:", error);
-      toast.error("Failed to save target");
+      console.error("Failed to update targets:", error);
+      toast.error("Failed to save targets");
     } else {
-      toast.success("Target updated");
+      setInitialQuoted(dailyQuotedTarget);
+      setInitialSold(dailySoldTarget);
+      toast.success("Targets saved");
     }
   };
 
@@ -66,11 +84,7 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
               min={1}
               max={100}
               value={dailyQuotedTarget}
-              onChange={(e) => {
-                const val = parseInt(e.target.value) || 15;
-                setDailyQuotedTarget(val);
-                updateTarget("daily_quoted_households_target", val);
-              }}
+              onChange={(e) => setDailyQuotedTarget(parseInt(e.target.value) || 0)}
             />
             <p className="text-xs text-muted-foreground">
               How many households should be quoted per day
@@ -84,16 +98,17 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
               min={1}
               max={100}
               value={dailySoldTarget}
-              onChange={(e) => {
-                const val = parseInt(e.target.value) || 8;
-                setDailySoldTarget(val);
-                updateTarget("daily_sold_items_target", val);
-              }}
+              onChange={(e) => setDailySoldTarget(parseInt(e.target.value) || 0)}
             />
             <p className="text-xs text-muted-foreground">
               How many items should be sold per day
             </p>
           </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={saveTargets} disabled={!hasChanges || saving}>
+            {saving ? "Saving..." : "Save Targets"}
+          </Button>
         </div>
       </CardContent>
     </Card>
