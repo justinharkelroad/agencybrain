@@ -208,5 +208,5 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.get-daily-agency-progress]
-verify_jwt = true
+verify_jwt = false
 
