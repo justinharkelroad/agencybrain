@@ -291,7 +291,7 @@ export default function CustomCollectionFieldEditor({
                     Field Label <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    placeholder="e.g., Referrer Name"
+                    placeholder="Enter field label"
                     value={newField.label}
                     onChange={(e) => setNewField(prev => ({ ...prev, label: e.target.value }))}
                     maxLength={100}
