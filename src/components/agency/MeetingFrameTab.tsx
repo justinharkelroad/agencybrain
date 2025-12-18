@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, differenceInDays } from 'date-fns';
-import { CalendarIcon, Users, FileText } from 'lucide-react';
+import { format, differenceInDays, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
+import { CalendarIcon, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMetricValue } from '@/lib/kpiKeyMapping';
+import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -297,12 +298,21 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
             ))}
           </div>
 
-          {/* Placeholder sections for Phase 2+ */}
-          <Card className="p-6 bg-muted/30 border-dashed">
-            <p className="text-muted-foreground text-center">
-              📅 Monthly Calendar Heatmap (Phase 2)
-            </p>
-          </Card>
+          {/* Monthly Calendar Heatmaps */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">📅 Daily Performance Calendar</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {eachMonthOfInterval({ start: startDate!, end: endDate! }).map((monthDate) => (
+                <MonthlyCalendarHeatmap
+                  key={monthDate.toISOString()}
+                  memberId={selectedMember}
+                  month={monthDate}
+                  showHeader={true}
+                  showLegend={eachMonthOfInterval({ start: startDate!, end: endDate! }).indexOf(monthDate) === 0}
+                />
+              ))}
+            </div>
+          </div>
 
           <Card className="p-6 bg-muted/30 border-dashed">
             <p className="text-muted-foreground text-center">
