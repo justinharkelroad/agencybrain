@@ -109,8 +109,106 @@ serve(async (req) => {
     }
 
     if (method === "POST") {
-      // Create a comment
-      const body = await req.json();
+      // Create a comment OR perform an action (list/delete)
+      const body = await req.json().catch(() => ({}));
+
+      // Action: list comments (used by supabase.functions.invoke without query params)
+      if (body?.action === "list") {
+        const lessonId = body.lesson_id;
+        if (!lessonId) {
+          return new Response(JSON.stringify({ error: "Missing lesson_id" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: comments, error } = await supabase
+          .from("training_comments")
+          .select("*")
+          .eq("lesson_id", lessonId)
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+
+        const userIds = [...new Set(comments?.map((c: any) => c.user_id) || [])];
+
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds);
+
+        const { data: teamMembers } = await supabase
+          .from("team_members")
+          .select("user_id, name")
+          .in("user_id", userIds);
+
+        const { data: staffUsers } = await supabase
+          .from("staff_users")
+          .select("id, name")
+          .in("id", userIds);
+
+        const commentsWithUsers =
+          comments?.map((comment: any) => {
+            const profile = profiles?.find((p: any) => p.id === comment.user_id);
+            const teamMember = teamMembers?.find((tm: any) => tm.user_id === comment.user_id);
+            const staffUserMatch = staffUsers?.find((su: any) => su.id === comment.user_id);
+            return {
+              ...comment,
+              user_name:
+                staffUserMatch?.name || teamMember?.name || profile?.full_name || "Anonymous",
+              user_email: profile?.email,
+            };
+          }) || [];
+
+        const parentComments = commentsWithUsers.filter((c: any) => !c.parent_id);
+        const replies = commentsWithUsers.filter((c: any) => c.parent_id);
+
+        const organized = parentComments.map((parent: any) => ({
+          ...parent,
+          replies: replies.filter((r: any) => r.parent_id === parent.id),
+        }));
+
+        return new Response(
+          JSON.stringify({ comments: organized, staffUserId: session.staff_user_id }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Action: delete comment (POST-based so the web client can avoid query params)
+      if (body?.action === "delete") {
+        const commentId = body.comment_id;
+        if (!commentId) {
+          return new Response(JSON.stringify({ error: "Missing comment_id" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: existingComment } = await supabase
+          .from("training_comments")
+          .select("user_id")
+          .eq("id", commentId)
+          .single();
+
+        if (!existingComment || existingComment.user_id !== session.staff_user_id) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { error } = await supabase.from("training_comments").delete().eq("id", commentId);
+
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Default: create a comment
       const { lesson_id, content, parent_id } = body;
 
       if (!lesson_id || !content) {
