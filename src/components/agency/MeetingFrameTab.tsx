@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, differenceInDays, eachMonthOfInterval } from 'date-fns';
-import { CalendarIcon, Users } from 'lucide-react';
+import { CalendarIcon, Users, Plus, History, Image, FileText, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMetricValue } from '@/lib/kpiKeyMapping';
 import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
@@ -15,6 +16,9 @@ import { CallLogUploadSection, CallLogData } from './CallLogUploadSection';
 import { QuotedDetailsUploadSection, QuotedData } from './QuotedDetailsUploadSection';
 import { SoldDetailsUploadSection, SoldData } from './SoldDetailsUploadSection';
 import { CallScoringSubmissionsSection, CallScoringData } from './CallScoringSubmissionsSection';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { Json } from '@/integrations/supabase/types';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -41,6 +45,26 @@ interface KPITotal {
   type: string;
 }
 
+interface MeetingFrame {
+  id: string;
+  agency_id: string;
+  team_member_id: string;
+  created_by: string;
+  start_date: string;
+  end_date: string;
+  kpi_totals: Json;
+  call_log_data: Json;
+  quoted_data: Json;
+  sold_data: Json;
+  call_scoring_data: Json;
+  meeting_notes: string | null;
+  created_at: string;
+  team_members?: {
+    name: string;
+    role: string;
+  };
+}
+
 export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMember, setSelectedMember] = useState('');
@@ -54,6 +78,14 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [quotedData, setQuotedData] = useState<QuotedData | null>(null);
   const [soldData, setSoldData] = useState<SoldData | null>(null);
   const [callScoringData, setCallScoringData] = useState<CallScoringData[]>([]);
+  
+  // Phase 6: New state
+  const [viewMode, setViewMode] = useState<'new' | 'history'>('new');
+  const [meetingNotes, setMeetingNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [meetingFrameHistory, setMeetingFrameHistory] = useState<MeetingFrame[]>([]);
+  const [viewingHistoricalFrame, setViewingHistoricalFrame] = useState<string | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
@@ -85,7 +117,24 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
 
     fetchTeamMembers();
     fetchKPIs();
+    fetchMeetingFrameHistory();
   }, [agencyId]);
+
+  const fetchMeetingFrameHistory = async () => {
+    const { data, error } = await supabase
+      .from('meeting_frames')
+      .select(`
+        *,
+        team_members (name, role)
+      `)
+      .eq('agency_id', agencyId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (!error && data) {
+      setMeetingFrameHistory(data as MeetingFrame[]);
+    }
+  };
 
   const validateDateRange = (): boolean => {
     if (!startDate || !endDate) {
@@ -115,6 +164,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     if (!validateDateRange()) return;
 
     setLoading(true);
+    setViewingHistoricalFrame(null);
     try {
       const startStr = format(startDate!, 'yyyy-MM-dd');
       const endStr = format(endDate!, 'yyyy-MM-dd');
@@ -153,6 +203,12 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
       
       setKpiTotals(nonZeroTotals.length > 0 ? nonZeroTotals : totals);
       setReportGenerated(true);
+      // Reset upload data for new report
+      setCallLogData(null);
+      setQuotedData(null);
+      setSoldData(null);
+      setCallScoringData([]);
+      setMeetingNotes('');
       toast.success('Report generated!');
     } catch (err) {
       console.error('Error generating report:', err);
@@ -160,6 +216,147 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveMeetingFrame = async () => {
+    if (!selectedMember || !startDate || !endDate) {
+      toast.error('Please generate a report first');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      const meetingFrameData = {
+        agency_id: agencyId,
+        team_member_id: selectedMember,
+        created_by: userData.user?.id,
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd'),
+        kpi_totals: kpiTotals as unknown as Json,
+        call_log_data: (callLogData || {}) as unknown as Json,
+        quoted_data: (quotedData || {}) as unknown as Json,
+        sold_data: (soldData || {}) as unknown as Json,
+        call_scoring_data: (callScoringData || []) as unknown as Json,
+        meeting_notes: meetingNotes || null,
+      };
+
+      const { error } = await supabase
+        .from('meeting_frames')
+        .insert(meetingFrameData);
+
+      if (error) throw error;
+
+      toast.success('Meeting frame saved successfully!');
+      fetchMeetingFrameHistory();
+    } catch (err) {
+      console.error('Error saving meeting frame:', err);
+      toast.error('Failed to save meeting frame');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleViewHistoricalFrame = (frame: MeetingFrame) => {
+    setViewMode('new');
+    setSelectedMember(frame.team_member_id);
+    setStartDate(new Date(frame.start_date));
+    setEndDate(new Date(frame.end_date));
+    setKpiTotals((frame.kpi_totals as unknown as KPITotal[]) || []);
+    setCallLogData((frame.call_log_data as unknown as CallLogData) || null);
+    setQuotedData((frame.quoted_data as unknown as QuotedData) || null);
+    setSoldData((frame.sold_data as unknown as SoldData) || null);
+    setCallScoringData((frame.call_scoring_data as unknown as CallScoringData[]) || []);
+    setMeetingNotes(frame.meeting_notes || '');
+    setReportGenerated(true);
+    setViewingHistoricalFrame(frame.id);
+  };
+
+  const handleDeleteFrame = async (frameId: string) => {
+    const confirmed = window.confirm('Are you sure you want to delete this meeting frame?');
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from('meeting_frames')
+      .delete()
+      .eq('id', frameId);
+
+    if (error) {
+      toast.error('Failed to delete meeting frame');
+    } else {
+      toast.success('Meeting frame deleted');
+      fetchMeetingFrameHistory();
+    }
+  };
+
+  const handleExportPNG = async () => {
+    if (!reportRef.current) return;
+
+    try {
+      toast.info('Generating PNG...');
+
+      const canvas = await html2canvas(reportRef.current, {
+        backgroundColor: '#020817',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const link = document.createElement('a');
+      link.download = `meeting-frame-${selectedMemberName.replace(/\s+/g, '-')}-${format(new Date(), 'yyyy-MM-dd')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      toast.success('PNG exported!');
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export PNG');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+
+    try {
+      toast.info('Generating PDF...');
+
+      const canvas = await html2canvas(reportRef.current, {
+        backgroundColor: '#020817',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`meeting-frame-${selectedMemberName.replace(/\s+/g, '-')}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+
+      toast.success('PDF exported!');
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const resetForm = () => {
+    setSelectedMember('');
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setKpiTotals([]);
+    setCallLogData(null);
+    setQuotedData(null);
+    setSoldData(null);
+    setCallScoringData([]);
+    setMeetingNotes('');
+    setReportGenerated(false);
+    setViewingHistoricalFrame(null);
   };
 
   const selectedMemberName = teamMembers.find(m => m.id === selectedMember)?.name || '';
@@ -170,7 +367,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 0,
-      }).format(value / 100); // Convert cents to dollars
+      }).format(value / 100);
     }
     if (type === 'percentage') {
       return `${value}%`;
@@ -185,192 +382,431 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold text-foreground">Meeting Frame</h2>
-        <p className="text-muted-foreground">
-          Generate a comprehensive performance snapshot for 1:1 meetings
-        </p>
+      {/* Header with toggle */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Meeting Frame</h2>
+          <p className="text-muted-foreground">
+            Generate a comprehensive performance snapshot for 1:1 meetings
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === 'new' ? 'default' : 'outline'}
+            onClick={() => { setViewMode('new'); resetForm(); }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Report
+          </Button>
+          <Button
+            variant={viewMode === 'history' ? 'default' : 'outline'}
+            onClick={() => setViewMode('history')}
+          >
+            <History className="h-4 w-4 mr-2" />
+            History
+          </Button>
+        </div>
       </div>
 
-      {/* Controls */}
-      <Card className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-          {/* Team Member Select */}
-          <div className="space-y-2">
-            <Label>Team Member</Label>
-            <Select value={selectedMember} onValueChange={setSelectedMember}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select member..." />
-              </SelectTrigger>
-              <SelectContent>
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* History View */}
+      {viewMode === 'history' && (
+        <div className="space-y-4">
+          {meetingFrameHistory.length === 0 ? (
+            <Card className="p-12 text-center">
+              <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-medium mb-2 text-foreground">No Meeting Frames Yet</h3>
+              <p className="text-muted-foreground">
+                Generate and save a meeting frame to see it here
+              </p>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {meetingFrameHistory.map((frame) => (
+                <Card
+                  key={frame.id}
+                  className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleViewHistoricalFrame(frame)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                        <span className="text-lg font-bold text-foreground">
+                          {frame.team_members?.name?.charAt(0) || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{frame.team_members?.name || 'Unknown'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(frame.start_date), 'MMM d')} - {format(new Date(frame.end_date), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
 
-          {/* Start Date */}
-          <div className="space-y-2">
-            <Label>Start Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, 'MM/dd/yyyy') : 'Select date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
-              </PopoverContent>
-            </Popover>
-          </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right text-sm hidden sm:block">
+                        <p className="text-muted-foreground">Created</p>
+                        <p className="text-foreground">{format(new Date(frame.created_at), 'MMM d, yyyy')}</p>
+                      </div>
 
-          {/* End Date */}
-          <div className="space-y-2">
-            <Label>End Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, 'MM/dd/yyyy') : 'Select date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Generate Button */}
-          <div className="space-y-2 md:col-span-2">
-            <Label className="invisible">Action</Label>
-            <Button onClick={generateReport} disabled={loading} className="w-full">
-              {loading ? 'Generating...' : 'Generate Report'}
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Report Content */}
-      {reportGenerated && (
-        <div className="space-y-6">
-          {/* Header with name and date range */}
-          <div className="flex justify-between items-center bg-muted/50 p-4 rounded-lg">
-            <div className="text-xl font-bold text-foreground">
-              SALESPERSON: {selectedMemberName.toUpperCase()}
-            </div>
-            <div className="text-lg text-muted-foreground">
-              {format(startDate!, 'M/d/yy')} - {format(endDate!, 'M/d/yy')}
-            </div>
-          </div>
-
-          {/* KPI Rings */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {kpiTotals.map((kpi, index) => (
-              <Card key={kpi.kpi_id} className="p-4 text-center">
-                <div className="relative w-20 h-20 mx-auto mb-2">
-                  <svg className="w-20 h-20 transform -rotate-90">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      fill="none"
-                      stroke="hsl(var(--muted))"
-                      strokeWidth="6"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      fill="none"
-                      stroke={getProgressColor(index)}
-                      strokeWidth="6"
-                      strokeDasharray={`${226} ${226}`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-foreground">
-                      {formatValue(kpi.total, kpi.type)}
-                    </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewHistoricalFrame(frame);
+                          }}
+                        >
+                          <Image className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFrame(frame.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <p className="text-sm text-muted-foreground font-medium">
-                  {kpi.label}
-                </p>
-              </Card>
-            ))}
-          </div>
 
-          {/* Monthly Calendar Heatmaps */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">📅 Daily Performance Calendar</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {eachMonthOfInterval({ start: startDate!, end: endDate! }).map((monthDate) => (
-                <MonthlyCalendarHeatmap
-                  key={monthDate.toISOString()}
-                  memberId={selectedMember}
-                  month={monthDate}
-                  showHeader={true}
-                  showLegend={eachMonthOfInterval({ start: startDate!, end: endDate! }).indexOf(monthDate) === 0}
-                />
+                  {/* Preview of key stats */}
+                  {frame.kpi_totals && Array.isArray(frame.kpi_totals) && (frame.kpi_totals as unknown as KPITotal[]).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-4 text-sm">
+                      {(frame.kpi_totals as unknown as KPITotal[]).slice(0, 4).map((kpi) => (
+                        <div key={kpi.kpi_id} className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{formatValue(kpi.total, kpi.type)}</span>
+                          {' '}{kpi.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
               ))}
             </div>
-          </div>
-
-          {/* Call Log Upload Section */}
-          <CallLogUploadSection
-            teamMemberName={selectedMemberName}
-            startDate={startDate!}
-            endDate={endDate!}
-            onDataChange={setCallLogData}
-          />
-
-          {/* Quoted Details Upload Section */}
-          <QuotedDetailsUploadSection
-            teamMemberName={selectedMemberName}
-            startDate={startDate!}
-            endDate={endDate!}
-            onDataChange={setQuotedData}
-          />
-
-          {/* Sold Details Upload Section */}
-          <SoldDetailsUploadSection
-            teamMemberName={selectedMemberName}
-            onDataChange={setSoldData}
-          />
-
-          {/* Call Scoring Submissions Section */}
-          <CallScoringSubmissionsSection
-            agencyId={agencyId}
-            teamMemberId={selectedMember}
-            teamMemberName={selectedMemberName}
-            startDate={startDate!}
-            endDate={endDate!}
-            onDataChange={setCallScoringData}
-          />
-
-          <Card className="p-6 bg-muted/30 border-dashed">
-            <p className="text-muted-foreground text-center">
-              📝 Meeting Takeaway Notes (Phase 6)
-            </p>
-          </Card>
+          )}
         </div>
       )}
 
-      {/* No report yet */}
-      {!reportGenerated && (
-        <Card className="p-12 text-center">
-          <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground">Select a Team Member</h3>
-          <p className="text-muted-foreground mt-2">
-            Choose a team member and date range to generate their meeting frame report
-          </p>
-        </Card>
+      {/* New Report View */}
+      {viewMode === 'new' && (
+        <>
+          {/* Controls */}
+          <Card className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              {/* Team Member Select */}
+              <div className="space-y-2">
+                <Label>Team Member</Label>
+                <Select value={selectedMember} onValueChange={setSelectedMember}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Start Date */}
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {startDate ? format(startDate, 'MM/dd/yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, 'MM/dd/yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Generate Button */}
+              <div className="space-y-2 md:col-span-2">
+                <Label className="invisible">Action</Label>
+                <Button onClick={generateReport} disabled={loading} className="w-full">
+                  {loading ? 'Generating...' : 'Generate Report'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Report Content */}
+          {reportGenerated && (
+            <div className="space-y-6">
+              {/* Viewing historical frame banner */}
+              {viewingHistoricalFrame && (
+                <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-3 flex items-center justify-between">
+                  <p className="text-amber-400 text-sm">
+                    Viewing saved meeting frame from {format(startDate!, 'MMM d, yyyy')}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={resetForm}>
+                    Create New
+                  </Button>
+                </div>
+              )}
+
+              {/* Exportable Report Area */}
+              <div ref={reportRef} id="meeting-frame-report" className="space-y-6">
+                {/* Header with name and date range */}
+                <div className="flex justify-between items-center bg-muted/50 p-4 rounded-lg">
+                  <div className="text-xl font-bold text-foreground">
+                    SALESPERSON: {selectedMemberName.toUpperCase()}
+                  </div>
+                  <div className="text-lg text-muted-foreground">
+                    {format(startDate!, 'M/d/yy')} - {format(endDate!, 'M/d/yy')}
+                  </div>
+                </div>
+
+                {/* KPI Rings */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {kpiTotals.map((kpi, index) => (
+                    <Card key={kpi.kpi_id} className="p-4 text-center">
+                      <div className="relative w-20 h-20 mx-auto mb-2">
+                        <svg className="w-20 h-20 transform -rotate-90">
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="36"
+                            fill="none"
+                            stroke="hsl(var(--muted))"
+                            strokeWidth="6"
+                          />
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="36"
+                            fill="none"
+                            stroke={getProgressColor(index)}
+                            strokeWidth="6"
+                            strokeDasharray={`${226} ${226}`}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-lg font-bold text-foreground">
+                            {formatValue(kpi.total, kpi.type)}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground font-medium">
+                        {kpi.label}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Monthly Calendar Heatmaps */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground">📅 Daily Performance Calendar</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {eachMonthOfInterval({ start: startDate!, end: endDate! }).map((monthDate) => (
+                      <MonthlyCalendarHeatmap
+                        key={monthDate.toISOString()}
+                        memberId={selectedMember}
+                        month={monthDate}
+                        showHeader={true}
+                        showLegend={eachMonthOfInterval({ start: startDate!, end: endDate! }).indexOf(monthDate) === 0}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Call Log Upload Section */}
+                {!viewingHistoricalFrame ? (
+                  <CallLogUploadSection
+                    teamMemberName={selectedMemberName}
+                    startDate={startDate!}
+                    endDate={endDate!}
+                    onDataChange={setCallLogData}
+                  />
+                ) : callLogData && Object.keys(callLogData).length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="font-bold uppercase tracking-wide text-foreground mb-4">Call Log (Saved)</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{callLogData.total_calls}</div>
+                        <div className="text-xs text-muted-foreground">Total Calls</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{callLogData.calls_over_threshold}</div>
+                        <div className="text-xs text-muted-foreground">Calls ≥{callLogData.threshold_minutes}min</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          {Math.floor(callLogData.total_talk_time_seconds / 3600)}h {Math.floor((callLogData.total_talk_time_seconds % 3600) / 60)}m
+                        </div>
+                        <div className="text-xs text-muted-foreground">Talk Time</div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Quoted Details Upload Section */}
+                {!viewingHistoricalFrame ? (
+                  <QuotedDetailsUploadSection
+                    teamMemberName={selectedMemberName}
+                    startDate={startDate!}
+                    endDate={endDate!}
+                    onDataChange={setQuotedData}
+                  />
+                ) : quotedData && Object.keys(quotedData).length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="font-bold uppercase tracking-wide text-foreground mb-4">Quoted Details (Saved)</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{quotedData.policies_quoted}</div>
+                        <div className="text-xs text-muted-foreground">#POL</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{quotedData.items_quoted}</div>
+                        <div className="text-xs text-muted-foreground">#ITEM</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          ${(quotedData.premium_quoted_cents / 100).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">$PREM</div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Sold Details Upload Section */}
+                {!viewingHistoricalFrame ? (
+                  <SoldDetailsUploadSection
+                    teamMemberName={selectedMemberName}
+                    onDataChange={setSoldData}
+                  />
+                ) : soldData && Object.keys(soldData).length > 0 && (
+                  <Card className="p-6">
+                    <h3 className="font-bold uppercase tracking-wide text-foreground mb-4">Sold Details (Saved)</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{soldData.policies_sold}</div>
+                        <div className="text-xs text-muted-foreground">#POL</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">{soldData.items_sold}</div>
+                        <div className="text-xs text-muted-foreground">#ITEM</div>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          ${(soldData.premium_sold_cents / 100).toLocaleString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground">$PREM</div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Call Scoring Submissions Section */}
+                {!viewingHistoricalFrame && (
+                  <CallScoringSubmissionsSection
+                    agencyId={agencyId}
+                    teamMemberId={selectedMember}
+                    teamMemberName={selectedMemberName}
+                    startDate={startDate!}
+                    endDate={endDate!}
+                    onDataChange={setCallScoringData}
+                  />
+                )}
+
+                {/* Meeting Notes Display (for export) */}
+                {meetingNotes && (
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-bold mb-2 text-foreground">Meeting Notes</h4>
+                    <p className="whitespace-pre-wrap text-muted-foreground">{meetingNotes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Meeting Takeaway Section (not in export ref for live editing) */}
+              {!viewingHistoricalFrame && (
+                <Card className="p-6">
+                  <h3 className="font-bold uppercase tracking-wide text-center mb-4 text-foreground">
+                    Meeting Takeaway Submission
+                  </h3>
+
+                  <Textarea
+                    placeholder="Enter notes, action items, and takeaways from this meeting..."
+                    value={meetingNotes}
+                    onChange={(e) => setMeetingNotes(e.target.value)}
+                    className="min-h-[150px] mb-4"
+                  />
+
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <Button variant="outline" onClick={handleExportPNG}>
+                      <Image className="h-4 w-4 mr-2" />
+                      Export PNG
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPDF}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export PDF
+                    </Button>
+                    <Button onClick={handleSaveMeetingFrame} disabled={saving}>
+                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? 'Saving...' : 'Save Meeting Frame'}
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {/* Historical frame export buttons */}
+              {viewingHistoricalFrame && (
+                <Card className="p-6">
+                  <div className="flex flex-wrap justify-end gap-3">
+                    <Button variant="outline" onClick={handleExportPNG}>
+                      <Image className="h-4 w-4 mr-2" />
+                      Export PNG
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPDF}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export PDF
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* No report yet */}
+          {!reportGenerated && (
+            <Card className="p-12 text-center">
+              <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground">Select a Team Member</h3>
+              <p className="text-muted-foreground mt-2">
+                Choose a team member and date range to generate their meeting frame report
+              </p>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
