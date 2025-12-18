@@ -65,40 +65,17 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
     }
   };
 
-  const getUserName = async (): Promise<string> => {
-    if (!user) return 'Anonymous';
-    
-    // Try to get name from profiles first
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-    
-    if (profile?.full_name) {
-      return profile.full_name;
-    }
-    
-    // Try team_members as fallback
-    const { data: teamMember } = await supabase
-      .from('team_members')
-      .select('name')
-      .eq('user_id', user.id)
-      .single();
-    
-    if (teamMember?.name) {
-      return teamMember.name;
-    }
-    
-    return 'Anonymous';
-  };
-
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !user) return;
 
     setSubmitting(true);
     try {
-      const userName = await getUserName();
+      // Get name from multiple sources - simplest approach
+      const userName = 
+        user.user_metadata?.full_name ||  // From auth metadata
+        user.user_metadata?.name ||       // Alternative metadata field
+        user.email?.split('@')[0] ||      // Use email prefix as fallback
+        'Anonymous';
 
       const { error } = await supabase
         .from('training_comments')
@@ -127,7 +104,11 @@ export function TrainingComments({ lessonId }: TrainingCommentsProps) {
 
     setSubmitting(true);
     try {
-      const userName = await getUserName();
+      const userName = 
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
+        'Anonymous';
 
       const { error } = await supabase
         .from('training_comments')
