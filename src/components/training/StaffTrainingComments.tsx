@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { MessageCircle, Reply, Send, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
-
 interface Comment {
   id: string;
   lesson_id: string;
@@ -25,6 +25,7 @@ interface StaffTrainingCommentsProps {
 }
 
 export function StaffTrainingComments({ lessonId }: StaffTrainingCommentsProps) {
+  const navigate = useNavigate();
   const [comments, setComments] = useState<Comment[]>([]);
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -34,42 +35,45 @@ export function StaffTrainingComments({ lessonId }: StaffTrainingCommentsProps) 
   const [submitting, setSubmitting] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
+  const handleSessionExpired = () => {
+    localStorage.removeItem('staff_session_token');
+    toast.error('Session expired. Please log in again.');
+    navigate('/staff/login');
+  };
+
   useEffect(() => {
     fetchComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
   const fetchComments = async () => {
+    setLoading(true);
+
     try {
       const sessionToken = localStorage.getItem('staff_session_token');
       if (!sessionToken) {
-        setLoading(false);
+        setComments([]);
+        setStaffUserId(null);
         return;
       }
 
+      // NOTE: staff sessions are not Supabase Auth JWTs; we use x-staff-session.
       const { data, error } = await supabase.functions.invoke('staff-training-comments', {
+        method: 'POST',
         headers: { 'x-staff-session': sessionToken },
-        body: null,
-        method: 'GET',
+        body: { action: 'list', lesson_id: lessonId },
       });
 
-      // Handle the response from the edge function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/staff-training-comments?lesson_id=${lessonId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-staff-session': sessionToken,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid or expired session')) {
+          handleSessionExpired();
+          return;
         }
-      );
+        throw error;
+      }
 
-      if (!response.ok) throw new Error('Failed to fetch comments');
-      
-      const result = await response.json();
-      setComments(result.comments || []);
-      setStaffUserId(result.staffUserId);
+      setComments((data as any)?.comments || []);
+      setStaffUserId((data as any)?.staffUserId || null);
     } catch (err) {
       console.error('Error fetching comments:', err);
     } finally {
@@ -82,32 +86,31 @@ export function StaffTrainingComments({ lessonId }: StaffTrainingCommentsProps) 
 
     const sessionToken = localStorage.getItem('staff_session_token');
     if (!sessionToken) {
-      toast.error('Session expired. Please log in again.');
+      handleSessionExpired();
       return;
     }
 
     setSubmitting(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/staff-training-comments`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-staff-session': sessionToken,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            lesson_id: lessonId,
-            content: newComment.trim(),
-          }),
-        }
-      );
+      const { error } = await supabase.functions.invoke('staff-training-comments', {
+        method: 'POST',
+        headers: { 'x-staff-session': sessionToken },
+        body: {
+          lesson_id: lessonId,
+          content: newComment.trim(),
+        },
+      });
 
-      if (!response.ok) throw new Error('Failed to post comment');
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid or expired session')) {
+          handleSessionExpired();
+          return;
+        }
+        throw error;
+      }
 
       setNewComment('');
-      fetchComments();
+      await fetchComments();
       toast.success('Comment posted!');
     } catch (err: any) {
       console.error('Error posting comment:', err);
@@ -122,34 +125,33 @@ export function StaffTrainingComments({ lessonId }: StaffTrainingCommentsProps) 
 
     const sessionToken = localStorage.getItem('staff_session_token');
     if (!sessionToken) {
-      toast.error('Session expired. Please log in again.');
+      handleSessionExpired();
       return;
     }
 
     setSubmitting(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/staff-training-comments`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-staff-session': sessionToken,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            lesson_id: lessonId,
-            content: replyContent.trim(),
-            parent_id: parentId,
-          }),
-        }
-      );
+      const { error } = await supabase.functions.invoke('staff-training-comments', {
+        method: 'POST',
+        headers: { 'x-staff-session': sessionToken },
+        body: {
+          lesson_id: lessonId,
+          content: replyContent.trim(),
+          parent_id: parentId,
+        },
+      });
 
-      if (!response.ok) throw new Error('Failed to post reply');
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid or expired session')) {
+          handleSessionExpired();
+          return;
+        }
+        throw error;
+      }
 
       setReplyContent('');
       setReplyingTo(null);
-      fetchComments();
+      await fetchComments();
       setExpandedReplies(prev => new Set([...prev, parentId]));
       toast.success('Reply posted!');
     } catch (err: any) {
@@ -165,26 +167,26 @@ export function StaffTrainingComments({ lessonId }: StaffTrainingCommentsProps) 
 
     const sessionToken = localStorage.getItem('staff_session_token');
     if (!sessionToken) {
-      toast.error('Session expired. Please log in again.');
+      handleSessionExpired();
       return;
     }
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/staff-training-comments?comment_id=${commentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-staff-session': sessionToken,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+      const { error } = await supabase.functions.invoke('staff-training-comments', {
+        method: 'POST',
+        headers: { 'x-staff-session': sessionToken },
+        body: { action: 'delete', comment_id: commentId },
+      });
+
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid or expired session')) {
+          handleSessionExpired();
+          return;
         }
-      );
+        throw error;
+      }
 
-      if (!response.ok) throw new Error('Failed to delete comment');
-
-      fetchComments();
+      await fetchComments();
       toast.success('Comment deleted');
     } catch (err) {
       console.error('Error deleting comment:', err);
