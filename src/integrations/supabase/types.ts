@@ -4441,13 +4441,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "training_comments_lesson_id_fkey"
-            columns: ["lesson_id"]
-            isOneToOne: false
-            referencedRelation: "training_lessons"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "training_comments_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
