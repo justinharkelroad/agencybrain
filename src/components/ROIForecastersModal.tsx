@@ -706,7 +706,7 @@ function MailerForm({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="space-y-4">
-      <BackHeader title="Mailer Forecaster" onBack={onBack} />
+      <BackHeader title="Mailer Forecaster" onBack={onBack} videoKey="Mailer_Forecaster_Tool" />
       <GridTwoCols>
         <div>
           <Label htmlFor="mailSource">Mail Source</Label>
