@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -101,6 +101,35 @@ export default function CallScoring() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [loadingCallDetails, setLoadingCallDetails] = useState(false);
+
+  // SECURITY: Track polling timeouts for cleanup on logout/unmount
+  const pollingTimeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
+  const currentAgencyIdRef = useRef<string | null>(null);
+
+  // Update agency ref when agencyId changes
+  useEffect(() => {
+    currentAgencyIdRef.current = agencyId;
+  }, [agencyId]);
+
+  // Clean up all polling timeouts on unmount
+  useEffect(() => {
+    return () => {
+      pollingTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      pollingTimeoutsRef.current.clear();
+    };
+  }, []);
+
+  // SECURITY: Clear polling on auth state change (logout)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        console.log('User signed out - clearing all polling timeouts');
+        pollingTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+        pollingTimeoutsRef.current.clear();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Detect staff user by verifying session token (same as useStaffAuth hook)
   useEffect(() => {
@@ -671,36 +700,50 @@ export default function CallScoring() {
   };
 
   // Poll to notify when analysis is done
-  const pollForAnalysis = async (callId: string, fileName: string) => {
+  // SECURITY: Track timeouts and validate agency before showing toast
+  const pollForAnalysis = (callId: string, fileName: string, callAgencyId?: string) => {
+    // Capture the agency at time of upload for validation
+    const originalAgencyId = callAgencyId || agencyId;
     let attempts = 0;
     const maxAttempts = 30; // 30 attempts * 3 seconds = 90 seconds max
     
     const checkStatus = async () => {
+      // SECURITY: Verify user is still in same agency before showing toast
+      if (currentAgencyIdRef.current !== originalAgencyId) {
+        console.log('Agency changed during polling - skipping toast notification');
+        return;
+      }
+      
       attempts++;
       
       const { data } = await supabase
         .from('agency_calls')
-        .select('status, overall_score')
+        .select('status, overall_score, agency_id')
         .eq('id', callId)
         .single();
 
+      // SECURITY: Double-check agency_id matches before showing toast
       if (data?.status === 'analyzed' && data?.overall_score !== null) {
-        toast.success(`"${fileName}" analysis complete: ${data.overall_score}`, {
-          duration: 5000,
-        });
-        if (agencyId) {
-          fetchUsageAndCalls(agencyId, userRole, userTeamMemberId); // Refresh to show score
+        if (currentAgencyIdRef.current === originalAgencyId && data.agency_id === originalAgencyId) {
+          toast.success(`"${fileName}" analysis complete: ${data.overall_score}`, {
+            duration: 5000,
+          });
+          if (agencyId) {
+            fetchUsageAndCalls(agencyId, userRole, userTeamMemberId); // Refresh to show score
+          }
         }
         return;
       }
 
       if (attempts < maxAttempts) {
-        setTimeout(checkStatus, 3000); // Check every 3 seconds
+        const timeout = setTimeout(checkStatus, 3000);
+        pollingTimeoutsRef.current.add(timeout);
       }
     };
 
-    // Start polling after a short delay
-    setTimeout(checkStatus, 5000);
+    // Start polling after a short delay - TRACK this timeout too
+    const initialTimeout = setTimeout(checkStatus, 5000);
+    pollingTimeoutsRef.current.add(initialTimeout);
   };
 
   const handleCallClick = async (call: RecentCall | any) => {

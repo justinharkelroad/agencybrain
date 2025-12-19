@@ -58,9 +58,26 @@ export default function AdminChecklists() {
   });
 
   useEffect(() => {
+    // SECURITY: Only subscribe when we have an agencyId, and filter to that agency
+    if (!agencyId) return;
+    
     const channel = supa
       .channel("admin-checklists")
-      .on("postgres_changes", { event: "*", schema: "public", table: "checklist_template_items" }, () =>
+      .on("postgres_changes", { 
+        event: "*", 
+        schema: "public", 
+        table: "checklist_template_items",
+        filter: `agency_id=eq.${agencyId}` // SECURITY: Scope to user's agency
+      }, () =>
+        qc.invalidateQueries({ queryKey: ["checklist-templates", agencyId] })
+      )
+      // Also listen for global templates (agency_id IS NULL)
+      .on("postgres_changes", { 
+        event: "*", 
+        schema: "public", 
+        table: "checklist_template_items",
+        filter: `agency_id=is.null`
+      }, () =>
         qc.invalidateQueries({ queryKey: ["checklist-templates", agencyId] })
       )
       .subscribe();
