@@ -48,7 +48,7 @@ export function HelpVideoButton({ videoKey, size = 'sm', className }: HelpVideoB
       <Button
         variant="ghost"
         size="icon"
-        className={`${buttonSize} rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 ${className}`}
+        className={`${buttonSize} rounded-full bg-destructive/20 text-destructive hover:bg-destructive/30 hover:text-destructive ${className}`}
         onClick={() => setOpen(true)}
         title={`Watch: ${video.title}`}
       >
