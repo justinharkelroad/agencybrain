@@ -43,10 +43,10 @@ serve(async (req) => {
     const startDate = `${month}-01`;
     const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0).toISOString().split('T')[0];
 
-    // Get team member info
+    // Get team member info including agency_id
     const { data: member, error: memberError } = await supabase
       .from('team_members')
-      .select('id, name, role')
+      .select('id, name, role, agency_id')
       .eq('id', teamMemberId)
       .single();
 
@@ -60,6 +60,24 @@ serve(async (req) => {
         }
       );
     }
+
+    // Get scorecard rules to find selected_metrics for this agency and role
+    const { data: scorecardRule, error: scorecardError } = await supabase
+      .from('scorecard_rules')
+      .select('selected_metrics')
+      .eq('agency_id', member.agency_id)
+      .eq('role', member.role)
+      .maybeSingle();
+
+    if (scorecardError) {
+      console.error('Scorecard rules lookup error:', scorecardError);
+    }
+
+    // Use selected_metrics length as required count, default to 5
+    const selectedMetrics: string[] = scorecardRule?.selected_metrics || [];
+    const requiredCount = selectedMetrics.length > 0 ? selectedMetrics.length : 5;
+
+    console.log('Selected metrics for', member.name, ':', selectedMetrics, 'Required count:', requiredCount);
 
     // Get member metrics data for the month
     const { data, error } = await supabase
@@ -95,19 +113,9 @@ serve(async (req) => {
 
     // Transform data into expected days format
     const days = (data || []).map(row => {
-      // Count non-zero metrics as "met" (simplified calculation)
-      const metrics = [
-        row.outbound_calls,
-        row.talk_minutes,
-        row.quoted_count,
-        row.sold_items,
-        row.sold_policies,
-        row.cross_sells_uncovered,
-        row.mini_reviews
-      ];
-      
-      const metCount = row.hits ?? metrics.filter(m => m && m > 0).length;
-      const requiredCount = metrics.filter(m => m !== null && m !== undefined).length || 1;
+      // Use the hits value from the row (already calculated during submission)
+      // or calculate based on selected metrics if hits is null
+      const metCount = row.hits ?? 0;
 
       return {
         date: row.date,
