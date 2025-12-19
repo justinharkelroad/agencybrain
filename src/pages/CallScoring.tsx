@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock } from 'lucide-react';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
@@ -101,6 +101,11 @@ export default function CallScoring() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [loadingCallDetails, setLoadingCallDetails] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCalls, setTotalCalls] = useState(0);
+  const CALLS_PER_PAGE = 10;
 
   // SECURITY: Track polling timeouts for cleanup on logout/unmount
   const pollingTimeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set());
@@ -234,7 +239,9 @@ export default function CallScoring() {
       
       const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
-        p_team_member_id: staffTeamMemberId
+        p_team_member_id: staffTeamMemberId,
+        p_page: currentPage,
+        p_page_size: CALLS_PER_PAGE
       });
 
       console.log('RPC response data:', data);
@@ -243,12 +250,14 @@ export default function CallScoring() {
       console.log('Team members returned:', data?.team_members);
       console.log('Templates returned:', data?.templates);
       console.log('Usage returned:', data?.usage);
+      console.log('Total calls returned:', data?.total_calls);
 
       if (data) {
         setTemplates(data.templates || []);
         setTeamMembers(data.team_members || []);
         setRecentCalls(data.recent_calls || []);
         setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
+        setTotalCalls(data.total_calls || 0);
         
         // Auto-select team member for staff
         if (data.team_members?.length === 1) {
@@ -262,7 +271,7 @@ export default function CallScoring() {
     if (isStaffUser && hasAccess) {
       fetchStaffData();
     }
-  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId]);
+  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId, currentPage]);
 
   // Check access for regular users on mount
   useEffect(() => {
@@ -314,6 +323,13 @@ export default function CallScoring() {
       fetchAgencyAndData();
     }
   }, [hasAccess, user, isStaffUser]);
+
+  // Refetch when page changes (regular users)
+  useEffect(() => {
+    if (hasAccess && user && !isStaffUser && agencyId) {
+      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
+    }
+  }, [currentPage]);
 
   const fetchAgencyAndData = async () => {
     try {
@@ -374,13 +390,30 @@ export default function CallScoring() {
         setUsage({ calls_used: 0, calls_limit: 20 });
       }
 
+      // Calculate pagination offset
+      const offset = (currentPage - 1) * CALLS_PER_PAGE;
+
+      // First get total count for pagination
+      let countQuery = supabase
+        .from('agency_calls')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', agency);
+      
+      // Apply role-based filtering for count
+      if ((role === 'staff' || role === 'manager') && teamMemberId) {
+        countQuery = countQuery.eq('team_member_id', teamMemberId);
+      }
+      
+      const { count } = await countQuery;
+      setTotalCalls(count || 0);
+
       // Build base query for recent calls - include acknowledgment fields and call_type
       let callsQuery = supabase
         .from('agency_calls')
         .select('id, original_filename, call_duration_seconds, status, overall_score, potential_rank, created_at, team_member_id, call_type, acknowledged_at, acknowledged_by, staff_feedback_positive, staff_feedback_improvement')
         .eq('agency_id', agency)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .range(offset, offset + CALLS_PER_PAGE - 1);
 
       // Build base query for analytics
       let analyticsQuery = supabase
@@ -680,7 +713,8 @@ export default function CallScoring() {
 
       console.log('Transcription complete:', data);
       
-      // Refresh the calls list to show new entry
+      // Refresh the calls list to show new entry (reset to page 1 to see it)
+      setCurrentPage(1);
       if (agencyId) {
         fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
       }
@@ -865,10 +899,13 @@ export default function CallScoring() {
     if (isStaffUser && staffAgencyId) {
       const { data: refreshData } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
-        p_team_member_id: staffTeamMemberId
+        p_team_member_id: staffTeamMemberId,
+        p_page: currentPage,
+        p_page_size: CALLS_PER_PAGE
       });
       if (refreshData) {
         setRecentCalls(refreshData.recent_calls || []);
+        setTotalCalls(refreshData.total_calls || 0);
       }
     } else if (agencyId) {
       fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
@@ -1065,7 +1102,12 @@ export default function CallScoring() {
               <Clock className="h-5 w-5" />
               Recent Calls
             </CardTitle>
-            <CardDescription>Your last 10 analyzed calls</CardDescription>
+            <CardDescription>
+              {totalCalls > 0 
+                ? `Showing ${recentCalls.length} of ${totalCalls} calls`
+                : 'Your analyzed calls'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading && processingCalls.length === 0 ? (
@@ -1192,6 +1234,33 @@ export default function CallScoring() {
                     </div>
                   </div>
                 ))}
+                
+                {/* Pagination Controls */}
+                {totalCalls > CALLS_PER_PAGE && (
+                  <div className="flex items-center justify-between pt-4 border-t mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1 || loading}
+                      onClick={() => setCurrentPage(p => p - 1)}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage} of {Math.ceil(totalCalls / CALLS_PER_PAGE)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= Math.ceil(totalCalls / CALLS_PER_PAGE) || loading}
+                      onClick={() => setCurrentPage(p => p + 1)}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
