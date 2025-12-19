@@ -11,6 +11,7 @@ import CallEfficiencyReportCard from "./CallEfficiencyReportCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import { HelpVideoButton } from "@/components/HelpVideoButton";
 
 interface CallEfficiencyToolProps {
   onBack: () => void;
@@ -279,6 +280,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h3 className="text-base font-medium text-muted-foreground">Call Efficiency Tool</h3>
+            <HelpVideoButton videoKey="Call_Efficiency_Tool" />
           </div>
         </div>
 
@@ -410,6 +412,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-base font-medium text-muted-foreground">Call Efficiency Tool</h3>
+          <HelpVideoButton videoKey="Call_Efficiency_Tool" />
         </div>
       </div>
 
