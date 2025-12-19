@@ -4,11 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { ArrowLeft, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
-
+import { useAuth } from "@/lib/auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 interface Submission {
   id: string;
   form_template_id: string;
@@ -192,9 +203,11 @@ function getRootCustomFields(
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchSubmission();
@@ -233,6 +246,35 @@ export default function SubmissionDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!submissionId) return;
+    
+    setDeleting(true);
+    try {
+      // Delete related custom_detail_entries first (if any)
+      await supabase
+        .from('custom_detail_entries')
+        .delete()
+        .eq('submission_id', submissionId);
+
+      // Delete the submission
+      const { error } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('id', submissionId);
+
+      if (error) throw error;
+
+      toast.success('Submission deleted successfully');
+      navigate('/scorecards/submissions');
+    } catch (error: any) {
+      console.error('Error deleting submission:', error);
+      toast.error('Failed to delete submission');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -263,17 +305,45 @@ export default function SubmissionDetail() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Submission Details</h1>
-          <p className="text-muted-foreground">
-            {submission.form_templates?.name || 'Unknown Form'} • {format(new Date(submission.submitted_at), 'PPP')}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Submission Details</h1>
+            <p className="text-muted-foreground">
+              {submission.form_templates?.name || 'Unknown Form'} • {format(new Date(submission.submitted_at), 'PPP')}
+            </p>
+          </div>
         </div>
+        
+        {user && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={deleting}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Submission?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this submission and all related data. 
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
