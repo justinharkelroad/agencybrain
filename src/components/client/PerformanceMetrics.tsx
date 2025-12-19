@@ -44,7 +44,7 @@ export default function PerformanceMetrics() {
       .select('*')
       .eq('user_id', user.id)
       .not('form_data', 'is', null)
-      .order('updated_at', { ascending: false })
+      .order('end_date', { ascending: false })
       .limit(1);
     setLatest(data && data.length > 0 ? (data[0] as Period) : null);
     setLoading(false);
