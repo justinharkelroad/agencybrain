@@ -50,6 +50,7 @@ interface TeamMember {
 interface CallScoringAnalyticsProps {
   calls: CallData[];
   teamMembers: TeamMember[];
+  checklistItemCount?: number;
 }
 
 const RANK_COLORS: Record<string, string> = {
@@ -71,7 +72,7 @@ const CHECKLIST_LABELS: Record<string, string> = {
   set_follow_up: 'Set Follow-up',
 };
 
-export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalyticsProps) {
+export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 8 }: CallScoringAnalyticsProps) {
   const [selectedMember, setSelectedMember] = useState<string>('all');
 
   // Filter calls based on selected member
@@ -283,7 +284,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                 <Target className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats?.avgChecklistCompletion || 0} / 8</p>
+                <p className="text-2xl font-bold">{stats?.avgChecklistCompletion || 0} / {checklistItemCount}</p>
                 <p className="text-sm text-muted-foreground">Avg Checklist Items</p>
               </div>
             </div>
@@ -445,7 +446,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                           {member.highRankPct}%
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-center">{member.avgChecklist}/8</td>
+                      <td className="py-2 px-3 text-center">{member.avgChecklist}/{checklistItemCount}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1270,7 +1270,15 @@ export default function CallScoring() {
 
         {userRole !== 'staff' && (
           <TabsContent value="analytics" className="mt-6">
-            <CallScoringAnalytics calls={analyticsCalls} teamMembers={teamMembers} />
+            <CallScoringAnalytics 
+              calls={analyticsCalls} 
+              teamMembers={teamMembers} 
+              checklistItemCount={
+                templates.find(t => t.id === selectedTemplate)?.skill_categories?.checklistItems?.length || 
+                templates[0]?.skill_categories?.checklistItems?.length || 
+                8
+              }
+            />
           </TabsContent>
         )}
       </Tabs>
