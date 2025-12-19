@@ -185,8 +185,10 @@ export default function TeamRingsGrid() {
           switch (key) {
             case "outbound_calls": return row.outbound_calls;
             case "talk_minutes": return row.talk_minutes;
-            case "quoted_count": return row.quoted_count;
-            case "sold_items": return row.sold_items;
+            case "quoted_count":
+            case "quoted_households": return row.quoted_count;
+            case "sold_items":
+            case "items_sold": return row.sold_items;
             case "sold_policies": return row.sold_policies;
             case "sold_premium": return Math.round((row.sold_premium_cents || 0) / 100);
             case "cross_sells_uncovered": return row.cross_sells_uncovered;
