@@ -37,6 +37,7 @@ import { MailerReportCard } from "@/components/tools/MailerReportCard";
 import { LiveTransferReportCard } from "@/components/tools/LiveTransferReportCard";
 import { useNavigate } from "react-router-dom";
 import { CallEfficiencyTool } from "@/components/tools/CallEfficiencyTool";
+import { HelpVideoButton } from "@/components/HelpVideoButton";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -388,7 +389,7 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
   );
 }
 
-function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
+function BackHeader({ title, onBack, videoKey }: { title: string; onBack: () => void; videoKey?: string }) {
   return (
     <div className="flex items-center justify-between mt-2">
       <div className="flex items-center gap-2">
@@ -396,6 +397,7 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h3 className="text-base font-medium text-muted-foreground">{title}</h3>
+        {videoKey && <HelpVideoButton videoKey={videoKey} />}
       </div>
     </div>
   );
@@ -497,7 +499,7 @@ function DataLeadForm({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="space-y-4">
-      <BackHeader title="Data Lead Forecaster" onBack={onBack} />
+      <BackHeader title="Data Lead Forecaster" onBack={onBack} videoKey="Data_Lead_Forecaster" />
       <GridTwoCols>
         <div>
           <Label htmlFor="leadSource">Lead Source</Label>
