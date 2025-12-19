@@ -1,0 +1,1 @@
+UPDATE help_videos SET video_key = TRIM(video_key) WHERE video_key LIKE '%Mailer_Forecaster_Tool%';
