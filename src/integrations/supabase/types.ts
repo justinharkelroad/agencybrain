@@ -5606,6 +5606,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: string
       }
+      get_my_agency_id: { Args: never; Returns: string }
       get_staff_call_details: {
         Args: { p_call_id: string; p_team_member_id: string }
         Returns: Json
