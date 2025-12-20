@@ -8,9 +8,10 @@ import { generateFlowPDF } from '@/lib/generateFlowPDF';
 import { FlowSession, FlowTemplate, FlowAnalysis, FlowQuestion } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags, Brain, HelpCircle } from 'lucide-react';
+import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags, Brain, HelpCircle, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
+import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
 
 export default function FlowComplete() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -27,6 +28,7 @@ export default function FlowComplete() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Celebration effect for milestones and streaks
   useEffect(() => {
@@ -356,6 +358,15 @@ export default function FlowComplete() {
           <Button 
             className="w-full" 
             variant="outline"
+            onClick={() => setShareModalOpen(true)}
+          >
+            <Share2 className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            Share to The Exchange
+          </Button>
+          
+          <Button 
+            className="w-full" 
+            variant="outline"
             onClick={handleDownloadPDF}
             disabled={generatingPDF}
           >
@@ -384,6 +395,18 @@ export default function FlowComplete() {
             Back to Flows
           </Button>
         </div>
+        
+        {/* Share Modal */}
+        <ExchangeShareModal
+          open={shareModalOpen}
+          onOpenChange={setShareModalOpen}
+          contentType="flow_result"
+          sourceReference={{
+            type: 'flow_result',
+            id: session.id,
+            title: session.title || `${template.name} Flow`,
+          }}
+        />
       </div>
     </div>
   );

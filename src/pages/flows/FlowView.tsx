@@ -6,8 +6,9 @@ import { generateFlowPDF } from '@/lib/generateFlowPDF';
 import { FlowSession, FlowTemplate, FlowQuestion, FlowAnalysis } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, RotateCcw, Sparkles, Lightbulb, Target, Tags, Loader2, Brain, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Download, RotateCcw, Sparkles, Lightbulb, Target, Tags, Loader2, Brain, HelpCircle, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
 
 export default function FlowView() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -21,6 +22,7 @@ export default function FlowView() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -174,6 +176,15 @@ export default function FlowView() {
             </div>
             
             <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShareModalOpen(true)}
+                title="Share to Exchange"
+              >
+                <Share2 className="h-4 w-4 mr-1" strokeWidth={1.5} />
+                Share
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -332,6 +343,18 @@ export default function FlowView() {
             );
           })}
         </div>
+        
+        {/* Share Modal */}
+        <ExchangeShareModal
+          open={shareModalOpen}
+          onOpenChange={setShareModalOpen}
+          contentType="flow_result"
+          sourceReference={{
+            type: 'flow_result',
+            id: session.id,
+            title: session.title || `${template.name} Flow`,
+          }}
+        />
       </div>
     </div>
   );
