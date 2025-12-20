@@ -111,6 +111,7 @@ import AdminExchangeAnalytics from "./pages/admin/AdminExchangeAnalytics";
 import CallScoring from "./pages/CallScoring";
 import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
+import ExchangePostPage from "./pages/ExchangePost";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
@@ -226,6 +227,11 @@ const App = () => (
             <Route path="/exchange/messages" element={
               <ProtectedRoute>
                 <ExchangeMessages />
+              </ProtectedRoute>
+            } />
+            <Route path="/exchange/post/:postId" element={
+              <ProtectedRoute>
+                <ExchangePostPage />
               </ProtectedRoute>
             } />
             {/* Flows Routes */}
