@@ -66,10 +66,10 @@ export function ExchangeFeed({
   const { data: tags } = useExchangeTags();
   const markPostsViewed = useMarkPostsViewed();
   
-  // Flatten paginated posts
+  // Flatten paginated posts with defensive checks
   const feedPosts = useMemo(() => {
     if (!feedData?.pages) return [];
-    return feedData.pages.flatMap(page => page.posts);
+    return feedData.pages.flatMap(page => page?.posts || []);
   }, [feedData]);
   
   // Determine which posts to show
@@ -179,12 +179,12 @@ export function ExchangeFeed({
         
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={tagFilter} onValueChange={handleTagChange}>
+          <Select value={tagFilter || "all"} onValueChange={(val) => handleTagChange(val === "all" ? "" : val)}>
             <SelectTrigger className="w-[180px] h-9">
               <SelectValue placeholder="All Topics" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All Topics</SelectItem>
+            <SelectContent className="bg-popover">
+              <SelectItem value="all">All Topics</SelectItem>
               {tags?.map(tag => (
                 <SelectItem key={tag.id} value={tag.id}>{tag.name}</SelectItem>
               ))}
