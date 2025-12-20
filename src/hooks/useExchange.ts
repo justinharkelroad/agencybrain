@@ -56,7 +56,7 @@ export function useExchangeFeed(tagFilter?: string) {
   const { user } = useAuth();
   
   return useInfiniteQuery({
-    queryKey: ['exchange-feed', tagFilter],
+    queryKey: ['exchange-feed', tagFilter || 'all'],
     queryFn: async ({ pageParam }) => {
       // Build base query
       let query = supabase
@@ -69,13 +69,16 @@ export function useExchangeFeed(tagFilter?: string) {
         .order('created_at', { ascending: false })
         .limit(POSTS_PER_PAGE);
       
-      // Cursor-based pagination - skip pinned posts after first page
-      if (pageParam) {
+      // Cursor-based pagination - only add cursor if valid string
+      if (pageParam && typeof pageParam === 'string') {
         query = query.lt('created_at', pageParam);
       }
       
       const { data: posts, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Exchange feed error:', error);
+        throw error;
+      }
       
       if (!posts || posts.length === 0) {
         return { posts: [], nextCursor: null };
@@ -144,9 +147,9 @@ export function useExchangeFeed(tagFilter?: string) {
       
       return { posts: result, nextCursor };
     },
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
     initialPageParam: null as string | null,
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 }
 
