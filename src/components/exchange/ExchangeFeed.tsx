@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Filter, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,12 +12,25 @@ import { useExchangeFeed, useExchangeTags } from '@/hooks/useExchange';
 import { ExchangePostCard } from './ExchangePostCard';
 import { ExchangePostComposer } from './ExchangePostComposer';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
-export function ExchangeFeed() {
+interface ExchangeFeedProps {
+  highlightPostId?: string;
+}
+
+export function ExchangeFeed({ highlightPostId }: ExchangeFeedProps) {
   const [tagFilter, setTagFilter] = useState<string>('');
+  const [expandedPostId, setExpandedPostId] = useState<string | undefined>(highlightPostId);
   
   const { data: posts, isLoading, refetch, isRefetching } = useExchangeFeed(tagFilter || undefined);
   const { data: tags } = useExchangeTags();
+  
+  // Expand comments for highlighted post
+  useEffect(() => {
+    if (highlightPostId) {
+      setExpandedPostId(highlightPostId);
+    }
+  }, [highlightPostId]);
   
   return (
     <div className="space-y-6">
@@ -55,7 +68,7 @@ export function ExchangeFeed() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="border rounded-lg p-4 space-y-3">
+            <div key={i} className="border rounded-lg p-4 space-y-3 bg-card/50">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="space-y-2">
@@ -74,11 +87,23 @@ export function ExchangeFeed() {
       ) : posts && posts.length > 0 ? (
         <div className="space-y-4">
           {posts.map(post => (
-            <ExchangePostCard key={post.id} post={post} />
+            <div
+              key={post.id}
+              id={`post-${post.id}`}
+              className={cn(
+                "transition-all duration-300",
+                highlightPostId === post.id && "ring-2 ring-primary ring-offset-2 rounded-lg"
+              )}
+            >
+              <ExchangePostCard 
+                post={post} 
+                defaultShowComments={expandedPostId === post.id}
+              />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
+        <div className="text-center py-12 bg-card/30 rounded-lg border border-dashed border-border">
           <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
         </div>
       )}

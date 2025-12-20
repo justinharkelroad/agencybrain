@@ -46,6 +46,7 @@ export interface CreatePostInput {
   source_reference?: { type: string; id: string; title: string };
   visibility: ExchangeVisibility;
   tag_ids?: string[];
+  private_recipient_id?: string;
 }
 
 export function useExchangeFeed(tagFilter?: string) {
@@ -172,6 +173,7 @@ export function useCreatePost() {
           source_reference: input.source_reference,
           visibility: input.visibility,
           is_admin_post: false,
+          private_recipient_id: input.private_recipient_id,
         })
         .select()
         .single();
