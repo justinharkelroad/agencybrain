@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3, Mail, PhoneCall, Clock } from 'lucide-react';
+import { FileText, Trash2, Calculator, Users, ChevronDown, ChevronRight, BarChart3, Mail, PhoneCall, Clock, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ import { LiveTransferReportCard } from '@/components/tools/LiveTransferReportCar
 import CallEfficiencyReportCard from '@/components/tools/CallEfficiencyReportCard';
 import { MarketingInputs, MarketingDerived, MailerInputs, MailerDerived, TransferInputs, TransferDerived } from '@/utils/marketingCalculator';
 import { CallEfficiencyResults } from '@/utils/callEfficiencyCalculator';
+import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
 
 type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer' | 'call_efficiency';
 
@@ -38,6 +39,7 @@ export function SavedReportsHistory() {
   const [filter, setFilter] = useState<ReportFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [shareReport, setShareReport] = useState<SavedReport | null>(null);
 
   const { reports, isLoading, error, deleteReport } = useSavedReports(
     filter === 'all' ? undefined : filter
@@ -252,17 +254,31 @@ export function SavedReportsHistory() {
                     </div>
                     {getReportTypeBadge(report.report_type)}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteId(report.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShareReport(report);
+                      }}
+                      title="Share to Exchange"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteId(report.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               {expandedId === report.id && (
@@ -291,6 +307,18 @@ export function SavedReportsHistory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share Modal */}
+      <ExchangeShareModal
+        open={!!shareReport}
+        onOpenChange={(open) => !open && setShareReport(null)}
+        contentType="saved_report"
+        sourceReference={shareReport ? {
+          type: 'saved_report',
+          id: shareReport.id,
+          title: shareReport.title,
+        } : undefined}
+      />
     </div>
   );
 }

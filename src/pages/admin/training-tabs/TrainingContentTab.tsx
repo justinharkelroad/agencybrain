@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Edit, Plus, Trash2, ArrowLeft, Download, FileIcon, Upload, X, ImageIcon } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowLeft, Download, FileIcon, Upload, X, ImageIcon, Share2 } from "lucide-react";
 import { useTrainingCategories } from "@/hooks/useTrainingCategories";
 import { useTrainingModules } from "@/hooks/useTrainingModules";
 import { useTrainingLessons } from "@/hooks/useTrainingLessons";
@@ -20,6 +20,7 @@ import { useTrainingAttachments } from "@/hooks/useTrainingAttachments";
 import { useTrainingQuizzes } from "@/hooks/useTrainingQuizzes";
 import { AttachmentUploader } from "@/components/training/AttachmentUploader";
 import { QuizBuilder } from "@/components/training/QuizBuilder";
+import { ExchangeShareModal } from "@/components/exchange/ExchangeShareModal";
 
 interface TrainingContentTabProps {
   agencyId: string;
@@ -78,6 +79,10 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     assignments: number;
   } | null>(null);
   const [loadingImpact, setLoadingImpact] = useState(false);
+  
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareItem, setShareItem] = useState<{ id: string; name: string; type: 'module' | 'lesson' } | null>(null);
 
   // Hooks
   const { categories, createCategory, updateCategory, deleteCategory, isCreating: isCreatingCategory, isUpdating: isUpdatingCategory } = useTrainingCategories(agencyId);
@@ -637,6 +642,17 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                             <Button size="sm" variant="flat" onClick={() => setSelectedModuleId(module.id)}>
                               View Lessons
                             </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => {
+                                setShareItem({ id: module.id, name: module.name, type: 'module' });
+                                setShareModalOpen(true);
+                              }}
+                              title="Share to Exchange"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => openModuleDialog(module)}>
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -707,6 +723,17 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                         <TableCell>{lesson.video_url ? '✓' : '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => {
+                                setShareItem({ id: lesson.id, name: lesson.name, type: 'lesson' });
+                                setShareModalOpen(true);
+                              }}
+                              title="Share to Exchange"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => openLessonDialog(lesson)}>
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -1066,6 +1093,18 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Share Modal */}
+      <ExchangeShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        contentType="training_module"
+        sourceReference={shareItem ? {
+          type: shareItem.type,
+          id: shareItem.id,
+          title: shareItem.name,
+        } : undefined}
+      />
     </div>
   );
 }

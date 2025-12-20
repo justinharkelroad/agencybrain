@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Folder, FolderOpen, ShieldCheck, UploadCloud } from "lucide-react";
+import { Folder, FolderOpen, ShieldCheck, UploadCloud, Share2 } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { Link, Navigate } from "react-router-dom";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
+import { ExchangeShareModal } from "@/components/exchange/ExchangeShareModal";
 
 interface ProcessVaultType {
   id: string;
@@ -46,6 +47,10 @@ const ProcessVault: React.FC = () => {
   const [selectedVault, setSelectedVault] = useState<UserVault | null>(null);
   const [selectedVaultFiles, setSelectedVaultFiles] = useState<VaultFileRow[]>([]);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  
+  // Share modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareFile, setShareFile] = useState<VaultFileRow | null>(null);
 
   // SEO basics
   useEffect(() => {
@@ -310,19 +315,33 @@ const ProcessVault: React.FC = () => {
                     {selectedVaultFiles.map((f) => (
                       <li key={f.id} className="text-sm flex items-center justify-between border rounded p-2">
                         <span className="truncate mr-2">{f.upload_file_path.split('/').pop()}</span>
-                        {signedUrls[f.id] ? (
-                          <a
-                            className="text-primary underline underline-offset-2"
-                            href={signedUrls[f.id]}
-                            target="_blank"
-                            rel="noreferrer"
-                            download
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => {
+                              setShareFile(f);
+                              setShareModalOpen(true);
+                            }}
                           >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Loading...</span>
-                        )}
+                            <Share2 className="h-3.5 w-3.5 mr-1" />
+                            Share
+                          </Button>
+                          {signedUrls[f.id] ? (
+                            <a
+                              className="text-primary underline underline-offset-2 text-sm"
+                              href={signedUrls[f.id]}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              Download
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Loading...</span>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -334,6 +353,20 @@ const ProcessVault: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Share Modal */}
+      <ExchangeShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        contentType="process_vault"
+        sourceReference={shareFile ? {
+          type: 'process_vault',
+          id: shareFile.id,
+          title: shareFile.upload_file_path.split('/').pop() || 'Vault File',
+        } : undefined}
+        filePath={shareFile?.upload_file_path}
+        fileName={shareFile?.upload_file_path.split('/').pop()}
+      />
     </div>
   );
 };
