@@ -106,7 +106,7 @@ import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 import AdminHelpVideos from "./pages/admin/AdminHelpVideos";
 import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
 import AdminExchangeTags from "./pages/admin/AdminExchangeTags";
-
+import AdminExchangeReports from "./pages/admin/AdminExchangeReports";
 import CallScoring from "./pages/CallScoring";
 import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
@@ -515,6 +515,11 @@ const App = () => (
                 <SidebarLayout>
                   <AdminHelpVideos />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/exchange-reports" element={
+              <ProtectedRoute requireAdmin>
+                <AdminExchangeReports />
               </ProtectedRoute>
             } />
             <Route path="/admin/team" element={

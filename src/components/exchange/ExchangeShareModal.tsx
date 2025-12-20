@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -11,8 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, Link2, Image as ImageIcon, Send, Loader2 } from 'lucide-react';
+import { FileText, Link2, Image as ImageIcon, Send, Loader2, Mail, Users } from 'lucide-react';
 import { useCreatePost, useExchangeTags, ExchangeVisibility, ExchangeContentType } from '@/hooks/useExchange';
+import { useSendExchangeNotification, EmailAudience } from '@/hooks/useExchangeEmail';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -42,8 +45,16 @@ export function ExchangeShareModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [visibility, setVisibility] = useState<ExchangeVisibility>('boardroom');
   
+  // Email notification state (admin only)
+  const [sendEmail, setSendEmail] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailAudience, setEmailAudience] = useState<EmailAudience>('all');
+  const [includeStaff, setIncludeStaff] = useState(false);
+  
   const { data: tags } = useExchangeTags();
   const createPost = useCreatePost();
+  const sendNotification = useSendExchangeNotification();
   
   const getContentIcon = () => {
     switch (contentType) {
@@ -83,6 +94,8 @@ export function ExchangeShareModal({
     );
   };
   
+  const contentTitle = sourceReference?.title || fileName || externalUrl || 'Untitled';
+  
   const handleShare = () => {
     createPost.mutate(
       {
@@ -96,18 +109,35 @@ export function ExchangeShareModal({
         tag_ids: selectedTags.length > 0 ? selectedTags : undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (post) => {
+          // Send email notification if enabled
+          if (sendEmail && isAdmin && post) {
+            sendNotification.mutate({
+              post_id: post.id,
+              subject: emailSubject || `New in The Exchange: ${contentTitle}`,
+              message: emailMessage || content || `Check out this new content in The Exchange.`,
+              audience: emailAudience,
+              include_staff: includeStaff,
+            });
+          }
+          
+          // Reset form
           onOpenChange(false);
           setContent('');
           setSelectedTags([]);
+          setSendEmail(false);
+          setEmailSubject('');
+          setEmailMessage('');
         },
       }
     );
   };
   
+  const isLoading = createPost.isPending || sendNotification.isPending;
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Share to The Exchange</DialogTitle>
         </DialogHeader>
@@ -118,9 +148,7 @@ export function ExchangeShareModal({
             {getContentIcon()}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground">{getContentLabel()}</p>
-              <p className="text-sm font-medium truncate">
-                {sourceReference?.title || fileName || externalUrl || 'Untitled'}
-              </p>
+              <p className="text-sm font-medium truncate">{contentTitle}</p>
             </div>
           </div>
           
@@ -178,19 +206,90 @@ export function ExchangeShareModal({
               </p>
             </div>
           )}
+          
+          {/* Email Notification (Admin only) */}
+          {isAdmin && (
+            <div className="space-y-4 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="send-email"
+                  checked={sendEmail}
+                  onCheckedChange={(checked) => setSendEmail(checked === true)}
+                />
+                <Label htmlFor="send-email" className="flex items-center gap-2 cursor-pointer">
+                  <Mail className="h-4 w-4" />
+                  Also send email notification
+                </Label>
+              </div>
+              
+              {sendEmail && (
+                <div className="space-y-4 pl-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-2">
+                    <Label>Email Subject</Label>
+                    <Input
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder={`New in The Exchange: ${contentTitle}`}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Email Message</Label>
+                    <Textarea
+                      value={emailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
+                      placeholder={content || "Check out this new content in The Exchange."}
+                      className="min-h-[80px] resize-none"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Send to
+                    </Label>
+                    <Select value={emailAudience} onValueChange={(v) => setEmailAudience(v as EmailAudience)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Agency Owners</SelectItem>
+                        <SelectItem value="one_on_one">1:1 Coaching Only</SelectItem>
+                        <SelectItem value="boardroom">Boardroom & Above</SelectItem>
+                        <SelectItem value="call_scoring">Call Scoring Users</SelectItem>
+                        <SelectItem value="staff">Staff Only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="include-staff"
+                      checked={includeStaff}
+                      onCheckedChange={(checked) => setIncludeStaff(checked === true)}
+                      disabled={emailAudience === 'staff'}
+                    />
+                    <Label htmlFor="include-staff" className="cursor-pointer text-sm">
+                      Also include staff members
+                    </Label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleShare} disabled={createPost.isPending} className="gap-2">
-            {createPost.isPending ? (
+          <Button onClick={handleShare} disabled={isLoading} className="gap-2">
+            {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />
             )}
-            Share
+            {sendEmail ? 'Share & Send Email' : 'Share'}
           </Button>
         </div>
       </DialogContent>
