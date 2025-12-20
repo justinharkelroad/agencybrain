@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Plus,
   Pencil,
@@ -17,6 +18,7 @@ import {
   FileDown,
   HelpCircle,
   Clock,
+  Share2,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -29,6 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
 
 interface SPModule {
   id: string;
@@ -68,6 +71,8 @@ export default function AdminSPModuleDetail() {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareLesson, setShareLesson] = useState<SPLesson | null>(null);
 
   useEffect(() => {
     if (moduleId) {
@@ -281,6 +286,22 @@ export default function AdminSPModuleDetail() {
                       onCheckedChange={() => toggleLessonPublished(lesson)}
                     />
 
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setShareLesson(lesson);
+                            setShareModalOpen(true);
+                          }}
+                        >
+                          <Share2 className="h-4 w-4" strokeWidth={1.5} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Share to The Exchange</TooltipContent>
+                    </Tooltip>
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -326,6 +347,25 @@ export default function AdminSPModuleDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share to Exchange Modal */}
+      {shareLesson && (
+        <ExchangeShareModal
+          open={shareModalOpen}
+          onOpenChange={(open) => {
+            setShareModalOpen(open);
+            if (!open) setShareLesson(null);
+          }}
+          contentType="training_module"
+          sourceReference={{
+            type: 'sp_lesson',
+            id: shareLesson.id,
+            title: shareLesson.name,
+          }}
+          filePath={shareLesson.document_url || undefined}
+          fileName={shareLesson.document_url ? `${shareLesson.name}.pdf` : undefined}
+        />
+      )}
     </div>
   );
 }
