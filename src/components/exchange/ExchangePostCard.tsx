@@ -1,0 +1,285 @@
+import { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, User } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { ExchangePost, useToggleLike, useDeletePost, useReportPost } from '@/hooks/useExchange';
+import { ExchangeCommentSection } from './ExchangeCommentSection';
+import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
+
+interface ExchangePostCardProps {
+  post: ExchangePost;
+}
+
+export function ExchangePostCard({ post }: ExchangePostCardProps) {
+  const { user, isAdmin } = useAuth();
+  const [showComments, setShowComments] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  
+  const toggleLike = useToggleLike();
+  const deletePost = useDeletePost();
+  const reportPost = useReportPost();
+  
+  const isOwner = user?.id === post.user_id;
+  const canDelete = isOwner || isAdmin;
+  
+  const getContentIcon = () => {
+    switch (post.content_type) {
+      case 'image':
+        return <ImageIcon className="h-4 w-4" />;
+      case 'external_link':
+        return <Link2 className="h-4 w-4" />;
+      case 'process_vault':
+      case 'saved_report':
+      case 'training_module':
+        return <FileText className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
+  
+  const getContentTypeLabel = () => {
+    switch (post.content_type) {
+      case 'process_vault':
+        return 'Process Vault';
+      case 'flow_result':
+        return 'Flow Result';
+      case 'saved_report':
+        return 'Report';
+      case 'training_module':
+        return 'Training';
+      case 'external_link':
+        return 'Link';
+      case 'image':
+        return 'Image';
+      default:
+        return null;
+    }
+  };
+  
+  const handleLike = () => {
+    toggleLike.mutate({ postId: post.id, hasLiked: post.user_has_liked });
+  };
+  
+  const handleDelete = () => {
+    deletePost.mutate(post.id);
+    setShowDeleteDialog(false);
+  };
+  
+  const handleReport = () => {
+    reportPost.mutate({ postId: post.id, reason: 'User reported content' });
+    setShowReportDialog(false);
+  };
+  
+  const userInitials = post.user.full_name
+    ? post.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : post.user.email[0].toUpperCase();
+
+  return (
+    <>
+      <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:border-border transition-colors">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">
+                    {post.user.full_name || post.user.email}
+                  </span>
+                  {post.is_admin_post && (
+                    <Badge variant="secondary" className="text-xs">Admin</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {post.user.agency?.name && (
+                    <>
+                      <span>{post.user.agency.name}</span>
+                      <span>•</span>
+                    </>
+                  )}
+                  <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                </div>
+              </div>
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canDelete && (
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+                {!isOwner && (
+                  <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                    <Flag className="h-4 w-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {/* Tags */}
+          {post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {post.tags.map(tag => (
+                <Badge key={tag.id} variant="outline" className="text-xs">
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          )}
+          
+          {/* Content Type Badge */}
+          {getContentTypeLabel() && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {getContentIcon()}
+              <span>{getContentTypeLabel()}</span>
+              {post.source_reference?.title && (
+                <>
+                  <span>•</span>
+                  <span className="font-medium">{post.source_reference.title}</span>
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Content Text */}
+          {post.content_text && (
+            <p className="text-foreground whitespace-pre-wrap">{post.content_text}</p>
+          )}
+          
+          {/* External Link */}
+          {post.external_url && (
+            <a
+              href={post.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-sm"
+            >
+              <ExternalLink className="h-4 w-4 text-primary" />
+              <span className="text-primary hover:underline truncate">{post.external_url}</span>
+            </a>
+          )}
+          
+          {/* File Preview */}
+          {post.file_path && post.file_name && (
+            <a
+              href={`https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/uploads/${post.file_path}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <FileText className="h-5 w-5 text-primary" />
+              <span className="text-sm">{post.file_name}</span>
+            </a>
+          )}
+          
+          {/* Actions */}
+          <div className="flex items-center gap-4 pt-2 border-t border-border/50">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-2 h-8",
+                post.user_has_liked && "text-red-500"
+              )}
+              onClick={handleLike}
+              disabled={toggleLike.isPending}
+            >
+              <Heart className={cn("h-4 w-4", post.user_has_liked && "fill-current")} />
+              <span>{post.likes_count}</span>
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 h-8"
+              onClick={() => setShowComments(!showComments)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>{post.comments_count}</span>
+            </Button>
+          </div>
+          
+          {/* Comments Section */}
+          {showComments && (
+            <ExchangeCommentSection postId={post.id} />
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Delete Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Report Dialog */}
+      <AlertDialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Report Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Report this post for review by the admin team. This will flag the content for potential violations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReport}>
+              Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
