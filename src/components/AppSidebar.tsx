@@ -66,6 +66,7 @@ const adminOnlyItems = [
   { title: "Help Videos", url: "/admin/help-videos", icon: Video },
   { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
   { title: "Exchange Reports", url: "/admin/exchange-reports", icon: MessageSquare },
+  { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
