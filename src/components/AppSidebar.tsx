@@ -17,6 +17,7 @@ import {
   Sun,
   Video,
   Phone,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -47,6 +48,7 @@ const mainItems = [
   { title: "Training", url: "/training", icon: BookOpen },
   { title: "Flows", url: "/flows", icon: Sparkles },
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
+  { title: "The Exchange", url: "/exchange", icon: ArrowLeftRight },
 ];
 
 import { BarChart3 } from "lucide-react";
@@ -62,6 +64,7 @@ const adminOnlyItems = [
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Help Videos", url: "/admin/help-videos", icon: Video },
+  { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
