@@ -9,6 +9,7 @@ import {
   Sparkles,
   Sun,
   Phone,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -35,6 +36,7 @@ const navItems = [
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/staff/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
+  { title: "The Exchange", url: "/exchange", icon: ArrowLeftRight },
 ];
 
 const bottomItems = [

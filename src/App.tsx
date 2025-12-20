@@ -105,8 +105,11 @@ import AdminFlows from "./pages/admin/AdminFlows";
 import AdminFlowEditor from "./pages/admin/AdminFlowEditor";
 import AdminHelpVideos from "./pages/admin/AdminHelpVideos";
 import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
+import AdminExchangeTags from "./pages/admin/AdminExchangeTags";
 
 import CallScoring from "./pages/CallScoring";
+import Exchange from "./pages/Exchange";
+import ExchangeMessages from "./pages/ExchangeMessages";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
@@ -211,6 +214,17 @@ const App = () => (
                 <SidebarLayout>
                   <ProcessVault />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Exchange Routes */}
+            <Route path="/exchange" element={
+              <ProtectedRoute>
+                <Exchange />
+              </ProtectedRoute>
+            } />
+            <Route path="/exchange/messages" element={
+              <ProtectedRoute>
+                <ExchangeMessages />
               </ProtectedRoute>
             } />
             {/* Flows Routes */}
@@ -529,6 +543,11 @@ const App = () => (
                 <SidebarLayout>
                   <AdminFocusManagement />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/exchange-tags" element={
+              <ProtectedRoute requireAdmin>
+                <AdminExchangeTags />
               </ProtectedRoute>
             } />
             <Route path="/admin/training" element={
