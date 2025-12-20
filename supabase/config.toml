@@ -210,3 +210,6 @@ verify_jwt = true
 [functions.get-daily-agency-progress]
 verify_jwt = false
 
+[functions.send-exchange-notification]
+verify_jwt = true
+

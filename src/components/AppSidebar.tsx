@@ -65,6 +65,7 @@ const adminOnlyItems = [
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Help Videos", url: "/admin/help-videos", icon: Video },
   { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
+  { title: "Exchange Reports", url: "/admin/exchange-reports", icon: MessageSquare },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {

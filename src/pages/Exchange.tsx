@@ -1,7 +1,9 @@
 import { ExchangeFeed } from '@/components/exchange/ExchangeFeed';
 import { SidebarLayout } from '@/components/SidebarLayout';
+import { useExchangeRealtime } from '@/hooks/useExchangeRealtime';
 
 export default function Exchange() {
+  useExchangeRealtime(); // Enable real-time updates
   return (
     <SidebarLayout>
       <div className="flex-1 p-6 max-w-3xl mx-auto w-full">
