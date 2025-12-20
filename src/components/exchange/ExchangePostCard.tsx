@@ -134,9 +134,16 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
     }
   };
   
-  const userInitials = post.user.full_name
-    ? post.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : post.user.email[0].toUpperCase();
+  // Safe user data extraction with null checks
+  const userName = post.user?.full_name || post.user?.email || 'Unknown User';
+  const userEmail = post.user?.email || '';
+  const userAgency = post.user?.agency?.name || null;
+  const userInitials = (post.user?.full_name || post.user?.email || '??')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <TooltipProvider>
@@ -156,7 +163,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-foreground">
-                    {post.user.full_name || post.user.email}
+                    {userName}
                   </span>
                   {post.is_admin_post && (
                     <Badge variant="secondary" className="text-xs">Admin</Badge>
@@ -175,9 +182,9 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {post.user.agency?.name && (
+                  {userAgency && (
                     <>
-                      <span>{post.user.agency.name}</span>
+                      <span>{userAgency}</span>
                       <span>•</span>
                     </>
                   )}
