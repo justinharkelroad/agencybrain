@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -97,14 +98,19 @@ export function ExchangePostComposer() {
         
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowUrlInput(!showUrlInput)}
-              className={cn(showUrlInput && "bg-muted")}
-            >
-              <Link2 className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                  className={cn(showUrlInput && "bg-muted")}
+                >
+                  <Link2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share an external URL</TooltipContent>
+            </Tooltip>
             
             {isAdmin && (
               <Select value={visibility} onValueChange={(v) => setVisibility(v as ExchangeVisibility)}>
