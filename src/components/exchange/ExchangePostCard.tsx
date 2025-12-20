@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, User } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +23,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { ExchangePost, useToggleLike, useDeletePost, useReportPost } from '@/hooks/useExchange';
 import { ExchangeCommentSection } from './ExchangeCommentSection';
 import { useAuth } from '@/lib/auth';
@@ -28,13 +37,16 @@ import { cn } from '@/lib/utils';
 
 interface ExchangePostCardProps {
   post: ExchangePost;
+  defaultShowComments?: boolean;
 }
 
-export function ExchangePostCard({ post }: ExchangePostCardProps) {
+export function ExchangePostCard({ post, defaultShowComments = false }: ExchangePostCardProps) {
   const { user, isAdmin } = useAuth();
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [contentExpanded, setContentExpanded] = useState(false);
   
   const toggleLike = useToggleLike();
   const deletePost = useDeletePost();
@@ -42,6 +54,16 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
   
   const isOwner = user?.id === post.user_id;
   const canDelete = isOwner || isAdmin;
+  const isPrivateShare = !!(post as any).private_recipient_id;
+  
+  // Check if content is long (more than 300 chars or 3 lines)
+  const isLongContent = post.content_text && (
+    post.content_text.length > 300 || 
+    post.content_text.split('\n').length > 3
+  );
+  const displayContent = isLongContent && !contentExpanded
+    ? post.content_text!.slice(0, 280) + '...'
+    : post.content_text;
   
   const getContentIcon = () => {
     switch (post.content_type) {
@@ -78,6 +100,7 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
   };
   
   const handleLike = () => {
+    if (isPrivateShare) return; // Disable likes for private shares
     toggleLike.mutate({ postId: post.id, hasLiked: post.user_has_liked });
   };
   
@@ -87,8 +110,10 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
   };
   
   const handleReport = () => {
-    reportPost.mutate({ postId: post.id, reason: 'User reported content' });
+    if (!reportReason.trim()) return;
+    reportPost.mutate({ postId: post.id, reason: reportReason });
     setShowReportDialog(false);
+    setReportReason('');
   };
   
   const userInitials = post.user.full_name
@@ -97,7 +122,10 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
 
   return (
     <>
-      <Card className="border-border/50 bg-card/50 backdrop-blur-sm hover:border-border transition-colors">
+      <Card className={cn(
+        "border-border/50 bg-card/50 backdrop-blur-sm hover:border-border transition-all duration-200",
+        isPrivateShare && "border-primary/30 bg-primary/5"
+      )}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -113,6 +141,12 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
                   </span>
                   {post.is_admin_post && (
                     <Badge variant="secondary" className="text-xs">Admin</Badge>
+                  )}
+                  {isPrivateShare && (
+                    <Badge variant="outline" className="text-xs gap-1">
+                      <Lock className="h-3 w-3" />
+                      Private
+                    </Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -182,7 +216,19 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
           
           {/* Content Text */}
           {post.content_text && (
-            <p className="text-foreground whitespace-pre-wrap">{post.content_text}</p>
+            <div>
+              <p className="text-foreground whitespace-pre-wrap">{displayContent}</p>
+              {isLongContent && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="p-0 h-auto text-primary"
+                  onClick={() => setContentExpanded(!contentExpanded)}
+                >
+                  {contentExpanded ? 'Show less' : 'Read more'}
+                </Button>
+              )}
+            </div>
           )}
           
           {/* External Link */}
@@ -212,34 +258,39 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
           )}
           
           {/* Actions */}
-          <div className="flex items-center gap-4 pt-2 border-t border-border/50">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "gap-2 h-8",
-                post.user_has_liked && "text-red-500"
-              )}
-              onClick={handleLike}
-              disabled={toggleLike.isPending}
-            >
-              <Heart className={cn("h-4 w-4", post.user_has_liked && "fill-current")} />
-              <span>{post.likes_count}</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 h-8"
-              onClick={() => setShowComments(!showComments)}
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span>{post.comments_count}</span>
-            </Button>
-          </div>
+          {!isPrivateShare && (
+            <div className="flex items-center gap-4 pt-2 border-t border-border/50">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "gap-2 h-8 transition-all",
+                  post.user_has_liked && "text-red-500"
+                )}
+                onClick={handleLike}
+                disabled={toggleLike.isPending}
+              >
+                <Heart className={cn(
+                  "h-4 w-4 transition-transform",
+                  post.user_has_liked && "fill-current scale-110"
+                )} />
+                <span>{post.likes_count}</span>
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 h-8"
+                onClick={() => setShowComments(!showComments)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>{post.comments_count}</span>
+              </Button>
+            </div>
+          )}
           
           {/* Comments Section */}
-          {showComments && (
+          {showComments && !isPrivateShare && (
             <ExchangeCommentSection postId={post.id} />
           )}
         </CardContent>
@@ -264,22 +315,39 @@ export function ExchangePostCard({ post }: ExchangePostCardProps) {
       </AlertDialog>
       
       {/* Report Dialog */}
-      <AlertDialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Report Post</AlertDialogTitle>
-            <AlertDialogDescription>
-              Report this post for review by the admin team. This will flag the content for potential violations.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReport}>
-              Report
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Please describe why you're reporting this post. Our team will review your report.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="report-reason">Reason</Label>
+              <Textarea
+                id="report-reason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Describe the issue..."
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReportDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleReport} 
+              disabled={!reportReason.trim() || reportPost.isPending}
+            >
+              Submit Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

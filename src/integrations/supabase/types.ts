@@ -1295,6 +1295,7 @@ export type Database = {
           file_path: string | null
           id: string
           is_admin_post: boolean | null
+          private_recipient_id: string | null
           source_reference: Json | null
           updated_at: string | null
           user_id: string
@@ -1310,6 +1311,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_admin_post?: boolean | null
+          private_recipient_id?: string | null
           source_reference?: Json | null
           updated_at?: string | null
           user_id: string
@@ -1325,6 +1327,7 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_admin_post?: boolean | null
+          private_recipient_id?: string | null
           source_reference?: Json | null
           updated_at?: string | null
           user_id?: string
