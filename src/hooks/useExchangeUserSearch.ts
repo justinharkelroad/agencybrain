@@ -19,7 +19,8 @@ export function useExchangeUserSearch(searchTerm: string) {
     queryFn: async () => {
       if (!debouncedSearch || debouncedSearch.length < 2) return [];
       
-      // Search profiles that have exchange access (agency owners with membership tier)
+      // Fetch profiles with agencies, then filter client-side
+      // This allows searching by full_name, email, OR agency name
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -31,12 +32,22 @@ export function useExchangeUserSearch(searchTerm: string) {
         .neq('id', user!.id) // Exclude self
         .neq('role', 'admin')
         .not('agency_id', 'is', null)
-        .or(`full_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`)
-        .limit(10);
+        .limit(100); // Fetch more, filter client-side
       
       if (error) throw error;
       
-      return (data || []).map(p => ({
+      // Filter client-side to match full_name, email, OR agency name
+      const searchLower = debouncedSearch.toLowerCase();
+      const filtered = (data || []).filter(p => {
+        const agencyName = (p.agency as any)?.name || '';
+        return (
+          (p.full_name?.toLowerCase().includes(searchLower)) ||
+          (p.email?.toLowerCase().includes(searchLower)) ||
+          (agencyName.toLowerCase().includes(searchLower))
+        );
+      }).slice(0, 10);
+      
+      return filtered.map(p => ({
         id: p.id,
         full_name: p.full_name,
         email: p.email,
