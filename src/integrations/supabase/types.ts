@@ -1112,6 +1112,293 @@ export type Database = {
           },
         ]
       }
+      exchange_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          parent_comment_id: string | null
+          post_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          parent_comment_id?: string | null
+          post_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          parent_comment_id?: string | null
+          post_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          participant_one: string
+          participant_two: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          participant_one: string
+          participant_two: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          participant_one?: string
+          participant_two?: string
+        }
+        Relationships: []
+      }
+      exchange_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          read_at: string | null
+          sender_id: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          read_at?: string | null
+          sender_id: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          read_at?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_post_tags: {
+        Row: {
+          id: string
+          post_id: string
+          tag_id: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          tag_id: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_post_tags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_post_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_posts: {
+        Row: {
+          agency_id: string | null
+          content_text: string | null
+          content_type: string
+          created_at: string | null
+          external_url: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          is_admin_post: boolean | null
+          source_reference: Json | null
+          updated_at: string | null
+          user_id: string
+          visibility: Database["public"]["Enums"]["exchange_visibility"]
+        }
+        Insert: {
+          agency_id?: string | null
+          content_text?: string | null
+          content_type: string
+          created_at?: string | null
+          external_url?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          is_admin_post?: boolean | null
+          source_reference?: Json | null
+          updated_at?: string | null
+          user_id: string
+          visibility?: Database["public"]["Enums"]["exchange_visibility"]
+        }
+        Update: {
+          agency_id?: string | null
+          content_text?: string | null
+          content_type?: string
+          created_at?: string | null
+          external_url?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          is_admin_post?: boolean | null
+          source_reference?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          visibility?: Database["public"]["Enums"]["exchange_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_posts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_reports: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          reason: string
+          reporter_user_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          reason: string
+          reporter_user_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          reason?: string
+          reporter_user_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       excusals: {
         Row: {
           agency_id: string
@@ -5657,6 +5944,7 @@ export type Database = {
           team_member_id: string
         }[]
       }
+      get_user_exchange_tier: { Args: { p_user_id: string }; Returns: string }
       get_versioned_dashboard_data:
         | {
             Args: {
@@ -5768,6 +6056,7 @@ export type Database = {
       app_member_status: "active" | "inactive"
       app_role: "admin" | "user"
       call_type_enum: "sales" | "service"
+      exchange_visibility: "call_scoring" | "boardroom" | "one_on_one"
       membership_tier: "1:1 Coaching" | "Boardroom"
     }
     CompositeTypes: {
@@ -5901,6 +6190,7 @@ export const Constants = {
       app_member_status: ["active", "inactive"],
       app_role: ["admin", "user"],
       call_type_enum: ["sales", "service"],
+      exchange_visibility: ["call_scoring", "boardroom", "one_on_one"],
       membership_tier: ["1:1 Coaching", "Boardroom"],
     },
   },
