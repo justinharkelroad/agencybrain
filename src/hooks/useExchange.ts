@@ -55,16 +55,16 @@ export function useExchangeFeed(tagFilter?: string) {
   return useQuery({
     queryKey: ['exchange-feed', tagFilter],
     queryFn: async () => {
-      // First get posts
-      let query = supabase
+      // First get posts - order by pinned first, then by created_at
+      const { data: posts, error } = await supabase
         .from('exchange_posts')
         .select(`
           *,
           user:profiles!user_id(full_name, email, agency:agencies(name))
         `)
+        .order('is_pinned', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
       
-      const { data: posts, error } = await query;
       if (error) throw error;
       
       if (!posts || posts.length === 0) return [];
