@@ -1155,6 +1155,13 @@ export type Database = {
             referencedRelation: "exchange_posts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exchange_comments_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       exchange_conversations: {
@@ -1179,7 +1186,22 @@ export type Database = {
           participant_one?: string
           participant_two?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exchange_conversations_participant_one_profiles_fkey"
+            columns: ["participant_one"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_conversations_participant_two_profiles_fkey"
+            columns: ["participant_two"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exchange_likes: {
         Row: {
@@ -1206,6 +1228,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_likes_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1247,6 +1276,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "exchange_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_messages_sender_id_profiles_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1309,6 +1345,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_post_views_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1379,6 +1422,13 @@ export type Database = {
             referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "exchange_posts_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       exchange_reports: {
@@ -1415,6 +1465,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_reports_reporter_user_id_profiles_fkey"
+            columns: ["reporter_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
