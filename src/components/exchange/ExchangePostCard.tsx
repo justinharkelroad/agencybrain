@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock, Pin, GraduationCap } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -31,17 +33,20 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ExchangePost, useToggleLike, useDeletePost, useReportPost } from '@/hooks/useExchange';
+import { usePinPost } from '@/hooks/useExchangePin';
 import { ExchangeCommentSection } from './ExchangeCommentSection';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface ExchangePostCardProps {
-  post: ExchangePost;
+  post: ExchangePost & { is_pinned?: boolean };
   defaultShowComments?: boolean;
 }
 
 export function ExchangePostCard({ post, defaultShowComments = false }: ExchangePostCardProps) {
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [showComments, setShowComments] = useState(defaultShowComments);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -51,10 +56,12 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
   const toggleLike = useToggleLike();
   const deletePost = useDeletePost();
   const reportPost = useReportPost();
+  const pinPost = usePinPost();
   
   const isOwner = user?.id === post.user_id;
   const canDelete = isOwner || isAdmin;
   const isPrivateShare = !!(post as any).private_recipient_id;
+  const isPinned = !!(post as any).is_pinned;
   
   // Check if content is long (more than 300 chars or 3 lines)
   const isLongContent = post.content_text && (
@@ -71,9 +78,10 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
         return <ImageIcon className="h-4 w-4" />;
       case 'external_link':
         return <Link2 className="h-4 w-4" />;
+      case 'training_module':
+        return <GraduationCap className="h-4 w-4" />;
       case 'process_vault':
       case 'saved_report':
-      case 'training_module':
         return <FileText className="h-4 w-4" />;
       default:
         return null;
@@ -89,7 +97,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
       case 'saved_report':
         return 'Report';
       case 'training_module':
-        return 'Training';
+        return 'Training Module';
       case 'external_link':
         return 'Link';
       case 'image':
@@ -100,7 +108,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
   };
   
   const handleLike = () => {
-    if (isPrivateShare) return; // Disable likes for private shares
+    if (isPrivateShare) return;
     toggleLike.mutate({ postId: post.id, hasLiked: post.user_has_liked });
   };
   
@@ -116,15 +124,26 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
     setReportReason('');
   };
   
+  const handlePin = () => {
+    pinPost.mutate({ postId: post.id, pin: !isPinned });
+  };
+  
+  const handleViewTraining = () => {
+    if (post.source_reference?.type === 'training_module' && post.source_reference?.id) {
+      navigate(`/training/standard?module=${post.source_reference.id}`);
+    }
+  };
+  
   const userInitials = post.user.full_name
     ? post.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : post.user.email[0].toUpperCase();
 
   return (
-    <>
+    <TooltipProvider>
       <Card className={cn(
         "border-border/50 bg-card/50 backdrop-blur-sm hover:border-border transition-all duration-200",
-        isPrivateShare && "border-primary/30 bg-primary/5"
+        isPrivateShare && "border-primary/30 bg-primary/5",
+        isPinned && "border-amber-500/30 bg-amber-500/5"
       )}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
@@ -141,6 +160,12 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
                   </span>
                   {post.is_admin_post && (
                     <Badge variant="secondary" className="text-xs">Admin</Badge>
+                  )}
+                  {isPinned && (
+                    <Badge variant="outline" className="text-xs gap-1 border-amber-500/50 text-amber-600">
+                      <Pin className="h-3 w-3" />
+                      Pinned
+                    </Badge>
                   )}
                   {isPrivateShare && (
                     <Badge variant="outline" className="text-xs gap-1">
@@ -168,6 +193,15 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={handlePin}>
+                      <Pin className="h-4 w-4 mr-2" />
+                      {isPinned ? 'Unpin' : 'Pin to Top'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 {canDelete && (
                   <DropdownMenuItem
                     onClick={() => setShowDeleteDialog(true)}
@@ -231,6 +265,19 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
             </div>
           )}
           
+          {/* Training Module Link */}
+          {post.content_type === 'training_module' && post.source_reference?.id && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={handleViewTraining}
+            >
+              <GraduationCap className="h-4 w-4" />
+              View Training
+            </Button>
+          )}
+          
           {/* External Link */}
           {post.external_url && (
             <a
@@ -260,32 +307,42 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
           {/* Actions */}
           {!isPrivateShare && (
             <div className="flex items-center gap-4 pt-2 border-t border-border/50">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "gap-2 h-8 transition-all",
-                  post.user_has_liked && "text-red-500"
-                )}
-                onClick={handleLike}
-                disabled={toggleLike.isPending}
-              >
-                <Heart className={cn(
-                  "h-4 w-4 transition-transform",
-                  post.user_has_liked && "fill-current scale-110"
-                )} />
-                <span>{post.likes_count}</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "gap-2 h-8 transition-all",
+                      post.user_has_liked && "text-red-500"
+                    )}
+                    onClick={handleLike}
+                    disabled={toggleLike.isPending}
+                  >
+                    <Heart className={cn(
+                      "h-4 w-4 transition-transform",
+                      post.user_has_liked && "fill-current scale-110"
+                    )} />
+                    <span>{post.likes_count}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Like</TooltipContent>
+              </Tooltip>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 h-8"
-                onClick={() => setShowComments(!showComments)}
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>{post.comments_count}</span>
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 h-8"
+                    onClick={() => setShowComments(!showComments)}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>{post.comments_count}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Comments</TooltipContent>
+              </Tooltip>
             </div>
           )}
           
@@ -348,6 +405,6 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }

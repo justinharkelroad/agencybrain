@@ -1284,6 +1284,35 @@ export type Database = {
           },
         ]
       }
+      exchange_post_views: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_post_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "exchange_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_posts: {
         Row: {
           agency_id: string | null
@@ -1295,6 +1324,9 @@ export type Database = {
           file_path: string | null
           id: string
           is_admin_post: boolean | null
+          is_pinned: boolean | null
+          pinned_at: string | null
+          pinned_by: string | null
           private_recipient_id: string | null
           source_reference: Json | null
           updated_at: string | null
@@ -1311,6 +1343,9 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_admin_post?: boolean | null
+          is_pinned?: boolean | null
+          pinned_at?: string | null
+          pinned_by?: string | null
           private_recipient_id?: string | null
           source_reference?: Json | null
           updated_at?: string | null
@@ -1327,6 +1362,9 @@ export type Database = {
           file_path?: string | null
           id?: string
           is_admin_post?: boolean | null
+          is_pinned?: boolean | null
+          pinned_at?: string | null
+          pinned_by?: string | null
           private_recipient_id?: string | null
           source_reference?: Json | null
           updated_at?: string | null
