@@ -1,10 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 
 export type ExchangeContentType = 'process_vault' | 'flow_result' | 'saved_report' | 'training_module' | 'text_post' | 'external_link' | 'image';
 export type ExchangeVisibility = 'call_scoring' | 'boardroom' | 'one_on_one';
+
+const POSTS_PER_PAGE = 20;
 
 export interface ExchangePost {
   id: string;
@@ -18,6 +20,7 @@ export interface ExchangePost {
   source_reference: { type: string; id: string; title: string } | null;
   visibility: ExchangeVisibility;
   is_admin_post: boolean;
+  is_pinned?: boolean;
   created_at: string;
   updated_at: string;
   user: {
@@ -52,22 +55,31 @@ export interface CreatePostInput {
 export function useExchangeFeed(tagFilter?: string) {
   const { user } = useAuth();
   
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['exchange-feed', tagFilter],
-    queryFn: async () => {
-      // First get posts - order by pinned first, then by created_at
-      const { data: posts, error } = await supabase
+    queryFn: async ({ pageParam }) => {
+      // Build base query
+      let query = supabase
         .from('exchange_posts')
         .select(`
           *,
           user:profiles!user_id(full_name, email, agency:agencies(name))
         `)
         .order('is_pinned', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(POSTS_PER_PAGE);
       
+      // Cursor-based pagination - skip pinned posts after first page
+      if (pageParam) {
+        query = query.lt('created_at', pageParam);
+      }
+      
+      const { data: posts, error } = await query;
       if (error) throw error;
       
-      if (!posts || posts.length === 0) return [];
+      if (!posts || posts.length === 0) {
+        return { posts: [], nextCursor: null };
+      }
       
       const postIds = posts.map(p => p.id);
       
@@ -125,8 +137,15 @@ export function useExchangeFeed(tagFilter?: string) {
         );
       }
       
-      return result;
+      // Determine next cursor
+      const nextCursor = posts.length === POSTS_PER_PAGE 
+        ? posts[posts.length - 1].created_at 
+        : null;
+      
+      return { posts: result, nextCursor };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: null as string | null,
     enabled: !!user,
   });
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { Filter, RefreshCw, Search, X, ArrowUp, Plus } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Filter, RefreshCw, Search, X, ArrowUp, Plus, Loader2 } from 'lucide-react';
+import { useInView } from 'react-intersection-observer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,16 +22,29 @@ interface ExchangeFeedProps {
   highlightPostId?: string;
   onTagFilterChange?: (tagId: string) => void;
   externalTagFilter?: string;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
+  onComposerOpen?: () => void;
 }
 
-export function ExchangeFeed({ highlightPostId, onTagFilterChange, externalTagFilter }: ExchangeFeedProps) {
+export function ExchangeFeed({ 
+  highlightPostId, 
+  onTagFilterChange, 
+  externalTagFilter,
+  searchInputRef: externalSearchRef,
+  onComposerOpen,
+}: ExchangeFeedProps) {
   const [tagFilter, setTagFilter] = useState<string>(externalTagFilter || '');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [expandedPostId, setExpandedPostId] = useState<string | undefined>(highlightPostId);
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
   const [newPostsCount, setNewPostsCount] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
+  const internalSearchRef = useRef<HTMLInputElement>(null);
+  const searchRef = externalSearchRef || internalSearchRef;
   const lastPostCountRef = useRef<number>(0);
+  
+  // Infinite scroll trigger
+  const { ref: loadMoreRef, inView } = useInView();
   
   // Use external tag filter if provided
   useEffect(() => {
@@ -39,14 +53,35 @@ export function ExchangeFeed({ highlightPostId, onTagFilterChange, externalTagFi
     }
   }, [externalTagFilter]);
   
-  const { data: feedPosts, isLoading: feedLoading, refetch, isRefetching } = useExchangeFeed(tagFilter || undefined);
+  const { 
+    data: feedData, 
+    isLoading: feedLoading, 
+    refetch, 
+    isRefetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useExchangeFeed(tagFilter || undefined);
   const { data: searchResults, isLoading: searchLoading } = useExchangeSearch(searchTerm, tagFilter || undefined);
   const { data: tags } = useExchangeTags();
   const markPostsViewed = useMarkPostsViewed();
   
+  // Flatten paginated posts
+  const feedPosts = useMemo(() => {
+    if (!feedData?.pages) return [];
+    return feedData.pages.flatMap(page => page.posts);
+  }, [feedData]);
+  
   // Determine which posts to show
   const posts = searchTerm ? searchResults : feedPosts;
   const isLoading = searchTerm ? searchLoading : feedLoading;
+  
+  // Auto-load more when scrolled to bottom
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage && !searchTerm) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage, searchTerm]);
   
   // Mark posts as viewed when they load
   useEffect(() => {
@@ -124,7 +159,8 @@ export function ExchangeFeed({ highlightPostId, onTagFilterChange, externalTagFi
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search posts..."
+            ref={searchRef}
+            placeholder="Search posts... (/)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-10"
@@ -202,6 +238,22 @@ export function ExchangeFeed({ highlightPostId, onTagFilterChange, externalTagFi
               />
             </div>
           ))}
+          
+          {/* Load More Trigger */}
+          {!searchTerm && (
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {isFetchingNextPage ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading more...</span>
+                </div>
+              ) : hasNextPage ? (
+                <div className="h-8" /> // Invisible trigger area
+              ) : posts.length > 10 ? (
+                <p className="text-sm text-muted-foreground">You've reached the end</p>
+              ) : null}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-12 bg-card/30 rounded-lg border border-dashed border-border">
