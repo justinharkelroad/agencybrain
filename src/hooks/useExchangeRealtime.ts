@@ -41,6 +41,28 @@ export function useExchangeRealtime() {
           queryClient.invalidateQueries({ queryKey: ['exchange-feed'] });
         }
       )
+      // Add message realtime subscriptions
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'exchange_messages' },
+        (payload) => {
+          console.log('New exchange message:', payload);
+          const msgConversationId = (payload.new as any)?.conversation_id;
+          if (msgConversationId) {
+            queryClient.invalidateQueries({ queryKey: ['exchange-messages', msgConversationId] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['exchange-conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['exchange-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['exchange-unread-messages'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'exchange_conversations' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['exchange-conversations'] });
+        }
+      )
       .subscribe((status) => {
         console.log('Exchange realtime subscription status:', status);
       });

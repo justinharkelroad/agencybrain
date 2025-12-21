@@ -44,6 +44,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
+import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
 import { Badge } from "@/components/ui/badge";
 
 type AppSidebarProps = {
@@ -83,6 +84,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const [userName, setUserName] = useState<string>("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const { counts: exchangeNotifications } = useExchangeNotifications();
+  const { data: unreadMessageCount = 0 } = useUnreadMessageCount();
+  
+  // Combine post/comment notifications with unread messages
+  const totalExchangeNotifications = exchangeNotifications.total + unreadMessageCount;
 
   // Fetch user profile data for avatar
   useEffect(() => {
@@ -231,7 +236,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                 {mainItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.url);
-                    const showBadge = item.title === "The Exchange" && exchangeNotifications.total > 0;
+                    const showBadge = item.title === "The Exchange" && totalExchangeNotifications > 0;
                     
                     return (
                       <SidebarMenuItem key={item.title}>
@@ -251,7 +256,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                                 variant="destructive" 
                                 className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
                               >
-                                {exchangeNotifications.total > 99 ? '99+' : exchangeNotifications.total}
+                                {totalExchangeNotifications > 99 ? '99+' : totalExchangeNotifications}
                               </Badge>
                             )}
                           </Link>
