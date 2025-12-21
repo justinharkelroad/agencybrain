@@ -349,7 +349,7 @@ export default function AdminSPModuleDetail() {
       </AlertDialog>
 
       {/* Share to Exchange Modal */}
-      {shareLesson && (
+      {shareLesson && module && (
         <ExchangeShareModal
           open={shareModalOpen}
           onOpenChange={(open) => {
@@ -361,6 +361,7 @@ export default function AdminSPModuleDetail() {
             type: 'sp_lesson',
             id: shareLesson.id,
             title: shareLesson.name,
+            path: `/training/standard/${module.category?.slug}/${module.slug}/${shareLesson.slug}`,
           }}
           filePath={shareLesson.document_url || undefined}
           fileName={shareLesson.document_url ? `${shareLesson.name}.pdf` : undefined}

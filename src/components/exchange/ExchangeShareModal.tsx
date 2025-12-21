@@ -27,7 +27,7 @@ interface ExchangeShareModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contentType: ExchangeContentType;
-  sourceReference?: { type: string; id: string; title: string };
+  sourceReference?: { type: string; id: string; title: string; path?: string };
   filePath?: string;
   fileName?: string;
   externalUrl?: string;

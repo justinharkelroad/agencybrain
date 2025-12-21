@@ -129,8 +129,14 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
   };
   
   const handleViewTraining = () => {
-    if (post.source_reference?.type === 'training_module' && post.source_reference?.id) {
-      navigate(`/training/standard?module=${post.source_reference.id}`);
+    const ref = post.source_reference;
+    if ((ref?.type === 'training_module' || ref?.type === 'sp_lesson') && ref?.id) {
+      // Use stored path if available, otherwise fallback to training hub
+      if (ref.path) {
+        navigate(ref.path);
+      } else {
+        navigate('/training/standard');
+      }
     }
   };
   
