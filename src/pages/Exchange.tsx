@@ -35,10 +35,11 @@ export default function Exchange() {
     }
   }, [highlightedPostId]);
   
-  // Mark feed as viewed when page loads
+  // Mark all notifications as viewed when page loads
   useEffect(() => {
     markFeedViewed();
-  }, [markFeedViewed]);
+    markNotificationsViewed();
+  }, [markFeedViewed, markNotificationsViewed]);
   
   return (
     <SidebarLayout>
