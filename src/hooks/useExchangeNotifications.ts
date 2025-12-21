@@ -34,19 +34,30 @@ export function useExchangeNotifications() {
         .gt('created_at', lastFeedView)
         .neq('user_id', user.id);
 
-      // Count new comments on user's posts since last notifications view
+      // Count new comments on posts the user owns OR has commented on (thread participation)
       const { data: userPostIds } = await supabase
         .from('exchange_posts')
         .select('id')
         .eq('user_id', user.id);
 
+      // Get posts the user has commented on
+      const { data: commentedPostIds } = await supabase
+        .from('exchange_comments')
+        .select('post_id')
+        .eq('user_id', user.id);
+
+      // Combine unique post IDs (posts owned + posts commented on)
+      const allRelevantPostIds = [...new Set([
+        ...(userPostIds?.map(p => p.id) || []),
+        ...(commentedPostIds?.map(c => c.post_id) || [])
+      ])];
+
       let newRepliesCount = 0;
-      if (userPostIds && userPostIds.length > 0) {
-        const postIds = userPostIds.map(p => p.id);
+      if (allRelevantPostIds.length > 0) {
         const { count } = await supabase
           .from('exchange_comments')
           .select('*', { count: 'exact', head: true })
-          .in('post_id', postIds)
+          .in('post_id', allRelevantPostIds)
           .gt('created_at', lastNotificationsView)
           .neq('user_id', user.id); // Don't count user's own comments
 
