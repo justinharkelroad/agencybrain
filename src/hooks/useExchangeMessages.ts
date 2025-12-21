@@ -255,6 +255,9 @@ export function useMarkMessagesRead() {
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: ['exchange-messages', conversationId] });
       queryClient.invalidateQueries({ queryKey: ['exchange-conversations'] });
+      // Ensure badges that rely on unread counts refresh immediately
+      queryClient.invalidateQueries({ queryKey: ['exchange-unread-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['exchange-unread-count'] });
     },
   });
 }
