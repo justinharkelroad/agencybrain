@@ -5,9 +5,13 @@ import { ExchangeConversationView } from '@/components/exchange/ExchangeConversa
 import { Card } from '@/components/ui/card';
 import { MessageSquare } from 'lucide-react';
 import { ExchangeConversation } from '@/hooks/useExchangeMessages';
+import { useMessagesRealtime } from '@/hooks/useExchangeRealtime';
 
 export default function ExchangeMessages() {
   const [selectedConversation, setSelectedConversation] = useState<ExchangeConversation | null>(null);
+  
+  // Enable real-time message updates
+  useMessagesRealtime(selectedConversation?.id);
   
   return (
     <SidebarLayout>
