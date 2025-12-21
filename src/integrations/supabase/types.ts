@@ -1644,45 +1644,60 @@ export type Database = {
       }
       flow_profiles: {
         Row: {
+          accountability_style: string | null
           background_notes: string | null
           core_values: string[] | null
           created_at: string | null
           current_challenges: string | null
           current_goals: string | null
           faith_tradition: string | null
+          feedback_preference: string | null
           full_name: string | null
+          growth_edge: string | null
           id: string
           life_roles: string[] | null
+          overwhelm_response: string | null
+          peak_state: string | null
           preferred_name: string | null
           spiritual_beliefs: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          accountability_style?: string | null
           background_notes?: string | null
           core_values?: string[] | null
           created_at?: string | null
           current_challenges?: string | null
           current_goals?: string | null
           faith_tradition?: string | null
+          feedback_preference?: string | null
           full_name?: string | null
+          growth_edge?: string | null
           id?: string
           life_roles?: string[] | null
+          overwhelm_response?: string | null
+          peak_state?: string | null
           preferred_name?: string | null
           spiritual_beliefs?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          accountability_style?: string | null
           background_notes?: string | null
           core_values?: string[] | null
           created_at?: string | null
           current_challenges?: string | null
           current_goals?: string | null
           faith_tradition?: string | null
+          feedback_preference?: string | null
           full_name?: string | null
+          growth_edge?: string | null
           id?: string
           life_roles?: string[] | null
+          overwhelm_response?: string | null
+          peak_state?: string | null
           preferred_name?: string | null
           spiritual_beliefs?: string | null
           updated_at?: string | null

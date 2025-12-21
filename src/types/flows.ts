@@ -10,6 +10,12 @@ export interface FlowProfile {
   spiritual_beliefs: string | null;
   faith_tradition: string | null;
   background_notes: string | null;
+  // New coaching depth fields
+  accountability_style: string | null;
+  feedback_preference: string | null;
+  peak_state: string | null;
+  growth_edge: string | null;
+  overwhelm_response: string | null;
   created_at: string;
   updated_at: string;
 }
