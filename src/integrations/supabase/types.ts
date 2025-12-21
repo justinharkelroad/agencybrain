@@ -3083,6 +3083,7 @@ export type Database = {
           id: string
           membership_tier: Database["public"]["Enums"]["membership_tier"]
           mrr: number | null
+          profile_photo_url: string | null
           role: string
           updated_at: string
         }
@@ -3094,6 +3095,7 @@ export type Database = {
           id: string
           membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
+          profile_photo_url?: string | null
           role?: string
           updated_at?: string
         }
@@ -3105,6 +3107,7 @@ export type Database = {
           id?: string
           membership_tier?: Database["public"]["Enums"]["membership_tier"]
           mrr?: number | null
+          profile_photo_url?: string | null
           role?: string
           updated_at?: string
         }

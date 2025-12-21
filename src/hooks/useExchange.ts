@@ -26,8 +26,9 @@ export interface ExchangePost {
   user: {
     full_name: string | null;
     email: string;
+    profile_photo_url?: string | null;
     agency?: { name: string } | null;
-  };
+  } | null;
   tags: { id: string; name: string }[];
   likes_count: number;
   comments_count: number;
@@ -63,7 +64,7 @@ export function useExchangeFeed(tagFilter?: string) {
         .from('exchange_posts')
         .select(`
           *,
-          user:profiles!user_id(full_name, email, agency:agencies(name))
+          user:profiles!user_id(full_name, email, profile_photo_url, agency:agencies(name))
         `)
         .order('is_pinned', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })

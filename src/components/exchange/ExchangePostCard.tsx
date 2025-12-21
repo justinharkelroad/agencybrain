@@ -4,7 +4,7 @@ import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileT
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -138,6 +138,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
   const userName = post.user?.full_name || post.user?.email || 'Unknown User';
   const userEmail = post.user?.email || '';
   const userAgency = post.user?.agency?.name || null;
+  const userPhotoUrl = post.user?.profile_photo_url || null;
   const userInitials = (post.user?.full_name || post.user?.email || '??')
     .split(' ')
     .map(n => n[0])
@@ -156,6 +157,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
+                {userPhotoUrl && <AvatarImage src={userPhotoUrl} alt={userName} />}
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
                   {userInitials}
                 </AvatarFallback>
