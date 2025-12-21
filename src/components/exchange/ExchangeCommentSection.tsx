@@ -8,6 +8,129 @@ import { usePostComments, useCreateComment, useDeleteComment, ExchangeComment } 
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
+interface CommentItemProps {
+  comment: ExchangeComment;
+  isReply?: boolean;
+  userId?: string;
+  isAdmin?: boolean;
+  replyingTo: string | null;
+  setReplyingTo: (id: string | null) => void;
+  replyText: string;
+  setReplyText: (text: string) => void;
+  onDeleteComment: (commentId: string) => void;
+  onSubmitReply: (parentCommentId: string) => void;
+  isPending: boolean;
+}
+
+// Defined at module scope to prevent re-creation on each render
+function CommentItem({
+  comment,
+  isReply = false,
+  userId,
+  isAdmin,
+  replyingTo,
+  setReplyingTo,
+  replyText,
+  setReplyText,
+  onDeleteComment,
+  onSubmitReply,
+  isPending,
+}: CommentItemProps) {
+  const isOwner = userId === comment.user_id;
+  const canDelete = isOwner || isAdmin;
+  
+  const initials = comment.user.full_name
+    ? comment.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : comment.user.email[0].toUpperCase();
+  
+  return (
+    <div className={cn("space-y-2", isReply && "ml-8")}>
+      <div className="flex items-start gap-3">
+        <Avatar className="h-7 w-7">
+          <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-foreground">
+              {comment.user.full_name || comment.user.email}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+            </span>
+          </div>
+          <p className="text-sm text-foreground/90 mt-1">{comment.content}</p>
+          <div className="flex items-center gap-3 mt-1">
+            {!isReply && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground"
+                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+              >
+                <Reply className="h-3 w-3 mr-1" />
+                Reply
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => onDeleteComment(comment.id)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Reply Input */}
+      {replyingTo === comment.id && (
+        <div className="ml-10 flex gap-2">
+          <Textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder="Write a reply..."
+            className="min-h-[60px] text-sm resize-none"
+          />
+          <Button
+            size="sm"
+            onClick={() => onSubmitReply(comment.id)}
+            disabled={!replyText.trim() || isPending}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      
+      {/* Nested Replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="space-y-3">
+          {comment.replies.map(reply => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              isReply
+              userId={userId}
+              isAdmin={isAdmin}
+              replyingTo={replyingTo}
+              setReplyingTo={setReplyingTo}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              onDeleteComment={onDeleteComment}
+              onSubmitReply={onSubmitReply}
+              isPending={isPending}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ExchangeCommentSectionProps {
   postId: string;
 }
@@ -42,88 +165,9 @@ export function ExchangeCommentSection({ postId }: ExchangeCommentSectionProps) 
       }
     );
   };
-  
-  const CommentItem = ({ comment, isReply = false }: { comment: ExchangeComment; isReply?: boolean }) => {
-    const isOwner = user?.id === comment.user_id;
-    const canDelete = isOwner || isAdmin;
-    
-    const initials = comment.user.full_name
-      ? comment.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-      : comment.user.email[0].toUpperCase();
-    
-    return (
-      <div className={cn("space-y-2", isReply && "ml-8")}>
-        <div className="flex items-start gap-3">
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-foreground">
-                {comment.user.full_name || comment.user.email}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-              </span>
-            </div>
-            <p className="text-sm text-foreground/90 mt-1">{comment.content}</p>
-            <div className="flex items-center gap-3 mt-1">
-              {!isReply && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs text-muted-foreground"
-                  onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                >
-                  <Reply className="h-3 w-3 mr-1" />
-                  Reply
-                </Button>
-              )}
-              {canDelete && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteComment.mutate({ commentId: comment.id, postId })}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Reply Input */}
-        {replyingTo === comment.id && (
-          <div className="ml-10 flex gap-2">
-            <Textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Write a reply..."
-              className="min-h-[60px] text-sm resize-none"
-            />
-            <Button
-              size="sm"
-              onClick={() => handleSubmitReply(comment.id)}
-              disabled={!replyText.trim() || createComment.isPending}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-        
-        {/* Nested Replies */}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="space-y-3">
-            {comment.replies.map(reply => (
-              <CommentItem key={reply.id} comment={reply} isReply />
-            ))}
-          </div>
-        )}
-      </div>
-    );
+
+  const handleDeleteComment = (commentId: string) => {
+    deleteComment.mutate({ commentId, postId });
   };
   
   if (isLoading) {
@@ -160,7 +204,19 @@ export function ExchangeCommentSection({ postId }: ExchangeCommentSectionProps) 
       {comments && comments.length > 0 && (
         <div className="space-y-4">
           {comments.map(comment => (
-            <CommentItem key={comment.id} comment={comment} />
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              userId={user?.id}
+              isAdmin={isAdmin}
+              replyingTo={replyingTo}
+              setReplyingTo={setReplyingTo}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              onDeleteComment={handleDeleteComment}
+              onSubmitReply={handleSubmitReply}
+              isPending={createComment.isPending}
+            />
           ))}
         </div>
       )}
