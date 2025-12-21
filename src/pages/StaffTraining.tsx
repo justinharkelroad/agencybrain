@@ -4,6 +4,7 @@ import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useStaffTrainingContent } from '@/hooks/useStaffTrainingContent';
 import { useStaffTrainingProgress } from '@/hooks/useStaffTrainingProgress';
 import { useUpdateTrainingProgress } from '@/hooks/useUpdateTrainingProgress';
+import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,12 +21,36 @@ import { BookOpen, CheckCircle, Circle, Video, LogOut, FileText, Download, Clipb
 import { toast } from 'sonner';
 import { differenceInDays, isPast } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 export default function StaffTraining() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, logout, sessionToken } = useStaffAuth();
-  const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(user?.agency_id);
+  
+  // Check both auth methods
+  const { user: supabaseUser } = useAuth();
+  const { user: staffUser, logout, sessionToken } = useStaffAuth();
+
+  // Get agency ID from Supabase profile for admins
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin-profile-agency', supabaseUser?.id],
+    queryFn: async () => {
+      if (!supabaseUser?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', supabaseUser.id)
+        .single();
+      return data;
+    },
+    enabled: !!supabaseUser?.id
+  });
+
+  // Use admin's agency_id or staff user's agency_id
+  const effectiveAgencyId = adminProfile?.agency_id || staffUser?.agency_id;
+  const isAdmin = !!supabaseUser;
+  
+  const { data: contentData, isLoading: contentLoading } = useStaffTrainingContent(effectiveAgencyId);
   const { data: progressData, isLoading: progressLoading } = useStaffTrainingProgress();
   const updateProgress = useUpdateTrainingProgress();
   
@@ -441,8 +466,8 @@ export default function StaffTraining() {
                           <StaffTrainingComments 
                             lessonId={selectedLesson.id} 
                             staffMember={{
-                              id: user?.id || '',
-                              name: user?.team_member_name || user?.display_name || 'Staff Member'
+                              id: staffUser?.id || supabaseUser?.id || '',
+                              name: staffUser?.team_member_name || staffUser?.display_name || supabaseUser?.email || 'Staff Member'
                             }}
                           />
                         )}
