@@ -45,61 +45,115 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch assignments for this staff user
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('training_assignments')
-      .select('module_id, due_date')
-      .eq('staff_user_id', session.staff_users.id)
-      .eq('agency_id', agency_id);
+    const staffEmail = session.staff_users.email;
 
-    if (assignmentsError) {
-      console.error('Error fetching assignments:', assignmentsError);
+    // Check if this staff user is an agency owner/admin by matching their email to profiles
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('id, agency_id, role')
+      .eq('email', staffEmail)
+      .single();
+
+    // Check if they're an admin via user_roles table
+    let isAdmin = false;
+    if (ownerProfile?.id) {
+      const { data: adminRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', ownerProfile.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      isAdmin = !!adminRole;
     }
 
-    // If no assignments exist, return empty with flag
-    if (!assignments || assignments.length === 0) {
-      return new Response(
-        JSON.stringify({
-          modules: [],
-          categories: [],
-          lessons: [],
-          attachments: [],
-          quizzes: [],
-          quiz_questions: [],
-          quiz_options: [],
-          no_assignments: true,
-          staff_user: {
-            id: session.staff_users.id,
-            username: session.staff_users.username,
-            display_name: session.staff_users.display_name
-          }
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // User is an agency owner if their profile owns this agency, or they're a system admin
+    const isAgencyOwnerOrAdmin = isAdmin || (ownerProfile?.agency_id === agency_id);
+
+    console.log(`Staff ${staffEmail}: isAgencyOwnerOrAdmin=${isAgencyOwnerOrAdmin}, isAdmin=${isAdmin}`);
+
+    let modulesWithDueDates: any[] = [];
+    let noAssignments = false;
+
+    if (isAgencyOwnerOrAdmin) {
+      // ADMIN BYPASS: Fetch ALL active modules for this agency (no assignment check)
+      const { data: allModules, error: modulesError } = await supabase
+        .from('training_modules')
+        .select('*')
+        .eq('agency_id', agency_id)
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (modulesError) {
+        console.error('Error fetching modules for admin:', modulesError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch modules' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // For admins, no due_date constraint - they see everything
+      modulesWithDueDates = (allModules || []).map(m => ({ ...m, due_date: null }));
+      noAssignments = false; // Admins always see content if it exists
+      
+      console.log(`Admin view: Found ${modulesWithDueDates.length} modules for agency ${agency_id}`);
+    } else {
+      // REGULAR STAFF: Check assignments as before
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('training_assignments')
+        .select('module_id, due_date')
+        .eq('staff_user_id', session.staff_users.id)
+        .eq('agency_id', agency_id);
+
+      if (assignmentsError) {
+        console.error('Error fetching assignments:', assignmentsError);
+      }
+
+      // If no assignments exist, return empty with flag
+      if (!assignments || assignments.length === 0) {
+        return new Response(
+          JSON.stringify({
+            modules: [],
+            categories: [],
+            lessons: [],
+            attachments: [],
+            quizzes: [],
+            quiz_questions: [],
+            quiz_options: [],
+            no_assignments: true,
+            staff_user: {
+              id: session.staff_users.id,
+              username: session.staff_users.username,
+              display_name: session.staff_users.display_name
+            }
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch only assigned modules
+      const assignedModuleIds = assignments.map(a => a.module_id);
+      const { data: modules, error: modulesError } = await supabase
+        .from('training_modules')
+        .select('*')
+        .in('id', assignedModuleIds)
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (modulesError) {
+        console.error('Error fetching modules:', modulesError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch modules' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Attach due_date to each module from assignments
+      modulesWithDueDates = (modules || []).map(m => ({
+        ...m,
+        due_date: assignments.find(a => a.module_id === m.id)?.due_date || null
+      }));
     }
-
-    // Fetch only assigned modules
-    const assignedModuleIds = assignments.map(a => a.module_id);
-    const { data: modules, error: modulesError } = await supabase
-      .from('training_modules')
-      .select('*')
-      .in('id', assignedModuleIds)
-      .eq('is_active', true)
-      .order('sort_order');
-
-    if (modulesError) {
-      console.error('Error fetching modules:', modulesError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch modules' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Attach due_date to each module from assignments
-    const modulesWithDueDates = (modules || []).map(m => ({
-      ...m,
-      due_date: assignments.find(a => a.module_id === m.id)?.due_date || null
-    }));
 
     // Fetch categories
     const { data: categories, error: categoriesError } = await supabase
@@ -149,8 +203,8 @@ Deno.serve(async (req) => {
 
     // Fetch quiz questions
     const quizIds = (quizzes || []).map((q: any) => q.id);
-    let questions = [];
-    let options = [];
+    let questions: any[] = [];
+    let options: any[] = [];
 
     if (quizIds.length > 0) {
       const { data: questionsData } = await supabase
@@ -180,7 +234,7 @@ Deno.serve(async (req) => {
         quizzes: quizzes || [],
         quiz_questions: questions,
         quiz_options: options,
-        no_assignments: false,
+        no_assignments: noAssignments,
         staff_user: {
           id: session.staff_users.id,
           username: session.staff_users.username,
