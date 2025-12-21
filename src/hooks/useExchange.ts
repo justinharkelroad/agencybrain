@@ -17,7 +17,7 @@ export interface ExchangePost {
   file_path: string | null;
   file_name: string | null;
   external_url: string | null;
-  source_reference: { type: string; id: string; title: string } | null;
+  source_reference: { type: string; id: string; title: string; path?: string } | null;
   visibility: ExchangeVisibility;
   is_admin_post: boolean;
   is_pinned?: boolean;
@@ -47,7 +47,7 @@ export interface CreatePostInput {
   file_path?: string;
   file_name?: string;
   external_url?: string;
-  source_reference?: { type: string; id: string; title: string };
+  source_reference?: { type: string; id: string; title: string; path?: string };
   visibility: ExchangeVisibility;
   tag_ids?: string[];
   private_recipient_id?: string;
