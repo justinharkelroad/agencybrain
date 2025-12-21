@@ -6140,6 +6140,15 @@ export type Database = {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
       }
+      search_exchange_users: {
+        Args: { current_user_id: string; search_term: string }
+        Returns: {
+          agency_name: string
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       upsert_metrics_from_submission: {

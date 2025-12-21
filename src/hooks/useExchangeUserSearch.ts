@@ -19,40 +19,15 @@ export function useExchangeUserSearch(searchTerm: string) {
     queryFn: async () => {
       if (!debouncedSearch || debouncedSearch.length < 2) return [];
       
-      // Fetch profiles with agencies, then filter client-side
-      // This allows searching by full_name, email, OR agency name
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          full_name,
-          email,
-          agency:agencies(name)
-        `)
-        .neq('id', user!.id) // Exclude self
-        .neq('role', 'admin')
-        .not('agency_id', 'is', null)
-        .limit(100); // Fetch more, filter client-side
+      // Use SECURITY DEFINER function to search all Exchange community members
+      const { data, error } = await supabase.rpc('search_exchange_users', {
+        search_term: debouncedSearch,
+        current_user_id: user!.id,
+      });
       
       if (error) throw error;
       
-      // Filter client-side to match full_name, email, OR agency name
-      const searchLower = debouncedSearch.toLowerCase();
-      const filtered = (data || []).filter(p => {
-        const agencyName = (p.agency as any)?.name || '';
-        return (
-          (p.full_name?.toLowerCase().includes(searchLower)) ||
-          (p.email?.toLowerCase().includes(searchLower)) ||
-          (agencyName.toLowerCase().includes(searchLower))
-        );
-      }).slice(0, 10);
-      
-      return filtered.map(p => ({
-        id: p.id,
-        full_name: p.full_name,
-        email: p.email,
-        agency_name: (p.agency as any)?.name || null,
-      })) as ExchangeUser[];
+      return (data || []) as ExchangeUser[];
     },
     enabled: !!user && debouncedSearch.length >= 2,
   });
