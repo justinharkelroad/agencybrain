@@ -58,9 +58,9 @@ export function ExchangeConversationView({ conversation, onBack }: ExchangeConve
     }
   };
   
-  const otherUserInitials = conversation.other_user.full_name
+  const otherUserInitials = conversation.other_user?.full_name
     ? conversation.other_user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : conversation.other_user.email[0].toUpperCase();
+    : conversation.other_user?.email?.[0]?.toUpperCase() || '?';
   
   return (
     <Card className="flex flex-col h-full border-border/50 bg-card/50">
@@ -79,7 +79,7 @@ export function ExchangeConversationView({ conversation, onBack }: ExchangeConve
           </Avatar>
           <div>
             <p className="font-medium text-sm">
-              {conversation.other_user.full_name || conversation.other_user.email}
+              {conversation.other_user?.full_name || conversation.other_user?.email || 'Unknown User'}
             </p>
             {conversation.other_user.agency?.name && (
               <p className="text-xs text-muted-foreground">{conversation.other_user.agency.name}</p>

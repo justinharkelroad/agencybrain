@@ -61,13 +61,20 @@ export function useConversations() {
         userIds.add(conv.participant_two);
       });
       
-      // Fetch profiles for all participants
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, agency:agencies(name)')
-        .in('id', Array.from(userIds));
+      // Fetch profiles using SECURITY DEFINER function to bypass RLS
+      const { data: profiles } = await supabase.rpc('get_conversation_participants', {
+        participant_ids: Array.from(userIds),
+      });
       
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profileMap = new Map(profiles?.map((p: { id: string; full_name: string | null; email: string; agency_name: string | null }) => [
+        p.id, 
+        { 
+          id: p.id, 
+          full_name: p.full_name, 
+          email: p.email, 
+          agency: p.agency_name ? { name: p.agency_name } : null 
+        }
+      ]) || []);
       
       // Build conversations with details
       const conversationsWithMessages = await Promise.all(
