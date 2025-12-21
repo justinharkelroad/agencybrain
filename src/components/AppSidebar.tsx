@@ -18,6 +18,7 @@ import {
   Video,
   Phone,
   ArrowLeftRight,
+  Settings,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -38,6 +39,9 @@ import {
 } from "@/components/ui/sidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 
 type AppSidebarProps = {
   onOpenROI?: () => void;
@@ -70,10 +74,33 @@ const adminOnlyItems = [
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
-  const { signOut, isAdmin, isAgencyOwner } = useAuth();
+  const { signOut, isAdmin, isAgencyOwner, user } = useAuth();
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+  const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+
+  // Fetch user profile data for avatar
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      setUserName(user.user_metadata?.full_name || user.email || '');
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('profile_photo_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (data?.profile_photo_url) {
+        setUserPhotoUrl(data.profile_photo_url);
+      }
+    };
+    fetchUserProfile();
+  }, [user?.id]);
 
   // Check if call scoring is enabled for user's agency - listen for auth state changes
   useEffect(() => {
@@ -359,6 +386,39 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
+
+        {/* User Avatar Footer */}
+        <div className="mt-auto p-3 border-t border-border/20">
+          <Dialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen}>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-3 w-full hover:bg-muted/40 rounded-lg p-2 transition-colors">
+                <Avatar className="h-8 w-8 shrink-0">
+                  {userPhotoUrl && <AvatarImage src={userPhotoUrl} alt={userName} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {userName
+                      ? userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                      : user?.email?.[0].toUpperCase() || '??'}
+                  </AvatarFallback>
+                </Avatar>
+                {sidebarOpen && (
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium truncate">{userName || 'My Account'}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Settings className="h-3 w-3" />
+                      Account Settings
+                    </p>
+                  </div>
+                )}
+              </button>
+            </DialogTrigger>
+            <DialogContent className="glass-surface">
+              <MyAccountDialogContent 
+                onClose={() => setAccountDialogOpen(false)}
+                onPhotoUpdate={(url) => setUserPhotoUrl(url)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </Sidebar>
   );
