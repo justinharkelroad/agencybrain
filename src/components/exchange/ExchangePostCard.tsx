@@ -134,13 +134,15 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
     }
   };
   
-  // Safe user data extraction with null checks
-  const userName = post.user?.full_name || post.user?.email || 'Unknown User';
+  // Safe user data extraction with null checks - prefer full_name, fallback to email
+  const userFullName = post.user?.full_name;
   const userEmail = post.user?.email || '';
+  const userName = userFullName || userEmail || 'Unknown User';
   const userAgency = post.user?.agency?.name || null;
   const userPhotoUrl = post.user?.profile_photo_url || null;
-  const userInitials = (post.user?.full_name || post.user?.email || '??')
-    .split(' ')
+  const userInitials = (userFullName || userEmail || '??')
+    .split(/[\s@]/) // Split by space or @ for email
+    .filter(Boolean)
     .map(n => n[0])
     .join('')
     .toUpperCase()
