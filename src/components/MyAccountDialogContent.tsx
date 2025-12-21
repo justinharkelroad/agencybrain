@@ -97,8 +97,19 @@ export function MyAccountDialogContent({ onClose, onPhotoUpdate }: MyAccountDial
     }
     setSaving(true);
     try {
-      const { error } = await supabase.auth.updateUser({ data: { full_name } });
-      if (error) throw error;
+      // Update auth user metadata
+      const { error: authError } = await supabase.auth.updateUser({ data: { full_name } });
+      if (authError) throw authError;
+      
+      // Also update the profiles table so Exchange posts show the name
+      if (user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ full_name })
+          .eq('id', user.id);
+        if (profileError) throw profileError;
+      }
+      
       toast({ title: "Saved", description: "Account updated successfully." });
       onClose();
     } catch (e: any) {
