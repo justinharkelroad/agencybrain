@@ -1497,6 +1497,41 @@ export type Database = {
         }
         Relationships: []
       }
+      exchange_user_activity: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_feed_view: string | null
+          last_notifications_view: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_feed_view?: string | null
+          last_notifications_view?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_feed_view?: string | null
+          last_notifications_view?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_user_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       excusals: {
         Row: {
           agency_id: string
@@ -6160,6 +6195,14 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      upsert_exchange_activity: {
+        Args: {
+          p_update_feed?: boolean
+          p_update_notifications?: boolean
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       upsert_metrics_from_submission: {
         Args: {
           p_kpi_version_id?: string

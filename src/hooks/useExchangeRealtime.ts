@@ -18,6 +18,7 @@ export function useExchangeRealtime() {
         (payload) => {
           console.log('Exchange post change:', payload.eventType);
           queryClient.invalidateQueries({ queryKey: ['exchange-feed'] });
+          queryClient.invalidateQueries({ queryKey: ['exchange-notifications'] });
         }
       )
       .on(
@@ -30,6 +31,7 @@ export function useExchangeRealtime() {
             queryClient.invalidateQueries({ queryKey: ['exchange-comments', postId] });
           }
           queryClient.invalidateQueries({ queryKey: ['exchange-feed'] });
+          queryClient.invalidateQueries({ queryKey: ['exchange-notifications'] });
         }
       )
       .on(

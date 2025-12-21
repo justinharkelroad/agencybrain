@@ -19,6 +19,7 @@ import {
   Phone,
   ArrowLeftRight,
   Settings,
+  BarChart3,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -42,6 +43,8 @@ import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
+import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
+import { Badge } from "@/components/ui/badge";
 
 type AppSidebarProps = {
   onOpenROI?: () => void;
@@ -54,8 +57,6 @@ const mainItems = [
   { title: "Scorecards", url: "/metrics", icon: ClipboardList },
   { title: "The Exchange", url: "/exchange", icon: ArrowLeftRight },
 ];
-
-import { BarChart3 } from "lucide-react";
 
 // Admin-only items (system-wide admin access)
 const adminOnlyItems = [
@@ -81,6 +82,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const { counts: exchangeNotifications } = useExchangeNotifications();
 
   // Fetch user profile data for avatar
   useEffect(() => {
@@ -229,6 +231,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                 {mainItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.url);
+                    const showBadge = item.title === "The Exchange" && exchangeNotifications.total > 0;
                     
                     return (
                       <SidebarMenuItem key={item.title}>
@@ -243,6 +246,14 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                           <Link to={item.url} className="flex items-center gap-2">
                             <Icon className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>{item.title}</span>}
+                            {showBadge && (
+                              <Badge 
+                                variant="destructive" 
+                                className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                              >
+                                {exchangeNotifications.total > 99 ? '99+' : exchangeNotifications.total}
+                              </Badge>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
