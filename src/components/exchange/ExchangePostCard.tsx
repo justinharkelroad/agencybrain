@@ -112,7 +112,6 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
   };
   
   const handleLike = () => {
-    if (isPrivateShare) return;
     toggleLike.mutate({ postId: post.id, hasLiked: post.user_has_liked });
   };
   
@@ -364,8 +363,7 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
           )}
           
           {/* Actions */}
-          {!isPrivateShare && (
-            <div className="flex items-center gap-4 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-4 pt-2 border-t border-border/50">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -403,10 +401,9 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
                 <TooltipContent>Comments</TooltipContent>
               </Tooltip>
             </div>
-          )}
           
           {/* Comments Section */}
-          {showComments && !isPrivateShare && (
+          {showComments && (
             <ExchangeCommentSection postId={post.id} />
           )}
         </CardContent>
