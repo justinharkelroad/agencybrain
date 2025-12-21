@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock, Pin, GraduationCap } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock, Pin, GraduationCap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabaseClient';
+import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,11 +49,13 @@ interface ExchangePostCardProps {
 export function ExchangePostCard({ post, defaultShowComments = false }: ExchangePostCardProps) {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showComments, setShowComments] = useState(defaultShowComments);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [contentExpanded, setContentExpanded] = useState(false);
+  const [navigatingToTraining, setNavigatingToTraining] = useState(false);
   
   const toggleLike = useToggleLike();
   const deletePost = useDeletePost();
@@ -128,14 +132,47 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
     pinPost.mutate({ postId: post.id, pin: !isPinned });
   };
   
-  const handleViewTraining = () => {
+  const handleViewTraining = async () => {
     const ref = post.source_reference;
     if ((ref?.type === 'training_module' || ref?.type === 'sp_lesson') && ref?.id) {
-      // Use stored path if available, otherwise fallback to training hub
+      // Use stored path if available
       if (ref.path) {
         navigate(ref.path);
-      } else {
+        return;
+      }
+      
+      // For legacy posts without path, look up the lesson hierarchy from database
+      setNavigatingToTraining(true);
+      try {
+        const { data: lesson, error } = await supabase
+          .from('sp_lessons')
+          .select(`
+            slug,
+            module:sp_modules!inner(
+              slug,
+              category:sp_categories!inner(slug)
+            )
+          `)
+          .eq('id', ref.id)
+          .single();
+        
+        if (error) throw error;
+        
+        const moduleData = lesson?.module as { slug: string; category: { slug: string } } | null;
+        
+        if (moduleData?.category?.slug && moduleData?.slug && lesson?.slug) {
+          const path = `/training/standard/${moduleData.category.slug}/${moduleData.slug}/${lesson.slug}`;
+          navigate(path);
+        } else {
+          toast({ title: 'Could not find the lesson', variant: 'destructive' });
+          navigate('/training/standard');
+        }
+      } catch (error) {
+        console.error('Error looking up lesson path:', error);
+        toast({ title: 'Could not find the lesson', variant: 'destructive' });
         navigate('/training/standard');
+      } finally {
+        setNavigatingToTraining(false);
       }
     }
   };
@@ -289,8 +326,13 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
               size="sm"
               className="gap-2"
               onClick={handleViewTraining}
+              disabled={navigatingToTraining}
             >
-              <GraduationCap className="h-4 w-4" />
+              {navigatingToTraining ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <GraduationCap className="h-4 w-4" />
+              )}
               View Training
             </Button>
           )}
