@@ -5943,6 +5943,15 @@ export type Database = {
         }[]
       }
       get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_conversation_participants: {
+        Args: { participant_ids: string[] }
+        Returns: {
+          agency_name: string
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       get_current_user_role: { Args: never; Returns: string }
       get_dashboard_daily:
         | {

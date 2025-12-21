@@ -132,7 +132,7 @@ export function ExchangeMessagesInbox({ selectedId, onSelect }: ExchangeMessages
                       {searchResults.map(user => {
                         const initials = user.full_name
                           ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                          : user.email[0].toUpperCase();
+                          : user.email?.[0]?.toUpperCase() || '?';
                         
                         return (
                           <button
@@ -195,9 +195,9 @@ export function ExchangeMessagesInbox({ selectedId, onSelect }: ExchangeMessages
         {filteredConversations && filteredConversations.length > 0 ? (
           <div className="p-2 space-y-1">
             {filteredConversations.map(conv => {
-              const initials = conv.other_user.full_name
+              const initials = conv.other_user?.full_name
                 ? conv.other_user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                : conv.other_user.email[0].toUpperCase();
+                : conv.other_user?.email?.[0]?.toUpperCase() || '?';
               
               return (
                 <button
@@ -228,7 +228,7 @@ export function ExchangeMessagesInbox({ selectedId, onSelect }: ExchangeMessages
                         "font-medium text-sm truncate",
                         conv.unread_count > 0 && "text-foreground"
                       )}>
-                        {conv.other_user.full_name || conv.other_user.email}
+                        {conv.other_user?.full_name || conv.other_user?.email || 'Unknown User'}
                       </span>
                       {conv.last_message && (
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
