@@ -29,6 +29,10 @@ export interface FlowQuestion {
   placeholder?: string;
   interpolation_key?: string;
   ai_challenge?: boolean;
+  show_if?: {
+    question_id: string;
+    equals: string;
+  };
 }
 
 export interface FlowTemplate {

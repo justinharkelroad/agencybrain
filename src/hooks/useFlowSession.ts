@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { FlowTemplate, FlowSession, FlowQuestion } from '@/types/flows';
@@ -81,17 +81,40 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
       setTemplate(templateData);
       setResponses((data.responses_json as Record<string, string>) || {});
       
-      const questions = templateData.questions_json as FlowQuestion[];
-      const firstUnanswered = questions.findIndex(
-        q => !(data.responses_json as Record<string, string>)?.[q.id]
-      );
-      setCurrentQuestionIndex(firstUnanswered === -1 ? questions.length - 1 : firstUnanswered);
+      // We'll set index after computing visible questions
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  // Get all questions from template
+  const allQuestions = useMemo(() => {
+    return (template?.questions_json || []) as FlowQuestion[];
+  }, [template]);
+
+  // Compute visible questions based on show_if conditions and current responses
+  const visibleQuestions = useMemo(() => {
+    return allQuestions.filter(q => {
+      // If no show_if condition, always show
+      if (!q.show_if) return true;
+      
+      // Check if the gate question's answer matches the required value
+      const gateAnswer = responses[q.show_if.question_id];
+      return gateAnswer === q.show_if.equals;
+    });
+  }, [allQuestions, responses]);
+
+  // Set initial question index after loading existing session
+  useEffect(() => {
+    if (!loading && template && session) {
+      const firstUnanswered = visibleQuestions.findIndex(
+        q => !responses[q.id]
+      );
+      setCurrentQuestionIndex(firstUnanswered === -1 ? visibleQuestions.length - 1 : firstUnanswered);
+    }
+  }, [loading, template, session, visibleQuestions, responses]);
 
   const createSession = async () => {
     if (!user?.id || !template) return null;
@@ -135,9 +158,8 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
         updated_at: new Date().toISOString(),
       };
 
-      const questions = template?.questions_json as FlowQuestion[];
-      const titleQuestion = questions?.find(q => q.interpolation_key === 'stack_title' || q.id === 'title');
-      const domainQuestion = questions?.find(q => q.id === 'domain');
+      const titleQuestion = allQuestions.find(q => q.interpolation_key === 'stack_title' || q.id === 'title');
+      const domainQuestion = allQuestions.find(q => q.id === 'domain');
 
       if (titleQuestion && questionId === titleQuestion.id) {
         updateData.title = value;
@@ -161,29 +183,26 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     }
   };
 
-  const goToNextQuestion = () => {
-    const questions = template?.questions_json as FlowQuestion[];
-    if (currentQuestionIndex < questions.length - 1) {
+  const goToNextQuestion = useCallback(() => {
+    if (currentQuestionIndex < visibleQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     }
-  };
+  }, [currentQuestionIndex, visibleQuestions.length]);
 
-  const goToPreviousQuestion = () => {
+  const goToPreviousQuestion = useCallback(() => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
     }
-  };
+  }, [currentQuestionIndex]);
 
-  const goToQuestion = (index: number) => {
-    const questions = template?.questions_json as FlowQuestion[];
-    if (index >= 0 && index < questions.length) {
+  const goToQuestion = useCallback((index: number) => {
+    if (index >= 0 && index < visibleQuestions.length) {
       setCurrentQuestionIndex(index);
     }
-  };
+  }, [visibleQuestions.length]);
 
   const interpolatePrompt = useCallback((prompt: string): PromptSegment[] => {
     const segments: PromptSegment[] = [];
-    const questions = template?.questions_json as FlowQuestion[];
     
     const regex = /\{([^}]+)\}/g;
     let lastIndex = 0;
@@ -198,7 +217,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
       }
 
       const key = match[1];
-      const sourceQuestion = questions?.find(
+      const sourceQuestion = allQuestions.find(
         q => q.interpolation_key === key || q.id === key
       );
 
@@ -223,20 +242,19 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     }
 
     return segments;
-  }, [responses, template]);
+  }, [responses, allQuestions]);
 
-  const questions = (template?.questions_json || []) as FlowQuestion[];
-  const currentQuestion = questions[currentQuestionIndex];
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  const currentQuestion = visibleQuestions[currentQuestionIndex];
+  const isLastQuestion = currentQuestionIndex === visibleQuestions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
-  const progress = questions.length > 0 
-    ? ((currentQuestionIndex + 1) / questions.length) * 100 
+  const progress = visibleQuestions.length > 0 
+    ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 
     : 0;
 
   return {
     template,
     session,
-    questions,
+    questions: visibleQuestions,
     currentQuestion,
     currentQuestionIndex,
     responses,
