@@ -29,8 +29,10 @@ import { DataLeadReportCard } from '@/components/tools/DataLeadReportCard';
 import { MailerReportCard } from '@/components/tools/MailerReportCard';
 import { LiveTransferReportCard } from '@/components/tools/LiveTransferReportCard';
 import CallEfficiencyReportCard from '@/components/tools/CallEfficiencyReportCard';
+import VendorReportCard from '@/components/VendorReportCard';
 import { MarketingInputs, MarketingDerived, MailerInputs, MailerDerived, TransferInputs, TransferDerived } from '@/utils/marketingCalculator';
 import { CallEfficiencyResults } from '@/utils/callEfficiencyCalculator';
+import { VendorVerifierFormInputs, VendorVerifierDerived } from '@/utils/vendorVerifier';
 import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
 
 type ReportFilter = 'all' | 'staff_roi' | 'vendor_verifier' | 'data_lead' | 'mailer' | 'live_transfer' | 'call_efficiency';
@@ -167,7 +169,48 @@ export function SavedReportsHistory() {
       );
     }
 
-    // Vendor Verifier and others - show basic data for now
+    if (report.report_type === 'vendor_verifier') {
+      // Reconstruct inputs and derived from stored data
+      const resultsData = report.results_data as { inputs?: VendorVerifierFormInputs; derived?: VendorVerifierDerived } | null;
+      const inputData = report.input_data as Partial<VendorVerifierFormInputs> | null;
+      
+      // The results_data contains the full inputs and derived objects
+      const inputs: VendorVerifierFormInputs = resultsData?.inputs ?? {
+        vendorName: inputData?.vendorName,
+        dateStart: inputData?.dateStart,
+        dateEnd: inputData?.dateEnd,
+        amountSpent: inputData?.amountSpent,
+        policiesSold: inputData?.policiesSold,
+        premiumSold: inputData?.premiumSold,
+      };
+      
+      const derived: VendorVerifierDerived = resultsData?.derived ?? {
+        costPerQuotedHH: null,
+        policyCloseRate: null,
+        averageItemValue: null,
+        averagePolicyValue: null,
+        avgCostPerCall: null,
+        costPerQuotedPolicy: null,
+        costPerQuotedItem: null,
+        costPerSoldItem: null,
+        costPerSoldPolicy: null,
+        projectedCommissionAmount: null,
+        cpa: null,
+        costPerItem: null,
+      };
+      
+      return (
+        <div className="mt-4 border-t border-border/20 pt-4">
+          <VendorReportCard
+            inputs={inputs}
+            derived={derived}
+            isReadOnly={true}
+          />
+        </div>
+      );
+    }
+
+    // Fallback for unknown types - show basic data
     return (
       <div className="mt-4 border-t border-border/20 pt-4">
         <pre className="text-xs bg-muted/30 p-4 rounded-lg overflow-auto max-h-64">

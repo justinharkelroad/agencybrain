@@ -46,11 +46,12 @@ const COLORS = {
 interface VendorReportCardProps {
   inputs: VendorVerifierFormInputs;
   derived: VendorVerifierDerived;
-  onClose: () => void;
+  onClose?: () => void;
   onSave?: () => void;
+  isReadOnly?: boolean;
 }
 
-const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCardProps) => {
+const VendorReportCard = ({ inputs, derived, onClose, onSave, isReadOnly }: VendorReportCardProps) => {
   const reportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -255,15 +256,17 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
         style={{ backgroundColor: COLORS.bgCard, borderColor: COLORS.borderColor }}
         className="relative p-6 rounded-xl border"
       >
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="absolute top-4 right-4"
-          onClick={onClose}
-          style={{ color: COLORS.textSecondary }}
-        >
-          <X className="h-5 w-5" />
-        </Button>
+        {!isReadOnly && onClose && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-4 right-4"
+            onClick={onClose}
+            style={{ color: COLORS.textSecondary }}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
 
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
@@ -524,52 +527,54 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave }: VendorReportCard
     </div>
 
     {/* Action Buttons - OUTSIDE the ref so they don't appear in export */}
-    <div className="flex gap-3 justify-end flex-wrap mt-6">
-      <Button 
-        variant="outline" 
-        onClick={handleExportPNG}
-        disabled={isExporting}
-      >
-        {isExporting ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <ImageIcon className="h-4 w-4 mr-2" />
-        )}
-        PNG
-      </Button>
-      <Button 
-        variant="outline" 
-        onClick={handleExportPDF}
-        disabled={isExporting}
-      >
-        {isExporting ? (
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        ) : (
-          <FileDown className="h-4 w-4 mr-2" />
-        )}
-        PDF
-      </Button>
-      <Button variant="outline" onClick={handleCopy}>
-        <Copy className="h-4 w-4 mr-2" />
-        Copy Results
-      </Button>
-      <SaveVendorReportButton
-        input={{
-          vendorName: inputs.vendorName,
-          dateStart: inputs.dateStart,
-          dateEnd: inputs.dateEnd,
-          amountSpent: inputs.amountSpent,
-          policiesSold: inputs.policiesSold,
-          premiumSold: inputs.premiumSold,
-        }}
-        derived={{
-          cpa: derived.cpa,
-          projectedCommissionAmount: derived.projectedCommissionAmount,
-          policyCloseRate: derived.policyCloseRate,
-        }}
-        data={{ inputs, derived }}
-      />
-    </div>
+    {!isReadOnly && (
+      <div className="flex gap-3 justify-end flex-wrap mt-6">
+        <Button 
+          variant="outline" 
+          onClick={handleExportPNG}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4 mr-2" />
+          )}
+          PNG
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={handleExportPDF}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <FileDown className="h-4 w-4 mr-2" />
+          )}
+          PDF
+        </Button>
+        <Button variant="outline" onClick={handleCopy}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy Results
+        </Button>
+        <SaveVendorReportButton
+          input={{
+            vendorName: inputs.vendorName,
+            dateStart: inputs.dateStart,
+            dateEnd: inputs.dateEnd,
+            amountSpent: inputs.amountSpent,
+            policiesSold: inputs.policiesSold,
+            premiumSold: inputs.premiumSold,
+          }}
+          derived={{
+            cpa: derived.cpa,
+            projectedCommissionAmount: derived.projectedCommissionAmount,
+            policyCloseRate: derived.policyCloseRate,
+          }}
+          data={{ inputs, derived }}
+        />
+      </div>
+    )}
     </>
   );
 };
