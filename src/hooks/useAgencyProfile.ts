@@ -31,9 +31,15 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
         .eq('id', profile.agency_id)
         .single();
         
-      if (agencyError || !agency?.slug) {
+      if (agencyError || !agency) {
         throw new Error('Failed to load agency information');
       }
+
+      // Generate slug from name if missing
+      const agencySlug = agency.slug || agency.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
 
       const { data: rules, error: rulesError } = await supabase
         .from('scorecard_rules')
@@ -47,7 +53,7 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
       }
 
       return {
-        agencySlug: agency.slug,
+        agencySlug,
         agencyName: agency.name || "",
         agencyId: profile.agency_id,
         scorecardRules: rules,
