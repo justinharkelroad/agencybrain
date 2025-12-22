@@ -27,7 +27,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
-import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
+import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -119,6 +119,9 @@ export default function Agency() {
   const [manualUsername, setManualUsername] = useState('');
   const [manualPassword, setManualPassword] = useState('');
   const [showManualPassword, setShowManualPassword] = useState(false);
+  
+  // Email delivery notice modal state for Send Invite
+  const [emailNoticeModalOpen, setEmailNoticeModalOpen] = useState(false);
 
   // Reset password state
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -1588,19 +1591,29 @@ export default function Agency() {
               )}
             </Button>
           ) : (
-            <Button onClick={handleSendInvite} disabled={inviteLoading || !selectedMember?.email}>
-              {inviteLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Invite
-                </>
-              )}
-            </Button>
+            <>
+              <Button onClick={() => setEmailNoticeModalOpen(true)} disabled={inviteLoading || !selectedMember?.email}>
+                {inviteLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Invite
+                  </>
+                )}
+              </Button>
+              <EmailDeliveryNoticeModal 
+                open={emailNoticeModalOpen} 
+                onOpenChange={setEmailNoticeModalOpen}
+                onAcknowledge={() => {
+                  setEmailNoticeModalOpen(false);
+                  handleSendInvite();
+                }}
+              />
+            </>
           )}
         </DialogFooter>
       </DialogContent>
