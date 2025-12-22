@@ -115,7 +115,7 @@ export function SavedReportsHistory() {
           <DataLeadReportCard
             inputs={report.input_data as unknown as MarketingInputs}
             derived={report.results_data as unknown as MarketingDerived}
-            isReadOnly={true}
+            isReadOnly={false}
           />
         </div>
       );
@@ -127,7 +127,7 @@ export function SavedReportsHistory() {
           <MailerReportCard
             inputs={report.input_data as unknown as MailerInputs}
             derived={report.results_data as unknown as MailerDerived}
-            isReadOnly={true}
+            isReadOnly={false}
           />
         </div>
       );
@@ -139,7 +139,7 @@ export function SavedReportsHistory() {
           <LiveTransferReportCard
             inputs={report.input_data as unknown as TransferInputs}
             derived={report.results_data as unknown as TransferDerived}
-            isReadOnly={true}
+            isReadOnly={false}
           />
         </div>
       );
@@ -204,7 +204,7 @@ export function SavedReportsHistory() {
           <VendorReportCard
             inputs={inputs}
             derived={derived}
-            isReadOnly={true}
+            isReadOnly={false}
           />
         </div>
       );
