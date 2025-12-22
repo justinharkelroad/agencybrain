@@ -336,7 +336,7 @@ export default function FlowView() {
                 <p className="text-muted-foreground/70 text-sm mb-2">
                   {interpolatePrompt(question.prompt)}
                 </p>
-                <p className="text-foreground leading-relaxed">
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
                   {response}
                 </p>
               </div>

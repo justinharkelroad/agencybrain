@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock, Pin, GraduationCap, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Flag, ExternalLink, FileText, Image as ImageIcon, Link2, Lock, Pin, GraduationCap, Loader2, Brain } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabaseClient';
@@ -333,6 +333,19 @@ export function ExchangePostCard({ post, defaultShowComments = false }: Exchange
                 <GraduationCap className="h-4 w-4" />
               )}
               View Training
+            </Button>
+          )}
+          
+          {/* Flow Result Link */}
+          {post.content_type === 'flow_result' && post.source_reference?.id && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate(`/flows/view/${post.source_reference?.id}`)}
+            >
+              <Brain className="h-4 w-4" />
+              View Flow Result
             </Button>
           )}
           

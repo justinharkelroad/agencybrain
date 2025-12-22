@@ -240,7 +240,7 @@ export default function FlowSession() {
                     </div>
                   </div>
                   <div className="pl-9 mt-2">
-                    <p className="text-muted-foreground bg-muted/30 rounded-lg px-4 py-2 inline-block">
+                    <p className="text-muted-foreground bg-muted/30 rounded-lg px-4 py-2 whitespace-pre-wrap">
                       {responses[q.id]}
                     </p>
                   </div>
