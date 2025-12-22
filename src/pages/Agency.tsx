@@ -27,6 +27,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
+import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -969,6 +970,7 @@ export default function Agency() {
                   <CardDescription>Manage your roster and staff logins</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <EmailDeliveryNoticeButton />
                   <Button 
                     variant="outline" 
                     className="rounded-full" 
