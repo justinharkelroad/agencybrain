@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle } from "lucide-react";
+import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
 
 interface StaffUser {
   id: string;
@@ -435,13 +436,15 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
               </CardDescription>
             </div>
             
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Staff User
-                </Button>
-              </DialogTrigger>
+            <div className="flex flex-wrap items-center gap-2">
+              <EmailDeliveryNoticeButton />
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Staff User
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Create New Staff User</DialogTitle>
@@ -560,7 +563,8 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                   </Button>
                 </form>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
