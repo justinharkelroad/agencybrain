@@ -46,6 +46,15 @@ export function EmailDeliveryNoticeModal({
           <DialogDescription>
             Please share this with your team members to ensure they receive notifications
           </DialogDescription>
+
+          {onAcknowledge && (
+            <div className="mt-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3">
+              <p className="text-sm font-semibold text-destructive">WAIT BEFORE YOU SEND</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Please review the steps below so invitations don't get blocked by spam filters.
+              </p>
+            </div>
+          )}
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh] pr-4">
