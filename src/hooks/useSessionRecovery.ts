@@ -26,8 +26,8 @@ export function useSessionRecovery() {
       // Ignore errors
     }
     
-    // Use React Router navigate for cleaner transition
-    setTimeout(() => navigate('/auth'), 500);
+    // Redirect to landing page so user can choose Brain or Staff portal
+    setTimeout(() => navigate('/'), 500);
   }, [navigate]);
 
   useEffect(() => {

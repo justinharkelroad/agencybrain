@@ -90,7 +90,7 @@ export function StaffSidebar() {
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = "/staff/login";
+    window.location.href = "/";
   };
 
   console.log('StaffSidebar render - callScoringEnabled:', callScoringEnabled);

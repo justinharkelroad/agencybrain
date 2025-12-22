@@ -90,7 +90,7 @@ export default function StaffTraining() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/staff/login');
+    navigate('/');
   };
 
   const handleDownloadAttachment = async (attachment: any) => {

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import agencyBrainLogo from "@/assets/agencybrain-logo-new.png";
+import { Brain, Users } from "lucide-react";
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -68,16 +69,26 @@ export default function Landing() {
                 height={128}
               />
               
-              <div className="flex flex-col gap-4 w-full max-w-xs">
-                <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full">
-                  <Link to="/auth" aria-label="Enter AgencyBrain">
-                    ENTER YOUR 🧠 →
+              <div className="flex flex-col gap-4 w-full max-w-sm">
+                {/* Brain Portal - for Agency Owners/Admins */}
+                <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14">
+                  <Link to="/auth" aria-label="Enter Brain Portal" className="flex items-center justify-center gap-3">
+                    <Brain className="h-5 w-5" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="font-semibold">Brain Portal</span>
+                      <span className="text-xs opacity-80">For Agency Owners</span>
+                    </div>
                   </Link>
                 </Button>
                 
-                <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                  <Link to="/staff/login" aria-label="Staff Login">
-                    Staff Login
+                {/* Staff Portal - for Team Members */}
+                <Button asChild variant="outline" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14 border-2">
+                  <Link to="/staff/login" aria-label="Enter Staff Portal" className="flex items-center justify-center gap-3">
+                    <Users className="h-5 w-5" />
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="font-semibold">Staff Portal</span>
+                      <span className="text-xs opacity-80">For Team Members</span>
+                    </div>
                   </Link>
                 </Button>
               </div>

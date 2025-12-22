@@ -66,8 +66,8 @@ export async function handleSessionRecovery(customMessage?: string): Promise<voi
     // Small delay to let toast show before redirect
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Redirect to login
-    window.location.href = '/auth';
+    // Redirect to landing page so user can choose Brain or Staff portal
+    window.location.href = '/';
   } finally {
     isHandlingSessionError = false;
   }
