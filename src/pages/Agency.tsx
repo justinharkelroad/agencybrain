@@ -1605,19 +1605,21 @@ export default function Agency() {
                   </>
                 )}
               </Button>
-              <EmailDeliveryNoticeModal 
-                open={emailNoticeModalOpen} 
-                onOpenChange={setEmailNoticeModalOpen}
-                onAcknowledge={() => {
-                  setEmailNoticeModalOpen(false);
-                  handleSendInvite();
-                }}
-              />
             </>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Email Delivery Notice Modal - must be outside parent dialog */}
+    <EmailDeliveryNoticeModal 
+      open={emailNoticeModalOpen} 
+      onOpenChange={setEmailNoticeModalOpen}
+      onAcknowledge={() => {
+        setEmailNoticeModalOpen(false);
+        handleSendInvite();
+      }}
+    />
 
     {/* Manage Login Dialog */}
     <Dialog open={manageLoginDialogOpen} onOpenChange={setManageLoginDialogOpen}>
