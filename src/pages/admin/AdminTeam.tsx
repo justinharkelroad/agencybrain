@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, UserX, UserCheck } from "lucide-react";
+import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
 
 // Enums from Supabase types
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -226,107 +227,110 @@ export default function AdminTeam() {
     <div>
       <main className="container mx-auto px-4 py-6">
         <article className="space-y-6">
-          <header className="flex items-center justify-between">
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-semibold">Team Members</h1>
-            <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-              <DialogTrigger asChild>
-                <Button onClick={startCreate} className="rounded-full" aria-label="Add team member">
-                  <Plus className="h-4 w-4 mr-2" /> Add Member
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="glass-surface">
-                <DialogHeader>
-                  <DialogTitle>{title}</DialogTitle>
-                  <DialogDescription>Manage team member details</DialogDescription>
-                </DialogHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <EmailDeliveryNoticeButton />
+              <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+                <DialogTrigger asChild>
+                  <Button onClick={startCreate} className="rounded-full" aria-label="Add team member">
+                    <Plus className="h-4 w-4 mr-2" /> Add Member
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="glass-surface">
+                  <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>Manage team member details</DialogDescription>
+                  </DialogHeader>
 
-                <div className="grid gap-4 py-2">
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right" htmlFor="name">Name</Label>
-                    <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right" htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="col-span-3" />
-                  </div>
-                   <div className="grid grid-cols-4 items-center gap-3">
-                     <Label className="text-right">Role</Label>
-                     <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v as Role }))}>
-                       <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
-                       <SelectContent>
-                         {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-                       </SelectContent>
-                     </Select>
-                   </div>
-                   
-                   {form.role === 'Hybrid' && (
-                     <div className="grid grid-cols-4 items-start gap-3">
-                       <Label className="text-right">Teams</Label>
-                       <div className="col-span-3 space-y-2">
-                         <p className="text-sm text-muted-foreground">Select which team(s) this hybrid member counts for:</p>
-                         <div className="flex items-center space-x-2">
-                           <Checkbox 
-                             id="sales-team"
-                             checked={form.hybridTeamAssignments.includes('Sales')}
-                             onCheckedChange={(checked) => {
-                               setForm(f => ({
-                                 ...f,
-                                 hybridTeamAssignments: checked 
-                                   ? [...f.hybridTeamAssignments, 'Sales']
-                                   : f.hybridTeamAssignments.filter(t => t !== 'Sales')
-                               }));
-                             }}
-                           />
-                           <Label htmlFor="sales-team">Sales Team</Label>
-                         </div>
-                         <div className="flex items-center space-x-2">
-                           <Checkbox 
-                             id="service-team"
-                             checked={form.hybridTeamAssignments.includes('Service')}
-                             onCheckedChange={(checked) => {
-                               setForm(f => ({
-                                 ...f,
-                                 hybridTeamAssignments: checked 
-                                   ? [...f.hybridTeamAssignments, 'Service']
-                                   : f.hybridTeamAssignments.filter(t => t !== 'Service')
-                               }));
-                             }}
-                           />
-                           <Label htmlFor="service-team">Service Team</Label>
+                  <div className="grid gap-4 py-2">
+                    <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right" htmlFor="name">Name</Label>
+                      <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right" htmlFor="email">Email</Label>
+                      <Input id="email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-3">
+                       <Label className="text-right">Role</Label>
+                       <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v as Role }))}>
+                         <SelectTrigger className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger>
+                         <SelectContent>
+                           {MEMBER_ROLES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+                     
+                     {form.role === 'Hybrid' && (
+                       <div className="grid grid-cols-4 items-start gap-3">
+                         <Label className="text-right">Teams</Label>
+                         <div className="col-span-3 space-y-2">
+                           <p className="text-sm text-muted-foreground">Select which team(s) this hybrid member counts for:</p>
+                           <div className="flex items-center space-x-2">
+                             <Checkbox 
+                               id="sales-team"
+                               checked={form.hybridTeamAssignments.includes('Sales')}
+                               onCheckedChange={(checked) => {
+                                 setForm(f => ({
+                                   ...f,
+                                   hybridTeamAssignments: checked 
+                                     ? [...f.hybridTeamAssignments, 'Sales']
+                                     : f.hybridTeamAssignments.filter(t => t !== 'Sales')
+                                 }));
+                               }}
+                             />
+                             <Label htmlFor="sales-team">Sales Team</Label>
+                           </div>
+                           <div className="flex items-center space-x-2">
+                             <Checkbox 
+                               id="service-team"
+                               checked={form.hybridTeamAssignments.includes('Service')}
+                               onCheckedChange={(checked) => {
+                                 setForm(f => ({
+                                   ...f,
+                                   hybridTeamAssignments: checked 
+                                     ? [...f.hybridTeamAssignments, 'Service']
+                                     : f.hybridTeamAssignments.filter(t => t !== 'Service')
+                                 }));
+                               }}
+                             />
+                             <Label htmlFor="service-team">Service Team</Label>
+                           </div>
                          </div>
                        </div>
-                     </div>
-                   )}
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right">Employment</Label>
-                    <Select value={form.employment} onValueChange={(v) => setForm((f) => ({ ...f, employment: v as Employment }))}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
-                      <SelectContent>
-                        {EMPLOYMENT_TYPES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
+                     )}
+                    <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right">Employment</Label>
+                      <Select value={form.employment} onValueChange={(v) => setForm((f) => ({ ...f, employment: v as Employment }))}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
+                        <SelectContent>
+                          {EMPLOYMENT_TYPES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right">Status</Label>
+                      <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as MemberStatus }))}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectContent>
+                          {MEMBER_STATUS.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-start gap-3">
+                      <Label className="text-right" htmlFor="notes">Notes</Label>
+                      <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-3 min-h-[84px]" />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-3">
-                    <Label className="text-right">Status</Label>
-                    <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as MemberStatus }))}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Select status" /></SelectTrigger>
-                      <SelectContent>
-                        {MEMBER_STATUS.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-start gap-3">
-                    <Label className="text-right" htmlFor="notes">Notes</Label>
-                    <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-3 min-h-[84px]" />
-                  </div>
-                </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
-                  <Button variant="default" onClick={submit} disabled={upsertMutation.isPending}>{upsertMutation.isPending ? "Saving..." : "Save"}</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
+                    <Button variant="default" onClick={submit} disabled={upsertMutation.isPending}>{upsertMutation.isPending ? "Saving..." : "Save"}</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </header>
 
           <Card>
