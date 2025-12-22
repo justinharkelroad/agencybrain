@@ -15,12 +15,14 @@ interface EmailDeliveryNoticeModalProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onAcknowledge?: () => void;
 }
 
 export function EmailDeliveryNoticeModal({ 
   trigger, 
   open: controlledOpen, 
-  onOpenChange: controlledOnOpenChange 
+  onOpenChange: controlledOnOpenChange,
+  onAcknowledge
 }: EmailDeliveryNoticeModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   
@@ -124,10 +126,21 @@ export function EmailDeliveryNoticeModal({
           </div>
         </ScrollArea>
         
-        <div className="flex justify-end pt-4 border-t">
-          <Button onClick={() => onOpenChange?.(false)}>
-            Got it
-          </Button>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          {onAcknowledge ? (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange?.(false)}>
+                Cancel
+              </Button>
+              <Button onClick={onAcknowledge}>
+                I Understand, Continue
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => onOpenChange?.(false)}>
+              Got it
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
