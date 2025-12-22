@@ -284,7 +284,6 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" /> Annual Bonus Forecast
-              <span className="text-xs font-semibold text-red-500">(BETA)</span>
             </CardTitle>
             <CardDescription>Calculate production needed for each bonus tier</CardDescription>
           </CardHeader>
