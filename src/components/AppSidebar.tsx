@@ -390,7 +390,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                     className="hover:bg-muted/40 transition-colors"
                   >
                     <button
-                      onClick={() => signOut()}
+                      onClick={async () => {
+                        await signOut();
+                        window.location.href = '/';
+                      }}
                       className="flex items-center gap-2 w-full text-destructive"
                     >
                       <LogOut className="h-4 w-4" strokeWidth={1.5} />
