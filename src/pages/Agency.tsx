@@ -1414,7 +1414,10 @@ export default function Agency() {
                     ? 'border-primary bg-primary/5' 
                     : 'border-border hover:border-primary/50'
                 } ${!selectedMember?.email ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={() => selectedMember?.email && setInviteMode('email')}
+                onClick={() => {
+                  if (!selectedMember?.email) return;
+                  setEmailNoticeModalOpen(true);
+                }}
               >
                 <div className="flex items-center gap-2">
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -1591,21 +1594,19 @@ export default function Agency() {
               )}
             </Button>
           ) : (
-            <>
-              <Button onClick={() => setEmailNoticeModalOpen(true)} disabled={inviteLoading || !selectedMember?.email}>
-                {inviteLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Invite
-                  </>
-                )}
-              </Button>
-            </>
+            <Button onClick={handleSendInvite} disabled={inviteLoading || !selectedMember?.email}>
+              {inviteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Invite
+                </>
+              )}
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>
@@ -1617,7 +1618,7 @@ export default function Agency() {
       onOpenChange={setEmailNoticeModalOpen}
       onAcknowledge={() => {
         setEmailNoticeModalOpen(false);
-        handleSendInvite();
+        setInviteMode('email');
       }}
     />
 
