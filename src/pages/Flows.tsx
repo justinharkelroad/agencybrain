@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
+import { useFlowStats } from '@/hooks/useFlowStats';
+import { useCore4Stats } from '@/hooks/useCore4Stats';
 import { FlowTemplate, FlowSession } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sparkles, User, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
+import { Sparkles, User, ChevronRight, Clock, CheckCircle2, Flame, Zap } from 'lucide-react';
 import { format } from 'date-fns';
 import { FlowStatsCard } from '@/components/flows/FlowStatsCard';
 import { HelpVideoButton } from '@/components/HelpVideoButton';
@@ -15,10 +17,18 @@ export default function Flows() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { loading: profileLoading, hasProfile } = useFlowProfile();
+  const flowStats = useFlowStats();
+  const core4Stats = useCore4Stats();
   
   const [templates, setTemplates] = useState<FlowTemplate[]>([]);
   const [recentSessions, setRecentSessions] = useState<FlowSession[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Combined weekly score: Core 4 (max 28) + Flow (max 7) = 35
+  const combinedWeeklyScore = core4Stats.weeklyPoints + flowStats.weeklyProgress;
+  const combinedWeeklyGoal = 35;
+  const combinedPercentage = combinedWeeklyGoal > 0 ? Math.round((combinedWeeklyScore / combinedWeeklyGoal) * 100) : 0;
+  const combinedTotalPoints = flowStats.totalFlows + core4Stats.totalPoints;
 
   useEffect(() => {
     fetchData();
@@ -124,7 +134,95 @@ export default function Flows() {
         </Card>
       )}
 
-      {/* Gamification Stats */}
+      {/* Combined Score Cards - Same as Core4 page */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* THE SCORE */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-3">THE SCORE</p>
+            <div className="relative w-32 h-32 mx-auto mb-3">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  className="text-muted"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeDasharray={`${combinedPercentage * 2.83} 283`}
+                  className="text-primary transition-all duration-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold">{combinedWeeklyScore}</span>
+                <span className="text-xs text-muted-foreground">/ {combinedWeeklyGoal}</span>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>Core 4: {core4Stats.weeklyPoints}/28</p>
+              <p>Flow: {flowStats.weeklyProgress}/7</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* THE STREAKS */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground mb-4 text-center">THE STREAKS</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <Zap className="h-5 w-5 mx-auto mb-1 text-purple-500" />
+                <p className="text-xl font-bold">{flowStats.currentStreak}</p>
+                <p className="text-xs text-muted-foreground">Flow</p>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+                <p className="text-xl font-bold">{core4Stats.currentStreak}</p>
+                <p className="text-xs text-muted-foreground">Core 4</p>
+              </div>
+            </div>
+            <div className="mt-4 text-center text-xs text-muted-foreground">
+              <p>Longest: Flow {flowStats.longestStreak} | Core {core4Stats.longestStreak}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* THE TOTAL */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground mb-4 text-center">THE TOTAL</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <Zap className="h-5 w-5 mx-auto mb-1 text-purple-500" />
+                <p className="text-xl font-bold">{flowStats.totalFlows}</p>
+                <p className="text-xs text-muted-foreground">Flows</p>
+              </div>
+              <div className="text-center p-3 bg-muted/50 rounded-lg">
+                <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+                <p className="text-xl font-bold">{core4Stats.totalPoints}</p>
+                <p className="text-xs text-muted-foreground">Core</p>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-2xl font-bold text-primary">
+                {combinedTotalPoints}
+              </p>
+              <p className="text-xs text-muted-foreground">Combined Points</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Gamification Stats - Flow only */}
       <FlowStatsCard />
 
       {/* Flow Templates Grid */}
