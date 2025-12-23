@@ -114,6 +114,7 @@ import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
 import ExchangePostPage from "./pages/ExchangePost";
 import StaffFlows from "./pages/staff/StaffFlows";
+import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 
 // Training pages
@@ -799,6 +800,8 @@ const App = () => (
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />
+              {/* Core 4 */}
+              <Route path="core4" element={<StaffCore4 />} />
               {/* Flows */}
               <Route path="flows" element={<StaffFlows />} />
               <Route path="flows/profile" element={<StaffFlowProfile />} />
