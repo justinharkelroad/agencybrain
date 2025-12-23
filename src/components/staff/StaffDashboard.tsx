@@ -10,6 +10,7 @@ import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
+import { StaffCore4Card } from './StaffCore4Card';
 
 interface KPIData {
   key: string;
@@ -306,6 +307,9 @@ export function StaffDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Core 4 - All staff see this */}
+      <StaffCore4Card />
 
       {/* Focus Targets Section - All staff see this */}
       <StaffFocusTargets />

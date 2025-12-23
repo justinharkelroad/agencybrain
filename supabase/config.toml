@@ -213,3 +213,5 @@ verify_jwt = false
 [functions.send-exchange-notification]
 verify_jwt = true
 
+[functions.get_staff_core4_entries]
+verify_jwt = false
