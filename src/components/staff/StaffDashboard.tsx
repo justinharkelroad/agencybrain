@@ -311,8 +311,8 @@ export function StaffDashboard() {
       {/* Core 4 - All staff see this */}
       <StaffCore4Card />
 
-      {/* Monthly Missions - All staff see this */}
-      <StaffCore4MonthlyMissions />
+      {/* Monthly Missions - Only show if missions exist */}
+      <StaffCore4MonthlyMissions hideEmptyDomains />
 
       {/* Focus Targets Section - All staff see this */}
       <StaffFocusTargets />

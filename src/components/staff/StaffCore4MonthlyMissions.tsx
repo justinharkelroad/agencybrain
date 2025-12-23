@@ -51,7 +51,11 @@ const domainConfig: Record<Core4Domain, { label: string; icon: typeof Dumbbell; 
   business: { label: 'Business', icon: Briefcase, color: 'text-blue-500' },
 };
 
-export function StaffCore4MonthlyMissions() {
+interface StaffCore4MonthlyMissionsProps {
+  hideEmptyDomains?: boolean;
+}
+
+export function StaffCore4MonthlyMissions({ hideEmptyDomains = false }: StaffCore4MonthlyMissionsProps) {
   const { user, sessionToken } = useStaffAuth();
   const [missions, setMissions] = useState<StaffCore4Mission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,14 +226,25 @@ export function StaffCore4MonthlyMissions() {
     );
   }
 
+  // If hideEmptyDomains is true and no missions exist, don't render anything
+  if (hideEmptyDomains && missions.length === 0) {
+    return null;
+  }
+
+  // Get domains to display based on hideEmptyDomains prop
+  const domainsToDisplay = hideEmptyDomains 
+    ? (Object.keys(domainConfig) as Core4Domain[]).filter(domain => getMissionForDomain(domain))
+    : (Object.keys(domainConfig) as Core4Domain[]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Monthly Missions</h3>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1" />
+        {!hideEmptyDomains && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Plus className="h-4 w-4 mr-1" />
               Add Mission
             </Button>
           </DialogTrigger>
@@ -286,10 +301,11 @@ export function StaffCore4MonthlyMissions() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(Object.keys(domainConfig) as Core4Domain[]).map(domain => {
+        {domainsToDisplay.map(domain => {
           const mission = getMissionForDomain(domain);
           const { label, icon: Icon, color } = domainConfig[domain];
           const completedCount = mission?.items.filter(i => i.completed).length || 0;
