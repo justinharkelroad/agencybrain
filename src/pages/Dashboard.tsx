@@ -10,6 +10,7 @@ import ReportingPeriods from '@/components/client/ReportingPeriods';
 import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { MyCurrentFocus } from '@/components/focus/MyCurrentFocus';
 import { TeamCore4Overview } from '@/components/core4/TeamCore4Overview';
+import { Core4Card } from '@/components/core4/Core4Card';
 import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
@@ -106,6 +107,7 @@ const Dashboard = () => {
         <PeriodRefreshProvider>
           {canViewPerformanceMetrics && <PerformanceMetrics />}
           {canViewFocusTargets && <MyCurrentFocus />}
+          <Core4Card />
           {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
           {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
           {canViewRoleplaySessions && <RoleplaySessionsCard />}
