@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Folder, FolderOpen, ShieldCheck, UploadCloud, AlertCircle, RefreshCw } from "lucide-react";
+import { Folder, FolderOpen, ShieldCheck, UploadCloud, AlertCircle, RefreshCw, Share2 } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 import { useToast } from "@/hooks/use-toast";
 import { fetchActiveProcessVaultTypes } from "@/lib/dataFetchers";
+import { ExchangeShareModal } from "@/components/exchange/ExchangeShareModal";
 
 interface ProcessVaultType {
   id: string;
@@ -47,6 +48,8 @@ export const ProcessVaultContent: React.FC = () => {
   const [urlErrors, setUrlErrors] = useState<Record<string, string>>({});
   const [generatingUrls, setGeneratingUrls] = useState(false);
   const [newVaultName, setNewVaultName] = useState("");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareFile, setShareFile] = useState<VaultFileRow | null>(null);
 
   const ensureDefaultVaults = async (t: ProcessVaultType[], v: UserVault[]) => {
     if (!user) return;
@@ -373,31 +376,45 @@ export const ProcessVaultContent: React.FC = () => {
                             {hasError && <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />}
                             {fileName}
                           </span>
-                          {hasUrl ? (
-                            <a
-                              className="text-primary underline underline-offset-2 flex-shrink-0"
-                              href={signedUrls[f.id]}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                            >
-                              Download
-                            </a>
-                          ) : hasError ? (
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => retrySignedUrl(f)}
-                              className="gap-1 flex-shrink-0"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setShareFile(f);
+                                setShareModalOpen(true);
+                              }}
                             >
-                              <RefreshCw className="w-3 h-3" />
-                              Retry
+                              <Share2 className="h-3.5 w-3.5 mr-1" />
+                              Share
                             </Button>
-                          ) : (
-                            <span className="text-muted-foreground text-xs flex-shrink-0">
-                              {generatingUrls ? 'Loading...' : 'Processing...'}
-                            </span>
-                          )}
+                            {hasUrl ? (
+                              <a
+                                className="text-primary underline underline-offset-2"
+                                href={signedUrls[f.id]}
+                                target="_blank"
+                                rel="noreferrer"
+                                download
+                              >
+                                Download
+                              </a>
+                            ) : hasError ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => retrySignedUrl(f)}
+                                className="gap-1"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                Retry
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">
+                                {generatingUrls ? 'Loading...' : 'Processing...'}
+                              </span>
+                            )}
+                          </div>
                         </li>
                       );
                     })}
@@ -410,6 +427,19 @@ export const ProcessVaultContent: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <ExchangeShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        contentType="process_vault"
+        sourceReference={shareFile ? {
+          type: 'process_vault',
+          id: shareFile.id,
+          title: shareFile.upload_file_path.split('/').pop() || 'Vault File',
+        } : undefined}
+        filePath={shareFile?.upload_file_path}
+        fileName={shareFile?.upload_file_path.split('/').pop()}
+      />
     </div>
   );
 };
