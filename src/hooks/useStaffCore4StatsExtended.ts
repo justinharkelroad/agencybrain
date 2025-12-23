@@ -37,6 +37,7 @@ export interface StaffCore4StatsExtended {
   longestStreak: number;
   totalPoints: number;
   weeklyActivity: WeekDayActivity[];
+  entries: StaffCore4Entry[];
   loading: boolean;
   toggleDomain: (domain: Core4Domain, date?: Date) => Promise<void>;
   refetch: () => void;
@@ -269,6 +270,7 @@ export function useStaffCore4StatsExtended(): StaffCore4StatsExtended {
 
   return {
     ...stats,
+    entries,
     loading,
     toggleDomain,
     refetch: fetchEntries,

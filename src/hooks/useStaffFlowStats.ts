@@ -9,6 +9,7 @@ export interface StaffFlowStats {
   weeklyProgress: number;
   weeklyGoal: number;
   todayCompleted: boolean;
+  sessions: { completed_at: string }[];
   loading: boolean;
 }
 
@@ -66,6 +67,7 @@ export function useStaffFlowStats(): StaffFlowStats {
         weeklyProgress: 0,
         weeklyGoal: 7,
         todayCompleted: false,
+        sessions: [],
         loading,
       };
     }
@@ -78,6 +80,7 @@ export function useStaffFlowStats(): StaffFlowStats {
         weeklyProgress: 0,
         weeklyGoal: 7,
         todayCompleted: false,
+        sessions: [],
         loading,
       };
     }
@@ -152,6 +155,7 @@ export function useStaffFlowStats(): StaffFlowStats {
       weeklyProgress,
       weeklyGoal: 7,
       todayCompleted,
+      sessions,
       loading,
     };
   }, [sessions, loading]);

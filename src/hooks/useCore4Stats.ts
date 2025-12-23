@@ -39,6 +39,7 @@ export interface Core4Stats {
   longestStreak: number;
   totalPoints: number;
   weeklyActivity: WeekDay[];
+  entries: Core4Entry[];
   loading: boolean;
   toggleDomain: (domain: Core4Domain) => Promise<void>;
   refetch: () => void;
@@ -289,6 +290,7 @@ export function useCore4Stats(): Core4Stats {
 
   return {
     ...stats,
+    entries,
     loading,
     toggleDomain,
     refetch: fetchEntries,
