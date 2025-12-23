@@ -1,7 +1,8 @@
 import { useCore4Stats, Core4Domain } from '@/hooks/useCore4Stats';
+import { useFlowStats } from '@/hooks/useFlowStats';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dumbbell, Brain, Heart, Briefcase, Flame, ChevronRight, Loader2 } from 'lucide-react';
+import { Dumbbell, Brain, Heart, Briefcase, Flame, ChevronRight, Loader2, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -17,11 +18,18 @@ export function Core4Card() {
     todayEntry, 
     todayPoints, 
     weeklyPoints, 
-    weeklyGoal, 
-    currentStreak, 
+    currentStreak,
+    totalPoints,
     loading, 
     toggleDomain 
   } = useCore4Stats();
+
+  const flowStats = useFlowStats();
+
+  // Combined weekly: Core 4 (max 28) + Flow (max 7) = 35
+  const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;
+  const combinedWeeklyGoal = 35;
+  const combinedTotalPoints = totalPoints + flowStats.totalFlows;
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -47,7 +55,7 @@ export function Core4Card() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-semibold">Core 4</CardTitle>
+            <CardTitle className="text-lg font-semibold">Core 4 + Flow</CardTitle>
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
                 <Flame className="h-4 w-4" />
@@ -63,21 +71,23 @@ export function Core4Card() {
           </Link>
         </div>
         
-        {/* Stats row */}
+        {/* Stats row with combined score */}
         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
           <span>Today: <span className="text-foreground font-medium">{todayPoints}/4</span></span>
           <span className="text-border">•</span>
-          <span>Week: <span className="text-foreground font-medium">{weeklyPoints}/{weeklyGoal}</span></span>
-          {currentStreak > 0 && (
+          <span>Week: <span className="text-foreground font-medium">{combinedWeeklyPoints}/{combinedWeeklyGoal}</span></span>
+          {flowStats.todayCompleted && (
             <>
               <span className="text-border">•</span>
-              <span className="text-orange-500">🔥 {currentStreak} day streak</span>
+              <span className="text-purple-500 flex items-center gap-1">
+                <Zap className="h-3 w-3" /> Flow
+              </span>
             </>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-4">
         {/* 2x2 Grid of domain buttons */}
         <div className="grid grid-cols-2 gap-3">
           {domains.map(({ key, label, icon: Icon }) => {
@@ -104,6 +114,28 @@ export function Core4Card() {
               </button>
             );
           })}
+        </div>
+
+        {/* Combined Totals Row */}
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/50">
+          <div className="text-center p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Zap className="h-3 w-3 text-purple-500" />
+              <span className="text-lg font-bold">{flowStats.totalFlows}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground uppercase">Flows</p>
+          </div>
+          <div className="text-center p-2 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Flame className="h-3 w-3 text-orange-500" />
+              <span className="text-lg font-bold">{totalPoints}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground uppercase">Core</p>
+          </div>
+          <div className="text-center p-2 bg-primary/10 rounded-lg">
+            <span className="text-lg font-bold text-primary">{combinedTotalPoints}</span>
+            <p className="text-[10px] text-muted-foreground uppercase">Total</p>
+          </div>
         </div>
       </CardContent>
     </Card>
