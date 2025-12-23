@@ -137,16 +137,17 @@ export function useFlowStats(): FlowStats {
       prevDate = date;
     });
 
-    // Calculate weekly progress (Monday = start of week)
+    // Calculate weekly progress (Monday = start of week) - count unique days only (max 1 per day)
     const mondayOfWeek = startOfWeek(today, { weekStartsOn: 1 });
-    let weeklyProgress = 0;
+    const weekDates = new Set<string>();
     sessions.forEach(s => {
       const sessionDate = new Date(s.completed_at); // Local timezone
       const sessionDay = startOfDay(sessionDate);
       if (sessionDay >= mondayOfWeek && sessionDay <= today) {
-        weeklyProgress++;
+        weekDates.add(format(sessionDay, 'yyyy-MM-dd'));
       }
     });
+    const weeklyProgress = weekDates.size;
 
     // Build weekly activity (Mon-Sun)
     const weeklyActivity: WeekDay[] = [];
