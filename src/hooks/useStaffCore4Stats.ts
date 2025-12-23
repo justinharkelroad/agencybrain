@@ -25,6 +25,7 @@ export interface StaffCore4Stats {
   weeklyPoints: number;
   weeklyGoal: number;
   currentStreak: number;
+  longestStreak: number;
   loading: boolean;
   toggleDomain: (domain: Core4Domain) => Promise<void>;
   refetch: () => void;
@@ -175,12 +176,39 @@ export function useStaffCore4Stats(): StaffCore4Stats {
       }
     }
 
+    // Calculate longest streak
+    let longestStreak = 0;
+    let tempStreak = 0;
+    const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+    
+    for (let i = 0; i < sortedEntries.length; i++) {
+      const entry = sortedEntries[i];
+      if (getEntryPoints(entry) === 4) {
+        if (i === 0) {
+          tempStreak = 1;
+        } else {
+          const prevDate = parseISO(sortedEntries[i - 1].date);
+          const currDate = parseISO(entry.date);
+          const daysDiff = Math.round((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysDiff === 1 && getEntryPoints(sortedEntries[i - 1]) === 4) {
+            tempStreak++;
+          } else {
+            tempStreak = 1;
+          }
+        }
+        longestStreak = Math.max(longestStreak, tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+    }
+
     return {
       todayEntry,
       todayPoints,
       weeklyPoints,
       weeklyGoal: 28,
       currentStreak,
+      longestStreak,
     };
   }, [entries]);
 
