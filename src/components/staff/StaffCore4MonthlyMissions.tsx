@@ -69,6 +69,11 @@ export function StaffCore4MonthlyMissions() {
     if (!user?.id || !sessionToken) return;
     
     setLoading(true);
+    
+    // Add timeout to prevent infinite loading
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
     try {
       const { data, error } = await supabase.functions.invoke('get_staff_core4_entries', {
         headers: {
@@ -77,10 +82,19 @@ export function StaffCore4MonthlyMissions() {
         body: { action: 'fetch_missions', month_year: currentMonthYear },
       });
 
+      clearTimeout(timeoutId);
+      
       if (error) throw error;
       setMissions(data?.missions || []);
-    } catch (err) {
-      console.error('Error fetching missions:', err);
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      const errorName = err instanceof Error ? err.name : '';
+      if (errorName === 'AbortError') {
+        console.error('Missions fetch timed out');
+        toast.error('Loading took too long. Please refresh.');
+      } else {
+        console.error('Error fetching missions:', err);
+      }
     } finally {
       setLoading(false);
     }

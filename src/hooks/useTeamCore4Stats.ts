@@ -3,9 +3,9 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { startOfWeek, endOfWeek, format, subDays, isAfter } from 'date-fns';
 
-interface Core4Entry {
+interface StaffCore4Entry {
   id: string;
-  user_id: string;
+  staff_user_id: string;
   date: string;
   body_completed: boolean;
   being_completed: boolean;
@@ -17,9 +17,9 @@ interface Core4Entry {
   business_note: string | null;
 }
 
-interface Core4Mission {
+interface StaffCore4Mission {
   id: string;
-  user_id: string;
+  staff_user_id: string;
   domain: 'body' | 'being' | 'balance' | 'business';
   title: string;
   items: Array<{ text: string; completed: boolean }>;
@@ -33,11 +33,11 @@ interface TeamMemberCore4Stats {
   teamMemberId: string;
   name: string;
   email: string | null;
-  todayEntry: Core4Entry | null;
+  todayEntry: StaffCore4Entry | null;
   weeklyPoints: number;
   streak: number;
-  entries: Core4Entry[];
-  missions: Core4Mission[];
+  entries: StaffCore4Entry[];
+  missions: StaffCore4Mission[];
 }
 
 interface TeamCore4Data {
@@ -105,44 +105,44 @@ export function useTeamCore4Stats(): TeamCore4Data {
 
       const staffUserIds = staffUsers.map(s => s.id);
 
-      // Fetch Core 4 entries for all staff users (last 30 days for streak calculation)
+      // Fetch Staff Core 4 entries for all staff users (last 30 days for streak calculation)
       const { data: entries, error: entriesError } = await supabase
-        .from('core4_entries')
+        .from('staff_core4_entries')
         .select('*')
-        .in('user_id', staffUserIds)
+        .in('staff_user_id', staffUserIds)
         .gte('date', format(thirtyDaysAgo, 'yyyy-MM-dd'))
         .lte('date', format(today, 'yyyy-MM-dd'))
         .order('date', { ascending: false });
 
       if (entriesError) {
-        console.error('Error fetching core4 entries:', entriesError);
+        console.error('Error fetching staff core4 entries:', entriesError);
       }
 
-      // Fetch Core 4 missions for all staff users
+      // Fetch Staff Core 4 missions for all staff users
       const currentMonthYear = format(today, 'yyyy-MM');
       const { data: missions, error: missionsError } = await supabase
-        .from('core4_monthly_missions')
+        .from('staff_core4_monthly_missions')
         .select('*')
-        .in('user_id', staffUserIds)
+        .in('staff_user_id', staffUserIds)
         .eq('month_year', currentMonthYear)
         .eq('status', 'active');
 
       if (missionsError) {
-        console.error('Error fetching core4 missions:', missionsError);
+        console.error('Error fetching staff core4 missions:', missionsError);
       }
 
-      // Group entries and missions by user
-      const entriesByUser = new Map<string, Core4Entry[]>();
-      const missionsByUser = new Map<string, Core4Mission[]>();
+      // Group entries and missions by staff_user_id
+      const entriesByUser = new Map<string, StaffCore4Entry[]>();
+      const missionsByUser = new Map<string, StaffCore4Mission[]>();
 
       entries?.forEach(entry => {
-        const existing = entriesByUser.get(entry.user_id) || [];
-        entriesByUser.set(entry.user_id, [...existing, entry]);
+        const existing = entriesByUser.get(entry.staff_user_id) || [];
+        entriesByUser.set(entry.staff_user_id, [...existing, entry as StaffCore4Entry]);
       });
 
       missions?.forEach(mission => {
-        const existing = missionsByUser.get(mission.user_id) || [];
-        missionsByUser.set(mission.user_id, [...existing, mission]);
+        const existing = missionsByUser.get(mission.staff_user_id) || [];
+        missionsByUser.set(mission.staff_user_id, [...existing, mission as StaffCore4Mission]);
       });
 
       // Calculate stats for each team member
