@@ -9,7 +9,6 @@ import {
   Sparkles,
   Sun,
   Phone,
-  ArrowLeftRight,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -30,15 +29,12 @@ import {
 } from "@/components/ui/sidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { cn } from "@/lib/utils";
-import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
-import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { title: "Dashboard", url: "/staff/dashboard", icon: LayoutDashboard },
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/staff/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
-  { title: "The Exchange", url: "/exchange", icon: ArrowLeftRight },
 ];
 
 const bottomItems = [
@@ -50,7 +46,6 @@ export function StaffSidebar() {
   const location = useLocation();
   const { open: sidebarOpen } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
-  const { counts: exchangeNotifications } = useExchangeNotifications();
 
   // Check if call scoring is enabled for staff user's agency
   useEffect(() => {
@@ -127,7 +122,6 @@ export function StaffSidebar() {
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.url);
-                  const showBadge = item.title === "The Exchange" && exchangeNotifications.total > 0;
                   
                   return (
                     <SidebarMenuItem key={item.title}>
@@ -135,14 +129,6 @@ export function StaffSidebar() {
                         <Link to={item.url} className="flex items-center gap-2">
                           <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
-                          {showBadge && (
-                            <Badge 
-                              variant="destructive" 
-                              className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
-                            >
-                              {exchangeNotifications.total > 99 ? '99+' : exchangeNotifications.total}
-                            </Badge>
-                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
