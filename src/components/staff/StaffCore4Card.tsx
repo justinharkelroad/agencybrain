@@ -56,7 +56,7 @@ export function StaffCore4Card() {
               </div>
             )}
           </div>
-          <Link to="/staff/flows">
+          <Link to="/staff/core4">
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               View All
               <ChevronRight className="h-4 w-4 ml-1" />

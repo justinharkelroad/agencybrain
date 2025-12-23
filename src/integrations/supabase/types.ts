@@ -4381,6 +4381,53 @@ export type Database = {
           },
         ]
       }
+      staff_core4_monthly_missions: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          items: Json | null
+          month_year: string
+          staff_user_id: string
+          status: string
+          title: string
+          updated_at: string | null
+          weekly_measurable: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          items?: Json | null
+          month_year: string
+          staff_user_id: string
+          status?: string
+          title: string
+          updated_at?: string | null
+          weekly_measurable?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          items?: Json | null
+          month_year?: string
+          staff_user_id?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+          weekly_measurable?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_core4_monthly_missions_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invite_tokens: {
         Row: {
           accepted_at: string | null

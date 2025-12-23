@@ -21,6 +21,11 @@ interface Core4Entry {
   updated_at: string;
 }
 
+interface MissionItem {
+  text: string;
+  completed: boolean;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -68,7 +73,7 @@ Deno.serve(async (req) => {
     console.log('[get_staff_core4_entries] Validated staff user:', staffUserId);
 
     // Parse request body for action
-    let body: { action?: string; domain?: string; date?: string } = {};
+    let body: Record<string, unknown> = {};
     try {
       const text = await req.text();
       if (text) {
@@ -78,11 +83,11 @@ Deno.serve(async (req) => {
       // No body or invalid JSON - that's fine for GET
     }
 
-    const action = body.action || 'fetch';
+    const action = (body.action as string) || 'fetch';
 
+    // ==================== TOGGLE DOMAIN ====================
     if (action === 'toggle') {
-      // Toggle a domain for today
-      const domain = body.domain;
+      const domain = body.domain as string;
       if (!domain || !['body', 'being', 'balance', 'business'].includes(domain)) {
         return new Response(
           JSON.stringify({ error: 'Invalid domain' }),
@@ -93,7 +98,6 @@ Deno.serve(async (req) => {
       const today = new Date().toISOString().split('T')[0];
       const domainKey = `${domain}_completed`;
 
-      // Check for existing entry
       const { data: existingEntry, error: fetchError } = await supabase
         .from('staff_core4_entries')
         .select('*')
@@ -109,7 +113,6 @@ Deno.serve(async (req) => {
       let updatedEntry: Core4Entry;
 
       if (existingEntry) {
-        // Toggle the domain
         const newValue = !existingEntry[domainKey];
         const { data, error } = await supabase
           .from('staff_core4_entries')
@@ -118,14 +121,9 @@ Deno.serve(async (req) => {
           .select()
           .single();
 
-        if (error) {
-          console.error('[get_staff_core4_entries] Error updating entry:', error);
-          throw error;
-        }
+        if (error) throw error;
         updatedEntry = data;
-        console.log('[get_staff_core4_entries] Updated entry:', updatedEntry.id);
       } else {
-        // Create new entry
         const { data, error } = await supabase
           .from('staff_core4_entries')
           .insert({
@@ -136,12 +134,8 @@ Deno.serve(async (req) => {
           .select()
           .single();
 
-        if (error) {
-          console.error('[get_staff_core4_entries] Error creating entry:', error);
-          throw error;
-        }
+        if (error) throw error;
         updatedEntry = data;
-        console.log('[get_staff_core4_entries] Created new entry:', updatedEntry.id);
       }
 
       return new Response(
@@ -150,7 +144,147 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Default: fetch entries for last 90 days
+    // ==================== FETCH MISSIONS ====================
+    if (action === 'fetch_missions') {
+      const monthYear = body.month_year as string;
+      if (!monthYear) {
+        return new Response(
+          JSON.stringify({ error: 'month_year required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: missions, error } = await supabase
+        .from('staff_core4_monthly_missions')
+        .select('*')
+        .eq('staff_user_id', staffUserId)
+        .eq('month_year', monthYear)
+        .eq('status', 'active');
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ missions: missions || [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ==================== CREATE MISSION ====================
+    if (action === 'create_mission') {
+      const { domain, title, items, weekly_measurable, month_year } = body as {
+        domain: string;
+        title: string;
+        items: MissionItem[];
+        weekly_measurable: string | null;
+        month_year: string;
+      };
+
+      if (!domain || !title || !month_year) {
+        return new Response(
+          JSON.stringify({ error: 'domain, title, and month_year required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from('staff_core4_monthly_missions')
+        .insert({
+          staff_user_id: staffUserId,
+          domain,
+          title,
+          items: items || [],
+          weekly_measurable,
+          month_year,
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true, mission: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ==================== UPDATE MISSION ITEM ====================
+    if (action === 'update_mission_item') {
+      const { mission_id, items } = body as { mission_id: string; items: MissionItem[] };
+
+      if (!mission_id || !items) {
+        return new Response(
+          JSON.stringify({ error: 'mission_id and items required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify ownership
+      const { data: mission, error: fetchError } = await supabase
+        .from('staff_core4_monthly_missions')
+        .select('staff_user_id')
+        .eq('id', mission_id)
+        .single();
+
+      if (fetchError || !mission || mission.staff_user_id !== staffUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Mission not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('staff_core4_monthly_missions')
+        .update({ items, updated_at: new Date().toISOString() })
+        .eq('id', mission_id);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ==================== UPDATE MISSION STATUS ====================
+    if (action === 'update_mission_status') {
+      const { mission_id, status } = body as { mission_id: string; status: string };
+
+      if (!mission_id || !status || !['active', 'completed', 'archived'].includes(status)) {
+        return new Response(
+          JSON.stringify({ error: 'mission_id and valid status required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify ownership
+      const { data: mission, error: fetchError } = await supabase
+        .from('staff_core4_monthly_missions')
+        .select('staff_user_id')
+        .eq('id', mission_id)
+        .single();
+
+      if (fetchError || !mission || mission.staff_user_id !== staffUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Mission not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('staff_core4_monthly_missions')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', mission_id);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ==================== DEFAULT: FETCH ENTRIES ====================
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0];
@@ -162,10 +296,7 @@ Deno.serve(async (req) => {
       .gte('date', ninetyDaysAgoStr)
       .order('date', { ascending: false });
 
-    if (entriesError) {
-      console.error('[get_staff_core4_entries] Error fetching entries:', entriesError);
-      throw entriesError;
-    }
+    if (entriesError) throw entriesError;
 
     console.log('[get_staff_core4_entries] Fetched', entries?.length || 0, 'entries');
 
