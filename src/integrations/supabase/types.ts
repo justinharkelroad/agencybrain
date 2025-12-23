@@ -4325,6 +4325,62 @@ export type Database = {
           },
         ]
       }
+      staff_core4_entries: {
+        Row: {
+          balance_completed: boolean | null
+          balance_note: string | null
+          being_completed: boolean | null
+          being_note: string | null
+          body_completed: boolean | null
+          body_note: string | null
+          business_completed: boolean | null
+          business_note: string | null
+          created_at: string | null
+          date: string
+          id: string
+          staff_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          balance_completed?: boolean | null
+          balance_note?: string | null
+          being_completed?: boolean | null
+          being_note?: string | null
+          body_completed?: boolean | null
+          body_note?: string | null
+          business_completed?: boolean | null
+          business_note?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          staff_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          balance_completed?: boolean | null
+          balance_note?: string | null
+          being_completed?: boolean | null
+          being_note?: string | null
+          body_completed?: boolean | null
+          body_note?: string | null
+          business_completed?: boolean | null
+          business_note?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          staff_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_core4_entries_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invite_tokens: {
         Row: {
           accepted_at: string | null
