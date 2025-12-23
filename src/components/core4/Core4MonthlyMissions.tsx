@@ -212,38 +212,19 @@ export function Core4MonthlyMissions() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Monthly Mission</DialogTitle>
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const { icon: Icon, color } = domainConfig[newMission.domain];
+                  return <Icon className={cn("h-8 w-8", color)} />;
+                })()}
+                <DialogTitle className={cn("text-2xl font-bold", domainConfig[newMission.domain].color)}>
+                  {domainConfig[newMission.domain].label.toUpperCase()}
+                </DialogTitle>
+              </div>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label>Domain</Label>
-                <Select 
-                  value={newMission.domain} 
-                  onValueChange={(v) => setNewMission(prev => ({ ...prev, domain: v as Core4Domain }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(domainConfig) as Core4Domain[]).map(domain => {
-                      const { label, icon: Icon } = domainConfig[domain];
-                      const exists = getMissionForDomain(domain);
-                      return (
-                        <SelectItem key={domain} value={domain} disabled={!!exists}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
-                            {label}
-                            {exists && <span className="text-xs text-muted-foreground">(exists)</span>}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Mission Title</Label>
+                <Label>MISSION</Label>
                 <Input
                   placeholder="e.g., Run 50 miles this month"
                   value={newMission.title}
@@ -252,11 +233,11 @@ export function Core4MonthlyMissions() {
               </div>
 
               <div className="space-y-2">
-                <Label>Action Items (up to 4)</Label>
+                <Label>WEEKLY STRIKES</Label>
                 {newMission.items.map((item, idx) => (
                   <Input
                     key={idx}
-                    placeholder={`Item ${idx + 1}`}
+                    placeholder={`Week ${idx + 1}`}
                     value={item}
                     onChange={(e) => {
                       const items = [...newMission.items];
@@ -268,9 +249,9 @@ export function Core4MonthlyMissions() {
               </div>
 
               <div className="space-y-2">
-                <Label>Weekly Measurable (optional)</Label>
+                <Label>WHY IS THIS IMPORTANT? (optional)</Label>
                 <Textarea
-                  placeholder="How will you measure weekly progress?"
+                  placeholder="What drives you to complete this mission?"
                   value={newMission.weekly_measurable}
                   onChange={(e) => setNewMission(prev => ({ ...prev, weekly_measurable: e.target.value }))}
                 />
