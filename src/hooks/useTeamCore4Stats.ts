@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
-import { startOfWeek, endOfWeek, format, subDays, isAfter } from 'date-fns';
+import { startOfWeek, endOfWeek, format, subDays, isAfter, startOfDay } from 'date-fns';
 
 interface StaffCore4Entry {
   id: string;
@@ -28,14 +28,24 @@ interface StaffCore4Mission {
   month_year: string;
 }
 
+interface FlowSession {
+  id: string;
+  user_id: string;
+  status: string;
+  completed_at: string | null;
+}
+
 interface TeamMemberCore4Stats {
-  userId: string;
+  staffUserId: string;
   teamMemberId: string;
   name: string;
   email: string | null;
   todayEntry: StaffCore4Entry | null;
   weeklyPoints: number;
+  flowWeeklyProgress: number;
+  combinedWeeklyPoints: number;
   streak: number;
+  flowStreak: number;
   entries: StaffCore4Entry[];
   missions: StaffCore4Mission[];
 }
@@ -76,7 +86,7 @@ export function useTeamCore4Stats(): TeamCore4Data {
       // Get all staff users for this agency with their team member info
       const { data: staffUsers, error: staffError } = await supabase
         .from('staff_users')
-        .select('id, email, team_member_id')
+        .select('id, email, team_member_id, user_id')
         .eq('agency_id', agencyId)
         .eq('is_active', true);
 
@@ -104,6 +114,7 @@ export function useTeamCore4Stats(): TeamCore4Data {
       const thirtyDaysAgo = subDays(today, 30);
 
       const staffUserIds = staffUsers.map(s => s.id);
+      const authUserIds = staffUsers.map(s => s.user_id).filter(Boolean) as string[];
 
       // Fetch Staff Core 4 entries for all staff users (last 30 days for streak calculation)
       const { data: entries, error: entriesError } = await supabase
@@ -131,9 +142,29 @@ export function useTeamCore4Stats(): TeamCore4Data {
         console.error('Error fetching staff core4 missions:', missionsError);
       }
 
-      // Group entries and missions by staff_user_id
+      // Fetch flow sessions for staff users (using their auth user_id)
+      let flowSessions: FlowSession[] = [];
+      if (authUserIds.length > 0) {
+        const { data: flows, error: flowsError } = await supabase
+          .from('flow_sessions')
+          .select('id, user_id, status, completed_at')
+          .in('user_id', authUserIds)
+          .eq('status', 'completed')
+          .not('completed_at', 'is', null)
+          .gte('completed_at', format(thirtyDaysAgo, 'yyyy-MM-dd'))
+          .order('completed_at', { ascending: false });
+
+        if (flowsError) {
+          console.error('Error fetching flow sessions:', flowsError);
+        } else {
+          flowSessions = flows || [];
+        }
+      }
+
+      // Group entries, missions, and flows by user
       const entriesByUser = new Map<string, StaffCore4Entry[]>();
       const missionsByUser = new Map<string, StaffCore4Mission[]>();
+      const flowsByAuthUser = new Map<string, FlowSession[]>();
 
       entries?.forEach(entry => {
         const existing = entriesByUser.get(entry.staff_user_id) || [];
@@ -145,16 +176,22 @@ export function useTeamCore4Stats(): TeamCore4Data {
         missionsByUser.set(mission.staff_user_id, [...existing, mission as StaffCore4Mission]);
       });
 
+      flowSessions.forEach(flow => {
+        const existing = flowsByAuthUser.get(flow.user_id) || [];
+        flowsByAuthUser.set(flow.user_id, [...existing, flow]);
+      });
+
       // Calculate stats for each team member
       const members: TeamMemberCore4Stats[] = staffUsers.map(staff => {
         const teamMember = staff.team_member_id ? teamMemberMap.get(staff.team_member_id) : undefined;
         const userEntries = entriesByUser.get(staff.id) || [];
         const userMissions = missionsByUser.get(staff.id) || [];
+        const userFlows = staff.user_id ? (flowsByAuthUser.get(staff.user_id) || []) : [];
         
         const todayStr = format(today, 'yyyy-MM-dd');
         const todayEntry = userEntries.find(e => e.date === todayStr) || null;
 
-        // Calculate weekly points (sum of completed domains this week)
+        // Calculate weekly Core 4 points (sum of completed domains this week)
         const weeklyPoints = userEntries
           .filter(e => {
             const entryDate = new Date(e.date);
@@ -169,7 +206,23 @@ export function useTeamCore4Stats(): TeamCore4Data {
             return sum + points;
           }, 0);
 
-        // Calculate streak (consecutive days with 4/4)
+        // Calculate weekly Flow progress (unique days with completed flows)
+        const weekFlowDates = new Set<string>();
+        userFlows.forEach(flow => {
+          if (flow.completed_at) {
+            const flowDate = new Date(flow.completed_at);
+            const flowDay = startOfDay(flowDate);
+            if (flowDay >= weekStart && flowDay <= today) {
+              weekFlowDates.add(format(flowDay, 'yyyy-MM-dd'));
+            }
+          }
+        });
+        const flowWeeklyProgress = weekFlowDates.size;
+
+        // Combined weekly points
+        const combinedWeeklyPoints = weeklyPoints + flowWeeklyProgress;
+
+        // Calculate Core 4 streak (consecutive days with 4/4)
         let streak = 0;
         const sortedEntries = [...userEntries].sort((a, b) => 
           new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -187,14 +240,42 @@ export function useTeamCore4Stats(): TeamCore4Data {
           }
         }
 
+        // Calculate Flow streak
+        let flowStreak = 0;
+        const flowDates = new Set<string>();
+        userFlows.forEach(f => {
+          if (f.completed_at) {
+            flowDates.add(format(new Date(f.completed_at), 'yyyy-MM-dd'));
+          }
+        });
+        
+        let checkDate = startOfDay(today);
+        const yesterdayStr = format(subDays(today, 1), 'yyyy-MM-dd');
+        const todayHasFlow = flowDates.has(todayStr);
+        
+        if (!todayHasFlow && !flowDates.has(yesterdayStr)) {
+          flowStreak = 0;
+        } else {
+          if (!todayHasFlow) {
+            checkDate = subDays(checkDate, 1);
+          }
+          while (flowDates.has(format(checkDate, 'yyyy-MM-dd'))) {
+            flowStreak++;
+            checkDate = subDays(checkDate, 1);
+          }
+        }
+
         return {
-          userId: staff.id,
+          staffUserId: staff.id,
           teamMemberId: staff.team_member_id!,
           name: teamMember?.name ?? staff.email ?? 'Unknown',
           email: staff.email ?? teamMember?.email ?? null,
           todayEntry,
           weeklyPoints,
+          flowWeeklyProgress,
+          combinedWeeklyPoints,
           streak,
+          flowStreak,
           entries: userEntries,
           missions: userMissions,
         };
@@ -207,8 +288,8 @@ export function useTeamCore4Stats(): TeamCore4Data {
   });
 
   const members = data?.members || [];
-  const teamTotal = members.reduce((sum, m) => sum + m.weeklyPoints, 0);
-  const teamGoal = members.length * 28; // 4 domains * 7 days
+  const teamTotal = members.reduce((sum, m) => sum + m.combinedWeeklyPoints, 0);
+  const teamGoal = members.length * 35; // 4 domains * 7 days + 7 flow days = 35
 
   return {
     members,
