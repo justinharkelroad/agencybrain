@@ -2,8 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, Flame, Heart, Brain, Scale, Briefcase } from 'lucide-react';
+import { Loader2, ChevronRight, Flame, Heart, Brain, Scale, Briefcase, Zap } from 'lucide-react';
 import { useStaffCore4Stats, Core4Domain } from '@/hooks/useStaffCore4Stats';
+import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { cn } from '@/lib/utils';
 
 const domains: { key: Core4Domain; label: string; icon: React.ElementType }[] = [
@@ -18,11 +19,16 @@ export function StaffCore4Card() {
     todayEntry, 
     todayPoints, 
     weeklyPoints, 
-    weeklyGoal, 
     currentStreak, 
     loading, 
     toggleDomain 
   } = useStaffCore4Stats();
+
+  const flowStats = useStaffFlowStats();
+
+  // Combined weekly: Core 4 (max 28) + Flow (max 7) = 35
+  const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;
+  const combinedWeeklyGoal = 35;
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -48,7 +54,7 @@ export function StaffCore4Card() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-semibold">Core 4</CardTitle>
+            <CardTitle className="text-lg font-semibold">Core 4 + Flow</CardTitle>
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
                 <Flame className="h-4 w-4" />
@@ -64,15 +70,17 @@ export function StaffCore4Card() {
           </Link>
         </div>
         
-        {/* Stats row */}
+        {/* Stats row with combined score */}
         <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
           <span>Today: <span className="text-foreground font-medium">{todayPoints}/4</span></span>
           <span className="text-border">•</span>
-          <span>Week: <span className="text-foreground font-medium">{weeklyPoints}/{weeklyGoal}</span></span>
-          {currentStreak > 0 && (
+          <span>Week: <span className="text-foreground font-medium">{combinedWeeklyPoints}/{combinedWeeklyGoal}</span></span>
+          {flowStats.todayCompleted && (
             <>
               <span className="text-border">•</span>
-              <span className="text-orange-500">🔥 {currentStreak} day streak</span>
+              <span className="text-cyan-500 flex items-center gap-1">
+                <Zap className="h-3 w-3" /> Flow
+              </span>
             </>
           )}
         </div>

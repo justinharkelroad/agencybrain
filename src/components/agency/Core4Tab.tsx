@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Target, Flame, Heart, Brain, Scale, Briefcase, CheckCircle2, Circle, Loader2, Calendar } from 'lucide-react';
+import { Target, Flame, Heart, Brain, Scale, Briefcase, CheckCircle2, Circle, Loader2, Calendar, Zap } from 'lucide-react';
 import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
 import { format, startOfWeek, addDays } from 'date-fns';
 
@@ -56,7 +56,7 @@ export function Core4Tab() {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDates = DAYS_OF_WEEK.map((_, i) => addDays(weekStart, i));
 
-  const selectedMember = members.find(m => m.userId === selectedMemberId);
+  const selectedMember = members.find(m => m.staffUserId === selectedMemberId);
   const progressPercent = teamGoal > 0 ? (teamTotal / teamGoal) * 100 : 0;
 
   return (
@@ -66,10 +66,10 @@ export function Core4Tab() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Target className="h-5 w-5 text-primary" />
-            Team Core 4 Summary
+            Team Core 4 + Flow Summary
           </CardTitle>
           <CardDescription>
-            Weekly progress for all team members
+            Weekly progress for all team members (35 pts max each)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,7 +81,7 @@ export function Core4Tab() {
             <Progress value={progressPercent} className="h-3" />
             <p className="text-xs text-muted-foreground">
               {members.length} team member{members.length !== 1 ? 's' : ''} tracking • 
-              Max {teamGoal} points possible (4 domains × 7 days × {members.length} members)
+              Max {teamGoal} points (Core 4: 28 + Flow: 7 per member)
             </p>
           </div>
         </CardContent>
@@ -116,13 +116,19 @@ export function Core4Tab() {
                           </div>
                         </TableHead>
                       ))}
+                      <TableHead className="text-center">
+                        <div className="flex flex-col items-center">
+                          <span>Flow</span>
+                          <Zap className="h-3 w-3 text-cyan-500" />
+                        </div>
+                      </TableHead>
                       <TableHead className="text-center">Week Total</TableHead>
                       <TableHead className="text-center">Streak</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {members
-                      .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+                      .sort((a, b) => b.combinedWeeklyPoints - a.combinedWeeklyPoints)
                       .map(member => {
                         const todayScore = member.todayEntry 
                           ? [
@@ -135,10 +141,10 @@ export function Core4Tab() {
 
                         return (
                           <TableRow 
-                            key={member.userId}
-                            className={`cursor-pointer hover:bg-muted/50 ${selectedMemberId === member.userId ? 'bg-muted' : ''}`}
+                            key={member.staffUserId}
+                            className={`cursor-pointer hover:bg-muted/50 ${selectedMemberId === member.staffUserId ? 'bg-muted' : ''}`}
                             onClick={() => setSelectedMemberId(
-                              selectedMemberId === member.userId ? null : member.userId
+                              selectedMemberId === member.staffUserId ? null : member.staffUserId
                             )}
                           >
                             <TableCell className="font-medium">
@@ -190,23 +196,41 @@ export function Core4Tab() {
                               );
                             })}
                             <TableCell className="text-center">
+                              <Badge 
+                                variant={member.flowWeeklyProgress > 0 ? 'default' : 'outline'}
+                                className={`min-w-[40px] ${member.flowWeeklyProgress > 0 ? 'bg-cyan-500 hover:bg-cyan-600' : ''}`}
+                              >
+                                {member.flowWeeklyProgress}/7
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
                               <div className="flex flex-col items-center">
-                                <span className="font-bold">{member.weeklyPoints}</span>
+                                <span className="font-bold">{member.combinedWeeklyPoints}</span>
                                 <Progress 
-                                  value={(member.weeklyPoints / 28) * 100} 
+                                  value={(member.combinedWeeklyPoints / 35) * 100} 
                                   className="h-1.5 w-12 mt-1"
                                 />
+                                <span className="text-[10px] text-muted-foreground">/ 35</span>
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
-                              {member.streak > 0 ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <Flame className="h-4 w-4 text-orange-500" />
-                                  <span className="font-medium text-orange-600">{member.streak}</span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
+                              <div className="flex items-center justify-center gap-2">
+                                {member.streak > 0 && (
+                                  <div className="flex items-center gap-0.5">
+                                    <Flame className="h-4 w-4 text-orange-500" />
+                                    <span className="font-medium text-orange-600">{member.streak}</span>
+                                  </div>
+                                )}
+                                {member.flowStreak > 0 && (
+                                  <div className="flex items-center gap-0.5">
+                                    <Zap className="h-4 w-4 text-cyan-500" />
+                                    <span className="font-medium text-cyan-600">{member.flowStreak}</span>
+                                  </div>
+                                )}
+                                {member.streak === 0 && member.flowStreak === 0 && (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );

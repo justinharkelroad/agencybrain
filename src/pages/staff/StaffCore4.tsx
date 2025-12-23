@@ -1,10 +1,11 @@
 import { useStaffCore4StatsExtended, Core4Domain } from '@/hooks/useStaffCore4StatsExtended';
+import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { StaffCore4MonthlyMissions } from '@/components/staff/StaffCore4MonthlyMissions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Dumbbell, Brain, Heart, Briefcase, Flame, ChevronLeft, ChevronRight, 
-  Loader2
+  Loader2, Zap
 } from 'lucide-react';
 import { format, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,62 @@ const domains: { key: Core4Domain; label: string; icon: typeof Dumbbell; color: 
   { key: 'balance', label: 'BALANCE', icon: Heart, color: 'from-pink-500 to-rose-600' },
   { key: 'business', label: 'BUSINESS', icon: Briefcase, color: 'from-blue-500 to-indigo-600' },
 ];
+
+// Circular progress component
+function CircularProgress({ 
+  value, 
+  max, 
+  size = 128, 
+  strokeWidth = 8, 
+  color = 'text-primary',
+  label,
+  sublabel
+}: { 
+  value: number; 
+  max: number; 
+  size?: number; 
+  strokeWidth?: number; 
+  color?: string;
+  label?: string;
+  sublabel?: string;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const progress = max > 0 ? Math.min(value / max, 1) : 0;
+  const strokeDasharray = `${progress * circumference} ${circumference}`;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="w-full h-full -rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          fill="none"
+          className="text-muted"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={strokeDasharray}
+          strokeLinecap="round"
+          className={`${color} transition-all duration-500`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold">{value}</span>
+        <span className="text-xs text-muted-foreground">/ {max}</span>
+        {label && <span className="text-xs text-muted-foreground mt-1">{label}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function StaffCore4() {
   const {
@@ -34,6 +91,13 @@ export default function StaffCore4() {
     selectedWeekStart,
     navigateWeek,
   } = useStaffCore4StatsExtended();
+
+  const flowStats = useStaffFlowStats();
+
+  // Combined stats (Core 4 = 28 max, Flow = 7 max, Total = 35 max)
+  const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;
+  const combinedWeeklyGoal = 35; // 28 Core 4 + 7 Flow
+  const combinedTotalPoints = totalPoints + flowStats.totalFlows;
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -60,14 +124,14 @@ export default function StaffCore4() {
           <div className="flex items-center gap-3">
             <SmartBackButton />
             <div>
-              <h1 className="text-xl font-bold">Core 4</h1>
+              <h1 className="text-xl font-bold">Core 4 + Flow</h1>
               <p className="text-sm text-muted-foreground">Daily habits tracker</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-sm text-muted-foreground">This Week</p>
-              <p className="text-lg font-bold">{weeklyPoints} / {weeklyGoal}</p>
+              <p className="text-lg font-bold">{combinedWeeklyPoints} / {combinedWeeklyGoal}</p>
             </div>
           </div>
         </div>
@@ -176,8 +240,14 @@ export default function StaffCore4() {
               </div>
               <div>
                 <p className="text-4xl font-bold">{todayPoints}/4</p>
-                <p className="text-muted-foreground">Today's Score</p>
+                <p className="text-muted-foreground">Today's Core 4</p>
               </div>
+              {flowStats.todayCompleted && (
+                <div className="flex items-center justify-center gap-2 text-cyan-500">
+                  <Zap className="h-5 w-5" />
+                  <span className="text-sm font-medium">Flow completed today!</span>
+                </div>
+              )}
               {currentStreak > 0 && (
                 <div className="flex items-center justify-center gap-2 text-orange-500">
                   <Flame className="h-6 w-6" />
@@ -188,37 +258,27 @@ export default function StaffCore4() {
           </div>
         </div>
 
-        {/* Stats Section */}
+        {/* Stats Section - Combined Score Display */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Weekly Score */}
+          {/* Combined Weekly Score */}
           <Card className="bg-card border-border">
             <CardContent className="p-6 text-center">
-              <p className="text-sm text-muted-foreground mb-3">WEEKLY SCORE</p>
-              <div className="relative w-32 h-32 mx-auto mb-3">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${(weeklyPoints / weeklyGoal) * 283} 283`}
-                    className="text-primary transition-all duration-500"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold">{weeklyPoints}</span>
-                  <span className="text-xs text-muted-foreground">/ {weeklyGoal}</span>
+              <p className="text-sm text-muted-foreground mb-3">THE SCORE</p>
+              <div className="flex justify-center mb-3">
+                <CircularProgress 
+                  value={combinedWeeklyPoints} 
+                  max={combinedWeeklyGoal}
+                  color="text-primary"
+                />
+              </div>
+              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-cyan-500" />
+                  <span>Core: {weeklyPoints}/28</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span>Flow: {flowStats.weeklyProgress}/7</span>
                 </div>
               </div>
             </CardContent>
@@ -227,18 +287,21 @@ export default function StaffCore4() {
           {/* Streaks */}
           <Card className="bg-card border-border">
             <CardContent className="p-6">
-              <p className="text-sm text-muted-foreground mb-4 text-center">STREAKS</p>
+              <p className="text-sm text-muted-foreground mb-4 text-center">THE STREAKS</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
                   <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
                   <p className="text-xl font-bold">{currentStreak}</p>
-                  <p className="text-xs text-muted-foreground">Current</p>
+                  <p className="text-xs text-muted-foreground">Core 4</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <Flame className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-                  <p className="text-xl font-bold">{longestStreak}</p>
-                  <p className="text-xs text-muted-foreground">Longest</p>
+                  <Zap className="h-5 w-5 mx-auto mb-1 text-cyan-500" />
+                  <p className="text-xl font-bold">{flowStats.currentStreak}</p>
+                  <p className="text-xs text-muted-foreground">Flow</p>
                 </div>
+              </div>
+              <div className="mt-3 text-center">
+                <p className="text-xs text-muted-foreground">Longest: Core {longestStreak} • Flow {flowStats.longestStreak}</p>
               </div>
             </CardContent>
           </Card>
@@ -246,10 +309,24 @@ export default function StaffCore4() {
           {/* Total Points */}
           <Card className="bg-card border-border">
             <CardContent className="p-6">
-              <p className="text-sm text-muted-foreground mb-4 text-center">TOTAL POINTS</p>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-primary">{totalPoints}</p>
-                <p className="text-xs text-muted-foreground mt-2">All Time</p>
+              <p className="text-sm text-muted-foreground mb-4 text-center">THE TOTAL</p>
+              <div className="flex justify-center gap-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center mb-2">
+                    <span className="text-xl font-bold text-cyan-500">{totalPoints}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">CORE</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-violet-600/20 flex items-center justify-center mb-2">
+                    <span className="text-xl font-bold text-purple-500">{flowStats.totalFlows}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">FLOW</p>
+                </div>
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-2xl font-bold text-primary">{combinedTotalPoints}</p>
+                <p className="text-xs text-muted-foreground">Combined Total</p>
               </div>
             </CardContent>
           </Card>

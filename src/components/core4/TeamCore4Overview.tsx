@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Flame, Heart, Brain, Scale, Briefcase, ArrowRight, Loader2 } from 'lucide-react';
+import { Target, Flame, Heart, Brain, Scale, Briefcase, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
 
 const DOMAIN_ICONS = {
@@ -30,7 +30,7 @@ export function TeamCore4Overview() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
-            Team Core 4 Progress
+            Team Core 4 + Flow
           </CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center py-8">
@@ -44,9 +44,9 @@ export function TeamCore4Overview() {
     return null; // Don't show the card if no team members
   }
 
-  // Sort by weekly points descending
+  // Sort by combined weekly points descending
   const topPerformers = [...members]
-    .sort((a, b) => b.weeklyPoints - a.weeklyPoints)
+    .sort((a, b) => b.combinedWeeklyPoints - a.combinedWeeklyPoints)
     .slice(0, 5);
 
   const progressPercent = teamGoal > 0 ? (teamTotal / teamGoal) * 100 : 0;
@@ -58,10 +58,10 @@ export function TeamCore4Overview() {
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Target className="h-5 w-5 text-primary" />
-              Team Core 4 Progress
+              Team Core 4 + Flow
             </CardTitle>
             <CardDescription className="mt-1">
-              Weekly team performance across all domains
+              Weekly team performance (35 pts max per person)
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
@@ -88,7 +88,7 @@ export function TeamCore4Overview() {
           <div className="space-y-2">
             {topPerformers.map((member, index) => (
               <div 
-                key={member.userId}
+                key={member.staffUserId}
                 className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
               >
                 <div className="flex items-center gap-3">
@@ -110,6 +110,9 @@ export function TeamCore4Overview() {
                           />
                         );
                       })}
+                      {member.flowWeeklyProgress > 0 && (
+                        <Zap className="h-3 w-3 text-cyan-500 ml-1" />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -121,7 +124,7 @@ export function TeamCore4Overview() {
                     </div>
                   )}
                   <Badge variant="secondary" className="text-xs">
-                    {member.weeklyPoints} pts
+                    {member.combinedWeeklyPoints}/35
                   </Badge>
                 </div>
               </div>
