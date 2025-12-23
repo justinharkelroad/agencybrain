@@ -34,8 +34,8 @@ export default function StaffScorecard() {
         setLoading(true);
         setError(null);
 
-        // Get forms matching agency + role (or Hybrid which can use any)
-        const roles = user.role === 'Hybrid' 
+        // Get forms matching agency + role (Hybrid and Manager can see all forms)
+        const roles = (user.role === 'Hybrid' || user.role === 'Manager')
           ? ['Sales', 'Service', 'Hybrid']
           : [user.role, 'Hybrid'];
 
