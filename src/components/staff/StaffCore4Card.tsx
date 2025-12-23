@@ -19,7 +19,8 @@ export function StaffCore4Card() {
     todayEntry, 
     todayPoints, 
     weeklyPoints, 
-    currentStreak, 
+    currentStreak,
+    longestStreak,
     loading, 
     toggleDomain 
   } = useStaffCore4Stats();
@@ -86,7 +87,7 @@ export function StaffCore4Card() {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-4">
         {/* 2x2 Grid of domain buttons */}
         <div className="grid grid-cols-2 gap-3">
           {domains.map(({ key, label, icon: Icon }) => {
@@ -113,6 +114,64 @@ export function StaffCore4Card() {
               </button>
             );
           })}
+        </div>
+
+        {/* THE SCORE + THE STREAKS Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* THE SCORE */}
+          <div className="bg-muted/30 rounded-xl p-4 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-3">The Score</p>
+            <div className="relative w-20 h-20 mx-auto mb-3">
+              <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
+                <circle
+                  cx="18" cy="18" r="15.5"
+                  fill="none"
+                  stroke="hsl(var(--muted))"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="18" cy="18" r="15.5"
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(combinedWeeklyPoints / combinedWeeklyGoal) * 97.4} 97.4`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold">{combinedWeeklyPoints}</span>
+                <span className="text-[10px] text-muted-foreground">/35</span>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3 text-xs text-muted-foreground">
+              <span>Core 4: <span className="text-foreground font-medium">{weeklyPoints}/28</span></span>
+              <span>Flow: <span className="text-foreground font-medium">{flowStats.weeklyProgress}/7</span></span>
+            </div>
+          </div>
+
+          {/* THE STREAKS */}
+          <div className="bg-muted/30 rounded-xl p-4 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-3">The Streaks</p>
+            <div className="flex justify-center gap-4 mb-3">
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-purple-500" />
+                </div>
+                <span className="text-xl font-bold">{flowStats.currentStreak}</span>
+                <span className="text-[10px] text-muted-foreground">Flow</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                </div>
+                <span className="text-xl font-bold">{currentStreak}</span>
+                <span className="text-[10px] text-muted-foreground">Core 4</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Longest: Flow {flowStats.longestStreak} | Core {longestStreak}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
