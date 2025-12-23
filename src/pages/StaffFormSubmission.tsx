@@ -159,44 +159,49 @@ export default function StaffFormSubmission() {
   };
 
   const handleInputChange = (key: string, value: any) => {
-    setValues(prev => ({ ...prev, [key]: value }));
-    
     // Clear field error when user starts typing
     if (fieldErrors[key]) {
       setFieldErrors(prev => ({ ...prev, [key]: '' }));
     }
     
-    // Handle repeater section triggers
-    const schema = formTemplate?.schema_json;
-    if (schema?.repeaterSections) {
-      Object.entries(schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
-        // Skip customCollections array - handled separately below
-        if (sectionKey === 'customCollections') return;
-        if (section.enabled && section.triggerKPI === key) {
-          const cap = schema?.settings?.spawnCap ?? 25;
-          const rows = Math.max(0, Math.min(Number(value) || 0, cap));
-          setValues(v => ({ 
-            ...v, 
-            [key]: value,
-            [sectionKey]: Array.from({length: rows}).map((_,i) => v[sectionKey]?.[i] || {}) 
-          }));
-        }
-      });
+    // Single consolidated state update to prevent data loss
+    setValues(prev => {
+      const newState = { ...prev, [key]: value };
       
-      // Handle custom collections - they use controllingKpiKey, not triggerKPI
-      const customCollections = schema.repeaterSections?.customCollections || [];
-      customCollections.forEach((collection: any) => {
-        if (collection.enabled && collection.controllingKpiKey === key) {
-          const cap = schema?.settings?.spawnCap ?? 25;
-          const rows = Math.max(0, Math.min(Number(value) || 0, cap));
-          setValues(v => ({ 
-            ...v, 
-            [key]: value,
-            [collection.id]: Array.from({length: rows}).map((_,i) => v[collection.id]?.[i] || {}) 
-          }));
-        }
-      });
-    }
+      // Handle repeater section triggers
+      const schema = formTemplate?.schema_json;
+      if (schema?.repeaterSections) {
+        const cap = schema?.settings?.spawnCap ?? 25;
+        const rows = Math.max(0, Math.min(Number(value) || 0, cap));
+        
+        // Handle standard repeater sections
+        Object.entries(schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
+          // Skip customCollections array - handled separately below
+          if (sectionKey === 'customCollections') return;
+          if (section.enabled && section.triggerKPI === key) {
+            const existingRows = prev[sectionKey] || [];
+            // Preserve existing data, add empty objects for new rows
+            newState[sectionKey] = Array.from({ length: rows }).map((_, i) => 
+              existingRows[i] || {}
+            );
+          }
+        });
+        
+        // Handle custom collections - they use controllingKpiKey, not triggerKPI
+        const customCollections = schema.repeaterSections?.customCollections || [];
+        customCollections.forEach((collection: any) => {
+          if (collection.enabled && collection.controllingKpiKey === key) {
+            const existingRows = prev[collection.id] || [];
+            // Preserve existing data, add empty objects for new rows
+            newState[collection.id] = Array.from({ length: rows }).map((_, i) => 
+              existingRows[i] || {}
+            );
+          }
+        });
+      }
+      
+      return newState;
+    });
   };
 
   // Parse form fields from schema
