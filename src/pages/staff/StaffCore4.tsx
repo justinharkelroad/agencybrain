@@ -320,30 +320,6 @@ export default function StaffCore4() {
             </CardContent>
           </Card>
 
-          {/* Total Points */}
-          <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <p className="text-sm text-muted-foreground mb-4 text-center">THE TOTAL</p>
-              <div className="flex justify-center gap-6">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-600/20 flex items-center justify-center mb-2">
-                    <span className="text-xl font-bold text-cyan-500">{totalPoints}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">CORE</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-violet-600/20 flex items-center justify-center mb-2">
-                    <span className="text-xl font-bold text-purple-500">{flowStats.totalFlows}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">FLOWS</p>
-                </div>
-              </div>
-              <div className="mt-4 text-center">
-                <p className="text-2xl font-bold text-primary">{combinedTotalPoints}</p>
-                <p className="text-xs text-muted-foreground">Combined Total</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Monthly Missions */}

@@ -276,30 +276,6 @@ export default function Core4() {
             </CardContent>
           </Card>
 
-          {/* The Total */}
-          <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <p className="text-sm text-muted-foreground mb-4 text-center">THE TOTAL</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <Zap className="h-5 w-5 mx-auto mb-1 text-purple-500" />
-                  <p className="text-xl font-bold">{flowStats.totalFlows}</p>
-                  <p className="text-xs text-muted-foreground">Flows</p>
-                </div>
-                <div className="text-center p-3 bg-muted/50 rounded-lg">
-                  <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-                  <p className="text-xl font-bold">{totalPoints}</p>
-                  <p className="text-xs text-muted-foreground">Core</p>
-                </div>
-              </div>
-              <div className="mt-4 text-center">
-                <p className="text-2xl font-bold text-primary">
-                  {flowStats.totalFlows + totalPoints}
-                </p>
-                <p className="text-xs text-muted-foreground">Combined Points</p>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Monthly Missions */}
