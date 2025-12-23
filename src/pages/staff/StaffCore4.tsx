@@ -346,14 +346,14 @@ export default function StaffCore4() {
           </Card>
         </div>
 
+        {/* Monthly Missions */}
+        <StaffCore4MonthlyMissions />
+
         {/* Weekly History */}
         <WeeklyHistoryCard 
           core4Entries={core4EntriesForHistory}
           flowSessions={flowStats.sessions}
         />
-
-        {/* Monthly Missions */}
-        <StaffCore4MonthlyMissions />
       </div>
     </div>
   );
