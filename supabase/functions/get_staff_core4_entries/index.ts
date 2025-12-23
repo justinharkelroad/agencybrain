@@ -189,15 +189,19 @@ Deno.serve(async (req) => {
 
       const { data, error } = await supabase
         .from('staff_core4_monthly_missions')
-        .insert({
-          staff_user_id: staffUserId,
-          domain,
-          title,
-          items: items || [],
-          weekly_measurable,
-          month_year,
-          status: 'active',
-        })
+        .upsert(
+          {
+            staff_user_id: staffUserId,
+            domain,
+            title,
+            items: items || [],
+            weekly_measurable,
+            month_year,
+            status: 'active',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'staff_user_id,domain,month_year' }
+        )
         .select()
         .single();
 
