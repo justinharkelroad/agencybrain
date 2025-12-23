@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { useStaffCore4StatsExtended, Core4Domain } from '@/hooks/useStaffCore4StatsExtended';
 import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { StaffCore4MonthlyMissions } from '@/components/staff/StaffCore4MonthlyMissions';
+import { WeeklyHistoryCard } from '@/components/core4/WeeklyHistoryCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -84,6 +86,7 @@ export default function StaffCore4() {
     longestStreak,
     totalPoints,
     weeklyActivity,
+    entries,
     loading,
     toggleDomain,
     selectedDate,
@@ -98,6 +101,17 @@ export default function StaffCore4() {
   const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;
   const combinedWeeklyGoal = 35; // 28 Core 4 + 7 Flow
   const combinedTotalPoints = totalPoints + flowStats.totalFlows;
+
+  // Prepare data for WeeklyHistoryCard
+  const core4EntriesForHistory = useMemo(() => {
+    return entries.map(entry => ({
+      date: entry.date,
+      points: (entry.body_completed ? 1 : 0) +
+              (entry.being_completed ? 1 : 0) +
+              (entry.balance_completed ? 1 : 0) +
+              (entry.business_completed ? 1 : 0),
+    }));
+  }, [entries]);
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -331,6 +345,12 @@ export default function StaffCore4() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Weekly History */}
+        <WeeklyHistoryCard 
+          core4Entries={core4EntriesForHistory}
+          flowSessions={flowStats.sessions}
+        />
 
         {/* Monthly Missions */}
         <StaffCore4MonthlyMissions />

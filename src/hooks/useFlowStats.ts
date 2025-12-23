@@ -12,6 +12,7 @@ export interface FlowStats {
   weeklyActivity: WeekDay[];
   todayCompleted: boolean;
   milestones: Milestone[];
+  sessions: { completed_at: string }[];
   loading: boolean;
 }
 
@@ -80,6 +81,7 @@ export function useFlowStats(): FlowStats {
         weeklyActivity: getEmptyWeek(),
         todayCompleted: false,
         milestones: MILESTONES.map(m => ({ ...m, achieved: false })),
+        sessions,
         loading,
       };
     }
@@ -185,6 +187,7 @@ export function useFlowStats(): FlowStats {
       weeklyActivity,
       todayCompleted,
       milestones,
+      sessions,
       loading,
     };
   }, [sessions, loading]);
