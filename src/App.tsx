@@ -92,6 +92,7 @@ const LifeTargetsMissions = lazy(() => import("./pages/LifeTargetsMissions"));
 const LifeTargetsDaily = lazy(() => import("./pages/LifeTargetsDaily"));
 const LifeTargetsCascade = lazy(() => import("./pages/LifeTargetsCascade"));
 const LifeTargetsHistory = lazy(() => import("./pages/LifeTargetsHistory"));
+const Core4Page = lazy(() => import("./pages/Core4"));
 
 // Flows pages
 import Flows from "./pages/Flows";
@@ -435,6 +436,16 @@ const App = () => (
                 <SidebarLayout>
                   <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                     <LifeTargetsHistory />
+                  </Suspense>
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Core 4 Route */}
+            <Route path="/core4" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                    <Core4Page />
                   </Suspense>
                 </SidebarLayout>
               </ProtectedRoute>
