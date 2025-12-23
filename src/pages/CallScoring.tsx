@@ -230,16 +230,19 @@ export default function CallScoring() {
         return;
       }
       
-      if (!staffTeamMemberId) {
-        console.log('No team member ID, aborting fetch');
+      // Staff need their team member ID; managers can see all calls (pass null)
+      const isManager = userRole === 'manager';
+      if (!isManager && !staffTeamMemberId) {
+        console.log('No team member ID for staff, aborting fetch');
         return;
       }
       
       setLoading(true);
       
+      // Managers pass null to see all agency calls; staff pass their team_member_id
       const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
-        p_team_member_id: staffTeamMemberId,
+        p_team_member_id: isManager ? null : staffTeamMemberId,
         p_page: currentPage,
         p_page_size: CALLS_PER_PAGE
       });
@@ -271,7 +274,7 @@ export default function CallScoring() {
     if (isStaffUser && hasAccess) {
       fetchStaffData();
     }
-  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId, currentPage]);
+  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId, currentPage, userRole]);
 
   // Check access for regular users on mount
   useEffect(() => {
@@ -400,7 +403,8 @@ export default function CallScoring() {
         .eq('agency_id', agency);
       
       // Apply role-based filtering for count
-      if ((role === 'staff' || role === 'manager') && teamMemberId) {
+      // Staff see only their own calls; Managers see all agency calls (like owners)
+      if (role === 'staff' && teamMemberId) {
         countQuery = countQuery.eq('team_member_id', teamMemberId);
       }
       
@@ -424,13 +428,13 @@ export default function CallScoring() {
         .order('analyzed_at', { ascending: false });
 
       // Apply role-based filtering
-      // Staff/managers with linked team_member only see their own calls
+      // Staff see only their own calls; Managers see all agency calls (like owners)
       // Agency owners (role=user or null) and admins see all agency calls
-      if ((role === 'staff' || role === 'manager') && teamMemberId) {
+      if (role === 'staff' && teamMemberId) {
         callsQuery = callsQuery.eq('team_member_id', teamMemberId);
         analyticsQuery = analyticsQuery.eq('team_member_id', teamMemberId);
       }
-      // Agency owners (role='user' or null) and admins see all calls for the agency
+      // Managers, agency owners (role='user' or null) and admins see all calls for the agency
 
       const { data: callsData } = await callsQuery;
       const { data: analyticsData } = await analyticsQuery;
@@ -495,12 +499,12 @@ export default function CallScoring() {
   };
 
   const fetchFormData = async (agency: string, role: string, teamMemberId?: string | null) => {
-    // For staff/managers with linked team_member, only show their own record
-    // For agency owners (role=user or null) and admins, show all active team members
+    // Staff see only their own record; Managers see all team members (like owners)
+    // Agency owners (role=user or null) and admins see all active team members
     let members: { id: string; name: string }[] = [];
     
-    if ((role === 'staff' || role === 'manager') && teamMemberId) {
-      // Staff/managers can only select themselves
+    if (role === 'staff' && teamMemberId) {
+      // Staff can only select themselves
       const { data, error } = await supabase
         .from('team_members')
         .select('id, name')
@@ -510,7 +514,7 @@ export default function CallScoring() {
       console.log('Staff team member fetch:', { data, error, teamMemberId });
       if (data) members = [data];
     } else {
-      // Agency owners (role='user', 'admin', or null) see all active team members
+      // Managers, agency owners (role='user', 'admin', or null) see all active team members
       const { data, error } = await supabase
         .from('team_members')
         .select('id, name')
