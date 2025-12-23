@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
     }
 
     const action = (body.action as string) || 'fetch';
+    console.log('[get_staff_core4_entries] Action:', action, 'Body:', JSON.stringify(body));
 
     // ==================== TOGGLE DOMAIN ====================
     if (action === 'toggle') {
