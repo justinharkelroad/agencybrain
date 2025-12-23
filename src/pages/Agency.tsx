@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target } from "lucide-react";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
@@ -27,6 +27,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
+import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -792,7 +793,7 @@ export default function Agency() {
         <h1 className="sr-only">My Agency</h1>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
+          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-4 md:grid-cols-8">
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Agency Info
@@ -800,6 +801,10 @@ export default function Agency() {
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Team
+            </TabsTrigger>
+            <TabsTrigger value="core4" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Core 4
             </TabsTrigger>
             <TabsTrigger value="files" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -1351,6 +1356,10 @@ export default function Agency() {
 
       <TabsContent value="meeting-frame" className="space-y-6">
         {agencyId && <MeetingFrameTab agencyId={agencyId} />}
+      </TabsContent>
+
+      <TabsContent value="core4" className="space-y-6">
+        <Core4Tab />
       </TabsContent>
 
     </Tabs>

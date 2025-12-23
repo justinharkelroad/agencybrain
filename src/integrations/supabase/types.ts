@@ -808,6 +808,93 @@ export type Database = {
         }
         Relationships: []
       }
+      core4_entries: {
+        Row: {
+          balance_completed: boolean | null
+          balance_note: string | null
+          being_completed: boolean | null
+          being_note: string | null
+          body_completed: boolean | null
+          body_note: string | null
+          business_completed: boolean | null
+          business_note: string | null
+          created_at: string | null
+          date: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance_completed?: boolean | null
+          balance_note?: string | null
+          being_completed?: boolean | null
+          being_note?: string | null
+          body_completed?: boolean | null
+          body_note?: string | null
+          business_completed?: boolean | null
+          business_note?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance_completed?: boolean | null
+          balance_note?: string | null
+          being_completed?: boolean | null
+          being_note?: string | null
+          body_completed?: boolean | null
+          body_note?: string | null
+          business_completed?: boolean | null
+          business_note?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      core4_monthly_missions: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          items: Json | null
+          month_year: string
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          weekly_measurable: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          items?: Json | null
+          month_year: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          weekly_measurable?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          items?: Json | null
+          month_year?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          weekly_measurable?: string | null
+        }
+        Relationships: []
+      }
       custom_detail_collections: {
         Row: {
           agency_id: string
@@ -6104,6 +6191,7 @@ export type Database = {
           team_member_id: string
         }[]
       }
+      get_user_agency_id: { Args: { target_user_id: string }; Returns: string }
       get_user_exchange_tier: { Args: { p_user_id: string }; Returns: string }
       get_versioned_dashboard_data:
         | {
@@ -6149,6 +6237,10 @@ export type Database = {
       increment_call_usage: {
         Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
+      }
+      is_agency_owner_of_staff: {
+        Args: { target_user_id: string }
+        Returns: boolean
       }
       is_call_scoring_enabled: {
         Args: { p_agency_id: string }
