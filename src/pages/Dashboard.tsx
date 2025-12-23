@@ -9,6 +9,7 @@ import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 import ReportingPeriods from '@/components/client/ReportingPeriods';
 import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { MyCurrentFocus } from '@/components/focus/MyCurrentFocus';
+import { TeamCore4Overview } from '@/components/core4/TeamCore4Overview';
 import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
@@ -18,7 +19,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 const Dashboard = () => {
-  const { user, signOut, isAdmin, membershipTier } = useAuth();
+  const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee } = useAuth();
   const {
     canViewPerformanceMetrics,
     canViewMonthOverMonthTrends,
@@ -105,6 +106,7 @@ const Dashboard = () => {
         <PeriodRefreshProvider>
           {canViewPerformanceMetrics && <PerformanceMetrics />}
           {canViewFocusTargets && <MyCurrentFocus />}
+          {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
           {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
           {canViewRoleplaySessions && <RoleplaySessionsCard />}
           {enableMetrics && (
