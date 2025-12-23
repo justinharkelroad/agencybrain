@@ -321,7 +321,7 @@ export default function StaffCore4() {
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500/20 to-violet-600/20 flex items-center justify-center mb-2">
                     <span className="text-xl font-bold text-purple-500">{flowStats.totalFlows}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">FLOW</p>
+                  <p className="text-xs text-muted-foreground">FLOWS</p>
                 </div>
               </div>
               <div className="mt-4 text-center">

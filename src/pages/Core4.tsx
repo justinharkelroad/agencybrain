@@ -271,7 +271,7 @@ export default function Core4() {
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
                   <Zap className="h-5 w-5 mx-auto mb-1 text-purple-500" />
                   <p className="text-xl font-bold">{flowStats.totalFlows}</p>
-                  <p className="text-xs text-muted-foreground">Stack</p>
+                  <p className="text-xs text-muted-foreground">Flows</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-lg">
                   <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
