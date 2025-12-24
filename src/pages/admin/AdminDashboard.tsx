@@ -313,6 +313,49 @@ setCoachingRevenue(totalMRR);
 
       if (error) throw error;
 
+      // Auto-configure call scoring settings based on tier
+      if (editingClient.agency?.id) {
+        const isCallScoringTier = newTier?.startsWith('Call Scoring');
+        const wasCallScoringTier = editingClient.membership_tier?.startsWith('Call Scoring');
+        
+        if (isCallScoringTier) {
+          // Extract the call limit from the tier name (e.g., "Call Scoring 30" → 30)
+          const callLimit = parseInt(newTier.replace('Call Scoring ', ''), 10);
+          
+          if (!isNaN(callLimit)) {
+            const { error: settingsError } = await supabase
+              .from('agency_call_scoring_settings')
+              .upsert({
+                agency_id: editingClient.agency.id,
+                enabled: true,
+                calls_limit: callLimit,
+                reset_day: new Date().getDate(),
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'agency_id'
+              });
+
+            if (settingsError) {
+              console.error('Error setting call scoring:', settingsError);
+              toast({
+                title: "Tier updated, but call scoring setup failed",
+                description: "Please manually configure call scoring settings.",
+                variant: "destructive",
+              });
+              setEditingClient(null);
+              await fetchAdminData();
+              return;
+            }
+          }
+        } else if (wasCallScoringTier && !isCallScoringTier) {
+          // Disable call scoring when changing away from a Call Scoring tier
+          await supabase
+            .from('agency_call_scoring_settings')
+            .update({ enabled: false, updated_at: new Date().toISOString() })
+            .eq('agency_id', editingClient.agency.id);
+        }
+      }
+
       toast({
         title: "Tier updated successfully",
         description: `${editingClient.agency?.name || 'Client'} is now on ${newTier}`,
