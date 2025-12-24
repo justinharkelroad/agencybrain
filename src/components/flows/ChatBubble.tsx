@@ -36,7 +36,7 @@ export function ChatBubble({
       )}
       <div
         className={cn(
-          'px-4 py-3 text-base leading-relaxed',
+          'px-4 py-3 text-base leading-relaxed whitespace-pre-wrap',
           isIncoming 
             ? 'bg-muted/50 text-foreground rounded-2xl rounded-tl-md' 
             : 'bg-primary text-primary-foreground rounded-2xl rounded-tr-md'
