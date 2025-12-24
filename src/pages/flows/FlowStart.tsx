@@ -107,7 +107,10 @@ export default function FlowStart() {
   };
 
   const handleContinueDraft = () => {
-    navigate(`/flows/session/${slug}`, { replace: true });
+    navigate(`/flows/session/${slug}`, { 
+      replace: true,
+      state: { sessionId: draftSession?.id }
+    });
   };
 
   const handleDeleteDraft = async () => {
