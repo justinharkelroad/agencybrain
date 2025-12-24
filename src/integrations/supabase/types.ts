@@ -1906,6 +1906,9 @@ export type Database = {
           description: string | null
           id: string
           priority_level: string
+          source_name: string | null
+          source_session_id: string | null
+          source_type: string | null
           team_member_id: string | null
           title: string
           updated_at: string
@@ -1920,6 +1923,9 @@ export type Database = {
           description?: string | null
           id?: string
           priority_level: string
+          source_name?: string | null
+          source_session_id?: string | null
+          source_type?: string | null
           team_member_id?: string | null
           title: string
           updated_at?: string
@@ -1934,6 +1940,9 @@ export type Database = {
           description?: string | null
           id?: string
           priority_level?: string
+          source_name?: string | null
+          source_session_id?: string | null
+          source_type?: string | null
           team_member_id?: string | null
           title?: string
           updated_at?: string
@@ -1945,6 +1954,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "focus_items_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "flow_sessions"
             referencedColumns: ["id"]
           },
           {

@@ -17,12 +17,18 @@ export interface FocusItem {
   updated_at: string;
   completed_at: string | null;
   column_order: number;
+  source_type: string | null;
+  source_name: string | null;
+  source_session_id: string | null;
 }
 
 export interface CreateFocusItemData {
   title: string;
   description?: string;
   priority_level: PriorityLevel;
+  source_type?: string;
+  source_name?: string;
+  source_session_id?: string;
 }
 
 export interface UpdateFocusItemData {
@@ -72,10 +78,15 @@ export function useFocusItems() {
       const { data, error } = await supabase
         .from("focus_items")
         .insert({
-          ...newItem,
+          title: newItem.title,
+          description: newItem.description || null,
+          priority_level: newItem.priority_level,
           user_id: user.id,
           column_status: "backlog",
           column_order: 0,
+          source_type: newItem.source_type || null,
+          source_name: newItem.source_name || null,
+          source_session_id: newItem.source_session_id || null,
         })
         .select()
         .single();

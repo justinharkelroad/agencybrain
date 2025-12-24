@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
+import { useFocusItems } from '@/hooks/useFocusItems';
 import { ChatBubble } from '@/components/flows/ChatBubble';
 import { ChatInput } from '@/components/flows/ChatInput';
 import { TypingIndicator } from '@/components/flows/TypingIndicator';
@@ -9,8 +10,9 @@ import { FlowChallenge } from '@/components/flows/FlowChallenge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { X, Loader2, ChevronDown } from 'lucide-react';
+import { X, Loader2, ChevronDown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function FlowSession() {
   const { slug } = useParams<{ slug: string }>();
@@ -37,6 +39,8 @@ export default function FlowSession() {
     interpolatePrompt,
   } = useFlowSession({ templateSlug: slug });
 
+  const { createItem } = useFocusItems();
+
   const [currentValue, setCurrentValue] = useState('');
   const [showChallenge, setShowChallenge] = useState(false);
   const [challengeText, setChallengeText] = useState('');
@@ -45,6 +49,8 @@ export default function FlowSession() {
   const [isTyping, setIsTyping] = useState(false);
   const [showCurrentQuestion, setShowCurrentQuestion] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showAddToFocus, setShowAddToFocus] = useState(false);
+  const [addingToFocus, setAddingToFocus] = useState(false);
   
   // Ref for typing timeout to prevent race conditions
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,7 +93,7 @@ export default function FlowSession() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [currentQuestionIndex, showChallenge, isTyping]);
+  }, [currentQuestionIndex, showChallenge, isTyping, showAddToFocus]);
 
   // Handle scroll position to show/hide scroll button
   const handleScroll = () => {
@@ -146,6 +152,54 @@ export default function FlowSession() {
     }
   };
 
+  // Get the action text from the last question's response
+  const getActionText = useCallback(() => {
+    if (!questions.length) return null;
+    const lastQuestion = questions[questions.length - 1];
+    return responses[lastQuestion.id]?.trim() || null;
+  }, [questions, responses]);
+
+  const handleCompleteFlow = useCallback(() => {
+    navigate(`/flows/complete/${session?.id}`);
+  }, [navigate, session?.id]);
+
+  const handleAddToFocus = async () => {
+    setAddingToFocus(true);
+    
+    const actionText = getActionText();
+    
+    if (!actionText || !template || !session) {
+      setAddingToFocus(false);
+      handleCompleteFlow();
+      return;
+    }
+    
+    try {
+      await createItem.mutateAsync({
+        title: actionText,
+        description: `Action from ${template.name} flow session`,
+        priority_level: "mid",
+        source_type: "flow",
+        source_name: template.name,
+        source_session_id: session.id,
+      });
+      
+      toast.success("Action added to your Focus List!");
+    } catch (error) {
+      console.error("Failed to add to focus:", error);
+      toast.error("Failed to add to Focus List");
+    } finally {
+      setAddingToFocus(false);
+      setShowAddToFocus(false);
+      handleCompleteFlow();
+    }
+  };
+
+  const handleSkipAddToFocus = () => {
+    setShowAddToFocus(false);
+    handleCompleteFlow();
+  };
+
   const handleSubmitAnswer = async (valueOverride?: string) => {
     const valueToSubmit = (valueOverride ?? currentValue).trim();
     
@@ -185,7 +239,13 @@ export default function FlowSession() {
       setChallengeText(challenge);
       setShowChallenge(true);
     } else if (isLastQuestion) {
-      navigate(`/flows/complete/${session?.id}`);
+      // Show "Add to Focus" prompt if there's an action text
+      const actionText = valueToSubmit;
+      if (actionText) {
+        setShowAddToFocus(true);
+      } else {
+        handleCompleteFlow();
+      }
     } else {
       // Clear any pending timeout first
       if (typingTimeoutRef.current) {
@@ -218,7 +278,13 @@ export default function FlowSession() {
     setChallengeText('');
     
     if (isLastQuestion) {
-      navigate(`/flows/complete/${session?.id}`);
+      // Show "Add to Focus" prompt
+      const actionText = getActionText();
+      if (actionText) {
+        setShowAddToFocus(true);
+      } else {
+        handleCompleteFlow();
+      }
     } else {
       // Clear any pending timeout first
       if (typingTimeoutRef.current) {
@@ -386,6 +452,45 @@ export default function FlowSession() {
                 </Button>
                 <Button size="sm" variant="ghost" onClick={handleSkipChallenge} className="rounded-full">
                   Continue →
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Add to Focus List Prompt */}
+          {showAddToFocus && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <ChatBubble variant="incoming" icon={flowIcon} animate>
+                Great intention! Would you like me to add this action to your <strong>Focus List</strong> so you can track it to completion?
+              </ChatBubble>
+              
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSkipAddToFocus}
+                  disabled={addingToFocus}
+                  className="rounded-full"
+                >
+                  No, skip
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleAddToFocus}
+                  disabled={addingToFocus}
+                  className="rounded-full"
+                >
+                  {addingToFocus ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Yes, add to Focus List
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
