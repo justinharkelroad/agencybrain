@@ -75,9 +75,16 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
       </div>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Badge variant="outline" className={priorityInfo.color}>
-          {priorityInfo.label}
-        </Badge>
+        <div className="flex gap-1 flex-wrap">
+          {item.source_type === "flow" && item.source_name && (
+            <Badge variant="secondary" className="text-xs bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
+              📝 {item.source_name}
+            </Badge>
+          )}
+          <Badge variant="outline" className={priorityInfo.color}>
+            {priorityInfo.label}
+          </Badge>
+        </div>
 
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />

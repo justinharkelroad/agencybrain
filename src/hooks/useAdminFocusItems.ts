@@ -15,6 +15,9 @@ export interface AdminFocusItem {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  source_type: string | null;
+  source_name: string | null;
+  source_session_id: string | null;
 }
 
 export function useAdminFocusItems(targetUserId?: string) {
