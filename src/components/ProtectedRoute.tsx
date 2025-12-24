@@ -1,5 +1,6 @@
 import { useAuth } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
+import { PendingActivationGuard } from '@/components/PendingActivationGuard';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOwner = false }: ProtectedRouteProps) {
-  const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading } = useAuth();
+  const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading, membershipTier } = useAuth();
 
   if (loading || (requireAdmin && adminLoading) || (requireAgencyOwner && adminLoading)) {
     return (
@@ -22,6 +23,7 @@ export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOw
     return <Navigate to="/auth" />;
   }
 
+  // Admins bypass tier check
   if (requireAdmin && !isAdmin) {
     return <Navigate to="/dashboard" />;
   }
@@ -29,6 +31,12 @@ export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOw
   // Agency owner routes: allow if admin OR agency owner OR key employee
   if (requireAgencyOwner && !isAdmin && !isAgencyOwner && !isKeyEmployee) {
     return <Navigate to="/dashboard" />;
+  }
+
+  // For non-admin users, check if tier is pending (NULL)
+  // Admins should always have access regardless of tier
+  if (!isAdmin && !membershipTier) {
+    return <PendingActivationGuard>{children}</PendingActivationGuard>;
   }
 
   return <>{children}</>;

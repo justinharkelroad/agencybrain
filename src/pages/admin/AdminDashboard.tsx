@@ -593,8 +593,12 @@ const getSubmissionStatus = (profile: Profile) => {
                           </div>
                           {client.membership_tier === '1:1 Coaching' ? (
                             <Badge>1:1</Badge>
-                          ) : (
+                          ) : client.membership_tier === 'Boardroom' ? (
                             <Badge variant="secondary">Boardroom</Badge>
+                          ) : client.membership_tier?.startsWith('Call Scoring') ? (
+                            <Badge className="bg-green-500 hover:bg-green-600">{client.membership_tier}</Badge>
+                          ) : (
+                            <Badge variant="outline">Pending</Badge>
                           )}
                         </div>
                       </div>
@@ -727,11 +731,31 @@ const getSubmissionStatus = (profile: Profile) => {
                     <SelectItem value="1:1 Coaching">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-blue-500">1:1 Coaching</Badge>
+                        <span className="text-sm text-muted-foreground">Full Access</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="Boardroom">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-red-500">Boardroom</Badge>
+                        <span className="text-sm text-muted-foreground">Dashboard Focus</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Call Scoring 30">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-500">Call Scoring 30</Badge>
+                        <span className="text-sm text-muted-foreground">30 calls/month</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Call Scoring 50">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-600">Call Scoring 50</Badge>
+                        <span className="text-sm text-muted-foreground">50 calls/month</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Call Scoring 100">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-700">Call Scoring 100</Badge>
+                        <span className="text-sm text-muted-foreground">100 calls/month</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
