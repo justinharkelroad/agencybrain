@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { ReactNode } from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface ChatBubbleProps {
   children: ReactNode;
@@ -7,6 +8,8 @@ interface ChatBubbleProps {
   className?: string;
   animate?: boolean;
   icon?: string;
+  avatarUrl?: string | null;
+  avatarFallback?: string;
   onClick?: () => void;
 }
 
@@ -16,6 +19,8 @@ export function ChatBubble({
   className,
   animate = false,
   icon,
+  avatarUrl,
+  avatarFallback,
   onClick
 }: ChatBubbleProps) {
   const isIncoming = variant === 'incoming';
@@ -44,6 +49,14 @@ export function ChatBubble({
       >
         {children}
       </div>
+      {!isIncoming && (avatarUrl || avatarFallback) && (
+        <Avatar className="h-8 w-8 flex-shrink-0 mb-1">
+          {avatarUrl && <AvatarImage src={avatarUrl} alt="You" />}
+          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+            {avatarFallback || '??'}
+          </AvatarFallback>
+        </Avatar>
+      )}
     </div>
   );
 }

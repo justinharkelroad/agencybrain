@@ -13,11 +13,14 @@ import { Progress } from '@/components/ui/progress';
 import { X, Loader2, ChevronDown, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 export default function FlowSession() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { profile } = useFlowProfile();
+  const { user } = useAuth();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -51,9 +54,35 @@ export default function FlowSession() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showAddToFocus, setShowAddToFocus] = useState(false);
   const [addingToFocus, setAddingToFocus] = useState(false);
+  const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
+  const [userInitials, setUserInitials] = useState('??');
   
   // Ref for typing timeout to prevent race conditions
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch user profile photo
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('preferred_name, profile_photo_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (data) {
+        setUserPhotoUrl(data.profile_photo_url || null);
+        const name = data.preferred_name || user.email || '';
+        const initials = name
+          ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          : user.email?.[0].toUpperCase() || '??';
+        setUserInitials(initials);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user?.id, user?.email]);
   
   // Cleanup timeout on unmount or question change
   useEffect(() => {
@@ -397,6 +426,8 @@ export default function FlowSession() {
                   <ChatBubble 
                     variant="outgoing"
                     className="opacity-70"
+                    avatarUrl={userPhotoUrl}
+                    avatarFallback={userInitials}
                   >
                     {response}
                   </ChatBubble>
@@ -425,12 +456,6 @@ export default function FlowSession() {
             </div>
           )}
 
-          {/* User's current answer preview (if they've typed something) */}
-          {currentValue.trim() && showCurrentQuestion && !isTyping && (
-            <ChatBubble variant="outgoing" className="opacity-50">
-              {currentValue}
-            </ChatBubble>
-          )}
 
           {/* Typing Indicator */}
           {isTyping && (
