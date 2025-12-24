@@ -162,12 +162,13 @@ const App = () => {
   useEffect(() => {
     const splash = document.getElementById('splash-screen');
     if (splash) {
+      // Minimum display time of 1.5 seconds for branding
       setTimeout(() => {
         splash.classList.add('fade-out');
         setTimeout(() => {
           splash.remove();
         }, 300);
-      }, 100);
+      }, 1500);
     }
   }, []);
 
