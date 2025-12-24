@@ -356,14 +356,21 @@ export default function FlowSession() {
             </div>
           )}
           
-          <ChatInput
-            question={currentQuestion}
-            value={currentValue}
-            onChange={setCurrentValue}
-            onSubmit={handleSubmitAnswer}
-            disabled={isTyping || checkingChallenge || showChallenge}
-            isLast={isLastQuestion}
-          />
+          {!isTyping && currentQuestion && (
+            <ChatInput
+              question={currentQuestion}
+              value={currentValue}
+              onChange={setCurrentValue}
+              onSubmit={handleSubmitAnswer}
+              disabled={checkingChallenge || showChallenge}
+              isLast={isLastQuestion}
+            />
+          )}
+          {isTyping && (
+            <div className="text-center text-sm text-muted-foreground py-2">
+              Thinking...
+            </div>
+          )}
         </div>
       </footer>
     </div>
