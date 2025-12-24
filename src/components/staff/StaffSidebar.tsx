@@ -42,7 +42,7 @@ export function StaffSidebar() {
   const { logout, user } = useStaffAuth();
   const location = useLocation();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
-  const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+  const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
 
   // Get staff name and photo from user object
   const staffName = user?.team_member_name || user?.display_name || user?.email || '';
@@ -142,8 +142,15 @@ export function StaffSidebar() {
                     </SidebarMenuItem>
                   );
                 })}
-                {/* Call Scoring - show when enabled for agency */}
-                {callScoringEnabled && (
+                {/* Call Scoring - show skeleton while loading, then link when enabled */}
+                {callScoringEnabled === null ? (
+                  <SidebarMenuItem>
+                    <div className="flex items-center gap-2 px-2 py-1.5">
+                      <div className="h-4 w-4 rounded bg-muted/50 animate-pulse" />
+                      {sidebarOpen && <div className="h-4 w-20 rounded bg-muted/50 animate-pulse" />}
+                    </div>
+                  </SidebarMenuItem>
+                ) : callScoringEnabled && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={isActive("/staff/call-scoring")}>
                       <Link to="/staff/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
