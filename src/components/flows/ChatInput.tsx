@@ -89,22 +89,33 @@ export function ChatInput({
   };
 
   // Select question - show option chips
-  if (question.type === 'select' && question.options) {
+  if (question.type === 'select') {
+    const options = question.options || [];
+    
+    if (options.length === 0) {
+      console.warn('Select question has no options:', question.id);
+      return null;
+    }
+    
     return (
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {question.options.map(option => (
+        <p className="text-sm text-muted-foreground text-center">Choose one:</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {options.map(option => (
             <Button
               key={option}
               variant={value === option ? 'default' : 'outline'}
-              size="sm"
+              size="lg"
               onClick={() => {
+                if (disabled) return;
                 onChange(option);
                 // Auto-submit after selection with slight delay
                 setTimeout(() => onSubmit(), 150);
               }}
-              disabled={disabled}
-              className="rounded-full"
+              className={cn(
+                "rounded-full px-6 py-3 text-base font-medium transition-all",
+                value === option && "ring-2 ring-primary ring-offset-2"
+              )}
             >
               {option}
             </Button>
