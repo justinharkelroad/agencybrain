@@ -4,11 +4,11 @@ import {
   LayoutDashboard,
   ClipboardEdit,
   BookOpen,
-  User,
   LogOut,
   Sparkles,
   Sun,
   Phone,
+  Settings,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -37,15 +38,15 @@ const navItems = [
   { title: "Training", url: "/staff/training", icon: BookOpen },
 ];
 
-const bottomItems = [
-  { title: "My Account", url: "/staff/account", icon: User },
-];
-
 export function StaffSidebar() {
   const { logout, user } = useStaffAuth();
   const location = useLocation();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+
+  // Get staff name and photo from user object
+  const staffName = user?.team_member_name || user?.display_name || user?.email || '';
+  const profilePhotoUrl = user?.profile_photo_url || null;
 
   // Close sidebar on mobile when navigating
   const handleNavClick = () => {
@@ -157,26 +158,11 @@ export function StaffSidebar() {
           </SidebarGroup>
 
 
-          {/* Account Section */}
+          {/* Settings Section */}
           <SidebarGroup>
-            {sidebarOpen && <SidebarGroupLabel>Account</SidebarGroupLabel>}
+            {sidebarOpen && <SidebarGroupLabel>Settings</SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu>
-                {bottomItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.url);
-                  
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" strokeWidth={1.5} />
-                          {sidebarOpen && <span>{item.title}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <div className="flex items-center justify-between w-full cursor-default">
@@ -203,6 +189,33 @@ export function StaffSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
+
+        {/* User Avatar Footer */}
+        <div className="mt-auto p-3 border-t border-border/20">
+          <Link 
+            to="/staff/account" 
+            onClick={handleNavClick}
+            className="flex items-center gap-3 w-full hover:bg-muted/40 rounded-lg p-2 transition-colors"
+          >
+            <Avatar className="h-8 w-8 shrink-0">
+              {profilePhotoUrl && <AvatarImage src={profilePhotoUrl} alt={staffName} />}
+              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                {staffName
+                  ? staffName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                  : user?.email?.[0].toUpperCase() || '??'}
+              </AvatarFallback>
+            </Avatar>
+            {sidebarOpen && (
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium truncate">{staffName || 'My Account'}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  Account Settings
+                </p>
+              </div>
+            )}
+          </Link>
+        </div>
       </div>
     </Sidebar>
   );
