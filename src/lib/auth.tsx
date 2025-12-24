@@ -194,12 +194,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasTierAccess = (feature: string): boolean => {
     if (!membershipTier) return false;
     
+    const isCallScoringTier = membershipTier.startsWith('Call Scoring');
+    
+    // Call Scoring tier: limited access to only call-scoring, exchange, and agency
+    if (isCallScoringTier) {
+      const callScoringAllowed = ['call-scoring', 'exchange', 'agency', 'my-agency', 'account-settings'];
+      return callScoringAllowed.includes(feature);
+    }
+    
     // AI Roleplay and Bonus Grid only for 1:1 Coaching
     if (feature === 'roleplay-trainer' || feature === 'bonus-grid') {
       return membershipTier === '1:1 Coaching';
     }
     
-    // All other features available to both tiers
+    // 1:1 Coaching and Boardroom get everything else
     return true;
   };
 
