@@ -187,10 +187,48 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { data, error } = await supabase
+      console.log('[get_staff_core4_entries] Creating mission:', { staffUserId, domain, title, month_year });
+
+      // Check if an active mission already exists for this domain/month
+      const { data: existing, error: checkError } = await supabase
         .from('staff_core4_monthly_missions')
-        .upsert(
-          {
+        .select('id')
+        .eq('staff_user_id', staffUserId)
+        .eq('domain', domain)
+        .eq('month_year', month_year)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('[get_staff_core4_entries] Error checking existing mission:', checkError);
+        throw checkError;
+      }
+
+      let data;
+      let error;
+
+      if (existing) {
+        // Update existing mission
+        console.log('[get_staff_core4_entries] Updating existing mission:', existing.id);
+        const result = await supabase
+          .from('staff_core4_monthly_missions')
+          .update({
+            title,
+            items: items || [],
+            weekly_measurable,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Insert new mission
+        console.log('[get_staff_core4_entries] Inserting new mission');
+        const result = await supabase
+          .from('staff_core4_monthly_missions')
+          .insert({
             staff_user_id: staffUserId,
             domain,
             title,
@@ -198,14 +236,19 @@ Deno.serve(async (req) => {
             weekly_measurable,
             month_year,
             status: 'active',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'staff_user_id,domain,month_year' }
-        )
-        .select()
-        .single();
+          })
+          .select()
+          .single();
+        data = result.data;
+        error = result.error;
+      }
 
-      if (error) throw error;
+      if (error) {
+        console.error('[get_staff_core4_entries] Error saving mission:', error);
+        throw error;
+      }
+
+      console.log('[get_staff_core4_entries] Mission saved successfully:', data?.id);
 
       return new Response(
         JSON.stringify({ success: true, mission: data }),
