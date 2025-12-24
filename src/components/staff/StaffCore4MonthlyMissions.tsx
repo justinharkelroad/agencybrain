@@ -357,7 +357,12 @@ export function StaffCore4MonthlyMissions({ hideEmptyDomains = false }: StaffCor
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-7 text-xs text-green-500 hover:text-green-600"
+                          className={cn(
+                            "h-7 text-xs",
+                            completedCount === totalItems && totalItems > 0
+                              ? "text-green-500 hover:text-green-600"
+                              : "text-muted-foreground/50 hover:text-muted-foreground"
+                          )}
                           onClick={() => updateMissionStatus(mission.id, 'completed')}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" />
