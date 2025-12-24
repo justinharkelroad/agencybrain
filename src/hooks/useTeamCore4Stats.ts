@@ -86,7 +86,7 @@ export function useTeamCore4Stats(): TeamCore4Data {
       // Get all staff users for this agency with their team member info
       const { data: staffUsers, error: staffError } = await supabase
         .from('staff_users')
-        .select('id, email, team_member_id, user_id')
+        .select('id, email, team_member_id')
         .eq('agency_id', agencyId)
         .eq('is_active', true);
 
@@ -114,7 +114,9 @@ export function useTeamCore4Stats(): TeamCore4Data {
       const thirtyDaysAgo = subDays(today, 30);
 
       const staffUserIds = staffUsers.map(s => s.id);
-      const authUserIds = staffUsers.map(s => s.user_id).filter(Boolean) as string[];
+      // Note: staff_users table doesn't have a user_id column linking to auth.users
+      // Flow sessions are tracked separately - this feature needs a schema update to work
+      const authUserIds: string[] = [];
 
       // Fetch Staff Core 4 entries for all staff users (last 30 days for streak calculation)
       const { data: entries, error: entriesError } = await supabase
