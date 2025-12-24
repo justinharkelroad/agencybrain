@@ -157,7 +157,21 @@ const SessionRecoveryHandler = () => {
   return null;
 };
 
-const App = () => (
+const App = () => {
+  // Hide PWA splash screen once app is ready
+  useEffect(() => {
+    const splash = document.getElementById('splash-screen');
+    if (splash) {
+      setTimeout(() => {
+        splash.classList.add('fade-out');
+        setTimeout(() => {
+          splash.remove();
+        }, 300);
+      }, 100);
+    }
+  }, []);
+
+  return (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -845,6 +859,7 @@ const App = () => (
     </AuthProvider>
   </QueryClientProvider>
   </ErrorBoundary>
-);
+  );
+};
 
 export default App;
