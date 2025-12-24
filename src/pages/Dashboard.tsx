@@ -105,12 +105,23 @@ const Dashboard = () => {
           )}
         </div>
         <PeriodRefreshProvider>
-          {canViewPerformanceMetrics && <PerformanceMetrics />}
-          {canViewFocusTargets && <MyCurrentFocus />}
+          {/* 1. Core 4 + Flow */}
           <Core4Card />
           {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
+          
+          {/* 2. Performance Metrics */}
+          {canViewPerformanceMetrics && <PerformanceMetrics />}
+          
+          {/* 3. Month Over Month Trends */}
           {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
+          
+          {/* 4. Focus Targets */}
+          {canViewFocusTargets && <MyCurrentFocus />}
+          
+          {/* 5. Roleplay Sessions */}
           {canViewRoleplaySessions && <RoleplaySessionsCard />}
+          
+          {/* 6. Metrics Dashboard */}
           {enableMetrics && (
             <section>
               <Card className="border-border/10 bg-muted/20">
@@ -126,7 +137,11 @@ const Dashboard = () => {
               </Card>
             </section>
           )}
+          
+          {/* 7. Shared Insights */}
           {canViewSharedInsights && <SharedInsights />}
+          
+          {/* 8. Reporting Periods */}
           {canViewReportingPeriods && <ReportingPeriods />}
         </PeriodRefreshProvider>
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
