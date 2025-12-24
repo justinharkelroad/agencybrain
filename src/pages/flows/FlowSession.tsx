@@ -419,12 +419,6 @@ export default function FlowSession() {
           
           {!isTyping && currentQuestion && (
             <>
-              {/* Debug strip - remove after fixing */}
-              <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted/50 rounded font-mono">
-                Q: {currentQuestion.id} | Type: "{currentQuestion.type}" | 
-                Options: {Array.isArray(currentQuestion.options) ? currentQuestion.options.length : 'none'} |
-                Disabled: {String(checkingChallenge || showChallenge)}
-              </div>
               <ChatInput
                 question={currentQuestion}
                 value={currentValue}
