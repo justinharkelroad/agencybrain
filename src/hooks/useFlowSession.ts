@@ -216,7 +216,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
 
     while ((match = regex.exec(prompt)) !== null) {
       if (match.index > lastIndex) {
-        const textBefore = prompt.slice(lastIndex, match.index).trim();
+        const textBefore = prompt.slice(lastIndex, match.index);
         if (textBefore) {
           segments.push({ type: 'text', content: textBefore });
         }
@@ -237,7 +237,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     }
 
     if (lastIndex < prompt.length) {
-      const remaining = prompt.slice(lastIndex).trim();
+      const remaining = prompt.slice(lastIndex);
       if (remaining) {
         segments.push({ type: 'text', content: remaining });
       }
