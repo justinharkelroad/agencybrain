@@ -14,6 +14,7 @@ import { SidebarLayout } from "@/components/SidebarLayout";
 import { LifeTargetsGuard } from "@/components/LifeTargetsGuard";
 import { enableMetrics } from "@/lib/featureFlags";
 import { useSessionRecovery } from "@/hooks/useSessionRecovery";
+import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import Targets from "./pages/Targets";
 import ScorecardSettings from "./pages/ScorecardSettings";
 import ProspectSettings from "./pages/ProspectSettings";
@@ -164,6 +165,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <PWAUpdatePrompt />
             <BrowserRouter>
             <URLFixer />
             <SessionRecoveryHandler />
