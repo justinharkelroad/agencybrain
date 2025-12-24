@@ -75,11 +75,12 @@ const copyToClipboard = async (text: string) => {
 };
 
 export default function Agency() {
-  const { user } = useAuth();
+  const { user, membershipTier } = useAuth();
   const { toast: toastHook } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const activeTab = searchParams.get('tab') || 'info';
+  const isCallScoringTier = membershipTier?.startsWith('Call Scoring');
 
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,6 +159,16 @@ export default function Agency() {
       document.head.appendChild(m);
     }
   }, []);
+
+  // Redirect Call Scoring tier users from restricted tabs
+  useEffect(() => {
+    if (isCallScoringTier) {
+      const restrictedTabs = ['core4', 'files', 'vault', 'meeting-frame'];
+      if (restrictedTabs.includes(activeTab)) {
+        setSearchParams({ tab: 'info' });
+      }
+    }
+  }, [isCallScoringTier, activeTab, setSearchParams]);
 
   // Load profile -> agency -> members -> staff users
   useEffect(() => {
@@ -793,7 +804,7 @@ export default function Agency() {
         <h1 className="sr-only">My Agency</h1>
         
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-4 md:grid-cols-8">
+          <TabsList className={`grid w-full ${isCallScoringTier ? 'grid-cols-4' : 'grid-cols-4 sm:grid-cols-4 md:grid-cols-8'}`}>
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Agency Info
@@ -802,14 +813,18 @@ export default function Agency() {
               <Users className="h-4 w-4" />
               Team
             </TabsTrigger>
-            <TabsTrigger value="core4" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Core 4
-            </TabsTrigger>
-            <TabsTrigger value="files" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Files
-            </TabsTrigger>
+            {!isCallScoringTier && (
+              <TabsTrigger value="core4" className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Core 4
+              </TabsTrigger>
+            )}
+            {!isCallScoringTier && (
+              <TabsTrigger value="files" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Files
+              </TabsTrigger>
+            )}
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Reports
@@ -818,14 +833,18 @@ export default function Agency() {
               <Settings className="h-4 w-4" />
               Settings
             </TabsTrigger>
-            <TabsTrigger value="vault" className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
-              Process Vault
-            </TabsTrigger>
-            <TabsTrigger value="meeting-frame" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Meeting Frame
-            </TabsTrigger>
+            {!isCallScoringTier && (
+              <TabsTrigger value="vault" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                Process Vault
+              </TabsTrigger>
+            )}
+            {!isCallScoringTier && (
+              <TabsTrigger value="meeting-frame" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Meeting Frame
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="info" className="space-y-6">
@@ -1284,32 +1303,36 @@ export default function Agency() {
             <CardDescription>Configure settings for your agency</CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
-            {/* Lead Sources Section */}
-            <div>
-              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
-                Lead Sources
-                <HelpVideoButton videoKey="tool-lead-source-manager" />
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage the lead sources that appear when your team logs quoted households.
-              </p>
-              {agencyId && <LeadSourceManager agencyId={agencyId} />}
-            </div>
+            {/* Lead Sources Section - Hide for Call Scoring tier */}
+            {!isCallScoringTier && (
+              <div>
+                <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                  Lead Sources
+                  <HelpVideoButton videoKey="tool-lead-source-manager" />
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage the lead sources that appear when your team logs quoted households.
+                </p>
+                {agencyId && <LeadSourceManager agencyId={agencyId} />}
+              </div>
+            )}
             
-            {/* Policy Types Section */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
-                Policy Types
-                <HelpVideoButton videoKey="tool-policy-type-manager" />
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage the policy types that appear when your team logs quoted and sold policies.
-              </p>
-              {agencyId && <PolicyTypeManager agencyId={agencyId} />}
-            </div>
+            {/* Policy Types Section - Hide for Call Scoring tier */}
+            {!isCallScoringTier && (
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
+                  Policy Types
+                  <HelpVideoButton videoKey="tool-policy-type-manager" />
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage the policy types that appear when your team logs quoted and sold policies.
+                </p>
+                {agencyId && <PolicyTypeManager agencyId={agencyId} />}
+              </div>
+            )}
             
-            {/* Staff Call Recording Access Section */}
-            <div className="border-t pt-6">
+            {/* Staff Call Recording Access Section - Always show */}
+            <div className={isCallScoringTier ? '' : 'border-t pt-6'}>
               <h3 className="text-lg font-medium mb-2">Staff Call Recording Access</h3>
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                 <div>
