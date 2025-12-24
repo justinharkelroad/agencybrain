@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   adminLoading: boolean;
-  signUp: (email: string, password: string, agencyName: string, fullName: string, membershipTier?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, agencyName: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkUserRole, checkMembershipTier, queryClient]);
 
 
-  const signUp = async (email: string, password: string, agencyName: string, fullName: string, membershipTier: string = '1:1 Coaching') => {
+  const signUp = async (email: string, password: string, agencyName: string, fullName: string) => {
     // Always use production URL to avoid localhost redirect issues
     const redirectUrl = window.location.hostname === 'localhost'
       ? 'https://myagencybrain.com/'
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           agency_name: agencyName,
           full_name: fullName,
-          membership_tier: membershipTier,
+          // No membership_tier - admin will set it after signup
         }
       }
     });

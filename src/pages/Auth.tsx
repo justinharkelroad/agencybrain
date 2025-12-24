@@ -6,8 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 import { supabase } from '@/lib/supabaseClient';
@@ -19,7 +17,6 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agencyName, setAgencyName] = useState('');
   const [fullName, setFullName] = useState('');
-  const [membershipTier, setMembershipTier] = useState('1:1 Coaching');
   const [inviteCode, setInviteCode] = useState('');
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -84,8 +81,8 @@ export default function Auth() {
         return;
       }
 
-      // If validation passes, proceed with signup
-      const { error } = await signUp(email, password, agencyName, fullName, membershipTier);
+      // If validation passes, proceed with signup (no tier - admin will set it)
+      const { error } = await signUp(email, password, agencyName, fullName);
       
       if (error) {
         toast({
@@ -96,7 +93,7 @@ export default function Auth() {
       } else {
         toast({
           title: "Account Created!",
-          description: "Please check your email to verify your account.",
+          description: "Please check your email to verify your account. Your membership tier will be activated by our team.",
         });
       }
     } catch (error) {
@@ -188,31 +185,6 @@ export default function Auth() {
                     onChange={(e) => setAgencyName(e.target.value)}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="membershipTier">Membership Level</Label>
-                  <Select value={membershipTier} onValueChange={setMembershipTier}>
-                    <SelectTrigger id="membershipTier">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1:1 Coaching">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-blue-500">1:1 Coaching</Badge>
-                          <span className="text-sm">Full Access</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="Boardroom">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-red-500">Boardroom</Badge>
-                          <span className="text-sm">Standard Access</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Select your coaching level. Contact us if you're unsure.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
