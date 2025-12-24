@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SharedInsights from '@/components/client/SharedInsights';
@@ -19,8 +19,10 @@ import { enableMetrics } from "@/lib/featureFlags";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+
 const Dashboard = () => {
-  const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
   const {
     canViewPerformanceMetrics,
     canViewMonthOverMonthTrends,
@@ -33,8 +35,20 @@ const Dashboard = () => {
     loading: permissionsLoading,
   } = useUserPermissions();
 
+  // Redirect Call Scoring tier users to /call-scoring
+  useEffect(() => {
+    if (membershipTier?.startsWith('Call Scoring')) {
+      navigate('/call-scoring', { replace: true });
+    }
+  }, [membershipTier, navigate]);
+
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+  
+  // Don't render dashboard for Call Scoring tier users (redirect is happening)
+  if (membershipTier?.startsWith('Call Scoring')) {
+    return null;
   }
 
   const handleSignOut = async () => {

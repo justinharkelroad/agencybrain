@@ -76,9 +76,12 @@ const adminOnlyItems = [
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
-  const { signOut, isAdmin, isAgencyOwner, user } = useAuth();
+  const { signOut, isAdmin, isAgencyOwner, user, membershipTier, hasTierAccess } = useAuth();
   const location = useLocation();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
+  
+  // Check if user is on a Call Scoring tier
+  const isCallScoringTier = membershipTier?.startsWith('Call Scoring');
   
   // Close sidebar on mobile when navigating
   const handleNavClick = () => {
@@ -240,74 +243,125 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
             )}
             <SidebarGroupContent>
             <SidebarMenu>
-                {mainItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.url);
-                    const showBadge = item.title === "The Exchange" && totalExchangeNotifications > 0;
-                    
-                    return (
-                      <SidebarMenuItem key={item.title}>
+                {/* Call Scoring tier users: only show The Exchange from mainItems */}
+                {isCallScoringTier ? (
+                  <>
+                    {/* Call Scoring - always show for Call Scoring tier users */}
+                    {callScoringEnabled && (
+                      <SidebarMenuItem>
                         <SidebarMenuButton 
                           asChild 
-                          isActive={active}
+                          isActive={isActive("/call-scoring")}
                           className={cn(
                             "hover:bg-muted/40 transition-colors",
-                            active && "bg-muted/50 text-foreground"
+                            isActive("/call-scoring") && "bg-muted/50 text-foreground"
                           )}
                         >
-                          <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" strokeWidth={1.5} />
-                            {sidebarOpen && <span>{item.title}</span>}
-                            {showBadge && (
-                              <Badge 
-                                variant="destructive" 
-                                className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
-                              >
-                                {totalExchangeNotifications > 99 ? '99+' : totalExchangeNotifications}
-                              </Badge>
-                            )}
+                          <Link to="/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>Call Scoring</span>}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
-                    );
-                  })}
-                {/* Call Scoring - show for admins OR enabled agencies */}
-                {callScoringEnabled && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={isActive("/call-scoring")}
-                      className={cn(
-                        "hover:bg-muted/40 transition-colors",
-                        isActive("/call-scoring") && "bg-muted/50 text-foreground"
-                      )}
-                    >
-                      <Link to="/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" strokeWidth={1.5} />
-                        {sidebarOpen && <span>Call Scoring</span>}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* Tools button - under Scorecards */}
-                {onOpenROI && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild
-                      className="hover:bg-muted/40 transition-colors"
-                    >
-                      <button
-                        onClick={() => {
-                          onOpenROI();
-                          handleNavClick();
-                        }}
-                        className="flex items-center gap-2 w-full"
+                    )}
+                    {/* The Exchange - Call Scoring users can access */}
+                    <SidebarMenuItem>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={isActive("/exchange")}
+                        className={cn(
+                          "hover:bg-muted/40 transition-colors",
+                          isActive("/exchange") && "bg-muted/50 text-foreground"
+                        )}
                       >
-                        <Wrench className="h-4 w-4" strokeWidth={1.5} />
-                        {sidebarOpen && <span>Tools</span>}
-                      </button>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                        <Link to="/exchange" onClick={handleNavClick} className="flex items-center gap-2">
+                          <ArrowLeftRight className="h-4 w-4" strokeWidth={1.5} />
+                          {sidebarOpen && <span>The Exchange</span>}
+                          {totalExchangeNotifications > 0 && (
+                            <Badge 
+                              variant="destructive" 
+                              className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                            >
+                              {totalExchangeNotifications > 99 ? '99+' : totalExchangeNotifications}
+                            </Badge>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
+                ) : (
+                  <>
+                    {/* Full tier users: show all mainItems */}
+                    {mainItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.url);
+                      const showBadge = item.title === "The Exchange" && totalExchangeNotifications > 0;
+                      
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={active}
+                            className={cn(
+                              "hover:bg-muted/40 transition-colors",
+                              active && "bg-muted/50 text-foreground"
+                            )}
+                          >
+                            <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" strokeWidth={1.5} />
+                              {sidebarOpen && <span>{item.title}</span>}
+                              {showBadge && (
+                                <Badge 
+                                  variant="destructive" 
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {totalExchangeNotifications > 99 ? '99+' : totalExchangeNotifications}
+                                </Badge>
+                              )}
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                    {/* Call Scoring - show for admins OR enabled agencies (non-Call Scoring tiers) */}
+                    {callScoringEnabled && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={isActive("/call-scoring")}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors",
+                            isActive("/call-scoring") && "bg-muted/50 text-foreground"
+                          )}
+                        >
+                          <Link to="/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>Call Scoring</span>}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                    {/* Tools button - only for non-Call Scoring tiers */}
+                    {onOpenROI && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild
+                          className="hover:bg-muted/40 transition-colors"
+                        >
+                          <button
+                            onClick={() => {
+                              onOpenROI();
+                              handleNavClick();
+                            }}
+                            className="flex items-center gap-2 w-full"
+                          >
+                            <Wrench className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>Tools</span>}
+                          </button>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                  </>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
