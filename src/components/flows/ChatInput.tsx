@@ -10,7 +10,7 @@ interface ChatInputProps {
   question: FlowQuestion;
   value: string;
   onChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (valueOverride?: string) => void;
   disabled?: boolean;
   isLast: boolean;
 }
@@ -109,8 +109,8 @@ export function ChatInput({
               onClick={() => {
                 if (disabled) return;
                 onChange(option);
-                // Auto-submit after selection with slight delay
-                setTimeout(() => onSubmit(), 150);
+                // Pass selected value directly to avoid closure issue
+                onSubmit(option);
               }}
               className={cn(
                 "rounded-full px-6 py-3 text-base font-medium transition-all",
@@ -168,7 +168,7 @@ export function ChatInput({
       )}
       
       <Button
-        onClick={onSubmit}
+        onClick={() => onSubmit()}
         disabled={!value.trim() || disabled}
         size="icon"
         className="h-12 w-12 rounded-full flex-shrink-0"

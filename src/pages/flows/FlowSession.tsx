@@ -126,14 +126,15 @@ export default function FlowSession() {
     }
   };
 
-  const handleSubmitAnswer = async () => {
-    if (!currentValue.trim() || !currentQuestion || isTyping) return;
+  const handleSubmitAnswer = async (valueOverride?: string) => {
+    const valueToSubmit = (valueOverride ?? currentValue).trim();
+    if (!valueToSubmit || !currentQuestion || isTyping) return;
 
     // Save immediately
-    await saveResponse(currentQuestion.id, currentValue.trim());
+    await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
 
-    const challenge = await checkForChallenge(currentQuestion.id, currentValue);
+    const challenge = await checkForChallenge(currentQuestion.id, valueToSubmit);
     
     if (challenge && !answeredQuestions.has(currentQuestion.id)) {
       setChallengeText(challenge);
