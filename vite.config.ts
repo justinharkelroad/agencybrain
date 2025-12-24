@@ -34,8 +34,10 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         // Clean up old caches on update
         cleanupOutdatedCaches: true,
-        // Only cache static assets, not API calls
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        // DISABLE precaching - main bundle is 9MB+ which exceeds limits
+        // PWA will still work for Add to Home Screen (standalone mode, icon, name)
+        // but won't cache assets offline (which we don't need for this app)
+        globPatterns: [],
         // CRITICAL: Exclude Supabase and API routes from ALL fetch handling
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
