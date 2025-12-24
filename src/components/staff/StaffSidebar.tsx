@@ -44,8 +44,15 @@ const bottomItems = [
 export function StaffSidebar() {
   const { logout, user } = useStaffAuth();
   const location = useLocation();
-  const { open: sidebarOpen } = useSidebar();
+  const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
+
+  // Close sidebar on mobile when navigating
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Check if call scoring is enabled for staff user's agency
   useEffect(() => {
@@ -126,7 +133,7 @@ export function StaffSidebar() {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={active}>
-                        <Link to={item.url} className="flex items-center gap-2">
+                        <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
                           <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
                         </Link>
@@ -138,7 +145,7 @@ export function StaffSidebar() {
                 {callScoringEnabled && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={isActive("/staff/call-scoring")}>
-                      <Link to="/staff/call-scoring" className="flex items-center gap-2">
+                      <Link to="/staff/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
                         <Phone className="h-4 w-4" strokeWidth={1.5} />
                         {sidebarOpen && <span>Call Scoring</span>}
                       </Link>
@@ -162,7 +169,7 @@ export function StaffSidebar() {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild isActive={active}>
-                        <Link to={item.url} className="flex items-center gap-2">
+                        <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
                           <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {sidebarOpen && <span>{item.title}</span>}
                         </Link>

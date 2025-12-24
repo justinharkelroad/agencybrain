@@ -78,7 +78,14 @@ const adminOnlyItems = [
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, isAgencyOwner, user } = useAuth();
   const location = useLocation();
-  const { open: sidebarOpen } = useSidebar();
+  const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
+  
+  // Close sidebar on mobile when navigating
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
   const [callScoringEnabled, setCallScoringEnabled] = useState(false);
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
@@ -248,7 +255,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                             active && "bg-muted/50 text-foreground"
                           )}
                         >
-                          <Link to={item.url} className="flex items-center gap-2">
+                          <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
                             <Icon className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>{item.title}</span>}
                             {showBadge && (
@@ -275,7 +282,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                         isActive("/call-scoring") && "bg-muted/50 text-foreground"
                       )}
                     >
-                      <Link to="/call-scoring" className="flex items-center gap-2">
+                      <Link to="/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
                         <Phone className="h-4 w-4" strokeWidth={1.5} />
                         {sidebarOpen && <span>Call Scoring</span>}
                       </Link>
@@ -290,7 +297,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       className="hover:bg-muted/40 transition-colors"
                     >
                       <button
-                        onClick={onOpenROI}
+                        onClick={() => {
+                          onOpenROI();
+                          handleNavClick();
+                        }}
                         className="flex items-center gap-2 w-full"
                       >
                         <Wrench className="h-4 w-4" strokeWidth={1.5} />
@@ -330,7 +340,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                             active && "bg-muted/50 text-foreground"
                           )}
                         >
-                          <Link to={item.url} className="flex items-center gap-2">
+                          <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
                             <Icon className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>{item.title}</span>}
                           </Link>
@@ -364,7 +374,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       isActive("/agency") && "bg-muted/50 text-foreground"
                     )}
                   >
-                    <Link to="/agency" className="flex items-center gap-2">
+                    <Link to="/agency" onClick={handleNavClick} className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" strokeWidth={1.5} />
                       {sidebarOpen && <span>My Agency</span>}
                     </Link>
