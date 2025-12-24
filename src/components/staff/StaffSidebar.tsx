@@ -39,7 +39,7 @@ const navItems = [
 ];
 
 export function StaffSidebar() {
-  const { logout, user } = useStaffAuth();
+  const { logout, user, loading } = useStaffAuth();
   const location = useLocation();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
@@ -57,25 +57,44 @@ export function StaffSidebar() {
 
   // Check if call scoring is enabled for staff user's agency
   useEffect(() => {
+    // While staff session is still loading, keep placeholder in place.
+    if (loading) {
+      setCallScoringEnabled(null);
+      return;
+    }
+
+    // If not authenticated (or no agency), remove the item entirely.
+    if (!user?.agency_id) {
+      setCallScoringEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
+
     const checkCallScoringAccess = async () => {
-      if (!user?.agency_id) {
-        console.log('StaffSidebar - No agency_id in user session');
+      // Ensure we show the skeleton while fetching.
+      setCallScoringEnabled(null);
+
+      const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
+        p_agency_id: user.agency_id,
+      });
+
+      if (cancelled) return;
+
+      if (error) {
         setCallScoringEnabled(false);
         return;
       }
 
-      console.log('StaffSidebar - Checking call scoring for agency:', user.agency_id);
-
-      // Use RPC function to bypass RLS (staff users don't use Supabase Auth)
-      const { data: isEnabled, error } = await supabase
-        .rpc('is_call_scoring_enabled', { p_agency_id: user.agency_id });
-
-      console.log('StaffSidebar - Call scoring enabled:', isEnabled, 'Error:', error);
       setCallScoringEnabled(isEnabled ?? false);
     };
 
     checkCallScoringAccess();
-  }, [user?.agency_id]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.agency_id]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -96,7 +115,7 @@ export function StaffSidebar() {
     window.location.href = "/";
   };
 
-  console.log('StaffSidebar render - callScoringEnabled:', callScoringEnabled);
+  
 
   return (
     <Sidebar
