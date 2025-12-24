@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
 import { useFocusItems } from '@/hooks/useFocusItems';
@@ -19,9 +19,13 @@ import { useAuth } from '@/lib/auth';
 export default function FlowSession() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useFlowProfile();
   const { user } = useAuth();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Get session ID from location state (when resuming a draft)
+  const sessionId = (location.state as { sessionId?: string } | null)?.sessionId;
   
   const {
     template,
@@ -40,7 +44,7 @@ export default function FlowSession() {
     goToPreviousQuestion,
     goToQuestion,
     interpolatePrompt,
-  } = useFlowSession({ templateSlug: slug });
+  } = useFlowSession({ templateSlug: slug, sessionId });
 
   const { createItem } = useFocusItems();
 
@@ -67,13 +71,13 @@ export default function FlowSession() {
       
       const { data } = await supabase
         .from('profiles')
-        .select('preferred_name, profile_photo_url')
+        .select('full_name, profile_photo_url')
         .eq('id', user.id)
         .single();
       
       if (data) {
         setUserPhotoUrl(data.profile_photo_url || null);
-        const name = data.preferred_name || user.email || '';
+        const name = data.full_name || user.email || '';
         const initials = name
           ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
           : user.email?.[0].toUpperCase() || '??';
