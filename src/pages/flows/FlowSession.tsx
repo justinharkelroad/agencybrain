@@ -2,12 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
-import { FlowQuestionComponent } from '@/components/flows/FlowQuestion';
+import { ChatBubble } from '@/components/flows/ChatBubble';
+import { ChatInput } from '@/components/flows/ChatInput';
+import { TypingIndicator } from '@/components/flows/TypingIndicator';
 import { FlowChallenge } from '@/components/flows/FlowChallenge';
-import { FlowProgress } from '@/components/flows/FlowProgress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ArrowRight, Check, X, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { X, Loader2, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function FlowSession() {
   const { slug } = useParams<{ slug: string }>();
@@ -39,20 +42,41 @@ export default function FlowSession() {
   const [challengeText, setChallengeText] = useState('');
   const [checkingChallenge, setCheckingChallenge] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set());
+  const [isTyping, setIsTyping] = useState(false);
+  const [showCurrentQuestion, setShowCurrentQuestion] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   useEffect(() => {
     if (currentQuestion) {
       setCurrentValue(responses[currentQuestion.id] || '');
       setShowChallenge(false);
       setChallengeText('');
+      setShowCurrentQuestion(true);
     }
   }, [currentQuestion?.id, responses]);
 
-  useEffect(() => {
+  // Auto-scroll to bottom
+  const scrollToBottom = () => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
-  }, [currentQuestionIndex, showChallenge]);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [currentQuestionIndex, showChallenge, isTyping]);
+
+  // Handle scroll position to show/hide scroll button
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShowScrollButton(!isNearBottom);
+    }
+  };
 
   // Auto-save on page unload/refresh
   useEffect(() => {
@@ -103,8 +127,9 @@ export default function FlowSession() {
   };
 
   const handleSubmitAnswer = async () => {
-    if (!currentValue.trim() || !currentQuestion) return;
+    if (!currentValue.trim() || !currentQuestion || isTyping) return;
 
+    // Save immediately
     await saveResponse(currentQuestion.id, currentValue.trim());
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
 
@@ -116,7 +141,15 @@ export default function FlowSession() {
     } else if (isLastQuestion) {
       navigate(`/flows/complete/${session?.id}`);
     } else {
-      goToNextQuestion();
+      // Start typing animation
+      setShowCurrentQuestion(false);
+      setIsTyping(true);
+      
+      // Wait for typing indicator, then show next question
+      setTimeout(() => {
+        setIsTyping(false);
+        goToNextQuestion();
+      }, 2000);
     }
   };
 
@@ -132,7 +165,14 @@ export default function FlowSession() {
     if (isLastQuestion) {
       navigate(`/flows/complete/${session?.id}`);
     } else {
-      goToNextQuestion();
+      // Start typing animation
+      setShowCurrentQuestion(false);
+      setIsTyping(true);
+      
+      setTimeout(() => {
+        setIsTyping(false);
+        goToNextQuestion();
+      }, 2000);
     }
   };
 
@@ -144,7 +184,7 @@ export default function FlowSession() {
   };
 
   const handleClickPreviousAnswer = (idx: number) => {
-    if (idx < currentQuestionIndex) {
+    if (idx < currentQuestionIndex && !isTyping) {
       if (currentValue.trim() && currentQuestion) {
         saveResponse(currentQuestion.id, currentValue.trim());
       }
@@ -176,141 +216,154 @@ export default function FlowSession() {
   }
 
   const promptSegments = interpolatePrompt(currentQuestion.prompt);
+  const flowIcon = template.icon || '🧠';
+
+  // Build prompt text from segments
+  const getPromptText = (segments: typeof promptSegments) => {
+    return segments.map(s => s.content).join(' ');
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header - minimal with progress */}
       <header className="border-b border-border/10 bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{template.icon}</span>
-              <h1 className="font-medium">{template.name} Flow</h1>
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{flowIcon}</span>
+              <h1 className="font-medium text-sm text-muted-foreground">{template.name}</h1>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleExit}>
-              <X className="h-4 w-4 mr-1" strokeWidth={1.5} />
-              Exit
+            <Button variant="ghost" size="sm" onClick={handleExit} className="h-8 px-2">
+              <X className="h-4 w-4" strokeWidth={1.5} />
             </Button>
           </div>
-          <FlowProgress 
-            current={currentQuestionIndex + 1} 
-            total={questions.length}
-            percentage={progress}
-          />
+          <Progress value={progress} className="h-1" />
         </div>
       </header>
 
       {/* Chat Container */}
       <main 
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto pb-4"
+        onScroll={handleScroll}
       >
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          {/* Previous Q&A */}
-          <div className="space-y-8 mb-8">
-            {questions.slice(0, currentQuestionIndex).map((q, idx) => {
-              const segments = interpolatePrompt(q.prompt);
-              const hasInterpolations = segments.some(s => s.type === 'interpolated');
-              
-              return (
-                <div 
-                  key={q.id} 
-                  className="opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+          {/* Previous Q&A as chat bubbles */}
+          {questions.slice(0, currentQuestionIndex).map((q, idx) => {
+            const segments = interpolatePrompt(q.prompt);
+            const response = responses[q.id];
+            
+            return (
+              <div key={q.id} className="space-y-3">
+                {/* Question bubble */}
+                <ChatBubble 
+                  variant="incoming" 
+                  icon={flowIcon}
+                  className="opacity-70 cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => handleClickPreviousAnswer(idx)}
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl flex-shrink-0">🧠</span>
-                    <div className="space-y-2">
-                      {hasInterpolations ? (
-                        segments.map((segment, segIdx) => (
-                          <p 
-                            key={segIdx}
-                            className={
-                              segment.type === 'interpolated'
-                                ? 'text-base font-medium'
-                                : 'text-base text-muted-foreground/70'
-                            }
-                          >
-                            {segment.content}
-                          </p>
-                        ))
-                      ) : (
-                        <p className="text-base">{segments[0]?.content}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pl-9 mt-2">
-                    <p className="text-muted-foreground bg-muted/30 rounded-lg px-4 py-2 whitespace-pre-wrap">
-                      {responses[q.id]}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  {getPromptText(segments)}
+                </ChatBubble>
+                
+                {/* Answer bubble */}
+                {response && (
+                  <ChatBubble 
+                    variant="outgoing"
+                    className="opacity-70"
+                  >
+                    {response}
+                  </ChatBubble>
+                )}
+              </div>
+            );
+          })}
 
           {/* Current Question */}
-          <FlowQuestionComponent
-            question={currentQuestion}
-            promptSegments={promptSegments}
-            value={currentValue}
-            onChange={setCurrentValue}
-            onSubmit={handleSubmitAnswer}
-            isLast={isLastQuestion}
-          />
+          {showCurrentQuestion && !isTyping && (
+            <div className="space-y-3">
+              <ChatBubble 
+                variant="incoming" 
+                icon={flowIcon}
+                animate={currentQuestionIndex > 0}
+              >
+                {promptSegments.map((segment, idx) => (
+                  <span 
+                    key={idx}
+                    className={segment.type === 'interpolated' ? 'font-medium' : ''}
+                  >
+                    {segment.content}
+                  </span>
+                ))}
+              </ChatBubble>
+            </div>
+          )}
+
+          {/* User's current answer preview (if they've typed something) */}
+          {currentValue.trim() && showCurrentQuestion && !isTyping && (
+            <ChatBubble variant="outgoing" className="opacity-50">
+              {currentValue}
+            </ChatBubble>
+          )}
+
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="flex items-end gap-2">
+              <span className="text-lg">{flowIcon}</span>
+              <TypingIndicator />
+            </div>
+          )}
 
           {/* AI Challenge */}
           {showChallenge && (
-            <FlowChallenge
-              challenge={challengeText}
-              onRevise={handleRevise}
-              onSkip={handleSkipChallenge}
-            />
+            <div className="space-y-3 animate-chat-message-in">
+              <ChatBubble variant="incoming" icon={flowIcon}>
+                {challengeText}
+              </ChatBubble>
+              <div className="flex gap-2 pl-8">
+                <Button size="sm" onClick={handleRevise} className="rounded-full">
+                  Revise Answer
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleSkipChallenge} className="rounded-full">
+                  Continue →
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </main>
 
-      {/* Footer Actions */}
+      {/* Scroll to bottom button */}
+      {showScrollButton && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="fixed bottom-24 right-4 rounded-full shadow-lg z-20"
+          onClick={scrollToBottom}
+        >
+          <ChevronDown className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* Fixed Input Area */}
       <footer className="border-t border-border/10 bg-background/95 backdrop-blur sticky bottom-0">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              onClick={goToPreviousQuestion}
-              disabled={isFirstQuestion}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" strokeWidth={1.5} />
-              Back
-            </Button>
-
-            <div className="flex items-center gap-2">
-              {saving && (
-                <span className="text-sm text-muted-foreground flex items-center">
-                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  Saving...
-                </span>
-              )}
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          {saving && (
+            <div className="flex items-center justify-center mb-2">
+              <span className="text-xs text-muted-foreground flex items-center">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Saving...
+              </span>
             </div>
-
-            <Button
-              onClick={handleSubmitAnswer}
-              disabled={!currentValue.trim() || checkingChallenge}
-            >
-              {checkingChallenge ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isLastQuestion ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" strokeWidth={1.5} />
-                  Complete
-                </>
-              ) : (
-                <>
-                  Continue
-                  <ArrowRight className="h-4 w-4 ml-2" strokeWidth={1.5} />
-                </>
-              )}
-            </Button>
-          </div>
+          )}
+          
+          <ChatInput
+            question={currentQuestion}
+            value={currentValue}
+            onChange={setCurrentValue}
+            onSubmit={handleSubmitAnswer}
+            disabled={isTyping || checkingChallenge || showChallenge}
+            isLast={isLastQuestion}
+          />
         </div>
       </footer>
     </div>
