@@ -3234,7 +3234,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          membership_tier: Database["public"]["Enums"]["membership_tier"]
+          membership_tier: Database["public"]["Enums"]["membership_tier"] | null
           mrr: number | null
           profile_photo_url: string | null
           role: string
@@ -3246,7 +3246,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
-          membership_tier?: Database["public"]["Enums"]["membership_tier"]
+          membership_tier?:
+            | Database["public"]["Enums"]["membership_tier"]
+            | null
           mrr?: number | null
           profile_photo_url?: string | null
           role?: string
@@ -3258,7 +3260,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
-          membership_tier?: Database["public"]["Enums"]["membership_tier"]
+          membership_tier?:
+            | Database["public"]["Enums"]["membership_tier"]
+            | null
           mrr?: number | null
           profile_photo_url?: string | null
           role?: string
@@ -6445,7 +6449,12 @@ export type Database = {
       app_role: "admin" | "user"
       call_type_enum: "sales" | "service"
       exchange_visibility: "call_scoring" | "boardroom" | "one_on_one"
-      membership_tier: "1:1 Coaching" | "Boardroom"
+      membership_tier:
+        | "1:1 Coaching"
+        | "Boardroom"
+        | "Call Scoring 30"
+        | "Call Scoring 50"
+        | "Call Scoring 100"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -6579,7 +6588,13 @@ export const Constants = {
       app_role: ["admin", "user"],
       call_type_enum: ["sales", "service"],
       exchange_visibility: ["call_scoring", "boardroom", "one_on_one"],
-      membership_tier: ["1:1 Coaching", "Boardroom"],
+      membership_tier: [
+        "1:1 Coaching",
+        "Boardroom",
+        "Call Scoring 30",
+        "Call Scoring 50",
+        "Call Scoring 100",
+      ],
     },
   },
 } as const
