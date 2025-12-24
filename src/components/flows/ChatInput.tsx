@@ -88,13 +88,49 @@ export function ChatInput({
     }
   };
 
+  // Normalize question type (defensive - handle case, whitespace, undefined)
+  const normalizedType = (question.type ?? '').toString().trim().toLowerCase();
+  
+  // Debug logging for select detection
+  console.log('[ChatInput] Render:', {
+    questionId: question.id,
+    rawType: question.type,
+    normalizedType,
+    rawOptions: question.options,
+    optionsLength: Array.isArray(question.options) ? question.options.length : 'not-array',
+    disabled
+  });
+
   // Select question - show option chips
-  if (question.type === 'select') {
-    const options = question.options || [];
+  if (normalizedType === 'select') {
+    // Normalize options - handle string[], object[], or undefined
+    const rawOptions = question.options;
+    let options: string[] = [];
+    
+    if (Array.isArray(rawOptions)) {
+      options = rawOptions
+        .map(opt => {
+          if (typeof opt === 'string') return opt.trim();
+          if (opt && typeof opt === 'object') {
+            // Handle legacy object format
+            return (opt as any).option_text || (opt as any).label || (opt as any).value || String(opt);
+          }
+          return '';
+        })
+        .filter(Boolean);
+    }
+    
+    console.log('[ChatInput] Select mode - normalized options:', options);
     
     if (options.length === 0) {
-      console.warn('Select question has no options:', question.id);
-      return null;
+      console.error('[ChatInput] Select question has NO valid options:', question.id, rawOptions);
+      return (
+        <div className="text-center p-4 border border-destructive/50 rounded-lg bg-destructive/10">
+          <p className="text-destructive text-sm font-medium">No options available for this question.</p>
+          <p className="text-xs text-muted-foreground mt-1">Question ID: {question.id}</p>
+          <p className="text-xs text-muted-foreground">Raw options: {JSON.stringify(rawOptions)}</p>
+        </div>
+      );
     }
     
     return (
@@ -107,11 +143,15 @@ export function ChatInput({
               variant={value === option ? 'default' : 'outline'}
               size="lg"
               onClick={() => {
-                if (disabled) return;
+                console.log('[ChatInput] Chip clicked:', { option, disabled });
+                if (disabled) {
+                  console.warn('[ChatInput] Chip click ignored - disabled');
+                  return;
+                }
                 onChange(option);
-                // Pass selected value directly to avoid closure issue
                 onSubmit(option);
               }}
+              disabled={disabled}
               className={cn(
                 "rounded-full px-6 py-3 text-base font-medium transition-all",
                 value === option && "ring-2 ring-primary ring-offset-2"
@@ -121,6 +161,9 @@ export function ChatInput({
             </Button>
           ))}
         </div>
+        {disabled && (
+          <p className="text-xs text-muted-foreground text-center">Please wait...</p>
+        )}
       </div>
     );
   }

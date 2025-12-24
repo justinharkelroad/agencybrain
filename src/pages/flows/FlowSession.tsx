@@ -128,8 +128,33 @@ export default function FlowSession() {
 
   const handleSubmitAnswer = async (valueOverride?: string) => {
     const valueToSubmit = (valueOverride ?? currentValue).trim();
-    if (!valueToSubmit || !currentQuestion || isTyping) return;
+    
+    console.log('[FlowSession] handleSubmitAnswer called:', {
+      valueOverride,
+      currentValue,
+      valueToSubmit,
+      currentQuestionId: currentQuestion?.id,
+      currentQuestionType: currentQuestion?.type,
+      isTyping,
+      checkingChallenge,
+      showChallenge
+    });
+    
+    if (!valueToSubmit) {
+      console.warn('[FlowSession] handleSubmitAnswer: No value to submit');
+      return;
+    }
+    if (!currentQuestion) {
+      console.warn('[FlowSession] handleSubmitAnswer: No current question');
+      return;
+    }
+    if (isTyping) {
+      console.warn('[FlowSession] handleSubmitAnswer: Already typing, ignoring');
+      return;
+    }
 
+    console.log('[FlowSession] Saving response:', currentQuestion.id, valueToSubmit);
+    
     // Save immediately
     await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
@@ -145,6 +170,8 @@ export default function FlowSession() {
       // Start typing animation
       setShowCurrentQuestion(false);
       setIsTyping(true);
+      
+      console.log('[FlowSession] Moving to next question...');
       
       // Wait for typing indicator, then show next question
       setTimeout(() => {
@@ -358,14 +385,22 @@ export default function FlowSession() {
           )}
           
           {!isTyping && currentQuestion && (
-            <ChatInput
-              question={currentQuestion}
-              value={currentValue}
-              onChange={setCurrentValue}
-              onSubmit={handleSubmitAnswer}
-              disabled={checkingChallenge || showChallenge}
-              isLast={isLastQuestion}
-            />
+            <>
+              {/* Debug strip - remove after fixing */}
+              <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted/50 rounded font-mono">
+                Q: {currentQuestion.id} | Type: "{currentQuestion.type}" | 
+                Options: {Array.isArray(currentQuestion.options) ? currentQuestion.options.length : 'none'} |
+                Disabled: {String(checkingChallenge || showChallenge)}
+              </div>
+              <ChatInput
+                question={currentQuestion}
+                value={currentValue}
+                onChange={setCurrentValue}
+                onSubmit={handleSubmitAnswer}
+                disabled={checkingChallenge || showChallenge}
+                isLast={isLastQuestion}
+              />
+            </>
           )}
           {isTyping && (
             <div className="text-center text-sm text-muted-foreground py-2">
