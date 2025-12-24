@@ -23,6 +23,8 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track if session was loaded from DB (vs newly created in this session)
+  const [sessionLoadedFromDb, setSessionLoadedFromDb] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -80,6 +82,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
       setSession(data as FlowSession);
       setTemplate(templateData);
       setResponses((data.responses_json as Record<string, string>) || {});
+      setSessionLoadedFromDb(true); // Mark as loaded from DB
       
       // We'll set index after computing visible questions
     } catch (err: any) {
@@ -106,15 +109,18 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     });
   }, [allQuestions, responses]);
 
-  // Set initial question index after loading existing session
+  // Set initial question index ONLY when resuming an existing session from DB
+  // This prevents double-advancing when a new session is created after the first answer
   useEffect(() => {
-    if (!loading && template && session) {
+    if (!loading && template && session && sessionLoadedFromDb) {
       const firstUnanswered = visibleQuestions.findIndex(
         q => !responses[q.id]
       );
-      setCurrentQuestionIndex(firstUnanswered === -1 ? visibleQuestions.length - 1 : firstUnanswered);
+      const newIndex = firstUnanswered === -1 ? visibleQuestions.length - 1 : firstUnanswered;
+      console.log('[useFlowSession] Resuming session from DB, setting index to:', newIndex);
+      setCurrentQuestionIndex(newIndex);
     }
-  }, [loading, template, session, visibleQuestions, responses]);
+  }, [loading, template, session, sessionLoadedFromDb, visibleQuestions, responses]);
 
   const createSession = async () => {
     if (!user?.id || !template) return null;

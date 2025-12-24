@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
@@ -45,6 +45,26 @@ export default function FlowSession() {
   const [isTyping, setIsTyping] = useState(false);
   const [showCurrentQuestion, setShowCurrentQuestion] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  
+  // Ref for typing timeout to prevent race conditions
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Cleanup timeout on unmount or question change
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // Clear timeout when question changes
+  useEffect(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+  }, [currentQuestion?.id]);
 
   useEffect(() => {
     if (currentQuestion) {
@@ -167,16 +187,23 @@ export default function FlowSession() {
     } else if (isLastQuestion) {
       navigate(`/flows/complete/${session?.id}`);
     } else {
+      // Clear any pending timeout first
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
       // Start typing animation
       setShowCurrentQuestion(false);
       setIsTyping(true);
       
-      console.log('[FlowSession] Moving to next question...');
+      console.log('[FlowSession] Moving to next question after typing delay...');
       
       // Wait for typing indicator, then show next question
-      setTimeout(() => {
+      typingTimeoutRef.current = setTimeout(() => {
+        console.log('[FlowSession] Timeout fired, advancing to next question');
         setIsTyping(false);
         goToNextQuestion();
+        typingTimeoutRef.current = null;
       }, 2000);
     }
   };
@@ -193,13 +220,19 @@ export default function FlowSession() {
     if (isLastQuestion) {
       navigate(`/flows/complete/${session?.id}`);
     } else {
+      // Clear any pending timeout first
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
       // Start typing animation
       setShowCurrentQuestion(false);
       setIsTyping(true);
       
-      setTimeout(() => {
+      typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         goToNextQuestion();
+        typingTimeoutRef.current = null;
       }, 2000);
     }
   };
