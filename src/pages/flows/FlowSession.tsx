@@ -124,9 +124,28 @@ export default function FlowSession() {
     }
   };
 
+  // Track previous isTyping state to detect when typing ends
+  const prevIsTypingRef = useRef(isTyping);
+
+  // Auto-scroll when content changes, with delay for DOM updates
   useEffect(() => {
-    scrollToBottom();
-  }, [currentQuestionIndex, showChallenge, isTyping, showAddToFocus]);
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [currentQuestionIndex, showChallenge, showAddToFocus, showCurrentQuestion]);
+
+  // Scroll when typing indicator disappears (new question appears)
+  useEffect(() => {
+    const wasTyping = prevIsTypingRef.current;
+    prevIsTypingRef.current = isTyping;
+    
+    if (wasTyping && !isTyping) {
+      // Typing just finished, scroll after DOM updates
+      setTimeout(scrollToBottom, 150);
+    }
+  }, [isTyping]);
 
   // Handle scroll position to show/hide scroll button
   const handleScroll = () => {
