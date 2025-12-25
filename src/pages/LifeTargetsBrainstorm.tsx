@@ -22,7 +22,7 @@ import { isValidUUID } from "@/lib/utils";
 
 const DOMAINS = [
   { key: 'body', label: 'Body', icon: '💪', color: 'hsl(var(--primary))' },
-  { key: 'being', label: 'Being', icon: '🧘', color: 'hsl(var(--accent))' },
+  { key: 'being', label: 'Being', icon: '✝️', color: 'hsl(var(--accent))' },
   { key: 'balance', label: 'Balance', icon: '⚖️', color: 'hsl(var(--secondary))' },
   { key: 'business', label: 'Business', icon: '💼', color: 'hsl(var(--muted))' },
 ] as const;

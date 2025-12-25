@@ -2,13 +2,13 @@ import { useCore4Stats, Core4Domain } from '@/hooks/useCore4Stats';
 import { useFlowStats } from '@/hooks/useFlowStats';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dumbbell, Brain, Heart, Briefcase, Flame, ChevronRight, Loader2, Zap } from 'lucide-react';
+import { Dumbbell, Cross, Heart, Briefcase, Flame, ChevronRight, Loader2, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const domains: { key: Core4Domain; label: string; icon: typeof Dumbbell }[] = [
   { key: 'body', label: 'BODY', icon: Dumbbell },
-  { key: 'being', label: 'BEING', icon: Brain },
+  { key: 'being', label: 'BEING', icon: Cross },
   { key: 'balance', label: 'BALANCE', icon: Heart },
   { key: 'business', label: 'BUSINESS', icon: Briefcase },
 ];
