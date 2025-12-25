@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Cross, Heart, Briefcase, Plus, CheckCircle2, Loader2 } from 'lucide-react';
+import { Dumbbell, Heart, Briefcase, Plus, CheckCircle2, Loader2 } from 'lucide-react';
+import { LatinCross } from '@/components/icons/LatinCross';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -44,9 +45,9 @@ interface StaffCore4Mission {
   month_year: string;
 }
 
-const domainConfig: Record<Core4Domain, { label: string; icon: typeof Dumbbell; color: string }> = {
+const domainConfig: Record<Core4Domain, { label: string; icon: React.ElementType; color: string }> = {
   body: { label: 'Body', icon: Dumbbell, color: 'text-green-500' },
-  being: { label: 'Being', icon: Cross, color: 'text-purple-500' },
+  being: { label: 'Being', icon: LatinCross, color: 'text-purple-500' },
   balance: { label: 'Balance', icon: Heart, color: 'text-pink-500' },
   business: { label: 'Business', icon: Briefcase, color: 'text-blue-500' },
 };

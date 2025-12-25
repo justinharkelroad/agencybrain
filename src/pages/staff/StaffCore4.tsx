@@ -6,16 +6,17 @@ import { WeeklyHistoryCard } from '@/components/core4/WeeklyHistoryCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Dumbbell, Cross, Heart, Briefcase, Flame, ChevronLeft, ChevronRight, 
+  Dumbbell, Heart, Briefcase, Flame, ChevronLeft, ChevronRight, 
   Loader2, Zap
 } from 'lucide-react';
+import { LatinCross } from '@/components/icons/LatinCross';
 import { format, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SmartBackButton } from '@/components/SmartBackButton';
 
-const domains: { key: Core4Domain; label: string; icon: typeof Dumbbell; color: string }[] = [
+const domains: { key: Core4Domain; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'body', label: 'BODY', icon: Dumbbell, color: 'from-green-500 to-emerald-600' },
-  { key: 'being', label: 'BEING', icon: Cross, color: 'from-purple-500 to-violet-600' },
+  { key: 'being', label: 'BEING', icon: LatinCross, color: 'from-purple-500 to-violet-600' },
   { key: 'balance', label: 'BALANCE', icon: Heart, color: 'from-pink-500 to-rose-600' },
   { key: 'business', label: 'BUSINESS', icon: Briefcase, color: 'from-blue-500 to-indigo-600' },
 ];
