@@ -4,12 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Flame, Heart, Brain, Scale, Briefcase, ArrowRight, Loader2, Zap } from 'lucide-react';
+import { Target, Flame, Heart, Cross, Scale, Briefcase, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
 
 const DOMAIN_ICONS = {
   body: Heart,
-  being: Brain,
+  being: Cross,
   balance: Scale,
   business: Briefcase,
 };

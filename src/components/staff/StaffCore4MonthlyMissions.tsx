@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Brain, Heart, Briefcase, Plus, CheckCircle2, Loader2 } from 'lucide-react';
+import { Dumbbell, Cross, Heart, Briefcase, Plus, CheckCircle2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -46,7 +46,7 @@ interface StaffCore4Mission {
 
 const domainConfig: Record<Core4Domain, { label: string; icon: typeof Dumbbell; color: string }> = {
   body: { label: 'Body', icon: Dumbbell, color: 'text-green-500' },
-  being: { label: 'Being', icon: Brain, color: 'text-purple-500' },
+  being: { label: 'Being', icon: Cross, color: 'text-purple-500' },
   balance: { label: 'Balance', icon: Heart, color: 'text-pink-500' },
   business: { label: 'Business', icon: Briefcase, color: 'text-blue-500' },
 };

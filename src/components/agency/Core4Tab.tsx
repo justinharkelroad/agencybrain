@@ -4,13 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Target, Flame, Heart, Brain, Scale, Briefcase, CheckCircle2, Circle, Loader2, Calendar, Zap } from 'lucide-react';
+import { Target, Flame, Heart, Cross, Scale, Briefcase, CheckCircle2, Circle, Loader2, Calendar, Zap } from 'lucide-react';
 import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
 import { format, startOfWeek, addDays } from 'date-fns';
 
 const DOMAIN_CONFIG = {
   body: { label: 'Body', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-500/10' },
-  being: { label: 'Being', icon: Brain, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  being: { label: 'Being', icon: Cross, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
   balance: { label: 'Balance', icon: Scale, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   business: { label: 'Business', icon: Briefcase, color: 'text-green-500', bgColor: 'bg-green-500/10' },
 } as const;
