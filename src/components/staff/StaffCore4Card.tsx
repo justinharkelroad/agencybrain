@@ -2,14 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, Flame, Heart, Cross, Scale, Briefcase, Zap } from 'lucide-react';
+import { Loader2, ChevronRight, Flame, Heart, Scale, Briefcase, Zap } from 'lucide-react';
+import { LatinCross } from '@/components/icons/LatinCross';
 import { useStaffCore4Stats, Core4Domain } from '@/hooks/useStaffCore4Stats';
 import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { cn } from '@/lib/utils';
 
 const domains: { key: Core4Domain; label: string; icon: React.ElementType }[] = [
   { key: 'body', label: 'BODY', icon: Heart },
-  { key: 'being', label: 'BEING', icon: Cross },
+  { key: 'being', label: 'BEING', icon: LatinCross },
   { key: 'balance', label: 'BALANCE', icon: Scale },
   { key: 'business', label: 'BUSINESS', icon: Briefcase },
 ];
