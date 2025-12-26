@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { LearningCycleReportCard } from "./LearningCycleReportCard";
 
-const MAX_FILE_SIZE_MB = 500;
+const MAX_FILE_SIZE_MB = 25;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
 

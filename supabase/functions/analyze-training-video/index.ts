@@ -102,14 +102,132 @@ Identify 3-5 mistakes leaders often make when implementing these concepts.
 ## COACHING QUESTIONS
 Provide 5-7 powerful questions leaders can use in 1:1s to drive accountability around this topic.`;
 
+// Upload file to Gemini Files API
+async function uploadToGeminiFiles(
+  apiKey: string,
+  fileBytes: Uint8Array,
+  mimeType: string,
+  displayName: string
+): Promise<string> {
+  console.log(`Uploading to Gemini Files API: ${displayName} (${mimeType}, ${fileBytes.length} bytes)`);
+  
+  // Step 1: Start resumable upload
+  const startResponse = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol': 'resumable',
+        'X-Goog-Upload-Command': 'start',
+        'X-Goog-Upload-Header-Content-Length': String(fileBytes.length),
+        'X-Goog-Upload-Header-Content-Type': mimeType,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: { display_name: displayName }
+      })
+    }
+  );
+
+  if (!startResponse.ok) {
+    const errorText = await startResponse.text();
+    throw new Error(`Failed to start upload: ${startResponse.status} - ${errorText}`);
+  }
+
+  const uploadUrl = startResponse.headers.get('X-Goog-Upload-URL');
+  if (!uploadUrl) {
+    throw new Error('No upload URL returned from Gemini');
+  }
+
+  console.log('Got upload URL, uploading file bytes...');
+
+  // Step 2: Upload the file bytes
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Length': String(fileBytes.length),
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+    },
+    body: fileBytes,
+  });
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text();
+    throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText}`);
+  }
+
+  const uploadResult = await uploadResponse.json();
+  const fileUri = uploadResult.file?.uri;
+  
+  if (!fileUri) {
+    throw new Error('No file URI returned from Gemini upload');
+  }
+
+  console.log(`File uploaded successfully: ${fileUri}`);
+  return fileUri;
+}
+
+// Wait for file to be processed by Gemini
+async function waitForFileProcessing(apiKey: string, fileUri: string, maxWaitMs = 120000): Promise<void> {
+  const fileName = fileUri.split('/').pop();
+  const startTime = Date.now();
+  
+  console.log(`Waiting for file processing: ${fileName}`);
+  
+  while (Date.now() - startTime < maxWaitMs) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/files/${fileName}?key=${apiKey}`
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to check file status: ${response.status} - ${errorText}`);
+    }
+    
+    const fileInfo = await response.json();
+    const state = fileInfo.state;
+    
+    console.log(`File state: ${state}`);
+    
+    if (state === 'ACTIVE') {
+      console.log('File is ready for processing');
+      return;
+    } else if (state === 'FAILED') {
+      throw new Error('File processing failed in Gemini');
+    }
+    
+    // Wait 2 seconds before checking again
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  
+  throw new Error('Timeout waiting for file processing');
+}
+
+// Delete file from Gemini Files API
+async function deleteGeminiFile(apiKey: string, fileUri: string): Promise<void> {
+  const fileName = fileUri.split('/').pop();
+  try {
+    await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/files/${fileName}?key=${apiKey}`,
+      { method: 'DELETE' }
+    );
+    console.log(`Deleted Gemini file: ${fileName}`);
+  } catch (e) {
+    console.error('Failed to delete Gemini file (non-critical):', e);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let geminiFileUri: string | null = null;
+  const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+
   try {
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiApiKey) {
       throw new Error("GEMINI_API_KEY not configured");
     }
@@ -132,7 +250,7 @@ serve(async (req) => {
       .update({ status: 'processing' })
       .eq('id', moduleId);
 
-    // Download video from storage (training-assets bucket, video-analysis path)
+    // Download video from storage as stream/blob (not loading fully into memory for base64)
     const { data: videoData, error: downloadError } = await supabase.storage
       .from('training-assets')
       .download(storagePath);
@@ -141,12 +259,9 @@ serve(async (req) => {
       throw new Error(`Failed to download video: ${downloadError.message}`);
     }
 
-    // Convert to base64
-    const arrayBuffer = await videoData.arrayBuffer();
-    const base64Video = btoa(
-      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
-
+    // Get file bytes for Gemini upload
+    const fileBytes = new Uint8Array(await videoData.arrayBuffer());
+    
     // Determine MIME type from extension
     const extension = storagePath.split('.').pop()?.toLowerCase() || 'mp4';
     const mimeTypes: Record<string, string> = {
@@ -157,13 +272,20 @@ serve(async (req) => {
       'mkv': 'video/x-matroska',
     };
     const mimeType = mimeTypes[extension] || 'video/mp4';
+    const displayName = storagePath.split('/').pop() || 'video';
+
+    // Upload to Gemini Files API (avoids base64 in-memory conversion)
+    geminiFileUri = await uploadToGeminiFiles(geminiApiKey, fileBytes, mimeType, displayName);
+    
+    // Wait for Gemini to process the file
+    await waitForFileProcessing(geminiApiKey, geminiFileUri);
 
     // Select prompt based on role
     const prompt = role === 'leader' ? LEADER_PROMPT : COMMUNITY_PROMPT;
 
-    console.log(`Calling Gemini API with ${role} prompt...`);
+    console.log(`Calling Gemini API with ${role} prompt using file URI...`);
 
-    // Call Gemini API
+    // Call Gemini API using file URI instead of inline base64
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
       {
@@ -172,9 +294,9 @@ serve(async (req) => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              inlineData: {
+              fileData: {
                 mimeType: mimeType,
-                data: base64Video
+                fileUri: geminiFileUri
               }
             }]
           }],
@@ -202,10 +324,15 @@ serve(async (req) => {
       throw new Error("No analysis returned from Gemini");
     }
 
-    // Extract title from first H1 heading
+    // Extract title - check for TOPIC: line first (community format), then H1
     const lines = analysisText.split('\n');
+    const topicLine = lines.find((l: string) => l.startsWith('TOPIC:'));
     const h1Line = lines.find((l: string) => l.startsWith('# '));
-    const title = h1Line ? h1Line.replace('# ', '').trim() : 'Training Module';
+    const title = topicLine 
+      ? topicLine.replace('TOPIC:', '').trim()
+      : h1Line 
+        ? h1Line.replace('# ', '').trim() 
+        : 'Training Module';
 
     console.log(`Analysis complete. Title: "${title}"`);
 
@@ -224,7 +351,7 @@ serve(async (req) => {
       throw new Error(`Failed to save results: ${updateError.message}`);
     }
 
-    // Delete video from storage (auto-cleanup)
+    // Delete video from Supabase storage (auto-cleanup)
     const { error: deleteError } = await supabase.storage
       .from('training-assets')
       .remove([storagePath]);
@@ -238,6 +365,11 @@ serve(async (req) => {
         .eq('id', moduleId);
     }
 
+    // Clean up Gemini file
+    if (geminiFileUri) {
+      await deleteGeminiFile(geminiApiKey, geminiFileUri);
+    }
+
     console.log(`Successfully processed module ${moduleId}: "${title}"`);
 
     return new Response(
@@ -247,6 +379,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error:", error);
+
+    // Clean up Gemini file on error
+    if (geminiFileUri && geminiApiKey) {
+      await deleteGeminiFile(geminiApiKey, geminiFileUri);
+    }
 
     // Try to mark module as failed
     try {
