@@ -66,41 +66,132 @@ Before leaving, every team member states ONE specific, actionable step they will
 EXAMPLE COMMITMENTS:
 - [Provide 2-3 example action commitments specific to the video content]`;
 
-// Strategic framework for leaders
-const LEADER_PROMPT = `Analyze this video and create a comprehensive STRATEGIC LEADERSHIP FRAMEWORK.
+// Training Video Blueprint for leaders
+const LEADER_PROMPT = `You are an elite training content strategist for insurance agency leadership development. Analyze this video and extract a comprehensive TRAINING VIDEO BLUEPRINT that will be used to create professional training modules for the Standard Playbook platform.
 
-MANDATORY RULES:
-1. START immediately with a Markdown Level 1 Headline (#) followed by a descriptive 3-5 word topic name extracted from the video content.
-2. Use Markdown hierarchy throughout.
-3. Focus on high-level strategic insights, not tactical details.
-4. Follow this EXACT structure:
+CRITICAL RULES:
+- Output ONLY the structured content below. No preamble, no "Here's the analysis", no introductory text.
+- Start IMMEDIATELY with the topic line.
+- Be specific and tactical. Extract real techniques, phrases, scripts, and frameworks directly from the video.
+- Write as if creating a production guide for recording a polished training video.
+- Think like a curriculum designer creating content for insurance agency owners and their teams.
 
-# [TOPIC TITLE]
+OUTPUT FORMAT (follow exactly):
 
-## EXECUTIVE SUMMARY
-Provide a 2-3 sentence executive summary of the video's core strategic message.
+TOPIC: [3-7 word compelling training title extracted from video]
 
-## STRATEGIC PILLARS
-Identify 3-5 strategic pillars or principles from this content that drive organizational success.
+CATEGORY: [One of: Sales Mastery | Service Excellence | Leadership | Mindset | Operations | Recruiting | Culture]
 
-## LEADERSHIP FRAMEWORK
-- What mindset shifts must leaders adopt?
-- What behaviors must leaders model?
-- How should leaders communicate this to their teams?
+TARGET AUDIENCE: [Who specifically should watch this: Agency Owners / Sales Team / Service Team / New Hires / Managers]
 
-## IMPLEMENTATION ROADMAP
-### Week 1-2: Foundation
-### Week 3-4: Execution
-### Month 2-3: Scaling
+VIDEO LENGTH RECOMMENDATION: [Suggested duration: 3-5 min / 5-10 min / 10-15 min / 15-20 min]
 
-## KEY PERFORMANCE INDICATORS
-List 3-5 measurable outcomes to track success of implementing this strategy.
+---
 
-## COMMON PITFALLS
-Identify 3-5 mistakes leaders often make when implementing these concepts.
+THE HOOK (First 30 Seconds)
+[Write the exact opening hook - the attention-grabbing statement or question that pulls viewers in. Make it punchy and direct. This should create immediate curiosity or highlight a pain point.]
 
-## COACHING QUESTIONS
-Provide 5-7 powerful questions leaders can use in 1:1s to drive accountability around this topic.`;
+---
+
+CORE TEACHING FRAMEWORK
+
+MAIN CONCEPT: [Title of the primary principle]
+[2-3 sentence explanation of the core idea - what is the ONE big thing they need to understand?]
+
+KEY POINT 1: [Title]
+[Detailed explanation with specific language/scripts from the video. Include exact phrases to use.]
+
+KEY POINT 2: [Title]
+[Detailed explanation with specific language/scripts from the video. Include exact phrases to use.]
+
+KEY POINT 3: [Title]
+[Detailed explanation with specific language/scripts from the video. Include exact phrases to use.]
+
+KEY POINT 4: [Title - if applicable, otherwise omit]
+[Detailed explanation with specific language/scripts from the video.]
+
+---
+
+THE MEMORABLE FRAMEWORK
+[Create or extract a memorable acronym, numbered system, or mental model from the content. Example: "The 3 C's of Closing" or "The 5-Step Objection Handler". Make it sticky and teachable.]
+
+Framework Name: [Name]
+- [Component 1]: [Brief explanation]
+- [Component 2]: [Brief explanation]
+- [Component 3]: [Brief explanation]
+- [Additional components if applicable]
+
+---
+
+STORY/EXAMPLE TO INCLUDE
+[Extract or suggest a specific story, case study, or real-world example that illustrates the concept. Include enough detail that it can be retold in the training video.]
+
+SETUP: [The situation/context]
+CONFLICT: [The problem or challenge faced]
+RESOLUTION: [How it was solved using this principle]
+LESSON: [The takeaway to emphasize]
+
+---
+
+COMMON MISTAKES TO ADDRESS
+[List 2-4 mistakes or misconceptions that viewers likely have. These create "aha moments" in training.]
+
+MISTAKE 1: [What people do wrong]
+WHY IT FAILS: [Brief explanation]
+INSTEAD: [What to do instead]
+
+MISTAKE 2: [What people do wrong]
+WHY IT FAILS: [Brief explanation]
+INSTEAD: [What to do instead]
+
+MISTAKE 3: [What people do wrong - if applicable]
+WHY IT FAILS: [Brief explanation]
+INSTEAD: [What to do instead]
+
+---
+
+QUOTABLE MOMENTS
+[Extract 2-3 powerful one-liners or quotable statements that can be highlighted, used as chapter markers, or pulled for social clips.]
+
+- "[Exact quote or powerful statement 1]"
+- "[Exact quote or powerful statement 2]"
+- "[Exact quote or powerful statement 3]"
+
+---
+
+VISUAL AIDS SUGGESTIONS
+[Recommend 2-4 on-screen graphics, text overlays, or visual elements to include when recording.]
+
+- [Visual suggestion 1 - e.g., "Show the 3-step framework as bullet points"]
+- [Visual suggestion 2 - e.g., "Display the key statistic: X%"]
+- [Visual suggestion 3]
+
+---
+
+CALL TO ACTION
+[Write the specific action viewers should take immediately after watching. Be concrete and measurable.]
+
+PRIMARY CTA: [The main thing they should do]
+ACCOUNTABILITY PROMPT: [A question or commitment they should make]
+
+---
+
+90-DAY IMPLEMENTATION METRIC
+[Define ONE specific, trackable metric that proves this training was implemented. Include a baseline and target.]
+
+METRIC: [What to measure]
+BASELINE: [Starting point or current state]
+TARGET: [Where they should be in 90 days]
+HOW TO TRACK: [Specific tracking method]
+
+---
+
+STANDARD PLAYBOOK PLACEMENT
+[Suggest where this training fits in a curriculum structure]
+
+MODULE SUGGESTION: [e.g., "Sales Foundations" / "Advanced Closing" / "Service Recovery"]
+PREREQUISITE: [What should they watch first, if anything]
+FOLLOW-UP: [What training naturally comes next]`;
 
 // Upload file to Gemini Files API
 async function uploadToGeminiFiles(
