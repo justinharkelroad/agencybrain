@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { LearningCycleReportCard } from "./LearningCycleReportCard";
+import { LeaderBlueprintReportCard } from "./LeaderBlueprintReportCard";
 
 const MAX_FILE_SIZE_MB = 25;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -544,10 +545,10 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => {
-                                  if (module.role === 'community') {
+                                  if (module.role === 'leader') {
                                     setReportCardModule(module);
                                   } else {
-                                    setViewingModule(module);
+                                    setReportCardModule(module);
                                   }
                                 }}
                               >
@@ -592,9 +593,16 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Learning Cycle Report Card Dialog */}
-      {reportCardModule && (
+      {/* Report Card Dialogs */}
+      {reportCardModule && reportCardModule.role === 'community' && (
         <LearningCycleReportCard
+          module={reportCardModule}
+          open={!!reportCardModule}
+          onClose={() => setReportCardModule(null)}
+        />
+      )}
+      {reportCardModule && reportCardModule.role === 'leader' && (
+        <LeaderBlueprintReportCard
           module={reportCardModule}
           open={!!reportCardModule}
           onClose={() => setReportCardModule(null)}
