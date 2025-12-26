@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, RotateCcw, Info, Calculator, TrendingUp, Home, Car, Shield } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ArrowLeft, RotateCcw, Info, Calculator, TrendingUp, Home, Car, Shield, Star, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import {
   DEFAULT_INPUTS,
   DEFAULT_AUTO_HOME_TIERS,
   DEFAULT_SPL_TIERS,
+  IntermediateValues,
+  TierResult,
 } from '@/types/bonus-calculator';
 import {
   computeIntermediateValues,
@@ -25,6 +27,7 @@ import {
   formatPercentage,
   formatNumber,
 } from '@/utils/bonusCalculations';
+import BonusForecastReportCard from './BonusForecastReportCard';
 
 const STORAGE_KEY = 'bonusForecastCalc:inputs';
 
@@ -126,17 +129,19 @@ function PGTargetRow({
   );
 }
 
-// Results grid table
+// Results grid table with emphasized Monthly Items column
 function ResultsGrid({
   title,
   icon: Icon,
   results,
   showGrowth = true,
+  pointsPerItem,
 }: {
   title: string;
   icon: React.ElementType;
-  results: ReturnType<typeof calculateAutoHomeGrid>;
+  results: TierResult[];
   showGrowth?: boolean;
+  pointsPerItem?: number;
 }) {
   if (results.length === 0) {
     return (
@@ -159,10 +164,17 @@ function ResultsGrid({
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Icon className="h-4 w-4" />
-          {title}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Icon className="h-4 w-4" />
+            {title}
+          </CardTitle>
+          {pointsPerItem !== undefined && pointsPerItem > 0 && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {formatNumber(pointsPerItem, 1)} pts/item
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -173,9 +185,15 @@ function ResultsGrid({
                 {showGrowth && <th className="text-right px-3 py-2 font-medium">Growth %</th>}
                 <th className="text-right px-3 py-2 font-medium">Bonus %</th>
                 <th className="text-right px-3 py-2 font-medium">Est. Bonus</th>
-                <th className="text-right px-3 py-2 font-medium">Annual Pts</th>
-                <th className="text-right px-3 py-2 font-medium">Monthly Avg</th>
-                <th className="text-right px-3 py-2 font-medium">Monthly Needed</th>
+                <th className="text-right px-3 py-2 font-medium">Annual Items</th>
+                {/* EMPHASIZED: Monthly Items Needed - THE KEY METRIC */}
+                <th className="text-right px-3 py-2 font-bold bg-amber-500/20 dark:bg-amber-500/10 border-l-2 border-r-2 border-amber-500">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                    Monthly Items
+                  </div>
+                </th>
+                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Remaining/Mo</th>
               </tr>
             </thead>
             <tbody>
@@ -189,9 +207,16 @@ function ResultsGrid({
                   <td className="text-right px-3 py-2 text-green-600 dark:text-green-400 font-medium">
                     {formatCurrency(row.estimatedBonus)}
                   </td>
-                  <td className="text-right px-3 py-2">{formatNumber(row.annualProductionNeeded, 0)}</td>
-                  <td className="text-right px-3 py-2">{formatNumber(row.monthlyPointsNeeded, 0)}</td>
-                  <td className="text-right px-3 py-2 font-medium">{formatNumber(row.remainingMonthlyItems, 0)}</td>
+                  <td className="text-right px-3 py-2">{formatNumber(row.annualItemsNeeded, 0)}</td>
+                  {/* EMPHASIZED CELL: Monthly Items Needed */}
+                  <td className="text-right px-3 py-2 bg-amber-500/20 dark:bg-amber-500/10 border-l-2 border-r-2 border-amber-500">
+                    <span className="font-bold text-amber-700 dark:text-amber-400 text-base">
+                      {formatNumber(row.monthlyItemsNeeded, 1)}
+                    </span>
+                  </td>
+                  <td className="text-right px-3 py-2 text-muted-foreground">
+                    {formatNumber(row.remainingMonthlyItemsCount, 1)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -206,6 +231,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
   const [inputsOpen, setInputsOpen] = useState(true);
   const [targetsOpen, setTargetsOpen] = useState(true);
+  const [showReportCard, setShowReportCard] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -267,6 +293,9 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
   const splResults = useMemo(() => calculateSplGrid(inputs, intermediate), [inputs, intermediate]);
   const combinedResults = useMemo(() => calculateCombinedGrid(autoHomeResults, splResults), [autoHomeResults, splResults]);
 
+  // Check if we have results to export
+  const hasResults = autoHomeResults.length > 0 || splResults.length > 0;
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -279,10 +308,23 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
             <h3 className="text-base font-medium text-muted-foreground">Annual Bonus Forecast Calculator</h3>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleReset} className="gap-1">
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasResults && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowReportCard(true)} 
+              className="gap-1"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleReset} className="gap-1">
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </Button>
+        </div>
       </div>
 
       {/* Input Sections */}
@@ -454,7 +496,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
               <CardContent className="space-y-3">
                 <LabeledInput
                   label="Items Produced YTD"
-                  tooltip="Production so far this year"
+                  tooltip="Production so far this year (in points)"
                   value={inputs.itemsProducedYTD}
                   onChange={(v) => updateInput('itemsProducedYTD', v)}
                 />
@@ -482,47 +524,49 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Intermediate Values Summary */}
+      {/* Intermediate Values Summary - Updated with Items metrics */}
       <Card className="border-blue-500/30 bg-blue-500/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-blue-500" />
-            Calculated Baseline & Losses
+            Calculated Baseline & Points Per Item
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">Auto Points</p>
-              <p className="font-medium">{formatNumber(intermediate.autoPoints)}</p>
+              <p className="text-muted-foreground">Auto+Home Items</p>
+              <p className="font-medium">{formatNumber(intermediate.autoHomeBaselineItems)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Home Points</p>
-              <p className="font-medium">{formatNumber(intermediate.homePoints)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">SPL Points</p>
-              <p className="font-medium">{formatNumber(intermediate.splPoints)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Total A+H Baseline</p>
+              <p className="text-muted-foreground">Auto+Home Points</p>
               <p className="font-medium">{formatNumber(intermediate.totalAutoHomeBaselinePoints)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Auto Point Loss</p>
-              <p className="font-medium text-red-500">-{formatNumber(intermediate.autoPointLoss)}</p>
+              <p className="text-muted-foreground">A+H Pts/Item</p>
+              <p className="font-medium text-blue-600 dark:text-blue-400">
+                {intermediate.autoHomePointsPerItem > 0 ? formatNumber(intermediate.autoHomePointsPerItem, 1) : '—'}
+              </p>
             </div>
             <div>
-              <p className="text-muted-foreground">Home Point Loss</p>
-              <p className="font-medium text-red-500">-{formatNumber(intermediate.homePointLoss)}</p>
+              <p className="text-muted-foreground">A+H Point Loss</p>
+              <p className="font-medium text-red-500">-{formatNumber(intermediate.autoPointLoss + intermediate.homePointLoss)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">SPL Items</p>
+              <p className="font-medium">{formatNumber(intermediate.splBaselineItems)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">SPL Points</p>
+              <p className="font-medium">{formatNumber(intermediate.splBaselinePoints)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">SPL Pts/Item</p>
+              <p className="font-medium text-blue-600 dark:text-blue-400">{formatNumber(intermediate.splPointsPerItem, 1)}</p>
             </div>
             <div>
               <p className="text-muted-foreground">SPL Point Loss</p>
               <p className="font-medium text-red-500">-{formatNumber(intermediate.splPointLoss)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">SPL Baseline</p>
-              <p className="font-medium">{formatNumber(intermediate.splBaselinePoints)}</p>
             </div>
           </div>
         </CardContent>
@@ -584,18 +628,26 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
 
       {/* Output Grids */}
       <div className="space-y-4">
-        <h4 className="font-medium text-foreground">Results</h4>
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-foreground">Results</h4>
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+            <span>Monthly Items = Key Target</span>
+          </div>
+        </div>
         
         <ResultsGrid
-          title="Auto & Home Point Growth"
+          title="Auto & Home Production"
           icon={Car}
           results={autoHomeResults}
+          pointsPerItem={intermediate.autoHomePointsPerItem}
         />
         
         <ResultsGrid
           title="Specialty Product Lines (SPL)"
           icon={Shield}
           results={splResults}
+          pointsPerItem={intermediate.splPointsPerItem}
         />
         
         <ResultsGrid
@@ -603,6 +655,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
           icon={TrendingUp}
           results={combinedResults}
           showGrowth={false}
+          pointsPerItem={intermediate.combinedPointsPerItem}
         />
       </div>
 
@@ -610,6 +663,18 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
       <p className="text-xs text-muted-foreground text-center italic pt-2">
         These are estimates to help guide production goals. Actual bonus calculations may vary.
       </p>
+
+      {/* Report Card Modal */}
+      {showReportCard && (
+        <BonusForecastReportCard
+          inputs={inputs}
+          intermediate={intermediate}
+          autoHomeResults={autoHomeResults}
+          splResults={splResults}
+          combinedResults={combinedResults}
+          onClose={() => setShowReportCard(false)}
+        />
+      )}
     </div>
   );
 }
