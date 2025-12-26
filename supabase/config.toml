@@ -215,3 +215,6 @@ verify_jwt = true
 
 [functions.get_staff_core4_entries]
 verify_jwt = false
+
+[functions.analyze-training-video]
+verify_jwt = true

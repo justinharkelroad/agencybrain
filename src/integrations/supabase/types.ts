@@ -5843,6 +5843,69 @@ export type Database = {
         }
         Relationships: []
       }
+      video_training_modules: {
+        Row: {
+          agency_id: string
+          content: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          role: string
+          status: string | null
+          title: string
+          updated_at: string | null
+          used_in_huddle: boolean | null
+          user_id: string
+          video_deleted_at: string | null
+          video_storage_path: string | null
+        }
+        Insert: {
+          agency_id: string
+          content: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          role: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          used_in_huddle?: boolean | null
+          user_id: string
+          video_deleted_at?: string | null
+          video_storage_path?: string | null
+        }
+        Update: {
+          agency_id?: string
+          content?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          role?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          used_in_huddle?: boolean | null
+          user_id?: string
+          video_deleted_at?: string | null
+          video_storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_training_modules_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_training_modules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       vw_active_kpis: {
