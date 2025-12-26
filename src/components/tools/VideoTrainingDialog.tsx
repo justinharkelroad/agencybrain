@@ -212,8 +212,8 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
 
       setUploadProgress(60);
 
-      // Trigger analysis (fire and forget - don't await)
-      supabase.functions.invoke('analyze-training-video', {
+      // Trigger analysis - await to catch invocation errors
+      const { error: invokeError } = await supabase.functions.invoke('analyze-training-video', {
         body: {
           storagePath,
           moduleId,
@@ -221,9 +221,20 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
           userId: user.id,
           role: userRole === 'admin' ? 'leader' : 'community'
         }
-      }).catch(err => {
-        console.error('Edge function error:', err);
       });
+
+      if (invokeError) {
+        console.error('Edge function invocation error:', invokeError);
+        // Mark module as failed so it doesn't stay pending forever
+        await supabase
+          .from('video_training_modules')
+          .update({ 
+            status: 'failed', 
+            error_message: `Analysis failed to start: ${invokeError.message || 'Edge function error'}` 
+          })
+          .eq('id', moduleId);
+        throw new Error(`Analysis failed to start: ${invokeError.message}`);
+      }
 
       setUploadProgress(100);
       toast.success('Video uploaded! AI analysis in progress...');
@@ -273,22 +284,46 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
 
     await supabase
       .from('video_training_modules')
-      .update({ status: 'pending', error_message: null })
+      .update({ status: 'processing', error_message: null })
       .eq('id', module.id);
 
-    supabase.functions.invoke('analyze-training-video', {
-      body: {
-        storagePath: module.video_storage_path,
-        moduleId: module.id,
-        agencyId,
-        userId: user.id,
-        role: module.role
-      }
-    }).catch(err => {
-      console.error('Retry error:', err);
-    });
+    try {
+      const { error: invokeError } = await supabase.functions.invoke('analyze-training-video', {
+        body: {
+          storagePath: module.video_storage_path,
+          moduleId: module.id,
+          agencyId,
+          userId: user.id,
+          role: module.role
+        }
+      });
 
-    toast.success('Retrying analysis...');
+      if (invokeError) {
+        console.error('Retry invoke error:', invokeError);
+        await supabase
+          .from('video_training_modules')
+          .update({ 
+            status: 'failed', 
+            error_message: `Retry failed: ${invokeError.message || 'Edge function error'}` 
+          })
+          .eq('id', module.id);
+        toast.error('Retry failed - check logs');
+        if (agencyId) await fetchModules(agencyId);
+        return;
+      }
+
+      toast.success('Retrying analysis...');
+    } catch (err: any) {
+      console.error('Retry error:', err);
+      await supabase
+        .from('video_training_modules')
+        .update({ 
+          status: 'failed', 
+          error_message: `Retry failed: ${err.message || 'Unknown error'}` 
+        })
+        .eq('id', module.id);
+      toast.error('Retry failed');
+    }
     if (agencyId) {
       await fetchModules(agencyId);
       pollForCompletion(agencyId, [module.id]);
