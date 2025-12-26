@@ -31,7 +31,7 @@ function buildEmailHtml(posterName: string, messageContent: string, fileName?: s
     
     <div style="background: #fff; padding: 32px; border-radius: 0 0 12px 12px;">
       <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-        Head to "The Exchange" tab to see what was just shared by ${posterName}!
+        Head to "The Exchange" tab to see what was just shared by Justin!
       </p>
       
       <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 24px;">
