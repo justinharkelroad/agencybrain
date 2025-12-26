@@ -7,14 +7,19 @@ import type {
   BonusTierInput 
 } from '@/types/bonus-calculator';
 
+// Point values per item type
+const AUTO_POINTS_PER_ITEM = 10;
+const HOME_POINTS_PER_ITEM = 20;
+const SPL_POINTS_PER_ITEM = 7.5;
+
 /**
- * Compute intermediate values (baseline points and point losses)
+ * Compute intermediate values (baseline points, losses, and items metrics)
  */
 export function computeIntermediateValues(inputs: CalculatorInputs): IntermediateValues {
   // Point calculations (Auto=10pts, Home=20pts, SPL=7.5pts)
-  const autoPoints = inputs.autoItemsInForce * 10;
-  const homePoints = inputs.homeItemsInForce * 20;
-  const splPoints = inputs.splItemsInForce * 7.5;
+  const autoPoints = inputs.autoItemsInForce * AUTO_POINTS_PER_ITEM;
+  const homePoints = inputs.homeItemsInForce * HOME_POINTS_PER_ITEM;
+  const splPoints = inputs.splItemsInForce * SPL_POINTS_PER_ITEM;
   
   const totalAutoHomeBaselinePoints = autoPoints + homePoints;
   const splBaselinePoints = splPoints;
@@ -28,6 +33,25 @@ export function computeIntermediateValues(inputs: CalculatorInputs): Intermediat
   const homePointLoss = homePoints * (1 - homeRetentionDecimal);
   const splPointLoss = splPoints * (1 - splRetentionDecimal);
   
+  // NEW: Baseline items (raw counts)
+  const autoHomeBaselineItems = inputs.autoItemsInForce + inputs.homeItemsInForce;
+  const splBaselineItems = inputs.splItemsInForce;
+  const totalBaselineItems = autoHomeBaselineItems + splBaselineItems;
+  
+  // NEW: Points Per Item calculations (weighted average for Auto+Home)
+  // Formula: Total Points / Total Items
+  const autoHomePointsPerItem = autoHomeBaselineItems > 0 
+    ? totalAutoHomeBaselinePoints / autoHomeBaselineItems 
+    : 0;
+  
+  const splPointsPerItem = SPL_POINTS_PER_ITEM; // Always 7.5
+  
+  // Combined weighted average
+  const totalPoints = totalAutoHomeBaselinePoints + splBaselinePoints;
+  const combinedPointsPerItem = totalBaselineItems > 0 
+    ? totalPoints / totalBaselineItems 
+    : 0;
+  
   return {
     autoPoints,
     homePoints,
@@ -37,6 +61,13 @@ export function computeIntermediateValues(inputs: CalculatorInputs): Intermediat
     autoPointLoss,
     homePointLoss,
     splPointLoss,
+    // NEW fields
+    autoHomeBaselineItems,
+    splBaselineItems,
+    totalBaselineItems,
+    autoHomePointsPerItem,
+    splPointsPerItem,
+    combinedPointsPerItem,
   };
 }
 
@@ -78,7 +109,7 @@ export function calculateSplAnnualProduction(
 }
 
 /**
- * Calculate a single tier row result
+ * Calculate a single tier row result (with items-based metrics)
  */
 export function calculateTierRow(
   pgPointTarget: number,
@@ -87,19 +118,39 @@ export function calculateTierRow(
   annualProductionNeeded: number,
   totalPremium: number,
   itemsProducedYTD: number,
-  currentMonth: number
+  currentMonth: number,
+  pointsPerItem: number
 ): TierResult {
   const growthPercentage = baselinePoints > 0 ? pgPointTarget / baselinePoints : 0;
   const estimatedBonus = totalPremium * bonusPercentage;
   const monthlyPointsNeeded = annualProductionNeeded / 12;
   const remainingMonths = 12 - currentMonth;
   
-  // Calculate remaining monthly items needed
+  // Calculate remaining monthly points needed
   let remainingMonthlyItems: number;
   if (remainingMonths > 0) {
     remainingMonthlyItems = (annualProductionNeeded - itemsProducedYTD) / remainingMonths;
   } else {
     remainingMonthlyItems = monthlyPointsNeeded;
+  }
+  
+  // NEW: Convert points to items
+  const annualItemsNeeded = pointsPerItem > 0 
+    ? annualProductionNeeded / pointsPerItem 
+    : 0;
+  
+  const monthlyItemsNeeded = annualItemsNeeded / 12;
+  
+  // Items needed per remaining month (convert YTD points to items for subtraction)
+  const itemsProducedYTDAsItems = pointsPerItem > 0 
+    ? itemsProducedYTD / pointsPerItem 
+    : 0;
+  
+  let remainingMonthlyItemsCount: number;
+  if (remainingMonths > 0) {
+    remainingMonthlyItemsCount = (annualItemsNeeded - itemsProducedYTDAsItems) / remainingMonths;
+  } else {
+    remainingMonthlyItemsCount = monthlyItemsNeeded;
   }
   
   return {
@@ -110,6 +161,10 @@ export function calculateTierRow(
     annualProductionNeeded,
     monthlyPointsNeeded,
     remainingMonthlyItems: Math.max(0, remainingMonthlyItems),
+    // NEW items-based fields
+    annualItemsNeeded,
+    monthlyItemsNeeded,
+    remainingMonthlyItemsCount: Math.max(0, remainingMonthlyItemsCount),
   };
 }
 
@@ -138,7 +193,8 @@ export function calculateAutoHomeGrid(
         annualProduction,
         inputs.estimatedYearEndPremium,
         inputs.itemsProducedYTD,
-        inputs.currentMonth
+        inputs.currentMonth,
+        intermediate.autoHomePointsPerItem // Pass points per item
       );
     });
 }
@@ -167,7 +223,8 @@ export function calculateSplGrid(
         annualProduction,
         inputs.estimatedYearEndPremium,
         inputs.itemsProducedYTD,
-        inputs.currentMonth
+        inputs.currentMonth,
+        intermediate.splPointsPerItem // Always 7.5
       );
     });
 }
@@ -196,6 +253,10 @@ export function calculateCombinedGrid(
         annualProductionNeeded: ah.annualProductionNeeded + spl.annualProductionNeeded,
         monthlyPointsNeeded: ah.monthlyPointsNeeded + spl.monthlyPointsNeeded,
         remainingMonthlyItems: ah.remainingMonthlyItems + spl.remainingMonthlyItems,
+        // NEW: Sum items-based metrics
+        annualItemsNeeded: ah.annualItemsNeeded + spl.annualItemsNeeded,
+        monthlyItemsNeeded: ah.monthlyItemsNeeded + spl.monthlyItemsNeeded,
+        remainingMonthlyItemsCount: ah.remainingMonthlyItemsCount + spl.remainingMonthlyItemsCount,
       });
     } else if (ah) {
       combined.push({ ...ah });

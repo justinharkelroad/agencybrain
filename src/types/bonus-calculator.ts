@@ -42,9 +42,13 @@ export interface TierResult {
   growthPercentage: number;
   bonusPercentage: number;
   estimatedBonus: number;
-  annualProductionNeeded: number;
-  monthlyPointsNeeded: number;
-  remainingMonthlyItems: number;
+  annualProductionNeeded: number;   // Points
+  monthlyPointsNeeded: number;      // Points (full-year average)
+  remainingMonthlyItems: number;    // Points (remaining months)
+  // NEW: Items-based metrics
+  annualItemsNeeded: number;        // Annual production in ITEMS
+  monthlyItemsNeeded: number;       // Full-year average items/month (THE KEY METRIC)
+  remainingMonthlyItemsCount: number; // Items needed per remaining month
 }
 
 export interface IntermediateValues {
@@ -59,6 +63,16 @@ export interface IntermediateValues {
   autoPointLoss: number;
   homePointLoss: number;
   splPointLoss: number;
+  
+  // NEW: Baseline items (raw item counts)
+  autoHomeBaselineItems: number;    // Auto + Home items count
+  splBaselineItems: number;         // SPL items count
+  totalBaselineItems: number;       // Combined total items
+  
+  // NEW: Points per item ratios
+  autoHomePointsPerItem: number;    // Weighted average for A+H
+  splPointsPerItem: number;         // Always 7.5
+  combinedPointsPerItem: number;    // Weighted for combined view
 }
 
 export interface CombinedTierResult extends TierResult {
