@@ -124,7 +124,7 @@ export function calculateTierRow(
   const growthPercentage = baselinePoints > 0 ? pgPointTarget / baselinePoints : 0;
   const estimatedBonus = totalPremium * bonusPercentage;
   const monthlyPointsNeeded = annualProductionNeeded / 12;
-  const remainingMonths = 12 - currentMonth;
+  const remainingMonths = 13 - currentMonth;
   
   // Calculate remaining monthly points needed
   let remainingMonthlyItems: number;
