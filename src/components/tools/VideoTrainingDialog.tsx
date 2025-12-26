@@ -227,15 +227,15 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
 
       if (invokeError) {
         console.error('Edge function invocation error:', invokeError);
-        // Mark module as failed so it doesn't stay pending forever
+        // Mark module as failed with user-friendly message
         await supabase
           .from('video_training_modules')
           .update({ 
             status: 'failed', 
-            error_message: `Analysis failed to start: ${invokeError.message || 'Edge function error'}` 
+            error_message: 'Video analysis failed. Please try a smaller video (under 25MB) or a different format.' 
           })
           .eq('id', moduleId);
-        throw new Error(`Analysis failed to start: ${invokeError.message}`);
+        throw new Error('Video analysis failed. Please try again.');
       }
 
       setUploadProgress(100);
