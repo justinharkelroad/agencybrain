@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { LearningCycleReportCard } from "./LearningCycleReportCard";
 
 const MAX_FILE_SIZE_MB = 500;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -59,6 +60,7 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
   // Modules state
   const [modules, setModules] = useState<VideoTrainingModule[]>([]);
   const [viewingModule, setViewingModule] = useState<VideoTrainingModule | null>(null);
+  const [reportCardModule, setReportCardModule] = useState<VideoTrainingModule | null>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'upload' | 'vault'>('upload');
@@ -541,7 +543,13 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => setViewingModule(module)}
+                                onClick={() => {
+                                  if (module.role === 'community') {
+                                    setReportCardModule(module);
+                                  } else {
+                                    setViewingModule(module);
+                                  }
+                                }}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -583,6 +591,15 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
           </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      {/* Learning Cycle Report Card Dialog */}
+      {reportCardModule && (
+        <LearningCycleReportCard
+          module={reportCardModule}
+          open={!!reportCardModule}
+          onClose={() => setReportCardModule(null)}
+        />
+      )}
     </div>
   );
 }
