@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, RotateCcw, History, Calculator } from 'lucide-react';
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import {
@@ -53,6 +54,7 @@ const EMPTY_INPUTS: StaffROIInputs = {
   benefits: 0,
   promoPayOuts: 0,
   autoRenewalPeriod: '6months',
+  isEliteAgency: false,
 };
 
 export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
@@ -283,6 +285,25 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
               </InputAffix>
             </div>
           </GridTwoCols>
+          {/* Elite Agency Checkbox */}
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="isEliteAgency"
+              checked={inputs.isEliteAgency}
+              onCheckedChange={(checked) => updateInput('isEliteAgency', checked === true)}
+            />
+            <div className="grid gap-1 leading-none">
+              <label
+                htmlFor="isEliteAgency"
+                className="text-sm font-medium leading-none cursor-pointer"
+              >
+                Elite Agency: Include 2nd VC on first auto renewal
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Uses new business rate for 6-month auto renewal
+              </p>
+            </div>
+          </div>
           <GridTwoCols>
             <div>
               <Label htmlFor="retentionRate">Client Retention Rate (Annual)</Label>
