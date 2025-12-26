@@ -11,8 +11,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const LOGO_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/AGENCYBRAIN%20LOGO.png';
+const EXCHANGE_URL = 'https://agencybrain.io/exchange';
+
 // Helper to build email HTML
-function buildEmailHtml(posterName: string, messageContent: string, postUrl: string, fileName?: string) {
+function buildEmailHtml(posterName: string, messageContent: string, fileName?: string) {
   return `
 <!DOCTYPE html>
 <html>
@@ -22,18 +25,18 @@ function buildEmailHtml(posterName: string, messageContent: string, postUrl: str
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #1e283a 0%, #020817 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-      <h1 style="color: #fff; margin: 0; font-size: 24px;">The Exchange</h1>
+    <div style="background: linear-gradient(135deg, #1e283a 0%, #020817 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: right;">
+      <img src="${LOGO_URL}" alt="AgencyBrain" style="width: 140px; height: auto;" />
     </div>
     
     <div style="background: #fff; padding: 32px; border-radius: 0 0 12px 12px;">
       <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-        <strong>${posterName}</strong> shared something new in The Exchange:
+        Head to "The Exchange" tab to see what was just shared by ${posterName}!
       </p>
       
       <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 24px;">
-        <p style="color: #1f2937; font-size: 15px; line-height: 1.6; margin: 0;">
-          ${messageContent}
+        <p style="color: #1f2937; font-size: 15px; line-height: 1.6; margin: 0; white-space: pre-wrap;">
+${messageContent}
         </p>
       </div>
       
@@ -43,14 +46,25 @@ function buildEmailHtml(posterName: string, messageContent: string, postUrl: str
         </p>
       ` : ''}
       
-      <a href="${postUrl}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">
+      <a href="${EXCHANGE_URL}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">
         View in The Exchange
       </a>
+      
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+        <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0;">
+          Your Friend,
+        </p>
+        <p style="color: #1f2937; font-size: 15px; line-height: 1.6; margin: 8px 0 0 0; font-weight: 600;">
+          Justin E Harkelroad
+        </p>
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.4; margin: 4px 0 0 0;">
+          Standard Playbook & AgencyBrain
+        </p>
+      </div>
     </div>
     
     <div style="text-align: center; padding: 20px;">
-      <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px;">Agency Brain - The Exchange</p>
-      <p style="color: #9ca3af; font-size: 11px; margin: 0;">You're receiving this because you're part of the Agency Brain community.</p>
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">Agency Brain</p>
     </div>
   </div>
 </body>
@@ -70,11 +84,9 @@ serve(async (req) => {
     
     // PREVIEW MODE: Return HTML without sending
     if (preview) {
-      const postUrl = `${APP_URL}/exchange?post=preview`;
       const htmlContent = buildEmailHtml(
-        previewPosterName || 'Agency Brain Admin',
+        previewPosterName || 'Justin',
         message || 'Check out this new content in The Exchange.',
-        postUrl,
         previewAttachmentName
       );
       
@@ -207,12 +219,10 @@ serve(async (req) => {
     console.log(`Sending to ${recipientEmails.length} unique recipients`);
     
     // Build email HTML
-    const postUrl = `${APP_URL}/exchange?post=${post_id}`;
-    const posterName = post.user?.full_name || post.user?.email || 'Agency Brain Admin';
+    const posterName = post.user?.full_name || 'Justin';
     const htmlContent = buildEmailHtml(
       posterName,
       message || post.content_text || 'New content has been shared.',
-      postUrl,
       post.file_name
     );
     
