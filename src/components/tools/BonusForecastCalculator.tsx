@@ -356,6 +356,9 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
           </Card>
 
           {/* Section 2-4: Portfolio Inputs */}
+          <p className="text-center font-bold text-sm text-muted-foreground">
+            👇🏼 Find this data on the "Business Metrics-Agency Printable View" 👇🏼
+          </p>
           <div className="grid md:grid-cols-3 gap-4">
             {/* Auto */}
             <Card className="border-border/50">
