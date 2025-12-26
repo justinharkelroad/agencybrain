@@ -7,38 +7,64 @@ const corsHeaders = {
 };
 
 // Learning Cycle Huddle format for community/standard users
-const COMMUNITY_PROMPT = `Analyze this video and reframe it into 'THE STANDARD PLAYBOOK: LEARNING CYCLE HUDDLE'.
+const COMMUNITY_PROMPT = `You are a training content architect for elite insurance agencies. Analyze this video and create a comprehensive 'LEARNING CYCLE HUDDLE' training framework.
 
-MANDATORY RULES:
-1. START immediately with a Markdown Level 1 Headline (#) followed by a descriptive 3-5 word topic name extracted from the video content.
-2. Use Markdown hierarchy throughout.
-3. Follow this EXACT structure:
+CRITICAL RULES:
+- Output ONLY the structured content below. No preamble, no "Here's the breakdown", no introductory text.
+- Start IMMEDIATELY with the topic name line.
+- Be specific and tactical, not generic. Pull real examples, phrases, and techniques directly from the video.
+- Write for insurance agency team huddles (15-20 minute sessions).
 
-# THE STANDARD PLAYBOOK: LEARNING CYCLE HUDDLE
+OUTPUT FORMAT (follow exactly):
 
-## STEP 1: TRAIN
-Provide the specific core tactical principle from this video. What is the ONE key concept the team needs to understand?
+TOPIC: [3-5 word topic extracted from video]
 
-## STEP 2: TYPE/TEXT
-Create a 3-5 minute writing prompt for team processing. What should they write about to internalize this concept?
+STEP 1: TRAIN (The Knowledge Transfer)
 
-## STEP 3: TALK
-Provide facilitation discussion pointers. What questions should the leader ask to generate discussion?
+KEY CONCEPT 1: [Title]
+[2-3 sentences explaining this concept with specific examples from the video]
 
-## STEP 4: TEACH
-Design a group solidification stand-up task. How can the team demonstrate understanding through action?
+KEY CONCEPT 2: [Title]  
+[2-3 sentences explaining this concept with specific examples from the video]
 
-## VIDEO TRAINING KEY POINTS
-- Provide 5-7 high-impact bullet points summarizing the most valuable insights from this video.
+KEY CONCEPT 3: [Title]
+[2-3 sentences explaining this concept with specific examples from the video. If only 2 concepts are applicable, omit this one.]
 
-## 90-DAY FORMULA GOAL
-Create a specific, trackable metric or goal derived from this content that can be achieved in 90 days.
+CORE TAKEAWAY: [One powerful sentence summarizing the training]
 
-## THE CORE STRATEGY
-Provide an executive-level strategic takeaway. What is the overarching principle leaders should implement?
+STEP 2: TYPE/TEXT (The 2-3 Minute Reflection)
 
-## IMPLEMENTATION STEPS
-- List 3-5 concrete action items to put this training into practice immediately.`;
+INSTRUCTION FOR TEAM:
+[Write a specific 2-3 minute solo writing exercise. Tell them exactly what to write about - be specific to the video content. Example format: "Take 2 minutes and write down..." or "Grab your notebook and answer this question..."]
+
+WHAT THEY'RE CAPTURING:
+[Explain what insights this exercise helps them internalize]
+
+STEP 3: TALK (The Team Discussion)
+
+FACILITATOR OPENS WITH:
+"[Provide the exact opening question the leader should ask to start discussion]"
+
+DISCUSSION FOCUS:
+Each team member shares what they're hearing or seeing for themselves - specifically how this applies to how they operate at the agency. This isn't theory; it's personal application.
+
+FOLLOW-UP QUESTIONS:
+- [Specific follow-up question #1 tied to video content]
+- [Specific follow-up question #2 tied to video content]
+- [Optional question #3 if applicable]
+
+STEP 4: TEACH (The Solidification)
+
+STAND & DELIVER:
+Select one team member to stand and teach back the core concept to the group in their own words. This confirms comprehension and builds confidence.
+
+PROMPT FOR TEACHER: "[Specific prompt for the person teaching back]"
+
+ACTION COMMITMENT:
+Before leaving, every team member states ONE specific, actionable step they will deploy from this training. Not "I'll try to..." but "I will [specific action] by [specific time]."
+
+EXAMPLE COMMITMENTS:
+- [Provide 2-3 example action commitments specific to the video content]`;
 
 // Strategic framework for leaders
 const LEADER_PROMPT = `Analyze this video and create a comprehensive STRATEGIC LEADERSHIP FRAMEWORK.
