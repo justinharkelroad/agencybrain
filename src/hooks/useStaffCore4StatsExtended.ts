@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { startOfWeek, startOfDay, subDays, format, isToday, addDays, isFuture } from 'date-fns';
+import { startOfWeek, startOfDay, subDays, format, isToday, addDays, isFuture, isBefore, isAfter } from 'date-fns';
 
 export type Core4Domain = 'body' | 'being' | 'balance' | 'business';
 
@@ -40,6 +40,7 @@ export interface StaffCore4StatsExtended {
   entries: StaffCore4Entry[];
   loading: boolean;
   toggleDomain: (domain: Core4Domain, date?: Date) => Promise<void>;
+  isDateEditable: (date: Date) => boolean;
   refetch: () => void;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
@@ -110,14 +111,29 @@ export function useStaffCore4StatsExtended(): StaffCore4StatsExtended {
     });
   }, []);
 
+  // Check if a date is editable (within current week, not future)
+  const isDateEditable = useCallback((date: Date): boolean => {
+    const today = startOfDay(new Date());
+    const targetDate = startOfDay(date);
+    
+    // Cannot edit future days
+    if (isAfter(targetDate, today)) return false;
+    
+    // Get current week's Monday (week starts on Monday)
+    const currentWeekMonday = startOfWeek(today, { weekStartsOn: 1 });
+    
+    // Can only edit dates from current week's Monday onwards
+    return !isBefore(targetDate, currentWeekMonday);
+  }, []);
+
   const toggleDomain = useCallback(async (domain: Core4Domain, date?: Date) => {
     if (!user?.id || !sessionToken) return;
 
-    const targetDate = date || new Date();
+    const targetDate = date || selectedDate;
     const dateStr = format(targetDate, 'yyyy-MM-dd');
     
-    // Only allow toggling for today
-    if (!isToday(targetDate)) return;
+    // Validate the date is editable
+    if (!isDateEditable(targetDate)) return;
 
     const existingEntry = entries.find(e => e.date === dateStr);
     const domainKey = `${domain}_completed` as keyof StaffCore4Entry;
@@ -150,7 +166,7 @@ export function useStaffCore4StatsExtended(): StaffCore4StatsExtended {
         headers: {
           'x-staff-session': sessionToken,
         },
-        body: { action: 'toggle', domain },
+        body: { action: 'toggle', domain, date: dateStr },
       });
 
       if (error) throw error;
@@ -169,7 +185,7 @@ export function useStaffCore4StatsExtended(): StaffCore4StatsExtended {
       console.error('Error toggling domain:', err);
       fetchEntries();
     }
-  }, [user?.id, sessionToken, entries, fetchEntries]);
+  }, [user?.id, sessionToken, entries, selectedDate, isDateEditable, fetchEntries]);
 
   const stats = useMemo(() => {
     const today = startOfDay(new Date());
@@ -273,6 +289,7 @@ export function useStaffCore4StatsExtended(): StaffCore4StatsExtended {
     entries,
     loading,
     toggleDomain,
+    isDateEditable,
     refetch: fetchEntries,
     selectedDate,
     setSelectedDate,

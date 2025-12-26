@@ -90,10 +90,12 @@ export default function StaffCore4() {
     entries,
     loading,
     toggleDomain,
+    isDateEditable,
     selectedDate,
     setSelectedDate,
     selectedWeekStart,
     navigateWeek,
+    getEntryForDate,
   } = useStaffCore4StatsExtended();
 
   const flowStats = useStaffFlowStats();
@@ -114,14 +116,28 @@ export default function StaffCore4() {
     }));
   }, [entries]);
 
+  // Check if domain is completed for the selected date
   const isDomainCompleted = (domain: Core4Domain): boolean => {
-    if (!todayEntry) return false;
-    return todayEntry[`${domain}_completed`] as boolean;
+    const entry = getEntryForDate(format(selectedDate, 'yyyy-MM-dd'));
+    if (!entry) return false;
+    return entry[`${domain}_completed`] as boolean;
   };
 
+  // Get points for selected date
+  const selectedDatePoints = useMemo(() => {
+    const entry = getEntryForDate(format(selectedDate, 'yyyy-MM-dd'));
+    if (!entry) return 0;
+    return (entry.body_completed ? 1 : 0) +
+           (entry.being_completed ? 1 : 0) +
+           (entry.balance_completed ? 1 : 0) +
+           (entry.business_completed ? 1 : 0);
+  }, [selectedDate, getEntryForDate]);
+
   const handleToggle = async (domain: Core4Domain) => {
-    await toggleDomain(domain);
+    await toggleDomain(domain, selectedDate);
   };
+
+  const canEdit = isDateEditable(selectedDate);
 
   if (loading) {
     return (
@@ -225,14 +241,14 @@ export default function StaffCore4() {
                 <button
                   key={key}
                   onClick={() => handleToggle(key)}
-                  disabled={!isToday(selectedDate)}
+                  disabled={!canEdit}
                   className={cn(
                     "flex flex-col items-center justify-center gap-3 p-8 rounded-xl transition-all duration-300",
                     "focus:outline-none focus:ring-2 focus:ring-primary/50",
                     completed
                       ? `bg-gradient-to-br ${color} text-white shadow-xl scale-[1.02]`
                       : "bg-muted text-muted-foreground hover:bg-muted/80",
-                    !isToday(selectedDate) && "opacity-50 cursor-not-allowed"
+                    !canEdit && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   <Icon className={cn("h-10 w-10", completed && "text-white")} />
@@ -251,19 +267,21 @@ export default function StaffCore4() {
           <div className="flex flex-col items-center justify-center">
             <div className="text-center space-y-4">
               <div className="text-8xl">
-                {todayPoints === 4 ? '🔥' : '🧘'}
+                {selectedDatePoints === 4 ? '🔥' : '🧘'}
               </div>
               <div>
-                <p className="text-4xl font-bold">{todayPoints}/4</p>
-                <p className="text-muted-foreground">Today's Core 4</p>
+                <p className="text-4xl font-bold">{selectedDatePoints}/4</p>
+                <p className="text-muted-foreground">
+                  {isToday(selectedDate) ? "Today's Core 4" : format(selectedDate, 'MMM d') + ' Core 4'}
+                </p>
               </div>
-              {flowStats.todayCompleted && (
+              {flowStats.todayCompleted && isToday(selectedDate) && (
                 <div className="flex items-center justify-center gap-2 text-cyan-500">
                   <Zap className="h-5 w-5" />
                   <span className="text-sm font-medium">Flow completed today!</span>
                 </div>
               )}
-              {currentStreak > 0 && (
+              {currentStreak > 0 && isToday(selectedDate) && (
                 <div className="flex items-center justify-center gap-2 text-orange-500">
                   <Flame className="h-6 w-6" />
                   <span className="text-xl font-bold">{currentStreak} day streak!</span>
