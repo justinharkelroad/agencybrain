@@ -13,6 +13,7 @@ export interface StaffROIInputs {
   benefits: number; // optional
   promoPayOuts: number; // optional
   autoRenewalPeriod: '6months' | 'annual';
+  isEliteAgency: boolean; // Elite agencies get new business rate on first auto renewal
 }
 
 export interface StaffROIResults {
@@ -69,6 +70,7 @@ export function computeStaffROI(inputs: StaffROIInputs): StaffROIResults {
     benefits,
     promoPayOuts,
     autoRenewalPeriod,
+    isEliteAgency,
   } = inputs;
 
   // Month 1 calculations
@@ -89,9 +91,11 @@ export function computeStaffROI(inputs: StaffROIInputs): StaffROIResults {
   const month1NetProfitLoss = month1TotalRevenue - totalExpenses;
 
   // 6 Month Renewal - auto only decays at sqrt of retention (half year)
+  // Elite agencies get new business rate on first auto renewal (2nd VC)
   const sixMonthRetentionFactor = Math.pow(retentionRate / 100, 0.5);
   const sixMonthAutoRenewalPremium = autoPremium * sixMonthRetentionFactor;
-  const sixMonthAutoRenewalRevenue = sixMonthAutoRenewalPremium * (autoRenewalRate / 100);
+  const sixMonthRenewalCommissionRate = isEliteAgency ? autoCommissionRate : autoRenewalRate;
+  const sixMonthAutoRenewalRevenue = sixMonthAutoRenewalPremium * (sixMonthRenewalCommissionRate / 100);
   const sixMonthNetProfitLoss = month1NetProfitLoss + sixMonthAutoRenewalRevenue;
 
   // Annual Renewal - both auto and home decay at full retention
@@ -160,4 +164,5 @@ export const DEFAULT_STAFF_ROI_INPUTS: StaffROIInputs = {
   benefits: 0,
   promoPayOuts: 0,
   autoRenewalPeriod: 'annual',
+  isEliteAgency: false,
 };
