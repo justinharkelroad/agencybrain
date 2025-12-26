@@ -11,6 +11,52 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to build email HTML
+function buildEmailHtml(posterName: string, messageContent: string, postUrl: string, fileName?: string) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #1e283a 0%, #020817 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+      <h1 style="color: #fff; margin: 0; font-size: 24px;">The Exchange</h1>
+    </div>
+    
+    <div style="background: #fff; padding: 32px; border-radius: 0 0 12px 12px;">
+      <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        <strong>${posterName}</strong> shared something new in The Exchange:
+      </p>
+      
+      <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 24px;">
+        <p style="color: #1f2937; font-size: 15px; line-height: 1.6; margin: 0;">
+          ${messageContent}
+        </p>
+      </div>
+      
+      ${fileName ? `
+        <p style="color: #6b7280; font-size: 14px; margin: 0 0 20px;">
+          📎 Attachment: ${fileName}
+        </p>
+      ` : ''}
+      
+      <a href="${postUrl}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">
+        View in The Exchange
+      </a>
+    </div>
+    
+    <div style="text-align: center; padding: 20px;">
+      <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px;">Agency Brain - The Exchange</p>
+      <p style="color: #9ca3af; font-size: 11px; margin: 0;">You're receiving this because you're part of the Agency Brain community.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -18,10 +64,29 @@ serve(async (req) => {
   }
 
   try {
-    const { post_id, subject, message, audience, include_staff } = await req.json();
+    const { post_id, subject, message, audience, include_staff, preview, posterName: previewPosterName, attachmentName: previewAttachmentName } = await req.json();
     
-    console.log('Send exchange notification request:', { post_id, audience, include_staff });
+    console.log('Send exchange notification request:', { post_id, audience, include_staff, preview });
     
+    // PREVIEW MODE: Return HTML without sending
+    if (preview) {
+      const postUrl = `${APP_URL}/exchange?post=preview`;
+      const htmlContent = buildEmailHtml(
+        previewPosterName || 'Agency Brain Admin',
+        message || 'Check out this new content in The Exchange.',
+        postUrl,
+        previewAttachmentName
+      );
+      
+      console.log('📧 EMAIL PREVIEW MODE - returning HTML');
+      
+      return new Response(htmlContent, {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+      });
+    }
+    
+    // SEND MODE: Validate and send emails
     if (!post_id) {
       return new Response(
         JSON.stringify({ error: 'post_id is required' }), 
@@ -144,49 +209,12 @@ serve(async (req) => {
     // Build email HTML
     const postUrl = `${APP_URL}/exchange?post=${post_id}`;
     const posterName = post.user?.full_name || post.user?.email || 'Agency Brain Admin';
-    
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f4f4f5;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #1e283a 0%, #020817 100%); padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-      <h1 style="color: #fff; margin: 0; font-size: 24px;">The Exchange</h1>
-    </div>
-    
-    <div style="background: #fff; padding: 32px; border-radius: 0 0 12px 12px;">
-      <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-        <strong>${posterName}</strong> shared something new in The Exchange:
-      </p>
-      
-      <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 24px;">
-        <p style="color: #1f2937; font-size: 15px; line-height: 1.6; margin: 0;">
-          ${message || post.content_text || 'New content has been shared.'}
-        </p>
-      </div>
-      
-      ${post.file_name ? `
-        <p style="color: #6b7280; font-size: 14px; margin: 0 0 20px;">
-          📎 Attachment: ${post.file_name}
-        </p>
-      ` : ''}
-      
-      <a href="${postUrl}" style="display: inline-block; background: #2563eb; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 14px;">
-        View in The Exchange
-      </a>
-    </div>
-    
-    <div style="text-align: center; padding: 20px;">
-      <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px;">Agency Brain - The Exchange</p>
-      <p style="color: #9ca3af; font-size: 11px; margin: 0;">You're receiving this because you're part of the Agency Brain community.</p>
-    </div>
-  </div>
-</body>
-</html>`;
+    const htmlContent = buildEmailHtml(
+      posterName,
+      message || post.content_text || 'New content has been shared.',
+      postUrl,
+      post.file_name
+    );
     
     // Send via Resend (batch send)
     const emailBatch = recipientEmails.map(email => ({

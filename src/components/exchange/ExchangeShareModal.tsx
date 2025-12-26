@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, Link2, Image as ImageIcon, Send, Loader2, Mail, Users, Search, X, Lock, Globe } from 'lucide-react';
+import { FileText, Link2, Image as ImageIcon, Send, Loader2, Mail, Users, Search, X, Lock, Globe, Eye } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from 'sonner';
 import { useCreatePost, useExchangeTags, ExchangeVisibility, ExchangeContentType } from '@/hooks/useExchange';
 import { useSendExchangeNotification, EmailAudience } from '@/hooks/useExchangeEmail';
 import { useExchangeUserSearch, ExchangeUser } from '@/hooks/useExchangeUserSearch';
@@ -61,10 +63,42 @@ export function ExchangeShareModal({
   const [emailAudience, setEmailAudience] = useState<EmailAudience>('all');
   const [includeStaff, setIncludeStaff] = useState(false);
   
+  const [previewLoading, setPreviewLoading] = useState(false);
+  
   const { data: tags } = useExchangeTags();
   const createPost = useCreatePost();
   const sendNotification = useSendExchangeNotification();
   const { data: searchResults, isLoading: isSearching } = useExchangeUserSearch(userSearch);
+  
+  // Preview email function
+  const handlePreviewEmail = async () => {
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-exchange-notification', {
+        body: {
+          preview: true,
+          message: emailMessage || content || 'Check out this new content in The Exchange.',
+          posterName: 'Agency Brain Admin',
+          attachmentName: fileName,
+        },
+      });
+      
+      if (error) throw error;
+      
+      // Open HTML in new tab
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      // Clean up blob URL after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      console.error('Preview error:', err);
+      toast.error('Failed to generate preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
   
   const getContentIcon = () => {
     switch (contentType) {
@@ -396,6 +430,23 @@ export function ExchangeShareModal({
                       Also include staff members
                     </Label>
                   </div>
+                  
+                  {/* Preview Email Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviewEmail}
+                    disabled={previewLoading}
+                    className="gap-2"
+                  >
+                    {previewLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                    Preview Email
+                  </Button>
                 </div>
               )}
             </div>
