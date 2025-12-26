@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { LearningCycleReportCard } from "./LearningCycleReportCard";
 import { LeaderBlueprintReportCard } from "./LeaderBlueprintReportCard";
+import { HelpVideoButton } from "@/components/HelpVideoButton";
 
 const MAX_FILE_SIZE_MB = 25;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -389,6 +390,7 @@ export function VideoTrainingDialog({ onBack }: VideoTrainingDialogProps) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h3 className="text-lg font-medium">Video Training Architect</h3>
+        <HelpVideoButton videoKey="video-training-architect" size="sm" />
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'upload' | 'vault')}>

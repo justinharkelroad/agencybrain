@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Pencil, Trash2, Plus, Video } from 'lucide-react';
+import { Pencil, Trash2, Plus, Video, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { HelpVideoModal } from '@/components/HelpVideoModal';
 
 interface HelpVideo {
   id: string;
@@ -154,6 +155,8 @@ export function HelpVideoManager() {
     setDialogOpen(true);
   };
 
+  const [previewVideo, setPreviewVideo] = useState<HelpVideo | null>(null);
+
   if (loading) {
     return (
       <Card>
@@ -214,6 +217,17 @@ export function HelpVideoManager() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    {video.url && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full bg-destructive/20 text-destructive hover:bg-destructive/30 hover:text-destructive"
+                        onClick={() => setPreviewVideo(video)}
+                        title={`Preview: ${video.title}`}
+                      >
+                        <Play className="h-3 w-3" fill="currentColor" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(video)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -296,6 +310,16 @@ export function HelpVideoManager() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {previewVideo && (
+          <HelpVideoModal
+            open={!!previewVideo}
+            onClose={() => setPreviewVideo(null)}
+            title={previewVideo.title}
+            url={previewVideo.url}
+            type={previewVideo.video_type}
+          />
+        )}
       </CardContent>
     </Card>
   );
