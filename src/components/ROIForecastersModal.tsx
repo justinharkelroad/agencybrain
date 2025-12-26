@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users, PhoneForwarded, TrendingUp } from "lucide-react";
+import { BarChart3, Mail, PhoneCall, ArrowLeft, ShieldCheck, Calculator, AlertCircle, ExternalLink, Mic, Brain, Target, Users, PhoneForwarded, TrendingUp, Video } from "lucide-react";
 import BonusForecastCalculator from "@/components/tools/BonusForecastCalculator";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,6 +37,7 @@ import { MailerReportCard } from "@/components/tools/MailerReportCard";
 import { LiveTransferReportCard } from "@/components/tools/LiveTransferReportCard";
 import { useNavigate } from "react-router-dom";
 import { CallEfficiencyTool } from "@/components/tools/CallEfficiencyTool";
+import { VideoTrainingDialog } from "@/components/tools/VideoTrainingDialog";
 import { HelpVideoButton } from "@/components/HelpVideoButton";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -293,6 +294,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             )}
           </CardContent>
         </Card>
+        <Card
+          className={cardBase}
+          role="button"
+          onClick={() => onPick("video_training")}
+          aria-label="Open Video Training Architect"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" /> Video Training Architect
+            </CardTitle>
+            <CardDescription>Upload training videos and generate Learning Cycle Huddle frameworks with AI</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {last === "video_training" && (
+              <span className="text-xs text-muted-foreground">Last used</span>
+            )}
+          </CardContent>
+        </Card>
       </div>
       
       {/* Upgrade Dialog for Restricted Access */}
@@ -316,7 +335,7 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency" | "bonus_forecast";
+type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency" | "bonus_forecast" | "video_training";
 
 export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
@@ -381,6 +400,11 @@ export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalP
         {mode === "bonus_forecast" && (
           <div className="animate-enter">
             <BonusForecastCalculator onBack={() => setMode(null)} />
+          </div>
+        )}
+        {mode === "video_training" && (
+          <div className="animate-enter">
+            <VideoTrainingDialog onBack={() => setMode(null)} />
           </div>
         )}
       </DialogContent>
