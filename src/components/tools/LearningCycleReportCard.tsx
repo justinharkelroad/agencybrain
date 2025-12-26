@@ -517,13 +517,6 @@ export function LearningCycleReportCard({ module, open, onClose }: LearningCycle
               </div>
             </div>
 
-            {/* Arrow: Teach → Train (completing the cycle) */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <svg width="120" height="50" viewBox="0 0 120 50" fill="none">
-                <path d="M 20 45 Q 20 25 40 15 Q 60 5 80 5 Q 100 5 100 5" stroke={COLORS.train} strokeWidth="2" strokeDasharray="4 4" fill="none" />
-                <path d="M 95 0 L 105 5 L 95 10" stroke={COLORS.train} strokeWidth="2" fill="none" />
-              </svg>
-            </div>
 
             {/* Center Cycle Label */}
             <div style={{ 
