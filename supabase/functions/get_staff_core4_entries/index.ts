@@ -96,14 +96,47 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Accept date from request or default to today
+      let targetDate = body.date as string;
       const today = new Date().toISOString().split('T')[0];
+      
+      if (!targetDate) {
+        targetDate = today;
+      }
+      
+      // Validate the date is within the current week (Mon-Sun) and not in the future
+      const targetDateObj = new Date(targetDate + 'T00:00:00Z');
+      const todayObj = new Date(today + 'T00:00:00Z');
+      
+      // Cannot edit future days
+      if (targetDateObj > todayObj) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot edit future dates' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Get current week's Monday (week starts on Monday)
+      const dayOfWeek = todayObj.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const currentWeekMonday = new Date(todayObj);
+      currentWeekMonday.setUTCDate(todayObj.getUTCDate() - daysFromMonday);
+      
+      // Cannot edit days before current week's Monday
+      if (targetDateObj < currentWeekMonday) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot edit dates before current week' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const domainKey = `${domain}_completed`;
 
       const { data: existingEntry, error: fetchError } = await supabase
         .from('staff_core4_entries')
         .select('*')
         .eq('staff_user_id', staffUserId)
-        .eq('date', today)
+        .eq('date', targetDate)
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -129,7 +162,7 @@ Deno.serve(async (req) => {
           .from('staff_core4_entries')
           .insert({
             staff_user_id: staffUserId,
-            date: today,
+            date: targetDate,
             [domainKey]: true,
           })
           .select()

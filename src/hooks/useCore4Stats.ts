@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
-import { startOfWeek, startOfDay, subDays, format, isToday, parseISO, isSameDay, addDays } from 'date-fns';
+import { startOfWeek, startOfDay, subDays, format, isToday, parseISO, isSameDay, addDays, isBefore, isAfter } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 
 export type Core4Domain = 'body' | 'being' | 'balance' | 'business';
@@ -41,7 +41,8 @@ export interface Core4Stats {
   weeklyActivity: WeekDay[];
   entries: Core4Entry[];
   loading: boolean;
-  toggleDomain: (domain: Core4Domain) => Promise<void>;
+  toggleDomain: (domain: Core4Domain, date?: Date) => Promise<void>;
+  isDateEditable: (date: Date) => boolean;
   refetch: () => void;
   selectedDate: Date;
   setSelectedDate: (date: Date) => void;
@@ -106,25 +107,45 @@ export function useCore4Stats(): Core4Stats {
     );
   };
 
-  // Toggle a domain for today
-  const toggleDomain = useCallback(async (domain: Core4Domain) => {
+  // Check if a date is editable (within current week, not future)
+  const isDateEditable = useCallback((date: Date): boolean => {
+    const today = startOfDay(new Date());
+    const targetDate = startOfDay(date);
+    
+    // Cannot edit future days
+    if (isAfter(targetDate, today)) return false;
+    
+    // Get current week's Monday (week starts on Monday)
+    const currentWeekMonday = startOfWeek(today, { weekStartsOn: 1 });
+    
+    // Can only edit dates from current week's Monday onwards
+    return !isBefore(targetDate, currentWeekMonday);
+  }, []);
+
+  // Toggle a domain for a specific date (defaults to selectedDate)
+  const toggleDomain = useCallback(async (domain: Core4Domain, date?: Date) => {
     if (!user?.id) return;
 
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const existingEntry = entries.find(e => e.date === todayStr);
+    const targetDate = date || selectedDate;
+    
+    // Validate the date is editable
+    if (!isDateEditable(targetDate)) return;
+
+    const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+    const existingEntry = entries.find(e => e.date === targetDateStr);
     const domainKey = `${domain}_completed` as keyof Core4Entry;
     const newValue = existingEntry ? !existingEntry[domainKey] : true;
 
     // Optimistic update
     if (existingEntry) {
       setEntries(prev => prev.map(e => 
-        e.date === todayStr ? { ...e, [domainKey]: newValue } : e
+        e.date === targetDateStr ? { ...e, [domainKey]: newValue } : e
       ));
     } else {
       const newEntry: Core4Entry = {
         id: 'temp-' + Date.now(),
         user_id: user.id,
-        date: todayStr,
+        date: targetDateStr,
         body_completed: domain === 'body',
         being_completed: domain === 'being',
         balance_completed: domain === 'balance',
@@ -152,7 +173,7 @@ export function useCore4Stats(): Core4Stats {
           .from('core4_entries')
           .insert({
             user_id: user.id,
-            date: todayStr,
+            date: targetDateStr,
             [domainKey]: true,
           })
           .select()
@@ -163,7 +184,7 @@ export function useCore4Stats(): Core4Stats {
         // Replace temp entry with real one
         if (data) {
           setEntries(prev => prev.map(e => 
-            e.id.startsWith('temp-') && e.date === todayStr ? data : e
+            e.id.startsWith('temp-') && e.date === targetDateStr ? data : e
           ));
         }
       }
@@ -175,7 +196,7 @@ export function useCore4Stats(): Core4Stats {
       // Revert on error
       fetchEntries();
     }
-  }, [user?.id, entries, fetchEntries, queryClient]);
+  }, [user?.id, entries, selectedDate, isDateEditable, fetchEntries, queryClient]);
 
   // Navigate weeks
   const navigateWeek = useCallback((direction: 'prev' | 'next') => {
@@ -293,6 +314,7 @@ export function useCore4Stats(): Core4Stats {
     entries,
     loading,
     toggleDomain,
+    isDateEditable,
     refetch: fetchEntries,
     selectedDate,
     setSelectedDate,
