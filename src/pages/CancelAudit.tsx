@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileWarning, BarChart3, Loader2 } from "lucide-react";
+import { Upload, BarChart3, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
+import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilterBar";
+import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditRecordCard";
+import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
+import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
+import { useCancelAuditRecords } from "@/hooks/useCancelAuditRecords";
 import { useToast } from "@/hooks/use-toast";
+import { ReportType } from "@/types/cancel-audit";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -22,6 +29,46 @@ const CancelAuditPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [staffMemberId, setStaffMemberId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('Unknown User');
+
+  // Filter and UI state
+  const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added'>('urgency');
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch records
+  const { data: records, isLoading: recordsLoading, refetch } = useCancelAuditRecords({
+    agencyId,
+    reportTypeFilter,
+    searchQuery: debouncedSearch,
+    sortBy,
+  });
+
+  // Calculate counts for filter tabs (based on all records, ignoring current filter)
+  const { data: allRecords } = useCancelAuditRecords({
+    agencyId,
+    reportTypeFilter: 'all',
+    searchQuery: debouncedSearch,
+    sortBy: 'urgency',
+  });
+
+  const filterCounts = useMemo(() => {
+    const all = allRecords || [];
+    return {
+      all: all.length,
+      pending_cancel: all.filter(r => r.report_type === 'pending_cancel').length,
+      cancellation: all.filter(r => r.report_type === 'cancellation').length,
+    };
+  }, [allRecords]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -94,13 +141,24 @@ const CancelAuditPage = () => {
     checkAccess();
   }, [user, membershipTier, authLoading, navigate, toast]);
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = useCallback(() => {
     toast({
       title: "Upload Complete",
       description: "Records have been processed successfully",
     });
-    // Future: refresh records list
-  };
+    // Invalidate and refetch records
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+  }, [toast, queryClient]);
+
+  const handleToggleExpand = useCallback((recordId: string) => {
+    setExpandedRecordId(prev => prev === recordId ? null : recordId);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setReportTypeFilter('all');
+    setSearchQuery('');
+    setDebouncedSearch('');
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -113,6 +171,10 @@ const CancelAuditPage = () => {
   if (!hasAccess) {
     return null;
   }
+
+  const hasRecords = (allRecords?.length || 0) > 0;
+  const hasFilteredRecords = (records?.length || 0) > 0;
+  const isFiltering = reportTypeFilter !== 'all' || debouncedSearch.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -146,38 +208,49 @@ const CancelAuditPage = () => {
         </Card>
       </div>
 
-      {/* Filter Bar - Placeholder */}
-      <div className="container mx-auto px-4">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-            <Button variant="ghost" size="sm" className="rounded-md">All</Button>
-            <Button variant="ghost" size="sm" className="rounded-md">Pending Cancel</Button>
-            <Button variant="ghost" size="sm" className="rounded-md">Cancelled</Button>
-          </div>
-          <div className="flex-1" />
-          <Input 
-            placeholder="Search by name or policy..." 
-            className="max-w-xs"
-            disabled
-          />
-        </div>
-      </div>
-
-      {/* Empty State */}
+      {/* Main Content */}
       <div className="container mx-auto px-4 pb-12">
-        <Card className="p-12 bg-card border-border border-dashed">
-          <div className="text-center">
-            <FileWarning className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No records yet</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Upload your first Cancellation Audit or Pending Cancel report to start tracking and managing at-risk policies.
-            </p>
-            <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              Upload Your First Report
-            </Button>
+        {hasRecords ? (
+          <div className="space-y-6">
+            {/* Filter Bar */}
+            <CancelAuditFilterBar
+              reportTypeFilter={reportTypeFilter}
+              onReportTypeFilterChange={setReportTypeFilter}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              sortBy={sortBy}
+              onSortByChange={setSortBy}
+              counts={filterCounts}
+              isLoading={recordsLoading}
+            />
+
+            {/* Records List */}
+            {recordsLoading ? (
+              <CancelAuditRecordSkeletonList count={5} />
+            ) : hasFilteredRecords ? (
+              <div className="space-y-3">
+                {records?.map((record) => (
+                  <CancelAuditRecordCard
+                    key={record.id}
+                    record={record}
+                    isExpanded={expandedRecordId === record.id}
+                    onToggleExpand={() => handleToggleExpand(record.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <CancelAuditEmptyState
+                variant="no-results"
+                onClearFilters={handleClearFilters}
+              />
+            )}
           </div>
-        </Card>
+        ) : (
+          <CancelAuditEmptyState
+            variant="no-records"
+            onUploadClick={() => setUploadModalOpen(true)}
+          />
+        )}
       </div>
 
       {/* Upload Modal */}
