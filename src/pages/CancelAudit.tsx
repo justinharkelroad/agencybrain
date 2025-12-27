@@ -6,12 +6,22 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
+import { useToast } from "@/hooks/use-toast";
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  
+  // Agency context
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [staffMemberId, setStaffMemberId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('Unknown User');
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -27,18 +37,54 @@ const CancelAuditPage = () => {
       const tierLower = membershipTier?.toLowerCase() || '';
       const hasTierAccess = validTiers.some(t => tierLower.includes(t));
 
-      if (!hasTierAccess) {
-        // Also check if user is admin
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile?.role !== 'admin') {
-          navigate("/dashboard");
-          return;
+      // Get user profile and agency info
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, agency_id, full_name, email')
+        .eq('id', user.id)
+        .single();
+
+      if (!hasTierAccess && profile?.role !== 'admin') {
+        navigate("/dashboard");
+        return;
+      }
+
+      // Set agency context
+      const userAgencyId = profile?.agency_id || user.user_metadata?.staff_agency_id;
+      
+      if (!userAgencyId) {
+        toast({
+          title: "Error",
+          description: "No agency associated with your account",
+          variant: "destructive",
+        });
+        navigate("/dashboard");
+        return;
+      }
+
+      setAgencyId(userAgencyId);
+      
+      // Check if staff portal user
+      const staffAgencyId = user.user_metadata?.staff_agency_id;
+      if (staffAgencyId) {
+        // Staff portal user - get staff member info
+        const staffMemberIdFromMeta = user.user_metadata?.staff_member_id;
+        if (staffMemberIdFromMeta) {
+          const { data: staffMember } = await supabase
+            .from('team_members')
+            .select('id, name')
+            .eq('id', staffMemberIdFromMeta)
+            .single();
+          
+          if (staffMember) {
+            setStaffMemberId(staffMember.id);
+            setDisplayName(staffMember.name);
+          }
         }
+      } else {
+        // Regular auth user
+        setUserId(user.id);
+        setDisplayName(profile?.full_name || profile?.email || user.email || 'Unknown User');
       }
 
       setHasAccess(true);
@@ -46,7 +92,15 @@ const CancelAuditPage = () => {
     };
 
     checkAccess();
-  }, [user, membershipTier, authLoading, navigate]);
+  }, [user, membershipTier, authLoading, navigate, toast]);
+
+  const handleUploadComplete = () => {
+    toast({
+      title: "Upload Complete",
+      description: "Records have been processed successfully",
+    });
+    // Future: refresh records list
+  };
 
   if (authLoading || loading) {
     return (
@@ -72,8 +126,7 @@ const CancelAuditPage = () => {
                 Track and manage cancellation and pending cancel reports
               </p>
             </div>
-            {/* Upload button will go here in Phase 2 */}
-            <Button disabled className="gap-2">
+            <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
               <Upload className="h-4 w-4" />
               Upload Report
             </Button>
@@ -119,13 +172,26 @@ const CancelAuditPage = () => {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Upload your first Cancellation Audit or Pending Cancel report to start tracking and managing at-risk policies.
             </p>
-            <Button disabled className="gap-2">
+            <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
               <Upload className="h-4 w-4" />
               Upload Your First Report
             </Button>
           </div>
         </Card>
       </div>
+
+      {/* Upload Modal */}
+      {agencyId && (
+        <CancelAuditUploadModal
+          open={uploadModalOpen}
+          onOpenChange={setUploadModalOpen}
+          agencyId={agencyId}
+          userId={userId}
+          staffMemberId={staffMemberId}
+          displayName={displayName}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
     </div>
   );
 };
