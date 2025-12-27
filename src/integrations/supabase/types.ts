@@ -6518,6 +6518,7 @@ export type Database = {
         | "Call Scoring 30"
         | "Call Scoring 50"
         | "Call Scoring 100"
+        | "Inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -6657,6 +6658,7 @@ export const Constants = {
         "Call Scoring 30",
         "Call Scoring 50",
         "Call Scoring 100",
+        "Inactive",
       ],
     },
   },

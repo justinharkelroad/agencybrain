@@ -33,10 +33,10 @@ export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOw
     return <Navigate to="/dashboard" />;
   }
 
-  // For non-admin users, check if tier is pending (NULL)
+  // For non-admin users, check if tier is pending (NULL) or inactive
   // Admins and key employees should always have access regardless of tier
   // Key employees inherit access from their agency owner
-  if (!isAdmin && !isKeyEmployee && !membershipTier) {
+  if (!isAdmin && !isKeyEmployee && (!membershipTier || membershipTier === 'Inactive')) {
     return <PendingActivationGuard>{children}</PendingActivationGuard>;
   }
 
