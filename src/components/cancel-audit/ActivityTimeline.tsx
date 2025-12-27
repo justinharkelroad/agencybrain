@@ -116,6 +116,15 @@ function ActivityItem({
   );
 }
 
+// Only these activity types count as actual contact attempts
+const CONTACT_ACTIVITY_TYPES: ActivityType[] = [
+  'attempted_call',
+  'voicemail_left',
+  'text_sent',
+  'email_sent',
+  'spoke_with_client',
+];
+
 export function ActivityTimeline({
   activities,
   isLoading = false,
@@ -124,6 +133,13 @@ export function ActivityTimeline({
 }: ActivityTimelineProps) {
   const groupedActivities = useMemo(() => {
     return groupActivitiesByDate(activities);
+  }, [activities]);
+
+  // Count only actual contact attempts (not notes, payments, promises)
+  const contactCount = useMemo(() => {
+    return activities.filter(a => 
+      CONTACT_ACTIVITY_TYPES.includes(a.activity_type as ActivityType)
+    ).length;
   }, [activities]);
 
   if (isLoading) {
@@ -161,7 +177,7 @@ export function ActivityTimeline({
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-muted-foreground">Activity History</h4>
         <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-          {activities.length} {activities.length === 1 ? 'contact' : 'contacts'}
+          {contactCount} {contactCount === 1 ? 'contact' : 'contacts'}
         </span>
       </div>
 

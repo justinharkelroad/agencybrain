@@ -83,8 +83,9 @@ export function QuickActions({
   const logActivity = useLogActivity();
 
   const handleLogActivity = async (activityType: ActivityType, notes?: string) => {
-    if (activityType === 'note' && !showNoteInput) {
-      setShowNoteInput(true);
+    // Note button only toggles the input visibility
+    if (activityType === 'note') {
+      setShowNoteInput(!showNoteInput);
       return;
     }
 
@@ -115,7 +116,6 @@ export function QuickActions({
         toast.success('Activity logged');
       }
 
-      setShowNoteInput(false);
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', {
@@ -126,8 +126,37 @@ export function QuickActions({
     }
   };
 
-  const handleSaveNote = (note: string) => {
-    handleLogActivity('note', note);
+  const handleSaveNote = async (noteText: string) => {
+    // Don't log empty notes
+    if (!noteText.trim()) {
+      setShowNoteInput(false);
+      return;
+    }
+
+    setLoadingAction('note');
+
+    try {
+      await logActivity.mutateAsync({
+        agencyId,
+        recordId: record.id,
+        householdKey: record.household_key,
+        activityType: 'note',
+        notes: noteText.trim(),
+        userId,
+        staffMemberId,
+        userDisplayName,
+      });
+
+      toast.success('Note saved');
+      setShowNoteInput(false);
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to save note', {
+        description: error.message || 'Please try again',
+      });
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   return (
