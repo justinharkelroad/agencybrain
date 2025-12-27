@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, BarChart3, Loader2 } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
@@ -10,6 +9,7 @@ import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilte
 import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditRecordCard";
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
+import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
 import { useCancelAuditRecords } from "@/hooks/useCancelAuditRecords";
 import { useToast } from "@/hooks/use-toast";
 import { ReportType } from "@/types/cancel-audit";
@@ -36,6 +36,7 @@ const CancelAuditPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added'>('urgency');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // Debounce search input
   useEffect(() => {
@@ -146,8 +147,9 @@ const CancelAuditPage = () => {
       title: "Upload Complete",
       description: "Records have been processed successfully",
     });
-    // Invalidate and refetch records
+    // Invalidate and refetch records + stats
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
   }, [toast, queryClient]);
 
   const handleToggleExpand = useCallback((recordId: string) => {
@@ -196,17 +198,16 @@ const CancelAuditPage = () => {
         </div>
       </div>
 
-      {/* Weekly Stats Summary - Placeholder */}
-      <div className="container mx-auto px-4 py-6">
-        <Card className="p-6 bg-card border-border">
-          <div className="flex items-center justify-center h-24 text-muted-foreground">
-            <div className="text-center">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>Weekly summary will appear here once you upload reports</p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {/* Weekly Stats Summary */}
+      {agencyId && (
+        <div className="container mx-auto px-4 py-6">
+          <WeeklyStatsSummary
+            agencyId={agencyId}
+            weekOffset={weekOffset}
+            onWeekChange={setWeekOffset}
+          />
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-12">

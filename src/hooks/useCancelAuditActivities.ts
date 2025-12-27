@@ -87,6 +87,7 @@ export function useLogActivity() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.householdKey] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
     },
   });
 }
@@ -147,6 +148,7 @@ export function useUpdateRecordStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
     },
   });
 }
