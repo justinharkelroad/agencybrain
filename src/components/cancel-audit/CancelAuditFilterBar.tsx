@@ -1,6 +1,7 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, CircleDot } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
 import {
   Select,
   SelectContent,
@@ -9,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { ReportType } from '@/types/cancel-audit';
+import { ReportType, RecordStatus } from '@/types/cancel-audit';
 
 interface FilterCounts {
   all: number;
@@ -26,6 +27,11 @@ interface CancelAuditFilterBarProps {
   onSortByChange: (sort: 'urgency' | 'name' | 'date_added') => void;
   counts: FilterCounts;
   isLoading?: boolean;
+  statusFilter: RecordStatus | 'all';
+  onStatusFilterChange: (status: RecordStatus | 'all') => void;
+  showUntouchedOnly: boolean;
+  onShowUntouchedOnlyChange: (show: boolean) => void;
+  untouchedCount: number;
 }
 
 export function CancelAuditFilterBar({
@@ -37,6 +43,11 @@ export function CancelAuditFilterBar({
   onSortByChange,
   counts,
   isLoading = false,
+  statusFilter,
+  onStatusFilterChange,
+  showUntouchedOnly,
+  onShowUntouchedOnlyChange,
+  untouchedCount,
 }: CancelAuditFilterBarProps) {
   const filterTabs: { value: ReportType | 'all'; label: string; count: number }[] = [
     { value: 'all', label: 'All', count: counts.all },
@@ -77,6 +88,45 @@ export function CancelAuditFilterBar({
         </div>
 
         <div className="flex-1" />
+
+        {/* Untouched toggle */}
+        <Toggle
+          pressed={showUntouchedOnly}
+          onPressedChange={onShowUntouchedOnlyChange}
+          size="sm"
+          variant="outline"
+          className={cn(
+            'gap-1.5',
+            showUntouchedOnly && 'bg-orange-500/10 text-orange-400 border-orange-500/30'
+          )}
+        >
+          <CircleDot className="h-3.5 w-3.5" />
+          Untouched
+          {untouchedCount > 0 && (
+            <span className={cn(
+              'ml-1 px-1.5 py-0.5 rounded text-xs',
+              showUntouchedOnly 
+                ? 'bg-orange-500/20 text-orange-400' 
+                : 'bg-muted-foreground/10'
+            )}>
+              {untouchedCount}
+            </span>
+          )}
+        </Toggle>
+
+        {/* Status filter dropdown */}
+        <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as RecordStatus | 'all')}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="new">New</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="resolved">Resolved</SelectItem>
+            <SelectItem value="lost">Lost</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Sort dropdown */}
         <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
