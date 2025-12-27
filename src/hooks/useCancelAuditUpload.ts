@@ -112,13 +112,17 @@ export function useCancelAuditUpload() {
       }
 
       // 3. Update upload record with final counts
-      await supabase
+      const { error: updateError } = await supabase
         .from('cancel_audit_uploads')
         .update({
           records_created: recordsCreated,
           records_updated: recordsUpdated,
         })
         .eq('id', uploadId);
+
+      if (updateError) {
+        console.error('Failed to update upload record counts:', updateError);
+      }
 
       return {
         success: errors.length === 0,
