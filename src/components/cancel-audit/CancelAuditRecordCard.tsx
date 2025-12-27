@@ -146,8 +146,14 @@ export function CancelAuditRecordCard({
                 {record.insured_email ? (
                     <a 
                       href={`mailto:${record.insured_email}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-primary hover:underline break-all"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `mailto:${record.insured_email}`;
+                        e.preventDefault();
+                      }}
                     >
                       {record.insured_email}
                     </a>
