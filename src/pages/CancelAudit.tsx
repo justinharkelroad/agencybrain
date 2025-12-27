@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
 import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilterBar";
@@ -23,6 +24,8 @@ import { toast } from "sonner";
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
+  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated } = useStaffAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast: showToast } = useToast();
   const queryClient = useQueryClient();
@@ -133,10 +136,30 @@ const CancelAuditPage = () => {
 
   useEffect(() => {
     const checkAccess = async () => {
-      if (authLoading) return;
+      // Wait for both auth systems to finish loading
+      if (authLoading || staffLoading) return;
       
+      // Determine if this is a staff portal context
+      const isStaffRoute = location.pathname.startsWith('/staff');
+      
+      // Staff portal user
+      if (isStaffRoute && isStaffAuthenticated && staffUser) {
+        setAgencyId(staffUser.agency_id);
+        setStaffMemberId(staffUser.team_member_id);
+        setDisplayName(staffUser.team_member_name || staffUser.display_name || staffUser.username);
+        setHasAccess(true);
+        setLoading(false);
+        return;
+      }
+      
+      // Regular user (owner/admin)
       if (!user) {
-        navigate("/auth");
+        // If on staff route but not staff authenticated, redirect to staff login
+        if (isStaffRoute) {
+          navigate("/staff/login");
+        } else {
+          navigate("/auth");
+        }
         return;
       }
 
@@ -172,7 +195,7 @@ const CancelAuditPage = () => {
 
       setAgencyId(userAgencyId);
       
-      // Check if staff portal user
+      // Check if staff portal user via regular auth (legacy support)
       const staffAgencyId = user.user_metadata?.staff_agency_id;
       if (staffAgencyId) {
         // Staff portal user - get staff member info
@@ -200,7 +223,7 @@ const CancelAuditPage = () => {
     };
 
     checkAccess();
-  }, [user, membershipTier, authLoading, navigate, showToast]);
+  }, [user, membershipTier, authLoading, staffUser, staffLoading, isStaffAuthenticated, location.pathname, navigate, showToast]);
 
   const handleUploadComplete = useCallback(() => {
     showToast({
