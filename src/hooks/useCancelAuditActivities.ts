@@ -35,13 +35,32 @@ export function useLogActivity() {
 
       if (error) throw error;
 
-      // Update ALL records for this household that are still 'new'
-      await supabase
-        .from('cancel_audit_records')
-        .update({ status: 'in_progress' })
-        .eq('agency_id', params.agencyId)
-        .eq('household_key', params.householdKey)
-        .eq('status', 'new');
+      // Determine what status to set based on activity type
+      if (params.activityType === 'payment_made') {
+        // Payment made = resolved (all household policies - they paid!)
+        await supabase
+          .from('cancel_audit_records')
+          .update({ status: 'resolved', updated_at: new Date().toISOString() })
+          .eq('agency_id', params.agencyId)
+          .eq('household_key', params.householdKey);
+      } else if (params.activityType === 'payment_promised') {
+        // Payment promised = in_progress (follow up needed)
+        await supabase
+          .from('cancel_audit_records')
+          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .eq('agency_id', params.agencyId)
+          .eq('household_key', params.householdKey)
+          .in('status', ['new']);
+      } else if (['attempted_call', 'voicemail_left', 'text_sent', 'email_sent', 'spoke_with_client'].includes(params.activityType)) {
+        // Contact attempts = in_progress (only if currently 'new')
+        await supabase
+          .from('cancel_audit_records')
+          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .eq('agency_id', params.agencyId)
+          .eq('household_key', params.householdKey)
+          .eq('status', 'new');
+      }
+      // 'note' activity doesn't change status
 
       return data;
     },
@@ -89,6 +108,7 @@ export function useLogActivity() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.householdKey] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
     },
   });
 }
