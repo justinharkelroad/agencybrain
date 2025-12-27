@@ -289,6 +289,7 @@ const CancelAuditPage = () => {
               {agencyId && stats && (
                 <ExportButton
                   agencyId={agencyId}
+                  viewMode={viewMode}
                   reportTypeFilter={reportTypeFilter}
                   searchQuery={debouncedSearch}
                   weekStart={stats.weekStart}
