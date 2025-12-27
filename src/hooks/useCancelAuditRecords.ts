@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CancelAuditRecord, ReportType } from '@/types/cancel-audit';
-import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
+import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 export type ViewMode = 'needs_attention' | 'all';
 
@@ -27,7 +27,7 @@ export function useCancelAuditRecords({
   searchQuery,
   sortBy
 }: UseCancelAuditRecordsOptions) {
-  const staffSession = getStaffSession();
+  const staffSessionToken = getStaffSessionToken();
 
   return useQuery({
     queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy],
@@ -35,7 +35,7 @@ export function useCancelAuditRecords({
       if (!agencyId) return [];
 
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         const data = await callCancelAuditApi({
           operation: "get_records",
           params: {
@@ -44,7 +44,7 @@ export function useCancelAuditRecords({
             searchQuery,
             sortBy,
           },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
         return data as RecordWithActivityCount[];
       }

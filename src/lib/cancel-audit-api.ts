@@ -18,30 +18,18 @@ export async function callCancelAuditApi({ operation, params, sessionToken }: St
   return data;
 }
 
-// Get staff session from localStorage
-export function getStaffSession(): { 
-  token: string; 
-  teamMemberId: string; 
-  agencyId: string; 
-  name: string;
-} | null {
+// Get staff session token from localStorage
+// Returns the token if present - the edge function will handle session validation
+export function getStaffSessionToken(): string | null {
   try {
     const token = localStorage.getItem("staff_session_token");
-    if (!token) return null;
-    
-    // Get team member data from localStorage
-    const teamMemberData = localStorage.getItem("staff_team_member");
-    if (!teamMemberData) return null;
-    
-    const teamMember = JSON.parse(teamMemberData);
-    
-    return {
-      token,
-      teamMemberId: teamMember.id,
-      agencyId: teamMember.agency_id,
-      name: teamMember.name || "Staff Member",
-    };
+    return token || null;
   } catch {
     return null;
   }
+}
+
+// Check if user is in staff portal context
+export function isStaffContext(): boolean {
+  return !!localStorage.getItem("staff_session_token");
 }

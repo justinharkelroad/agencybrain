@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
+import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 interface CancelAuditCounts {
   needsAttention: number;
@@ -12,7 +12,7 @@ interface CancelAuditCounts {
 }
 
 export function useCancelAuditCounts(agencyId: string | null) {
-  const staffSession = getStaffSession();
+  const staffSessionToken = getStaffSessionToken();
 
   return useQuery({
     queryKey: ['cancel-audit-counts', agencyId],
@@ -22,11 +22,11 @@ export function useCancelAuditCounts(agencyId: string | null) {
       }
 
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "get_counts",
           params: {},
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 
