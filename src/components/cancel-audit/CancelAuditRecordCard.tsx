@@ -117,10 +117,11 @@ export function CancelAuditRecordCard({
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Phone: </span>
-                  {record.insured_phone ? (
+                {record.insured_phone ? (
                     <a 
                       href={`tel:${record.insured_phone}`}
                       className="text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {formatPhone(record.insured_phone)}
                     </a>
@@ -134,6 +135,7 @@ export function CancelAuditRecordCard({
                     <a 
                       href={`tel:${record.insured_phone_alt}`}
                       className="text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {formatPhone(record.insured_phone_alt)}
                     </a>
@@ -141,10 +143,11 @@ export function CancelAuditRecordCard({
                 )}
                 <div>
                   <span className="text-muted-foreground">Email: </span>
-                  {record.insured_email ? (
+                {record.insured_email ? (
                     <a 
                       href={`mailto:${record.insured_email}`}
                       className="text-primary hover:underline break-all"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {record.insured_email}
                     </a>
