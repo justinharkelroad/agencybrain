@@ -122,6 +122,8 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
 
   // Team members state
   const [teamMembers, setTeamMembers] = useState<Array<{id: string; name: string; email: string; role: string; status: string}>>([]);
+  // Key employees (users with app access)
+  const [keyEmployeeEmails, setKeyEmployeeEmails] = useState<Set<string>>(new Set());
 
   // Guard to avoid syncing while hydrating from DB
   const isHydratingChatRef = React.useRef(false);
@@ -384,6 +386,23 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
             console.warn('[ClientDetail] Failed to fetch team members', teamError);
           } else {
             setTeamMembers(teamData || []);
+          }
+
+          // Fetch key employees (users with app access) for this agency
+          const { data: keyEmpData, error: keyEmpError } = await supabase
+            .from('key_employees')
+            .select('user_id, profiles!inner(email)')
+            .eq('agency_id', clientData.agency_id);
+          
+          if (keyEmpError) {
+            console.warn('[ClientDetail] Failed to fetch key employees', keyEmpError);
+          } else {
+            const emails = new Set<string>(
+              (keyEmpData || [])
+                .map((ke: any) => ke.profiles?.email?.toLowerCase())
+                .filter(Boolean)
+            );
+            setKeyEmployeeEmails(emails);
           }
         } else {
           setClientAgencyId(null);
@@ -1123,21 +1142,34 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>App Access</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamMembers.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell className="font-medium">{member.name}</TableCell>
-                        <TableCell>{member.email || '-'}</TableCell>
-                        <TableCell><Badge variant="outline">{member.role}</Badge></TableCell>
-                        <TableCell>
-                          <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
-                            {member.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {teamMembers.map((member) => {
+                      const hasAppAccess = member.email && keyEmployeeEmails.has(member.email.toLowerCase());
+                      return (
+                        <TableRow key={member.id}>
+                          <TableCell className="font-medium">{member.name}</TableCell>
+                          <TableCell>{member.email || '-'}</TableCell>
+                          <TableCell><Badge variant="outline">{member.role}</Badge></TableCell>
+                          <TableCell>
+                            <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
+                              {member.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {hasAppAccess ? (
+                              <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                Key Employee
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
