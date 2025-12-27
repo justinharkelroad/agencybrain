@@ -545,6 +545,16 @@ const getSubmissionStatus = (profile: Profile) => {
                           <Badge className="bg-red-500">Boardroom</Badge>
                         </div>
                       </SelectItem>
+                      <SelectItem value="Call Scoring">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-500">Call Scoring</Badge>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="Inactive">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-gray-500">Inactive</Badge>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -757,10 +767,16 @@ const getSubmissionStatus = (profile: Profile) => {
             </DialogHeader>
             
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <label className="text-sm font-medium">Current Tier</label>
-                <Badge className={editingClient?.membership_tier === 'Boardroom' ? 'bg-red-500' : 'bg-blue-500'}>
-                  {editingClient?.membership_tier || '1:1 Coaching'}
+                <Badge className={
+                  editingClient?.membership_tier === 'Boardroom' ? 'bg-red-500' : 
+                  editingClient?.membership_tier === 'Inactive' ? 'bg-gray-500' :
+                  editingClient?.membership_tier?.startsWith('Call Scoring') ? 'bg-green-500' :
+                  !editingClient?.membership_tier ? 'bg-yellow-500' :
+                  'bg-blue-500'
+                }>
+                  {editingClient?.membership_tier || 'Pending Activation'}
                 </Badge>
               </div>
               
@@ -799,6 +815,12 @@ const getSubmissionStatus = (profile: Profile) => {
                       <div className="flex items-center gap-2">
                         <Badge className="bg-green-700">Call Scoring 100</Badge>
                         <span className="text-sm text-muted-foreground">100 calls/month</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="Inactive">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-gray-500">Inactive</Badge>
+                        <span className="text-sm text-muted-foreground">Account Suspended</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
