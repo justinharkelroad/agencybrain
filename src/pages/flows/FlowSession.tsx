@@ -134,7 +134,7 @@ export default function FlowSession() {
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, [currentQuestionIndex, showChallenge, showAddToFocus, showCurrentQuestion]);
+  }, [currentQuestionIndex, showChallenge, showAddToFocus, showCurrentQuestion, answeredQuestions.size]);
 
   // Scroll when typing indicator disappears (new question appears)
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function FlowSession() {
     
     if (wasTyping && !isTyping) {
       // Typing just finished, scroll after DOM updates
-      setTimeout(scrollToBottom, 150);
+      setTimeout(scrollToBottom, 250);
     }
   }, [isTyping]);
 
@@ -284,6 +284,9 @@ export default function FlowSession() {
     // Save immediately
     await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
+    
+    // Scroll after answer is added to show it
+    setTimeout(scrollToBottom, 50);
 
     const challenge = await checkForChallenge(currentQuestion.id, valueToSubmit);
     
@@ -423,10 +426,10 @@ export default function FlowSession() {
       {/* Chat Container */}
       <main 
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto pb-4"
+        className="flex-1 overflow-y-auto"
         onScroll={handleScroll}
       >
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-2xl mx-auto px-4 py-6 pb-32 space-y-4">
           {/* Previous Q&A as chat bubbles */}
           {questions.slice(0, currentQuestionIndex).map((q, idx) => {
             const segments = interpolatePrompt(q.prompt);
