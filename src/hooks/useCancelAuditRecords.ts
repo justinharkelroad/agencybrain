@@ -12,6 +12,7 @@ interface UseCancelAuditRecordsOptions {
 export interface RecordWithActivityCount extends CancelAuditRecord {
   activity_count: number;
   last_activity_at: string | null;
+  household_policy_count: number;
 }
 
 export function useCancelAuditRecords({
@@ -64,7 +65,14 @@ export function useCancelAuditRecords({
 
       if (error) throw error;
 
-      // Transform the data to include activity count and last activity
+      // Calculate household policy counts
+      const householdPolicyCounts = new Map<string, number>();
+      (data || []).forEach(record => {
+        const count = householdPolicyCounts.get(record.household_key) || 0;
+        householdPolicyCounts.set(record.household_key, count + 1);
+      });
+
+      // Transform the data to include activity count, last activity, and household policy count
       return (data || []).map(record => {
         const activities = (record as any).cancel_audit_activities || [];
         const sortedActivities = [...activities].sort((a: any, b: any) => 
@@ -77,7 +85,8 @@ export function useCancelAuditRecords({
         return {
           ...cleanRecord,
           activity_count: activities.length,
-          last_activity_at: sortedActivities[0]?.created_at || null
+          last_activity_at: sortedActivities[0]?.created_at || null,
+          household_policy_count: householdPolicyCounts.get(record.household_key) || 1,
         } as RecordWithActivityCount;
       });
     },
