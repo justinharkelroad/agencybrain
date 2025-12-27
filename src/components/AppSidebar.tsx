@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   Settings,
   BarChart3,
+  FileWarning,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -358,6 +359,24 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                             <Wrench className="h-4 w-4" strokeWidth={1.5} />
                             {sidebarOpen && <span>Tools</span>}
                           </button>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                    {/* Cancel Audit - show for boardroom/one_on_one tiers or admins */}
+                    {(isAdmin || membershipTier?.toLowerCase().includes('boardroom') || membershipTier?.toLowerCase().includes('one_on_one')) && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={isActive("/cancel-audit")}
+                          className={cn(
+                            "hover:bg-muted/40 transition-colors",
+                            isActive("/cancel-audit") && "bg-muted/50 text-foreground"
+                          )}
+                        >
+                          <Link to="/cancel-audit" onClick={handleNavClick} className="flex items-center gap-2">
+                            <FileWarning className="h-4 w-4" strokeWidth={1.5} />
+                            {sidebarOpen && <span>Cancel Audit</span>}
+                          </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     )}

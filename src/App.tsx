@@ -60,6 +60,7 @@ import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
+import CancelAudit from "./pages/CancelAudit";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -234,6 +235,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <ProcessVault />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/cancel-audit" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <CancelAudit />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

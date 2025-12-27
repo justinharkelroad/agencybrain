@@ -728,6 +728,213 @@ export type Database = {
           },
         ]
       }
+      cancel_audit_activities: {
+        Row: {
+          activity_type: string
+          agency_id: string
+          created_at: string
+          household_key: string
+          id: string
+          notes: string | null
+          record_id: string
+          staff_member_id: string | null
+          user_display_name: string
+          user_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          agency_id: string
+          created_at?: string
+          household_key: string
+          id?: string
+          notes?: string | null
+          record_id: string
+          staff_member_id?: string | null
+          user_display_name: string
+          user_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agency_id?: string
+          created_at?: string
+          household_key?: string
+          id?: string
+          notes?: string | null
+          record_id?: string
+          staff_member_id?: string | null
+          user_display_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancel_audit_activities_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancel_audit_activities_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "cancel_audit_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancel_audit_activities_staff_member_id_fkey"
+            columns: ["staff_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cancel_audit_records: {
+        Row: {
+          account_type: string | null
+          agency_id: string
+          agent_number: string | null
+          amount_due_cents: number | null
+          cancel_date: string | null
+          created_at: string
+          household_key: string
+          id: string
+          insured_email: string | null
+          insured_first_name: string | null
+          insured_last_name: string | null
+          insured_phone: string | null
+          insured_phone_alt: string | null
+          is_active: boolean
+          last_upload_id: string | null
+          no_of_items: number | null
+          pending_cancel_date: string | null
+          policy_number: string
+          premium_cents: number | null
+          product_name: string | null
+          renewal_effective_date: string | null
+          report_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_type?: string | null
+          agency_id: string
+          agent_number?: string | null
+          amount_due_cents?: number | null
+          cancel_date?: string | null
+          created_at?: string
+          household_key: string
+          id?: string
+          insured_email?: string | null
+          insured_first_name?: string | null
+          insured_last_name?: string | null
+          insured_phone?: string | null
+          insured_phone_alt?: string | null
+          is_active?: boolean
+          last_upload_id?: string | null
+          no_of_items?: number | null
+          pending_cancel_date?: string | null
+          policy_number: string
+          premium_cents?: number | null
+          product_name?: string | null
+          renewal_effective_date?: string | null
+          report_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string | null
+          agency_id?: string
+          agent_number?: string | null
+          amount_due_cents?: number | null
+          cancel_date?: string | null
+          created_at?: string
+          household_key?: string
+          id?: string
+          insured_email?: string | null
+          insured_first_name?: string | null
+          insured_last_name?: string | null
+          insured_phone?: string | null
+          insured_phone_alt?: string | null
+          is_active?: boolean
+          last_upload_id?: string | null
+          no_of_items?: number | null
+          pending_cancel_date?: string | null
+          policy_number?: string
+          premium_cents?: number | null
+          product_name?: string | null
+          renewal_effective_date?: string | null
+          report_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancel_audit_records_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cancel_audit_uploads: {
+        Row: {
+          agency_id: string
+          created_at: string
+          file_name: string | null
+          id: string
+          records_created: number
+          records_processed: number
+          records_updated: number
+          report_type: string
+          uploaded_by_name: string
+          uploaded_by_staff_id: string | null
+          uploaded_by_user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_updated?: number
+          report_type: string
+          uploaded_by_name: string
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_updated?: number
+          report_type?: string
+          uploaded_by_name?: string
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancel_audit_uploads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancel_audit_uploads_uploaded_by_staff_id_fkey"
+            columns: ["uploaded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_template_items: {
         Row: {
           active: boolean
@@ -6411,6 +6618,10 @@ export type Database = {
           }
       has_agency_access: {
         Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_cancel_audit_access: {
+        Args: { check_agency_id: string }
         Returns: boolean
       }
       has_role: {
