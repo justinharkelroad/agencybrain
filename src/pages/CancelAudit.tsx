@@ -10,15 +10,20 @@ import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditReco
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
+import { ExportButton } from "@/components/cancel-audit/ExportButton";
+import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
 import { useCancelAuditRecords } from "@/hooks/useCancelAuditRecords";
+import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
 import { useToast } from "@/hooks/use-toast";
-import { ReportType } from "@/types/cancel-audit";
+import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-audit";
 import { useQueryClient } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast: showToast } = useToast();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -32,11 +37,17 @@ const CancelAuditPage = () => {
 
   // Filter and UI state
   const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<RecordStatusType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added'>('urgency');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);
+  
+  // Selection state for bulk actions
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Debounce search input
   useEffect(() => {
@@ -54,6 +65,9 @@ const CancelAuditPage = () => {
     sortBy,
   });
 
+  // Fetch stats to get week range
+  const { data: stats } = useCancelAuditStats({ agencyId, weekOffset });
+
   // Calculate counts for filter tabs (based on all records, ignoring current filter)
   const { data: allRecords } = useCancelAuditRecords({
     agencyId,
@@ -61,6 +75,29 @@ const CancelAuditPage = () => {
     searchQuery: debouncedSearch,
     sortBy: 'urgency',
   });
+
+  // Apply additional filters (status and untouched)
+  const filteredRecords = useMemo(() => {
+    if (!records) return [];
+    let filtered = records;
+    
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(r => r.status === statusFilter);
+    }
+    
+    // Untouched filter
+    if (showUntouchedOnly) {
+      filtered = filtered.filter(r => r.activity_count === 0);
+    }
+    
+    return filtered;
+  }, [records, statusFilter, showUntouchedOnly]);
+
+  // Count untouched records
+  const untouchedCount = useMemo(() => {
+    return allRecords?.filter(r => r.activity_count === 0).length || 0;
+  }, [allRecords]);
 
   const filterCounts = useMemo(() => {
     const all = allRecords || [];
@@ -70,6 +107,29 @@ const CancelAuditPage = () => {
       cancellation: all.filter(r => r.report_type === 'cancellation').length,
     };
   }, [allRecords]);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedRecordIds([]);
+  }, [reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + U = Open upload modal
+      if ((e.metaKey || e.ctrlKey) && e.key === 'u') {
+        e.preventDefault();
+        setUploadModalOpen(true);
+      }
+      // Escape = Close expanded card
+      if (e.key === 'Escape' && expandedRecordId) {
+        setExpandedRecordId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [expandedRecordId]);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -101,7 +161,7 @@ const CancelAuditPage = () => {
       const userAgencyId = profile?.agency_id || user.user_metadata?.staff_agency_id;
       
       if (!userAgencyId) {
-        toast({
+        showToast({
           title: "Error",
           description: "No agency associated with your account",
           variant: "destructive",
@@ -140,17 +200,18 @@ const CancelAuditPage = () => {
     };
 
     checkAccess();
-  }, [user, membershipTier, authLoading, navigate, toast]);
+  }, [user, membershipTier, authLoading, navigate, showToast]);
 
   const handleUploadComplete = useCallback(() => {
-    toast({
+    showToast({
       title: "Upload Complete",
       description: "Records have been processed successfully",
     });
     // Invalidate and refetch records + stats
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
-  }, [toast, queryClient]);
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
+  }, [showToast, queryClient]);
 
   const handleToggleExpand = useCallback((recordId: string) => {
     setExpandedRecordId(prev => prev === recordId ? null : recordId);
@@ -158,9 +219,41 @@ const CancelAuditPage = () => {
 
   const handleClearFilters = useCallback(() => {
     setReportTypeFilter('all');
+    setStatusFilter('all');
     setSearchQuery('');
     setDebouncedSearch('');
+    setShowUntouchedOnly(false);
   }, []);
+
+  const handleSelectRecord = useCallback((recordId: string, selected: boolean) => {
+    setSelectedRecordIds(prev => 
+      selected 
+        ? [...prev, recordId]
+        : prev.filter(id => id !== recordId)
+    );
+  }, []);
+
+  const handleBulkStatusUpdate = useCallback(async (status: RecordStatus) => {
+    if (selectedRecordIds.length === 0) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('cancel_audit_records')
+        .update({ status, updated_at: new Date().toISOString() })
+        .in('id', selectedRecordIds);
+      
+      if (error) throw error;
+      
+      toast.success(`Updated ${selectedRecordIds.length} records to ${status.replace('_', ' ')}`);
+      setSelectedRecordIds([]);
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+    } catch (error) {
+      toast.error('Failed to update records');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }, [selectedRecordIds, queryClient]);
 
   if (authLoading || loading) {
     return (
@@ -175,8 +268,8 @@ const CancelAuditPage = () => {
   }
 
   const hasRecords = (allRecords?.length || 0) > 0;
-  const hasFilteredRecords = (records?.length || 0) > 0;
-  const isFiltering = reportTypeFilter !== 'all' || debouncedSearch.length > 0;
+  const hasFilteredRecords = filteredRecords.length > 0;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly;
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,10 +283,22 @@ const CancelAuditPage = () => {
                 Track and manage cancellation and pending cancel reports
               </p>
             </div>
-            <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" />
-              Upload Report
-            </Button>
+            <div className="flex items-center gap-2">
+              {agencyId && stats && (
+                <ExportButton
+                  agencyId={agencyId}
+                  reportTypeFilter={reportTypeFilter}
+                  searchQuery={debouncedSearch}
+                  weekStart={stats.weekStart}
+                  weekEnd={stats.weekEnd}
+                  recordCount={filteredRecords.length}
+                />
+              )}
+              <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
+                <Upload className="h-4 w-4" />
+                Upload Report
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -223,6 +328,11 @@ const CancelAuditPage = () => {
               onSortByChange={setSortBy}
               counts={filterCounts}
               isLoading={recordsLoading}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              showUntouchedOnly={showUntouchedOnly}
+              onShowUntouchedOnlyChange={setShowUntouchedOnly}
+              untouchedCount={untouchedCount}
             />
 
             {/* Records List */}
@@ -230,23 +340,34 @@ const CancelAuditPage = () => {
               <CancelAuditRecordSkeletonList count={5} />
             ) : hasFilteredRecords ? (
               <div className="space-y-3">
-                {records?.map((record) => (
-                  <CancelAuditRecordCard
-                    key={record.id}
-                    record={record}
-                    isExpanded={expandedRecordId === record.id}
-                    onToggleExpand={() => handleToggleExpand(record.id)}
-                    agencyId={agencyId!}
-                    userId={userId || undefined}
-                    staffMemberId={staffMemberId || undefined}
-                    userDisplayName={displayName}
-                  />
+                {filteredRecords.map((record) => (
+                  <div key={record.id} className="flex items-start gap-2">
+                    <Checkbox
+                      checked={selectedRecordIds.includes(record.id)}
+                      onCheckedChange={(checked) => handleSelectRecord(record.id, !!checked)}
+                      className="mt-4 flex-shrink-0"
+                    />
+                    <div className="flex-1">
+                      <CancelAuditRecordCard
+                        record={record}
+                        isExpanded={expandedRecordId === record.id}
+                        onToggleExpand={() => handleToggleExpand(record.id)}
+                        agencyId={agencyId!}
+                        userId={userId || undefined}
+                        staffMemberId={staffMemberId || undefined}
+                        userDisplayName={displayName}
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
               <CancelAuditEmptyState
                 variant="no-results"
                 onClearFilters={handleClearFilters}
+                statusFilter={statusFilter}
+                searchQuery={debouncedSearch}
+                showUntouchedOnly={showUntouchedOnly}
               />
             )}
           </div>
@@ -257,6 +378,14 @@ const CancelAuditPage = () => {
           />
         )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedRecordIds={selectedRecordIds}
+        onClearSelection={() => setSelectedRecordIds([])}
+        onStatusUpdate={handleBulkStatusUpdate}
+        isUpdating={isBulkUpdating}
+      />
 
       {/* Upload Modal */}
       {agencyId && (
