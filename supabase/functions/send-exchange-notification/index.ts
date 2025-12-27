@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const APP_URL = Deno.env.get('SITE_URL') || 'https://app.agencybrain.io';
+const APP_URL = Deno.env.get('SITE_URL') || 'https://app.standardplaybook.com';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const LOGO_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/AGENCYBRAIN%20LOGO.png';
-const EXCHANGE_URL = 'https://agencybrain.io/exchange';
+const EXCHANGE_URL = 'https://app.standardplaybook.com/exchange';
 
 // Helper to build email HTML
 function buildEmailHtml(posterName: string, messageContent: string, fileName?: string) {
@@ -228,7 +228,7 @@ serve(async (req) => {
     
     // Send via Resend (batch send)
     const emailBatch = recipientEmails.map(email => ({
-      from: 'Agency Brain <noreply@agencybrain.io>',
+      from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
       to: email,
       subject: subject || 'New post in The Exchange',
       html: htmlContent,
