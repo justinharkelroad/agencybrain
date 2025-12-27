@@ -218,3 +218,6 @@ verify_jwt = false
 
 [functions.analyze-training-video]
 verify_jwt = true
+
+[functions.get-cancel-audit-data]
+verify_jwt = false

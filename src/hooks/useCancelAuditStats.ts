@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
 
 interface WeeklyStats {
   weekStart: string;
@@ -36,11 +37,23 @@ const CONTACT_ACTIVITY_TYPES = [
 ];
 
 export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStatsOptions) {
+  const staffSession = getStaffSession();
+
   return useQuery({
     queryKey: ['cancel-audit-stats', agencyId, weekOffset],
     queryFn: async (): Promise<WeeklyStats> => {
       if (!agencyId) throw new Error('No agency ID');
 
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "get_stats",
+          params: { weekOffset },
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       // Calculate week boundaries (Monday to Sunday)
       const today = new Date();
       const currentDay = today.getDay();
@@ -57,7 +70,7 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
       const weekStartISO = weekStart.toISOString();
       const weekEndISO = weekEnd.toISOString();
 
-      // Fetch all records for the agency (both active and inactive for total count)
+      // Fetch all records for the agency
       const { data: records, error: recordsError } = await supabase
         .from('cancel_audit_records')
         .select('id, household_key, report_type, premium_cents, status, is_active')
@@ -95,7 +108,6 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
       
       const totalContacts = contactActivities.length;
       const uniqueHouseholdsContacted = new Set(contactActivities.map(a => a.household_key)).size;
-      // Use needs attention records for coverage calculation (actionable records only)
       const totalUniqueHouseholds = new Set(needsAttentionRecords.map(r => r.household_key)).size;
 
       // Wins
