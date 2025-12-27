@@ -6699,6 +6699,33 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      upsert_cancel_audit_record: {
+        Args: {
+          p_account_type: string
+          p_agency_id: string
+          p_agent_number: string
+          p_amount_due_cents: number
+          p_cancel_date: string
+          p_household_key: string
+          p_insured_email: string
+          p_insured_first_name: string
+          p_insured_last_name: string
+          p_insured_phone: string
+          p_insured_phone_alt: string
+          p_last_upload_id: string
+          p_no_of_items: number
+          p_pending_cancel_date: string
+          p_policy_number: string
+          p_premium_cents: number
+          p_product_name: string
+          p_renewal_effective_date: string
+          p_report_type: string
+        }
+        Returns: {
+          id: string
+          was_created: boolean
+        }[]
+      }
       upsert_exchange_activity: {
         Args: {
           p_update_feed?: boolean
