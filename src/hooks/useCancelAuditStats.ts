@@ -95,7 +95,8 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
       
       const totalContacts = contactActivities.length;
       const uniqueHouseholdsContacted = new Set(contactActivities.map(a => a.household_key)).size;
-      const totalUniqueHouseholds = new Set(records?.map(r => r.household_key) || []).size;
+      // Use needs attention records for coverage calculation (actionable records only)
+      const totalUniqueHouseholds = new Set(needsAttentionRecords.map(r => r.household_key)).size;
 
       // Wins
       const paymentsMade = activities?.filter(a => a.activity_type === 'payment_made').length || 0;
