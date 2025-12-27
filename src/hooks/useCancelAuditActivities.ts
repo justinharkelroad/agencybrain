@@ -35,11 +35,12 @@ export function useLogActivity() {
 
       if (error) throw error;
 
-      // Update record status to 'in_progress' if currently 'new'
+      // Update ALL records for this household that are still 'new'
       await supabase
         .from('cancel_audit_records')
         .update({ status: 'in_progress' })
-        .eq('id', params.recordId)
+        .eq('agency_id', params.agencyId)
+        .eq('household_key', params.householdKey)
         .eq('status', 'new');
 
       return data;
