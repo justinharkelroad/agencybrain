@@ -136,6 +136,15 @@ export default function FlowStart() {
 
   const handleStartNew = async () => {
     if (!templateId) return;
+    
+    // Delete the existing draft first to prevent orphaned in_progress sessions
+    if (draftSession) {
+      await supabase
+        .from('flow_sessions')
+        .delete()
+        .eq('id', draftSession.id);
+    }
+    
     await createNewSession(templateId);
   };
 
@@ -198,7 +207,7 @@ export default function FlowStart() {
                 onClick={handleStartNew}
               >
                 <PlusCircle className="h-4 w-4 mr-2" strokeWidth={1.5} />
-                Start Fresh (Keep Draft)
+                Start Fresh
               </Button>
               
               <Button 
