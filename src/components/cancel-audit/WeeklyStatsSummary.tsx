@@ -164,12 +164,14 @@ export function WeeklyStatsSummary({ agencyId, weekOffset, onWeekChange }: Weekl
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               icon={<ClipboardList className="h-4 w-4" />}
-              title="Records"
-              mainValue={`${stats.totalRecords} Total`}
+              title="To Address"
+              mainValue={`${stats.needsAttentionCount} Active`}
               subItems={[
                 { label: 'Pending Cancel', value: stats.pendingCancelCount },
                 { label: 'Cancelled', value: stats.cancellationCount },
               ]}
+              highlight={`(${stats.totalRecords} total)`}
+              highlightColor="text-muted-foreground"
             />
 
             <StatCard

@@ -2,8 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CancelAuditRecord, ReportType } from '@/types/cancel-audit';
 
+export type ViewMode = 'needs_attention' | 'all';
+
 interface UseCancelAuditRecordsOptions {
   agencyId: string | null;
+  viewMode: ViewMode;
   reportTypeFilter: ReportType | 'all';
   searchQuery: string;
   sortBy: 'urgency' | 'name' | 'date_added';
@@ -13,16 +16,18 @@ export interface RecordWithActivityCount extends CancelAuditRecord {
   activity_count: number;
   last_activity_at: string | null;
   household_policy_count: number;
+  is_active: boolean;
 }
 
 export function useCancelAuditRecords({
   agencyId,
+  viewMode,
   reportTypeFilter,
   searchQuery,
   sortBy
 }: UseCancelAuditRecordsOptions) {
   return useQuery({
-    queryKey: ['cancel-audit-records', agencyId, reportTypeFilter, searchQuery, sortBy],
+    queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy],
     queryFn: async (): Promise<RecordWithActivityCount[]> => {
       if (!agencyId) return [];
 
@@ -33,8 +38,16 @@ export function useCancelAuditRecords({
           *,
           cancel_audit_activities(id, created_at)
         `)
-        .eq('agency_id', agencyId)
-        .eq('is_active', true);
+        .eq('agency_id', agencyId);
+
+      // View mode filtering
+      if (viewMode === 'needs_attention') {
+        // Only active records with actionable status
+        query = query
+          .eq('is_active', true)
+          .in('status', ['new', 'in_progress']);
+      }
+      // 'all' mode shows everything (active and inactive, all statuses)
 
       // Apply report type filter
       if (reportTypeFilter !== 'all') {
@@ -65,7 +78,7 @@ export function useCancelAuditRecords({
 
       if (error) throw error;
 
-      // Calculate household policy counts
+      // Calculate household policy counts (only among active records in needs_attention mode)
       const householdPolicyCounts = new Map<string, number>();
       (data || []).forEach(record => {
         const count = householdPolicyCounts.get(record.household_key) || 0;
@@ -87,6 +100,7 @@ export function useCancelAuditRecords({
           activity_count: activities.length,
           last_activity_at: sortedActivities[0]?.created_at || null,
           household_policy_count: householdPolicyCounts.get(record.household_key) || 1,
+          is_active: record.is_active,
         } as RecordWithActivityCount;
       });
     },

@@ -62,19 +62,29 @@ export function CancelAuditRecordCard({
     isExpanded ? agencyId : null
   );
 
+  const isInactive = !record.is_active;
+
   return (
     <Card
       className={cn(
         'transition-all duration-200 cursor-pointer overflow-hidden',
         isExpanded 
           ? 'border-2 border-primary/30 bg-card' 
-          : 'border border-border bg-card hover:border-border/80'
+          : 'border border-border bg-card hover:border-border/80',
+        isInactive && 'opacity-60 border-dashed'
       )}
       onClick={onToggleExpand}
     >
       {/* Collapsed Header - Always visible */}
       <div className="px-4 py-3">
         <div className="flex items-center gap-4">
+          {/* Inactive badge */}
+          {isInactive && (
+            <Badge variant="outline" className="text-xs text-muted-foreground border-dashed flex-shrink-0">
+              Not in latest
+            </Badge>
+          )}
+
           {/* Status indicator */}
           <div className="flex-shrink-0">
             <StatusIndicator record={record} />

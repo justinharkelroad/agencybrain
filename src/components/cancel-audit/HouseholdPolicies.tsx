@@ -12,6 +12,7 @@ interface HouseholdPoliciesProps {
 export function HouseholdPolicies({ currentRecordId, householdKey, agencyId }: HouseholdPoliciesProps) {
   const { data: allRecords } = useCancelAuditRecords({
     agencyId,
+    viewMode: 'all',
     reportTypeFilter: 'all',
     searchQuery: '',
     sortBy: 'urgency',

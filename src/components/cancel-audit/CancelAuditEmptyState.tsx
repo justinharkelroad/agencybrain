@@ -1,7 +1,8 @@
-import { Upload, Search, FileWarning, CircleDot, CheckCircle, XCircle } from 'lucide-react';
+import { Upload, Search, FileWarning, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RecordStatus } from '@/types/cancel-audit';
+import type { ViewMode } from '@/hooks/useCancelAuditRecords';
 
 interface CancelAuditEmptyStateProps {
   variant: 'no-records' | 'no-results';
@@ -10,6 +11,7 @@ interface CancelAuditEmptyStateProps {
   statusFilter?: RecordStatus | 'all';
   searchQuery?: string;
   showUntouchedOnly?: boolean;
+  viewMode?: ViewMode;
 }
 
 export function CancelAuditEmptyState({
@@ -19,6 +21,7 @@ export function CancelAuditEmptyState({
   statusFilter,
   searchQuery,
   showUntouchedOnly,
+  viewMode,
 }: CancelAuditEmptyStateProps) {
   if (variant === 'no-results') {
     // Generate context-specific message
@@ -26,7 +29,11 @@ export function CancelAuditEmptyState({
     let icon = <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />;
     let title = 'No records match your filters';
     
-    if (showUntouchedOnly) {
+    if (viewMode === 'needs_attention') {
+      icon = <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500 opacity-70" />;
+      title = 'All caught up!';
+      message = 'No records need attention right now. All active records have been resolved or marked as lost.';
+    } else if (showUntouchedOnly) {
       icon = <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500 opacity-70" />;
       title = 'All records have been contacted!';
       message = 'Great work - every record has at least one activity logged.';
