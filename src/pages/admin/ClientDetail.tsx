@@ -391,18 +391,29 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
           // Fetch key employees (users with app access) for this agency
           const { data: keyEmpData, error: keyEmpError } = await supabase
             .from('key_employees')
-            .select('user_id, profiles!inner(email)')
+            .select('user_id')
             .eq('agency_id', clientData.agency_id);
           
           if (keyEmpError) {
             console.warn('[ClientDetail] Failed to fetch key employees', keyEmpError);
-          } else {
-            const emails = new Set<string>(
-              (keyEmpData || [])
-                .map((ke: any) => ke.profiles?.email?.toLowerCase())
-                .filter(Boolean)
-            );
-            setKeyEmployeeEmails(emails);
+          } else if (keyEmpData && keyEmpData.length > 0) {
+            // Get profile emails for these key employees
+            const userIds = keyEmpData.map(ke => ke.user_id);
+            const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('email')
+              .in('id', userIds);
+            
+            if (profilesError) {
+              console.warn('[ClientDetail] Failed to fetch key employee profiles', profilesError);
+            } else {
+              const emails = new Set<string>(
+                (profilesData || [])
+                  .map((p: any) => p.email?.toLowerCase())
+                  .filter(Boolean)
+              );
+              setKeyEmployeeEmails(emails);
+            }
           }
         } else {
           setClientAgencyId(null);
