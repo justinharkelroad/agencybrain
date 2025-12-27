@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getStaffSessionToken, callCancelAuditApi } from '@/lib/cancel-audit-api';
 import type { ParsedCancelAuditRecord } from '@/lib/cancel-audit-parser';
 import type { ReportType } from '@/types/cancel-audit';
 
@@ -55,12 +56,37 @@ export function useCancelAuditUpload() {
     setProgress(0);
     setError(null);
 
-    const errors: string[] = [];
-    let recordsCreated = 0;
-    let recordsUpdated = 0;
-    let recordsDeactivated = 0;
-
     try {
+      // Check if this is a staff user - if so, use the edge function
+      const staffToken = getStaffSessionToken();
+      
+      if (staffToken) {
+        console.log('[useCancelAuditUpload] Staff user detected, using edge function');
+        
+        // Staff user: route through edge function
+        const result = await callCancelAuditApi({
+          operation: 'upload_records',
+          params: {
+            records,
+            reportType,
+            fileName,
+            displayName: context.displayName,
+          },
+          sessionToken: staffToken,
+        });
+
+        setProgress(100);
+        return result as UploadResult;
+      }
+
+      // Regular user: use direct Supabase calls
+      console.log('[useCancelAuditUpload] Regular user, using direct Supabase calls');
+      
+      const errors: string[] = [];
+      let recordsCreated = 0;
+      let recordsUpdated = 0;
+      let recordsDeactivated = 0;
+
       // 1. Create upload record
       const { data: uploadData, error: uploadError } = await supabase
         .from('cancel_audit_uploads')
@@ -85,11 +111,9 @@ export function useCancelAuditUpload() {
       const uploadId = uploadData.id;
 
       // 2. DEACTIVATE all existing records of this report type
-      // This ensures only records from the latest upload are "active"
       recordsDeactivated = await deactivateOldRecords(context.agencyId, reportType);
 
       // 3. Process records in batches using RPC function
-      // The RPC function will re-activate and update existing records, or create new ones
       const totalBatches = Math.ceil(records.length / BATCH_SIZE);
       
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
@@ -97,7 +121,6 @@ export function useCancelAuditUpload() {
         const end = Math.min(start + BATCH_SIZE, records.length);
         const batch = records.slice(start, end);
 
-        // Process each record in the batch using the upsert function
         for (const record of batch) {
           const { data, error: rpcError } = await supabase.rpc('upsert_cancel_audit_record', {
             p_agency_id: context.agencyId,
@@ -132,7 +155,6 @@ export function useCancelAuditUpload() {
           }
         }
 
-        // Update progress
         setProgress(Math.round(((batchIdx + 1) / totalBatches) * 100));
       }
 
