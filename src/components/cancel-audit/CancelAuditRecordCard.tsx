@@ -2,8 +2,12 @@ import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign } from '
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { RecordWithActivityCount } from '@/hooks/useCancelAuditRecords';
-import { StatusIndicator, StatusBadge } from './StatusIndicator';
+import { StatusIndicator } from './StatusIndicator';
 import { ActivityBadge } from './ActivityBadge';
+import { StatusDropdown } from './StatusDropdown';
+import { QuickActions } from './QuickActions';
+import { ActivityTimeline } from './ActivityTimeline';
+import { useHouseholdActivities } from '@/hooks/useCancelAuditActivities';
 import { 
   formatCentsToCurrency, 
   formatDate, 
@@ -16,16 +20,30 @@ interface CancelAuditRecordCardProps {
   record: RecordWithActivityCount;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  agencyId: string;
+  userId?: string;
+  staffMemberId?: string;
+  userDisplayName: string;
 }
 
 export function CancelAuditRecordCard({
   record,
   isExpanded,
   onToggleExpand,
+  agencyId,
+  userId,
+  staffMemberId,
+  userDisplayName,
 }: CancelAuditRecordCardProps) {
   const displayName = getDisplayName(record.insured_first_name, record.insured_last_name);
   const primaryDate = record.pending_cancel_date || record.cancel_date;
   const primaryDateLabel = record.report_type === 'pending_cancel' ? 'Pending' : 'Cancelled';
+
+  // Fetch activities for this household when expanded
+  const { data: activities = [], isLoading: activitiesLoading } = useHouseholdActivities(
+    isExpanded ? record.household_key : null,
+    isExpanded ? agencyId : null
+  );
 
   return (
     <Card
@@ -105,7 +123,7 @@ export function CancelAuditRecordCard({
       {isExpanded && (
         <div 
           className="px-4 pb-4 border-t border-border"
-          onClick={(e) => e.stopPropagation()} // Prevent collapsing when interacting with content
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
             {/* Contact Section */}
@@ -237,11 +255,11 @@ export function CancelAuditRecordCard({
             </div>
           </div>
 
-          {/* Status and Actions Row */}
+          {/* Status Row */}
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">Status:</span>
-              <StatusBadge status={record.status} />
+              <StatusDropdown recordId={record.id} currentStatus={record.status} />
             </div>
 
             <div className="flex items-center gap-2">
@@ -252,11 +270,25 @@ export function CancelAuditRecordCard({
             </div>
           </div>
 
-          {/* Quick Actions Placeholder */}
-          <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-dashed border-border">
-            <p className="text-xs text-muted-foreground text-center">
-              Quick Actions coming in Phase 4
-            </p>
+          {/* Quick Actions */}
+          <div className="mt-6 pt-4 border-t border-border">
+            <QuickActions
+              record={record}
+              agencyId={agencyId}
+              userId={userId}
+              staffMemberId={staffMemberId}
+              userDisplayName={userDisplayName}
+            />
+          </div>
+
+          {/* Activity Timeline */}
+          <div className="mt-6 pt-4 border-t border-border">
+            <ActivityTimeline
+              activities={activities}
+              isLoading={activitiesLoading}
+              householdKey={record.household_key}
+              currentRecordId={record.id}
+            />
           </div>
         </div>
       )}

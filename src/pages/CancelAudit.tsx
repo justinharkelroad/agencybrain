@@ -235,6 +235,10 @@ const CancelAuditPage = () => {
                     record={record}
                     isExpanded={expandedRecordId === record.id}
                     onToggleExpand={() => handleToggleExpand(record.id)}
+                    agencyId={agencyId!}
+                    userId={userId || undefined}
+                    staffMemberId={staffMemberId || undefined}
+                    userDisplayName={displayName}
                   />
                 ))}
               </div>
