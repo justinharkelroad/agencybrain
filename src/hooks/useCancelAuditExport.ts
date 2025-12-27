@@ -3,6 +3,7 @@ import { formatCentsToCurrency, formatDate } from '@/lib/cancel-audit-utils';
 
 interface ExportOptions {
   agencyId: string;
+  viewMode: 'needs_attention' | 'all';
   reportTypeFilter: 'all' | 'cancellation' | 'pending_cancel';
   searchQuery: string;
   statusFilter?: 'all' | 'new' | 'in_progress' | 'resolved' | 'lost';
@@ -10,14 +11,19 @@ interface ExportOptions {
 }
 
 export async function exportRecordsToCSV(options: ExportOptions): Promise<string> {
-  const { agencyId, reportTypeFilter, searchQuery, statusFilter = 'all', includeActivities = false } = options;
+  const { agencyId, viewMode, reportTypeFilter, searchQuery, statusFilter = 'all', includeActivities = false } = options;
 
   // Fetch records with same filters as the list
   let query = supabase
     .from('cancel_audit_records')
     .select('*')
-    .eq('agency_id', agencyId)
-    .eq('is_active', true);
+    .eq('agency_id', agencyId);
+
+  // Apply view mode filtering
+  if (viewMode === 'needs_attention') {
+    query = query.eq('is_active', true).in('status', ['new', 'in_progress']);
+  }
+  // 'all' mode includes everything (active and inactive)
 
   if (reportTypeFilter !== 'all') {
     query = query.eq('report_type', reportTypeFilter);

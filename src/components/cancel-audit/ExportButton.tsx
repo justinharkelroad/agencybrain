@@ -13,6 +13,7 @@ import { exportRecordsToCSV, exportSummaryReport } from '@/hooks/useCancelAuditE
 
 interface ExportButtonProps {
   agencyId: string;
+  viewMode: 'needs_attention' | 'all';
   reportTypeFilter: 'all' | 'cancellation' | 'pending_cancel';
   searchQuery: string;
   weekStart: string;
@@ -22,6 +23,7 @@ interface ExportButtonProps {
 
 export function ExportButton({
   agencyId,
+  viewMode,
   reportTypeFilter,
   searchQuery,
   weekStart,
@@ -47,6 +49,7 @@ export function ExportButton({
     try {
       const csv = await exportRecordsToCSV({
         agencyId,
+        viewMode,
         reportTypeFilter,
         searchQuery,
         includeActivities,
