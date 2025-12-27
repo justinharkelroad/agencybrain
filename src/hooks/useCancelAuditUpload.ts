@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import type { ParsedCancelAuditRecord } from '@/lib/cancel-audit-parser';
 import type { ReportType } from '@/types/cancel-audit';
 
@@ -16,10 +16,29 @@ interface UploadResult {
   recordsProcessed: number;
   recordsCreated: number;
   recordsUpdated: number;
+  recordsDeactivated: number;
   errors: string[];
 }
 
 const BATCH_SIZE = 50;
+
+// Deactivate existing records of the same report type before uploading new ones
+const deactivateOldRecords = async (agencyId: string, reportType: ReportType): Promise<number> => {
+  const { data, error } = await supabase
+    .from('cancel_audit_records')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('agency_id', agencyId)
+    .eq('report_type', reportType)
+    .eq('is_active', true)
+    .select('id');
+
+  if (error) {
+    console.error('Failed to deactivate old records:', error);
+    throw error;
+  }
+
+  return data?.length || 0;
+};
 
 export function useCancelAuditUpload() {
   const [isUploading, setIsUploading] = useState(false);
@@ -39,6 +58,7 @@ export function useCancelAuditUpload() {
     const errors: string[] = [];
     let recordsCreated = 0;
     let recordsUpdated = 0;
+    let recordsDeactivated = 0;
 
     try {
       // 1. Create upload record
@@ -64,7 +84,12 @@ export function useCancelAuditUpload() {
 
       const uploadId = uploadData.id;
 
-      // 2. Process records in batches using RPC function
+      // 2. DEACTIVATE all existing records of this report type
+      // This ensures only records from the latest upload are "active"
+      recordsDeactivated = await deactivateOldRecords(context.agencyId, reportType);
+
+      // 3. Process records in batches using RPC function
+      // The RPC function will re-activate and update existing records, or create new ones
       const totalBatches = Math.ceil(records.length / BATCH_SIZE);
       
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
@@ -111,7 +136,7 @@ export function useCancelAuditUpload() {
         setProgress(Math.round(((batchIdx + 1) / totalBatches) * 100));
       }
 
-      // 3. Update upload record with final counts
+      // 4. Update upload record with final counts
       const { error: updateError } = await supabase
         .from('cancel_audit_uploads')
         .update({
@@ -130,6 +155,7 @@ export function useCancelAuditUpload() {
         recordsProcessed: records.length,
         recordsCreated,
         recordsUpdated,
+        recordsDeactivated,
         errors,
       };
     } catch (err) {
@@ -141,6 +167,7 @@ export function useCancelAuditUpload() {
         recordsProcessed: 0,
         recordsCreated: 0,
         recordsUpdated: 0,
+        recordsDeactivated: 0,
         errors: [errorMessage],
       };
     } finally {

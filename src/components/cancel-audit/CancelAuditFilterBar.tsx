@@ -1,7 +1,8 @@
-import { Search, X, CircleDot } from 'lucide-react';
+import { Search, X, CircleDot, Flame, Archive } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ReportType, RecordStatus } from '@/types/cancel-audit';
+import type { ViewMode } from '@/hooks/useCancelAuditRecords';
 
 interface FilterCounts {
   all: number;
@@ -19,6 +21,10 @@ interface FilterCounts {
 }
 
 interface CancelAuditFilterBarProps {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  needsAttentionCount: number;
+  allRecordsCount: number;
   reportTypeFilter: ReportType | 'all';
   onReportTypeFilterChange: (filter: ReportType | 'all') => void;
   searchQuery: string;
@@ -35,6 +41,10 @@ interface CancelAuditFilterBarProps {
 }
 
 export function CancelAuditFilterBar({
+  viewMode,
+  onViewModeChange,
+  needsAttentionCount,
+  allRecordsCount,
   reportTypeFilter,
   onReportTypeFilterChange,
   searchQuery,
@@ -57,6 +67,54 @@ export function CancelAuditFilterBar({
 
   return (
     <div className="space-y-4">
+      {/* View Mode Toggle - Primary/Prominent */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center bg-muted rounded-lg p-1">
+          <Button
+            variant={viewMode === 'needs_attention' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('needs_attention')}
+            className={cn(
+              'gap-2 rounded-md',
+              viewMode === 'needs_attention' && 'bg-primary text-primary-foreground'
+            )}
+          >
+            <Flame className="h-4 w-4" />
+            Needs Attention
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                'ml-1',
+                viewMode === 'needs_attention' && 'bg-primary-foreground/20 text-primary-foreground'
+              )}
+            >
+              {isLoading ? '-' : needsAttentionCount}
+            </Badge>
+          </Button>
+          <Button
+            variant={viewMode === 'all' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onViewModeChange('all')}
+            className={cn(
+              'gap-2 rounded-md',
+              viewMode === 'all' && 'bg-primary text-primary-foreground'
+            )}
+          >
+            <Archive className="h-4 w-4" />
+            All Records
+            <Badge 
+              variant="secondary"
+              className={cn(
+                'ml-1',
+                viewMode === 'all' && 'bg-primary-foreground/20 text-primary-foreground'
+              )}
+            >
+              {isLoading ? '-' : allRecordsCount}
+            </Badge>
+          </Button>
+        </div>
+      </div>
+
       {/* Main filter row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
         {/* Report type toggle */}
@@ -114,19 +172,21 @@ export function CancelAuditFilterBar({
           )}
         </Toggle>
 
-        {/* Status filter dropdown */}
-        <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as RecordStatus | 'all')}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Status filter dropdown - only show in 'all' view mode */}
+        {viewMode === 'all' && (
+          <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as RecordStatus | 'all')}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="new">New</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="lost">Lost</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Sort dropdown */}
         <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>

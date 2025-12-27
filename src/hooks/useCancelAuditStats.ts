@@ -5,6 +5,8 @@ interface WeeklyStats {
   weekStart: string;
   weekEnd: string;
   totalRecords: number;
+  activeRecords: number;
+  needsAttentionCount: number;
   pendingCancelCount: number;
   cancellationCount: number;
   totalContacts: number;
@@ -55,14 +57,19 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
       const weekStartISO = weekStart.toISOString();
       const weekEndISO = weekEnd.toISOString();
 
-      // Fetch all active records for the agency
+      // Fetch all records for the agency (both active and inactive for total count)
       const { data: records, error: recordsError } = await supabase
         .from('cancel_audit_records')
-        .select('id, household_key, report_type, premium_cents, status')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true);
+        .select('id, household_key, report_type, premium_cents, status, is_active')
+        .eq('agency_id', agencyId);
 
       if (recordsError) throw recordsError;
+
+      // Filter for active records only for actionable stats
+      const activeRecords = records?.filter(r => r.is_active) || [];
+      const needsAttentionRecords = activeRecords.filter(r => 
+        ['new', 'in_progress'].includes(r.status)
+      );
 
       // Fetch activities for this week
       const { data: activities, error: activitiesError } = await supabase
@@ -76,8 +83,10 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
 
       // Calculate stats
       const totalRecords = records?.length || 0;
-      const pendingCancelCount = records?.filter(r => r.report_type === 'pending_cancel').length || 0;
-      const cancellationCount = records?.filter(r => r.report_type === 'cancellation').length || 0;
+      const activeCount = activeRecords.length;
+      const needsAttentionCount = needsAttentionRecords.length;
+      const pendingCancelCount = needsAttentionRecords.filter(r => r.report_type === 'pending_cancel').length;
+      const cancellationCount = needsAttentionRecords.filter(r => r.report_type === 'cancellation').length;
 
       // Contact activities
       const contactActivities = activities?.filter(a => 
@@ -129,6 +138,8 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
         weekStart: weekStart.toISOString().split('T')[0],
         weekEnd: weekEnd.toISOString().split('T')[0],
         totalRecords,
+        activeRecords: activeCount,
+        needsAttentionCount,
         pendingCancelCount,
         cancellationCount,
         totalContacts,

@@ -12,8 +12,9 @@ import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmpt
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
-import { useCancelAuditRecords } from "@/hooks/useCancelAuditRecords";
+import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
+import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
 import { useToast } from "@/hooks/use-toast";
 import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-audit";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,9 @@ const CancelAuditPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [staffMemberId, setStaffMemberId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('Unknown User');
+
+  // View mode - default to "Needs Attention"
+  const [viewMode, setViewMode] = useState<ViewMode>('needs_attention');
 
   // Filter and UI state
   const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
@@ -57,9 +61,10 @@ const CancelAuditPage = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch records
+  // Fetch records with viewMode
   const { data: records, isLoading: recordsLoading, refetch } = useCancelAuditRecords({
     agencyId,
+    viewMode,
     reportTypeFilter,
     searchQuery: debouncedSearch,
     sortBy,
@@ -68,21 +73,16 @@ const CancelAuditPage = () => {
   // Fetch stats to get week range
   const { data: stats } = useCancelAuditStats({ agencyId, weekOffset });
 
-  // Calculate counts for filter tabs (based on all records, ignoring current filter)
-  const { data: allRecords } = useCancelAuditRecords({
-    agencyId,
-    reportTypeFilter: 'all',
-    searchQuery: debouncedSearch,
-    sortBy: 'urgency',
-  });
+  // Fetch counts for view toggle badges
+  const { data: viewCounts } = useCancelAuditCounts(agencyId);
 
   // Apply additional filters (status and untouched)
   const filteredRecords = useMemo(() => {
     if (!records) return [];
     let filtered = records;
     
-    // Status filter
-    if (statusFilter !== 'all') {
+    // Status filter (only in 'all' view mode)
+    if (viewMode === 'all' && statusFilter !== 'all') {
       filtered = filtered.filter(r => r.status === statusFilter);
     }
     
@@ -92,26 +92,26 @@ const CancelAuditPage = () => {
     }
     
     return filtered;
-  }, [records, statusFilter, showUntouchedOnly]);
+  }, [records, viewMode, statusFilter, showUntouchedOnly]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
-    return allRecords?.filter(r => r.activity_count === 0).length || 0;
-  }, [allRecords]);
+    return records?.filter(r => r.activity_count === 0).length || 0;
+  }, [records]);
 
   const filterCounts = useMemo(() => {
-    const all = allRecords || [];
+    const all = records || [];
     return {
       all: all.length,
       pending_cancel: all.filter(r => r.report_type === 'pending_cancel').length,
       cancellation: all.filter(r => r.report_type === 'cancellation').length,
     };
-  }, [allRecords]);
+  }, [records]);
 
   // Clear selection when filters change
   useEffect(() => {
     setSelectedRecordIds([]);
-  }, [reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch]);
+  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -207,10 +207,11 @@ const CancelAuditPage = () => {
       title: "Upload Complete",
       description: "Records have been processed successfully",
     });
-    // Invalidate and refetch records + stats
+    // Invalidate and refetch records + stats + counts
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
     queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
   }, [showToast, queryClient]);
 
   const handleToggleExpand = useCallback((recordId: string) => {
@@ -248,6 +249,7 @@ const CancelAuditPage = () => {
       toast.success(`Updated ${selectedRecordIds.length} records to ${status.replace('_', ' ')}`);
       setSelectedRecordIds([]);
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
     } catch (error) {
       toast.error('Failed to update records');
     } finally {
@@ -267,7 +269,7 @@ const CancelAuditPage = () => {
     return null;
   }
 
-  const hasRecords = (allRecords?.length || 0) > 0;
+  const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
   const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly;
 
@@ -320,6 +322,10 @@ const CancelAuditPage = () => {
           <div className="space-y-6">
             {/* Filter Bar */}
             <CancelAuditFilterBar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              needsAttentionCount={viewCounts?.needsAttention || 0}
+              allRecordsCount={viewCounts?.all || 0}
               reportTypeFilter={reportTypeFilter}
               onReportTypeFilterChange={setReportTypeFilter}
               searchQuery={searchQuery}
@@ -368,6 +374,7 @@ const CancelAuditPage = () => {
                 statusFilter={statusFilter}
                 searchQuery={debouncedSearch}
                 showUntouchedOnly={showUntouchedOnly}
+                viewMode={viewMode}
               />
             )}
           </div>
