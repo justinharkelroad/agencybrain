@@ -1,7 +1,9 @@
-import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign } from 'lucide-react';
+import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { RecordWithActivityCount } from '@/hooks/useCancelAuditRecords';
+import { RecordStatus } from '@/types/cancel-audit';
 import { StatusIndicator } from './StatusIndicator';
 import { ActivityBadge } from './ActivityBadge';
 import { StatusDropdown } from './StatusDropdown';
@@ -15,6 +17,20 @@ import {
   getDisplayName,
   formatPhone 
 } from '@/lib/cancel-audit-utils';
+
+const STATUS_STYLES: Record<RecordStatus, string> = {
+  new: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
+  in_progress: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  resolved: 'bg-green-500/10 text-green-400 border-green-500/30',
+  lost: 'bg-red-500/10 text-red-400 border-red-500/30',
+};
+
+const STATUS_LABELS: Record<RecordStatus, string> = {
+  new: 'New',
+  in_progress: 'In Progress',
+  resolved: 'Resolved',
+  lost: 'Lost',
+};
 
 interface CancelAuditRecordCardProps {
   record: RecordWithActivityCount;
@@ -92,13 +108,27 @@ export function CancelAuditRecordCard({
             </p>
           </div>
 
-          {/* Activity badge */}
-          <div className="hidden lg:block flex-shrink-0">
-            <ActivityBadge 
-              activityCount={record.activity_count} 
-              lastActivityAt={record.last_activity_at} 
-            />
-          </div>
+          {/* Contact count - compact */}
+          {record.activity_count > 0 && (
+            <div 
+              className="hidden sm:flex items-center gap-1 text-green-400 text-sm flex-shrink-0" 
+              title={`${record.activity_count} contacts made`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="font-medium">{record.activity_count}</span>
+            </div>
+          )}
+
+          {/* Status badge - always visible */}
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "text-xs font-medium flex-shrink-0",
+              STATUS_STYLES[record.status as RecordStatus] || STATUS_STYLES.new
+            )}
+          >
+            {STATUS_LABELS[record.status as RecordStatus] || 'New'}
+          </Badge>
 
           {/* Expand chevron */}
           <div className="flex-shrink-0 ml-auto">
