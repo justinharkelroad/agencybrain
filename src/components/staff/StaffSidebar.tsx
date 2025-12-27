@@ -9,6 +9,7 @@ import {
   Sun,
   Phone,
   Settings,
+  FileWarning,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -36,6 +37,7 @@ const navItems = [
   { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
   { title: "Flows", url: "/staff/flows", icon: Sparkles },
   { title: "Training", url: "/staff/training", icon: BookOpen },
+  { title: "Cancel Audit", url: "/cancel-audit", icon: FileWarning },
 ];
 
 export function StaffSidebar() {
@@ -106,6 +108,9 @@ export function StaffSidebar() {
     }
     if (path === "/staff/call-scoring") {
       return location.pathname.startsWith("/staff/call-scoring");
+    }
+    if (path === "/cancel-audit") {
+      return location.pathname.startsWith("/cancel-audit");
     }
     return location.pathname === path;
   };
