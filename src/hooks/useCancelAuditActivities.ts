@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ActivityType, CancelAuditActivity } from '@/types/cancel-audit';
+import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
 
 interface LogActivityParams {
   agencyId: string;
@@ -15,9 +16,26 @@ interface LogActivityParams {
 
 export function useLogActivity() {
   const queryClient = useQueryClient();
+  const staffSession = getStaffSession();
 
   return useMutation({
     mutationFn: async (params: LogActivityParams) => {
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "log_activity",
+          params: {
+            recordId: params.recordId,
+            householdKey: params.householdKey,
+            activityType: params.activityType,
+            notes: params.notes,
+            userDisplayName: params.userDisplayName,
+          },
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       const { data, error } = await supabase
         .from('cancel_audit_activities')
         .insert({
@@ -37,14 +55,12 @@ export function useLogActivity() {
 
       // Determine what status to set based on activity type
       if (params.activityType === 'payment_made') {
-        // Payment made = resolved (all household policies - they paid!)
         await supabase
           .from('cancel_audit_records')
           .update({ status: 'resolved', updated_at: new Date().toISOString() })
           .eq('agency_id', params.agencyId)
           .eq('household_key', params.householdKey);
       } else if (params.activityType === 'payment_promised') {
-        // Payment promised = in_progress (follow up needed)
         await supabase
           .from('cancel_audit_records')
           .update({ status: 'in_progress', updated_at: new Date().toISOString() })
@@ -52,7 +68,6 @@ export function useLogActivity() {
           .eq('household_key', params.householdKey)
           .in('status', ['new']);
       } else if (['attempted_call', 'voicemail_left', 'text_sent', 'email_sent', 'spoke_with_client'].includes(params.activityType)) {
-        // Contact attempts = in_progress (only if currently 'new')
         await supabase
           .from('cancel_audit_records')
           .update({ status: 'in_progress', updated_at: new Date().toISOString() })
@@ -60,18 +75,14 @@ export function useLogActivity() {
           .eq('household_key', params.householdKey)
           .eq('status', 'new');
       }
-      // 'note' activity doesn't change status
 
       return data;
     },
     onMutate: async (params) => {
-      // Cancel outgoing queries
       await queryClient.cancelQueries({ queryKey: ['cancel-audit-activities', params.householdKey] });
       
-      // Snapshot previous value
       const previous = queryClient.getQueryData(['cancel-audit-activities', params.householdKey, params.agencyId]);
       
-      // Optimistically add the new activity
       queryClient.setQueryData(
         ['cancel-audit-activities', params.householdKey, params.agencyId],
         (old: CancelAuditActivity[] | undefined) => {
@@ -94,7 +105,6 @@ export function useLogActivity() {
       return { previous };
     },
     onError: (err, params, context) => {
-      // Rollback on error
       if (context?.previous) {
         queryClient.setQueryData(
           ['cancel-audit-activities', params.householdKey, params.agencyId],
@@ -103,7 +113,6 @@ export function useLogActivity() {
       }
     },
     onSuccess: (_, params) => {
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.householdKey] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
@@ -114,11 +123,23 @@ export function useLogActivity() {
 }
 
 export function useHouseholdActivities(householdKey: string | null, agencyId: string | null) {
+  const staffSession = getStaffSession();
+
   return useQuery({
     queryKey: ['cancel-audit-activities', householdKey, agencyId],
     queryFn: async (): Promise<CancelAuditActivity[]> => {
       if (!householdKey || !agencyId) return [];
 
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "get_activities",
+          params: { householdKey },
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       const { data, error } = await supabase
         .from('cancel_audit_activities')
         .select('*')
@@ -134,11 +155,23 @@ export function useHouseholdActivities(householdKey: string | null, agencyId: st
 }
 
 export function useRecordActivities(recordId: string | null) {
+  const staffSession = getStaffSession();
+
   return useQuery({
     queryKey: ['cancel-audit-activities', recordId],
     queryFn: async (): Promise<CancelAuditActivity[]> => {
       if (!recordId) return [];
 
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "get_activities",
+          params: { recordId },
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       const { data, error } = await supabase
         .from('cancel_audit_activities')
         .select('*')
@@ -154,9 +187,20 @@ export function useRecordActivities(recordId: string | null) {
 
 export function useUpdateRecordStatus() {
   const queryClient = useQueryClient();
+  const staffSession = getStaffSession();
 
   return useMutation({
-    mutationFn: async ({ recordId, status }: { recordId: string; status: string }) => {
+    mutationFn: async ({ recordId, status, agencyId }: { recordId: string; status: string; agencyId?: string }) => {
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "update_status",
+          params: { recordId, status },
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       const { data, error } = await supabase
         .from('cancel_audit_records')
         .update({ status })

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
 
 interface CancelAuditCounts {
   needsAttention: number;
@@ -11,6 +12,8 @@ interface CancelAuditCounts {
 }
 
 export function useCancelAuditCounts(agencyId: string | null) {
+  const staffSession = getStaffSession();
+
   return useQuery({
     queryKey: ['cancel-audit-counts', agencyId],
     queryFn: async (): Promise<CancelAuditCounts> => {
@@ -18,6 +21,16 @@ export function useCancelAuditCounts(agencyId: string | null) {
         return { needsAttention: 0, all: 0, activeByType: { pending_cancel: 0, cancellation: 0 } };
       }
 
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        return callCancelAuditApi({
+          operation: "get_counts",
+          params: {},
+          sessionToken: staffSession.token,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
       // Get needs attention count (active + new/in_progress)
       const { count: needsAttention, error: needsAttentionError } = await supabase
         .from('cancel_audit_records')

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CancelAuditRecord, ReportType } from '@/types/cancel-audit';
+import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
 
 export type ViewMode = 'needs_attention' | 'all';
 
@@ -26,12 +27,29 @@ export function useCancelAuditRecords({
   searchQuery,
   sortBy
 }: UseCancelAuditRecordsOptions) {
+  const staffSession = getStaffSession();
+
   return useQuery({
     queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy],
     queryFn: async (): Promise<RecordWithActivityCount[]> => {
       if (!agencyId) return [];
 
-      // Base query - fetch records with activity counts
+      // Staff portal: use edge function
+      if (staffSession?.token) {
+        const data = await callCancelAuditApi({
+          operation: "get_records",
+          params: {
+            viewMode,
+            reportTypeFilter,
+            searchQuery,
+            sortBy,
+          },
+          sessionToken: staffSession.token,
+        });
+        return data as RecordWithActivityCount[];
+      }
+
+      // Regular auth: use direct Supabase query
       let query = supabase
         .from('cancel_audit_records')
         .select(`
@@ -42,12 +60,10 @@ export function useCancelAuditRecords({
 
       // View mode filtering
       if (viewMode === 'needs_attention') {
-        // Only active records with actionable status
         query = query
           .eq('is_active', true)
           .in('status', ['new', 'in_progress']);
       }
-      // 'all' mode shows everything (active and inactive, all statuses)
 
       // Apply report type filter
       if (reportTypeFilter !== 'all') {
@@ -62,7 +78,6 @@ export function useCancelAuditRecords({
 
       // Apply sorting
       if (sortBy === 'urgency') {
-        // Pending cancels first (by pending_cancel_date), then cancellations (by cancel_date)
         query = query
           .order('pending_cancel_date', { ascending: true, nullsFirst: false })
           .order('cancel_date', { ascending: true, nullsFirst: false });
@@ -78,7 +93,7 @@ export function useCancelAuditRecords({
 
       if (error) throw error;
 
-      // Calculate household policy counts (only among active records in needs_attention mode)
+      // Calculate household policy counts
       const householdPolicyCounts = new Map<string, number>();
       (data || []).forEach(record => {
         const count = householdPolicyCounts.get(record.household_key) || 0;
@@ -92,7 +107,6 @@ export function useCancelAuditRecords({
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         
-        // Remove the nested activities from the record to match CancelAuditRecord type
         const { cancel_audit_activities, ...cleanRecord } = record as any;
         
         return {
@@ -105,6 +119,6 @@ export function useCancelAuditRecords({
       });
     },
     enabled: !!agencyId,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
   });
 }
