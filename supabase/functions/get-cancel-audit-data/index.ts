@@ -37,32 +37,40 @@ serve(async (req) => {
       );
     }
 
-    // Verify staff session and get agency_id
+    // Step 1: Verify staff session
     const { data: session, error: sessionError } = await supabase
       .from("staff_sessions")
-      .select("team_member_id, agency_id, expires_at")
+      .select("staff_user_id, expires_at, is_valid")
       .eq("session_token", sessionToken)
-      .single();
+      .eq("is_valid", true)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
 
     if (sessionError || !session) {
-      console.error("[get-cancel-audit-data] Invalid session:", sessionError);
+      console.error("[get-cancel-audit-data] Invalid or expired session:", sessionError);
       return new Response(
-        JSON.stringify({ error: "Invalid session" }),
+        JSON.stringify({ error: "Invalid or expired session" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if session is expired
-    if (new Date(session.expires_at) < new Date()) {
-      console.error("[get-cancel-audit-data] Session expired");
+    // Step 2: Get staff user details (agency_id, team_member_id)
+    const { data: staffUser, error: staffError } = await supabase
+      .from("staff_users")
+      .select("id, agency_id, team_member_id")
+      .eq("id", session.staff_user_id)
+      .single();
+
+    if (staffError || !staffUser) {
+      console.error("[get-cancel-audit-data] Staff user not found:", staffError);
       return new Response(
-        JSON.stringify({ error: "Session expired" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Staff user not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const agencyId = session.agency_id;
-    const teamMemberId = session.team_member_id;
+    const agencyId = staffUser.agency_id;
+    const teamMemberId = staffUser.team_member_id;
 
     // Get the operation type from request body
     const body = await req.json();
