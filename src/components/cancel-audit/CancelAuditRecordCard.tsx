@@ -1,4 +1,4 @@
-import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare } from 'lucide-react';
+import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { ActivityBadge } from './ActivityBadge';
 import { StatusDropdown } from './StatusDropdown';
 import { QuickActions } from './QuickActions';
 import { ActivityTimeline } from './ActivityTimeline';
+import { HouseholdPolicies } from './HouseholdPolicies';
 import { useHouseholdActivities } from '@/hooks/useCancelAuditActivities';
 import { 
   formatCentsToCurrency, 
@@ -107,6 +108,17 @@ export function CancelAuditRecordCard({
               {formatCentsToCurrency(record.premium_cents)}
             </p>
           </div>
+
+          {/* Multi-policy indicator */}
+          {record.household_policy_count > 1 && (
+            <div 
+              className="hidden sm:flex items-center gap-1 text-xs bg-purple-500/10 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex-shrink-0"
+              title={`${record.household_policy_count} policies for this household`}
+            >
+              <Users className="h-3 w-3" />
+              <span>{record.household_policy_count}</span>
+            </div>
+          )}
 
           {/* Contact count - compact */}
           {record.activity_count > 0 && (
@@ -299,6 +311,15 @@ export function CancelAuditRecordCard({
               />
             </div>
           </div>
+
+          {/* Other Household Policies */}
+          {record.household_policy_count > 1 && (
+            <HouseholdPolicies
+              currentRecordId={record.id}
+              householdKey={record.household_key}
+              agencyId={agencyId}
+            />
+          )}
 
           {/* Quick Actions */}
           <div className="mt-6 pt-4 border-t border-border">
