@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ActivityType, CancelAuditActivity } from '@/types/cancel-audit';
-import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
+import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 interface LogActivityParams {
   agencyId: string;
@@ -16,12 +16,13 @@ interface LogActivityParams {
 
 export function useLogActivity() {
   const queryClient = useQueryClient();
-  const staffSession = getStaffSession();
 
   return useMutation({
     mutationFn: async (params: LogActivityParams) => {
+      const staffSessionToken = getStaffSessionToken();
+
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "log_activity",
           params: {
@@ -31,7 +32,7 @@ export function useLogActivity() {
             notes: params.notes,
             userDisplayName: params.userDisplayName,
           },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 
@@ -123,19 +124,19 @@ export function useLogActivity() {
 }
 
 export function useHouseholdActivities(householdKey: string | null, agencyId: string | null) {
-  const staffSession = getStaffSession();
-
   return useQuery({
     queryKey: ['cancel-audit-activities', householdKey, agencyId],
     queryFn: async (): Promise<CancelAuditActivity[]> => {
       if (!householdKey || !agencyId) return [];
 
+      const staffSessionToken = getStaffSessionToken();
+
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "get_activities",
           params: { householdKey },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 
@@ -155,19 +156,19 @@ export function useHouseholdActivities(householdKey: string | null, agencyId: st
 }
 
 export function useRecordActivities(recordId: string | null) {
-  const staffSession = getStaffSession();
-
   return useQuery({
     queryKey: ['cancel-audit-activities', recordId],
     queryFn: async (): Promise<CancelAuditActivity[]> => {
       if (!recordId) return [];
 
+      const staffSessionToken = getStaffSessionToken();
+
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "get_activities",
           params: { recordId },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 
@@ -187,16 +188,17 @@ export function useRecordActivities(recordId: string | null) {
 
 export function useUpdateRecordStatus() {
   const queryClient = useQueryClient();
-  const staffSession = getStaffSession();
 
   return useMutation({
     mutationFn: async ({ recordId, status, agencyId }: { recordId: string; status: string; agencyId?: string }) => {
+      const staffSessionToken = getStaffSessionToken();
+
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "update_status",
           params: { recordId, status },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { callCancelAuditApi, getStaffSession } from '@/lib/cancel-audit-api';
+import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 interface WeeklyStats {
   weekStart: string;
@@ -37,7 +37,7 @@ const CONTACT_ACTIVITY_TYPES = [
 ];
 
 export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStatsOptions) {
-  const staffSession = getStaffSession();
+  const staffSessionToken = getStaffSessionToken();
 
   return useQuery({
     queryKey: ['cancel-audit-stats', agencyId, weekOffset],
@@ -45,11 +45,11 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
       if (!agencyId) throw new Error('No agency ID');
 
       // Staff portal: use edge function
-      if (staffSession?.token) {
+      if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "get_stats",
           params: { weekOffset },
-          sessionToken: staffSession.token,
+          sessionToken: staffSessionToken,
         });
       }
 
