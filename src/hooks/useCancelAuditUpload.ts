@@ -64,7 +64,7 @@ export function useCancelAuditUpload() {
 
       const uploadId = uploadData.id;
 
-      // 2. Process records in batches
+      // 2. Process records in batches using RPC function
       const totalBatches = Math.ceil(records.length / BATCH_SIZE);
       
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
@@ -72,59 +72,39 @@ export function useCancelAuditUpload() {
         const end = Math.min(start + BATCH_SIZE, records.length);
         const batch = records.slice(start, end);
 
-        // Check which policies already exist
-        const policyNumbers = batch.map(r => r.policy_number);
-        const { data: existingRecords } = await supabase
-          .from('cancel_audit_records')
-          .select('policy_number')
-          .eq('agency_id', context.agencyId)
-          .in('policy_number', policyNumbers);
-
-        const existingPolicies = new Set(existingRecords?.map(r => r.policy_number) || []);
-
-        // Prepare upsert data
-        const upsertData = batch.map(record => ({
-          agency_id: context.agencyId,
-          policy_number: record.policy_number,
-          household_key: record.household_key,
-          insured_first_name: record.insured_first_name,
-          insured_last_name: record.insured_last_name,
-          insured_email: record.insured_email,
-          insured_phone: record.insured_phone,
-          insured_phone_alt: record.insured_phone_alt,
-          agent_number: record.agent_number,
-          product_name: record.product_name,
-          premium_cents: record.premium_cents,
-          no_of_items: record.no_of_items,
-          account_type: record.account_type,
-          report_type: record.report_type,
-          amount_due_cents: record.amount_due_cents,
-          cancel_date: record.cancel_date,
-          renewal_effective_date: record.renewal_effective_date,
-          pending_cancel_date: record.pending_cancel_date,
-          is_active: true,
-          last_upload_id: uploadId,
-        }));
-
-        // Upsert batch
-        const { error: upsertError } = await supabase
-          .from('cancel_audit_records')
-          .upsert(upsertData, {
-            onConflict: 'agency_id,policy_number',
-            ignoreDuplicates: false,
+        // Process each record in the batch using the upsert function
+        for (const record of batch) {
+          const { data, error: rpcError } = await supabase.rpc('upsert_cancel_audit_record', {
+            p_agency_id: context.agencyId,
+            p_policy_number: record.policy_number,
+            p_household_key: record.household_key,
+            p_insured_first_name: record.insured_first_name,
+            p_insured_last_name: record.insured_last_name,
+            p_insured_email: record.insured_email,
+            p_insured_phone: record.insured_phone,
+            p_insured_phone_alt: record.insured_phone_alt,
+            p_agent_number: record.agent_number,
+            p_product_name: record.product_name,
+            p_premium_cents: record.premium_cents,
+            p_no_of_items: record.no_of_items,
+            p_account_type: record.account_type,
+            p_report_type: record.report_type,
+            p_amount_due_cents: record.amount_due_cents,
+            p_cancel_date: record.cancel_date,
+            p_renewal_effective_date: record.renewal_effective_date,
+            p_pending_cancel_date: record.pending_cancel_date,
+            p_last_upload_id: uploadId,
           });
 
-        if (upsertError) {
-          errors.push(`Batch ${batchIdx + 1}: ${upsertError.message}`);
-        } else {
-          // Count created vs updated
-          batch.forEach(record => {
-            if (existingPolicies.has(record.policy_number)) {
-              recordsUpdated++;
-            } else {
+          if (rpcError) {
+            errors.push(`Policy ${record.policy_number}: ${rpcError.message}`);
+          } else if (data && data[0]) {
+            if (data[0].was_created) {
               recordsCreated++;
+            } else {
+              recordsUpdated++;
             }
-          });
+          }
         }
 
         // Update progress
