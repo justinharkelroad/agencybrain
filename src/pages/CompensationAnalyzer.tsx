@@ -10,6 +10,7 @@ import { ReportHistory } from "@/components/compensation/ReportHistory";
 export default function CompensationAnalyzer() {
   const [activeTab, setActiveTab] = useState("upload");
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
+  const [settingsVersion, setSettingsVersion] = useState(0);
 
   return (
     <SidebarLayout>
@@ -52,6 +53,7 @@ export default function CompensationAnalyzer() {
           {/* Upload & Compare Tab */}
           <TabsContent value="upload" className="space-y-6">
             <StatementUploader
+              key={settingsVersion}
               onReportGenerated={(reportId) => {
                 setCurrentReportId(reportId);
                 setActiveTab("report");
@@ -96,7 +98,7 @@ export default function CompensationAnalyzer() {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
-            <CompSettingsForm />
+            <CompSettingsForm onSettingsSaved={() => setSettingsVersion(v => v + 1)} />
           </TabsContent>
         </Tabs>
       </div>

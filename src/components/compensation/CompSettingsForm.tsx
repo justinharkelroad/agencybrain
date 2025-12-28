@@ -98,7 +98,11 @@ interface CompSettings {
   pif_count: number | null;
 }
 
-export function CompSettingsForm() {
+interface CompSettingsFormProps {
+  onSettingsSaved?: () => void;
+}
+
+export function CompSettingsForm({ onSettingsSaved }: CompSettingsFormProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -180,6 +184,7 @@ export function CompSettingsForm() {
       if (error) throw error;
 
       toast.success("Settings saved successfully");
+      onSettingsSaved?.();
     } catch (error) {
       console.error("Error saving settings:", error);
       toast.error("Failed to save settings");
