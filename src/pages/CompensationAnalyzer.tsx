@@ -52,9 +52,8 @@ export default function CompensationAnalyzer() {
           {/* Upload & Compare Tab */}
           <TabsContent value="upload" className="space-y-6">
             <StatementUploader
-              onReportGenerated={(priorUploadId, currentUploadId) => {
-                // Store pending report info - actual report generation is Phase 3
-                setCurrentReportId(`pending-${priorUploadId}-${currentUploadId}`);
+              onReportGenerated={(reportId) => {
+                setCurrentReportId(reportId);
                 setActiveTab("report");
               }}
             />
