@@ -338,6 +338,47 @@ export type Database = {
           },
         ]
       }
+      agency_comp_settings: {
+        Row: {
+          aap_level: string
+          agency_id: string
+          agency_tier: string | null
+          created_at: string | null
+          id: string
+          pif_count: number | null
+          state: string
+          updated_at: string | null
+        }
+        Insert: {
+          aap_level?: string
+          agency_id: string
+          agency_tier?: string | null
+          created_at?: string | null
+          id?: string
+          pif_count?: number | null
+          state?: string
+          updated_at?: string | null
+        }
+        Update: {
+          aap_level?: string
+          agency_id?: string
+          agency_tier?: string | null
+          created_at?: string | null
+          id?: string
+          pif_count?: number | null
+          state?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_comp_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_files: {
         Row: {
           agency_id: string
@@ -1014,6 +1055,128 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      comp_comparison_reports: {
+        Row: {
+          agency_id: string
+          comparison_data: Json
+          created_at: string | null
+          created_by: string | null
+          current_upload_id: string
+          discrepancies_found: number | null
+          id: string
+          potential_underpayment_cents: number | null
+          prior_upload_id: string
+          summary_data: Json
+        }
+        Insert: {
+          agency_id: string
+          comparison_data: Json
+          created_at?: string | null
+          created_by?: string | null
+          current_upload_id: string
+          discrepancies_found?: number | null
+          id?: string
+          potential_underpayment_cents?: number | null
+          prior_upload_id: string
+          summary_data: Json
+        }
+        Update: {
+          agency_id?: string
+          comparison_data?: Json
+          created_at?: string | null
+          created_by?: string | null
+          current_upload_id?: string
+          discrepancies_found?: number | null
+          id?: string
+          potential_underpayment_cents?: number | null
+          prior_upload_id?: string
+          summary_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_comparison_reports_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_comparison_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_comparison_reports_current_upload_id_fkey"
+            columns: ["current_upload_id"]
+            isOneToOne: false
+            referencedRelation: "comp_statement_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_comparison_reports_prior_upload_id_fkey"
+            columns: ["prior_upload_id"]
+            isOneToOne: false
+            referencedRelation: "comp_statement_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_statement_uploads: {
+        Row: {
+          agency_id: string
+          file_size_bytes: number | null
+          filename: string
+          id: string
+          statement_month: number
+          statement_year: number
+          storage_path: string
+          uploaded_at: string | null
+          uploaded_by: string | null
+          vc_baseline_achieved: boolean | null
+        }
+        Insert: {
+          agency_id: string
+          file_size_bytes?: number | null
+          filename: string
+          id?: string
+          statement_month: number
+          statement_year: number
+          storage_path: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          vc_baseline_achieved?: boolean | null
+        }
+        Update: {
+          agency_id?: string
+          file_size_bytes?: number | null
+          filename?: string
+          id?: string
+          statement_month?: number
+          statement_year?: number
+          storage_path?: string
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          vc_baseline_achieved?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_statement_uploads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_statement_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       core4_entries: {
         Row: {

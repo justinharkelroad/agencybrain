@@ -23,6 +23,7 @@ import {
   Rocket,
   ArrowLeftRight,
   ClipboardEdit,
+  FileSpreadsheet,
   type LucideIcon
 } from "lucide-react";
 
@@ -246,6 +247,14 @@ export const navigationConfig: NavEntry[] = [
         icon: PhoneCall,
         type: 'modal',
         modalKey: 'call_efficiency',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'compensation-analyzer',
+        title: 'Compensation Analyzer',
+        icon: FileSpreadsheet,
+        type: 'link',
+        url: '/compensation-analyzer',
         access: { staff: false, manager: true, owner: true },
       },
     ],
@@ -507,6 +516,14 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'modal',
         modalKey: 'bonus_forecast',
         access: { staff: false, manager: false, owner: true },
+      },
+      {
+        id: 'compensation-analyzer',
+        title: 'Compensation Analyzer',
+        icon: FileSpreadsheet,
+        type: 'link',
+        url: '/staff/compensation-analyzer',
+        access: { staff: false, manager: true, owner: true },
       },
     ],
   },
