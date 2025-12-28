@@ -1,16 +1,38 @@
 import { useState } from "react";
-import { FileSpreadsheet, Upload, FileText, History, Settings } from "lucide-react";
+import { FileSpreadsheet, Upload, FileText, History, Settings, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompSettingsForm } from "@/components/compensation/CompSettingsForm";
 import { StatementUploader } from "@/components/compensation/StatementUploader";
 import { ReportHistory } from "@/components/compensation/ReportHistory";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function CompensationAnalyzer() {
   const [activeTab, setActiveTab] = useState("upload");
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [settingsVersion, setSettingsVersion] = useState(0);
+
+  // Fetch full report data when a report is selected
+  const { data: currentReport, isLoading: reportLoading } = useQuery({
+    queryKey: ['comp-report-detail', currentReportId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('comp_comparison_reports')
+        .select(`
+          *,
+          prior_upload:prior_upload_id(statement_month, statement_year, filename),
+          current_upload:current_upload_id(statement_month, statement_year, filename)
+        `)
+        .eq('id', currentReportId!)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentReportId,
+  });
 
   return (
     <SidebarLayout>
@@ -65,23 +87,64 @@ export default function CompensationAnalyzer() {
           <TabsContent value="report" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Current Report</CardTitle>
+                <CardTitle>Comparison Report</CardTitle>
                 <CardDescription>
-                  View your most recent compensation analysis report.
+                  {currentReport ? (
+                    <>
+                      Comparing {(currentReport.prior_upload as any)?.statement_month}/{(currentReport.prior_upload as any)?.statement_year} 
+                      {" → "}
+                      {(currentReport.current_upload as any)?.statement_month}/{(currentReport.current_upload as any)?.statement_year}
+                    </>
+                  ) : (
+                    "View your compensation analysis report."
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mb-4" />
-                  <p className="text-lg font-medium mb-2">
-                    {currentReportId ? "Report generation coming in Phase 3" : "No report available"}
-                  </p>
-                  <p className="text-sm">
-                    {currentReportId
-                      ? "Your statements have been uploaded. Report analysis will be available soon."
-                      : "Upload and compare statements to generate a report."}
-                  </p>
-                </div>
+                {reportLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : currentReport ? (
+                  <div className="space-y-6">
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Discrepancies Found</p>
+                        <p className="text-2xl font-bold">{currentReport.discrepancies_found ?? 0}</p>
+                      </div>
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Potential Underpayment</p>
+                        <p className="text-2xl font-bold text-destructive">
+                          ${((currentReport.potential_underpayment_cents ?? 0) / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Raw Data (Phase 4 will replace with proper UI) */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Summary Data</h3>
+                      <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-64">
+                        {JSON.stringify(currentReport.summary_data, null, 2)}
+                      </pre>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Comparison Data</h3>
+                      <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-96">
+                        {JSON.stringify(currentReport.comparison_data, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <FileText className="h-12 w-12 mb-4" />
+                    <p className="text-lg font-medium mb-2">No report selected</p>
+                    <p className="text-sm">
+                      Upload and compare statements or select a report from history.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
