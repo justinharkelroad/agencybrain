@@ -126,6 +126,25 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
     if (!user?.id || !template) return null;
 
     try {
+      // Check for existing in_progress session first (deduplication)
+      const { data: existing } = await supabase
+        .from('flow_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('flow_template_id', template.id)
+        .eq('status', 'in_progress')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (existing) {
+        console.log('[useFlowSession] Found existing session, reusing:', existing.id);
+        setSession(existing as FlowSession);
+        setResponses((existing.responses_json as Record<string, string>) || {});
+        return existing as FlowSession;
+      }
+
+      // No existing session, create new one
       const { data, error } = await supabase
         .from('flow_sessions')
         .insert({
@@ -139,6 +158,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
 
       if (error) throw error;
       
+      console.log('[useFlowSession] Created new session:', data.id);
       setSession(data as FlowSession);
       return data as FlowSession;
     } catch (err: any) {

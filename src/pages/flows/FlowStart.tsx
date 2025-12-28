@@ -70,8 +70,8 @@ export default function FlowStart() {
         setDraftSession(existingSession);
         setLoading(false);
       } else {
-        // No draft - start fresh
-        await createNewSession(template.id);
+        // No draft - navigate directly, session will be created lazily by useFlowSession
+        navigate(`/flows/session/${slug}`, { replace: true });
       }
     } catch (err) {
       console.error('Error checking for drafts:', err);
@@ -145,7 +145,8 @@ export default function FlowStart() {
         .eq('id', draftSession.id);
     }
     
-    await createNewSession(templateId);
+    // Navigate directly, session will be created lazily by useFlowSession
+    navigate(`/flows/session/${slug}`, { replace: true });
   };
 
   // Count answered questions
