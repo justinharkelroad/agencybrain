@@ -149,6 +149,9 @@ export function validateRates(
   // Threshold for flagging - 0.5% rate difference
   const RATE_THRESHOLD = 0.005;
   
+  // Debug counter for first few discrepancies
+  let debugCount = 0;
+  
   for (const tx of transactions) {
     // Skip if no premium (likely a memo or adjustment row)
     if (tx.writtenPremium === 0) continue;
@@ -169,6 +172,22 @@ export function validateRates(
     
     // Only flag if difference exceeds threshold
     if (Math.abs(rateDiff) > RATE_THRESHOLD) {
+      // Debug logging for first 5 discrepancies
+      if (debugCount < 5) {
+        console.log('[RateValidator] Discrepancy found:', {
+          policyNumber: tx.policyNumber,
+          product: tx.product,
+          businessType: tx.businessType,
+          bundleType: tx.policyBundleType,
+          actualVcRate: tx.vcRate,
+          expectedVcRate: expected.rate,
+          rateDiff,
+          expectedNote: expected.note,
+          confidence: expected.confidence
+        });
+        debugCount++;
+      }
+      
       discrepancies.push({
         transaction: {
           rowNumber: tx.rowNumber,
@@ -195,6 +214,16 @@ export function validateRates(
       }
     }
   }
+  
+  // Debug summary
+  console.log('[RateValidator] Summary:', {
+    total: transactions.length,
+    analyzed,
+    discrepancies: discrepancies.length,
+    vcBaselineAchieved,
+    state,
+    aapLevel
+  });
   
   if (discrepancies.length > transactions.length * 0.5) {
     warnings.push('A large percentage of transactions show rate differences. Column mapping may need adjustment.');
