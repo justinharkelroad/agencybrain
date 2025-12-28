@@ -164,16 +164,27 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
     }
   }
   
+  const totals = {
+    writtenPremium: totalWritten,
+    baseCommission: totalBase,
+    variableComp: totalVC,
+    totalCommission: totalBase + totalVC,
+  };
+
+  // Debug logging
+  console.log('=== PARSING DEBUG ===');
+  console.log('Headers found:', headers);
+  console.log('Column mapping:', cols);
+  console.log('Total transactions parsed:', transactions.length);
+  console.log('First 3 transactions:', JSON.stringify(transactions.slice(0, 3), null, 2));
+  console.log('Totals:', totals);
+  console.log('Parse errors:', errors);
+
   return {
     agentNumber: '',
     agentName: '',
     transactions,
-    totals: {
-      writtenPremium: totalWritten,
-      baseCommission: totalBase,
-      variableComp: totalVC,
-      totalCommission: totalBase + totalVC,
-    },
+    totals,
     parseErrors: errors,
   };
 }

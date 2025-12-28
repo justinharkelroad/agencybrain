@@ -171,6 +171,15 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         parseCompensationStatement(currentFile!),
       ]);
       
+      // Debug logging for parsed statements
+      console.log('=== PRIOR STATEMENT ===');
+      console.log('Transactions:', priorParsed.transactions.length);
+      console.log('Totals:', priorParsed.totals);
+      
+      console.log('=== CURRENT STATEMENT ===');
+      console.log('Transactions:', currentParsed.transactions.length);
+      console.log('Totals:', currentParsed.totals);
+      
       // Check for parsing errors
       if (priorParsed.parseErrors.length > 0 || currentParsed.parseErrors.length > 0) {
         console.warn('Parse warnings:', { prior: priorParsed.parseErrors, current: currentParsed.parseErrors });
