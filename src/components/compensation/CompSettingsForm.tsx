@@ -284,16 +284,16 @@ export function CompSettingsForm() {
           <div className="space-y-2">
             <Label htmlFor="tier">Agency Tier (Optional)</Label>
             <Select
-              value={settings.agency_tier || ""}
+              value={settings.agency_tier || "__none__"}
               onValueChange={(value) =>
-                setSettings((prev) => ({ ...prev, agency_tier: value || null }))
+                setSettings((prev) => ({ ...prev, agency_tier: value === "__none__" ? null : value }))
               }
             >
               <SelectTrigger id="tier" className="w-full max-w-xs">
                 <SelectValue placeholder="Select tier (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {AGENCY_TIERS.map((tier) => (
                   <SelectItem key={tier.value} value={tier.value}>
                     {tier.label}
