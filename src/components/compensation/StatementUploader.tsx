@@ -80,34 +80,45 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   // Load agency comp settings
   useEffect(() => {
     const loadSettings = async () => {
+      console.log('[StatementUploader] loadSettings called', { agencyId, permissionsLoading });
+      
       if (!agencyId) {
+        console.log('[StatementUploader] No agencyId, skipping settings load');
         setSettingsLoading(false);
         return;
       }
       
       try {
+        console.log('[StatementUploader] Fetching settings for agency:', agencyId);
         const { data, error } = await supabase
           .from('agency_comp_settings')
           .select('state, aap_level, agency_tier')
           .eq('agency_id', agencyId)
-          .single();
+          .maybeSingle();
         
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error loading settings:', error);
+        console.log('[StatementUploader] Settings query result:', { data, error });
+        
+        if (error) {
+          console.error('[StatementUploader] Error loading settings:', error);
         }
         
         setSettings(data);
       } catch (err) {
-        console.error('Error loading settings:', err);
+        console.error('[StatementUploader] Exception loading settings:', err);
       } finally {
         setSettingsLoading(false);
       }
     };
     
+    console.log('[StatementUploader] useEffect triggered', { agencyId, permissionsLoading });
+    
     if (!permissionsLoading) {
       loadSettings();
     }
   }, [agencyId, permissionsLoading]);
+  
+  // Debug log current state
+  console.log('[StatementUploader] Current state:', { settings, settingsLoading, agencyId, permissionsLoading });
 
   // Prior file dropzone
   const onDropPrior = useCallback((acceptedFiles: File[]) => {
