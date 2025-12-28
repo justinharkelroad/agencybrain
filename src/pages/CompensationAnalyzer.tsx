@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { FileSpreadsheet, Upload, FileText, History, Settings } from "lucide-react";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompSettingsForm } from "@/components/compensation/CompSettingsForm";
+import { StatementUploader } from "@/components/compensation/StatementUploader";
+import { ReportHistory } from "@/components/compensation/ReportHistory";
 
 export default function CompensationAnalyzer() {
+  const [activeTab, setActiveTab] = useState("upload");
+  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
+
   return (
     <SidebarLayout>
       <div className="container mx-auto py-6 px-4 max-w-6xl">
@@ -20,14 +26,14 @@ export default function CompensationAnalyzer() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="upload" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
             <TabsTrigger value="upload" className="gap-2">
               <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">Upload & Compare</span>
               <span className="sm:hidden">Upload</span>
             </TabsTrigger>
-            <TabsTrigger value="report" className="gap-2" disabled>
+            <TabsTrigger value="report" className="gap-2" disabled={!currentReportId}>
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Current Report</span>
               <span className="sm:hidden">Report</span>
@@ -45,25 +51,13 @@ export default function CompensationAnalyzer() {
 
           {/* Upload & Compare Tab */}
           <TabsContent value="upload" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Compensation Statements</CardTitle>
-                <CardDescription>
-                  Upload your Excel compensation statements to begin analysis. Supported formats: .xlsx, .xls
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-muted-foreground/25 rounded-lg bg-muted/10">
-                  <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground mb-2">
-                    Upload functionality coming in Phase 2
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Configure your settings first in the Settings tab
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <StatementUploader
+              onReportGenerated={(priorUploadId, currentUploadId) => {
+                // Store pending report info - actual report generation is Phase 3
+                setCurrentReportId(`pending-${priorUploadId}-${currentUploadId}`);
+                setActiveTab("report");
+              }}
+            />
           </TabsContent>
 
           {/* Current Report Tab */}
@@ -78,8 +72,14 @@ export default function CompensationAnalyzer() {
               <CardContent>
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <FileText className="h-12 w-12 mb-4" />
-                  <p className="text-lg font-medium mb-2">No report available</p>
-                  <p className="text-sm">Upload and compare statements to generate a report.</p>
+                  <p className="text-lg font-medium mb-2">
+                    {currentReportId ? "Report generation coming in Phase 3" : "No report available"}
+                  </p>
+                  <p className="text-sm">
+                    {currentReportId
+                      ? "Your statements have been uploaded. Report analysis will be available soon."
+                      : "Upload and compare statements to generate a report."}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -87,21 +87,12 @@ export default function CompensationAnalyzer() {
 
           {/* Report History Tab */}
           <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Report History</CardTitle>
-                <CardDescription>
-                  View and download previous compensation analysis reports.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <History className="h-12 w-12 mb-4" />
-                  <p className="text-lg font-medium mb-2">No reports yet</p>
-                  <p className="text-sm">Your analysis reports will appear here after generation.</p>
-                </div>
-              </CardContent>
-            </Card>
+            <ReportHistory
+              onSelectReport={(reportId) => {
+                setCurrentReportId(reportId);
+                setActiveTab("report");
+              }}
+            />
           </TabsContent>
 
           {/* Settings Tab */}
