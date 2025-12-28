@@ -42,9 +42,12 @@ import { HelpVideoButton } from "@/components/HelpVideoButton";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+export type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency" | "bonus_forecast" | "video_training";
+
 export type ROIForecastersModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialTool?: CalcKey | null;
 };
 
 const LAST_USED_KEY = "roiForecasters:lastCalc";
@@ -335,14 +338,24 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
   );
 }
 
-type CalcKey = "vendor" | "data" | "mailer" | "transfer" | "allstate_bonus_grid" | "staff_roi" | "call_efficiency" | "bonus_forecast" | "video_training";
+// CalcKey type is now exported at top of file
 
-export function ROIForecastersModal({ open, onOpenChange }: ROIForecastersModalProps) {
+export function ROIForecastersModal({ open, onOpenChange, initialTool = null }: ROIForecastersModalProps) {
   const [mode, setMode] = useState<CalcKey | null>(null);
   const navigate = useNavigate();
 
+  // Set mode to initialTool when modal opens with a specific tool
   useEffect(() => {
-    if (!open) setMode(null);
+    if (open && initialTool) {
+      setMode(initialTool);
+    }
+  }, [open, initialTool]);
+
+  // Reset mode when modal closes
+  useEffect(() => {
+    if (!open) {
+      setMode(null);
+    }
   }, [open]);
 
   const handlePick = (k: CalcKey) => {
