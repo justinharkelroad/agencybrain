@@ -220,7 +220,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Calculator,
         type: 'modal',
         modalKey: 'bonus_forecast',
-        access: { staff: false, manager: true, owner: true },
+        access: { staff: false, manager: false, owner: true }, // Owner + Key Employees only
       },
       {
         id: 'producer-quote-dashboard',
