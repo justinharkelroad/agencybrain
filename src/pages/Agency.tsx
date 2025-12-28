@@ -1165,7 +1165,7 @@ export default function Agency() {
                                 className="bg-amber-500/10 text-amber-600 border-amber-500/20"
                               >
                                 <Clock className="h-3 w-3 mr-1" />
-                                Invite Pending
+                                Access Pending
                               </Badge>
                               <Button 
                                 variant="ghost" 
@@ -1184,7 +1184,7 @@ export default function Agency() {
                             onClick={() => openInviteModal(m)}
                           >
                             <Send className="h-3 w-3 mr-1" />
-                            Invite
+                            Access
                           </Button>
                         )}
                       </TableCell>
@@ -1457,11 +1457,11 @@ export default function Agency() {
                   }`}>
                     {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
-                  <span className="font-medium">Send Email Invite</span>
+                  <span className="font-medium">Send Email Access</span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 ml-6">
                   {selectedMember?.email 
-                    ? `Email invite to ${selectedMember.email}`
+                    ? `Email access link to ${selectedMember.email}`
                     : 'Requires email address on team member'
                   }
                 </p>
@@ -1635,7 +1635,7 @@ export default function Agency() {
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Send Invite
+                  Send Access
                 </>
               )}
             </Button>
