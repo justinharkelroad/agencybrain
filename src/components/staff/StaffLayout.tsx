@@ -1,13 +1,30 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StaffSidebar } from "./StaffSidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
+import { ROIForecastersModal, CalcKey } from "@/components/ROIForecastersModal";
 
 export function StaffLayout() {
+  const [roiOpen, setRoiOpen] = useState(false);
+  const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
+
+  const handleOpenROI = (toolKey?: CalcKey) => {
+    setRoiInitialTool(toolKey || null);
+    setRoiOpen(true);
+  };
+
+  const handleCloseROI = (open: boolean) => {
+    setRoiOpen(open);
+    if (!open) {
+      setRoiInitialTool(null);
+    }
+  };
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full">
-        <StaffSidebar />
+        <StaffSidebar onOpenROI={handleOpenROI} />
         
         {/* Mobile Header with Hamburger Menu - Only visible on mobile */}
         <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border flex items-center px-4 gap-3 pt-[env(safe-area-inset-top)] min-h-14">
@@ -23,6 +40,12 @@ export function StaffLayout() {
           </div>
         </main>
       </div>
+      
+      <ROIForecastersModal 
+        open={roiOpen} 
+        onOpenChange={handleCloseROI}
+        initialTool={roiInitialTool}
+      />
     </SidebarProvider>
   );
 }
