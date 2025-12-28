@@ -12,10 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
+import { parseCompensationStatement } from "@/lib/allstate-parser";
+import { compareStatements, validateRates } from "@/lib/allstate-analyzer";
+import { AAPLevel } from "@/lib/allstate-rates";
 import { toast } from "sonner";
 
 interface StatementUploaderProps {
-  onReportGenerated: (priorUploadId: string, currentUploadId: string) => void;
+  onReportGenerated: (reportId: string) => void;
 }
 
 interface AgencyCompSettings {
@@ -146,36 +149,83 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   const canProcess = periodsSelected && priorDateValid && currentDateValid && filesUploaded && settings && !processing;
 
   const handleGenerateReport = async () => {
-    if (!canProcess || !agencyId || !user?.id) return;
+    if (!canProcess || !agencyId || !user?.id || !settings) return;
     
     setProcessing(true);
     
     try {
-      // Upload prior statement
-      const priorUpload = await uploadStatement({
-        agencyId,
-        file: priorFile!,
-        month: priorMonth!,
-        year: priorYear!,
-        vcBaselineAchieved: priorVcBaseline,
-        uploadedBy: user.id,
-      });
+      // Step 1: Parse both files locally (we have the File objects)
+      toast.info("Parsing statements...");
+      const [priorParsed, currentParsed] = await Promise.all([
+        parseCompensationStatement(priorFile!),
+        parseCompensationStatement(currentFile!),
+      ]);
       
-      // Upload current statement
-      const currentUpload = await uploadStatement({
-        agencyId,
-        file: currentFile!,
-        month: currentMonth!,
-        year: currentYear!,
-        vcBaselineAchieved: currentVcBaseline,
-        uploadedBy: user.id,
-      });
+      // Check for parsing errors
+      if (priorParsed.parseErrors.length > 0 || currentParsed.parseErrors.length > 0) {
+        console.warn('Parse warnings:', { prior: priorParsed.parseErrors, current: currentParsed.parseErrors });
+      }
       
-      toast.success("Statements uploaded successfully");
-      onReportGenerated(priorUpload.id, currentUpload.id);
+      // Step 2: Upload files to storage
+      toast.info("Uploading statements...");
+      const [priorUpload, currentUpload] = await Promise.all([
+        uploadStatement({
+          agencyId,
+          file: priorFile!,
+          month: priorMonth!,
+          year: priorYear!,
+          vcBaselineAchieved: priorVcBaseline,
+          uploadedBy: user.id,
+        }),
+        uploadStatement({
+          agencyId,
+          file: currentFile!,
+          month: currentMonth!,
+          year: currentYear!,
+          vcBaselineAchieved: currentVcBaseline,
+          uploadedBy: user.id,
+        }),
+      ]);
+      
+      // Step 3: Run comparison
+      toast.info("Comparing statements...");
+      const comparison = compareStatements(priorParsed, currentParsed);
+      
+      // Step 4: Run rate validation on current period
+      const aapLevel = settings.aap_level as AAPLevel;
+      const validation = validateRates(
+        currentParsed.transactions,
+        settings.state,
+        aapLevel,
+        currentVcBaseline
+      );
+      
+      // Step 5: Save report to database
+      toast.info("Saving report...");
+      const { data: report, error: reportError } = await supabase
+        .from('comp_comparison_reports')
+        .insert({
+          agency_id: agencyId,
+          prior_upload_id: priorUpload.id,
+          current_upload_id: currentUpload.id,
+          comparison_data: comparison as unknown as Record<string, unknown>,
+          summary_data: comparison.summary as unknown as Record<string, unknown>,
+          discrepancies_found: validation.summary.discrepanciesFound,
+          potential_underpayment_cents: validation.summary.potentialUnderpaymentCents,
+          created_by: user.id,
+        })
+        .select('id')
+        .single();
+      
+      if (reportError) {
+        throw new Error(`Failed to save report: ${reportError.message}`);
+      }
+      
+      toast.success("Report generated successfully!");
+      onReportGenerated(report.id);
     } catch (err) {
-      console.error('Error uploading statements:', err);
-      toast.error("Failed to upload statements. Please try again.");
+      console.error('Error generating report:', err);
+      toast.error(err instanceof Error ? err.message : "Failed to generate report. Please try again.");
     } finally {
       setProcessing(false);
     }
