@@ -158,6 +158,13 @@ export function validateRates(
     
     analyzed++;
     
+    const productMapping = getProductCategory(tx.product);
+    
+    // Debug: log product mapping for first 5 transactions
+    if (debugCount < 5) {
+      console.log('[ProductMapping]', tx.product, '->', productMapping.category);
+    }
+    
     const expected = getExpectedVCRate(
       tx.product,
       tx.businessType,
@@ -172,19 +179,19 @@ export function validateRates(
     
     // Only flag if difference exceeds threshold
     if (Math.abs(rateDiff) > RATE_THRESHOLD) {
-      // Debug logging for first 5 discrepancies
+      // Debug logging for first 5 discrepancies - separate logs to avoid truncation
       if (debugCount < 5) {
-        console.log('[RateValidator] Discrepancy found:', {
-          policyNumber: tx.policyNumber,
-          product: tx.product,
-          businessType: tx.businessType,
-          bundleType: tx.policyBundleType,
-          actualVcRate: tx.vcRate,
-          expectedVcRate: expected.rate,
-          rateDiff,
-          expectedNote: expected.note,
-          confidence: expected.confidence
-        });
+        console.log('=== DISCREPANCY #' + (debugCount + 1) + ' ===');
+        console.log('Policy:', tx.policyNumber);
+        console.log('Product (raw):', tx.product);
+        console.log('Product Category:', productMapping.category);
+        console.log('Business Type:', tx.businessType);
+        console.log('Bundle Type:', tx.policyBundleType);
+        console.log('ACTUAL VC Rate:', tx.vcRate);
+        console.log('EXPECTED VC Rate:', expected.rate);
+        console.log('Rate Diff:', rateDiff);
+        console.log('Expected Note:', expected.note);
+        console.log('========================');
         debugCount++;
       }
       
