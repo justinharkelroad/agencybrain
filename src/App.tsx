@@ -835,6 +835,8 @@ const App = () => {
               <Route path="call-scoring" element={<CallScoring />} />
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
+              {/* AI Sales Bot / Roleplay */}
+              <Route path="roleplaybot" element={<RoleplayBot />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
