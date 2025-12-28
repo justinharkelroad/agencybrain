@@ -185,10 +185,12 @@ export function validateRates(
       if (debugCount < 5) {
         console.log('=== DISCREPANCY #' + (debugCount + 1) + ' ===');
         console.log('Policy:', tx.policyNumber);
+        console.log('Trans Type:', tx.transType);
         console.log('Product (raw):', tx.product);
         console.log('Product Category:', productMapping.category);
         console.log('Business Type:', tx.businessType);
         console.log('Bundle Type:', tx.policyBundleType);
+        console.log('Written Premium:', tx.writtenPremium);
         console.log('ACTUAL VC Rate:', tx.vcRate);
         console.log('EXPECTED VC Rate:', expected.rate);
         console.log('Rate Diff:', rateDiff);
