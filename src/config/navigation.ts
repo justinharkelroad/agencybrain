@@ -22,6 +22,7 @@ import {
   AudioLines,
   Rocket,
   ArrowLeftRight,
+  ClipboardEdit,
   type LucideIcon
 } from "lucide-react";
 
@@ -307,5 +308,134 @@ export const navigationConfig: NavEntry[] = [
     type: 'link',
     url: '/exchange',
     access: { staff: false, manager: true, owner: true },
+  },
+];
+
+// ============================================
+// STAFF PORTAL NAVIGATION CONFIG
+// ============================================
+// Staff uses /staff/* routes and has different access patterns
+// NO Agency Mgmt folder, NO The Exchange, NO Video Training Architect
+
+export const staffNavigationConfig: NavEntry[] = [
+  // Dashboard - direct link
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: LayoutDashboard,
+    type: 'link',
+    url: '/staff/dashboard',
+    access: { staff: true, manager: true, owner: true },
+  },
+
+  // Submit Form - direct link (will use dynamic URL based on available forms)
+  {
+    id: 'submit-form',
+    title: 'Submit Form',
+    icon: ClipboardEdit,
+    type: 'link',
+    url: '/staff/submit',
+    access: { staff: true, manager: true, owner: true },
+  },
+
+  // Accountability folder
+  {
+    id: 'accountability',
+    title: 'Accountability',
+    icon: ClipboardList,
+    isFolder: true,
+    access: { staff: true, manager: true, owner: true },
+    items: [
+      {
+        id: 'call-scoring',
+        title: 'Call Scoring',
+        icon: Phone,
+        type: 'link',
+        url: '/staff/call-scoring',
+        access: { staff: true, manager: true, owner: true },
+        settingCheck: 'callScoringEnabled',
+      },
+    ],
+  },
+
+  // Service folder
+  {
+    id: 'service',
+    title: 'Service',
+    icon: FileX,
+    isFolder: true,
+    access: { staff: true, manager: true, owner: true },
+    items: [
+      {
+        id: 'cancel-audit',
+        title: 'Cancel Audit',
+        icon: FileX,
+        type: 'link',
+        url: '/staff/cancel-audit',
+        access: { staff: true, manager: true, owner: true },
+      },
+    ],
+  },
+
+  // Training folder - NO Video Training Architect for staff
+  {
+    id: 'training',
+    title: 'Training',
+    icon: GraduationCap,
+    isFolder: true,
+    access: { staff: true, manager: true, owner: true },
+    items: [
+      {
+        id: 'standard-playbook',
+        title: 'Standard Playbook',
+        icon: BookOpen,
+        type: 'link',
+        url: '/staff/training/standard',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'agency-training',
+        title: 'Agency Training',
+        icon: GraduationCap,
+        type: 'link',
+        url: '/staff/training/agency',
+        access: { staff: true, manager: true, owner: true },
+      },
+    ],
+  },
+
+  // Personal Growth folder - ALL items
+  {
+    id: 'personal-growth',
+    title: 'Personal Growth',
+    icon: Heart,
+    isFolder: true,
+    access: { staff: true, manager: true, owner: true },
+    items: [
+      {
+        id: 'flows',
+        title: 'Flows',
+        icon: Sparkles,
+        type: 'link',
+        url: '/staff/flows',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'core4',
+        title: 'Core 4',
+        icon: Heart,
+        type: 'link',
+        url: '/staff/core4',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'monthly-missions',
+        title: 'Monthly Missions',
+        icon: Rocket,
+        type: 'link',
+        url: '/staff/core4#monthly-missions',
+        access: { staff: true, manager: true, owner: true },
+      },
+    ],
   },
 ];
