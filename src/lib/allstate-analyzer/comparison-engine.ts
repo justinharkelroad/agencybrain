@@ -87,14 +87,23 @@ function groupByBusinessType(transactions: StatementTransaction[]): Map<string, 
 }> {
   const map = new Map();
   
-  // Debug: Log unique business types found
-  const uniqueBizTypes = [...new Set(transactions.map(t => t.businessType))];
-  console.log('Business types found in transactions:', uniqueBizTypes);
+  // Debug: log unique business types found
+  const uniqueTypes = [...new Set(transactions.map(t => t.businessType))];
+  console.log('[groupByBusinessType] Unique business types found:', uniqueTypes);
+  
+  let sampleLogged = false;
   
   for (const tx of transactions) {
-    // Check for "New" anywhere in the string for New Business, otherwise Renewal
     const rawBizType = (tx.businessType || '').trim();
-    const bizType = rawBizType.toLowerCase().includes('new') ? 'New Business' : 'Renewal';
+    const isNew = rawBizType.toLowerCase().includes('new');
+    const bizType = isNew ? 'New Business' : 'Renewal';
+    
+    // Debug first transaction of each type
+    if (!sampleLogged || !map.has(bizType)) {
+      console.log(`[groupByBusinessType] Sample: "${rawBizType}" -> isNew=${isNew} -> "${bizType}"`);
+      sampleLogged = true;
+    }
+    
     const existing = map.get(bizType) || { premium: 0, commission: 0, count: 0 };
     existing.premium += tx.writtenPremium;
     existing.commission += tx.totalCommission;
@@ -102,8 +111,7 @@ function groupByBusinessType(transactions: StatementTransaction[]): Map<string, 
     map.set(bizType, existing);
   }
   
-  console.log('Grouped by business type:', Object.fromEntries(map));
-  
+  console.log('[groupByBusinessType] Final map:', Object.fromEntries(map));
   return map;
 }
 
