@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { format } from "date-fns";
 import { Upload, CheckCircle, Loader2, AlertCircle, FileSpreadsheet } from "lucide-react";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useQuery } from "@tanstack/react-query";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
 import { parseCompensationStatement } from "@/lib/allstate-parser";
 import { compareStatements, validateRates } from "@/lib/allstate-analyzer";
@@ -56,7 +56,51 @@ const isDateValid = (month: number | null, year: number | null): boolean => {
 
 export function StatementUploader({ onReportGenerated }: StatementUploaderProps) {
   const { user } = useAuth();
-  const { agencyId, loading: permissionsLoading } = useUserPermissions();
+  
+  // Fetch agencyId from user's profile directly
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile-for-comp', user?.id],
+    queryFn: async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return null;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', authUser.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('[StatementUploader] Profile fetch error:', error);
+        return null;
+      }
+      console.log('[StatementUploader] Profile loaded:', data);
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const agencyId = profile?.agency_id;
+
+  // Fetch settings using that agencyId
+  const { data: settings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['comp-settings', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agency_comp_settings')
+        .select('state, aap_level, agency_tier')
+        .eq('agency_id', agencyId!)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('[StatementUploader] Settings fetch error:', error);
+        return null;
+      }
+      console.log('[StatementUploader] Settings loaded:', data);
+      return data as AgencyCompSettings | null;
+    },
+    enabled: !!agencyId,
+  });
   
   // Period selection
   const [priorMonth, setPriorMonth] = useState<number | null>(null);
@@ -72,53 +116,8 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   const [priorVcBaseline, setPriorVcBaseline] = useState(false);
   const [currentVcBaseline, setCurrentVcBaseline] = useState(false);
   
-  // Settings & processing
-  const [settings, setSettings] = useState<AgencyCompSettings | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(true);
+  // Processing
   const [processing, setProcessing] = useState(false);
-
-  // Load agency comp settings
-  useEffect(() => {
-    const loadSettings = async () => {
-      console.log('[StatementUploader] loadSettings called', { agencyId, permissionsLoading });
-      
-      if (!agencyId) {
-        console.log('[StatementUploader] No agencyId, skipping settings load');
-        setSettingsLoading(false);
-        return;
-      }
-      
-      try {
-        console.log('[StatementUploader] Fetching settings for agency:', agencyId);
-        const { data, error } = await supabase
-          .from('agency_comp_settings')
-          .select('state, aap_level, agency_tier')
-          .eq('agency_id', agencyId)
-          .maybeSingle();
-        
-        console.log('[StatementUploader] Settings query result:', { data, error });
-        
-        if (error) {
-          console.error('[StatementUploader] Error loading settings:', error);
-        }
-        
-        setSettings(data);
-      } catch (err) {
-        console.error('[StatementUploader] Exception loading settings:', err);
-      } finally {
-        setSettingsLoading(false);
-      }
-    };
-    
-    console.log('[StatementUploader] useEffect triggered', { agencyId, permissionsLoading });
-    
-    if (!permissionsLoading) {
-      loadSettings();
-    }
-  }, [agencyId, permissionsLoading]);
-  
-  // Debug log current state
-  console.log('[StatementUploader] Current state:', { settings, settingsLoading, agencyId, permissionsLoading });
 
   // Prior file dropzone
   const onDropPrior = useCallback((acceptedFiles: File[]) => {
@@ -242,7 +241,7 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
     }
   };
 
-  if (permissionsLoading) {
+  if (profileLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
