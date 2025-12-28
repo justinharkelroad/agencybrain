@@ -47,17 +47,18 @@ export default function Core4() {
   const flowStats = useFlowStats();
   const location = useLocation();
 
-  // Scroll to hash anchor on mount/navigation
+  // Scroll to hash anchor after content loads
   useEffect(() => {
-    if (location.hash) {
-      const element = document.getElementById(location.hash.slice(1));
-      if (element) {
-        setTimeout(() => {
+    if (location.hash && !loading) {
+      const elementId = location.hash.slice(1);
+      setTimeout(() => {
+        const element = document.getElementById(elementId);
+        if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
-      }
+        }
+      }, 100);
     }
-  }, [location.hash]);
+  }, [location.hash, loading]);
 
   const core4EntriesForHistory = useMemo(() => {
     return entries.map(entry => ({
