@@ -164,7 +164,9 @@ function SelectorView({ onPick, navigate, onOpenChange }: {
             role="button" 
             onClick={() => {
               onOpenChange(false);
-              navigate("/roleplaybot");
+              // Check if user is staff (has staff_session_token in localStorage)
+              const isStaff = !!localStorage.getItem('staff_session_token');
+              navigate(isStaff ? "/staff/roleplaybot" : "/roleplaybot");
             }} 
             aria-label="Open AI Sales Roleplay Trainer"
           >
