@@ -52,7 +52,6 @@ serve(async (req) => {
             username,
             display_name,
             agency_id,
-            role,
             email,
             is_active,
             team_member_id
