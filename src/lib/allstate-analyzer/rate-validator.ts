@@ -117,12 +117,42 @@ function detectExclusionReason(
   bundleType: string
 ): { reason: ExclusionReason; note: string } {
   
+  // CHECK 1: Service Fee policy (from Service Fee Assigned Date field)
+  const serviceFeeDate = transaction.serviceFeeAssignedDate || '';
+  if (serviceFeeDate && serviceFeeDate.trim() !== '') {
+    return {
+      reason: 'EXCLUDED_SERVICE_FEE',
+      note: `Service Fee policy (assigned ${serviceFeeDate}) - excluded from variable compensation`
+    };
+  }
+  
+  // CHECK 2: Channel - Direct/CCC/Web bound
+  const channel = String(transaction.channel || '').toUpperCase();
+  if (channel.includes('DIRECT') || channel.includes('CCC') || channel.includes('WEB') || 
+      channel.includes('1-800') || channel.includes('ALLSTATE.COM') || channel.includes('ONLINE')) {
+    return {
+      reason: 'EXCLUDED_DIRECT_BOUND',
+      note: `Policy bound via ${channel} - excluded from renewal VC per Allstate rules`
+    };
+  }
+  
+  // CHECK 3: Indicator field might contain exclusion info
+  const indicator = String(transaction.indicator || '').toUpperCase();
+  if (indicator.includes('SF') || indicator.includes('SERVICE FEE')) {
+    return {
+      reason: 'EXCLUDED_SERVICE_FEE',
+      note: 'Service Fee indicator present - excluded from variable compensation'
+    };
+  }
+  
   // Get all text fields to search for patterns
   const searchText = [
     transaction.transType || '',
     transaction.product || '',
     transaction.policyBundleType || '',
     transaction.businessType || '',
+    transaction.channel || '',
+    transaction.indicator || '',
   ].join(' ').toUpperCase();
 
   // Check for Direct/CCC bound policies
@@ -240,62 +270,47 @@ function normalizeBundleType(bundleTypeOrTx: string | any): BundleType | 'Unknow
 }
 
 // Helper: Determine business type from transaction
-// CRITICAL: Must check tx.businessType FIRST as it's the authoritative source
+// CRITICAL: Check tx.businessType FIRST - it's the authoritative source from Allstate
 function determineBusinessType(tx: any): 'New' | 'Renewal' | 'FirstRenewal' | 'Unknown' {
-  // PRIORITY 1: Use explicit businessType field if present (this is authoritative)
-  const explicitBusinessType = tx.businessType || tx.business_type || tx.BusinessType;
+  // Get the businessType field - this is the authoritative source from Allstate
+  const rawBusinessType = tx.businessType || tx.business_type || tx.BusinessType || '';
+  const normalizedType = String(rawBusinessType).toLowerCase().trim();
   
-  if (explicitBusinessType) {
-    const bt = String(explicitBusinessType).toLowerCase().trim();
-    
-    // Direct match for "Renewal" 
-    if (bt === 'renewal') {
-      return 'Renewal';
-    }
-    
-    // Direct match for "New" or "New Business"
-    if (bt === 'new' || bt === 'new business' || bt === 'newbusiness') {
-      return 'New';
-    }
-    
-    // Check for first renewal
-    if (bt.includes('first') && bt.includes('renewal')) {
-      return 'FirstRenewal';
-    }
-    
-    // Partial matches
-    if (bt.includes('renewal')) {
-      return 'Renewal';
-    }
-    
-    if (bt.includes('new')) {
-      return 'New';
-    }
+  // EXACT MATCH for common values (most reliable)
+  if (normalizedType === 'renewal') {
+    return 'Renewal';
   }
   
-  // PRIORITY 2: Check renewal number for first renewal detection
-  const renewalNumber = tx.renewalNumber || tx.termNumber || tx.policyTerm || 0;
-  if (renewalNumber === 1) {
-    return 'FirstRenewal';
-  }
-  
-  // PRIORITY 3: Infer from transaction type (fallback only)
-  const transType = (tx.transType || tx.transactionType || tx.trans_type || '').toLowerCase();
-  
-  if (/\bnew\s*business\b/i.test(transType) || /\bnew\s*policy\b/i.test(transType)) {
+  if (normalizedType === 'new business' || normalizedType === 'new' || normalizedType === 'newbusiness') {
     return 'New';
   }
   
-  // Check for renewal in transaction type - but NOT if it also says "new"
-  if (/\brenewal\b/i.test(transType) && !/\bnew\b/i.test(transType)) {
-    return renewalNumber === 1 ? 'FirstRenewal' : 'Renewal';
+  if (normalizedType === 'first renewal' || normalizedType === 'firstrenewal') {
+    return 'FirstRenewal';
   }
   
-  // Coverage Issued/Taken could be either - default based on renewal number
-  if (transType.includes('coverage issued') || transType.includes('taken') || transType.includes('changes')) {
-    if (renewalNumber && renewalNumber > 0) {
-      return renewalNumber === 1 ? 'FirstRenewal' : 'Renewal';
-    }
+  // CONTAINS check for variations
+  if (normalizedType.includes('first') && normalizedType.includes('renewal')) {
+    return 'FirstRenewal';
+  }
+  
+  if (normalizedType.includes('renewal')) {
+    return 'Renewal';
+  }
+  
+  if (normalizedType.includes('new')) {
+    return 'New';
+  }
+  
+  // FALLBACK: Check transaction type if businessType field is empty
+  const transType = String(tx.transType || tx.transactionType || tx.trans_type || '').toLowerCase();
+  
+  if (transType.includes('new business') || transType.includes('new policy')) {
+    return 'New';
+  }
+  
+  if (transType.includes('renewal')) {
+    return 'Renewal';
   }
   
   return 'Unknown';
@@ -524,15 +539,12 @@ export function validateRates(
     console.log('\n🚨🚨🚨 POTENTIAL UNDERPAYMENTS TO INVESTIGATE 🚨🚨🚨');
     console.log('(These had 0% VC but no exclusion reason was detected)\n');
     
-    // Find the original transactions for the underpayments to show raw data
-    const underpaymentPolicies = new Set(potentialUnderpayments.map(d => d.policyNumber));
-    const rawTransactions = transactions.filter(tx => underpaymentPolicies.has(tx.policyNumber));
-    
     potentialUnderpayments.slice(0, 10).forEach((d, i) => {
-      // Find matching raw transaction
-      const rawTx = rawTransactions.find(tx => tx.policyNumber === d.policyNumber);
+      // Find matching raw transaction BY ROW NUMBER (not just policy)
+      const rawTx = transactions.find(tx => tx.rowNumber === d.rowNumber);
       
       console.log(`--- #${i + 1} ---`);
+      console.log(`Row: ${d.rowNumber}`);
       console.log(`Policy: ${d.policyNumber}`);
       console.log(`Product: ${d.productRaw} → ${d.productCategory}`);
       console.log(`Type: ${d.businessType} | Bundle: ${d.bundleType}`);
@@ -542,24 +554,16 @@ export function validateRates(
       
       // Show RAW transaction fields for debugging
       if (rawTx) {
-        const raw = rawTx as any; // Cast to any to access all raw fields
-        console.log('--- RAW DATA ---');
-        console.log(`  transType: "${raw.transType || 'N/A'}"`);
-        console.log(`  businessType: "${raw.businessType || 'N/A'}"`);
-        console.log(`  bundleType: "${raw.bundleType || 'N/A'}"`);
-        console.log(`  bundleStatus: "${raw.bundleStatus || 'N/A'}"`);
-        console.log(`  policyBundleType: "${raw.policyBundleType || 'N/A'}"`);
-        console.log(`  multiline: "${raw.multiline || 'N/A'}"`);
-        console.log(`  householdPolicies: "${raw.householdPolicies || 'N/A'}"`);
-        console.log(`  renewalNumber: "${raw.renewalNumber || 'N/A'}"`);
-        console.log(`  termNumber: "${raw.termNumber || 'N/A'}"`);
-        console.log(`  policyTerm: "${raw.policyTerm || 'N/A'}"`);
-        console.log(`  channel: "${raw.channel || 'N/A'}"`);
-        console.log(`  source: "${raw.source || 'N/A'}"`);
-        console.log(`  vcRate (raw): ${raw.vcRate}`);
-        console.log(`  baseRate (raw): ${raw.baseRate || 'N/A'}`);
-        // Log ALL fields to see what's available
-        console.log('  ALL FIELDS:', Object.keys(raw).join(', '));
+        console.log('--- RAW DATA (same row) ---');
+        console.log(`  transType: "${rawTx.transType}"`);
+        console.log(`  businessType: "${rawTx.businessType}"`);
+        console.log(`  policyBundleType: "${rawTx.policyBundleType}"`);
+        console.log(`  channel: "${rawTx.channel || 'N/A'}"`);
+        console.log(`  serviceFeeAssignedDate: "${rawTx.serviceFeeAssignedDate || 'N/A'}"`);
+        console.log(`  indicator: "${rawTx.indicator || 'N/A'}"`);
+        console.log(`  origPolicyEffDate: "${rawTx.origPolicyEffDate || 'N/A'}"`);
+        console.log(`  vcRate (raw): ${rawTx.vcRate}`);
+        console.log(`  vcAmount (raw): ${rawTx.vcAmount}`);
       }
       console.log('');
     });
