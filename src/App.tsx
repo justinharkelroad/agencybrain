@@ -70,6 +70,7 @@ import StaffRoleplayBot from "./pages/staff/StaffRoleplayBot";
 import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
+import CompensationAnalyzer from "./pages/CompensationAnalyzer";
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 import TestTrainingHooks from "./pages/TestTrainingHooks";
 import StaffLogin from "./pages/StaffLogin";
@@ -782,6 +783,13 @@ const App = () => {
             } />
             <Route path="/roleplay-staff" element={<RoleplayStaff />} />
             
+            {/* Compensation Analyzer */}
+            <Route path="/compensation-analyzer" element={
+              <ProtectedRoute>
+                <CompensationAnalyzer />
+              </ProtectedRoute>
+            } />
+            
             {/* Theta Talk Track Routes (SidebarLayout included in components) */}
             <Route path="/theta-talk-track" element={
               <ProtectedRoute>
@@ -851,6 +859,8 @@ const App = () => {
               <Route path="theta-talk-track" element={<ThetaTalkTrack />} />
               {/* AI Sales Bot / Roleplay */}
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
+              {/* Compensation Analyzer */}
+              <Route path="compensation-analyzer" element={<CompensationAnalyzer />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
