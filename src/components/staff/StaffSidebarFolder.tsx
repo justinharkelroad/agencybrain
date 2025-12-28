@@ -18,13 +18,15 @@ interface StaffSidebarFolderProps {
   visibleItems: NavItem[];
   storageKey: string;
   onNavClick?: () => void;
+  onOpenModal?: (modalKey: string) => void;
 }
 
 export function StaffSidebarFolder({ 
   folder, 
   visibleItems, 
   storageKey,
-  onNavClick 
+  onNavClick,
+  onOpenModal 
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,6 +86,12 @@ export function StaffSidebarFolder({
   const handleItemClick = (item: NavItem) => {
     if (item.type === 'link' && item.url) {
       navigate(item.url);
+      onNavClick?.();
+    } else if (item.type === 'modal' && item.modalKey && onOpenModal) {
+      onOpenModal(item.modalKey);
+      onNavClick?.();
+    } else if (item.type === 'external' && item.externalUrl) {
+      window.open(item.externalUrl, '_blank', 'noopener,noreferrer');
       onNavClick?.();
     }
   };

@@ -26,8 +26,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { staffNavigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
 import { StaffSidebarFolder } from "./StaffSidebarFolder";
+import { CalcKey } from "@/components/ROIForecastersModal";
 
-export function StaffSidebar() {
+interface StaffSidebarProps {
+  onOpenROI?: (toolKey: CalcKey) => void;
+}
+
+export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const { logout, user, loading } = useStaffAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -167,9 +172,21 @@ export function StaffSidebar() {
     window.location.href = "/";
   };
 
+  const handleOpenModal = (modalKey: string) => {
+    if (onOpenROI) {
+      onOpenROI(modalKey as CalcKey);
+    }
+    handleNavClick();
+  };
+
   const handleItemClick = (item: NavItem) => {
     if (item.type === 'link' && item.url) {
       navigate(item.url);
+      handleNavClick();
+    } else if (item.type === 'modal' && item.modalKey) {
+      handleOpenModal(item.modalKey);
+    } else if (item.type === 'external' && item.externalUrl) {
+      window.open(item.externalUrl, '_blank', 'noopener,noreferrer');
       handleNavClick();
     }
   };
@@ -228,6 +245,7 @@ export function StaffSidebar() {
                           visibleItems={entry.items}
                           storageKey={`staff-sidebar-folder-${entry.id}`}
                           onNavClick={handleNavClick}
+                          onOpenModal={handleOpenModal}
                         />
                       );
                     }
