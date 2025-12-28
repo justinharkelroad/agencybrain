@@ -517,14 +517,6 @@ export const staffNavigationConfig: NavEntry[] = [
         modalKey: 'bonus_forecast',
         access: { staff: false, manager: false, owner: true },
       },
-      {
-        id: 'compensation-analyzer',
-        title: 'Compensation Analyzer',
-        icon: FileSpreadsheet,
-        type: 'link',
-        url: '/staff/compensation-analyzer',
-        access: { staff: false, manager: true, owner: true },
-      },
     ],
   },
 
