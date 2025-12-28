@@ -201,7 +201,7 @@ export function Core4MonthlyMissions() {
   }
 
   return (
-    <div className="space-y-4">
+    <div id="monthly-missions" className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Monthly Missions</h3>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
