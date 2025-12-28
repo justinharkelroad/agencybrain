@@ -16,6 +16,11 @@ export interface StatementTransaction {
   vcAmount: number;
   totalCommission: number;
   effectiveRate: number;
+  // Additional fields for exclusion detection
+  channel: string;
+  serviceFeeAssignedDate: string;
+  origPolicyEffDate: string;
+  indicator: string;
 }
 
 export interface ParsedStatement {
@@ -116,6 +121,11 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
     baseAmount: findColumnExact(['Base Commission Amount ($)']) !== -1 ? findColumnExact(['Base Commission Amount ($)']) : 11,
     vcRate: findColumnExact(['VC Rate %']) !== -1 ? findColumnExact(['VC Rate %']) : 13,
     vcAmount: findColumnExact(['VC Amount ($) *']) !== -1 ? findColumnExact(['VC Amount ($) *']) : 14,
+    // Additional columns for exclusion detection
+    channel: headers.findIndex(h => /^channel$/i.test(h.trim())),
+    serviceFeeAssignedDate: headers.findIndex(h => /service\s*fee\s*assigned\s*date/i.test(h.trim())),
+    origPolicyEffDate: headers.findIndex(h => /orig\.?\s*policy\s*eff\s*date/i.test(h.trim())),
+    indicator: headers.findIndex(h => /^indicator$/i.test(h.trim())),
   };
   
   // Parse transactions starting after header
@@ -151,6 +161,11 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
         vcAmount: vcAmt,
         totalCommission: baseAmt + vcAmt,
         effectiveRate: writtenPrem !== 0 ? (baseAmt + vcAmt) / writtenPrem : 0,
+        // Additional fields for exclusion detection
+        channel: cols.channel >= 0 ? String(row[cols.channel] || '').trim() : '',
+        serviceFeeAssignedDate: cols.serviceFeeAssignedDate >= 0 ? String(row[cols.serviceFeeAssignedDate] || '').trim() : '',
+        origPolicyEffDate: cols.origPolicyEffDate >= 0 ? String(row[cols.origPolicyEffDate] || '').trim() : '',
+        indicator: cols.indicator >= 0 ? String(row[cols.indicator] || '').trim() : '',
       };
       
       transactions.push(transaction);
