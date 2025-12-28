@@ -201,16 +201,25 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   // For Call Scoring tier, we need special handling - they only see Call Scoring + Exchange
   const getVisibleNavigation = (): NavEntry[] => {
     if (isCallScoringTier) {
-      // Filter to only show items they should see
-      return filteredNavigation.filter(entry => {
-        if (isNavFolder(entry)) {
-          // For folders, check if any items are visible
-          return entry.items.some(item => 
-            item.id === 'call-scoring' || item.id === 'the-exchange'
-          );
-        }
-        return entry.id === 'call-scoring' || entry.id === 'the-exchange';
-      });
+      return filteredNavigation
+        .map(entry => {
+          if (isNavFolder(entry)) {
+            // Filter items within the folder to only allowed ones
+            const filteredItems = entry.items.filter(item => 
+              item.id === 'call-scoring' || item.id === 'the-exchange'
+            );
+            return { ...entry, items: filteredItems };
+          }
+          return entry;
+        })
+        .filter(entry => {
+          if (isNavFolder(entry)) {
+            // Remove folders with no remaining items
+            return entry.items.length > 0;
+          }
+          // Keep non-folder items only if they're allowed
+          return entry.id === 'call-scoring' || entry.id === 'the-exchange';
+        });
     }
     return filteredNavigation;
   };
