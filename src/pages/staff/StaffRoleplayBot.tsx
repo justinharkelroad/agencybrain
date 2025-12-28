@@ -415,10 +415,6 @@ const StaffRoleplayBot = () => {
               Logged in as: {staffUser.display_name || staffUser.username}
             </p>
           )}
-          {/* Debug info - remove after verification */}
-          <div className="text-xs text-muted-foreground/50 mt-2">
-            [Debug] Staff ID: {staffUser?.id || 'none'} | Token: {sessionToken ? 'present' : 'missing'}
-          </div>
         </div>
       </div>
 
