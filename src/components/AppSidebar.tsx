@@ -280,6 +280,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                         visibleItems={visibleItems}
                         onOpenModal={handleOpenModal}
                         storageKey={`sidebar-folder-${entry.id}`}
+                        membershipTier={membershipTier}
                       />
                     );
                   }
@@ -301,6 +302,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       item={entry}
                       onOpenModal={handleOpenModal}
                       badge={badge}
+                      membershipTier={membershipTier}
                     />
                   );
                 })}

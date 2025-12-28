@@ -11,6 +11,7 @@ interface StaffUser {
   team_member_name: string | null;
   email: string | null;
   profile_photo_url: string | null;
+  agency_membership_tier: string | null;
 }
 
 interface StaffAuthState {

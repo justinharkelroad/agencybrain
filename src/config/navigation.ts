@@ -45,6 +45,7 @@ export type NavItem = {
   access: AccessConfig;
   featureCheck?: string;
   settingCheck?: 'callScoringEnabled';
+  requiresTier?: '1:1';  // Requires 1:1 Coaching tier - Boardroom users see gate modal
 };
 
 export type NavFolder = {
@@ -88,6 +89,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/roleplaybot',
         access: { staff: true, manager: true, owner: true },
+        requiresTier: '1:1',
       },
     ],
   },
@@ -354,6 +356,7 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/roleplaybot',
         access: { staff: true, manager: true, owner: true },
+        requiresTier: '1:1',
       },
     ],
   },

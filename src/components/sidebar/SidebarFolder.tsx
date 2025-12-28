@@ -16,13 +16,15 @@ interface SidebarFolderProps {
   visibleItems: NavItem[];
   onOpenModal?: (modalKey: string) => void;
   storageKey: string;
+  membershipTier?: string | null;
 }
 
 export function SidebarFolder({ 
   folder, 
   visibleItems, 
   onOpenModal,
-  storageKey 
+  storageKey,
+  membershipTier
 }: SidebarFolderProps) {
   const location = useLocation();
   
@@ -95,6 +97,7 @@ export function SidebarFolder({
                 item={item}
                 isNested
                 onOpenModal={onOpenModal}
+                membershipTier={membershipTier}
               />
             ))}
           </SidebarMenuSub>
