@@ -1,19 +1,12 @@
-import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
 import {
-  LayoutDashboard,
-  ClipboardEdit,
-  BookOpen,
   LogOut,
-  Sparkles,
   Sun,
-  Phone,
   Settings,
-  FileWarning,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
-
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -31,18 +24,13 @@ import {
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { title: "Dashboard", url: "/staff/dashboard", icon: LayoutDashboard },
-  { title: "Submit Form", url: "/staff/submit", icon: ClipboardEdit },
-  { title: "Flows", url: "/staff/flows", icon: Sparkles },
-  { title: "Training", url: "/staff/training", icon: BookOpen },
-  { title: "Cancel Audit", url: "/staff/cancel-audit", icon: FileWarning },
-];
+import { staffNavigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
+import { StaffSidebarFolder } from "./StaffSidebarFolder";
 
 export function StaffSidebar() {
   const { logout, user, loading } = useStaffAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
 
@@ -59,13 +47,11 @@ export function StaffSidebar() {
 
   // Check if call scoring is enabled for staff user's agency
   useEffect(() => {
-    // While staff session is still loading, keep placeholder in place.
     if (loading) {
       setCallScoringEnabled(null);
       return;
     }
 
-    // If not authenticated (or no agency), remove the item entirely.
     if (!user?.agency_id) {
       setCallScoringEnabled(false);
       return;
@@ -74,7 +60,6 @@ export function StaffSidebar() {
     let cancelled = false;
 
     const checkCallScoringAccess = async () => {
-      // Ensure we show the skeleton while fetching.
       setCallScoringEnabled(null);
 
       const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
@@ -98,11 +83,33 @@ export function StaffSidebar() {
     };
   }, [loading, user?.agency_id]);
 
+  // Filter navigation items based on callScoringEnabled setting
+  const filteredNavigation = useMemo(() => {
+    const filterItems = (items: NavItem[]): NavItem[] => {
+      return items.filter(item => {
+        // Check settingCheck for callScoringEnabled
+        if (item.settingCheck === 'callScoringEnabled') {
+          return callScoringEnabled === true;
+        }
+        return true;
+      });
+    };
+
+    return staffNavigationConfig.map((entry): NavEntry | null => {
+      if (isNavFolder(entry)) {
+        const filteredItems = filterItems(entry.items);
+        // Hide folder if no items remain
+        if (filteredItems.length === 0) return null;
+        return { ...entry, items: filteredItems };
+      }
+      return entry;
+    }).filter((entry): entry is NavEntry => entry !== null);
+  }, [callScoringEnabled]);
+
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
       return location.pathname.startsWith("/staff/submit");
     }
-    // Training should be active for any training sub-route
     if (path === "/staff/training") {
       return location.pathname === path || location.pathname.startsWith("/staff/training/");
     }
@@ -112,6 +119,12 @@ export function StaffSidebar() {
     if (path === "/staff/cancel-audit") {
       return location.pathname.startsWith("/staff/cancel-audit");
     }
+    if (path === "/staff/flows") {
+      return location.pathname.startsWith("/staff/flows");
+    }
+    if (path === "/staff/core4") {
+      return location.pathname.startsWith("/staff/core4");
+    }
     return location.pathname === path;
   };
 
@@ -120,7 +133,15 @@ export function StaffSidebar() {
     window.location.href = "/";
   };
 
-  
+  const handleItemClick = (item: NavItem) => {
+    if (item.type === 'link' && item.url) {
+      navigate(item.url);
+      handleNavClick();
+    }
+  };
+
+  // Show loading skeleton while call scoring status is being fetched
+  const isLoadingSettings = callScoringEnabled === null && !loading;
 
   return (
     <Sidebar
@@ -151,43 +172,52 @@ export function StaffSidebar() {
             {sidebarOpen && <SidebarGroupLabel>Navigation</SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu>
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.url);
-                  
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" strokeWidth={1.5} />
-                          {sidebarOpen && <span>{item.title}</span>}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-                {/* Call Scoring - show skeleton while loading, then link when enabled */}
-                {callScoringEnabled === null ? (
-                  <SidebarMenuItem>
-                    <div className="flex items-center gap-2 px-2 py-1.5">
-                      <div className="h-4 w-4 rounded bg-muted/50 animate-pulse" />
-                      {sidebarOpen && <div className="h-4 w-20 rounded bg-muted/50 animate-pulse" />}
-                    </div>
-                  </SidebarMenuItem>
-                ) : callScoringEnabled && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={isActive("/staff/call-scoring")}>
-                      <Link to="/staff/call-scoring" onClick={handleNavClick} className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" strokeWidth={1.5} />
-                        {sidebarOpen && <span>Call Scoring</span>}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                {isLoadingSettings ? (
+                  // Loading skeleton
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <SidebarMenuItem key={i}>
+                        <div className="flex items-center gap-2 px-2 py-1.5">
+                          <div className="h-4 w-4 rounded bg-muted/50 animate-pulse" />
+                          {sidebarOpen && <div className="h-4 w-20 rounded bg-muted/50 animate-pulse" />}
+                        </div>
+                      </SidebarMenuItem>
+                    ))}
+                  </>
+                ) : (
+                  filteredNavigation.map((entry) => {
+                    if (isNavFolder(entry)) {
+                      return (
+                        <StaffSidebarFolder
+                          key={entry.id}
+                          folder={entry}
+                          visibleItems={entry.items}
+                          storageKey={`staff-sidebar-folder-${entry.id}`}
+                          onNavClick={handleNavClick}
+                        />
+                      );
+                    }
+
+                    // Direct nav item (Dashboard, Submit Form)
+                    const active = entry.url ? isActive(entry.url) : false;
+                    return (
+                      <SidebarMenuItem key={entry.id}>
+                        <SidebarMenuButton 
+                          isActive={active}
+                          onClick={() => handleItemClick(entry)}
+                          tooltip={entry.title}
+                          className="cursor-pointer"
+                        >
+                          <entry.icon className="h-4 w-4" strokeWidth={1.5} />
+                          {sidebarOpen && <span>{entry.title}</span>}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })
                 )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-
 
           {/* Settings Section */}
           <SidebarGroup>
