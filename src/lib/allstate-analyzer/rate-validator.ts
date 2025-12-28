@@ -69,6 +69,9 @@ function getNBRateTable(state: string): typeof NB_VC_RATES.countrywide {
   }
 }
 
+// Debug counter for rate lookups
+let rateLookupDebugCount = 0;
+
 function getExpectedVCRate(
   product: string,
   businessType: string,
@@ -126,6 +129,20 @@ function getExpectedVCRate(
     } else {
       const countryRates = RENEWAL_VC_RATES.countrywide[aapLevel];
       const categoryRates = countryRates[category];
+      
+      // Debug logging for first 3 renewal rate lookups
+      if (rateLookupDebugCount < 3) {
+        console.log('[RenewalRateLookup]');
+        console.log('  Raw Bundle:', bundleType);
+        console.log('  Normalized Bundle:', bundle);
+        console.log('  AAP Level:', aapLevel);
+        console.log('  Product Category:', category);
+        console.log('  Category Rates:', JSON.stringify(categoryRates));
+        console.log('  Looking up:', bundle);
+        console.log('  Result:', categoryRates?.[bundle as 'Preferred' | 'Bundled']);
+        rateLookupDebugCount++;
+      }
+      
       // Renewal rates only apply to Preferred and Bundled, not Monoline
       if (bundle === 'Monoline') {
         return { rate: 0, confidence: 'high', note: 'Monoline renewals do not receive variable compensation' };
