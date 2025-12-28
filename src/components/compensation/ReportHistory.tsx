@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 interface ReportHistoryProps {
   onSelectReport: (reportId: string) => void;
@@ -24,9 +23,24 @@ const formatCurrency = (cents: number | null) => {
 };
 
 export function ReportHistory({ onSelectReport }: ReportHistoryProps) {
-  const { agencyId, loading: permissionsLoading } = useUserPermissions();
+  // Fetch agencyId from profile first
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile-for-history'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      return data;
+    },
+  });
 
-  const { data: reports, isLoading } = useQuery({
+  const agencyId = profile?.agency_id;
+
+  const { data: reports, isLoading: reportsLoading } = useQuery({
     queryKey: ['comp-reports', agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -49,7 +63,7 @@ export function ReportHistory({ onSelectReport }: ReportHistoryProps) {
     enabled: !!agencyId,
   });
 
-  if (permissionsLoading || isLoading) {
+  if (profileLoading || reportsLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
