@@ -24,7 +24,24 @@ export function SidebarNavItem({
   const location = useLocation();
   const navigate = useNavigate();
   
-  const isActive = item.url ? location.pathname.startsWith(item.url) : false;
+  // Hash-aware isActive logic
+  const isActive = (() => {
+    if (!item.url) return false;
+    const itemHasHash = item.url.includes('#');
+    const currentHasHash = !!location.hash;
+    
+    if (itemHasHash) {
+      // Hash link: must match pathname + hash exactly
+      const [itemPath, itemHash] = item.url.split('#');
+      return location.pathname === itemPath && location.hash === `#${itemHash}`;
+    } else {
+      // Non-hash link: NOT active if current URL has a hash on the same base path
+      if (currentHasHash && location.pathname === item.url) {
+        return false;
+      }
+      return location.pathname.startsWith(item.url);
+    }
+  })();
 
   const handleClick = () => {
     if (item.type === 'link' && item.url) {

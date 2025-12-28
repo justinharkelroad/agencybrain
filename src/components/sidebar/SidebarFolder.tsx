@@ -26,9 +26,24 @@ export function SidebarFolder({
 }: SidebarFolderProps) {
   const location = useLocation();
   
-  const hasActiveChild = visibleItems.some(item => 
-    item.url && location.pathname.startsWith(item.url)
-  );
+  // Hash-aware active check for child items
+  const isItemActive = (item: NavItem): boolean => {
+    if (!item.url) return false;
+    const itemHasHash = item.url.includes('#');
+    const currentHasHash = !!location.hash;
+    
+    if (itemHasHash) {
+      const [itemPath, itemHash] = item.url.split('#');
+      return location.pathname === itemPath && location.hash === `#${itemHash}`;
+    } else {
+      if (currentHasHash && location.pathname === item.url) {
+        return false;
+      }
+      return location.pathname.startsWith(item.url);
+    }
+  };
+  
+  const hasActiveChild = visibleItems.some(item => isItemActive(item));
   
   const [isOpen, setIsOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);

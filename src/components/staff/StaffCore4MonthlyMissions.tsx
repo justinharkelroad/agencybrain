@@ -219,17 +219,18 @@ export function StaffCore4MonthlyMissions({ hideEmptyDomains = false }: StaffCor
     }
   };
 
+  // Always render the anchor wrapper so scroll-to works
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div id="monthly-missions" className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  // If hideEmptyDomains is true and no missions exist, don't render anything
+  // If hideEmptyDomains is true and no missions exist, render empty anchor for scroll target
   if (hideEmptyDomains && missions.length === 0) {
-    return null;
+    return <div id="monthly-missions" />;
   }
 
   // Get domains to display based on hideEmptyDomains prop
