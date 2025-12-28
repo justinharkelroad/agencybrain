@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
@@ -23,7 +23,10 @@ export default function FlowSession() {
   const { profile } = useFlowProfile();
   const { user } = useAuth();
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const forceScrollRef = useRef(false);
+
   // Get session ID from location state (when resuming a draft)
   const sessionId = (location.state as { sessionId?: string } | null)?.sessionId;
   
@@ -114,46 +117,41 @@ export default function FlowSession() {
     }
   }, [currentQuestion?.id, responses]);
 
-  // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTo({
-        top: chatContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
-  };
+  // Auto-scroll to bottom (deterministic, no timeouts)
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior });
+  }, []);
 
-  // Track previous isTyping state to detect when typing ends
-  const prevIsTypingRef = useRef(isTyping);
+  // Auto-scroll after DOM commits when relevant chat UI changes
+  useLayoutEffect(() => {
+    const shouldScroll = forceScrollRef.current || isNearBottomRef.current;
+    if (!shouldScroll) return;
 
-  // Auto-scroll when content changes, with delay for DOM updates
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      scrollToBottom();
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [currentQuestionIndex, showChallenge, showAddToFocus, showCurrentQuestion, answeredQuestions.size]);
+    const rafId = requestAnimationFrame(() => {
+      scrollToBottom('auto');
+      forceScrollRef.current = false;
+    });
 
-  // Scroll when typing indicator disappears (new question appears)
-  useEffect(() => {
-    const wasTyping = prevIsTypingRef.current;
-    prevIsTypingRef.current = isTyping;
-    
-    if (wasTyping && !isTyping) {
-      // Typing just finished, scroll after DOM updates
-      setTimeout(scrollToBottom, 250);
-    }
-  }, [isTyping]);
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    currentQuestionIndex,
+    isTyping,
+    showChallenge,
+    showAddToFocus,
+    showCurrentQuestion,
+    answeredQuestions.size,
+    scrollToBottom,
+  ]);
 
   // Handle scroll position to show/hide scroll button
   const handleScroll = () => {
-    if (chatContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShowScrollButton(!isNearBottom);
-    }
+    if (!chatContainerRef.current) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+    isNearBottomRef.current = isNearBottom;
+    setShowScrollButton(!isNearBottom);
   };
 
   // Auto-save on page unload/refresh
@@ -282,11 +280,9 @@ export default function FlowSession() {
     console.log('[FlowSession] Saving response:', currentQuestion.id, valueToSubmit);
     
     // Save immediately
+    forceScrollRef.current = true;
     await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
-    
-    // Scroll after answer is added to show it
-    setTimeout(scrollToBottom, 50);
 
     const challenge = await checkForChallenge(currentQuestion.id, valueToSubmit);
     
@@ -329,6 +325,7 @@ export default function FlowSession() {
   };
 
   const handleSkipChallenge = () => {
+    forceScrollRef.current = true;
     setShowChallenge(false);
     setChallengeText('');
     
@@ -546,6 +543,7 @@ export default function FlowSession() {
               </div>
             </div>
           )}
+          <div ref={bottomRef} className="h-px w-full" />
         </div>
       </main>
 
@@ -555,7 +553,7 @@ export default function FlowSession() {
           variant="secondary"
           size="icon"
           className="fixed bottom-24 right-4 rounded-full shadow-lg z-20"
-          onClick={scrollToBottom}
+          onClick={() => scrollToBottom('smooth')}
         >
           <ChevronDown className="h-5 w-5" />
         </Button>
