@@ -293,7 +293,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Monthly Missions',
         icon: Rocket,
         type: 'link',
-        url: '/life-targets/missions',
+        url: '/core4#monthly-missions',
         access: { staff: true, manager: true, owner: true },
       },
     ],

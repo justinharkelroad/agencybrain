@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useCore4Stats, Core4Domain } from '@/hooks/useCore4Stats';
 import { useFlowStats } from '@/hooks/useFlowStats';
 import { Core4MonthlyMissions } from '@/components/core4/Core4MonthlyMissions';
@@ -44,8 +45,20 @@ export default function Core4() {
   } = useCore4Stats();
 
   const flowStats = useFlowStats();
+  const location = useLocation();
 
-  // Prepare data for WeeklyHistoryCard
+  // Scroll to hash anchor on mount/navigation
+  useEffect(() => {
+    if (location.hash) {
+      const element = document.getElementById(location.hash.slice(1));
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    }
+  }, [location.hash]);
+
   const core4EntriesForHistory = useMemo(() => {
     return entries.map(entry => ({
       date: entry.date,
