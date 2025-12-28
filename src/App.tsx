@@ -836,6 +836,9 @@ const App = () => {
               <Route path="call-scoring" element={<CallScoring />} />
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
+              {/* Life Targets / Theta Talk Track */}
+              <Route path="life-targets" element={<LifeTargets />} />
+              <Route path="theta-talk-track" element={<ThetaTalkTrack />} />
               {/* AI Sales Bot / Roleplay */}
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
             </Route>
