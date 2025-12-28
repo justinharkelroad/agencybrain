@@ -167,7 +167,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Video Training Architect',
         icon: Video,
         type: 'modal',
-        modalKey: 'videoTrainingArchitect',
+        modalKey: 'video_training',
         access: { staff: false, manager: true, owner: true },
       },
     ],
@@ -186,7 +186,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Vendor Verifier',
         icon: ShieldCheck,
         type: 'modal',
-        modalKey: 'vendorVerifier',
+        modalKey: 'vendor',
         access: { staff: false, manager: true, owner: true },
       },
       {
@@ -194,7 +194,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Data Lead Forecaster',
         icon: BarChart3,
         type: 'modal',
-        modalKey: 'dataLead',
+        modalKey: 'data',
         access: { staff: false, manager: true, owner: true },
       },
       {
@@ -218,7 +218,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Annual Bonus Tool',
         icon: Calculator,
         type: 'modal',
-        modalKey: 'bonusForecast',
+        modalKey: 'bonus_forecast',
         access: { staff: false, manager: true, owner: true },
       },
       {
@@ -234,7 +234,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'ROI on Staff',
         icon: Users,
         type: 'modal',
-        modalKey: 'staffROI',
+        modalKey: 'staff_roi',
         access: { staff: false, manager: true, owner: true },
       },
       {
@@ -242,7 +242,7 @@ export const navigationConfig: NavEntry[] = [
         title: 'Call Efficiency Tool',
         icon: PhoneCall,
         type: 'modal',
-        modalKey: 'callEfficiency',
+        modalKey: 'call_efficiency',
         access: { staff: false, manager: true, owner: true },
       },
     ],
