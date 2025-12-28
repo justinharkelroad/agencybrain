@@ -496,6 +496,14 @@ export const staffNavigationConfig: NavEntry[] = [
         modalKey: 'call_efficiency',
         access: { staff: false, manager: true, owner: true },
       },
+      {
+        id: 'annual-bonus-tool',
+        title: 'Annual Bonus Tool',
+        icon: Calculator,
+        type: 'modal',
+        modalKey: 'bonus_forecast',
+        access: { staff: false, manager: false, owner: true },
+      },
     ],
   },
 
@@ -521,6 +529,22 @@ export const staffNavigationConfig: NavEntry[] = [
         icon: Heart,
         type: 'link',
         url: '/staff/core4',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'quarterly-targets',
+        title: 'Set Your Quarterly Targets',
+        icon: Target,
+        type: 'link',
+        url: '/staff/life-targets',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: '90-day-audio',
+        title: 'Create Your 90 Day Target Audio',
+        icon: AudioLines,
+        type: 'link',
+        url: '/staff/theta-talk-track',
         access: { staff: true, manager: true, owner: true },
       },
       {
