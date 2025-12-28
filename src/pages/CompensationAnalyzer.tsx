@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FileSpreadsheet, Upload, FileText, History, Settings, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarLayout } from "@/components/SidebarLayout";
@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CompSettingsForm } from "@/components/compensation/CompSettingsForm";
 import { StatementUploader } from "@/components/compensation/StatementUploader";
 import { ReportHistory } from "@/components/compensation/ReportHistory";
+import { DiscrepancyResults } from "@/components/allstate-analyzer/DiscrepancyResults";
+import { ValidationResult } from "@/lib/allstate-analyzer/rate-validator";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function CompensationAnalyzer() {
@@ -107,34 +109,35 @@ export default function CompensationAnalyzer() {
                   </div>
                 ) : currentReport ? (
                   <div className="space-y-6">
-                    {/* Summary Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-4 border rounded-lg">
-                        <p className="text-sm text-muted-foreground">Discrepancies Found</p>
-                        <p className="text-2xl font-bold">{currentReport.discrepancies_found ?? 0}</p>
-                      </div>
-                      <div className="p-4 border rounded-lg">
-                        <p className="text-sm text-muted-foreground">Potential Underpayment</p>
-                        <p className="text-2xl font-bold text-destructive">
-                          ${((currentReport.potential_underpayment_cents ?? 0) / 100).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Raw Data (Phase 4 will replace with proper UI) */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Summary Data</h3>
-                      <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-64">
-                        {JSON.stringify(currentReport.summary_data, null, 2)}
-                      </pre>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Comparison Data</h3>
-                      <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-96">
-                        {JSON.stringify(currentReport.comparison_data, null, 2)}
-                      </pre>
-                    </div>
+                    {/* Check if validation data exists in comparison_data */}
+                    {(currentReport.comparison_data as any)?.validation ? (
+                      <DiscrepancyResults 
+                        results={(currentReport.comparison_data as any).validation as ValidationResult} 
+                      />
+                    ) : (
+                      <>
+                        {/* Legacy display for old reports without validation data */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">Discrepancies Found</p>
+                            <p className="text-2xl font-bold">{currentReport.discrepancies_found ?? 0}</p>
+                          </div>
+                          <div className="p-4 border rounded-lg">
+                            <p className="text-sm text-muted-foreground">Potential Underpayment</p>
+                            <p className="text-2xl font-bold text-destructive">
+                              ${((currentReport.potential_underpayment_cents ?? 0) / 100).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">Summary Data</h3>
+                          <pre className="text-xs bg-muted p-4 rounded-lg overflow-auto max-h-64">
+                            {JSON.stringify(currentReport.summary_data, null, 2)}
+                          </pre>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
