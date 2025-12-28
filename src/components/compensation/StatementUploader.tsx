@@ -221,16 +221,36 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
       
       // Step 5: Save report to database
       toast.info("Saving report...");
+      
+      // Combine comparison and validation results for storage
+      const combinedData = {
+        comparison,
+        validation: {
+          total: validation.total,
+          analyzed: validation.analyzed,
+          discrepancies: validation.discrepancies,
+          potentialUnderpayments: validation.potentialUnderpayments,
+          excludedTransactions: validation.excludedTransactions,
+          exclusionBreakdown: validation.exclusionBreakdown,
+          totalMissingVcDollars: validation.totalMissingVcDollars,
+          vcBaselineAchieved: validation.vcBaselineAchieved,
+          state: validation.state,
+          aapLevel: validation.aapLevel,
+          summary: validation.summary,
+          warnings: validation.warnings,
+        },
+      };
+      
       const { data: report, error: reportError } = await supabase
         .from('comp_comparison_reports')
         .insert({
           agency_id: agencyId,
           prior_upload_id: priorUpload.id,
           current_upload_id: currentUpload.id,
-          comparison_data: comparison as unknown as Record<string, unknown>,
+          comparison_data: combinedData as unknown as Record<string, unknown>,
           summary_data: comparison.summary as unknown as Record<string, unknown>,
-          discrepancies_found: validation.summary.discrepanciesFound,
-          potential_underpayment_cents: validation.summary.potentialUnderpaymentCents,
+          discrepancies_found: validation.potentialUnderpayments.length, // Only count real underpayments
+          potential_underpayment_cents: Math.round(validation.totalMissingVcDollars * 100),
           created_by: user.id,
         })
         .select('id')
