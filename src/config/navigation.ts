@@ -314,8 +314,9 @@ export const navigationConfig: NavEntry[] = [
 // ============================================
 // STAFF PORTAL NAVIGATION CONFIG
 // ============================================
-// Staff uses /staff/* routes and has different access patterns
-// NO Agency Mgmt folder, NO The Exchange, NO Video Training Architect
+// Staff uses /staff/* routes and has role-based access
+// Managers get: Video Training Architect, Agency Mgmt folder
+// Staff (non-managers) don't see manager-only items
 
 export const staffNavigationConfig: NavEntry[] = [
   // Dashboard - direct link
@@ -396,7 +397,7 @@ export const staffNavigationConfig: NavEntry[] = [
     ],
   },
 
-  // Training folder - NO Video Training Architect for staff
+  // Training folder - Video Training Architect for managers only
   {
     id: 'training',
     title: 'Training',
@@ -419,6 +420,81 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/training/agency',
         access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'video-training-architect',
+        title: 'Video Training Architect',
+        icon: Video,
+        type: 'modal',
+        modalKey: 'video_training',
+        access: { staff: false, manager: true, owner: true },
+      },
+    ],
+  },
+
+  // Agency Mgmt folder - managers only
+  {
+    id: 'agency-mgmt',
+    title: 'Agency Mgmt',
+    icon: Building2,
+    isFolder: true,
+    access: { staff: false, manager: true, owner: true },
+    items: [
+      {
+        id: 'vendor-verifier',
+        title: 'Vendor Verifier',
+        icon: ShieldCheck,
+        type: 'modal',
+        modalKey: 'vendor',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'data-lead-forecaster',
+        title: 'Data Lead Forecaster',
+        icon: BarChart3,
+        type: 'modal',
+        modalKey: 'data',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'mailer-forecaster',
+        title: 'Mailer Forecaster',
+        icon: Mail,
+        type: 'modal',
+        modalKey: 'mailer',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'live-transfer-forecaster',
+        title: 'Live Transfer Forecaster',
+        icon: PhoneIncoming,
+        type: 'modal',
+        modalKey: 'transfer',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'producer-quote-dashboard',
+        title: 'Producer Quote Details',
+        icon: ExternalLink,
+        type: 'external',
+        externalUrl: 'https://quickquote-reality.lovable.app/',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'roi-on-staff',
+        title: 'ROI on Staff',
+        icon: Users,
+        type: 'modal',
+        modalKey: 'staff_roi',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'call-efficiency-tool',
+        title: 'Call Efficiency Tool',
+        icon: PhoneCall,
+        type: 'modal',
+        modalKey: 'call_efficiency',
+        access: { staff: false, manager: true, owner: true },
       },
     ],
   },

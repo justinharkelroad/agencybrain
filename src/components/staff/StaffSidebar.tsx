@@ -83,10 +83,35 @@ export function StaffSidebar() {
     };
   }, [loading, user?.agency_id]);
 
-  // Filter navigation items based on callScoringEnabled setting
+  // Determine user access level based on role
+  const userAccess = useMemo(() => {
+    const role = user?.role?.toLowerCase() || '';
+    const isManager = role === 'manager';
+    const isOwner = role === 'owner';
+    
+    return {
+      isStaff: !isManager && !isOwner,
+      isManager: isManager || isOwner, // Managers and owners
+      isOwner: isOwner,
+    };
+  }, [user?.role]);
+
+  // Check if user can access an item based on their role
+  const canAccessItem = useMemo(() => {
+    return (access: { staff: boolean; manager: boolean; owner: boolean }): boolean => {
+      if (userAccess.isOwner) return access.owner;
+      if (userAccess.isManager) return access.manager;
+      return access.staff;
+    };
+  }, [userAccess]);
+
+  // Filter navigation items based on role and callScoringEnabled setting
   const filteredNavigation = useMemo(() => {
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
+        // Check role-based access first
+        if (!canAccessItem(item.access)) return false;
+        
         // Check settingCheck for callScoringEnabled
         if (item.settingCheck === 'callScoringEnabled') {
           return callScoringEnabled === true;
@@ -95,16 +120,25 @@ export function StaffSidebar() {
       });
     };
 
-    return staffNavigationConfig.map((entry): NavEntry | null => {
-      if (isNavFolder(entry)) {
-        const filteredItems = filterItems(entry.items);
-        // Hide folder if no items remain
-        if (filteredItems.length === 0) return null;
-        return { ...entry, items: filteredItems };
-      }
-      return entry;
-    }).filter((entry): entry is NavEntry => entry !== null);
-  }, [callScoringEnabled]);
+    return staffNavigationConfig
+      .filter((entry) => {
+        // Check folder/item level access
+        if (isNavFolder(entry)) {
+          return canAccessItem(entry.access);
+        }
+        return canAccessItem(entry.access);
+      })
+      .map((entry): NavEntry | null => {
+        if (isNavFolder(entry)) {
+          const filteredItems = filterItems(entry.items);
+          // Hide folder if no items remain
+          if (filteredItems.length === 0) return null;
+          return { ...entry, items: filteredItems };
+        }
+        return entry;
+      })
+      .filter((entry): entry is NavEntry => entry !== null);
+  }, [callScoringEnabled, canAccessItem]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
