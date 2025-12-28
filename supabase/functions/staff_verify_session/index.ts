@@ -70,10 +70,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch the agency's membership tier from the agency owner's profile
+    let agency_membership_tier: string | null = null;
+    if (userData.agency_id) {
+      // Get the agency owner's profile to find their membership tier
+      const { data: ownerProfile } = await supabase
+        .from('profiles')
+        .select('membership_tier')
+        .eq('agency_id', userData.agency_id)
+        .maybeSingle();
+      
+      if (ownerProfile) {
+        agency_membership_tier = ownerProfile.membership_tier;
+      }
+    }
+
     return new Response(
       JSON.stringify({
         valid: true,
-        user: { ...userData, role, team_member_name },
+        user: { ...userData, role, team_member_name, agency_membership_tier },
         expires_at: session.expires_at
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

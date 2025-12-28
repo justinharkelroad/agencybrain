@@ -110,7 +110,14 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     };
   }, [userAccess]);
 
-  // Filter navigation items based on role and callScoringEnabled setting
+  // Helper to check if agency is on Call Scoring tier
+  const isCallScoringTier = useMemo(() => {
+    const tier = user?.agency_membership_tier;
+    if (!tier) return false;
+    return tier.startsWith('Call Scoring');
+  }, [user?.agency_membership_tier]);
+
+  // Filter navigation items based on role, callScoringEnabled setting, and tier
   const filteredNavigation = useMemo(() => {
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
@@ -121,6 +128,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         if (item.settingCheck === 'callScoringEnabled') {
           return callScoringEnabled === true;
         }
+        
+        // Hide AI Sales Bot from Call Scoring tier entirely
+        if (item.id === 'ai-sales-bot' && isCallScoringTier) {
+          return false;
+        }
+        
         return true;
       });
     };
@@ -143,7 +156,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         return entry;
       })
       .filter((entry): entry is NavEntry => entry !== null);
-  }, [callScoringEnabled, canAccessItem]);
+  }, [callScoringEnabled, canAccessItem, isCallScoringTier]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -246,6 +259,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           storageKey={`staff-sidebar-folder-${entry.id}`}
                           onNavClick={handleNavClick}
                           onOpenModal={handleOpenModal}
+                          membershipTier={user?.agency_membership_tier}
                         />
                       );
                     }
