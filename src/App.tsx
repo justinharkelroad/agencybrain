@@ -782,14 +782,24 @@ const App = () => {
             } />
             <Route path="/roleplay-staff" element={<RoleplayStaff />} />
             
-            {/* Public Theta Talk Track Routes */}
-            <Route path="/theta-talk-track" element={<ThetaTalkTrack />} />
-            <Route path="/theta-talk-track/create" element={
-              <Suspense fallback={<div>Loading...</div>}>
-                <ThetaTalkTrackCreate />
-              </Suspense>
+            {/* Theta Talk Track Routes (SidebarLayout included in components) */}
+            <Route path="/theta-talk-track" element={
+              <ProtectedRoute>
+                <ThetaTalkTrack />
+              </ProtectedRoute>
             } />
-            <Route path="/theta-talk-track/download" element={<ThetaTalkTrackDownload />} />
+            <Route path="/theta-talk-track/create" element={
+              <ProtectedRoute>
+                <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                  <ThetaTalkTrackCreate />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/theta-talk-track/download" element={
+              <ProtectedRoute>
+                <ThetaTalkTrackDownload />
+              </ProtectedRoute>
+            } />
             
             <Route path="/test-training-hooks" element={
               <ProtectedRoute requireAdmin>

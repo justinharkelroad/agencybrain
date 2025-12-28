@@ -2,28 +2,16 @@ import { useNavigate } from "react-router-dom";
 import { Brain, Waves, Music, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SmartBackButton } from "@/components/SmartBackButton";
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { SidebarLayout } from "@/components/SidebarLayout";
 
 export default function ThetaTalkTrack() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <SmartBackButton />
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">Theta Talk Track</h1>
-            <HelpVideoButton videoKey="tool-theta-talk-track" />
-          </div>
-          <div className="w-24" /> {/* Spacer for centering */}
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
+    <SidebarLayout>
+      <div className="flex-1 bg-background">
+        {/* Hero Section */}
+        <div className="container mx-auto px-4 py-16 max-w-4xl">
         <div className="text-center mb-12">
           <Brain className="h-16 w-16 mx-auto mb-4 text-primary" />
           <h2 className="text-4xl font-bold mb-4">
@@ -127,7 +115,8 @@ export default function ThetaTalkTrack() {
             Create Your Theta Talk Track
           </Button>
         </div>
+        </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }
