@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useStaffCore4StatsExtended, Core4Domain } from '@/hooks/useStaffCore4StatsExtended';
 import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { StaffCore4MonthlyMissions } from '@/components/staff/StaffCore4MonthlyMissions';
@@ -99,6 +100,20 @@ export default function StaffCore4() {
   } = useStaffCore4StatsExtended();
 
   const flowStats = useStaffFlowStats();
+  const location = useLocation();
+
+  // Scroll to hash anchor after content loads
+  useEffect(() => {
+    if (location.hash && !loading) {
+      const elementId = location.hash.slice(1);
+      setTimeout(() => {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [location.hash, loading]);
 
   // Combined stats (Core 4 = 28 max, Flow = 7 max, Total = 35 max)
   const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;

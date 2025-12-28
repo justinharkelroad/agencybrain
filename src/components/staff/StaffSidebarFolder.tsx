@@ -30,6 +30,13 @@ export function StaffSidebarFolder({
   const navigate = useNavigate();
   const { open: sidebarOpen } = useSidebar();
 
+  // Check if ANY hash-based item in this folder matches the current route
+  const activeHashItem = visibleItems.find(item => {
+    if (!item.url?.includes('#')) return false;
+    const [itemPath, itemHash] = item.url.split('#');
+    return location.pathname === itemPath && location.hash === `#${itemHash}`;
+  });
+
   // Check if item is active, accounting for hash fragments
   const isItemActive = (item: NavItem): boolean => {
     if (!item.url) return false;
@@ -40,12 +47,13 @@ export function StaffSidebarFolder({
       return location.pathname === itemPath && location.hash === `#${itemHash}`;
     }
     
-    // For regular URLs, check pathname starts with item URL
-    // But exclude if current location has a hash that could match another item
-    if (location.hash) {
-      // If we're on a hash route, only match exact pathname (not startsWith)
-      // to avoid both Core 4 and Monthly Missions being active
-      return location.pathname === item.url;
+    // For regular URLs: if a hash item is currently active, 
+    // don't also highlight the base route
+    if (activeHashItem) {
+      const [hashItemPath] = activeHashItem.url!.split('#');
+      if (item.url === hashItemPath || hashItemPath.startsWith(item.url)) {
+        return false;
+      }
     }
     
     return location.pathname.startsWith(item.url);
