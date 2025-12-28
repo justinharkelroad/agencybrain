@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { supaFromReq } from "../_shared/client.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,7 +22,10 @@ serve(async (req) => {
       }
     }
     
-    // Allow either authenticated users OR valid token
+    // Check for staff session header
+    const staffSessionToken = req.headers.get('x-staff-session');
+    
+    // Allow either authenticated users OR valid token OR valid staff session
     const supabase = supaFromReq(req);
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -29,6 +33,60 @@ serve(async (req) => {
     if (user) {
       console.log('Authenticated user accessing roleplay-config:', user.id);
     } 
+    // If staff session header present, validate it
+    else if (staffSessionToken) {
+      console.log('Validating staff session token...');
+      
+      // Create admin client to query staff sessions
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      // Query staff_sessions table directly (same logic as staff_verify_session)
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
+        .from('staff_sessions')
+        .select(`
+          *,
+          staff_users!inner (
+            id,
+            username,
+            display_name,
+            agency_id,
+            role,
+            email,
+            is_active
+          )
+        `)
+        .eq('session_token', staffSessionToken)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (sessionError || !sessionData) {
+        console.log('Invalid staff session token:', sessionError?.message);
+        return new Response(
+          JSON.stringify({ error: 'Invalid staff session' }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Check if staff user is active
+      if (!sessionData.staff_users?.is_active) {
+        console.log('Staff user is inactive');
+        return new Response(
+          JSON.stringify({ error: 'Staff account is inactive' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      console.log('Staff session authenticated:', sessionData.staff_users.display_name, 'Agency:', sessionData.staff_users.agency_id);
+    }
     // If not authenticated, require and validate token
     else if (token) {
       // Validate token from roleplay_access_tokens table
@@ -81,9 +139,9 @@ serve(async (req) => {
         );
       }
     } else {
-      // No user and no token - unauthorized
+      // No user and no token and no staff session - unauthorized
       return new Response(
-        JSON.stringify({ error: 'Unauthorized: No user or token provided' }),
+        JSON.stringify({ error: 'Unauthorized: No user, token, or staff session provided' }),
         { 
           status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

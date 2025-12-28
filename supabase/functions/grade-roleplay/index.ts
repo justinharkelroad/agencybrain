@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
 serve(async (req) => {
@@ -22,12 +22,47 @@ serve(async (req) => {
       );
     }
 
-    // Authorization: Check for either authenticated user OR valid token
+    // Authorization: Check for either authenticated user OR valid token OR staff session
     let isAuthorized = false;
     let unauthorizedReason = 'missing_token_or_auth';
 
-    if (token) {
-      // Validate token for staff access
+    // Check for staff session header first
+    const staffSessionToken = req.headers.get('x-staff-session');
+    if (staffSessionToken) {
+      console.log('Validating staff session token for grading...');
+      
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
+        .from('staff_sessions')
+        .select(`
+          *,
+          staff_users!inner (
+            id,
+            username,
+            display_name,
+            agency_id,
+            role,
+            email,
+            is_active
+          )
+        `)
+        .eq('session_token', staffSessionToken)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (!sessionError && sessionData && sessionData.staff_users?.is_active) {
+        isAuthorized = true;
+        console.log(`Staff session authenticated for grading: ${sessionData.staff_users.display_name}`);
+      } else {
+        console.log('Invalid staff session token for grading');
+        unauthorizedReason = 'invalid_staff_session';
+      }
+    } else if (token) {
+      // Validate token for staff access (legacy token-based flow)
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_ANON_KEY')!

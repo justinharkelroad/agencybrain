@@ -3,8 +3,16 @@ import { corsHeaders, handleOptions } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import jsPDF from 'https://esm.sh/jspdf@2.5.2';
 
+// Extended CORS headers to include x-staff-session
+const extendedCorsHeaders = {
+  ...corsHeaders,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
+};
+
 serve(async (req) => {
-  if (handleOptions(req)) return handleOptions(req);
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: extendedCorsHeaders });
+  }
 
   try {
     const { token, messages, gradingData } = await req.json();
@@ -12,7 +20,7 @@ serve(async (req) => {
     if (!messages || !gradingData) {
       return new Response(
         JSON.stringify({ error: 'messages and gradingData are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -28,8 +36,54 @@ serve(async (req) => {
     let createdBy: string;
     let tokenId: string | null = null;
 
-    // Two modes: token-based (for staff links) or auth-based (for logged-in users)
-    if (token) {
+    // Check for staff session header first
+    const staffSessionToken = req.headers.get('x-staff-session');
+    
+    if (staffSessionToken) {
+      // STAFF SESSION FLOW (for staff portal users)
+      console.log('Validating staff session token for saving...');
+      
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
+        .from('staff_sessions')
+        .select(`
+          *,
+          staff_users!inner (
+            id,
+            username,
+            display_name,
+            agency_id,
+            role,
+            email,
+            is_active,
+            team_member_id
+          )
+        `)
+        .eq('session_token', staffSessionToken)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (sessionError || !sessionData) {
+        console.log('Invalid staff session token for saving:', sessionError?.message);
+        return new Response(
+          JSON.stringify({ error: 'Invalid staff session' }),
+          { status: 401, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!sessionData.staff_users?.is_active) {
+        return new Response(
+          JSON.stringify({ error: 'Staff account is inactive' }),
+          { status: 403, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      staffName = sessionData.staff_users.display_name || sessionData.staff_users.username;
+      staffEmail = sessionData.staff_users.email || 'unknown@email.com';
+      agencyId = sessionData.staff_users.agency_id;
+      createdBy = sessionData.staff_users.id;
+      
+      console.log('Staff session authenticated for saving:', staffName, 'Agency:', agencyId);
+    } else if (token) {
       // TOKEN-BASED FLOW (existing flow for staff links)
       const { data: tokenData, error: tokenError } = await supabaseAdmin
         .from('roleplay_access_tokens')
@@ -40,35 +94,35 @@ serve(async (req) => {
       if (tokenError || !tokenData) {
         return new Response(
           JSON.stringify({ error: 'Invalid token' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (tokenData.session_completed) {
         return new Response(
           JSON.stringify({ error: 'Session already saved for this token' }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 409, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (new Date(tokenData.expires_at) < new Date()) {
         return new Response(
           JSON.stringify({ error: 'Token expired' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (tokenData.invalidated) {
         return new Response(
           JSON.stringify({ error: 'Token has been revoked' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (!tokenData.staff_name || !tokenData.staff_email) {
         return new Response(
           JSON.stringify({ error: 'Staff identity not submitted' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -82,8 +136,8 @@ serve(async (req) => {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return new Response(
-          JSON.stringify({ error: 'Authorization required (no token or auth header)' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Authorization required (no token, staff session, or auth header)' }),
+          { status: 401, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -99,7 +153,7 @@ serve(async (req) => {
         console.error('Auth error:', userError);
         return new Response(
           JSON.stringify({ error: 'Invalid authentication' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 401, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -114,7 +168,7 @@ serve(async (req) => {
         console.error('Profile error:', profileError);
         return new Response(
           JSON.stringify({ error: 'User has no agency associated' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -244,7 +298,7 @@ serve(async (req) => {
       console.error('PDF upload error:', uploadError);
       return new Response(
         JSON.stringify({ error: 'Failed to save PDF', details: uploadError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -275,7 +329,7 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ error: 'Failed to save session', details: sessionError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -300,14 +354,14 @@ serve(async (req) => {
         sessionId: session.id,
         pdfUrl: urlData.publicUrl
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in save-roleplay-session:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
