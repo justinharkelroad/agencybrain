@@ -173,13 +173,13 @@ export const navigationConfig: NavEntry[] = [
     ],
   },
 
-  // Agency Mgmt folder - owners only
+  // Agency Mgmt folder - managers and owners
   {
     id: 'agency-mgmt',
     title: 'Agency Mgmt',
     icon: Building2,
     isFolder: true,
-    access: { staff: false, manager: false, owner: true },
+    access: { staff: false, manager: true, owner: true },
     items: [
       {
         id: 'vendor-verifier',
@@ -187,7 +187,7 @@ export const navigationConfig: NavEntry[] = [
         icon: ShieldCheck,
         type: 'modal',
         modalKey: 'vendorVerifier',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'data-lead-forecaster',
@@ -195,7 +195,7 @@ export const navigationConfig: NavEntry[] = [
         icon: BarChart3,
         type: 'modal',
         modalKey: 'dataLead',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'mailer-forecaster',
@@ -203,7 +203,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Mail,
         type: 'modal',
         modalKey: 'mailer',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'live-transfer-forecaster',
@@ -211,7 +211,7 @@ export const navigationConfig: NavEntry[] = [
         icon: PhoneIncoming,
         type: 'modal',
         modalKey: 'transfer',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'annual-bonus-tool',
@@ -219,7 +219,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Calculator,
         type: 'modal',
         modalKey: 'bonusForecast',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'producer-quote-dashboard',
@@ -227,7 +227,7 @@ export const navigationConfig: NavEntry[] = [
         icon: ExternalLink,
         type: 'external',
         externalUrl: 'https://quickquote-reality.lovable.app/',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'roi-on-staff',
@@ -235,7 +235,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Users,
         type: 'modal',
         modalKey: 'staffROI',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'call-efficiency-tool',
@@ -243,7 +243,7 @@ export const navigationConfig: NavEntry[] = [
         icon: PhoneCall,
         type: 'modal',
         modalKey: 'callEfficiency',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
     ],
   },
