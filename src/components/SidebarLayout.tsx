@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { ROIForecastersModal } from "@/components/ROIForecastersModal";
+import { ROIForecastersModal, type CalcKey } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 
 type SidebarLayoutProps = {
@@ -10,11 +10,24 @@ type SidebarLayoutProps = {
 
 export function SidebarLayout({ children }: SidebarLayoutProps) {
   const [roiOpen, setRoiOpen] = useState(false);
+  const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
+
+  const handleOpenROI = (toolKey?: CalcKey) => {
+    setRoiInitialTool(toolKey || null);
+    setRoiOpen(true);
+  };
+
+  const handleCloseROI = (open: boolean) => {
+    setRoiOpen(open);
+    if (!open) {
+      setRoiInitialTool(null);
+    }
+  };
 
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full">
-        <AppSidebar onOpenROI={() => setRoiOpen(true)} />
+        <AppSidebar onOpenROI={handleOpenROI} />
         
         {/* Mobile Header with Hamburger Menu - Only visible on mobile */}
         <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border flex items-center px-4 gap-3 pt-[env(safe-area-inset-top)] min-h-14">
@@ -31,7 +44,11 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         </main>
       </div>
       
-      <ROIForecastersModal open={roiOpen} onOpenChange={setRoiOpen} />
+      <ROIForecastersModal 
+        open={roiOpen} 
+        onOpenChange={handleCloseROI}
+        initialTool={roiInitialTool}
+      />
     </SidebarProvider>
   );
 }
