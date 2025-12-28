@@ -193,30 +193,109 @@ function detectExclusionReason(
   return { reason: 'NONE', note: '' };
 }
 
-function normalizeBundleType(bundleType: string): BundleType | 'Unknown' {
-  const lower = bundleType.toLowerCase();
-  if (lower.includes('prefer')) return 'Preferred';
-  if (lower.includes('bundle')) return 'Bundled';
-  if (lower.includes('mono')) return 'Monoline';
+// Helper: Determine bundle type from transaction
+// CRITICAL: Parser uses 'policyBundleType' field - now accepts full tx object for flexibility
+function normalizeBundleType(bundleTypeOrTx: string | any): BundleType | 'Unknown' {
+  // Handle both string and full transaction object
+  let bundleField: string;
+  if (typeof bundleTypeOrTx === 'string') {
+    bundleField = bundleTypeOrTx;
+  } else {
+    // Check all possible field names for bundle type
+    bundleField = (
+      bundleTypeOrTx?.policyBundleType ||
+      bundleTypeOrTx?.bundleType || 
+      bundleTypeOrTx?.bundleStatus || 
+      bundleTypeOrTx?.bundle_type ||
+      bundleTypeOrTx?.multiline || 
+      bundleTypeOrTx?.householdStatus ||
+      bundleTypeOrTx?.bundlingStatus ||
+      ''
+    );
+  }
+  
+  if (!bundleField) return 'Unknown';
+  const lower = String(bundleField).toLowerCase().trim();
+  
+  // Preferred Bundle = Auto + Home/Condo (highest tier)
+  if (lower === 'preferred' || lower.includes('prefer') || 
+      lower.includes('auto+home') || lower.includes('auto & home')) {
+    return 'Preferred';
+  }
+  
+  // Regular Bundle = 2+ products but not Auto+Home
+  if (lower === 'bundled' || lower === 'bundle' ||
+      lower.includes('bundle') || lower.includes('multi') || 
+      lower.includes('2+')) {
+    return 'Bundled';
+  }
+  
+  // Monoline = single product
+  if (lower === 'monoline' || lower === 'mono' ||
+      lower.includes('mono') || lower.includes('single')) {
+    return 'Monoline';
+  }
+  
   return 'Unknown';
 }
 
-function determineBusinessType(businessType: string): 'New' | 'Renewal' | 'FirstRenewal' | 'Unknown' {
-  const lower = businessType.toLowerCase().trim();
+// Helper: Determine business type from transaction
+// CRITICAL: Must check tx.businessType FIRST as it's the authoritative source
+function determineBusinessType(tx: any): 'New' | 'Renewal' | 'FirstRenewal' | 'Unknown' {
+  // PRIORITY 1: Use explicit businessType field if present (this is authoritative)
+  const explicitBusinessType = tx.businessType || tx.business_type || tx.BusinessType;
   
-  // Check for first renewal
-  if (lower.includes('first') && lower.includes('renewal')) {
+  if (explicitBusinessType) {
+    const bt = String(explicitBusinessType).toLowerCase().trim();
+    
+    // Direct match for "Renewal" 
+    if (bt === 'renewal') {
+      return 'Renewal';
+    }
+    
+    // Direct match for "New" or "New Business"
+    if (bt === 'new' || bt === 'new business' || bt === 'newbusiness') {
+      return 'New';
+    }
+    
+    // Check for first renewal
+    if (bt.includes('first') && bt.includes('renewal')) {
+      return 'FirstRenewal';
+    }
+    
+    // Partial matches
+    if (bt.includes('renewal')) {
+      return 'Renewal';
+    }
+    
+    if (bt.includes('new')) {
+      return 'New';
+    }
+  }
+  
+  // PRIORITY 2: Check renewal number for first renewal detection
+  const renewalNumber = tx.renewalNumber || tx.termNumber || tx.policyTerm || 0;
+  if (renewalNumber === 1) {
     return 'FirstRenewal';
   }
   
-  // Check for new business - exact patterns only
-  if (lower === 'new business' || lower === 'new' || lower.startsWith('new ')) {
+  // PRIORITY 3: Infer from transaction type (fallback only)
+  const transType = (tx.transType || tx.transactionType || tx.trans_type || '').toLowerCase();
+  
+  if (/\bnew\s*business\b/i.test(transType) || /\bnew\s*policy\b/i.test(transType)) {
     return 'New';
   }
   
-  // Check for renewal - but NOT if it says "new"
-  if (lower.includes('renewal') && !lower.includes('new')) {
-    return 'Renewal';
+  // Check for renewal in transaction type - but NOT if it also says "new"
+  if (/\brenewal\b/i.test(transType) && !/\bnew\b/i.test(transType)) {
+    return renewalNumber === 1 ? 'FirstRenewal' : 'Renewal';
+  }
+  
+  // Coverage Issued/Taken could be either - default based on renewal number
+  if (transType.includes('coverage issued') || transType.includes('taken') || transType.includes('changes')) {
+    if (renewalNumber && renewalNumber > 0) {
+      return renewalNumber === 1 ? 'FirstRenewal' : 'Renewal';
+    }
   }
   
   return 'Unknown';
@@ -335,8 +414,20 @@ export function validateRates(
 
     const productMapping = getProductCategory(tx.product);
     const productCategory = productMapping.vcEligible ? productMapping.category : null;
-    const businessType = determineBusinessType(tx.businessType);
-    const bundleType = normalizeBundleType(tx.policyBundleType);
+    const businessType = determineBusinessType(tx);
+    const bundleType = normalizeBundleType(tx);
+    
+    // DEBUG: Log first 5 transactions to verify detection
+    if (analyzed <= 5) {
+      console.log(`[DEBUG] Transaction ${analyzed}:`, {
+        policy: tx.policyNumber,
+        rawBusinessType: tx.businessType,
+        detectedBusinessType: businessType,
+        rawBundleType: tx.policyBundleType,
+        detectedBundleType: bundleType,
+        rawVcRate: tx.vcRate,
+      });
+    }
     
     // Get expected rate
     const expected = getExpectedVCRate(
@@ -349,8 +440,8 @@ export function validateRates(
       productCategory
     );
 
-    // Get actual rate from transaction
-    const actualRate = tx.vcRate || 0;
+    // Get actual rate from transaction - check multiple possible field names
+    const actualRate = tx.vcRate ?? 0;
     const rateDiff = actualRate - expected.rate;
 
     // Check if there's a discrepancy (expected VC but got less)
