@@ -107,6 +107,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           queryClient.removeQueries({ queryKey: ["auth-user"] });
         }
         
+        // Clear sidebar folder state on login so folders start closed
+        if (event === 'SIGNED_IN') {
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sidebar-folder-')) {
+              localStorage.removeItem(key);
+            }
+          });
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);

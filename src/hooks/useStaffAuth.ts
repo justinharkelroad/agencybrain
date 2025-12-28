@@ -79,6 +79,13 @@ export function useStaffAuth() {
       }
 
       localStorage.setItem('staff_session_token', data.session_token);
+      
+      // Clear sidebar folder state on login so folders start closed
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('staff-sidebar-folder-')) {
+          localStorage.removeItem(key);
+        }
+      });
 
       setState({
         user: data.user,
