@@ -338,6 +338,25 @@ export const staffNavigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
+  // Sales folder
+  {
+    id: 'sales',
+    title: 'Sales',
+    icon: Bot,
+    isFolder: true,
+    access: { staff: true, manager: true, owner: true },
+    items: [
+      {
+        id: 'ai-sales-bot',
+        title: 'AI Sales Bot',
+        icon: Bot,
+        type: 'link',
+        url: '/staff/roleplaybot',
+        access: { staff: true, manager: true, owner: true },
+      },
+    ],
+  },
+
   // Accountability folder
   {
     id: 'accountability',
