@@ -859,8 +859,6 @@ const App = () => {
               <Route path="theta-talk-track" element={<ThetaTalkTrack />} />
               {/* AI Sales Bot / Roleplay */}
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
-              {/* Compensation Analyzer */}
-              <Route path="compensation-analyzer" element={<CompensationAnalyzer />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
