@@ -29,10 +29,30 @@ export function StaffSidebarFolder({
   const location = useLocation();
   const navigate = useNavigate();
   const { open: sidebarOpen } = useSidebar();
+
+  // Check if item is active, accounting for hash fragments
+  const isItemActive = (item: NavItem): boolean => {
+    if (!item.url) return false;
+    
+    // If item URL has a hash (e.g., /staff/core4#monthly-missions)
+    if (item.url.includes('#')) {
+      const [itemPath, itemHash] = item.url.split('#');
+      return location.pathname === itemPath && location.hash === `#${itemHash}`;
+    }
+    
+    // For regular URLs, check pathname starts with item URL
+    // But exclude if current location has a hash that could match another item
+    if (location.hash) {
+      // If we're on a hash route, only match exact pathname (not startsWith)
+      // to avoid both Core 4 and Monthly Missions being active
+      return location.pathname === item.url;
+    }
+    
+    return location.pathname.startsWith(item.url);
+  };
   
-  const hasActiveChild = visibleItems.some(item => 
-    item.url && location.pathname.startsWith(item.url)
-  );
+  const hasActiveChild = visibleItems.some(item => isItemActive(item));
+  
   
   const [isOpen, setIsOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
@@ -86,7 +106,7 @@ export function StaffSidebarFolder({
         <CollapsibleContent>
           <SidebarMenuSub>
             {visibleItems.map((item) => {
-              const isActive = item.url ? location.pathname.startsWith(item.url) : false;
+              const isActive = isItemActive(item);
               
               return (
                 <SidebarMenuSubItem key={item.id}>
