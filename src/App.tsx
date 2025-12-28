@@ -66,6 +66,7 @@ import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
 import TestBackfill from "./pages/TestBackfill";
 import RoleplayBot from "./pages/RoleplayBot";
+import StaffRoleplayBot from "./pages/staff/StaffRoleplayBot";
 import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
@@ -836,7 +837,7 @@ const App = () => {
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
               {/* AI Sales Bot / Roleplay */}
-              <Route path="roleplaybot" element={<RoleplayBot />} />
+              <Route path="roleplaybot" element={<StaffRoleplayBot />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
