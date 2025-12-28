@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SmartBackButton } from "@/components/SmartBackButton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
+import { SidebarLayout } from "@/components/SidebarLayout";
 import { useThetaStore } from "@/lib/thetaTrackStore";
 import { ThetaTargetsInput } from "@/components/ThetaTargetsInput";
 import { ThetaToneSelector } from "@/components/ThetaToneSelector";
@@ -101,25 +101,25 @@ export default function ThetaTalkTrackCreate() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <SmartBackButton />
-          <h1 className="text-xl font-semibold">Create Theta Talk Track</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleStartOverClick}
-            className="gap-2"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden sm:inline">Start Over</span>
-          </Button>
-        </div>
-      </header>
+    <SidebarLayout>
+      <div className="flex-1 bg-background">
+        {/* Header with Start Over button */}
+        <header className="border-b border-border">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 className="text-xl font-semibold">Create Theta Talk Track</h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStartOverClick}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">Start Over</span>
+            </Button>
+          </div>
+        </header>
 
-      {/* Progress Bar */}
+        {/* Progress Bar */}
       <div className="border-b border-border bg-muted/30">
         <div className="container mx-auto px-4 py-4">
           <div className="max-w-3xl mx-auto">
@@ -200,11 +200,12 @@ export default function ThetaTalkTrackCreate() {
         </div>
       </div>
 
-      <ThetaStartOverDialog
-        open={showResetDialog}
-        onOpenChange={setShowResetDialog}
-        onConfirm={handleStartOver}
-      />
-    </div>
+        <ThetaStartOverDialog
+          open={showResetDialog}
+          onOpenChange={setShowResetDialog}
+          onConfirm={handleStartOver}
+        />
+      </div>
+    </SidebarLayout>
   );
 }

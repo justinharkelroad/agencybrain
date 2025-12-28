@@ -4,22 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SmartBackButton } from "@/components/SmartBackButton";
+import { SidebarLayout } from "@/components/SidebarLayout";
 
 export default function ThetaTalkTrackDownload() {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <SmartBackButton />
-          <h1 className="text-xl font-semibold">Download Your Track</h1>
-          <div className="w-24" /> {/* Spacer */}
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+    <SidebarLayout>
+      <div className="flex-1 bg-background">
+        {/* Content */}
+        <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           {/* Success Message */}
           <Card className="mb-8">
@@ -121,7 +113,8 @@ export default function ThetaTalkTrackDownload() {
             </CardContent>
           </Card>
         </div>
+        </div>
       </div>
-    </div>
+    </SidebarLayout>
   );
 }
