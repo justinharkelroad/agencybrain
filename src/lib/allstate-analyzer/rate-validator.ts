@@ -428,12 +428,19 @@ export function validateRates(
     }
   });
 
-  // Log potential underpayments for investigation
+  // Log potential underpayments for investigation with RAW DATA
   if (potentialUnderpayments.length > 0) {
     console.log('\n🚨🚨🚨 POTENTIAL UNDERPAYMENTS TO INVESTIGATE 🚨🚨🚨');
     console.log('(These had 0% VC but no exclusion reason was detected)\n');
     
+    // Find the original transactions for the underpayments to show raw data
+    const underpaymentPolicies = new Set(potentialUnderpayments.map(d => d.policyNumber));
+    const rawTransactions = transactions.filter(tx => underpaymentPolicies.has(tx.policyNumber));
+    
     potentialUnderpayments.slice(0, 10).forEach((d, i) => {
+      // Find matching raw transaction
+      const rawTx = rawTransactions.find(tx => tx.policyNumber === d.policyNumber);
+      
       console.log(`--- #${i + 1} ---`);
       console.log(`Policy: ${d.policyNumber}`);
       console.log(`Product: ${d.productRaw} → ${d.productCategory}`);
@@ -441,12 +448,46 @@ export function validateRates(
       console.log(`Premium: $${d.writtenPremium.toLocaleString()}`);
       console.log(`Expected VC: ${(d.expectedVcRate * 100).toFixed(2)}% | Actual: ${(d.actualVcRate * 100).toFixed(2)}%`);
       console.log(`Missing VC: $${d.missingVcDollars.toFixed(2)}`);
+      
+      // Show RAW transaction fields for debugging
+      if (rawTx) {
+        const raw = rawTx as any; // Cast to any to access all raw fields
+        console.log('--- RAW DATA ---');
+        console.log(`  transType: "${raw.transType || 'N/A'}"`);
+        console.log(`  businessType: "${raw.businessType || 'N/A'}"`);
+        console.log(`  bundleType: "${raw.bundleType || 'N/A'}"`);
+        console.log(`  bundleStatus: "${raw.bundleStatus || 'N/A'}"`);
+        console.log(`  policyBundleType: "${raw.policyBundleType || 'N/A'}"`);
+        console.log(`  multiline: "${raw.multiline || 'N/A'}"`);
+        console.log(`  householdPolicies: "${raw.householdPolicies || 'N/A'}"`);
+        console.log(`  renewalNumber: "${raw.renewalNumber || 'N/A'}"`);
+        console.log(`  termNumber: "${raw.termNumber || 'N/A'}"`);
+        console.log(`  policyTerm: "${raw.policyTerm || 'N/A'}"`);
+        console.log(`  channel: "${raw.channel || 'N/A'}"`);
+        console.log(`  source: "${raw.source || 'N/A'}"`);
+        console.log(`  vcRate (raw): ${raw.vcRate}`);
+        console.log(`  baseRate (raw): ${raw.baseRate || 'N/A'}`);
+        // Log ALL fields to see what's available
+        console.log('  ALL FIELDS:', Object.keys(raw).join(', '));
+      }
       console.log('');
     });
 
     if (potentialUnderpayments.length > 10) {
       console.log(`... and ${potentialUnderpayments.length - 10} more potential underpayments`);
     }
+    
+    // Summary of business types in underpayments
+    const businessTypeCounts: Record<string, number> = {};
+    const bundleTypeCounts: Record<string, number> = {};
+    potentialUnderpayments.forEach(d => {
+      businessTypeCounts[d.businessType] = (businessTypeCounts[d.businessType] || 0) + 1;
+      bundleTypeCounts[d.bundleType] = (bundleTypeCounts[d.bundleType] || 0) + 1;
+    });
+    
+    console.log('\n📊 UNDERPAYMENT BREAKDOWN:');
+    console.log('By Business Type:', businessTypeCounts);
+    console.log('By Bundle Type:', bundleTypeCounts);
   }
 
   // Add warnings for common issues
