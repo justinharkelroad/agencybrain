@@ -290,6 +290,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/theta-talk-track',
         access: { staff: true, manager: true, owner: true },
+        requiresTier: '1:1',
       },
       {
         id: 'monthly-missions',
@@ -549,6 +550,7 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/theta-talk-track',
         access: { staff: true, manager: true, owner: true },
+        requiresTier: '1:1',
       },
       {
         id: 'monthly-missions',
