@@ -87,14 +87,22 @@ function groupByBusinessType(transactions: StatementTransaction[]): Map<string, 
 }> {
   const map = new Map();
   
+  // Debug: Log unique business types found
+  const uniqueBizTypes = [...new Set(transactions.map(t => t.businessType))];
+  console.log('Business types found in transactions:', uniqueBizTypes);
+  
   for (const tx of transactions) {
-    const bizType = tx.businessType.toLowerCase().includes('new') ? 'New Business' : 'Renewal';
+    // Check for "New" anywhere in the string for New Business, otherwise Renewal
+    const rawBizType = (tx.businessType || '').trim();
+    const bizType = rawBizType.toLowerCase().includes('new') ? 'New Business' : 'Renewal';
     const existing = map.get(bizType) || { premium: 0, commission: 0, count: 0 };
     existing.premium += tx.writtenPremium;
     existing.commission += tx.totalCommission;
     existing.count += 1;
     map.set(bizType, existing);
   }
+  
+  console.log('Grouped by business type:', Object.fromEntries(map));
   
   return map;
 }

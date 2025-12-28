@@ -92,32 +92,30 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
     if (header) colIndex[header] = idx;
   });
   
-  // Helper to find column by partial match
-  const findColumn = (keywords: string[]): number => {
-    for (const keyword of keywords) {
-      for (const [header, idx] of Object.entries(colIndex)) {
-        if (header.toLowerCase().includes(keyword.toLowerCase())) {
-          return idx;
-        }
-      }
+  // Helper to find column by exact match first, then partial match
+  const findColumnExact = (exactMatches: string[]): number => {
+    for (const exact of exactMatches) {
+      const idx = colIndex[exact];
+      if (idx !== undefined) return idx;
     }
     return -1;
   };
   
-  // Map columns (with fallback indices if not found)
+  // Map columns using EXACT header matches based on Allstate statement format
+  // These are the actual headers from the statement files
   const cols = {
-    policyNumber: findColumn(['Policy Number', 'Policy#', 'Policy']) ?? 0,
-    namedInsured: findColumn(['Named Insured', 'Insured Name', 'Insured']) ?? 1,
-    product: findColumn(['Product', 'Line of Business', 'LOB']) ?? 2,
-    transType: findColumn(['Trans Type', 'Transaction Type', 'Trans']) ?? 3,
-    businessType: findColumn(['Business Type', 'Biz Type', 'New/Renewal']) ?? 4,
-    bundleType: findColumn(['Bundle Type', 'Policy Bundle', 'Bundle']) ?? 5,
-    writtenPremium: findColumn(['Written Premium', 'Premium']) ?? 7,
-    commissionablePremium: findColumn(['Commissionable Premium', 'Comm Premium']) ?? 8,
-    baseRate: findColumn(['Base Rate', 'Base %', 'Base Commission Rate']) ?? 10,
-    baseAmount: findColumn(['Base Amount', 'Base Commission', 'Base Comm']) ?? 11,
-    vcRate: findColumn(['VC Rate', 'Variable Rate', 'Var Comp Rate']) ?? 12,
-    vcAmount: findColumn(['VC Amount', 'Variable Comp', 'Var Comp']) ?? 13,
+    policyNumber: findColumnExact(['Policy Number']) !== -1 ? findColumnExact(['Policy Number']) : 4,
+    namedInsured: findColumnExact(['Insured']) !== -1 ? findColumnExact(['Insured']) : 5,
+    product: findColumnExact(['Product']) !== -1 ? findColumnExact(['Product']) : 2,
+    transType: findColumnExact(['Trans Type']) !== -1 ? findColumnExact(['Trans Type']) : 17,
+    businessType: findColumnExact(['Business Type']) !== -1 ? findColumnExact(['Business Type']) : 16,
+    bundleType: findColumnExact(['Policy Bundle Type']) !== -1 ? findColumnExact(['Policy Bundle Type']) : 6,
+    writtenPremium: findColumnExact(['Written Premium ($)']) !== -1 ? findColumnExact(['Written Premium ($)']) : 7,
+    commissionablePremium: findColumnExact(['Commissionable Premium ($)']) !== -1 ? findColumnExact(['Commissionable Premium ($)']) : 9,
+    baseRate: findColumnExact(['Base Commission Rate %']) !== -1 ? findColumnExact(['Base Commission Rate %']) : 10,
+    baseAmount: findColumnExact(['Base Commission Amount ($)']) !== -1 ? findColumnExact(['Base Commission Amount ($)']) : 11,
+    vcRate: findColumnExact(['VC Rate %']) !== -1 ? findColumnExact(['VC Rate %']) : 13,
+    vcAmount: findColumnExact(['VC Amount ($) *']) !== -1 ? findColumnExact(['VC Amount ($) *']) : 14,
   };
   
   // Parse transactions starting after header
