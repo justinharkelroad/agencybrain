@@ -48,8 +48,10 @@ function normalizeBundleType(bundleType: string): BundleType | null {
 }
 
 function isNewBusiness(businessType: string): boolean {
-  const lower = businessType.toLowerCase();
-  return lower.includes('new') || lower.includes('nb');
+  const lower = businessType.toLowerCase().trim();
+  // Check for exact patterns - "new business" or starts with "new"
+  // But NOT "renewal" which contains "new" as substring
+  return lower === 'new business' || lower === 'new' || lower.startsWith('new ');
 }
 
 function isFirstRenewal(businessType: string): boolean {
