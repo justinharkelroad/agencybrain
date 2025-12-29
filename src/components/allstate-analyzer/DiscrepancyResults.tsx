@@ -11,7 +11,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  Info
+  Info,
+  Building2
 } from 'lucide-react';
 import {
   Table,
@@ -29,10 +30,12 @@ import {
 } from '@/components/ui/tooltip';
 import { ValidationResult, RateDiscrepancy, ExclusionReason, BusinessTypeMixComparison, CommissionRateSummary, LargeCancellationSummary } from '@/lib/allstate-analyzer/rate-validator';
 import { SubProducerSummary } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { StatementTransaction } from '@/lib/allstate-parser/excel-parser';
 import { BusinessTypeMixAnalysis } from './BusinessTypeMixAnalysis';
 import { CommissionRateSummaryCard } from './CommissionRateSummaryCard';
 import { LargeCancellationsAlert } from './LargeCancellationsAlert';
 import { SubProducerSummaryCard } from './SubProducerSummaryCard';
+import { ByLocationTab } from './ByLocationTab';
 
 interface DiscrepancyResultsProps {
   results: ValidationResult;
@@ -45,6 +48,10 @@ interface DiscrepancyResultsProps {
   subProducerData?: SubProducerSummary;
   priorPeriod?: string;
   currentPeriod?: string;
+  // New props for By Location tab
+  currentTransactions?: StatementTransaction[];
+  priorTransactions?: StatementTransaction[];
+  agentNumbers?: string[];
 }
 
 const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
@@ -79,9 +86,23 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'UNKNOWN_EXCLUSION': 'No exclusion reason detected - this may be a potential underpayment to investigate',
 };
 
-export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, largeCancellations, subProducerData, priorPeriod, currentPeriod }: DiscrepancyResultsProps) {
+export function DiscrepancyResults({ 
+  results, 
+  mixAnalysis, 
+  commissionSummary, 
+  largeCancellations, 
+  subProducerData, 
+  priorPeriod, 
+  currentPeriod,
+  currentTransactions = [],
+  priorTransactions = [],
+  agentNumbers = []
+}: DiscrepancyResultsProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('underpayments');
   const [showAllUnderpayments, setShowAllUnderpayments] = useState(false);
+  
+  // Check if we have multi-location data
+  const hasMultipleLocations = agentNumbers.length > 1;
 
   const {
     potentialUnderpayments,
@@ -299,7 +320,7 @@ export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, la
       )}
 
       <Tabs defaultValue="underpayments" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="underpayments" className="gap-2">
             <AlertTriangle className="h-4 w-4" />
             Potential Underpayments ({potentialUnderpayments.length})
@@ -308,6 +329,12 @@ export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, la
             <CheckCircle className="h-4 w-4" />
             Excluded Transactions ({excludedTransactions.length})
           </TabsTrigger>
+          {hasMultipleLocations && (
+            <TabsTrigger value="by-location" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              By Location ({agentNumbers.length})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="underpayments">
@@ -528,6 +555,18 @@ export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, la
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* By Location Tab */}
+        {hasMultipleLocations && (
+          <TabsContent value="by-location">
+            <ByLocationTab
+              currentTransactions={currentTransactions}
+              priorTransactions={priorTransactions}
+              agentNumbers={agentNumbers}
+              statementPeriod={currentPeriod || 'Current Period'}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

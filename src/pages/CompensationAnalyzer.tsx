@@ -119,6 +119,9 @@ export default function CompensationAnalyzer() {
                         subProducerData={(currentReport.comparison_data as any).subProducerData}
                         priorPeriod={(currentReport.comparison_data as any).periodLabels?.prior}
                         currentPeriod={(currentReport.comparison_data as any).periodLabels?.current}
+                        currentTransactions={(currentReport.comparison_data as any).currentTransactions}
+                        priorTransactions={(currentReport.comparison_data as any).priorTransactions}
+                        agentNumbers={(currentReport.comparison_data as any).multiLocation?.agentNumbers}
                       />
                     ) : (
                       <>
