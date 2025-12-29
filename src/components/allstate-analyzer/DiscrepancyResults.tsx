@@ -45,6 +45,7 @@ const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   'EXCLUDED_FACILITY_CEDED': 'Facility Ceded',
   'EXCLUDED_MONOLINE_RENEWAL': 'Monoline Renewal',
   'EXCLUDED_NB_ITEM_ADDITION': 'NB Item Addition',
+  'EXCLUDED_ENDORSEMENT_ADD_DROP': 'Add/Drop Endorsement',
   'UNKNOWN_EXCLUSION': 'Unknown - Investigate',
 };
 
@@ -60,6 +61,7 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'EXCLUDED_FACILITY_CEDED': 'Premium ceded to Facility is excluded from variable compensation',
   'EXCLUDED_MONOLINE_RENEWAL': 'Monoline renewal policies do not receive renewal VC - only Bundled/Preferred qualify',
   'EXCLUDED_NB_ITEM_ADDITION': 'This "New Business" transaction is for a new item (vehicle/coverage) added to an existing policy, not a truly new policy. NB VC only applies to brand new policies bound in the period.',
+  'EXCLUDED_ENDORSEMENT_ADD_DROP': 'Add car/add item and drop item endorsement premium is excluded from variable compensation. The premium becomes VC-eligible upon the next policy renewal.',
   'UNKNOWN_EXCLUSION': 'No exclusion reason detected - this may be a potential underpayment to investigate',
 };
 

@@ -24,6 +24,7 @@ export type ExclusionReason =
   | 'EXCLUDED_FACILITY_CEDED'
   | 'EXCLUDED_MONOLINE_RENEWAL'
   | 'EXCLUDED_NB_ITEM_ADDITION'
+  | 'EXCLUDED_ENDORSEMENT_ADD_DROP'
   | 'UNKNOWN_EXCLUSION';
 
 export interface RateDiscrepancy {
@@ -118,7 +119,21 @@ function detectExclusionReason(
   bundleType: string
 ): { reason: ExclusionReason; note: string } {
   
-  // CHECK 0: Pre-2023 policies are not eligible for Variable Compensation
+  // CHECK 0: Endorsement Add/Drop transactions - add car/item premium is excluded from VC
+  // Per Allstate: "The premium for an add car is excluded from variable compensation eligibility"
+  const transType = String(transaction.transType || '').toLowerCase();
+  if (transType.includes('endorsement')) {
+    if (transType.includes('add item') || transType.includes('drop item') || 
+        transType.includes('add coverage') || transType.includes('drop coverage') ||
+        transType.includes('add premium') || transType.includes('drop premium')) {
+      return {
+        reason: 'EXCLUDED_ENDORSEMENT_ADD_DROP',
+        note: 'Add item/drop item endorsement premium is excluded from variable compensation per Allstate rules'
+      };
+    }
+  }
+
+  // CHECK 1: Pre-2023 policies are not eligible for Variable Compensation
   // VC program only applies to policies with original effective date Jan 1, 2023 or later
   const origDateRaw = transaction.origPolicyEffDate || '';
 
@@ -478,6 +493,7 @@ export function validateRates(
     'EXCLUDED_FACILITY_CEDED': 0,
     'EXCLUDED_MONOLINE_RENEWAL': 0,
     'EXCLUDED_NB_ITEM_ADDITION': 0,
+    'EXCLUDED_ENDORSEMENT_ADD_DROP': 0,
     'UNKNOWN_EXCLUSION': 0,
   };
 
