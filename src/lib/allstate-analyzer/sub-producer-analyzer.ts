@@ -73,9 +73,10 @@ function parseOrigDate(dateStr: string): Date | null {
 }
 
 // Helper: Check if product is Auto (6-month term)
+// Auto products: contains "auto" or "alpac" (case-insensitive)
 function isAutoProduct(product: string): boolean {
   const productLower = (product || '').toLowerCase();
-  return productLower.includes('auto');
+  return productLower.includes('auto') || productLower.includes('alpac');
 }
 
 export function analyzeSubProducers(
