@@ -112,6 +112,33 @@ const FACILITY_PATTERNS = [
   /\bCEDED\b/i,
 ];
 
+// Check if this is a 6-month auto product eligible for First Renewal NB VC rates
+function is6MonthAutoProduct(product: string): boolean {
+  const productLower = product.toLowerCase();
+  
+  // Standard Auto is always 6-month
+  if (productLower === 'standard auto' || productLower === 'standardauto') {
+    return true;
+  }
+  
+  // Specialty Auto CAN be 6-month (motorcycles, trailers, RVs, etc.)
+  // Per Allstate PDF: "first renewal of 6-month standard auto and specialty auto policies"
+  // Note: Specialty Auto can also be 12-month, but we include it here since
+  // the PDF explicitly mentions it qualifies for the first renewal NB VC exception
+  if (productLower.includes('specialty auto')) {
+    return true;
+  }
+  
+  // These are NOT 6-month auto products - do NOT include:
+  // - AUTO-INDEM (legacy 12-month)
+  // - AUTO PRIVATE PASS. (legacy)
+  // - AFCIC-AUTO PRIV PASS (legacy)
+  // - ALPAC-AUTO PRIV PASS (legacy)
+  // - Non-Standard Auto
+  
+  return false;
+}
+
 function detectExclusionReason(
   transaction: StatementTransaction,
   businessType: string,
@@ -287,8 +314,9 @@ function detectExclusionReason(
     };
   }
 
-  // Check for first renewal of 6-month auto policy
-  if (businessType === 'FirstRenewal' && productCategory === 'StandardAuto') {
+  // Check for first renewal of 6-month auto policy (Standard Auto or Specialty Auto)
+  const productName = String(transaction.product || '');
+  if (businessType === 'FirstRenewal' && (productCategory === 'StandardAuto' || is6MonthAutoProduct(productName))) {
     return {
       reason: 'EXCLUDED_FIRST_RENEWAL_6MO',
       note: 'First renewal of 6-month auto - uses NB VC rates (Elite only if baseline achieved), not renewal VC rates'
