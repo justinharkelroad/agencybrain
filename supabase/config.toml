@@ -221,3 +221,6 @@ verify_jwt = true
 
 [functions.get-cancel-audit-data]
 verify_jwt = false
+
+[functions.get_dashboard_daily]
+verify_jwt = true
