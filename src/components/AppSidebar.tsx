@@ -116,8 +116,14 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
 
   // Check if call scoring is enabled for user's agency
   useEffect(() => {
+    let hasChecked = false;
+    
     const checkCallScoringAccess = async (userId: string, userEmail?: string) => {
-      console.log('Sidebar - Checking access for user:', userEmail);
+      // Only log once per mount to reduce console noise
+      if (!hasChecked) {
+        console.log('Sidebar - Checking access for user:', userEmail);
+      }
+      hasChecked = true;
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -163,6 +169,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // Only re-check on actual auth events, not token refresh
+        if (event === 'TOKEN_REFRESHED') return;
+        
         if (!session?.user) {
           setCallScoringEnabled(false);
           return;
