@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
   SidebarMenuItem,
   SidebarMenuButton,
@@ -85,6 +85,48 @@ export function SidebarNavItem({
   );
 
   if (isNested) {
+    // For link items, use actual Link component for proper routing
+    if (item.type === 'link' && item.url) {
+      // Check tier requirement before rendering link
+      const needsGate = item.requiresTier === '1:1' && !has1to1Access(membershipTier);
+      
+      return (
+        <>
+          <SidebarMenuSubItem>
+            {needsGate ? (
+              <SidebarMenuSubButton
+                asChild
+                isActive={isActive}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowGateModal(true)}
+                  className="cursor-pointer w-full flex items-center gap-2 text-left"
+                >
+                  {content}
+                </button>
+              </SidebarMenuSubButton>
+            ) : (
+              <SidebarMenuSubButton
+                asChild
+                isActive={isActive}
+              >
+                <Link to={item.url} className="w-full">
+                  {content}
+                </Link>
+              </SidebarMenuSubButton>
+            )}
+          </SidebarMenuSubItem>
+          <MembershipGateModal
+            open={showGateModal}
+            onOpenChange={setShowGateModal}
+            featureName={item.title}
+          />
+        </>
+      );
+    }
+    
+    // For modal/external items, keep using button
     return (
       <>
         <SidebarMenuSubItem>
