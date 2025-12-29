@@ -157,36 +157,65 @@ export function calculateCommissionSummary(
   transactions: StatementTransaction[]
 ): CommissionRateSummary {
   
+  // Totals include everything
   let totalPremium = 0;
   let totalCommissionablePremium = 0;
   let totalBaseCommission = 0;
   let totalVcAmount = 0;
   let totalCommission = 0;
   
+  // For averages, only include rows with actual commission paid
+  let avgBasePremium = 0;      // Commissionable premium on rows with base commission
+  let avgBaseCommission = 0;   // Base commission on rows with base commission
+  let avgVcPremium = 0;        // Commissionable premium on rows with VC
+  let avgVcAmount = 0;         // VC on rows with VC
+  
   for (const tx of transactions) {
-    totalPremium += tx.writtenPremium || 0;
-    totalCommissionablePremium += tx.commissionablePremium || 0;
-    totalBaseCommission += tx.baseCommissionAmount || 0;
-    totalVcAmount += tx.vcAmount || 0;
-    totalCommission += tx.totalCommission || (tx.baseCommissionAmount || 0) + (tx.vcAmount || 0);
+    const premium = tx.writtenPremium || 0;
+    const commPremium = tx.commissionablePremium || 0;
+    const baseComm = tx.baseCommissionAmount || 0;
+    const vc = tx.vcAmount || 0;
+    const commission = tx.totalCommission || (baseComm + vc);
+    
+    // Always add to totals
+    totalPremium += premium;
+    totalCommissionablePremium += commPremium;
+    totalBaseCommission += baseComm;
+    totalVcAmount += vc;
+    totalCommission += commission;
+    
+    // Only include in averages if actual commission was paid
+    // Use absolute value check to include both positive and negative (chargebacks)
+    if (Math.abs(baseComm) > 0) {
+      avgBasePremium += commPremium;
+      avgBaseCommission += baseComm;
+    }
+    
+    if (Math.abs(vc) > 0) {
+      avgVcPremium += commPremium;
+      avgVcAmount += vc;
+    }
   }
+
+  // Average rates only from rows that actually had that type of commission
+  const avgBaseRate = avgBasePremium !== 0 
+    ? (avgBaseCommission / avgBasePremium) * 100 
+    : 0;
+  const avgVcRate = avgVcPremium !== 0 
+    ? (avgVcAmount / avgVcPremium) * 100 
+    : 0;
+  // Effective rate still uses total commission / total premium
+  const effectiveRate = totalPremium !== 0 
+    ? (totalCommission / totalPremium) * 100 
+    : 0;
 
   // Console logging
   console.log('\n💰 COMMISSION RATE SUMMARY:');
   console.log(`Total Premium: $${totalPremium.toLocaleString()}`);
   console.log(`Total Commission: $${totalCommission.toLocaleString()}`);
   console.log(`---`);
-  const avgBaseRate = totalCommissionablePremium !== 0 
-    ? (totalBaseCommission / totalCommissionablePremium) * 100 
-    : 0;
-  const avgVcRate = totalCommissionablePremium !== 0 
-    ? (totalVcAmount / totalCommissionablePremium) * 100 
-    : 0;
-  const effectiveRate = totalPremium !== 0 
-    ? (totalCommission / totalPremium) * 100 
-    : 0;
-  console.log(`Avg Base Rate: ${avgBaseRate.toFixed(2)}%`);
-  console.log(`Avg VC Rate: ${avgVcRate.toFixed(2)}%`);
+  console.log(`Avg Base Rate: ${avgBaseRate.toFixed(2)}% (from rows with base commission)`);
+  console.log(`Avg VC Rate: ${avgVcRate.toFixed(2)}% (from rows with VC)`);
   console.log(`Overall Effective Rate: ${effectiveRate.toFixed(2)}%`);
   
   return {
