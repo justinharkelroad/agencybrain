@@ -118,6 +118,31 @@ function detectExclusionReason(
   bundleType: string
 ): { reason: ExclusionReason; note: string } {
   
+  // CHECK 0: Pre-2023 policies are not eligible for Variable Compensation
+  // VC program only applies to policies with original effective date Jan 1, 2023 or later
+  const origDateRaw = transaction.origPolicyEffDate || '';
+
+  if (origDateRaw && origDateRaw !== 'N/A' && origDateRaw !== '' && origDateRaw !== '0') {
+    const dateParts = String(origDateRaw).split('/');
+    let origYear: number = 0;
+    
+    if (dateParts.length === 2) {
+      // MM/YYYY format
+      origYear = parseInt(dateParts[1], 10);
+    } else if (dateParts.length === 3) {
+      // MM/DD/YYYY format
+      origYear = parseInt(dateParts[2], 10);
+    }
+    
+    // If original policy is from before 2023, it's not eligible for VC
+    if (origYear > 0 && origYear < 2023) {
+      return {
+        reason: 'EXCLUDED_PRE_2023_POLICY',
+        note: `Policy original effective date (${origDateRaw}) is before Jan 1, 2023. Only policies written 1/1/2023 or later are eligible for Variable Compensation.`
+      };
+    }
+  }
+
   // CHECK 1: Service Fee policy (from Service Fee Assigned Date field)
   const serviceFeeDate = transaction.serviceFeeAssignedDate || '';
   if (serviceFeeDate && serviceFeeDate.trim() !== '') {
