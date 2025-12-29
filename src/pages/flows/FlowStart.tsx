@@ -54,7 +54,7 @@ export default function FlowStart() {
       setTemplateId(template.id);
       setTemplateName(template.name);
 
-      // Check for existing in-progress session
+      // Check for existing in-progress session (use maybeSingle for safety)
       const { data: existingSession } = await supabase
         .from('flow_sessions')
         .select('*')
@@ -63,10 +63,21 @@ export default function FlowStart() {
         .eq('status', 'in_progress')
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existingSession) {
-        // Found a draft - show options
+        // Check if this is an empty phantom draft (0 questions answered)
+        const answeredCount = Object.keys(existingSession.responses_json || {}).length;
+        
+        if (answeredCount === 0) {
+          // Empty phantom draft - delete silently and navigate directly
+          console.log('[FlowStart] Auto-deleting empty phantom draft:', existingSession.id);
+          await supabase.from('flow_sessions').delete().eq('id', existingSession.id);
+          navigate(`/flows/session/${slug}`, { replace: true });
+          return;
+        }
+        
+        // Found a real draft with answers - show options
         setDraftSession(existingSession);
         setLoading(false);
       } else {
@@ -75,33 +86,6 @@ export default function FlowStart() {
       }
     } catch (err) {
       console.error('Error checking for drafts:', err);
-      navigate('/flows');
-    }
-  };
-
-  const createNewSession = async (flowTemplateId: string) => {
-    try {
-      const { error: sessionError } = await supabase
-        .from('flow_sessions')
-        .insert({
-          user_id: user!.id,
-          flow_template_id: flowTemplateId,
-          status: 'in_progress',
-          responses_json: {},
-        })
-        .select()
-        .single();
-
-      if (sessionError) {
-        console.error('Error creating session:', sessionError);
-        navigate('/flows');
-        return;
-      }
-
-      // Navigate to session
-      navigate(`/flows/session/${slug}`, { replace: true });
-    } catch (err) {
-      console.error('Error creating session:', err);
       navigate('/flows');
     }
   };
@@ -125,10 +109,8 @@ export default function FlowStart() {
       setDraftSession(null);
       setShowDeleteConfirm(false);
       
-      // Create new session
-      if (templateId) {
-        await createNewSession(templateId);
-      }
+      // Just navigate - session will be created lazily on first answer
+      navigate(`/flows/session/${slug}`, { replace: true });
     } catch (err) {
       console.error('Error deleting draft:', err);
     }
