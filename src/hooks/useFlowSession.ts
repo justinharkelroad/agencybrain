@@ -135,7 +135,7 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
         .eq('status', 'in_progress')
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         console.log('[useFlowSession] Found existing session, reusing:', existing.id);
