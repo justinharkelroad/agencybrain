@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
+import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess";
 import {
   LogOut,
   Sun,
@@ -111,11 +112,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   }, [userAccess]);
 
   // Helper to check if agency is on Call Scoring tier
-  const isCallScoringTier = useMemo(() => {
-    const tier = user?.agency_membership_tier;
-    if (!tier) return false;
-    return tier.startsWith('Call Scoring');
-  }, [user?.agency_membership_tier]);
+  const isCallScoringTier = checkIsCallScoringTier(user?.agency_membership_tier);
 
   // Filter navigation items based on role, callScoringEnabled setting, and tier
   const filteredNavigation = useMemo(() => {
