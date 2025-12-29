@@ -24,8 +24,12 @@ export default function FlowSession() {
   const { user } = useAuth();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
   const isNearBottomRef = useRef(true);
   const forceScrollRef = useRef(false);
+  
+  // Dynamic footer height for proper scroll padding
+  const [footerHeight, setFooterHeight] = useState(128);
 
   // Get session ID from location state (when resuming a draft)
   const sessionId = (location.state as { sessionId?: string } | null)?.sessionId;
@@ -66,6 +70,20 @@ export default function FlowSession() {
   
   // Ref for typing timeout to prevent race conditions
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track footer height changes (for select buttons vs text input)
+  useEffect(() => {
+    if (!footerRef.current) return;
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setFooterHeight(entry.contentRect.height);
+      }
+    });
+    
+    observer.observe(footerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Fetch user profile photo
   useEffect(() => {
@@ -141,6 +159,7 @@ export default function FlowSession() {
     showCurrentQuestion,
     answeredQuestions.size,
     scrollToBottom,
+    currentQuestion?.type, // Re-scroll when input type changes (text vs select)
   ]);
 
   // Handle scroll position to show/hide scroll button
@@ -425,8 +444,12 @@ export default function FlowSession() {
         ref={chatContainerRef}
         className="flex-1 overflow-y-auto"
         onScroll={handleScroll}
+        style={{ 
+          paddingBottom: footerHeight + 32,
+          scrollPaddingBottom: footerHeight + 32 
+        }}
       >
-        <div className="max-w-2xl mx-auto px-4 py-6 pb-32 space-y-4">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
           {/* Previous Q&A as chat bubbles */}
           {questions.slice(0, currentQuestionIndex).map((q, idx) => {
             const segments = interpolatePrompt(q.prompt);
@@ -543,7 +566,7 @@ export default function FlowSession() {
               </div>
             </div>
           )}
-          <div ref={bottomRef} className="h-px w-full" />
+          <div ref={bottomRef} className="h-px w-full" style={{ scrollMarginBottom: footerHeight + 32 }} />
         </div>
       </main>
 
@@ -560,7 +583,7 @@ export default function FlowSession() {
       )}
 
       {/* Fixed Input Area */}
-      <footer className="border-t border-border/10 bg-background/95 backdrop-blur sticky bottom-0">
+      <footer ref={footerRef} className="border-t border-border/10 bg-background/95 backdrop-blur sticky bottom-0">
         <div className="max-w-2xl mx-auto px-4 py-3">
           {saving && (
             <div className="flex items-center justify-center mb-2">
