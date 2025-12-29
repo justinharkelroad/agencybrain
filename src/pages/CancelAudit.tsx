@@ -136,7 +136,7 @@ const CancelAuditPage = () => {
 
   useEffect(() => {
     const checkAccess = async () => {
-      // Wait for both auth systems to finish loading
+      // Wait for both auth systems to finish loading completely
       if (authLoading || staffLoading) return;
       
       // Determine if this is a staff portal context
@@ -153,13 +153,16 @@ const CancelAuditPage = () => {
       }
       
       // Regular user (owner/admin)
+      // IMPORTANT: Only redirect if auth is fully loaded AND no user exists
+      // The ProtectedRoute wrapper should handle auth redirects, but as a safety net:
       if (!user) {
         // If on staff route but not staff authenticated, redirect to staff login
         if (isStaffRoute) {
-          navigate("/staff/login");
-        } else {
-          navigate("/auth");
+          navigate("/staff/login", { replace: true });
         }
+        // For non-staff routes, let ProtectedRoute handle the redirect
+        // Don't redirect here - it causes race conditions with auth hydration
+        setLoading(false);
         return;
       }
 
