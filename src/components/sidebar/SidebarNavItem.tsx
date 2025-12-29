@@ -89,11 +89,16 @@ export function SidebarNavItem({
       <>
         <SidebarMenuSubItem>
           <SidebarMenuSubButton
-            onClick={handleClick}
+            asChild
             isActive={isActive}
-            className="cursor-pointer"
           >
-            {content}
+            <button
+              type="button"
+              onClick={handleClick}
+              className="cursor-pointer w-full"
+            >
+              {content}
+            </button>
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>
         <MembershipGateModal
