@@ -13,6 +13,7 @@ import {
 import { NavFolder, NavItem } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
+import { hasOneOnOneAccess } from "@/utils/tierAccess";
 
 interface StaffSidebarFolderProps {
   folder: NavFolder;
@@ -23,16 +24,7 @@ interface StaffSidebarFolderProps {
   membershipTier?: string | null;
 }
 
-// Helper to check if user has 1:1 Coaching access
-const has1to1Access = (tier: string | null | undefined): boolean => {
-  if (!tier) return false;
-  const lowerTier = tier.toLowerCase();
-  return lowerTier.includes('1:1') || 
-         lowerTier.includes('coaching') ||
-         lowerTier.includes('1-on-1');
-};
-
-export function StaffSidebarFolder({ 
+export function StaffSidebarFolder({
   folder, 
   visibleItems, 
   storageKey,
@@ -99,7 +91,7 @@ export function StaffSidebarFolder({
 
   const handleItemClick = (item: NavItem) => {
     // Check tier requirement - show gate modal for non-1:1 users
-    if (item.requiresTier === '1:1' && !has1to1Access(membershipTier)) {
+    if (item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier)) {
       setGatedFeatureName(item.title);
       setShowGateModal(true);
       return;

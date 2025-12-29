@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
+import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -315,10 +316,10 @@ setCoachingRevenue(totalMRR);
 
       // Auto-configure call scoring settings based on tier
       if (editingClient.agency?.id) {
-        const isCallScoringTier = newTier?.startsWith('Call Scoring');
-        const wasCallScoringTier = editingClient.membership_tier?.startsWith('Call Scoring');
+        const isNewCallScoringTier = isCallScoringTier(newTier);
+        const wasCallScoringTier = isCallScoringTier(editingClient.membership_tier);
         
-        if (isCallScoringTier) {
+        if (isNewCallScoringTier) {
           // Extract the call limit from the tier name (e.g., "Call Scoring 30" → 30)
           const callLimit = parseInt(newTier.replace('Call Scoring ', ''), 10);
           
@@ -347,7 +348,7 @@ setCoachingRevenue(totalMRR);
               return;
             }
           }
-        } else if (wasCallScoringTier && !isCallScoringTier) {
+        } else if (wasCallScoringTier && !isNewCallScoringTier) {
           // Disable call scoring when changing away from a Call Scoring tier
           await supabase
             .from('agency_call_scoring_settings')
@@ -644,15 +645,18 @@ const getSubmissionStatus = (profile: Profile) => {
                               Joined {new Date(client.created_at).toLocaleDateString()}
                             </p>
                           </div>
-                          {client.membership_tier === '1:1 Coaching' ? (
-                            <Badge>1:1</Badge>
-                          ) : client.membership_tier === 'Boardroom' ? (
-                            <Badge variant="secondary">Boardroom</Badge>
-                          ) : client.membership_tier?.startsWith('Call Scoring') ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">{client.membership_tier}</Badge>
-                          ) : (
-                            <Badge variant="outline">Pending</Badge>
-                          )}
+                          {(() => {
+                            const normalized = normalizeTier(client.membership_tier);
+                            if (normalized === 'one_on_one') {
+                              return <Badge>1:1</Badge>;
+                            } else if (normalized === 'boardroom') {
+                              return <Badge variant="secondary">Boardroom</Badge>;
+                            } else if (normalized === 'call_scoring') {
+                              return <Badge className="bg-green-500 hover:bg-green-600">{client.membership_tier}</Badge>;
+                            } else {
+                              return <Badge variant="outline">Pending</Badge>;
+                            }
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -769,13 +773,14 @@ const getSubmissionStatus = (profile: Profile) => {
             <div className="space-y-4 py-4">
             <div className="space-y-2">
                 <label className="text-sm font-medium">Current Tier</label>
-                <Badge className={
-                  editingClient?.membership_tier === 'Boardroom' ? 'bg-red-500' : 
-                  editingClient?.membership_tier === 'Inactive' ? 'bg-gray-500' :
-                  editingClient?.membership_tier?.startsWith('Call Scoring') ? 'bg-green-500' :
-                  !editingClient?.membership_tier ? 'bg-yellow-500' :
-                  'bg-blue-500'
-                }>
+                <Badge className={(() => {
+                  const normalized = normalizeTier(editingClient?.membership_tier);
+                  if (normalized === 'boardroom') return 'bg-red-500';
+                  if (normalized === 'inactive') return 'bg-gray-500';
+                  if (normalized === 'call_scoring') return 'bg-green-500';
+                  if (normalized === 'unknown') return 'bg-yellow-500';
+                  return 'bg-blue-500';
+                })()}>
                   {editingClient?.membership_tier || 'Pending Activation'}
                 </Badge>
               </div>
