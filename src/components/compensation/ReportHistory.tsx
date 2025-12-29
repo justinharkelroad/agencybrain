@@ -1,10 +1,22 @@
 import { format } from "date-fns";
-import { History, Eye, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { History, Eye, Loader2, Trash2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ReportHistoryProps {
   onSelectReport: (reportId: string) => void;
@@ -23,6 +35,7 @@ const formatCurrency = (cents: number | null) => {
 };
 
 export function ReportHistory({ onSelectReport }: ReportHistoryProps) {
+  const queryClient = useQueryClient();
   // Fetch agencyId from profile first
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile-for-history'],
@@ -62,6 +75,23 @@ export function ReportHistory({ onSelectReport }: ReportHistoryProps) {
     },
     enabled: !!agencyId,
   });
+
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      const { error } = await supabase
+        .from('comp_comparison_reports')
+        .delete()
+        .eq('id', reportId);
+      
+      if (error) throw error;
+      
+      toast.success("Report deleted");
+      queryClient.invalidateQueries({ queryKey: ['comp-reports', agencyId] });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error("Failed to delete report");
+    }
+  };
 
   if (profileLoading || reportsLoading) {
     return (
@@ -134,13 +164,39 @@ export function ReportHistory({ onSelectReport }: ReportHistoryProps) {
                     {formatCurrency(report.potential_underpayment_cents)}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onSelectReport(report.id)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onSelectReport(report.id)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Report?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete this comparison report. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteReport(report.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
