@@ -11,20 +11,23 @@ interface Props {
 export function SubProducerTransactionTable({ transactions, type }: Props) {
   const isChargeback = type === 'chargebacks';
   
+  // Filter out $0.00 transactions - they add no value
+  const nonZeroTransactions = transactions.filter(tx => Math.abs(tx.premium) > 0);
+  
   // Sort by absolute premium descending
-  const sorted = [...transactions].sort((a, b) => 
+  const sorted = [...nonZeroTransactions].sort((a, b) => 
     Math.abs(b.premium) - Math.abs(a.premium)
   );
   
-  const totalPremium = transactions.reduce((sum, tx) => sum + Math.abs(tx.premium), 0);
-  const totalCommission = transactions.reduce((sum, tx) => sum + Math.abs(tx.commission), 0);
+  const totalPremium = nonZeroTransactions.reduce((sum, tx) => sum + Math.abs(tx.premium), 0);
+  const totalCommission = nonZeroTransactions.reduce((sum, tx) => sum + Math.abs(tx.commission), 0);
   
   return (
     <div className="space-y-3">
       {/* Summary */}
       <div className="flex items-center justify-between text-sm px-1">
         <span className="text-muted-foreground">
-          {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+          {nonZeroTransactions.length} transaction{nonZeroTransactions.length !== 1 ? 's' : ''}
         </span>
         <div className="flex gap-4">
           <span className={isChargeback ? 'text-red-500' : 'text-foreground'}>
