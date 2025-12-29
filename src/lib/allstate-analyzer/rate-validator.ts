@@ -149,6 +149,14 @@ export interface CommissionRateSummary {
   avgBaseRate: number;
   avgVcRate: number;
   effectiveRate: number;
+  // New Business specific metrics
+  newBusiness: {
+    premium: number;
+    commission: number;
+    avgBaseRate: number;
+    avgVcRate: number;
+    effectiveRate: number;
+  };
 }
 
 // ============ COMMISSION RATE SUMMARY FUNCTION ============
@@ -157,7 +165,7 @@ export function calculateCommissionSummary(
   transactions: StatementTransaction[]
 ): CommissionRateSummary {
   
-  // Totals include everything
+  // Overall totals
   let totalPremium = 0;
   let totalCommissionablePremium = 0;
   let totalBaseCommission = 0;
@@ -165,10 +173,21 @@ export function calculateCommissionSummary(
   let totalCommission = 0;
   
   // For averages, only include rows with actual commission paid
-  let avgBasePremium = 0;      // Commissionable premium on rows with base commission
-  let avgBaseCommission = 0;   // Base commission on rows with base commission
-  let avgVcPremium = 0;        // Commissionable premium on rows with VC
-  let avgVcAmount = 0;         // VC on rows with VC
+  let avgBasePremium = 0;
+  let avgBaseCommission = 0;
+  let avgVcPremium = 0;
+  let avgVcAmount = 0;
+  
+  // New Business specific
+  let nbPremium = 0;
+  let nbCommissionablePremium = 0;
+  let nbBaseCommission = 0;
+  let nbVcAmount = 0;
+  let nbCommission = 0;
+  let nbAvgBasePremium = 0;
+  let nbAvgBaseCommission = 0;
+  let nbAvgVcPremium = 0;
+  let nbAvgVcAmount = 0;
   
   for (const tx of transactions) {
     const premium = tx.writtenPremium || 0;
@@ -176,6 +195,8 @@ export function calculateCommissionSummary(
     const baseComm = tx.baseCommissionAmount || 0;
     const vc = tx.vcAmount || 0;
     const commission = tx.totalCommission || (baseComm + vc);
+    
+    const isNewBusiness = (tx.businessType || '').toLowerCase().includes('new');
     
     // Always add to totals
     totalPremium += premium;
@@ -185,7 +206,6 @@ export function calculateCommissionSummary(
     totalCommission += commission;
     
     // Only include in averages if actual commission was paid
-    // Use absolute value check to include both positive and negative (chargebacks)
     if (Math.abs(baseComm) > 0) {
       avgBasePremium += commPremium;
       avgBaseCommission += baseComm;
@@ -194,6 +214,25 @@ export function calculateCommissionSummary(
     if (Math.abs(vc) > 0) {
       avgVcPremium += commPremium;
       avgVcAmount += vc;
+    }
+    
+    // New Business specific tracking
+    if (isNewBusiness) {
+      nbPremium += premium;
+      nbCommissionablePremium += commPremium;
+      nbBaseCommission += baseComm;
+      nbVcAmount += vc;
+      nbCommission += commission;
+      
+      if (Math.abs(baseComm) > 0) {
+        nbAvgBasePremium += commPremium;
+        nbAvgBaseCommission += baseComm;
+      }
+      
+      if (Math.abs(vc) > 0) {
+        nbAvgVcPremium += commPremium;
+        nbAvgVcAmount += vc;
+      }
     }
   }
 
@@ -204,9 +243,19 @@ export function calculateCommissionSummary(
   const avgVcRate = avgVcPremium !== 0 
     ? (avgVcAmount / avgVcPremium) * 100 
     : 0;
-  // Effective rate still uses total commission / total premium
   const effectiveRate = totalPremium !== 0 
     ? (totalCommission / totalPremium) * 100 
+    : 0;
+
+  // New Business rates
+  const nbAvgBaseRate = nbAvgBasePremium !== 0 
+    ? (nbAvgBaseCommission / nbAvgBasePremium) * 100 
+    : 0;
+  const nbAvgVcRate = nbAvgVcPremium !== 0 
+    ? (nbAvgVcAmount / nbAvgVcPremium) * 100 
+    : 0;
+  const nbEffectiveRate = nbPremium !== 0 
+    ? (nbCommission / nbPremium) * 100 
     : 0;
 
   // Console logging
@@ -217,6 +266,9 @@ export function calculateCommissionSummary(
   console.log(`Avg Base Rate: ${avgBaseRate.toFixed(2)}% (from rows with base commission)`);
   console.log(`Avg VC Rate: ${avgVcRate.toFixed(2)}% (from rows with VC)`);
   console.log(`Overall Effective Rate: ${effectiveRate.toFixed(2)}%`);
+  console.log(`---`);
+  console.log(`New Business Premium: $${nbPremium.toLocaleString()}`);
+  console.log(`New Business Effective Rate: ${nbEffectiveRate.toFixed(2)}%`);
   
   return {
     totalPremium,
@@ -226,7 +278,14 @@ export function calculateCommissionSummary(
     totalCommission,
     avgBaseRate,
     avgVcRate,
-    effectiveRate
+    effectiveRate,
+    newBusiness: {
+      premium: nbPremium,
+      commission: nbCommission,
+      avgBaseRate: nbAvgBaseRate,
+      avgVcRate: nbAvgVcRate,
+      effectiveRate: nbEffectiveRate
+    }
   };
 }
 
