@@ -301,6 +301,120 @@ export function calculateCommissionSummary(
   return summary;
 }
 
+// ============ LARGE CANCELLATION TYPES ============
+
+export interface LargeCancellation {
+  policyNumber: string;
+  insuredName: string;
+  product: string;
+  businessType: string;
+  bundleType: string;
+  transType: string;
+  cancelledPremium: number;  // Absolute value (positive number)
+  lostCommission: number;    // Absolute value (positive number)
+  channel: string;
+  origPolicyEffDate?: string;
+}
+
+export interface LargeCancellationSummary {
+  cancellations: LargeCancellation[];
+  totalCancelledPremium: number;
+  totalLostCommission: number;
+  count: number;
+}
+
+// ============ LARGE CANCELLATION DETECTION FUNCTION ============
+
+export function detectLargeCancellations(
+  transactions: StatementTransaction[],
+  threshold: number = 2000
+): LargeCancellationSummary {
+  
+  // Group transactions by policy to aggregate multi-line cancellations
+  const policyMap = new Map<string, StatementTransaction[]>();
+  
+  for (const tx of transactions) {
+    const transType = (tx.transType || '').toLowerCase();
+    
+    // Check if this is a cancellation transaction
+    const isCancellation = 
+      transType.includes('cancel') || 
+      transType.includes('cancelled') ||
+      transType.includes('cancellation');
+    
+    // Only include if negative premium (actual cancellation)
+    if (isCancellation && tx.writtenPremium < 0) {
+      const key = tx.policyNumber;
+      if (!policyMap.has(key)) {
+        policyMap.set(key, []);
+      }
+      policyMap.get(key)!.push(tx);
+    }
+  }
+  
+  const cancellations: LargeCancellation[] = [];
+  
+  // Process each policy's cancellation transactions
+  for (const [policyNumber, txList] of policyMap) {
+    // Sum up all cancellation premium for this policy
+    const totalCancelledPremium = txList.reduce((sum, tx) => sum + tx.writtenPremium, 0);
+    const totalLostCommission = txList.reduce((sum, tx) => {
+      const commission = tx.totalCommission || ((tx.baseCommissionAmount || 0) + (tx.vcAmount || 0));
+      return sum + commission;
+    }, 0);
+    
+    // Only flag if total cancelled premium exceeds threshold
+    if (Math.abs(totalCancelledPremium) >= threshold) {
+      // Use first transaction for metadata
+      const firstTx = txList[0];
+      
+      // Combine all transaction types
+      const uniqueTransTypes = [...new Set(txList.map(t => t.transType))].join(', ');
+      
+      cancellations.push({
+        policyNumber,
+        insuredName: firstTx.namedInsured || 'Unknown',
+        product: firstTx.product,
+        businessType: firstTx.businessType,
+        bundleType: firstTx.policyBundleType,
+        transType: uniqueTransTypes,
+        cancelledPremium: Math.abs(totalCancelledPremium),
+        lostCommission: Math.abs(totalLostCommission),
+        channel: firstTx.channel || 'Unknown',
+        origPolicyEffDate: firstTx.origPolicyEffDate
+      });
+    }
+  }
+  
+  // Sort by largest cancellation first
+  cancellations.sort((a, b) => b.cancelledPremium - a.cancelledPremium);
+  
+  const result: LargeCancellationSummary = {
+    cancellations,
+    totalCancelledPremium: cancellations.reduce((sum, c) => sum + c.cancelledPremium, 0),
+    totalLostCommission: cancellations.reduce((sum, c) => sum + c.lostCommission, 0),
+    count: cancellations.length
+  };
+  
+  // Console logging
+  if (result.count > 0) {
+    console.log('\n🚨 LARGE CANCELLATIONS (>$2,000):');
+    console.log(`Count: ${result.count} policies`);
+    console.log(`Total Cancelled Premium: $${result.totalCancelledPremium.toFixed(2)}`);
+    console.log(`Total Lost Commission: $${result.totalLostCommission.toFixed(2)}`);
+    console.log('---');
+    result.cancellations.forEach((c, i) => {
+      console.log(`${i + 1}. ${c.policyNumber} - ${c.insuredName}`);
+      console.log(`   ${c.product} | ${c.businessType} | ${c.bundleType}`);
+      console.log(`   Premium: -$${c.cancelledPremium.toFixed(2)} | Commission: -$${c.lostCommission.toFixed(2)}`);
+    });
+  } else {
+    console.log('\n✅ No large cancellations (>$2,000) detected');
+  }
+  
+  return result;
+}
+
 import { getProductCategory, ProductCategory } from '../allstate-rates/product-mapping';
 import {
   AAPLevel,

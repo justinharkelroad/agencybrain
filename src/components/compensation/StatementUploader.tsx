@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
 import { parseCompensationStatement } from "@/lib/allstate-parser";
-import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary } from "@/lib/allstate-analyzer";
+import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary, detectLargeCancellations } from "@/lib/allstate-analyzer";
 import { AAPLevel } from "@/lib/allstate-rates";
 import { toast } from "sonner";
 
@@ -229,7 +229,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
       const priorCommissionSummary = calculateCommissionSummary(priorParsed.transactions);
       const currentCommissionSummary = calculateCommissionSummary(currentParsed.transactions);
       
-      // Step 7: Save report to database
+      // Step 7: Detect large cancellations
+      const largeCancellations = detectLargeCancellations(currentParsed.transactions, 2000);
+      
+      // Step 8: Save report to database
       toast.info("Saving report...");
       
       // Combine comparison, validation, and analysis results for storage
@@ -254,6 +257,7 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           prior: priorCommissionSummary,
           current: currentCommissionSummary,
         },
+        largeCancellations,
         periodLabels: {
           prior: `${getMonthName(priorMonth!)} ${priorYear}`,
           current: `${getMonthName(currentMonth!)} ${currentYear}`,
