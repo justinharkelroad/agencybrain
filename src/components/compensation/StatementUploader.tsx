@@ -44,6 +44,9 @@ const MONTHS = [
 
 const YEARS = [2024, 2025, 2026];
 
+// States that don't allow variable compensation
+const NO_VC_STATES = ['NY', 'NJ', 'CA', 'CT', 'FL'];
+
 const getMonthName = (month: number) => {
   return format(new Date(2024, month - 1, 1), "MMM");
 };
@@ -156,7 +159,13 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   const currentDateValid = isDateValid(currentMonth, currentYear);
   const periodsSelected = priorMonth && priorYear && currentMonth && currentYear;
   const filesUploaded = priorFile && currentFile;
-  const canProcess = periodsSelected && priorDateValid && currentDateValid && filesUploaded && settings && !processing;
+  
+  // Settings validation
+  const settingsConfigured = Boolean(settings?.state && settings?.aap_level);
+  const isNoVcState = settings?.state ? NO_VC_STATES.includes(settings.state) : false;
+  const showVcBaseline = settingsConfigured && !isNoVcState;
+  
+  const canProcess = periodsSelected && priorDateValid && currentDateValid && filesUploaded && settingsConfigured && !processing;
 
   const handleGenerateReport = async () => {
     if (!canProcess || !agencyId || !user?.id || !settings) return;
@@ -487,43 +496,58 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         </CardContent>
       </Card>
 
-      {/* Step 3: Variable Compensation Baseline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Step 3: Variable Compensation Baseline</CardTitle>
-          <CardDescription>
-            Indicate whether your agency achieved the VC baseline for each period. This affects bonus calculations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="prior-vc"
-                checked={priorVcBaseline}
-                onCheckedChange={(checked) => setPriorVcBaseline(checked === true)}
-              />
-              <Label htmlFor="prior-vc" className="text-sm font-normal cursor-pointer">
-                {priorMonth && priorYear
-                  ? `${getMonthName(priorMonth)} ${priorYear} - VC Baseline Achieved`
-                  : "Prior Period - VC Baseline Achieved"}
-              </Label>
+      {/* Step 3: Variable Compensation Baseline - Only show for VC-eligible states */}
+      {showVcBaseline && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Step 3: Variable Compensation Baseline</CardTitle>
+            <CardDescription>
+              Indicate whether your agency achieved the VC baseline for each period. This affects bonus calculations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="prior-vc"
+                  checked={priorVcBaseline}
+                  onCheckedChange={(checked) => setPriorVcBaseline(checked === true)}
+                />
+                <Label htmlFor="prior-vc" className="text-sm font-normal cursor-pointer">
+                  {priorMonth && priorYear
+                    ? `${getMonthName(priorMonth)} ${priorYear} - VC Baseline Achieved`
+                    : "Prior Period - VC Baseline Achieved"}
+                </Label>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="current-vc"
+                  checked={currentVcBaseline}
+                  onCheckedChange={(checked) => setCurrentVcBaseline(checked === true)}
+                />
+                <Label htmlFor="current-vc" className="text-sm font-normal cursor-pointer">
+                  {currentMonth && currentYear
+                    ? `${getMonthName(currentMonth)} ${currentYear} - VC Baseline Achieved`
+                    : "Current Period - VC Baseline Achieved"}
+                </Label>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="current-vc"
-                checked={currentVcBaseline}
-                onCheckedChange={(checked) => setCurrentVcBaseline(checked === true)}
-              />
-              <Label htmlFor="current-vc" className="text-sm font-normal cursor-pointer">
-                {currentMonth && currentYear
-                  ? `${getMonthName(currentMonth)} ${currentYear} - VC Baseline Achieved`
-                  : "Current Period - VC Baseline Achieved"}
-              </Label>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Info message for no-VC states */}
+      {settingsConfigured && isNoVcState && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-400">
+                {settings?.state} does not allow variable compensation. Analysis will focus on base commission rates only.
+              </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Step 4: Confirm & Process */}
       <Card>
@@ -539,20 +563,12 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Loading settings...</span>
             </div>
-          ) : settings ? (
-            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">State</p>
-                <p className="font-medium">{settings.state}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">AAP Level</p>
-                <p className="font-medium">{settings.aap_level}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Agency Tier</p>
-                <p className="font-medium">{settings.agency_tier || "Not set"}</p>
-              </div>
+          ) : settingsConfigured ? (
+            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <p className="text-sm text-green-400">
+                Settings configured: {settings?.state} • {settings?.aap_level}
+                {isNoVcState ? ' • Base Commission Only' : ''}
+              </p>
             </div>
           ) : (
             <Alert variant="destructive">
