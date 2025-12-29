@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
 import { parseCompensationStatement } from "@/lib/allstate-parser";
-import { compareStatements, validateRates, analyzeBusinessTypeMix } from "@/lib/allstate-analyzer";
+import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary } from "@/lib/allstate-analyzer";
 import { AAPLevel } from "@/lib/allstate-rates";
 import { toast } from "sonner";
 
@@ -225,10 +225,14 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         currentParsed.transactions
       );
       
-      // Step 6: Save report to database
+      // Step 6: Calculate commission rate summaries
+      const priorCommissionSummary = calculateCommissionSummary(priorParsed.transactions);
+      const currentCommissionSummary = calculateCommissionSummary(currentParsed.transactions);
+      
+      // Step 7: Save report to database
       toast.info("Saving report...");
       
-      // Combine comparison, validation, and mix analysis results for storage
+      // Combine comparison, validation, and analysis results for storage
       const combinedData = {
         comparison,
         validation: {
@@ -246,6 +250,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           warnings: validation.warnings,
         },
         mixAnalysis,
+        commissionSummary: {
+          prior: priorCommissionSummary,
+          current: currentCommissionSummary,
+        },
         periodLabels: {
           prior: `${getMonthName(priorMonth!)} ${priorYear}`,
           current: `${getMonthName(currentMonth!)} ${currentYear}`,

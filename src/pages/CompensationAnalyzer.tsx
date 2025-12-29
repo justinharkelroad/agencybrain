@@ -114,6 +114,7 @@ export default function CompensationAnalyzer() {
                       <DiscrepancyResults 
                         results={(currentReport.comparison_data as any).validation as ValidationResult}
                         mixAnalysis={(currentReport.comparison_data as any).mixAnalysis}
+                        commissionSummary={(currentReport.comparison_data as any).commissionSummary}
                         priorPeriod={(currentReport.comparison_data as any).periodLabels?.prior}
                         currentPeriod={(currentReport.comparison_data as any).periodLabels?.current}
                       />
