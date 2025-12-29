@@ -229,8 +229,8 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
       const priorCommissionSummary = calculateCommissionSummary(priorParsed.transactions);
       const currentCommissionSummary = calculateCommissionSummary(currentParsed.transactions);
       
-      // Step 7: Detect large cancellations
-      const largeCancellations = detectLargeCancellations(currentParsed.transactions, 2000);
+      // Step 7: Detect large cancellations (use $1,000 threshold to capture all, component filters)
+      const largeCancellations = detectLargeCancellations(currentParsed.transactions, 1000);
       
       // Step 8: Save report to database
       toast.info("Saving report...");

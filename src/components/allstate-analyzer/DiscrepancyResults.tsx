@@ -287,7 +287,7 @@ export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, la
 
       {/* Large Cancellations Alert */}
       {largeCancellations && largeCancellations.count > 0 && (
-        <LargeCancellationsAlert data={largeCancellations} threshold={2000} />
+        <LargeCancellationsAlert data={largeCancellations} />
       )}
 
       <Tabs defaultValue="underpayments" className="space-y-4">
