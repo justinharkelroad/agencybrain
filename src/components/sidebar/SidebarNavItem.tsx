@@ -9,6 +9,7 @@ import {
 import { NavItem } from "@/config/navigation";
 import { ExternalLink } from "lucide-react";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
+import { hasOneOnOneAccess } from "@/utils/tierAccess";
 
 interface SidebarNavItemProps {
   item: NavItem;
@@ -17,15 +18,6 @@ interface SidebarNavItemProps {
   badge?: React.ReactNode;
   membershipTier?: string | null;
 }
-
-// Helper to check if user has 1:1 Coaching access
-const has1to1Access = (tier: string | null | undefined): boolean => {
-  if (!tier) return false;
-  const lowerTier = tier.toLowerCase();
-  return lowerTier.includes('1:1') || 
-         lowerTier.includes('coaching') ||
-         lowerTier.includes('1-on-1');
-};
 
 export function SidebarNavItem({ 
   item, 
@@ -59,7 +51,7 @@ export function SidebarNavItem({
 
   const handleClick = () => {
     // Check tier requirement - show gate modal for Boardroom users
-    if (item.requiresTier === '1:1' && !has1to1Access(membershipTier)) {
+    if (item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier)) {
       setShowGateModal(true);
       return;
     }
@@ -88,7 +80,7 @@ export function SidebarNavItem({
     // For link items, use actual Link component for proper routing
     if (item.type === 'link' && item.url) {
       // Check tier requirement before rendering link
-      const needsGate = item.requiresTier === '1:1' && !has1to1Access(membershipTier);
+      const needsGate = item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier);
       
       return (
         <>

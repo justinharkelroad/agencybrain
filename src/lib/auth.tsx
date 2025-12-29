@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
-
+import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -203,21 +203,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasTierAccess = (feature: string): boolean => {
     if (!membershipTier) return false;
     
-    const isCallScoringTier = membershipTier.startsWith('Call Scoring');
+    const normalized = normalizeTier(membershipTier);
     
     // Call Scoring tier: limited access to only call-scoring, exchange, and agency
-    if (isCallScoringTier) {
+    if (isCallScoringTier(membershipTier)) {
       const callScoringAllowed = ['call-scoring', 'exchange', 'agency', 'my-agency', 'account-settings'];
       return callScoringAllowed.includes(feature);
     }
     
-    // AI Roleplay and Bonus Grid only for 1:1 Coaching
+    // AI Roleplay and Bonus Grid only for 1:1 Coaching (not Boardroom)
     if (feature === 'roleplay-trainer' || feature === 'bonus-grid') {
-      return membershipTier === '1:1 Coaching';
+      return normalized === 'one_on_one';
     }
     
     // 1:1 Coaching and Boardroom get everything else
-    return true;
+    return normalized === 'one_on_one' || normalized === 'boardroom';
   };
 
   const value = {
