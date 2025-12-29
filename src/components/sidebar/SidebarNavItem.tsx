@@ -95,7 +95,7 @@ export function SidebarNavItem({
             <button
               type="button"
               onClick={handleClick}
-              className="cursor-pointer w-full"
+              className="cursor-pointer w-full flex items-center gap-2 text-left"
             >
               {content}
             </button>
