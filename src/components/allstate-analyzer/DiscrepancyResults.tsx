@@ -55,7 +55,7 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'EXCLUDED_SERVICE_FEE': 'Service Fee policies do not qualify for variable compensation',
   'EXCLUDED_PLUS_POLICY': 'Plus Policies do not qualify for variable compensation',
   'EXCLUDED_NONSTANDARD_AUTO': 'Non-Standard Auto is excluded from all variable compensation',
-  'EXCLUDED_PRE_2023_POLICY': 'Pre-2023 policies were excluded from renewal VC before March 2025',
+  'EXCLUDED_PRE_2023_POLICY': 'Variable Compensation only applies to policies with an original effective date of January 1, 2023 or later. This policy predates the VC program.',
   'EXCLUDED_JUA_JUP': 'JUA/JUP/Assigned Risk policies are excluded from variable compensation',
   'EXCLUDED_FACILITY_CEDED': 'Premium ceded to Facility is excluded from variable compensation',
   'EXCLUDED_MONOLINE_RENEWAL': 'Monoline renewal policies do not receive renewal VC - only Bundled/Preferred qualify',
