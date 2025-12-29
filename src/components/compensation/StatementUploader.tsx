@@ -232,8 +232,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
       // Step 7: Detect large cancellations (use $1,000 threshold to capture all, component filters)
       const largeCancellations = detectLargeCancellations(currentParsed.transactions, 1000);
       
-      // Step 8: Analyze sub-producer breakdown (New Business only)
-      const subProducerData = analyzeSubProducers(currentParsed.transactions);
+      // Step 8: Analyze sub-producer breakdown (First-term New Business only)
+      // Pass the statement month for accurate first-term cutoff calculation
+      const statementMonth = new Date(currentYear!, currentMonth! - 1, 1); // Month is 0-indexed in Date
+      const subProducerData = analyzeSubProducers(currentParsed.transactions, statementMonth);
       
       // Step 9: Save report to database
       toast.info("Saving report...");

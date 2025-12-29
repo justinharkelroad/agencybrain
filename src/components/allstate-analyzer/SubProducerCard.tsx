@@ -1,7 +1,12 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, FileText, Package, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Package, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SubProducerMetrics } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { SubProducerTransactionTable } from './SubProducerTransactionTable';
 
 interface Props {
   producer: SubProducerMetrics;
@@ -9,15 +14,25 @@ interface Props {
 }
 
 export function SubProducerCard({ producer, isAgency }: Props) {
+  const [showTransactions, setShowTransactions] = useState(false);
   const hasChargebacks = producer.premiumChargebacks > 0;
+  const isNetNegative = producer.netPremium < 0;
+  const totalTransactions = producer.creditTransactions.length + producer.chargebackTransactions.length;
   
   return (
     <Card className={isAgency ? 'border-primary/30' : ''}>
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <div className="font-semibold text-base">
-            {producer.displayName}
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-base">
+              {producer.displayName}
+            </span>
+            {isNetNegative && (
+              <Badge variant="destructive" className="text-xs">
+                Net Negative
+              </Badge>
+            )}
           </div>
           <div className="text-sm text-muted-foreground">
             {producer.effectiveRate.toFixed(1)}% effective rate
@@ -26,7 +41,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
         
         {/* Premium Section */}
         <div className="mb-4">
-          <div className="text-xs font-medium text-muted-foreground mb-2">Premium</div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Premium (First-Term Only)</div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
               <div className="text-muted-foreground text-xs">Written</div>
@@ -61,17 +76,17 @@ export function SubProducerCard({ producer, isAgency }: Props) {
               <Package className="h-3.5 w-3.5 text-muted-foreground" />
               <span>{producer.itemsIssued} Items</span>
             </div>
-            {producer.cancellationCount > 0 && (
+            {producer.chargebackCount > 0 && (
               <div className="flex items-center gap-1.5 text-red-500">
                 <XCircle className="h-3.5 w-3.5" />
-                <span>{producer.cancellationCount} Cancels</span>
+                <span>{producer.chargebackCount} Chargebacks</span>
               </div>
             )}
           </div>
         </div>
         
         {/* Commission Section */}
-        <div>
+        <div className="mb-4">
           <div className="text-xs font-medium text-muted-foreground mb-2">Commission</div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
@@ -94,6 +109,57 @@ export function SubProducerCard({ producer, isAgency }: Props) {
             </div>
           </div>
         </div>
+        
+        {/* Transaction Drill-Down */}
+        {totalTransactions > 0 && (
+          <Collapsible open={showTransactions} onOpenChange={setShowTransactions}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-center gap-1 text-muted-foreground hover:text-foreground">
+                {showTransactions ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    Hide Transactions
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    View Transactions ({totalTransactions})
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4">
+              <Tabs defaultValue="credits" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="credits">
+                    Credits ({producer.creditTransactions.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="chargebacks">
+                    Chargebacks ({producer.chargebackTransactions.length})
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="credits" className="mt-3">
+                  {producer.creditTransactions.length > 0 ? (
+                    <SubProducerTransactionTable transactions={producer.creditTransactions} type="credits" />
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No credit transactions
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="chargebacks" className="mt-3">
+                  {producer.chargebackTransactions.length > 0 ? (
+                    <SubProducerTransactionTable transactions={producer.chargebackTransactions} type="chargebacks" />
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No chargebacks 🎉
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </CardContent>
     </Card>
   );
