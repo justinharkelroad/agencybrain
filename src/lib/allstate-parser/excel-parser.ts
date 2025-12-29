@@ -60,6 +60,70 @@ function parseRateValue(value: any): number {
   return num > 1 ? num / 100 : num;
 }
 
+// Extract agent number from header area of the statement
+function extractAgentNumber(sheet: XLSX.WorkSheet, data: any[][]): string {
+  // Agent Number is typically in the header rows (before the data)
+  // Look for "Agent Number" label or check common locations
+  
+  // Try to find it in the header area (first 15 rows)
+  for (let row = 0; row < Math.min(15, data.length); row++) {
+    const rowData = data[row];
+    if (!rowData) continue;
+    
+    for (let col = 0; col < rowData.length; col++) {
+      const cellValue = String(rowData[col] || '').toLowerCase().trim();
+      
+      // Check if this cell has "Agent Number" or similar label
+      if (cellValue.includes('agent') && (cellValue.includes('number') || cellValue.includes('no') || cellValue.includes('#'))) {
+        // Look for the value in the next cell or same cell after colon
+        if (cellValue.includes(':')) {
+          const parts = cellValue.split(':');
+          if (parts.length > 1) {
+            const value = parts[1].trim();
+            if (value && /^\d+$/.test(value)) {
+              return value;
+            }
+          }
+        }
+        // Check next cell
+        if (col + 1 < rowData.length && rowData[col + 1]) {
+          const nextValue = String(rowData[col + 1]).trim();
+          if (/^\d+$/.test(nextValue)) {
+            return nextValue;
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallback: Try to get from the Agent Number column in data rows
+  // Find header row first
+  let headerRowIndex = -1;
+  for (let i = 0; i < Math.min(25, data.length); i++) {
+    const row = data[i];
+    if (row && row.some(cell => String(cell || '').toLowerCase().includes('policy'))) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+  
+  if (headerRowIndex >= 0) {
+    const headers = data[headerRowIndex].map((h: any) => String(h || '').trim().toLowerCase());
+    const agentColIndex = headers.findIndex(h => 
+      h.includes('agent') && (h.includes('number') || h.includes('no') || h.includes('#'))
+    );
+    
+    if (agentColIndex >= 0 && headerRowIndex + 1 < data.length) {
+      const firstDataRow = data[headerRowIndex + 1];
+      if (firstDataRow && firstDataRow[agentColIndex]) {
+        return String(firstDataRow[agentColIndex]).trim();
+      }
+    }
+  }
+  
+  return '';
+}
+
 export async function parseCompensationStatement(file: File): Promise<ParsedStatement> {
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -70,6 +134,9 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
   
   // Convert to JSON array of arrays
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null }) as any[][];
+  
+  // Extract agent number from header area
+  const agentNumber = extractAgentNumber(sheet, data);
   
   // Find header row (look for "Policy Number" or similar)
   let headerRowIndex = -1;
@@ -84,7 +151,7 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
   if (headerRowIndex === -1) {
     errors.push('Could not find header row containing "Policy"');
     return {
-      agentNumber: '',
+      agentNumber,
       agentName: '',
       transactions: [],
       totals: { writtenPremium: 0, baseCommission: 0, variableComp: 0, totalCommission: 0 },
@@ -192,6 +259,7 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
 
   // Debug logging
   console.log('=== PARSING DEBUG ===');
+  console.log('Agent Number extracted:', agentNumber);
   console.log('Headers found:', headers);
   console.log('Column mapping:', cols);
   console.log('Total transactions parsed:', transactions.length);
@@ -200,7 +268,7 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
   console.log('Parse errors:', errors);
 
   return {
-    agentNumber: '',
+    agentNumber,
     agentName: '',
     transactions,
     totals,
