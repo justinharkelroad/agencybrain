@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { normalizeTier } from '@/utils/tierAccess';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
@@ -61,8 +62,9 @@ export default function TrainingHub() {
 
       if (profileError) throw profileError;
 
-      // Determine access tier
-      const accessTier = profile.membership_tier === 'Boardroom' ? 'boardroom' : 'one_on_one';
+      // Determine access tier using centralized utility
+      const normalizedTier = normalizeTier(profile.membership_tier);
+      const accessTier = normalizedTier === 'boardroom' ? 'boardroom' : 'one_on_one';
 
       // Fetch accessible categories with counts
       const { data: catData, error: catError } = await supabase

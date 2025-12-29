@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -167,13 +168,8 @@ const CancelAuditPage = () => {
       }
 
       // Check membership tier - must be Boardroom or 1:1 Coaching tier
-      // Match actual DB values: '1:1 Coaching', 'Boardroom', or legacy formats
-      const tierLower = membershipTier?.toLowerCase() || '';
-      const hasTierAccess = 
-        tierLower.includes('boardroom') || 
-        tierLower.includes('1:1') || 
-        tierLower.includes('coaching') ||
-        tierLower.includes('one_on_one');
+      // Uses centralized tier utility to handle all format variations
+      const hasTierAccess = hasOneOnOneAccess(membershipTier);
 
       // Get user profile and agency info
       const { data: profile } = await supabase

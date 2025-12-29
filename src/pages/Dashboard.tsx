@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
 import { useAuth } from '@/lib/auth';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,7 @@ const Dashboard = () => {
 
   // Redirect Call Scoring tier users to /call-scoring
   useEffect(() => {
-    if (membershipTier?.startsWith('Call Scoring')) {
+    if (isCallScoringTier(membershipTier)) {
       navigate('/call-scoring', { replace: true });
     }
   }, [membershipTier, navigate]);
@@ -47,7 +48,7 @@ const Dashboard = () => {
   }
   
   // Don't render dashboard for Call Scoring tier users (redirect is happening)
-  if (membershipTier?.startsWith('Call Scoring')) {
+  if (isCallScoringTier(membershipTier)) {
     return null;
   }
 
@@ -101,7 +102,7 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          {canSubmitCoachingCall && membershipTier === '1:1 Coaching' && (
+          {canSubmitCoachingCall && normalizeTier(membershipTier) === 'one_on_one' && (
             <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
               <Link to="/submit?mode=new">
                 <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
@@ -109,7 +110,7 @@ const Dashboard = () => {
               </Link>
             </Button>
           )}
-          {canSubmitMetrics && membershipTier === 'Boardroom' && (
+          {canSubmitMetrics && normalizeTier(membershipTier) === 'boardroom' && (
             <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
               <Link to="/submit?mode=new&tier=boardroom">
                 <span className="hidden sm:inline">Submit Dashboard Metrics</span>
