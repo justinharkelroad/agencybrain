@@ -139,11 +139,47 @@ function is6MonthAutoProduct(product: string): boolean {
   return false;
 }
 
+// Determine which rate type to use for VC lookup
+function getEffectiveBusinessTypeForVC(
+  businessType: string,
+  product: string,
+  agentLevel: AAPLevel
+): 'New' | 'Renewal' {
+  const normalizedType = String(businessType || '').toLowerCase().trim();
+
+  // New Business always uses New rates
+  if (
+    normalizedType === 'new' ||
+    normalizedType === 'new business' ||
+    normalizedType === 'newbusiness'
+  ) {
+    return 'New';
+  }
+
+  // First Renewal - ONLY 6-month Standard Auto and Specialty Auto for Elite get NB rates
+  if (
+    normalizedType === 'firstrenewal' ||
+    normalizedType === 'first renewal' ||
+    (normalizedType.includes('first') && normalizedType.includes('renewal'))
+  ) {
+    if (agentLevel === 'Elite' && is6MonthAutoProduct(product || '')) {
+      return 'New';
+    }
+
+    // ALL other First Renewals use Renewal rates
+    return 'Renewal';
+  }
+
+  // Regular Renewal uses Renewal rates
+  return 'Renewal';
+}
+
 function detectExclusionReason(
   transaction: StatementTransaction,
   businessType: string,
   productCategory: ProductCategory | null,
-  bundleType: string
+  bundleType: string,
+  aapLevel: AAPLevel
 ): { reason: ExclusionReason; note: string } {
   
   // CHECK 0: Endorsement Add/Drop transactions - add car/item premium is excluded from VC
@@ -323,11 +359,16 @@ function detectExclusionReason(
     };
   }
 
-  // Check for Monoline renewal (no VC on monoline renewals per Allstate rules)
-  if (businessType === 'Renewal' && bundleType === 'Monoline') {
+  // CHECK: Monoline Renewals / First Renewals (that use renewal rates) don't get VC
+  const effectiveTypeForVc = getEffectiveBusinessTypeForVC(
+    businessType,
+    String(transaction.product || ''),
+    aapLevel
+  );
+  if (effectiveTypeForVc === 'Renewal' && bundleType === 'Monoline') {
     return {
       reason: 'EXCLUDED_MONOLINE_RENEWAL',
-      note: 'Monoline renewal policies do not receive renewal variable compensation - only Bundled and Preferred Bundled qualify'
+      note: 'Monoline renewals do not receive renewal variable compensation - only Bundled and Preferred Bundled qualify'
     };
   }
 
@@ -457,15 +498,17 @@ function getExpectedVCRate(
     return { rate: 0, note: 'Could not determine bundle type from statement' };
   }
 
-  // Monoline renewals get 0% VC per Allstate rules
-  if (businessType === 'Renewal' && bundleType === 'Monoline') {
+  const effectiveType = getEffectiveBusinessTypeForVC(businessType, product, aapLevel);
+
+  // Monoline renewals (including First Renewal that uses renewal rates) get 0% VC per Allstate rules
+  if (effectiveType === 'Renewal' && bundleType === 'Monoline') {
     return { rate: 0, note: 'Monoline renewals do not receive variable compensation' };
   }
   
   const validCategory = productCategory as Exclude<ProductCategory, 'Excluded'>;
   
-  if (businessType === 'New' || businessType === 'FirstRenewal') {
-    // New Business VC rates (also used for first renewal for Elite)
+  if (effectiveType === 'New') {
+    // New Business VC rates (also used for eligible first renewal for Elite)
     let rateTable: typeof NB_VC_RATES.countrywide;
     if (FLAT_RATE_STATES.includes(state)) {
       rateTable = NB_VC_RATES.flat;
@@ -478,26 +521,25 @@ function getExpectedVCRate(
     const rate = rateTable[validCategory]?.[bundleType] ?? 0;
     const typeLabel = businessType === 'FirstRenewal' ? 'First Renewal (NB rates)' : 'New Business';
     return { rate, note: `${typeLabel} ${bundleType} rate for ${validCategory}` };
-  } else if (businessType === 'Renewal') {
-    // Renewal VC rates
-    if (FLAT_RATE_STATES.includes(state)) {
-      const flatRates = RENEWAL_VC_RATES.flat[aapLevel];
-      const rate = flatRates[validCategory] ?? 0;
-      return { rate, note: `Renewal flat rate for ${aapLevel} in ${state}` };
-    } else {
-      const countryRates = RENEWAL_VC_RATES.countrywide[aapLevel];
-      const categoryRates = countryRates[validCategory];
-      
-      // Renewal rates only apply to Preferred and Bundled, not Monoline
-      if (bundleType === 'Monoline') {
-        return { rate: 0, note: 'Monoline renewals do not receive variable compensation' };
-      }
-      const rate = categoryRates?.[bundleType as 'Preferred' | 'Bundled'] ?? 0;
-      return { rate, note: `Renewal ${bundleType} rate for ${aapLevel} ${validCategory}` };
-    }
   }
-  
-  return { rate: 0, note: 'Could not determine business type' };
+
+  // Renewal VC rates (includes most First Renewals)
+  const typeLabel = businessType === 'FirstRenewal' ? 'First Renewal' : 'Renewal';
+  if (FLAT_RATE_STATES.includes(state)) {
+    const flatRates = RENEWAL_VC_RATES.flat[aapLevel];
+    const rate = flatRates[validCategory] ?? 0;
+    return { rate, note: `${typeLabel} flat rate for ${aapLevel} in ${state}` };
+  }
+
+  const countryRates = RENEWAL_VC_RATES.countrywide[aapLevel];
+  const categoryRates = countryRates[validCategory];
+
+  // Renewal rates only apply to Preferred and Bundled, not Monoline
+  if (bundleType === 'Monoline') {
+    return { rate: 0, note: 'Monoline renewals do not receive variable compensation' };
+  }
+  const rate = categoryRates?.[bundleType as 'Preferred' | 'Bundled'] ?? 0;
+  return { rate, note: `${typeLabel} ${bundleType} rate for ${aapLevel} ${validCategory}` };
 }
 
 export function validateRates(
@@ -582,7 +624,8 @@ export function validateRates(
         tx,
         businessType,
         productCategory,
-        bundleType
+        bundleType,
+        aapLevel
       );
 
       const isPotentialUnderpayment = reason === 'NONE';
