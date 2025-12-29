@@ -137,6 +137,70 @@ export function analyzeBusinessTypeMix(
     }
   };
 }
+
+// ============ COMMISSION RATE SUMMARY TYPES ============
+
+export interface CommissionRateSummary {
+  totalPremium: number;
+  totalCommissionablePremium: number;
+  totalBaseCommission: number;
+  totalVcAmount: number;
+  totalCommission: number;
+  avgBaseRate: number;
+  avgVcRate: number;
+  effectiveRate: number;
+}
+
+// ============ COMMISSION RATE SUMMARY FUNCTION ============
+
+export function calculateCommissionSummary(
+  transactions: StatementTransaction[]
+): CommissionRateSummary {
+  
+  let totalPremium = 0;
+  let totalCommissionablePremium = 0;
+  let totalBaseCommission = 0;
+  let totalVcAmount = 0;
+  let totalCommission = 0;
+  
+  for (const tx of transactions) {
+    totalPremium += tx.writtenPremium || 0;
+    totalCommissionablePremium += tx.commissionablePremium || 0;
+    totalBaseCommission += tx.baseCommissionAmount || 0;
+    totalVcAmount += tx.vcAmount || 0;
+    totalCommission += tx.totalCommission || (tx.baseCommissionAmount || 0) + (tx.vcAmount || 0);
+  }
+
+  // Console logging
+  console.log('\n💰 COMMISSION RATE SUMMARY:');
+  console.log(`Total Premium: $${totalPremium.toLocaleString()}`);
+  console.log(`Total Commission: $${totalCommission.toLocaleString()}`);
+  console.log(`---`);
+  const avgBaseRate = totalCommissionablePremium !== 0 
+    ? (totalBaseCommission / totalCommissionablePremium) * 100 
+    : 0;
+  const avgVcRate = totalCommissionablePremium !== 0 
+    ? (totalVcAmount / totalCommissionablePremium) * 100 
+    : 0;
+  const effectiveRate = totalPremium !== 0 
+    ? (totalCommission / totalPremium) * 100 
+    : 0;
+  console.log(`Avg Base Rate: ${avgBaseRate.toFixed(2)}%`);
+  console.log(`Avg VC Rate: ${avgVcRate.toFixed(2)}%`);
+  console.log(`Overall Effective Rate: ${effectiveRate.toFixed(2)}%`);
+  
+  return {
+    totalPremium,
+    totalCommissionablePremium,
+    totalBaseCommission,
+    totalVcAmount,
+    totalCommission,
+    avgBaseRate,
+    avgVcRate,
+    effectiveRate
+  };
+}
+
 import { getProductCategory, ProductCategory } from '../allstate-rates/product-mapping';
 import {
   AAPLevel,

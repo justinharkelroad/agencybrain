@@ -27,12 +27,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ValidationResult, RateDiscrepancy, ExclusionReason, BusinessTypeMixComparison } from '@/lib/allstate-analyzer/rate-validator';
+import { ValidationResult, RateDiscrepancy, ExclusionReason, BusinessTypeMixComparison, CommissionRateSummary } from '@/lib/allstate-analyzer/rate-validator';
 import { BusinessTypeMixAnalysis } from './BusinessTypeMixAnalysis';
+import { CommissionRateSummaryCard } from './CommissionRateSummaryCard';
 
 interface DiscrepancyResultsProps {
   results: ValidationResult;
   mixAnalysis?: BusinessTypeMixComparison;
+  commissionSummary?: {
+    prior: CommissionRateSummary;
+    current: CommissionRateSummary;
+  };
   priorPeriod?: string;
   currentPeriod?: string;
 }
@@ -69,7 +74,7 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'UNKNOWN_EXCLUSION': 'No exclusion reason detected - this may be a potential underpayment to investigate',
 };
 
-export function DiscrepancyResults({ results, mixAnalysis, priorPeriod, currentPeriod }: DiscrepancyResultsProps) {
+export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, priorPeriod, currentPeriod }: DiscrepancyResultsProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('underpayments');
   const [showAllUnderpayments, setShowAllUnderpayments] = useState(false);
 
@@ -259,6 +264,15 @@ export function DiscrepancyResults({ results, mixAnalysis, priorPeriod, currentP
           </div>
         </CardContent>
       </Card>
+
+      {/* Commission Rate Summary */}
+      {commissionSummary && currentPeriod && (
+        <CommissionRateSummaryCard 
+          current={commissionSummary.current}
+          prior={commissionSummary.prior}
+          period={currentPeriod}
+        />
+      )}
 
       {/* Business Type Mix Analysis */}
       {mixAnalysis && priorPeriod && currentPeriod && (
