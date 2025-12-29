@@ -1,6 +1,142 @@
 // src/lib/allstate-analyzer/rate-validator.ts
 
 import { StatementTransaction } from '../allstate-parser/excel-parser';
+
+// ============ BUSINESS TYPE MIX ANALYSIS TYPES ============
+
+export interface BusinessTypeMixItem {
+  businessType: string;
+  transactionCount: number;
+  totalPremium: number;
+  totalCommission: number;
+  percentOfPremium: number;
+  percentOfTransactions: number;
+}
+
+export interface BusinessTypeMixComparison {
+  prior: BusinessTypeMixItem[];
+  current: BusinessTypeMixItem[];
+  changes: {
+    businessType: string;
+    premiumChange: number;
+    premiumChangePercent: number;
+    mixShift: number;
+    commissionChange: number;
+  }[];
+  summary: {
+    priorNewBusinessPercent: number;
+    currentNewBusinessPercent: number;
+    newBusinessMixShift: number;
+    isRenewalHeavy: boolean;
+  };
+}
+
+// ============ BUSINESS TYPE MIX ANALYSIS FUNCTION ============
+
+export function analyzeBusinessTypeMix(
+  priorTransactions: StatementTransaction[],
+  currentTransactions: StatementTransaction[]
+): BusinessTypeMixComparison {
+  
+  function calculateMix(transactions: StatementTransaction[]): BusinessTypeMixItem[] {
+    const grouped = new Map<string, { count: number; premium: number; commission: number }>();
+    
+    // Only include transactions with positive premium for mix calculation
+    const validTx = transactions.filter(tx => tx.writtenPremium > 0);
+    
+    for (const tx of validTx) {
+      const type = tx.businessType || 'Unknown';
+      if (!grouped.has(type)) {
+        grouped.set(type, { count: 0, premium: 0, commission: 0 });
+      }
+      const entry = grouped.get(type)!;
+      entry.count += 1;
+      entry.premium += tx.writtenPremium;
+      entry.commission += tx.totalCommission || 0;
+    }
+    
+    const totalPremium = validTx.reduce((sum, tx) => sum + tx.writtenPremium, 0);
+    const totalCount = validTx.length;
+    
+    const result: BusinessTypeMixItem[] = [];
+    for (const [businessType, data] of grouped) {
+      result.push({
+        businessType,
+        transactionCount: data.count,
+        totalPremium: data.premium,
+        totalCommission: data.commission,
+        percentOfPremium: totalPremium > 0 ? (data.premium / totalPremium) * 100 : 0,
+        percentOfTransactions: totalCount > 0 ? (data.count / totalCount) * 100 : 0
+      });
+    }
+    
+    // Sort by premium descending
+    return result.sort((a, b) => b.totalPremium - a.totalPremium);
+  }
+  
+  const priorMix = calculateMix(priorTransactions);
+  const currentMix = calculateMix(currentTransactions);
+  
+  // Calculate changes
+  const allTypes = new Set([
+    ...priorMix.map(m => m.businessType),
+    ...currentMix.map(m => m.businessType)
+  ]);
+  
+  const changes: BusinessTypeMixComparison['changes'] = [];
+  
+  for (const businessType of allTypes) {
+    const prior = priorMix.find(m => m.businessType === businessType);
+    const current = currentMix.find(m => m.businessType === businessType);
+    
+    const priorPremium = prior?.totalPremium || 0;
+    const currentPremium = current?.totalPremium || 0;
+    const priorMixPercent = prior?.percentOfPremium || 0;
+    const currentMixPercent = current?.percentOfPremium || 0;
+    const priorCommission = prior?.totalCommission || 0;
+    const currentCommission = current?.totalCommission || 0;
+    
+    changes.push({
+      businessType,
+      premiumChange: currentPremium - priorPremium,
+      premiumChangePercent: priorPremium > 0 ? ((currentPremium - priorPremium) / priorPremium) * 100 : (currentPremium > 0 ? 100 : 0),
+      mixShift: currentMixPercent - priorMixPercent,
+      commissionChange: currentCommission - priorCommission
+    });
+  }
+  
+  // Sort by absolute mix shift (biggest changes first)
+  changes.sort((a, b) => Math.abs(b.mixShift) - Math.abs(a.mixShift));
+  
+  // Calculate summary - check for both "New Business" and "New" labels
+  const priorNew = priorMix.find(m => m.businessType === 'New Business' || m.businessType === 'New');
+  const currentNew = currentMix.find(m => m.businessType === 'New Business' || m.businessType === 'New');
+  const priorNewPercent = priorNew?.percentOfPremium || 0;
+  const currentNewPercent = currentNew?.percentOfPremium || 0;
+
+  // Console logging for debugging
+  console.log('\n📊 BUSINESS TYPE MIX ANALYSIS:');
+  console.log(`Prior New Business: ${priorNewPercent.toFixed(1)}%`);
+  console.log(`Current New Business: ${currentNewPercent.toFixed(1)}%`);
+  console.log(`Mix Shift: ${(currentNewPercent - priorNewPercent) >= 0 ? '+' : ''}${(currentNewPercent - priorNewPercent).toFixed(1)} pts`);
+  console.log(`Renewal Heavy: ${currentNewPercent < priorNewPercent ? '⚠️ YES' : 'No'}`);
+  console.log('\nChanges:');
+  changes.forEach(c => {
+    console.log(`  ${c.businessType}: ${c.mixShift >= 0 ? '+' : ''}${c.mixShift.toFixed(1)} pts | $${c.premiumChange.toLocaleString()} premium`);
+  });
+  
+  return {
+    prior: priorMix,
+    current: currentMix,
+    changes,
+    summary: {
+      priorNewBusinessPercent: priorNewPercent,
+      currentNewBusinessPercent: currentNewPercent,
+      newBusinessMixShift: currentNewPercent - priorNewPercent,
+      isRenewalHeavy: currentNewPercent < priorNewPercent
+    }
+  };
+}
 import { getProductCategory, ProductCategory } from '../allstate-rates/product-mapping';
 import {
   AAPLevel,

@@ -112,7 +112,10 @@ export default function CompensationAnalyzer() {
                     {/* Check if validation data exists in comparison_data */}
                     {(currentReport.comparison_data as any)?.validation ? (
                       <DiscrepancyResults 
-                        results={(currentReport.comparison_data as any).validation as ValidationResult} 
+                        results={(currentReport.comparison_data as any).validation as ValidationResult}
+                        mixAnalysis={(currentReport.comparison_data as any).mixAnalysis}
+                        priorPeriod={(currentReport.comparison_data as any).periodLabels?.prior}
+                        currentPeriod={(currentReport.comparison_data as any).periodLabels?.current}
                       />
                     ) : (
                       <>
