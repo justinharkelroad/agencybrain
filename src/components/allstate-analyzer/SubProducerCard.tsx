@@ -17,7 +17,13 @@ export function SubProducerCard({ producer, isAgency }: Props) {
   const [showTransactions, setShowTransactions] = useState(false);
   const hasChargebacks = producer.premiumChargebacks > 0;
   const isNetNegative = producer.netPremium < 0;
-  const totalTransactions = producer.creditTransactions.length + producer.chargebackTransactions.length;
+  
+  // Defensive defaults for legacy data + filter out zero-premium transactions
+  const creditTransactions = producer.creditTransactions || [];
+  const chargebackTransactions = producer.chargebackTransactions || [];
+  const nonZeroCredits = creditTransactions.filter(tx => Math.abs(tx.premium) > 0);
+  const nonZeroChargebacks = chargebackTransactions.filter(tx => Math.abs(tx.premium) > 0);
+  const totalNonZero = nonZeroCredits.length + nonZeroChargebacks.length;
   
   return (
     <Card className={isAgency ? 'border-primary/30' : ''}>
@@ -111,7 +117,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
         </div>
         
         {/* Transaction Drill-Down */}
-        {totalTransactions > 0 && (
+        {totalNonZero > 0 && (
           <Collapsible open={showTransactions} onOpenChange={setShowTransactions}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-center gap-1 text-muted-foreground hover:text-foreground">
@@ -123,7 +129,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
                 ) : (
                   <>
                     <ChevronDown className="h-4 w-4" />
-                    View Transactions ({totalTransactions})
+                    View Transactions ({totalNonZero})
                   </>
                 )}
               </Button>
@@ -132,15 +138,15 @@ export function SubProducerCard({ producer, isAgency }: Props) {
               <Tabs defaultValue="credits" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="credits">
-                    Credits ({producer.creditTransactions.length})
+                    Credits ({nonZeroCredits.length})
                   </TabsTrigger>
                   <TabsTrigger value="chargebacks">
-                    Chargebacks ({producer.chargebackTransactions.length})
+                    Chargebacks ({nonZeroChargebacks.length})
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="credits" className="mt-3">
-                  {producer.creditTransactions.length > 0 ? (
-                    <SubProducerTransactionTable transactions={producer.creditTransactions} type="credits" />
+                  {nonZeroCredits.length > 0 ? (
+                    <SubProducerTransactionTable transactions={creditTransactions} type="credits" />
                   ) : (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       No credit transactions
@@ -148,8 +154,8 @@ export function SubProducerCard({ producer, isAgency }: Props) {
                   )}
                 </TabsContent>
                 <TabsContent value="chargebacks" className="mt-3">
-                  {producer.chargebackTransactions.length > 0 ? (
-                    <SubProducerTransactionTable transactions={producer.chargebackTransactions} type="chargebacks" />
+                  {nonZeroChargebacks.length > 0 ? (
+                    <SubProducerTransactionTable transactions={chargebackTransactions} type="chargebacks" />
                   ) : (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       No chargebacks 🎉
