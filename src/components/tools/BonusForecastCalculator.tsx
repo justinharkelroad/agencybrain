@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, RotateCcw, Info, Calculator, TrendingUp, Home, Car, Shield, Star, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { ArrowLeft, RotateCcw, Info, Calculator, TrendingUp, Home, Car, Shield, Star, Download, Cloud, CloudOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,9 @@ import {
   formatNumber,
 } from '@/utils/bonusCalculations';
 import BonusForecastReportCard from './BonusForecastReportCard';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'sonner';
 
 const STORAGE_KEY = 'bonusForecastCalc:inputs';
 
@@ -228,31 +231,123 @@ function ResultsGrid({
 }
 
 export default function BonusForecastCalculator({ onBack }: BonusForecastCalculatorProps) {
+  const { user } = useAuth();
   const [inputs, setInputs] = useState<CalculatorInputs>(DEFAULT_INPUTS);
   const [inputsOpen, setInputsOpen] = useState(true);
   const [targetsOpen, setTargetsOpen] = useState(true);
   const [showReportCard, setShowReportCard] = useState(false);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<{ by: string; at: Date } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
 
-  // Load from localStorage on mount
+  // Fetch agency_id from profile
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setInputs({ ...DEFAULT_INPUTS, ...parsed });
+    const fetchAgencyId = async () => {
+      if (!user?.id) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (data?.agency_id) {
+        setAgencyId(data.agency_id);
       }
-    } catch {}
-  }, []);
+    };
+    fetchAgencyId();
+  }, [user?.id]);
 
-  // Save to localStorage on change (debounced)
+  // Load from database (with localStorage fallback for migration)
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!agencyId || hasLoadedRef.current) return;
+    
+    const loadInputs = async () => {
+      setIsLoading(true);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs));
-      } catch {}
-    }, 300);
+        const { data, error } = await supabase
+          .from('bonus_forecast_inputs')
+          .select('inputs_json, updated_by_name, updated_at')
+          .eq('agency_id', agencyId)
+          .maybeSingle();
+        
+        if (data?.inputs_json) {
+          // Load from database
+          setInputs({ ...DEFAULT_INPUTS, ...data.inputs_json as Partial<CalculatorInputs> });
+          if (data.updated_by_name && data.updated_at) {
+            setLastSaved({ by: data.updated_by_name, at: new Date(data.updated_at) });
+          }
+          hasLoadedRef.current = true;
+        } else {
+          // Fallback to localStorage for migration
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setInputs({ ...DEFAULT_INPUTS, ...parsed });
+            // Auto-migrate to database
+            toast.info('Migrating your saved data to cloud storage...');
+          }
+          hasLoadedRef.current = true;
+        }
+      } catch (err) {
+        console.error('Error loading forecast inputs:', err);
+        // Fallback to localStorage
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            setInputs({ ...DEFAULT_INPUTS, ...JSON.parse(saved) });
+          }
+        } catch {}
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadInputs();
+  }, [agencyId]);
+
+  // Save to database on change (debounced)
+  useEffect(() => {
+    if (!agencyId || !user?.id || !hasLoadedRef.current) return;
+    
+    const timer = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        // Get user's display name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        const displayName = profile?.full_name || user.email || 'Unknown';
+        
+        const { error } = await supabase
+          .from('bonus_forecast_inputs')
+          .upsert({
+            agency_id: agencyId,
+            inputs_json: inputs,
+            updated_by: user.id,
+            updated_by_name: displayName,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'agency_id' });
+        
+        if (!error) {
+          setLastSaved({ by: displayName, at: new Date() });
+          // Also save to localStorage as backup
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs));
+        }
+      } catch (err) {
+        console.error('Error saving forecast inputs:', err);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 500);
+    
     return () => clearTimeout(timer);
-  }, [inputs]);
+  }, [inputs, agencyId, user?.id]);
 
   // Update a single input field
   const updateInput = <K extends keyof CalculatorInputs>(key: K, value: CalculatorInputs[K]) => {
@@ -280,10 +375,17 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
   };
 
   // Reset to defaults
-  const handleReset = () => {
+  const handleReset = async () => {
     setInputs(DEFAULT_INPUTS);
+    setLastSaved(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
+      if (agencyId) {
+        await supabase
+          .from('bonus_forecast_inputs')
+          .delete()
+          .eq('agency_id', agencyId);
+      }
     } catch {}
   };
 
@@ -296,6 +398,17 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
   // Check if we have results to export
   const hasResults = autoHomeResults.length > 0 || splResults.length > 0;
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-2">
+          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading forecast data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -306,6 +419,28 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
           </Button>
           <div>
             <h3 className="text-base font-medium text-muted-foreground">Annual Bonus Forecast Calculator</h3>
+            {/* Sync status */}
+            {lastSaved && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                {isSaving ? (
+                  <>
+                    <Cloud className="h-3 w-3 animate-pulse" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Cloud className="h-3 w-3 text-green-500" />
+                    Last saved by {lastSaved.by} · {new Date(lastSaved.at).toLocaleString()}
+                  </>
+                )}
+              </p>
+            )}
+            {!lastSaved && !isSaving && agencyId && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <CloudOff className="h-3 w-3" />
+                Not yet saved
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

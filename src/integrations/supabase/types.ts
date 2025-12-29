@@ -645,6 +645,44 @@ export type Database = {
           },
         ]
       }
+      bonus_forecast_inputs: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          id: string
+          inputs_json: Json
+          updated_at: string | null
+          updated_by: string | null
+          updated_by_name: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          id?: string
+          inputs_json?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+          updated_by_name?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          id?: string
+          inputs_json?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+          updated_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bonus_forecast_inputs_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bonus_grid_saves: {
         Row: {
           created_at: string
