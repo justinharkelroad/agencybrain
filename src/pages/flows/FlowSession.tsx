@@ -135,9 +135,18 @@ export default function FlowSession() {
     }
   }, [currentQuestion?.id, responses]);
 
-  // Auto-scroll to bottom (deterministic, no timeouts)
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    bottomRef.current?.scrollIntoView({ block: 'end', behavior });
+  // Auto-scroll to current question bubble (center it so footer doesn't cover it)
+  const scrollToCurrentQuestion = useCallback(() => {
+    // Find the current question bubble (last one with data attribute)
+    const messages = document.querySelectorAll('[data-current-question="true"]');
+    const currentQuestionEl = messages[messages.length - 1];
+    
+    if (currentQuestionEl) {
+      currentQuestionEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      // Fallback to bottom ref
+      bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    }
   }, []);
 
   // Auto-scroll after DOM commits when relevant chat UI changes
@@ -145,12 +154,13 @@ export default function FlowSession() {
     const shouldScroll = forceScrollRef.current || isNearBottomRef.current;
     if (!shouldScroll) return;
 
-    const rafId = requestAnimationFrame(() => {
-      scrollToBottom('auto');
+    // Small delay to ensure DOM has updated with new question
+    const timer = setTimeout(() => {
+      scrollToCurrentQuestion();
       forceScrollRef.current = false;
-    });
+    }, 100);
 
-    return () => cancelAnimationFrame(rafId);
+    return () => clearTimeout(timer);
   }, [
     currentQuestionIndex,
     isTyping,
@@ -158,7 +168,7 @@ export default function FlowSession() {
     showAddToFocus,
     showCurrentQuestion,
     answeredQuestions.size,
-    scrollToBottom,
+    scrollToCurrentQuestion,
     currentQuestion?.type, // Re-scroll when input type changes (text vs select)
   ]);
 
@@ -484,7 +494,7 @@ export default function FlowSession() {
 
           {/* Current Question */}
           {showCurrentQuestion && !isTyping && (
-            <div className="space-y-3">
+            <div className="space-y-3" data-current-question="true">
               <ChatBubble 
                 variant="incoming" 
                 icon={flowIcon}
@@ -576,7 +586,7 @@ export default function FlowSession() {
           variant="secondary"
           size="icon"
           className="fixed bottom-24 right-4 rounded-full shadow-lg z-20"
-          onClick={() => scrollToBottom('smooth')}
+          onClick={() => scrollToCurrentQuestion()}
         >
           <ChevronDown className="h-5 w-5" />
         </Button>
