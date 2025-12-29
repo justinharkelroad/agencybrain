@@ -14,9 +14,12 @@ interface Props {
 
 export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
   
-  const formatCutoffDate = (date: Date | undefined) => {
+  const formatCutoffDate = (date: Date | string | undefined) => {
     if (!date) return 'N/A';
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    // Handle both Date objects and ISO string dates (from JSON serialization)
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return 'N/A';
+    return dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   
   const exportToCsv = () => {
