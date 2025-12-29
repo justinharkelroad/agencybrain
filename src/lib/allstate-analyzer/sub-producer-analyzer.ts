@@ -1,10 +1,21 @@
 import { StatementTransaction } from '../allstate-parser/excel-parser';
 
+export interface SubProducerTransaction {
+  policyNumber: string;
+  insuredName: string;
+  product: string;
+  transType: string;
+  premium: number;
+  commission: number;
+  origPolicyEffDate: string;
+  isAuto: boolean;
+}
+
 export interface SubProducerMetrics {
   code: string;
   displayName: string;
   
-  // Premium
+  // Premium (first-term only)
   premiumWritten: number;
   premiumChargebacks: number;
   netPremium: number;
@@ -12,26 +23,63 @@ export interface SubProducerMetrics {
   // Counts
   policiesIssued: number;
   itemsIssued: number;
-  cancellationCount: number;
+  chargebackCount: number;
   
-  // Commission
+  // Commission (first-term only)
   commissionEarned: number;
   commissionChargebacks: number;
   netCommission: number;
   
   // Rates
   effectiveRate: number;
+  
+  // Transaction lists for drill-down
+  creditTransactions: SubProducerTransaction[];
+  chargebackTransactions: SubProducerTransaction[];
 }
 
 export interface SubProducerSummary {
   producers: SubProducerMetrics[];
   totals: SubProducerMetrics;
   producerCount: number;
+  statementMonth: Date;
+  autoCutoffDate: Date;
+  homeCutoffDate: Date;
+}
+
+// Helper: Parse orig policy eff date (MM/YYYY format)
+function parseOrigDate(dateStr: string): Date | null {
+  try {
+    const parts = String(dateStr || '').split('/');
+    if (parts.length === 2) {
+      const month = parseInt(parts[0], 10);
+      const year = parseInt(parts[1], 10);
+      if (!isNaN(month) && !isNaN(year)) {
+        return new Date(year, month - 1, 1);
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Helper: Check if product is Auto (6-month term)
+function isAutoProduct(product: string): boolean {
+  const productLower = (product || '').toLowerCase();
+  return productLower.includes('auto');
 }
 
 export function analyzeSubProducers(
-  transactions: StatementTransaction[]
+  transactions: StatementTransaction[],
+  statementMonth: Date = new Date()
 ): SubProducerSummary {
+  
+  // Calculate cutoff dates based on statement month
+  // Auto (6-month): 5 months back from statement month
+  // Home (12-month): 11 months back from statement month
+  const autoCutoffDate = new Date(statementMonth.getFullYear(), statementMonth.getMonth() - 5, 1);
+  const homeCutoffDate = new Date(statementMonth.getFullYear(), statementMonth.getMonth() - 11, 1);
   
   // Filter to New Business only
   const nbTransactions = transactions.filter(tx => {
@@ -39,46 +87,78 @@ export function analyzeSubProducers(
     return businessType === 'new business' || businessType === 'new';
   });
   
+  // Helper: Check if transaction is within first term
+  function isFirstTerm(tx: StatementTransaction): boolean {
+    const origDate = parseOrigDate(tx.origPolicyEffDate || '');
+    if (!origDate) return false;
+    
+    const cutoff = isAutoProduct(tx.product || '') ? autoCutoffDate : homeCutoffDate;
+    return origDate >= cutoff;
+  }
+  
   // Group by Sub-Prod Code
   const producerMap = new Map<string, {
     premiumWritten: number;
     premiumChargebacks: number;
     policiesIssued: number;
     itemsIssued: number;
-    cancellationCount: number;
+    chargebackCount: number;
     commissionEarned: number;
     commissionChargebacks: number;
+    creditTransactions: SubProducerTransaction[];
+    chargebackTransactions: SubProducerTransaction[];
   }>();
   
   for (const tx of nbTransactions) {
-    const code = (tx.subProdCode || '').toString().trim();
+    // Skip if not first-term
+    if (!isFirstTerm(tx)) continue;
     
-    if (!producerMap.has(code)) {
-      producerMap.set(code, {
+    const code = String(tx.subProdCode || '').trim();
+    // Handle NaN, undefined, empty as "Agency"
+    const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
+    
+    if (!producerMap.has(normalizedCode)) {
+      producerMap.set(normalizedCode, {
         premiumWritten: 0,
         premiumChargebacks: 0,
         policiesIssued: 0,
         itemsIssued: 0,
-        cancellationCount: 0,
+        chargebackCount: 0,
         commissionEarned: 0,
-        commissionChargebacks: 0
+        commissionChargebacks: 0,
+        creditTransactions: [],
+        chargebackTransactions: []
       });
     }
     
-    const data = producerMap.get(code)!;
+    const data = producerMap.get(normalizedCode)!;
     const premium = tx.writtenPremium || 0;
-    const commission = tx.totalCommission || ((tx.baseCommissionAmount || 0) + (tx.vcAmount || 0));
+    const baseComm = tx.baseCommissionAmount || 0;
+    const vcComm = tx.vcAmount || 0;
+    const commission = tx.totalCommission || (baseComm + vcComm);
     const transType = (tx.transType || '').toLowerCase();
     
+    // Build transaction record for drill-down
+    const txRecord: SubProducerTransaction = {
+      policyNumber: tx.policyNumber || '',
+      insuredName: tx.namedInsured || '',
+      product: tx.product || '',
+      transType: tx.transType || '',
+      premium: premium,
+      commission: commission,
+      origPolicyEffDate: tx.origPolicyEffDate || '',
+      isAuto: isAutoProduct(tx.product || '')
+    };
+    
     // Classify transaction
-    const isCancellation = transType.includes('cancel');
     const isPolicyIssued = transType.includes('policies issued');
     const isCoverageIssued = transType.includes('coverage issued');
     
     if (premium >= 0) {
-      // Positive premium = written
+      // Positive premium = written/credit
       data.premiumWritten += premium;
       data.commissionEarned += commission;
+      data.creditTransactions.push(txRecord);
       
       if (isPolicyIssued) {
         data.policiesIssued += 1;
@@ -90,10 +170,8 @@ export function analyzeSubProducers(
       // Negative premium = chargeback
       data.premiumChargebacks += Math.abs(premium);
       data.commissionChargebacks += Math.abs(commission);
-      
-      if (isCancellation || isPolicyIssued || isCoverageIssued) {
-        data.cancellationCount += 1;
-      }
+      data.chargebackCount += 1;
+      data.chargebackTransactions.push(txRecord);
     }
   }
   
@@ -112,11 +190,13 @@ export function analyzeSubProducers(
       netPremium,
       policiesIssued: data.policiesIssued,
       itemsIssued: data.itemsIssued,
-      cancellationCount: data.cancellationCount,
+      chargebackCount: data.chargebackCount,
       commissionEarned: data.commissionEarned,
       commissionChargebacks: data.commissionChargebacks,
       netCommission,
-      effectiveRate: netPremium !== 0 ? (netCommission / netPremium) * 100 : 0
+      effectiveRate: netPremium !== 0 ? (netCommission / netPremium) * 100 : 0,
+      creditTransactions: data.creditTransactions,
+      chargebackTransactions: data.chargebackTransactions
     });
   }
   
@@ -128,6 +208,13 @@ export function analyzeSubProducers(
   });
   
   // Calculate totals
+  const allCreditTx: SubProducerTransaction[] = [];
+  const allChargebackTx: SubProducerTransaction[] = [];
+  producers.forEach(p => {
+    allCreditTx.push(...p.creditTransactions);
+    allChargebackTx.push(...p.chargebackTransactions);
+  });
+  
   const totals: SubProducerMetrics = {
     code: 'TOTAL',
     displayName: 'All Producers',
@@ -136,11 +223,13 @@ export function analyzeSubProducers(
     netPremium: producers.reduce((sum, p) => sum + p.netPremium, 0),
     policiesIssued: producers.reduce((sum, p) => sum + p.policiesIssued, 0),
     itemsIssued: producers.reduce((sum, p) => sum + p.itemsIssued, 0),
-    cancellationCount: producers.reduce((sum, p) => sum + p.cancellationCount, 0),
+    chargebackCount: producers.reduce((sum, p) => sum + p.chargebackCount, 0),
     commissionEarned: producers.reduce((sum, p) => sum + p.commissionEarned, 0),
     commissionChargebacks: producers.reduce((sum, p) => sum + p.commissionChargebacks, 0),
     netCommission: producers.reduce((sum, p) => sum + p.netCommission, 0),
-    effectiveRate: 0
+    effectiveRate: 0,
+    creditTransactions: allCreditTx,
+    chargebackTransactions: allChargebackTx
   };
   
   totals.effectiveRate = totals.netPremium !== 0 
@@ -148,22 +237,29 @@ export function analyzeSubProducers(
     : 0;
   
   // Console logging for debugging
-  console.log('\n👥 SUB-PRODUCER BREAKDOWN (New Business):');
+  console.log('\n👥 SUB-PRODUCER BREAKDOWN (First-Term New Business):');
+  console.log(`Statement Month: ${statementMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`);
+  console.log(`Auto Cutoff: ${autoCutoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (6mo term)`);
+  console.log(`Home Cutoff: ${homeCutoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (12mo term)`);
   console.log(`Total Producers: ${producers.length}`);
-  console.log(`Total NB Premium Written: $${totals.premiumWritten.toFixed(2)}`);
+  console.log(`Total First-Term NB Premium Written: $${totals.premiumWritten.toFixed(2)}`);
   console.log(`Total Chargebacks: $${totals.premiumChargebacks.toFixed(2)}`);
   console.log(`Total Net Commission: $${totals.netCommission.toFixed(2)}`);
   console.log('---');
   producers.forEach(p => {
     console.log(`${p.displayName}:`);
     console.log(`  Premium: $${p.premiumWritten.toFixed(2)} written, -$${p.premiumChargebacks.toFixed(2)} chargebacks = $${p.netPremium.toFixed(2)} net`);
-    console.log(`  Activity: ${p.policiesIssued} policies, ${p.itemsIssued} items, ${p.cancellationCount} cancels`);
+    console.log(`  Activity: ${p.policiesIssued} policies, ${p.itemsIssued} items, ${p.chargebackCount} chargebacks`);
     console.log(`  Commission: $${p.netCommission.toFixed(2)} net (${p.effectiveRate.toFixed(1)}%)`);
+    console.log(`  Transactions: ${p.creditTransactions.length} credits, ${p.chargebackTransactions.length} chargebacks`);
   });
   
   return {
     producers,
     totals,
-    producerCount: producers.length
+    producerCount: producers.length,
+    statementMonth,
+    autoCutoffDate,
+    homeCutoffDate
   };
 }

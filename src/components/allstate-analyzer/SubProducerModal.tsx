@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Download } from 'lucide-react';
+import { Users, Download, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SubProducerCard } from './SubProducerCard';
@@ -14,6 +14,10 @@ interface Props {
 
 export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
   
+  const formatCutoffDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  };
+  
   const exportToCsv = () => {
     const headers = [
       'Sub-Producer Code',
@@ -22,7 +26,7 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
       'Net Premium',
       'Policies Issued',
       'Items Issued',
-      'Cancellations',
+      'Chargebacks',
       'Commission Earned',
       'Commission Chargebacks',
       'Net Commission',
@@ -36,7 +40,7 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
       p.netPremium.toFixed(2),
       p.policiesIssued,
       p.itemsIssued,
-      p.cancellationCount,
+      p.chargebackCount,
       p.commissionEarned.toFixed(2),
       p.commissionChargebacks.toFixed(2),
       p.netCommission.toFixed(2),
@@ -51,7 +55,7 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
       data.totals.netPremium.toFixed(2),
       data.totals.policiesIssued.toString(),
       data.totals.itemsIssued.toString(),
-      data.totals.cancellationCount.toString(),
+      data.totals.chargebackCount.toString(),
       data.totals.commissionEarned.toFixed(2),
       data.totals.commissionChargebacks.toFixed(2),
       data.totals.netCommission.toFixed(2),
@@ -85,6 +89,14 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
           <p className="text-sm text-muted-foreground">
             New Business Performance by Sub-Producer Code • {period}
           </p>
+          {/* First-term cutoff info */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>
+              First-term only: Auto policies from {formatCutoffDate(data.autoCutoffDate)}+, 
+              Home/Other from {formatCutoffDate(data.homeCutoffDate)}+
+            </span>
+          </div>
         </DialogHeader>
         
         {/* Totals Summary */}
@@ -117,7 +129,7 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
         
         {/* Producer Cards */}
         <div className="grid gap-4 mt-4">
-          {data.producers.map((producer, idx) => (
+          {data.producers.map((producer) => (
             <SubProducerCard key={producer.code || 'agency'} producer={producer} isAgency={producer.code === ''} />
           ))}
         </div>
