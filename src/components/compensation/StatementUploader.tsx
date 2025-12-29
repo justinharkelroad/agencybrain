@@ -222,7 +222,12 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         let combinedAgentNumber = '';
         
         for (const [, data] of dataMap) {
-          allTransactions.push(...data.parsed.transactions);
+          // Add agentNumber to each transaction for multi-location filtering
+          const transactionsWithAgent = data.parsed.transactions.map(tx => ({
+            ...tx,
+            agentNumber: data.agentNumber
+          }));
+          allTransactions.push(...transactionsWithAgent);
           writtenPremium += data.parsed.totals.writtenPremium;
           baseCommission += data.parsed.totals.baseCommission;
           variableComp += data.parsed.totals.variableComp;
@@ -359,6 +364,9 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           locationCount: upload.locationCount,
           agentNumbers,
         },
+        // Store transactions for By Location tab
+        currentTransactions: currentParsed.transactions,
+        priorTransactions: priorParsed.transactions,
       };
       
       const { data: report, error: reportError } = await supabase

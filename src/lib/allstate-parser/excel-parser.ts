@@ -23,6 +23,8 @@ export interface StatementTransaction {
   indicator: string;
   // Sub-producer tracking
   subProdCode: string;
+  // Agent/Location tracking for multi-location support
+  agentNumber?: string;
 }
 
 export interface ParsedStatement {
