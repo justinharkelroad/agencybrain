@@ -1,7 +1,6 @@
-import { useState, useCallback } from "react";
-import { useDropzone } from "react-dropzone";
+import { useState, useCallback, useRef } from "react";
 import { format } from "date-fns";
-import { Upload, CheckCircle, Loader2, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { CheckCircle, Loader2, AlertCircle, FileSpreadsheet, Info } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -12,10 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
-import { parseCompensationStatement } from "@/lib/allstate-parser";
+import { parseCompensationStatement, ParsedStatement } from "@/lib/allstate-parser";
 import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary, detectLargeCancellations, analyzeSubProducers } from "@/lib/allstate-analyzer";
 import { AAPLevel } from "@/lib/allstate-rates";
 import { toast } from "sonner";
+import { useMultiLocationUpload } from "@/hooks/useMultiLocationUpload";
+import { MultiLocationUploadSection } from "./MultiLocationUploadSection";
 
 interface StatementUploaderProps {
   onReportGenerated: (reportId: string) => void;
@@ -25,6 +26,12 @@ interface AgencyCompSettings {
   state: string;
   aap_level: string;
   agency_tier: string | null;
+}
+
+interface ParsedLocationData {
+  locationId: number;
+  agentNumber: string;
+  parsed: ParsedStatement;
 }
 
 const MONTHS = [
@@ -52,13 +59,17 @@ const getMonthName = (month: number) => {
 };
 
 const isDateValid = (month: number | null, year: number | null): boolean => {
-  if (!month || !year) return true; // Don't show error if not selected yet
-  // October 2024 = month 10, year 2024
+  if (!month || !year) return true;
   return year > 2024 || (year === 2024 && month >= 10);
 };
 
 export function StatementUploader({ onReportGenerated }: StatementUploaderProps) {
   const { user } = useAuth();
+  const upload = useMultiLocationUpload();
+  
+  // Store parsed transaction data per location
+  const parsedPriorData = useRef<Map<number, ParsedLocationData>>(new Map());
+  const parsedCurrentData = useRef<Map<number, ParsedLocationData>>(new Map());
   
   // Fetch agencyId from user's profile directly
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -77,7 +88,6 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         console.error('[StatementUploader] Profile fetch error:', error);
         return null;
       }
-      console.log('[StatementUploader] Profile loaded:', data);
       return data;
     },
     enabled: !!user?.id,
@@ -99,7 +109,6 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         console.error('[StatementUploader] Settings fetch error:', error);
         return null;
       }
-      console.log('[StatementUploader] Settings loaded:', data);
       return data as AgencyCompSettings | null;
     },
     enabled: !!agencyId,
@@ -111,10 +120,6 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   const [currentMonth, setCurrentMonth] = useState<number | null>(null);
   const [currentYear, setCurrentYear] = useState<number | null>(null);
   
-  // Files
-  const [priorFile, setPriorFile] = useState<File | null>(null);
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
-  
   // VC Baseline
   const [priorVcBaseline, setPriorVcBaseline] = useState(false);
   const [currentVcBaseline, setCurrentVcBaseline] = useState(false);
@@ -122,50 +127,83 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
   // Processing
   const [processing, setProcessing] = useState(false);
 
-  // Prior file dropzone
-  const onDropPrior = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      setPriorFile(acceptedFiles[0]);
+  // Handle file selection and parsing
+  const handleFileSelect = useCallback(async (
+    period: 'prior' | 'current',
+    locationId: number,
+    file: File
+  ) => {
+    upload.setLocationFile(period, locationId, file);
+    
+    try {
+      const result = await parseCompensationStatement(file);
+      
+      if (result.parseErrors.length > 0) {
+        console.warn(`[Upload] Parse warnings for ${period} location ${locationId}:`, result.parseErrors);
+      }
+      
+      // Store parsed data
+      const dataMap = period === 'prior' ? parsedPriorData : parsedCurrentData;
+      dataMap.current.set(locationId, {
+        locationId,
+        agentNumber: result.agentNumber,
+        parsed: result
+      });
+      
+      upload.setLocationParsed(
+        period,
+        locationId,
+        result.agentNumber,
+        result.transactions.length
+      );
+      
+      console.log(`[Upload] Parsed ${period} location ${locationId}:`, {
+        agentNumber: result.agentNumber,
+        transactionCount: result.transactions.length
+      });
+      
+    } catch (error) {
+      console.error(`[Upload] Parse error for ${period} location ${locationId}:`, error);
+      upload.setLocationError(
+        period,
+        locationId,
+        error instanceof Error ? error.message : 'Failed to parse file'
+      );
     }
-  }, []);
+  }, [upload]);
 
-  const { getRootProps: getPriorRootProps, getInputProps: getPriorInputProps, isDragActive: isPriorDragActive } = useDropzone({
-    onDrop: onDropPrior,
-    accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-    },
-    maxFiles: 1,
-  });
-
-  // Current file dropzone
-  const onDropCurrent = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      setCurrentFile(acceptedFiles[0]);
-    }
-  }, []);
-
-  const { getRootProps: getCurrentRootProps, getInputProps: getCurrentInputProps, isDragActive: isCurrentDragActive } = useDropzone({
-    onDrop: onDropCurrent,
-    accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
-    },
-    maxFiles: 1,
-  });
+  // Handle file clear
+  const handleClear = useCallback((period: 'prior' | 'current', locationId: number) => {
+    upload.clearLocation(period, locationId);
+    const dataMap = period === 'prior' ? parsedPriorData : parsedCurrentData;
+    dataMap.current.delete(locationId);
+  }, [upload]);
 
   // Validation
   const priorDateValid = isDateValid(priorMonth, priorYear);
   const currentDateValid = isDateValid(currentMonth, currentYear);
   const periodsSelected = priorMonth && priorYear && currentMonth && currentYear;
-  const filesUploaded = priorFile && currentFile;
   
   // Settings validation
   const settingsConfigured = Boolean(settings?.state && settings?.aap_level);
   const isNoVcState = settings?.state ? NO_VC_STATES.includes(settings.state) : false;
   const showVcBaseline = settingsConfigured && !isNoVcState;
   
+  // Check if all required files are uploaded
+  const filesUploaded = upload.hasAllCurrentUploads && upload.hasAnyPriorUploads;
   const canProcess = periodsSelected && priorDateValid && currentDateValid && filesUploaded && settingsConfigured && !processing;
+
+  // Calculate totals for display
+  const currentTransactionCount = upload.currentPeriod
+    .filter(l => l.status === 'parsed')
+    .reduce((sum, l) => sum + (l.transactionCount || 0), 0);
+    
+  const priorTransactionCount = upload.priorPeriod
+    .filter(l => l.status === 'parsed')
+    .reduce((sum, l) => sum + (l.transactionCount || 0), 0);
+
+  const parsedCurrentLocations = upload.currentPeriod.filter(l => l.status === 'parsed');
+  const parsedPriorLocations = upload.priorPeriod.filter(l => l.status === 'parsed');
 
   const handleGenerateReport = async () => {
     if (!canProcess || !agencyId || !user?.id || !settings) return;
@@ -173,33 +211,70 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
     setProcessing(true);
     
     try {
-      // Step 1: Parse both files locally (we have the File objects)
-      toast.info("Parsing statements...");
-      const [priorParsed, currentParsed] = await Promise.all([
-        parseCompensationStatement(priorFile!),
-        parseCompensationStatement(currentFile!),
-      ]);
+      // Combine all parsed data from all locations
+      const combineParsedStatements = (dataMap: Map<number, ParsedLocationData>): ParsedStatement => {
+        const allTransactions: ParsedStatement['transactions'] = [];
+        let writtenPremium = 0;
+        let baseCommission = 0;
+        let variableComp = 0;
+        let totalCommission = 0;
+        const allErrors: string[] = [];
+        let combinedAgentNumber = '';
+        
+        for (const [, data] of dataMap) {
+          allTransactions.push(...data.parsed.transactions);
+          writtenPremium += data.parsed.totals.writtenPremium;
+          baseCommission += data.parsed.totals.baseCommission;
+          variableComp += data.parsed.totals.variableComp;
+          totalCommission += data.parsed.totals.totalCommission;
+          allErrors.push(...data.parsed.parseErrors);
+          if (!combinedAgentNumber && data.agentNumber) {
+            combinedAgentNumber = data.agentNumber;
+          }
+        }
+        
+        return {
+          agentNumber: combinedAgentNumber,
+          agentName: '',
+          transactions: allTransactions,
+          totals: {
+            writtenPremium,
+            baseCommission,
+            variableComp,
+            totalCommission
+          },
+          parseErrors: allErrors
+        };
+      };
       
-      // Debug logging for parsed statements
-      console.log('=== PRIOR STATEMENT ===');
+      const priorParsed = combineParsedStatements(parsedPriorData.current);
+      const currentParsed = combineParsedStatements(parsedCurrentData.current);
+      
+      console.log('=== COMBINED PRIOR STATEMENT ===');
+      console.log('Locations:', parsedPriorData.current.size);
       console.log('Transactions:', priorParsed.transactions.length);
       console.log('Totals:', priorParsed.totals);
       
-      console.log('=== CURRENT STATEMENT ===');
+      console.log('=== COMBINED CURRENT STATEMENT ===');
+      console.log('Locations:', parsedCurrentData.current.size);
       console.log('Transactions:', currentParsed.transactions.length);
       console.log('Totals:', currentParsed.totals);
       
-      // Check for parsing errors
-      if (priorParsed.parseErrors.length > 0 || currentParsed.parseErrors.length > 0) {
-        console.warn('Parse warnings:', { prior: priorParsed.parseErrors, current: currentParsed.parseErrors });
+      // Upload files to storage - use first location's file for now
+      // In future, could store all files or create a combined reference
+      toast.info("Uploading statements...");
+      
+      const firstPriorLocation = upload.priorPeriod.find(l => l.file);
+      const firstCurrentLocation = upload.currentPeriod.find(l => l.file);
+      
+      if (!firstPriorLocation?.file || !firstCurrentLocation?.file) {
+        throw new Error('Missing required files');
       }
       
-      // Step 2: Upload files to storage
-      toast.info("Uploading statements...");
       const [priorUpload, currentUpload] = await Promise.all([
         uploadStatement({
           agencyId,
-          file: priorFile!,
+          file: firstPriorLocation.file,
           month: priorMonth!,
           year: priorYear!,
           vcBaselineAchieved: priorVcBaseline,
@@ -207,7 +282,7 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         }),
         uploadStatement({
           agencyId,
-          file: currentFile!,
+          file: firstCurrentLocation.file,
           month: currentMonth!,
           year: currentYear!,
           vcBaselineAchieved: currentVcBaseline,
@@ -215,11 +290,11 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         }),
       ]);
       
-      // Step 3: Run comparison
+      // Run comparison
       toast.info("Comparing statements...");
       const comparison = compareStatements(priorParsed, currentParsed);
       
-      // Step 4: Run rate validation on current period
+      // Run rate validation on current period
       const aapLevel = settings.aap_level as AAPLevel;
       const validation = validateRates(
         currentParsed.transactions,
@@ -228,28 +303,31 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         currentVcBaseline
       );
       
-      // Step 5: Run business type mix analysis
+      // Run business type mix analysis
       const mixAnalysis = analyzeBusinessTypeMix(
         priorParsed.transactions,
         currentParsed.transactions
       );
       
-      // Step 6: Calculate commission rate summaries
+      // Calculate commission rate summaries
       const priorCommissionSummary = calculateCommissionSummary(priorParsed.transactions);
       const currentCommissionSummary = calculateCommissionSummary(currentParsed.transactions);
       
-      // Step 7: Detect large cancellations (use $1,000 threshold to capture all, component filters)
+      // Detect large cancellations
       const largeCancellations = detectLargeCancellations(currentParsed.transactions, 1000);
       
-      // Step 8: Analyze sub-producer breakdown (First-term New Business only)
-      // Pass the statement month for accurate first-term cutoff calculation
-      const statementMonth = new Date(currentYear!, currentMonth! - 1, 1); // Month is 0-indexed in Date
+      // Analyze sub-producer breakdown
+      const statementMonth = new Date(currentYear!, currentMonth! - 1, 1);
       const subProducerData = analyzeSubProducers(currentParsed.transactions, statementMonth);
       
-      // Step 9: Save report to database
+      // Save report to database
       toast.info("Saving report...");
       
-      // Combine comparison, validation, and analysis results for storage
+      // Get agent numbers from all locations
+      const agentNumbers = Array.from(parsedCurrentData.current.values())
+        .map(d => d.agentNumber)
+        .filter(Boolean);
+      
       const combinedData = {
         comparison,
         validation: {
@@ -277,6 +355,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           prior: `${getMonthName(priorMonth!)} ${priorYear}`,
           current: `${getMonthName(currentMonth!)} ${currentYear}`,
         },
+        multiLocation: {
+          locationCount: upload.locationCount,
+          agentNumbers,
+        },
       };
       
       const { data: report, error: reportError } = await supabase
@@ -287,7 +369,7 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           current_upload_id: currentUpload.id,
           comparison_data: combinedData as unknown as Record<string, unknown>,
           summary_data: comparison.summary as unknown as Record<string, unknown>,
-          discrepancies_found: validation.potentialUnderpayments.length, // Only count real underpayments
+          discrepancies_found: validation.potentialUnderpayments.length,
           potential_underpayment_cents: Math.round(validation.totalMissingVcDollars * 100),
           created_by: user.id,
         })
@@ -411,96 +493,21 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
         </CardContent>
       </Card>
 
-      {/* Step 2: Upload Statement Files */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Step 2: Upload Statement Files</CardTitle>
-          <CardDescription>
-            Upload your compensation statement Excel files (.xlsx or .xls)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Prior File */}
-            <div className="space-y-3">
-              <Label className="text-base font-medium">
-                Prior Period Statement
-                {priorMonth && priorYear && (
-                  <span className="text-muted-foreground font-normal ml-2">
-                    ({getMonthName(priorMonth)} {priorYear})
-                  </span>
-                )}
-              </Label>
-              <div
-                {...getPriorRootProps()}
-                className={`
-                  border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                  ${isPriorDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
-                  ${priorFile ? 'border-green-500 bg-green-500/5' : ''}
-                `}
-              >
-                <input {...getPriorInputProps()} />
-                {priorFile ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <CheckCircle className="h-8 w-8 text-green-500" />
-                    <p className="text-sm font-medium">{priorFile.name}</p>
-                    <p className="text-xs text-muted-foreground">Click or drag to replace</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Drag & drop or click to select
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Step 2 & 3: Multi-Location Upload Section */}
+      <MultiLocationUploadSection
+        locationCount={upload.locationCount}
+        priorPeriod={upload.priorPeriod}
+        currentPeriod={upload.currentPeriod}
+        onLocationCountChange={upload.setLocationCount}
+        onFileSelect={handleFileSelect}
+        onClear={handleClear}
+      />
 
-            {/* Current File */}
-            <div className="space-y-3">
-              <Label className="text-base font-medium">
-                Current Period Statement
-                {currentMonth && currentYear && (
-                  <span className="text-muted-foreground font-normal ml-2">
-                    ({getMonthName(currentMonth)} {currentYear})
-                  </span>
-                )}
-              </Label>
-              <div
-                {...getCurrentRootProps()}
-                className={`
-                  border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                  ${isCurrentDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'}
-                  ${currentFile ? 'border-green-500 bg-green-500/5' : ''}
-                `}
-              >
-                <input {...getCurrentInputProps()} />
-                {currentFile ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <CheckCircle className="h-8 w-8 text-green-500" />
-                    <p className="text-sm font-medium">{currentFile.name}</p>
-                    <p className="text-xs text-muted-foreground">Click or drag to replace</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Drag & drop or click to select
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Step 3: Variable Compensation Baseline - Only show for VC-eligible states */}
+      {/* Step 4: Variable Compensation Baseline - Only show for VC-eligible states */}
       {showVcBaseline && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Step 3: Variable Compensation Baseline</CardTitle>
+            <CardTitle className="text-lg">Step 4: Variable Compensation Baseline</CardTitle>
             <CardDescription>
               Indicate whether your agency achieved the VC baseline for each period. This affects bonus calculations.
             </CardDescription>
@@ -538,21 +545,23 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
 
       {/* Info message for no-VC states */}
       {settingsConfigured && isNoVcState && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-sm text-blue-400">
-                {settings?.state} does not allow variable compensation. Analysis will focus on base commission rates only.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+          <Info className="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-blue-400">
+              {settings?.state} does not allow variable compensation
+            </p>
+            <p className="text-sm text-blue-400/80 mt-1">
+              Analysis will focus on base commission rates only.
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Step 4: Confirm & Process */}
+      {/* Step 5: Confirm & Process */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Step 4: Confirm & Process</CardTitle>
+          <CardTitle className="text-lg">Step {isNoVcState ? '4' : '5'}: Confirm & Process</CardTitle>
           <CardDescription>
             Review your settings and generate the comparison report.
           </CardDescription>
@@ -563,20 +572,51 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Loading settings...</span>
             </div>
-          ) : settingsConfigured ? (
-            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <p className="text-sm text-green-400">
-                Settings configured: {settings?.state} • {settings?.aap_level}
-                {isNoVcState ? ' • Base Commission Only' : ''}
-              </p>
-            </div>
-          ) : (
+          ) : !settingsConfigured ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Please configure your state and AAP level in the Settings tab before processing.
               </AlertDescription>
             </Alert>
+          ) : !upload.hasAllCurrentUploads ? (
+            <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-400">
+                Please upload current period statements for all {upload.locationCount} location{upload.locationCount > 1 ? 's' : ''}.
+              </p>
+            </div>
+          ) : !upload.hasAnyPriorUploads ? (
+            <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-400">
+                Please upload at least one prior period statement for comparison.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-400">Ready to analyze</p>
+                <div className="text-sm text-green-400/80 mt-1 space-y-0.5">
+                  <p>
+                    {parsedCurrentLocations.length} location{parsedCurrentLocations.length > 1 ? 's' : ''} • {currentTransactionCount.toLocaleString()} transactions
+                  </p>
+                  {parsedCurrentLocations.length > 1 && (
+                    <p>
+                      Agent Numbers: {parsedCurrentLocations.map(l => l.agentNumber).filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  <p>
+                    Prior period: {parsedPriorLocations.length} location{parsedPriorLocations.length > 1 ? 's' : ''} • {priorTransactionCount.toLocaleString()} transactions
+                  </p>
+                  <p className="text-xs">
+                    Settings: {settings?.state} • {settings?.aap_level}
+                    {isNoVcState ? ' • Base Commission Only' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
 
           <Button
@@ -591,7 +631,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
                 Processing...
               </>
             ) : (
-              "Generate Comparison Report"
+              <>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Generate {upload.locationCount > 1 ? 'Combined ' : ''}Comparison Report
+              </>
             )}
           </Button>
         </CardContent>
