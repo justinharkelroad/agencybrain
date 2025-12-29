@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { uploadStatement } from "@/lib/compensation/uploadStatement";
 import { parseCompensationStatement } from "@/lib/allstate-parser";
-import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary, detectLargeCancellations } from "@/lib/allstate-analyzer";
+import { compareStatements, validateRates, analyzeBusinessTypeMix, calculateCommissionSummary, detectLargeCancellations, analyzeSubProducers } from "@/lib/allstate-analyzer";
 import { AAPLevel } from "@/lib/allstate-rates";
 import { toast } from "sonner";
 
@@ -232,7 +232,10 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
       // Step 7: Detect large cancellations (use $1,000 threshold to capture all, component filters)
       const largeCancellations = detectLargeCancellations(currentParsed.transactions, 1000);
       
-      // Step 8: Save report to database
+      // Step 8: Analyze sub-producer breakdown (New Business only)
+      const subProducerData = analyzeSubProducers(currentParsed.transactions);
+      
+      // Step 9: Save report to database
       toast.info("Saving report...");
       
       // Combine comparison, validation, and analysis results for storage
@@ -258,6 +261,7 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           current: currentCommissionSummary,
         },
         largeCancellations,
+        subProducerData,
         periodLabels: {
           prior: `${getMonthName(priorMonth!)} ${priorYear}`,
           current: `${getMonthName(currentMonth!)} ${currentYear}`,

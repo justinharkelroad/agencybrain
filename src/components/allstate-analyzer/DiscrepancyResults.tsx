@@ -28,9 +28,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ValidationResult, RateDiscrepancy, ExclusionReason, BusinessTypeMixComparison, CommissionRateSummary, LargeCancellationSummary } from '@/lib/allstate-analyzer/rate-validator';
+import { SubProducerSummary } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 import { BusinessTypeMixAnalysis } from './BusinessTypeMixAnalysis';
 import { CommissionRateSummaryCard } from './CommissionRateSummaryCard';
 import { LargeCancellationsAlert } from './LargeCancellationsAlert';
+import { SubProducerSummaryCard } from './SubProducerSummaryCard';
 
 interface DiscrepancyResultsProps {
   results: ValidationResult;
@@ -40,6 +42,7 @@ interface DiscrepancyResultsProps {
     current: CommissionRateSummary;
   };
   largeCancellations?: LargeCancellationSummary;
+  subProducerData?: SubProducerSummary;
   priorPeriod?: string;
   currentPeriod?: string;
 }
@@ -76,7 +79,7 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'UNKNOWN_EXCLUSION': 'No exclusion reason detected - this may be a potential underpayment to investigate',
 };
 
-export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, largeCancellations, priorPeriod, currentPeriod }: DiscrepancyResultsProps) {
+export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, largeCancellations, subProducerData, priorPeriod, currentPeriod }: DiscrepancyResultsProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('underpayments');
   const [showAllUnderpayments, setShowAllUnderpayments] = useState(false);
 
@@ -288,6 +291,11 @@ export function DiscrepancyResults({ results, mixAnalysis, commissionSummary, la
       {/* Large Cancellations Alert */}
       {largeCancellations && largeCancellations.count > 0 && (
         <LargeCancellationsAlert data={largeCancellations} />
+      )}
+
+      {/* Sub-Producer Breakdown */}
+      {subProducerData && subProducerData.producerCount > 0 && currentPeriod && (
+        <SubProducerSummaryCard data={subProducerData} period={currentPeriod} />
       )}
 
       <Tabs defaultValue="underpayments" className="space-y-4">
