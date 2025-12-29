@@ -166,10 +166,14 @@ const CancelAuditPage = () => {
         return;
       }
 
-      // Check membership tier - must be boardroom or one_on_one_coaching
-      const validTiers = ['boardroom', 'one_on_one_coaching', 'one_on_one'];
+      // Check membership tier - must be Boardroom or 1:1 Coaching tier
+      // Match actual DB values: '1:1 Coaching', 'Boardroom', or legacy formats
       const tierLower = membershipTier?.toLowerCase() || '';
-      const hasTierAccess = validTiers.some(t => tierLower.includes(t));
+      const hasTierAccess = 
+        tierLower.includes('boardroom') || 
+        tierLower.includes('1:1') || 
+        tierLower.includes('coaching') ||
+        tierLower.includes('one_on_one');
 
       // Get user profile and agency info
       const { data: profile } = await supabase
