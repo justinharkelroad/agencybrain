@@ -178,11 +178,8 @@ export function calculateCommissionSummary(
   let avgVcPremium = 0;
   let avgVcAmount = 0;
   
-  // New Business specific
+  // New Business specific - ONLY for NB transactions with commission
   let nbPremium = 0;
-  let nbCommissionablePremium = 0;
-  let nbBaseCommission = 0;
-  let nbVcAmount = 0;
   let nbCommission = 0;
   let nbAvgBasePremium = 0;
   let nbAvgBaseCommission = 0;
@@ -196,7 +193,9 @@ export function calculateCommissionSummary(
     const vc = tx.vcAmount || 0;
     const commission = tx.totalCommission || (baseComm + vc);
     
-    const isNewBusiness = (tx.businessType || '').toLowerCase().includes('new');
+    // Check if New Business - be explicit about the match
+    const businessType = (tx.businessType || '').trim();
+    const isNewBusiness = businessType === 'New Business' || businessType === 'New';
     
     // Always add to totals
     totalPremium += premium;
@@ -205,7 +204,7 @@ export function calculateCommissionSummary(
     totalVcAmount += vc;
     totalCommission += commission;
     
-    // Only include in averages if actual commission was paid
+    // Only include in overall averages if actual commission was paid
     if (Math.abs(baseComm) > 0) {
       avgBasePremium += commPremium;
       avgBaseCommission += baseComm;
@@ -216,14 +215,15 @@ export function calculateCommissionSummary(
       avgVcAmount += vc;
     }
     
-    // New Business specific tracking
+    // New Business specific tracking - ONLY NB transactions
     if (isNewBusiness) {
-      nbPremium += premium;
-      nbCommissionablePremium += commPremium;
-      nbBaseCommission += baseComm;
-      nbVcAmount += vc;
-      nbCommission += commission;
+      // Only add to NB totals if there's actual premium (skip $0 rows)
+      if (Math.abs(premium) > 0) {
+        nbPremium += premium;
+        nbCommission += commission;
+      }
       
+      // Only include in NB averages if actual commission was paid on this row
       if (Math.abs(baseComm) > 0) {
         nbAvgBasePremium += commPremium;
         nbAvgBaseCommission += baseComm;
@@ -235,6 +235,9 @@ export function calculateCommissionSummary(
       }
     }
   }
+
+  // Calculate NB effective rate from rows that actually had commission
+  const nbTotalAvgCommission = nbAvgBaseCommission + nbAvgVcAmount;
 
   // Average rates only from rows that actually had that type of commission
   const avgBaseRate = avgBasePremium !== 0 
@@ -254,8 +257,9 @@ export function calculateCommissionSummary(
   const nbAvgVcRate = nbAvgVcPremium !== 0 
     ? (nbAvgVcAmount / nbAvgVcPremium) * 100 
     : 0;
-  const nbEffectiveRate = nbPremium !== 0 
-    ? (nbCommission / nbPremium) * 100 
+  // Effective rate = (Base + VC) / Premium for rows that had commission
+  const nbEffectiveRate = nbAvgBasePremium !== 0 
+    ? (nbTotalAvgCommission / nbAvgBasePremium) * 100 
     : 0;
 
   // Console logging
@@ -266,11 +270,17 @@ export function calculateCommissionSummary(
   console.log(`Avg Base Rate: ${avgBaseRate.toFixed(2)}% (from rows with base commission)`);
   console.log(`Avg VC Rate: ${avgVcRate.toFixed(2)}% (from rows with VC)`);
   console.log(`Overall Effective Rate: ${effectiveRate.toFixed(2)}%`);
-  console.log(`---`);
-  console.log(`New Business Premium: $${nbPremium.toLocaleString()}`);
-  console.log(`New Business Effective Rate: ${nbEffectiveRate.toFixed(2)}%`);
   
-  return {
+  // New Business debug logging
+  console.log('\n📊 NEW BUSINESS RATE DEBUG:');
+  console.log(`NB Premium (with commission): $${nbPremium.toLocaleString()}`);
+  console.log(`NB Commission: $${nbCommission.toLocaleString()}`);
+  console.log(`NB Avg Base Rate: ${nbAvgBaseRate.toFixed(2)}%`);
+  console.log(`NB Avg VC Rate: ${nbAvgVcRate.toFixed(2)}%`);
+  console.log(`NB Effective Rate: ${nbEffectiveRate.toFixed(2)}%`);
+  console.log(`Expected combined: ${(nbAvgBaseRate + nbAvgVcRate).toFixed(2)}%`);
+  
+  const summary = {
     totalPremium,
     totalCommissionablePremium,
     totalBaseCommission,
@@ -287,6 +297,8 @@ export function calculateCommissionSummary(
       effectiveRate: nbEffectiveRate
     }
   };
+  
+  return summary;
 }
 
 import { getProductCategory, ProductCategory } from '../allstate-rates/product-mapping';
