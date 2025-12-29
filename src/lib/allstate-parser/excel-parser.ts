@@ -21,6 +21,8 @@ export interface StatementTransaction {
   serviceFeeAssignedDate: string;
   origPolicyEffDate: string;
   indicator: string;
+  // Sub-producer tracking
+  subProdCode: string;
 }
 
 export interface ParsedStatement {
@@ -126,6 +128,8 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
     serviceFeeAssignedDate: headers.findIndex(h => /service\s*fee\s*assigned\s*date/i.test(h.trim())),
     origPolicyEffDate: headers.findIndex(h => /orig\.?\s*policy\s*eff\s*date/i.test(h.trim())),
     indicator: headers.findIndex(h => /^indicator$/i.test(h.trim())),
+    // Sub-producer tracking
+    subProdCode: headers.findIndex(h => /sub[-\s]?prod\s*code/i.test(h.trim())),
   };
   
   // Parse transactions starting after header
@@ -166,6 +170,8 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
         serviceFeeAssignedDate: cols.serviceFeeAssignedDate >= 0 ? String(row[cols.serviceFeeAssignedDate] || '').trim() : '',
         origPolicyEffDate: cols.origPolicyEffDate >= 0 ? String(row[cols.origPolicyEffDate] || '').trim() : '',
         indicator: cols.indicator >= 0 ? String(row[cols.indicator] || '').trim() : '',
+        // Sub-producer tracking
+        subProdCode: cols.subProdCode >= 0 ? String(row[cols.subProdCode] || '').trim() : '',
       };
       
       transactions.push(transaction);

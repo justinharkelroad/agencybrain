@@ -116,6 +116,7 @@ export default function CompensationAnalyzer() {
                         mixAnalysis={(currentReport.comparison_data as any).mixAnalysis}
                         commissionSummary={(currentReport.comparison_data as any).commissionSummary}
                         largeCancellations={(currentReport.comparison_data as any).largeCancellations}
+                        subProducerData={(currentReport.comparison_data as any).subProducerData}
                         priorPeriod={(currentReport.comparison_data as any).periodLabels?.prior}
                         currentPeriod={(currentReport.comparison_data as any).periodLabels?.current}
                       />
