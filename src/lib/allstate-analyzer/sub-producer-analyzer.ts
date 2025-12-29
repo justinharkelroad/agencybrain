@@ -47,13 +47,21 @@ export interface SubProducerSummary {
   homeCutoffDate: Date;
 }
 
-// Helper: Parse orig policy eff date (MM/YYYY format)
+// Helper: Parse orig policy eff date (MM/YYYY or MM/DD/YYYY format)
 function parseOrigDate(dateStr: string): Date | null {
   try {
     const parts = String(dateStr || '').split('/');
     if (parts.length === 2) {
+      // MM/YYYY format
       const month = parseInt(parts[0], 10);
       const year = parseInt(parts[1], 10);
+      if (!isNaN(month) && !isNaN(year)) {
+        return new Date(year, month - 1, 1);
+      }
+    } else if (parts.length === 3) {
+      // MM/DD/YYYY format
+      const month = parseInt(parts[0], 10);
+      const year = parseInt(parts[2], 10);
       if (!isNaN(month) && !isNaN(year)) {
         return new Date(year, month - 1, 1);
       }
@@ -72,14 +80,65 @@ function isAutoProduct(product: string): boolean {
 
 export function analyzeSubProducers(
   transactions: StatementTransaction[],
-  statementMonth: Date = new Date()
+  statementMonth?: Date  // Optional - will auto-detect if not provided
 ): SubProducerSummary {
   
-  // Calculate cutoff dates based on statement month
-  // Auto (6-month): 5 months back from statement month
-  // Home (12-month): 11 months back from statement month
-  const autoCutoffDate = new Date(statementMonth.getFullYear(), statementMonth.getMonth() - 5, 1);
-  const homeCutoffDate = new Date(statementMonth.getFullYear(), statementMonth.getMonth() - 11, 1);
+  // Auto-detect statement month from transactions if not provided
+  // Use the most recent Policy Eff Date in the data
+  let detectedMonth: Date;
+  
+  if (statementMonth) {
+    detectedMonth = statementMonth;
+  } else {
+    // Find the latest orig policy effective date to determine statement month
+    let latestDate = new Date(2000, 0, 1);
+    
+    for (const tx of transactions) {
+      // Use origPolicyEffDate which is available in StatementTransaction
+      const origDate = tx.origPolicyEffDate || '';
+      if (origDate) {
+        try {
+          const parts = String(origDate).split('/');
+          let parsed: Date | null = null;
+          
+          if (parts.length === 3) {
+            // MM/DD/YYYY format
+            parsed = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+          } else if (parts.length === 2) {
+            // MM/YYYY format
+            parsed = new Date(parseInt(parts[1]), parseInt(parts[0]) - 1, 1);
+          }
+          
+          if (parsed && !isNaN(parsed.getTime()) && parsed > latestDate) {
+            latestDate = parsed;
+          }
+        } catch {
+          // Skip unparseable dates
+        }
+      }
+    }
+    
+    // Use the month/year of the latest date found
+    detectedMonth = new Date(latestDate.getFullYear(), latestDate.getMonth(), 1);
+  }
+  
+  // Calculate cutoff dates based on detected/provided statement month
+  // Auto (6-month term): 5 months back
+  // Home (12-month term): 11 months back
+  const autoCutoffDate = new Date(
+    detectedMonth.getFullYear(), 
+    detectedMonth.getMonth() - 5, 
+    1
+  );
+  const homeCutoffDate = new Date(
+    detectedMonth.getFullYear(), 
+    detectedMonth.getMonth() - 11, 
+    1
+  );
+  
+  console.log(`[SubProducer] Statement month detected: ${detectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+  console.log(`[SubProducer] Auto cutoff (6-mo): ${autoCutoffDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+  console.log(`[SubProducer] Home cutoff (12-mo): ${homeCutoffDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
   
   // Filter to New Business only
   const nbTransactions = transactions.filter(tx => {
@@ -160,12 +219,8 @@ export function analyzeSubProducers(
       data.commissionEarned += commission;
       data.creditTransactions.push(txRecord);
       
-      if (isPolicyIssued) {
-        data.policiesIssued += 1;
-      }
-      if (isCoverageIssued) {
-        data.itemsIssued += 1;
-      }
+      if (isPolicyIssued) data.policiesIssued += 1;
+      if (isCoverageIssued) data.itemsIssued += 1;
     } else {
       // Negative premium = chargeback
       data.premiumChargebacks += Math.abs(premium);
@@ -236,29 +291,11 @@ export function analyzeSubProducers(
     ? (totals.netCommission / totals.netPremium) * 100 
     : 0;
   
-  // Console logging for debugging
-  console.log('\n👥 SUB-PRODUCER BREAKDOWN (First-Term New Business):');
-  console.log(`Statement Month: ${statementMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`);
-  console.log(`Auto Cutoff: ${autoCutoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (6mo term)`);
-  console.log(`Home Cutoff: ${homeCutoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (12mo term)`);
-  console.log(`Total Producers: ${producers.length}`);
-  console.log(`Total First-Term NB Premium Written: $${totals.premiumWritten.toFixed(2)}`);
-  console.log(`Total Chargebacks: $${totals.premiumChargebacks.toFixed(2)}`);
-  console.log(`Total Net Commission: $${totals.netCommission.toFixed(2)}`);
-  console.log('---');
-  producers.forEach(p => {
-    console.log(`${p.displayName}:`);
-    console.log(`  Premium: $${p.premiumWritten.toFixed(2)} written, -$${p.premiumChargebacks.toFixed(2)} chargebacks = $${p.netPremium.toFixed(2)} net`);
-    console.log(`  Activity: ${p.policiesIssued} policies, ${p.itemsIssued} items, ${p.chargebackCount} chargebacks`);
-    console.log(`  Commission: $${p.netCommission.toFixed(2)} net (${p.effectiveRate.toFixed(1)}%)`);
-    console.log(`  Transactions: ${p.creditTransactions.length} credits, ${p.chargebackTransactions.length} chargebacks`);
-  });
-  
   return {
     producers,
     totals,
     producerCount: producers.length,
-    statementMonth,
+    statementMonth: detectedMonth,
     autoCutoffDate,
     homeCutoffDate
   };

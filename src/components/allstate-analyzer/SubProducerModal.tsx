@@ -14,7 +14,8 @@ interface Props {
 
 export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
   
-  const formatCutoffDate = (date: Date) => {
+  const formatCutoffDate = (date: Date | undefined) => {
+    if (!date) return 'N/A';
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   
