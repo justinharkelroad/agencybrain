@@ -12,7 +12,8 @@ import {
   ChevronUp,
   Download,
   Info,
-  Building2
+  Building2,
+  LayoutDashboard
 } from 'lucide-react';
 import {
   Table,
@@ -48,7 +49,7 @@ interface DiscrepancyResultsProps {
   subProducerData?: SubProducerSummary;
   priorPeriod?: string;
   currentPeriod?: string;
-  // New props for By Location tab
+  // Props for By Location tab
   currentTransactions?: StatementTransaction[];
   priorTransactions?: StatementTransaction[];
   agentNumbers?: string[];
@@ -100,9 +101,7 @@ export function DiscrepancyResults({
 }: DiscrepancyResultsProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('underpayments');
   const [showAllUnderpayments, setShowAllUnderpayments] = useState(false);
-  
-  // Check if we have multi-location data
-  const hasMultipleLocations = agentNumbers.length > 1;
+  const [topLevelTab, setTopLevelTab] = useState<string>('combined');
 
   const {
     potentialUnderpayments,
@@ -180,393 +179,413 @@ export function DiscrepancyResults({
     URL.revokeObjectURL(url);
   };
 
+  // Ensure we have at least one agent number for By Location tab
+  const effectiveAgentNumbers = agentNumbers.length > 0 ? agentNumbers : ['Unknown'];
+
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Transactions Analyzed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{analyzed.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {state} • {aapLevel}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={potentialUnderpayments.length > 0 ? 'border-destructive border-2' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              {potentialUnderpayments.length > 0 ? (
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-              ) : (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              )}
-              Potential Underpayments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${potentialUnderpayments.length > 0 ? 'text-destructive' : 'text-green-500'}`}>
-              {potentialUnderpayments.length}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Require investigation
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              Legitimately Excluded
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              {excludedTransactions.length}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              0% VC is correct
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={totalMissingVcDollars > 0 ? 'border-amber-500 border-2' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Potential Missing VC
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${totalMissingVcDollars > 0 ? 'text-amber-500' : ''}`}>
-              {formatCurrency(totalMissingVcDollars)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              If underpayments confirmed
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Exclusion Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Info className="h-5 w-5" />
-            Exclusion Breakdown
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <TooltipProvider>
-              {Object.entries(exclusionBreakdown)
-                .filter(([_, count]) => count > 0)
-                .sort((a, b) => b[1] - a[1])
-                .map(([reason, count]) => (
-                  <Tooltip key={reason}>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/50 cursor-help">
-                        <span className="text-sm font-medium">
-                          {EXCLUSION_LABELS[reason as ExclusionReason]}
-                        </span>
-                        <Badge variant={reason === 'UNKNOWN_EXCLUSION' ? 'destructive' : 'secondary'}>
-                          {count}
-                        </Badge>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p>{EXCLUSION_DESCRIPTIONS[reason as ExclusionReason]}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-            </TooltipProvider>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Commission Rate Summary */}
-      {commissionSummary && currentPeriod && (
-        <CommissionRateSummaryCard 
-          current={commissionSummary.current}
-          prior={commissionSummary.prior}
-          period={currentPeriod}
-        />
-      )}
-
-      {/* Business Type Mix Analysis */}
-      {mixAnalysis && priorPeriod && currentPeriod && (
-        <BusinessTypeMixAnalysis 
-          comparison={mixAnalysis}
-          priorPeriod={priorPeriod}
-          currentPeriod={currentPeriod}
-        />
-      )}
-
-      {/* Large Cancellations Alert */}
-      {largeCancellations && largeCancellations.count > 0 && (
-        <LargeCancellationsAlert data={largeCancellations} />
-      )}
-
-      {/* Sub-Producer Breakdown */}
-      {subProducerData && subProducerData.producerCount > 0 && currentPeriod && (
-        <SubProducerSummaryCard data={subProducerData} period={currentPeriod} />
-      )}
-
-      <Tabs defaultValue="underpayments" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="underpayments" className="gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Potential Underpayments ({potentialUnderpayments.length})
+      {/* Top-Level Tabs: Combined vs By Location */}
+      <Tabs value={topLevelTab} onValueChange={setTopLevelTab} className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="combined" className="gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Combined
           </TabsTrigger>
-          <TabsTrigger value="excluded" className="gap-2">
-            <CheckCircle className="h-4 w-4" />
-            Excluded Transactions ({excludedTransactions.length})
+          <TabsTrigger value="by-location" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            By Location
+            {agentNumbers.length > 1 && (
+              <Badge variant="secondary" className="ml-1">
+                {agentNumbers.length}
+              </Badge>
+            )}
           </TabsTrigger>
-          {hasMultipleLocations && (
-            <TabsTrigger value="by-location" className="gap-2">
-              <Building2 className="h-4 w-4" />
-              By Location ({agentNumbers.length})
-            </TabsTrigger>
-          )}
         </TabsList>
 
-        <TabsContent value="underpayments">
+        {/* ========== COMBINED TAB ========== */}
+        <TabsContent value="combined" className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Transactions Analyzed
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{analyzed.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {state} • {aapLevel}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className={potentialUnderpayments.length > 0 ? 'border-destructive border-2' : ''}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  {potentialUnderpayments.length > 0 ? (
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  )}
+                  Potential Underpayments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${potentialUnderpayments.length > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                  {potentialUnderpayments.length}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Require investigation
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Legitimately Excluded
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-600">
+                  {excludedTransactions.length}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  0% VC is correct
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className={totalMissingVcDollars > 0 ? 'border-amber-500 border-2' : ''}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Potential Missing VC
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-2xl font-bold ${totalMissingVcDollars > 0 ? 'text-amber-500' : ''}`}>
+                  {formatCurrency(totalMissingVcDollars)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  If underpayments confirmed
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Exclusion Breakdown */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">
-                🚨 Transactions Requiring Investigation
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Exclusion Breakdown
               </CardTitle>
-              {potentialUnderpayments.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportToCSV(potentialUnderpayments, 'potential-underpayments.csv')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-              )}
             </CardHeader>
             <CardContent>
-              {potentialUnderpayments.length === 0 ? (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
-                  <p className="text-lg font-medium">No Potential Underpayments Found!</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    All discrepancies have been matched to legitimate exclusion reasons.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <div className="flex gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-amber-800 dark:text-amber-200">Investigation Required</p>
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                          These transactions show 0% VC but no exclusion reason was detected. 
-                          Check the original Excel/statement data for: Channel of Bind, Service Fee flags, 
-                          Policy Type, and Original Effective Date.
-                        </p>
-                      </div>
+              <div className="flex flex-wrap gap-3">
+                <TooltipProvider>
+                  {Object.entries(exclusionBreakdown)
+                    .filter(([_, count]) => count > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([reason, count]) => (
+                      <Tooltip key={reason}>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/50 cursor-help">
+                            <span className="text-sm font-medium">
+                              {EXCLUSION_LABELS[reason as ExclusionReason]}
+                            </span>
+                            <Badge variant={reason === 'UNKNOWN_EXCLUSION' ? 'destructive' : 'secondary'}>
+                              {count}
+                            </Badge>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p>{EXCLUSION_DESCRIPTIONS[reason as ExclusionReason]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                </TooltipProvider>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Commission Rate Summary */}
+          {commissionSummary && currentPeriod && (
+            <CommissionRateSummaryCard 
+              current={commissionSummary.current}
+              prior={commissionSummary.prior}
+              period={currentPeriod}
+            />
+          )}
+
+          {/* Business Type Mix Analysis */}
+          {mixAnalysis && priorPeriod && currentPeriod && (
+            <BusinessTypeMixAnalysis 
+              comparison={mixAnalysis}
+              priorPeriod={priorPeriod}
+              currentPeriod={currentPeriod}
+            />
+          )}
+
+          {/* Large Cancellations Alert */}
+          {largeCancellations && largeCancellations.count > 0 && (
+            <LargeCancellationsAlert data={largeCancellations} />
+          )}
+
+          {/* Sub-Producer Breakdown */}
+          {subProducerData && subProducerData.producerCount > 0 && currentPeriod && (
+            <SubProducerSummaryCard data={subProducerData} period={currentPeriod} />
+          )}
+
+          {/* Sub-tabs for Underpayments and Excluded */}
+          <Tabs defaultValue="underpayments" className="space-y-4">
+            <TabsList className="flex-wrap h-auto gap-1">
+              <TabsTrigger value="underpayments" className="gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Potential Underpayments ({potentialUnderpayments.length})
+              </TabsTrigger>
+              <TabsTrigger value="excluded" className="gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Excluded Transactions ({excludedTransactions.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="underpayments">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">
+                    🚨 Transactions Requiring Investigation
+                  </CardTitle>
+                  {potentialUnderpayments.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => exportToCSV(potentialUnderpayments, 'potential-underpayments.csv')}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {potentialUnderpayments.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
+                      <p className="text-lg font-medium">No Potential Underpayments Found!</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        All discrepancies have been matched to legitimate exclusion reasons.
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex gap-3">
+                          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-amber-800 dark:text-amber-200">Investigation Required</p>
+                            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                              These transactions show 0% VC but no exclusion reason was detected. 
+                              Check the original Excel/statement data for: Channel of Bind, Service Fee flags, 
+                              Policy Type, and Original Effective Date.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Policy</TableHead>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Bundle</TableHead>
-                          <TableHead className="text-right">Premium</TableHead>
-                          <TableHead className="text-right">Expected</TableHead>
-                          <TableHead className="text-right">Missing VC</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(showAllUnderpayments 
-                          ? potentialUnderpayments 
-                          : potentialUnderpayments.slice(0, 20)
-                        ).map((d, i) => (
-                          <TableRow key={`${d.policyNumber}-${i}`}>
-                            <TableCell className="font-mono text-xs">
-                              {d.policyNumber}
-                            </TableCell>
-                            <TableCell>
-                              <p className="font-medium text-sm">{d.productCategory}</p>
-                              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                {d.productRaw}
-                              </p>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{d.businessType}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{d.bundleType}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(d.writtenPremium)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium text-green-600">
-                              {formatPercent(d.expectedVcRate)}
-                            </TableCell>
-                            <TableCell className="text-right font-bold text-destructive">
-                              {formatCurrency(d.missingVcDollars)}
-                            </TableCell>
-                          </TableRow>
+                      <div className="rounded-md border overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Policy</TableHead>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Bundle</TableHead>
+                              <TableHead className="text-right">Premium</TableHead>
+                              <TableHead className="text-right">Expected</TableHead>
+                              <TableHead className="text-right">Missing VC</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(showAllUnderpayments 
+                              ? potentialUnderpayments 
+                              : potentialUnderpayments.slice(0, 20)
+                            ).map((d, i) => (
+                              <TableRow key={`${d.policyNumber}-${i}`}>
+                                <TableCell className="font-mono text-xs">
+                                  {d.policyNumber}
+                                </TableCell>
+                                <TableCell>
+                                  <p className="font-medium text-sm">{d.productCategory}</p>
+                                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {d.productRaw}
+                                  </p>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{d.businessType}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary">{d.bundleType}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatCurrency(d.writtenPremium)}
+                                </TableCell>
+                                <TableCell className="text-right font-medium text-green-600">
+                                  {formatPercent(d.expectedVcRate)}
+                                </TableCell>
+                                <TableCell className="text-right font-bold text-destructive">
+                                  {formatCurrency(d.missingVcDollars)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {potentialUnderpayments.length > 20 && (
+                        <div className="mt-4 text-center">
+                          <Button
+                            variant="ghost"
+                            onClick={() => setShowAllUnderpayments(!showAllUnderpayments)}
+                          >
+                            {showAllUnderpayments ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                Show All {potentialUnderpayments.length} Transactions
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="excluded">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">
+                    ✓ Legitimately Excluded from VC
+                  </CardTitle>
+                  {excludedTransactions.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => exportToCSV(excludedTransactions, 'excluded-transactions.csv')}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {excludedTransactions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No excluded transactions to display.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(excludedByReason)
+                        .sort((a, b) => b[1].length - a[1].length)
+                        .map(([reason, transactions]) => (
+                          <div key={reason} className="border rounded-lg">
+                            <button
+                              className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                              onClick={() => setExpandedSection(
+                                expandedSection === reason ? null : reason
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                <div className="text-left">
+                                  <p className="font-medium">
+                                    {EXCLUSION_LABELS[reason as ExclusionReason]}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {EXCLUSION_DESCRIPTIONS[reason as ExclusionReason]}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">{transactions.length} transactions</Badge>
+                                {expandedSection === reason ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </div>
+                            </button>
+
+                            {expandedSection === reason && (
+                              <div className="border-t p-4">
+                                <div className="rounded-md border overflow-x-auto">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Policy</TableHead>
+                                        <TableHead>Product</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead className="text-right">Premium</TableHead>
+                                        <TableHead className="text-right">Expected Rate</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {transactions.slice(0, 10).map((d, i) => (
+                                        <TableRow key={`${d.policyNumber}-${i}`}>
+                                          <TableCell className="font-mono text-xs">
+                                            {d.policyNumber}
+                                          </TableCell>
+                                          <TableCell>{d.productCategory}</TableCell>
+                                          <TableCell>{d.businessType}</TableCell>
+                                          <TableCell className="text-right">
+                                            {formatCurrency(d.writtenPremium)}
+                                          </TableCell>
+                                          <TableCell className="text-right text-muted-foreground">
+                                            {formatPercent(d.expectedVcRate)} → 0%
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                                {transactions.length > 10 && (
+                                  <p className="text-sm text-muted-foreground mt-3 text-center">
+                                    ... and {transactions.length - 10} more
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {potentialUnderpayments.length > 20 && (
-                    <div className="mt-4 text-center">
-                      <Button
-                        variant="ghost"
-                        onClick={() => setShowAllUnderpayments(!showAllUnderpayments)}
-                      >
-                        {showAllUnderpayments ? (
-                          <>
-                            <ChevronUp className="h-4 w-4 mr-2" />
-                            Show Less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-4 w-4 mr-2" />
-                            Show All {potentialUnderpayments.length} Transactions
-                          </>
-                        )}
-                      </Button>
                     </div>
                   )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="excluded">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">
-                ✓ Legitimately Excluded from VC
-              </CardTitle>
-              {excludedTransactions.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportToCSV(excludedTransactions, 'excluded-transactions.csv')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {excludedTransactions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No excluded transactions to display.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(excludedByReason)
-                    .sort((a, b) => b[1].length - a[1].length)
-                    .map(([reason, transactions]) => (
-                      <div key={reason} className="border rounded-lg">
-                        <button
-                          className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                          onClick={() => setExpandedSection(
-                            expandedSection === reason ? null : reason
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                            <div className="text-left">
-                              <p className="font-medium">
-                                {EXCLUSION_LABELS[reason as ExclusionReason]}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {EXCLUSION_DESCRIPTIONS[reason as ExclusionReason]}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{transactions.length} transactions</Badge>
-                            {expandedSection === reason ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </div>
-                        </button>
-
-                        {expandedSection === reason && (
-                          <div className="border-t p-4">
-                            <div className="rounded-md border overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Policy</TableHead>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead className="text-right">Premium</TableHead>
-                                    <TableHead className="text-right">Expected Rate</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {transactions.slice(0, 10).map((d, i) => (
-                                    <TableRow key={`${d.policyNumber}-${i}`}>
-                                      <TableCell className="font-mono text-xs">
-                                        {d.policyNumber}
-                                      </TableCell>
-                                      <TableCell>{d.productCategory}</TableCell>
-                                      <TableCell>{d.businessType}</TableCell>
-                                      <TableCell className="text-right">
-                                        {formatCurrency(d.writtenPremium)}
-                                      </TableCell>
-                                      <TableCell className="text-right text-muted-foreground">
-                                        {formatPercent(d.expectedVcRate)} → 0%
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                            {transactions.length > 10 && (
-                              <p className="text-sm text-muted-foreground mt-3 text-center">
-                                ... and {transactions.length - 10} more
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* ========== BY LOCATION TAB ========== */}
+        <TabsContent value="by-location">
+          <ByLocationTab
+            currentTransactions={currentTransactions}
+            priorTransactions={priorTransactions}
+            agentNumbers={effectiveAgentNumbers}
+            statementPeriod={currentPeriod || 'Current Period'}
+            priorPeriod={priorPeriod}
+            potentialUnderpayments={potentialUnderpayments}
+          />
         </TabsContent>
-
-        {/* By Location Tab */}
-        {hasMultipleLocations && (
-          <TabsContent value="by-location">
-            <ByLocationTab
-              currentTransactions={currentTransactions}
-              priorTransactions={priorTransactions}
-              agentNumbers={agentNumbers}
-              statementPeriod={currentPeriod || 'Current Period'}
-            />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );
