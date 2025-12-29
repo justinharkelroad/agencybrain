@@ -44,6 +44,7 @@ const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   'EXCLUDED_JUA_JUP': 'JUA/JUP Policy',
   'EXCLUDED_FACILITY_CEDED': 'Facility Ceded',
   'EXCLUDED_MONOLINE_RENEWAL': 'Monoline Renewal',
+  'EXCLUDED_NB_ITEM_ADDITION': 'NB Item Addition',
   'UNKNOWN_EXCLUSION': 'Unknown - Investigate',
 };
 
@@ -58,6 +59,7 @@ const EXCLUSION_DESCRIPTIONS: Record<ExclusionReason, string> = {
   'EXCLUDED_JUA_JUP': 'JUA/JUP/Assigned Risk policies are excluded from variable compensation',
   'EXCLUDED_FACILITY_CEDED': 'Premium ceded to Facility is excluded from variable compensation',
   'EXCLUDED_MONOLINE_RENEWAL': 'Monoline renewal policies do not receive renewal VC - only Bundled/Preferred qualify',
+  'EXCLUDED_NB_ITEM_ADDITION': 'This "New Business" transaction is for a new item (vehicle/coverage) added to an existing policy, not a truly new policy. NB VC only applies to brand new policies bound in the period.',
   'UNKNOWN_EXCLUSION': 'No exclusion reason detected - this may be a potential underpayment to investigate',
 };
 

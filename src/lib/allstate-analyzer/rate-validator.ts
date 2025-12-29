@@ -23,6 +23,7 @@ export type ExclusionReason =
   | 'EXCLUDED_JUA_JUP'
   | 'EXCLUDED_FACILITY_CEDED'
   | 'EXCLUDED_MONOLINE_RENEWAL'
+  | 'EXCLUDED_NB_ITEM_ADDITION'
   | 'UNKNOWN_EXCLUSION';
 
 export interface RateDiscrepancy {
@@ -143,6 +144,49 @@ function detectExclusionReason(
       reason: 'EXCLUDED_SERVICE_FEE',
       note: 'Service Fee indicator present - excluded from variable compensation'
     };
+  }
+  
+  // CHECK 4: "New Business" item additions to existing policies
+  // If Business Type is "New Business" but Orig. Policy Eff Date is > 6 months old,
+  // this is an item addition to an existing policy, not a truly new policy.
+  // These don't qualify for NB VC rates.
+  if (businessType === 'New') {
+    const origDate = transaction.origPolicyEffDate || '';
+    
+    if (origDate && origDate !== 'N/A' && origDate !== '') {
+      // Parse the date (format is typically MM/YYYY or MM/DD/YYYY)
+      const dateParts = String(origDate).split('/');
+      let origMonth: number, origYear: number;
+      
+      if (dateParts.length === 2) {
+        // MM/YYYY format
+        origMonth = parseInt(dateParts[0], 10);
+        origYear = parseInt(dateParts[1], 10);
+      } else if (dateParts.length === 3) {
+        // MM/DD/YYYY format
+        origMonth = parseInt(dateParts[0], 10);
+        origYear = parseInt(dateParts[2], 10);
+      } else {
+        origMonth = 0;
+        origYear = 0;
+      }
+      
+      // Get current date for comparison
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1; // 1-indexed
+      
+      // Calculate months difference
+      const monthsDiff = (currentYear - origYear) * 12 + (currentMonth - origMonth);
+      
+      // If original policy is more than 6 months old, this is an item addition, not a new policy
+      if (monthsDiff > 6 && origYear > 0) {
+        return {
+          reason: 'EXCLUDED_NB_ITEM_ADDITION',
+          note: `Item added to existing policy (orig. ${origDate}). "New Business" label is for the item, not the policy. NB VC only applies to truly new policies.`
+        };
+      }
+    }
   }
   
   // Get all text fields to search for patterns
@@ -408,6 +452,7 @@ export function validateRates(
     'EXCLUDED_JUA_JUP': 0,
     'EXCLUDED_FACILITY_CEDED': 0,
     'EXCLUDED_MONOLINE_RENEWAL': 0,
+    'EXCLUDED_NB_ITEM_ADDITION': 0,
     'UNKNOWN_EXCLUSION': 0,
   };
 
