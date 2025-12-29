@@ -81,9 +81,9 @@ export function SubProducerSummaryCard({ data, period }: Props) {
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="text-xl font-bold">
-                ${totals.netCommission.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {totals.creditCount || 0} / {totals.chargebackCount || 0}
               </div>
-              <div className="text-xs text-muted-foreground">Net Comm</div>
+              <div className="text-xs text-muted-foreground">Credits / CB</div>
             </div>
           </div>
           

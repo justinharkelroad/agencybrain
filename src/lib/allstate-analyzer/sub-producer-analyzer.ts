@@ -1,5 +1,6 @@
 import { StatementTransaction } from '../allstate-parser/excel-parser';
 
+// Individual transaction record (for reference)
 export interface SubProducerTransaction {
   policyNumber: string;
   insuredName: string;
@@ -11,29 +12,44 @@ export interface SubProducerTransaction {
   isAuto: boolean;
 }
 
+// Aggregated insured record (net per insured)
+export interface InsuredAggregate {
+  insuredName: string;
+  netPremium: number;
+  netCommission: number;
+  transactionCount: number;
+}
+
 export interface SubProducerMetrics {
   code: string;
   displayName: string;
   
-  // Premium (first-term only)
-  premiumWritten: number;
-  premiumChargebacks: number;
+  // Premium (first-term only) - based on net per insured
+  premiumWritten: number;       // Sum of positive insured nets
+  premiumChargebacks: number;   // Sum of negative insured nets (as positive value)
   netPremium: number;
   
-  // Counts
+  // Counts - unique insureds, not transactions
+  creditCount: number;          // Insureds with positive net
+  chargebackCount: number;      // Insureds with negative net
+  
+  // Legacy counts for display
   policiesIssued: number;
   itemsIssued: number;
-  chargebackCount: number;
   
-  // Commission (first-term only)
-  commissionEarned: number;
-  commissionChargebacks: number;
+  // Commission (first-term only) - based on net per insured
+  commissionEarned: number;     // Sum of positive insured net commissions
+  commissionChargebacks: number; // Sum of negative insured net commissions (as positive value)
   netCommission: number;
   
   // Rates
   effectiveRate: number;
   
-  // Transaction lists for drill-down
+  // Aggregated insured lists for drill-down (net per insured)
+  creditInsureds: InsuredAggregate[];      // Insureds with positive net
+  chargebackInsureds: InsuredAggregate[];  // Insureds with negative net
+  
+  // Keep raw transactions for reference if needed
   creditTransactions: SubProducerTransaction[];
   chargebackTransactions: SubProducerTransaction[];
 }
@@ -156,103 +172,139 @@ export function analyzeSubProducers(
     return origDate >= cutoff;
   }
   
-  // Group by Sub-Prod Code
-  const producerMap = new Map<string, {
-    premiumWritten: number;
-    premiumChargebacks: number;
+  // Step 1: Group by Sub-Prod Code, then by Insured Name
+  // Structure: producerCode -> insuredName -> { premium, commission, transactions }
+  const producerInsuredMap = new Map<string, Map<string, {
+    netPremium: number;
+    netCommission: number;
+    transactions: SubProducerTransaction[];
     policiesIssued: number;
     itemsIssued: number;
-    chargebackCount: number;
-    commissionEarned: number;
-    commissionChargebacks: number;
-    creditTransactions: SubProducerTransaction[];
-    chargebackTransactions: SubProducerTransaction[];
-  }>();
+  }>>();
   
   for (const tx of nbTransactions) {
     // Skip if not first-term
     if (!isFirstTerm(tx)) continue;
     
     const code = String(tx.subProdCode || '').trim();
-    // Handle NaN, undefined, empty as "Agency"
     const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
+    const insuredName = (tx.namedInsured || '').trim();
     
-    if (!producerMap.has(normalizedCode)) {
-      producerMap.set(normalizedCode, {
-        premiumWritten: 0,
-        premiumChargebacks: 0,
+    if (!producerInsuredMap.has(normalizedCode)) {
+      producerInsuredMap.set(normalizedCode, new Map());
+    }
+    
+    const insuredMap = producerInsuredMap.get(normalizedCode)!;
+    
+    if (!insuredMap.has(insuredName)) {
+      insuredMap.set(insuredName, {
+        netPremium: 0,
+        netCommission: 0,
+        transactions: [],
         policiesIssued: 0,
-        itemsIssued: 0,
-        chargebackCount: 0,
-        commissionEarned: 0,
-        commissionChargebacks: 0,
-        creditTransactions: [],
-        chargebackTransactions: []
+        itemsIssued: 0
       });
     }
     
-    const data = producerMap.get(normalizedCode)!;
+    const data = insuredMap.get(insuredName)!;
     const premium = tx.writtenPremium || 0;
     const baseComm = tx.baseCommissionAmount || 0;
     const vcComm = tx.vcAmount || 0;
     const commission = tx.totalCommission || (baseComm + vcComm);
     const transType = (tx.transType || '').toLowerCase();
     
-    // Build transaction record for drill-down
-    const txRecord: SubProducerTransaction = {
+    // Accumulate net values (positive + negative)
+    data.netPremium += premium;
+    data.netCommission += commission;
+    
+    // Track policies/items issued
+    if (transType.includes('policies issued')) data.policiesIssued += 1;
+    if (transType.includes('coverage issued')) data.itemsIssued += 1;
+    
+    // Store transaction for reference
+    data.transactions.push({
       policyNumber: tx.policyNumber || '',
-      insuredName: tx.namedInsured || '',
+      insuredName: insuredName,
       product: tx.product || '',
       transType: tx.transType || '',
       premium: premium,
       commission: commission,
       origPolicyEffDate: tx.origPolicyEffDate || '',
       isAuto: isAutoProduct(tx.product || '')
-    };
-    
-    // Classify transaction
-    const isPolicyIssued = transType.includes('policies issued');
-    const isCoverageIssued = transType.includes('coverage issued');
-    
-    if (premium >= 0) {
-      // Positive premium = written/credit
-      data.premiumWritten += premium;
-      data.commissionEarned += commission;
-      data.creditTransactions.push(txRecord);
-      
-      if (isPolicyIssued) data.policiesIssued += 1;
-      if (isCoverageIssued) data.itemsIssued += 1;
-    } else {
-      // Negative premium = chargeback
-      data.premiumChargebacks += Math.abs(premium);
-      data.commissionChargebacks += Math.abs(commission);
-      data.chargebackCount += 1;
-      data.chargebackTransactions.push(txRecord);
-    }
+    });
   }
   
-  // Convert to array and calculate derived metrics
+  // Step 2: Convert to producer metrics with net-per-insured aggregation
   const producers: SubProducerMetrics[] = [];
   
-  for (const [code, data] of producerMap) {
-    const netPremium = data.premiumWritten - data.premiumChargebacks;
-    const netCommission = data.commissionEarned - data.commissionChargebacks;
+  for (const [code, insuredMap] of producerInsuredMap) {
+    let premiumWritten = 0;       // Sum of positive insured nets
+    let premiumChargebacks = 0;   // Sum of negative insured nets
+    let commissionEarned = 0;
+    let commissionChargebacks = 0;
+    let policiesIssued = 0;
+    let itemsIssued = 0;
+    
+    const creditInsureds: InsuredAggregate[] = [];
+    const chargebackInsureds: InsuredAggregate[] = [];
+    const creditTransactions: SubProducerTransaction[] = [];
+    const chargebackTransactions: SubProducerTransaction[] = [];
+    
+    for (const [insuredName, data] of insuredMap) {
+      // Accumulate legacy counts
+      policiesIssued += data.policiesIssued;
+      itemsIssued += data.itemsIssued;
+      
+      // Skip insureds with net = 0 (cancelled their own policy)
+      if (Math.abs(data.netPremium) < 0.01) continue;
+      
+      const aggregate: InsuredAggregate = {
+        insuredName,
+        netPremium: data.netPremium,
+        netCommission: data.netCommission,
+        transactionCount: data.transactions.length
+      };
+      
+      if (data.netPremium > 0) {
+        // Positive net = credit
+        premiumWritten += data.netPremium;
+        commissionEarned += data.netCommission;
+        creditInsureds.push(aggregate);
+        creditTransactions.push(...data.transactions);
+      } else {
+        // Negative net = chargeback
+        premiumChargebacks += Math.abs(data.netPremium);
+        commissionChargebacks += Math.abs(data.netCommission);
+        chargebackInsureds.push(aggregate);
+        chargebackTransactions.push(...data.transactions);
+      }
+    }
+    
+    // Sort insureds: credits by net descending, chargebacks by net ascending (most negative first)
+    creditInsureds.sort((a, b) => b.netPremium - a.netPremium);
+    chargebackInsureds.sort((a, b) => a.netPremium - b.netPremium);
+    
+    const netPremium = premiumWritten - premiumChargebacks;
+    const netCommission = commissionEarned - commissionChargebacks;
     
     producers.push({
       code,
       displayName: code === '' ? 'Agency' : `Sub-Producer: ${code}`,
-      premiumWritten: data.premiumWritten,
-      premiumChargebacks: data.premiumChargebacks,
+      premiumWritten,
+      premiumChargebacks,
       netPremium,
-      policiesIssued: data.policiesIssued,
-      itemsIssued: data.itemsIssued,
-      chargebackCount: data.chargebackCount,
-      commissionEarned: data.commissionEarned,
-      commissionChargebacks: data.commissionChargebacks,
+      creditCount: creditInsureds.length,
+      chargebackCount: chargebackInsureds.length,
+      policiesIssued,
+      itemsIssued,
+      commissionEarned,
+      commissionChargebacks,
       netCommission,
       effectiveRate: netPremium !== 0 ? (netCommission / netPremium) * 100 : 0,
-      creditTransactions: data.creditTransactions,
-      chargebackTransactions: data.chargebackTransactions
+      creditInsureds,
+      chargebackInsureds,
+      creditTransactions,
+      chargebackTransactions
     });
   }
   
@@ -264,12 +316,21 @@ export function analyzeSubProducers(
   });
   
   // Calculate totals
+  const allCreditInsureds: InsuredAggregate[] = [];
+  const allChargebackInsureds: InsuredAggregate[] = [];
   const allCreditTx: SubProducerTransaction[] = [];
   const allChargebackTx: SubProducerTransaction[] = [];
+  
   producers.forEach(p => {
+    allCreditInsureds.push(...p.creditInsureds);
+    allChargebackInsureds.push(...p.chargebackInsureds);
     allCreditTx.push(...p.creditTransactions);
     allChargebackTx.push(...p.chargebackTransactions);
   });
+  
+  // Sort totals
+  allCreditInsureds.sort((a, b) => b.netPremium - a.netPremium);
+  allChargebackInsureds.sort((a, b) => a.netPremium - b.netPremium);
   
   const totals: SubProducerMetrics = {
     code: 'TOTAL',
@@ -277,13 +338,16 @@ export function analyzeSubProducers(
     premiumWritten: producers.reduce((sum, p) => sum + p.premiumWritten, 0),
     premiumChargebacks: producers.reduce((sum, p) => sum + p.premiumChargebacks, 0),
     netPremium: producers.reduce((sum, p) => sum + p.netPremium, 0),
+    creditCount: allCreditInsureds.length,
+    chargebackCount: allChargebackInsureds.length,
     policiesIssued: producers.reduce((sum, p) => sum + p.policiesIssued, 0),
     itemsIssued: producers.reduce((sum, p) => sum + p.itemsIssued, 0),
-    chargebackCount: producers.reduce((sum, p) => sum + p.chargebackCount, 0),
     commissionEarned: producers.reduce((sum, p) => sum + p.commissionEarned, 0),
     commissionChargebacks: producers.reduce((sum, p) => sum + p.commissionChargebacks, 0),
     netCommission: producers.reduce((sum, p) => sum + p.netCommission, 0),
     effectiveRate: 0,
+    creditInsureds: allCreditInsureds,
+    chargebackInsureds: allChargebackInsureds,
     creditTransactions: allCreditTx,
     chargebackTransactions: allChargebackTx
   };

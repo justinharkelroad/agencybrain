@@ -1,40 +1,35 @@
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { SubProducerTransaction } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { InsuredAggregate } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 
 interface Props {
-  transactions: SubProducerTransaction[];
+  insureds: InsuredAggregate[];
   type: 'credits' | 'chargebacks';
 }
 
-export function SubProducerTransactionTable({ transactions, type }: Props) {
+export function SubProducerTransactionTable({ insureds, type }: Props) {
   const isChargeback = type === 'chargebacks';
   
-  // Filter out $0.00 transactions - they add no value
-  const nonZeroTransactions = transactions.filter(tx => Math.abs(tx.premium) > 0);
+  // Filter out $0.00 net values - they shouldn't exist but just in case
+  const nonZeroInsureds = insureds.filter(ins => Math.abs(ins.netPremium) > 0.01);
   
-  // Sort by absolute premium descending
-  const sorted = [...nonZeroTransactions].sort((a, b) => 
-    Math.abs(b.premium) - Math.abs(a.premium)
-  );
-  
-  const totalPremium = nonZeroTransactions.reduce((sum, tx) => sum + Math.abs(tx.premium), 0);
-  const totalCommission = nonZeroTransactions.reduce((sum, tx) => sum + Math.abs(tx.commission), 0);
+  // Already sorted by analyzer: credits desc, chargebacks asc (most negative first)
+  const totalPremium = nonZeroInsureds.reduce((sum, ins) => sum + Math.abs(ins.netPremium), 0);
+  const totalCommission = nonZeroInsureds.reduce((sum, ins) => sum + Math.abs(ins.netCommission), 0);
   
   return (
     <div className="space-y-3">
       {/* Summary */}
       <div className="flex items-center justify-between text-sm px-1">
         <span className="text-muted-foreground">
-          {nonZeroTransactions.length} transaction{nonZeroTransactions.length !== 1 ? 's' : ''}
+          {nonZeroInsureds.length} insured{nonZeroInsureds.length !== 1 ? 's' : ''}
         </span>
         <div className="flex gap-4">
           <span className={isChargeback ? 'text-red-500' : 'text-foreground'}>
-            {isChargeback ? '-' : ''}${totalPremium.toLocaleString(undefined, { minimumFractionDigits: 2 })} premium
+            {isChargeback ? '-' : ''}${totalPremium.toLocaleString(undefined, { minimumFractionDigits: 2 })} net premium
           </span>
           <span className={isChargeback ? 'text-red-500' : 'text-foreground'}>
-            {isChargeback ? '-' : ''}${totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })} comm
+            {isChargeback ? '-' : ''}${totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })} net comm
           </span>
         </div>
       </div>
@@ -44,36 +39,27 @@ export function SubProducerTransactionTable({ transactions, type }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[120px]">Policy</TableHead>
-              <TableHead>Insured</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Trans Type</TableHead>
-              <TableHead className="text-right">Premium</TableHead>
-              <TableHead className="text-right">Commission</TableHead>
-              <TableHead className="w-[90px]">Orig Date</TableHead>
+              <TableHead>Insured Name</TableHead>
+              <TableHead className="text-right">Net Premium</TableHead>
+              <TableHead className="text-right">Net Commission</TableHead>
+              <TableHead className="text-center w-[80px]">Txns</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((tx, idx) => (
-              <TableRow key={`${tx.policyNumber}-${idx}`}>
-                <TableCell className="font-mono text-xs">{tx.policyNumber}</TableCell>
-                <TableCell className="max-w-[150px] truncate">{tx.insuredName}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate max-w-[100px]">{tx.product}</span>
-                    <Badge variant="outline" className="text-[10px] px-1 py-0">
-                      {tx.isAuto ? '6mo' : '12mo'}
-                    </Badge>
-                  </div>
-                </TableCell>
-                <TableCell className="text-xs">{tx.transType}</TableCell>
-                <TableCell className={`text-right ${isChargeback ? 'text-red-500' : ''}`}>
-                  {isChargeback ? '-' : ''}${Math.abs(tx.premium).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {nonZeroInsureds.map((ins, idx) => (
+              <TableRow key={`${ins.insuredName}-${idx}`}>
+                <TableCell className="max-w-[200px] truncate font-medium">
+                  {ins.insuredName}
                 </TableCell>
                 <TableCell className={`text-right ${isChargeback ? 'text-red-500' : ''}`}>
-                  {isChargeback ? '-' : ''}${Math.abs(tx.commission).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {isChargeback ? '-' : ''}${Math.abs(ins.netPremium).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{tx.origPolicyEffDate}</TableCell>
+                <TableCell className={`text-right ${isChargeback ? 'text-red-500' : ''}`}>
+                  {isChargeback ? '-' : ''}${Math.abs(ins.netCommission).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </TableCell>
+                <TableCell className="text-center text-muted-foreground text-xs">
+                  {ins.transactionCount}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

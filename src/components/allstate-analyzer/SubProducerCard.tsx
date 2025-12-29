@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Package, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,12 +18,10 @@ export function SubProducerCard({ producer, isAgency }: Props) {
   const hasChargebacks = producer.premiumChargebacks > 0;
   const isNetNegative = producer.netPremium < 0;
   
-  // Defensive defaults for legacy data + filter out zero-premium transactions
-  const creditTransactions = producer.creditTransactions || [];
-  const chargebackTransactions = producer.chargebackTransactions || [];
-  const nonZeroCredits = creditTransactions.filter(tx => Math.abs(tx.premium) > 0);
-  const nonZeroChargebacks = chargebackTransactions.filter(tx => Math.abs(tx.premium) > 0);
-  const totalNonZero = nonZeroCredits.length + nonZeroChargebacks.length;
+  // Defensive defaults for legacy data
+  const creditInsureds = producer.creditInsureds || [];
+  const chargebackInsureds = producer.chargebackInsureds || [];
+  const totalInsureds = creditInsureds.length + chargebackInsureds.length;
   
   return (
     <Card className={isAgency ? 'border-primary/30' : ''}>
@@ -47,7 +45,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
         
         {/* Premium Section */}
         <div className="mb-4">
-          <div className="text-xs font-medium text-muted-foreground mb-2">Premium (First-Term Only)</div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Premium (First-Term, Net per Insured)</div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
               <div className="text-muted-foreground text-xs">Written</div>
@@ -76,13 +74,9 @@ export function SubProducerCard({ producer, isAgency }: Props) {
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{producer.policiesIssued} Policies</span>
+              <span>{producer.creditCount || 0} Credits</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Package className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{producer.itemsIssued} Items</span>
-            </div>
-            {producer.chargebackCount > 0 && (
+            {(producer.chargebackCount || 0) > 0 && (
               <div className="flex items-center gap-1.5 text-red-500">
                 <XCircle className="h-3.5 w-3.5" />
                 <span>{producer.chargebackCount} Chargebacks</span>
@@ -117,19 +111,19 @@ export function SubProducerCard({ producer, isAgency }: Props) {
         </div>
         
         {/* Transaction Drill-Down */}
-        {totalNonZero > 0 && (
+        {totalInsureds > 0 && (
           <Collapsible open={showTransactions} onOpenChange={setShowTransactions}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-center gap-1 text-muted-foreground hover:text-foreground">
                 {showTransactions ? (
                   <>
                     <ChevronUp className="h-4 w-4" />
-                    Hide Transactions
+                    Hide Details
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-4 w-4" />
-                    View Transactions ({totalNonZero})
+                    View Details ({totalInsureds} insureds)
                   </>
                 )}
               </Button>
@@ -138,24 +132,24 @@ export function SubProducerCard({ producer, isAgency }: Props) {
               <Tabs defaultValue="credits" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="credits">
-                    Credits ({nonZeroCredits.length})
+                    Credits ({creditInsureds.length})
                   </TabsTrigger>
                   <TabsTrigger value="chargebacks">
-                    Chargebacks ({nonZeroChargebacks.length})
+                    Chargebacks ({chargebackInsureds.length})
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="credits" className="mt-3">
-                  {nonZeroCredits.length > 0 ? (
-                    <SubProducerTransactionTable transactions={creditTransactions} type="credits" />
+                  {creditInsureds.length > 0 ? (
+                    <SubProducerTransactionTable insureds={creditInsureds} type="credits" />
                   ) : (
                     <div className="text-center py-4 text-sm text-muted-foreground">
-                      No credit transactions
+                      No credit insureds
                     </div>
                   )}
                 </TabsContent>
                 <TabsContent value="chargebacks" className="mt-3">
-                  {nonZeroChargebacks.length > 0 ? (
-                    <SubProducerTransactionTable transactions={chargebackTransactions} type="chargebacks" />
+                  {chargebackInsureds.length > 0 ? (
+                    <SubProducerTransactionTable insureds={chargebackInsureds} type="chargebacks" />
                   ) : (
                     <div className="text-center py-4 text-sm text-muted-foreground">
                       No chargebacks 🎉
