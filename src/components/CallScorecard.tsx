@@ -679,8 +679,8 @@ export function CallScorecard({
               <h3 className="font-bold text-sm mb-4">EXECUTION CLEAN SHEET</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Support new checklist array format */}
-                {Array.isArray(call.checklist) && call.checklist.length > 0 ? (
-                  call.checklist.map((item: { label: string; checked: boolean; evidence?: string | null }, idx: number) => (
+                {Array.isArray(executionChecklist) && executionChecklist.length > 0 && typeof executionChecklist[0] === 'object' && 'label' in executionChecklist[0] ? (
+                  executionChecklist.map((item: { label: string; checked: boolean; evidence?: string | null }, idx: number) => (
                     <div key={idx} className="flex items-start gap-2">
                       <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         item.checked ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
