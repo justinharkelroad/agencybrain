@@ -129,19 +129,27 @@ export async function parseBonusQualifiersImage(file: File): Promise<BonusQualif
 
 export async function parseBonusQualifiersPDF(file: File): Promise<BonusQualifiersExtraction | null> {
   try {
+    console.log('Starting PDF parsing for bonus qualifiers...');
+    
     // Dynamic import to avoid bundling issues
     const pdfjsLib = await import('pdfjs-dist');
     
-    // Use unpkg CDN which is more reliable for pdfjs-dist versions
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+    // Use import.meta.url for bundler-resolved worker path (most reliable)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+    
+    const arrayBuffer = await file.arrayBuffer();
+    console.log('PDF loaded, size:', arrayBuffer.byteLength);
     
     let pdf;
     try {
-      const arrayBuffer = await file.arrayBuffer();
       pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    } catch (workerError) {
-      console.error('PDF worker error:', workerError);
-      throw new Error(`PDF processing failed: ${workerError.message}`);
+      console.log('PDF parsed, pages:', pdf.numPages);
+    } catch (workerError: any) {
+      console.error('PDF worker/document error:', workerError);
+      throw new Error(`PDF processing failed: ${workerError?.message || 'Unknown error'}`);
     }
     
     // First try text extraction
