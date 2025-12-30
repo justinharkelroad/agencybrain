@@ -208,8 +208,8 @@ export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetri
     // Dynamic import to avoid bundling issues
     const pdfjsLib = await import('pdfjs-dist');
     
-    // Set worker path
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    // Set worker path with full https URL (not protocol-relative)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
     
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
