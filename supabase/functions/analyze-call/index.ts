@@ -182,11 +182,12 @@ function buildSalesUserPrompt(transcript: string, skillCategories: any): string 
     `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`
   ).join('\n');
 
-  // Generate execution_checklist JSON structure
-  const checklistJsonStructure = checklistItems.map((item: any) => {
-    const key = item.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    return `    "${key}": <true/false>`;
-  }).join(',\n');
+  // Generate checklist JSON structure with evidence (matching service format)
+  const checklistExample = checklistItems.map((item: any) => ({
+    label: item.label,
+    checked: true,
+    evidence: "<quote from call proving this happened, or null if not observed>"
+  }));
 
   // Generate skill_scores keys
   const skillScoresKeys = scoredSections.map((section: any) => {
@@ -221,9 +222,7 @@ ${skillScoresKeys}
 ${sectionScoresStructure}
   },
   
-  "execution_checklist": {
-${checklistJsonStructure}
-  },
+  "checklist": ${JSON.stringify(checklistExample, null, 4)},
   
   "corrective_action_plan": {
     "primary_focus": "<2-3 sentences with specific phrases and techniques to implement>",
@@ -261,6 +260,7 @@ IMPORTANT RULES:
 - Critical assessment must be 3-4 sentences minimum
 - Be specific - cite quotes from the transcript when possible
 - Format prices consistently as $X/month or $X/year
+- Checklist evidence MUST quote the exact words spoken from the transcript when checked=true; use null when not observed
 
 ## TRANSCRIPT
 ${transcript}`;
@@ -528,13 +528,24 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
       };
     } else {
       // Sales call specific fields - use dynamic skill_scores from analysis
+      // Convert checklist to array format if AI returns legacy execution_checklist object
+      let salesChecklist = analysis.checklist;
+      if (!salesChecklist && analysis.execution_checklist) {
+        // Legacy format: convert object to array with evidence
+        salesChecklist = Object.entries(analysis.execution_checklist).map(([key, checked]) => ({
+          label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          checked: Boolean(checked),
+          evidence: null
+        }));
+      }
+      
       updatePayload = {
         ...updatePayload,
         potential_rank: analysis.potential_rank,
         skill_scores: analysis.skill_scores,
         section_scores: analysis.section_scores,
         client_profile: analysis.extracted_data,
-        discovery_wins: analysis.execution_checklist,
+        discovery_wins: salesChecklist,
         critical_gaps: {
           assessment: analysis.critical_assessment,
           rationale: analysis.potential_rank_rationale,
