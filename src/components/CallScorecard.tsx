@@ -122,16 +122,36 @@ export function CallScorecard({
     extractedData?.salesperson_name || 
     'Agent';
 
-  // Prepare radar chart data
+  // Prepare radar chart data - handles both array and object formats
   const getRadarData = () => {
-    const scores = call.skill_scores || {};
+    const scores = call.skill_scores;
     
+    // Handle array format (new): [{skill_name, score (0-10), max_score}]
+    if (Array.isArray(scores) && scores.length > 0) {
+      const findScore = (keywords: string[]) => {
+        const match = scores.find((s: any) => 
+          keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase()))
+        );
+        return match ? (match.score / (match.max_score || 10)) * 100 : 50;
+      };
+      
+      return [
+        { skill: 'Rapport', score: findScore(['rapport', 'thanking', 'greeting']), fullMark: 100 },
+        { skill: 'Discovery', score: findScore(['discovery', 'question', 'value-based']), fullMark: 100 },
+        { skill: 'Coverage', score: findScore(['coverage', 'liability', 'protection']), fullMark: 100 },
+        { skill: 'Objection', score: findScore(['objection', 'handling']), fullMark: 100 },
+        { skill: 'Closing', score: findScore(['closing', 'assumptive', 'sale']), fullMark: 100 },
+      ];
+    }
+    
+    // Handle object format (legacy): {rapport: 75, discovery: 60, ...}
+    const scoresObj = scores || {};
     return [
-      { skill: 'Rapport', score: sectionScores.rapport?.score || scores.rapport || 50, fullMark: 100 },
-      { skill: 'Discovery', score: scores.discovery || 50, fullMark: 100 },
-      { skill: 'Coverage', score: sectionScores.coverage?.score || scores.coverage || 50, fullMark: 100 },
-      { skill: 'Objection', score: scores.objection_handling || 50, fullMark: 100 },
-      { skill: 'Closing', score: sectionScores.closing?.score || scores.closing || 50, fullMark: 100 },
+      { skill: 'Rapport', score: sectionScores.rapport?.score || scoresObj.rapport || 50, fullMark: 100 },
+      { skill: 'Discovery', score: scoresObj.discovery || 50, fullMark: 100 },
+      { skill: 'Coverage', score: sectionScores.coverage?.score || scoresObj.coverage || 50, fullMark: 100 },
+      { skill: 'Objection', score: scoresObj.objection_handling || 50, fullMark: 100 },
+      { skill: 'Closing', score: sectionScores.closing?.score || scoresObj.closing || 50, fullMark: 100 },
     ];
   };
 
