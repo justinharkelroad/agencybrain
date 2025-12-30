@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo } from "react";
-import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess";
+import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath } from "@/utils/tierAccess";
 import {
   LogOut,
   Sun,
@@ -225,7 +225,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         <div className="px-4 py-6 flex items-center justify-center border-b border-border">
           <AgencyBrainBadge 
             asLink 
-            to="/staff/dashboard"
+            to={getStaffHomePath(user?.agency_membership_tier)}
             className="w-full px-2"
           />
         </div>

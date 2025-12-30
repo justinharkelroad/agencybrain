@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { isCallScoringTier } from '@/utils/tierAccess';
+import { getStaffHomePath } from '@/utils/tierAccess';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,12 +20,9 @@ export default function StaffLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already authenticated - Call Scoring tier goes directly to call-scoring
+  // Redirect if already authenticated - tier-aware home path
   if (isAuthenticated) {
-    const redirectPath = isCallScoringTier(user?.agency_membership_tier) 
-      ? '/staff/call-scoring' 
-      : '/staff/dashboard';
-    navigate(redirectPath);
+    navigate(getStaffHomePath(user?.agency_membership_tier));
     return null;
   }
 
@@ -40,11 +37,8 @@ export default function StaffLogin() {
       setError(result.error);
       setLoading(false);
     } else {
-      // Redirect based on tier - Call Scoring tier goes directly to call-scoring
-      const redirectPath = isCallScoringTier(result.user?.agency_membership_tier) 
-        ? '/staff/call-scoring' 
-        : '/staff/dashboard';
-      navigate(redirectPath);
+      // Redirect based on tier - tier-aware home path
+      navigate(getStaffHomePath(result.user?.agency_membership_tier));
     }
   };
 

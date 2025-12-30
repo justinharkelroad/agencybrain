@@ -84,6 +84,7 @@ import StaffSPLesson from "./pages/staff/StaffSPLesson";
 import StaffFormSubmission from "./pages/StaffFormSubmission";
 import { StaffProtectedRoute } from "./components/StaffProtectedRoute";
 import { StaffLayout, StaffDashboard, StaffAccountSettings, StaffSubmitWrapper } from "./components/staff";
+import { StaffIndexRedirect } from "./components/staff/StaffIndexRedirect";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AcceptKeyEmployeeInvite from "./pages/AcceptKeyEmployeeInvite";
@@ -829,7 +830,7 @@ const App = () => {
                 <StaffLayout />
               </StaffProtectedRoute>
             }>
-              <Route index element={<Navigate to="/staff/dashboard" replace />} />
+              <Route index element={<StaffIndexRedirect />} />
               <Route path="dashboard" element={<StaffDashboard />} />
               <Route path="submit" element={<StaffSubmitWrapper />} />
               <Route path="submit/:formSlug" element={<StaffFormSubmission />} />
