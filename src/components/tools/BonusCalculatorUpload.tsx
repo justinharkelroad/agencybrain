@@ -37,10 +37,15 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
   
   const [isExtracting, setIsExtracting] = useState(false);
 
-  // Metrics dropzone
+  // Metrics dropzone - XLSX only (no PDF support)
   const onMetricsDrop = useCallback((acceptedFiles: File[], rejectedFiles: unknown[]) => {
     if (rejectedFiles.length > 0) {
-      setMetricsError('Please upload a PDF or XLSX file for Business Metrics');
+      const file = (rejectedFiles[0] as any)?.file;
+      if (file?.type === 'application/pdf' || file?.name?.endsWith('.pdf')) {
+        setMetricsError('PDF files are not supported. Please download your Business Metrics report as XLSX from the Allstate portal.');
+      } else {
+        setMetricsError('Please upload an XLSX file for Business Metrics');
+      }
       return;
     }
     
@@ -61,7 +66,6 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
   const metricsDropzone = useDropzone({
     onDrop: onMetricsDrop,
     accept: {
-      'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls'],
     },
@@ -131,14 +135,9 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
             }
           } else {
             setMetricsStatus('error');
-            const ext = metricsFile.name.toLowerCase().split('.').pop();
-            if (ext === 'pdf') {
-              setMetricsError('This PDF appears to be image-based. Please upload the XLSX version for best results.');
-            } else {
-              setMetricsError('Could not extract data from this file');
-            }
+            setMetricsError('Could not extract data from this file. Please ensure it is the Business Metrics XLSX report.');
           }
-        } catch (err) {
+        } catch (err: any) {
           setMetricsStatus('error');
           setMetricsError('Failed to process file');
           console.error('Metrics extraction error:', err);
@@ -244,9 +243,9 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
                   {metricsStatus === 'empty' && (
                     <div className="space-y-2">
                       <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground" />
-                      <p className="font-medium text-sm">Business Metrics Report</p>
-                      <p className="text-xs text-muted-foreground">Drop XLSX or PDF here</p>
-                      <p className="text-xs text-muted-foreground/60">(XLSX recommended)</p>
+                      <p className="font-medium text-sm">📊 Business Metrics Report</p>
+                      <p className="text-xs text-muted-foreground">Drop XLSX file here</p>
+                      <p className="text-xs text-muted-foreground/60">(.xlsx or .xls only)</p>
                     </div>
                   )}
                   
@@ -372,6 +371,10 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
                 </>
               )}
             </Button>
+            
+            <p className="text-xs text-muted-foreground">
+              💡 Download your Business Metrics report as XLSX from the "Business Metrics-Agency Printable View" in the Allstate portal.
+            </p>
             
             <div className="border-t pt-3">
               <p className="text-xs text-muted-foreground text-center">
