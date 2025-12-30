@@ -740,7 +740,8 @@ export function CallScorecard({
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
                   <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.rapport || 
+                    {call.critical_gaps?.corrective_plan?.primary_focus || 
+                     call.critical_gaps?.corrective_plan?.rapport || 
                      sectionScores.rapport?.coaching || 
                      'Build deeper connection using the HWF framework before discussing insurance details.'}
                   </p>
@@ -750,7 +751,8 @@ export function CallScorecard({
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
                   <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.value_building || 
+                    {call.critical_gaps?.corrective_plan?.secondary_focus || 
+                     call.critical_gaps?.corrective_plan?.value_building || 
                      sectionScores.coverage?.coaching || 
                      'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
                   </p>
@@ -760,7 +762,8 @@ export function CallScorecard({
                 <div>
                   <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
                   <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.closing || 
+                    {call.critical_gaps?.corrective_plan?.closing_focus || 
+                     call.critical_gaps?.corrective_plan?.closing || 
                      sectionScores.closing?.coaching || 
                      'Use assumptive close language and set hard follow-up appointments with specific times.'}
                   </p>
