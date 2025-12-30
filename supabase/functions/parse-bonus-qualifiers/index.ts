@@ -149,14 +149,21 @@ CRITICAL INSTRUCTIONS:
     }
     
     // Validate and clean tier data
+    // IMPORTANT: AI extracts values like 0.05 meaning "0.05%", but our system
+    // stores percentages as decimals (0.0005 for 0.05%). Divide by 100 to convert.
     const validateTiers = (tiers: any[], name: string) => {
       if (tiers.length !== 7) {
         console.warn(`${name} has ${tiers.length} tiers instead of expected 7`);
       }
-      return tiers.map(tier => ({
-        pgPointTarget: Math.round(Number(tier.pgPointTarget) || 0),
-        bonusPercentage: Number(tier.bonusPercentage) || 0
-      })).sort((a, b) => a.bonusPercentage - b.bonusPercentage);
+      return tiers.map(tier => {
+        const rawPercentage = Number(tier.bonusPercentage) || 0;
+        // Convert from display format (0.05 = 0.05%) to decimal format (0.0005)
+        const decimalPercentage = rawPercentage / 100;
+        return {
+          pgPointTarget: Math.round(Number(tier.pgPointTarget) || 0),
+          bonusPercentage: decimalPercentage
+        };
+      }).sort((a, b) => a.bonusPercentage - b.bonusPercentage);
     };
     
     const result = {
