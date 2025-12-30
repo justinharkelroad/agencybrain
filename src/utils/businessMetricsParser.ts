@@ -14,48 +14,61 @@ export interface BusinessMetricsExtraction {
   newBusinessRetention: number;
 }
 
-// Row keywords for matching
-const ROW_KEYWORDS = {
-  standardAuto: ['standard auto'],
-  homeowners: ['homeowners'],
-  specialtyAuto: ['specialty auto'],
-  renters: ['renters'],
-  condo: ['condo'],
-  otherSpecialty: ['other specialty property'],
-  totalPC: ['total property & casualty', 'total p&c'],
-  yearEndPremium: ['written in advance premium', '12-month mover'],
+// Column indices based on actual XLSX structure:
+// 0: Business Metrics (row labels)
+// 1: Standard Auto
+// 2: Non Standard Auto
+// 3: Speciality Auto
+// 4: Homeowners
+// 5: Renters
+// 6: Condo
+// 7: Other Special Property
+// 8: Total Personal Lines
+// 9: ABI Voluntary Auto
+// 10: ABI - Non Auto
+// 11: Total Property & Casualty
+const COLUMN_INDICES = {
+  standardAuto: 1,
+  homeowners: 4,
+  splColumns: [3, 5, 6, 7], // Speciality Auto, Renters, Condo, Other Special Property
+  totalPC: 11,
 } as const;
 
-// Column keywords for matching
-const COLUMN_KEYWORDS = {
-  currentMonth: ['current month', 'curr month'],
-  ytd: ['year-to-date', 'ytd', 'year to date'],
-  netRetention: ['net retention', 'retention %', 'retention'],
-  newBizRetention: ['0-2', 'zero to two', '0 to 2'],
-  yearEndTotal: ['12-month', '12 month', 'total'],
+// Row labels to search for (exact match in column 0)
+const ROW_LABELS = {
+  currentMonthTotal: 'current month total',
+  netRetention: 'net retention',
+  zeroToTwoYears: '0-2 years',
+  ytdTotal: 'ytd - total',
+  earnedPremium12MM: 'earned premium - 12mm',
 } as const;
 
-function normalizeText(text: string): string {
-  return text?.toString().toLowerCase().trim() || '';
-}
-
-function matchesKeyword(text: string, keywords: readonly string[]): boolean {
-  const normalized = normalizeText(text);
-  return keywords.some(kw => normalized.includes(kw));
-}
-
-function parseNumber(value: unknown): number {
+// Helper: Parse currency string to number
+function parseCurrency(value: unknown): number {
   if (typeof value === 'number') return value;
-  if (typeof value !== 'string') return 0;
-  
-  // Remove currency symbols, commas, percentage signs
-  const cleaned = value.replace(/[$,%\s]/g, '').trim();
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+  if (!value) return 0;
+  // Remove $, commas, and handle negatives in parentheses
+  const str = String(value).replace(/[$,]/g, '').replace(/\((.+)\)/, '-$1');
+  return parseFloat(str) || 0;
 }
 
-function findColumnIndex(headers: string[], keywords: readonly string[]): number {
-  return headers.findIndex(h => matchesKeyword(h, keywords));
+// Helper: Parse percentage string to number (returns decimal like 81.95)
+function parsePercentage(value: unknown): number {
+  if (typeof value === 'number') {
+    // If it's already a decimal like 0.8195, convert to percentage
+    return value < 1 && value > 0 ? value * 100 : value;
+  }
+  if (!value) return 0;
+  const str = String(value).replace('%', '').trim();
+  return parseFloat(str) || 0;
+}
+
+// Helper: Parse integer (for items in force)
+function parseInteger(value: unknown): number {
+  if (typeof value === 'number') return Math.round(value);
+  if (!value) return 0;
+  const str = String(value).replace(/[,$]/g, '').trim();
+  return parseInt(str, 10) || 0;
 }
 
 export async function parseBusinessMetricsXLSX(file: File): Promise<BusinessMetricsExtraction | null> {
@@ -63,143 +76,97 @@ export async function parseBusinessMetricsXLSX(file: File): Promise<BusinessMetr
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     
-    // Try first sheet
+    // Use first sheet (Business Metrics Printable View)
     const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const data: unknown[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    const sheet = workbook.Sheets[sheetName];
     
-    if (data.length < 2) {
-      console.error('XLSX has insufficient data');
+    // Convert to array of arrays (rows)
+    const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    
+    console.log('Parsing XLSX, total rows:', rows.length);
+    
+    // Helper: Find row by label in column 0 (case-insensitive)
+    const findRow = (label: string): unknown[] | null => {
+      const row = rows.find(r => {
+        const cellValue = String((r as unknown[])[0] || '').trim().toLowerCase();
+        return cellValue === label.toLowerCase();
+      });
+      if (row) {
+        console.log(`Found row "${label}":`, row);
+      } else {
+        console.log(`Row "${label}" NOT FOUND`);
+      }
+      return (row as unknown[]) || null;
+    };
+    
+    // Find the key rows
+    const currentMonthTotalRow = findRow(ROW_LABELS.currentMonthTotal);
+    const netRetentionRow = findRow(ROW_LABELS.netRetention);
+    const zeroToTwoYearsRow = findRow(ROW_LABELS.zeroToTwoYears);
+    const ytdTotalRow = findRow(ROW_LABELS.ytdTotal);
+    const earnedPremium12MMRow = findRow(ROW_LABELS.earnedPremium12MM);
+    
+    // Extract values using exact column indices
+    const result: BusinessMetricsExtraction = {
+      // Year End Premium: Earned Premium - 12MM, Column 11 (Total P&C)
+      estimatedYearEndPremium: earnedPremium12MMRow 
+        ? parseCurrency(earnedPremium12MMRow[COLUMN_INDICES.totalPC]) 
+        : 0,
+      
+      // Auto: Column 1 (Standard Auto)
+      autoItemsInForce: currentMonthTotalRow 
+        ? parseInteger(currentMonthTotalRow[COLUMN_INDICES.standardAuto]) 
+        : 0,
+      autoPremiumWritten: ytdTotalRow 
+        ? parseCurrency(ytdTotalRow[COLUMN_INDICES.standardAuto]) 
+        : 0,
+      autoRetention: netRetentionRow 
+        ? parsePercentage(netRetentionRow[COLUMN_INDICES.standardAuto]) 
+        : 0,
+      
+      // Home: Column 4 (Homeowners)
+      homeItemsInForce: currentMonthTotalRow 
+        ? parseInteger(currentMonthTotalRow[COLUMN_INDICES.homeowners]) 
+        : 0,
+      homePremiumWritten: ytdTotalRow 
+        ? parseCurrency(ytdTotalRow[COLUMN_INDICES.homeowners]) 
+        : 0,
+      homeRetention: netRetentionRow 
+        ? parsePercentage(netRetentionRow[COLUMN_INDICES.homeowners]) 
+        : 0,
+      
+      // SPL: SUM of Columns 3, 5, 6, 7 (Speciality Auto, Renters, Condo, Other Special Property)
+      splItemsInForce: currentMonthTotalRow 
+        ? COLUMN_INDICES.splColumns.reduce((sum, col) => sum + parseInteger(currentMonthTotalRow[col]), 0)
+        : 0,
+      splPremiumWritten: ytdTotalRow 
+        ? COLUMN_INDICES.splColumns.reduce((sum, col) => sum + parseCurrency(ytdTotalRow[col]), 0)
+        : 0,
+      splRetention: netRetentionRow 
+        ? COLUMN_INDICES.splColumns.reduce((sum, col) => sum + parsePercentage(netRetentionRow[col]), 0) / COLUMN_INDICES.splColumns.length
+        : 0,
+      
+      // New Business Retention: 0-2 Years, Column 11 (Total P&C)
+      newBusinessRetention: zeroToTwoYearsRow 
+        ? parsePercentage(zeroToTwoYearsRow[COLUMN_INDICES.totalPC]) 
+        : 0,
+    };
+    
+    console.log('Extracted Business Metrics:', result);
+    
+    // Validate we got the key fields
+    if (result.estimatedYearEndPremium === 0 && 
+        result.autoItemsInForce === 0 && 
+        result.homeItemsInForce === 0) {
+      console.error('Failed to extract key metrics - no data found in expected locations');
       return null;
     }
     
-    // Find header row (row with most keyword matches)
-    let headerRowIndex = 0;
-    let maxMatches = 0;
+    return result;
     
-    for (let i = 0; i < Math.min(10, data.length); i++) {
-      const row = data[i] as string[];
-      if (!row) continue;
-      
-      const matches = row.filter(cell => 
-        matchesKeyword(String(cell), COLUMN_KEYWORDS.currentMonth) ||
-        matchesKeyword(String(cell), COLUMN_KEYWORDS.ytd) ||
-        matchesKeyword(String(cell), COLUMN_KEYWORDS.netRetention)
-      ).length;
-      
-      if (matches > maxMatches) {
-        maxMatches = matches;
-        headerRowIndex = i;
-      }
-    }
-    
-    const headers = (data[headerRowIndex] as string[]).map(h => String(h || ''));
-    
-    // Find column indices
-    const currentMonthCol = findColumnIndex(headers, COLUMN_KEYWORDS.currentMonth);
-    const ytdCol = findColumnIndex(headers, COLUMN_KEYWORDS.ytd);
-    const retentionCol = findColumnIndex(headers, COLUMN_KEYWORDS.netRetention);
-    const newBizRetentionCol = findColumnIndex(headers, COLUMN_KEYWORDS.newBizRetention);
-    const yearEndCol = findColumnIndex(headers, COLUMN_KEYWORDS.yearEndTotal);
-    
-    // Initialize extraction
-    const extraction: BusinessMetricsExtraction = {
-      estimatedYearEndPremium: 0,
-      autoItemsInForce: 0,
-      autoPremiumWritten: 0,
-      autoRetention: 0,
-      homeItemsInForce: 0,
-      homePremiumWritten: 0,
-      homeRetention: 0,
-      splItemsInForce: 0,
-      splPremiumWritten: 0,
-      splRetention: 0,
-      newBusinessRetention: 0,
-    };
-    
-    // SPL components
-    let splComponents = {
-      items: 0,
-      premium: 0,
-      retentionSum: 0,
-      retentionCount: 0,
-    };
-    
-    // Process data rows
-    for (let i = headerRowIndex + 1; i < data.length; i++) {
-      const row = data[i] as unknown[];
-      if (!row || row.length === 0) continue;
-      
-      const rowLabel = String(row[0] || '');
-      
-      // Standard Auto
-      if (matchesKeyword(rowLabel, ROW_KEYWORDS.standardAuto)) {
-        if (currentMonthCol >= 0) extraction.autoItemsInForce = parseNumber(row[currentMonthCol]);
-        if (ytdCol >= 0) extraction.autoPremiumWritten = parseNumber(row[ytdCol]);
-        if (retentionCol >= 0) extraction.autoRetention = parseNumber(row[retentionCol]);
-      }
-      
-      // Homeowners
-      if (matchesKeyword(rowLabel, ROW_KEYWORDS.homeowners)) {
-        if (currentMonthCol >= 0) extraction.homeItemsInForce = parseNumber(row[currentMonthCol]);
-        if (ytdCol >= 0) extraction.homePremiumWritten = parseNumber(row[ytdCol]);
-        if (retentionCol >= 0) extraction.homeRetention = parseNumber(row[retentionCol]);
-      }
-      
-      // SPL components
-      const isSplLine = 
-        matchesKeyword(rowLabel, ROW_KEYWORDS.specialtyAuto) ||
-        matchesKeyword(rowLabel, ROW_KEYWORDS.renters) ||
-        matchesKeyword(rowLabel, ROW_KEYWORDS.condo) ||
-        matchesKeyword(rowLabel, ROW_KEYWORDS.otherSpecialty);
-      
-      if (isSplLine) {
-        if (currentMonthCol >= 0) splComponents.items += parseNumber(row[currentMonthCol]);
-        if (ytdCol >= 0) splComponents.premium += parseNumber(row[ytdCol]);
-        if (retentionCol >= 0) {
-          const ret = parseNumber(row[retentionCol]);
-          if (ret > 0) {
-            splComponents.retentionSum += ret;
-            splComponents.retentionCount++;
-          }
-        }
-      }
-      
-      // Total P&C (for new business retention)
-      if (matchesKeyword(rowLabel, ROW_KEYWORDS.totalPC)) {
-        if (newBizRetentionCol >= 0) {
-          extraction.newBusinessRetention = parseNumber(row[newBizRetentionCol]);
-        }
-      }
-      
-      // Year-end premium
-      if (matchesKeyword(rowLabel, ROW_KEYWORDS.yearEndPremium)) {
-        if (yearEndCol >= 0) {
-          extraction.estimatedYearEndPremium = parseNumber(row[yearEndCol]);
-        } else {
-          // Try last numeric column
-          for (let j = row.length - 1; j >= 0; j--) {
-            const val = parseNumber(row[j]);
-            if (val > 100000) { // Reasonable premium threshold
-              extraction.estimatedYearEndPremium = val;
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Aggregate SPL
-    extraction.splItemsInForce = splComponents.items;
-    extraction.splPremiumWritten = splComponents.premium;
-    extraction.splRetention = splComponents.retentionCount > 0 
-      ? splComponents.retentionSum / splComponents.retentionCount 
-      : 0;
-    
-    return extraction;
   } catch (error) {
     console.error('Error parsing XLSX:', error);
-    return null;
+    throw error;
   }
 }
 
