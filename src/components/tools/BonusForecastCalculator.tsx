@@ -529,7 +529,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
                 Premium Target
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
               <LabeledInput
                 label="Estimated Year End Premium"
                 tooltip="Total Auto + Home + SPL written premium target"
@@ -537,6 +537,9 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
                 onChange={(v) => updateInput('estimatedYearEndPremium', v)}
                 prefix="$"
               />
+              <p className="text-center text-xs text-destructive">
+                This is an estimated value. Adjust manually if needed.
+              </p>
             </CardContent>
           </Card>
 
