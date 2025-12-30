@@ -211,8 +211,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return callScoringAllowed.includes(feature);
     }
     
-    // AI Roleplay and Bonus Grid only for 1:1 Coaching (not Boardroom)
-    if (feature === 'roleplay-trainer' || feature === 'bonus-grid') {
+    // AI Roleplay only for 1:1 Coaching (not Boardroom)
+    if (feature === 'roleplay-trainer') {
       return normalized === 'one_on_one';
     }
     
