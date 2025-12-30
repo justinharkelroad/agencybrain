@@ -203,100 +203,17 @@ export async function parseBusinessMetricsXLSX(file: File): Promise<BusinessMetr
   }
 }
 
-export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetricsExtraction | null> {
-  try {
-    console.log('Starting PDF parsing...');
-    
-    // Dynamic import to avoid bundling issues
-    const pdfjsLib = await import('pdfjs-dist');
-    
-    // Use import.meta.url for bundler-resolved worker path (most reliable)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url
-    ).toString();
-    
-    const arrayBuffer = await file.arrayBuffer();
-    console.log('PDF loaded, size:', arrayBuffer.byteLength);
-    
-    let pdf;
-    try {
-      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      console.log('PDF parsed, pages:', pdf.numPages);
-    } catch (workerError: any) {
-      console.error('PDF worker/document error:', workerError);
-      // Re-throw with clear message - NOT "image-based"
-      throw new Error(`PDF processing failed: ${workerError?.message || 'Unknown error'}`);
-    }
-    
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ');
-      fullText += pageText + '\n';
-      console.log(`Page ${i} text length:`, pageText.length);
-    }
-    
-    console.log('Total extracted text length:', fullText.length);
-    
-    // NOW check if it's actually image-based (no text extracted)
-    if (fullText.replace(/\s/g, '').length < 100) {
-      console.log('PDF has < 100 chars - likely image-based');
-      return null; // This triggers the "image-based" message - correctly!
-    }
-    
-    // Simple text-based extraction (less reliable than XLSX)
-    // Try to find key numbers using patterns
-    const extraction: BusinessMetricsExtraction = {
-      estimatedYearEndPremium: 0,
-      autoItemsInForce: 0,
-      autoPremiumWritten: 0,
-      autoRetention: 0,
-      homeItemsInForce: 0,
-      homePremiumWritten: 0,
-      homeRetention: 0,
-      splItemsInForce: 0,
-      splPremiumWritten: 0,
-      splRetention: 0,
-      newBusinessRetention: 0,
-    };
-    
-    // Extract numbers near keywords using regex
-    const extractNumberNear = (text: string, keywords: string[]): number => {
-      for (const kw of keywords) {
-        const regex = new RegExp(`${kw}[^\\d]*([\\d,]+\\.?\\d*)`, 'gi');
-        const match = regex.exec(text);
-        if (match) {
-          return parseNumber(match[1]);
-        }
-      }
-      return 0;
-    };
-    
-    // Try to extract values (this is approximate for PDF)
-    extraction.estimatedYearEndPremium = extractNumberNear(fullText, ['12-month mover', 'written in advance']);
-    
-    console.log('PDF text extraction completed, but XLSX is recommended for accuracy');
-    return extraction;
-  } catch (error) {
-    console.error('Error parsing PDF:', error);
-    return null;
-  }
-}
+// PDF parsing removed - only XLSX is supported for Business Metrics
 
 export async function parseBusinessMetrics(file: File): Promise<BusinessMetricsExtraction | null> {
   const extension = file.name.toLowerCase().split('.').pop();
   
   if (extension === 'xlsx' || extension === 'xls') {
     return parseBusinessMetricsXLSX(file);
-  } else if (extension === 'pdf') {
-    return parseBusinessMetricsPDF(file);
   }
   
-  return null;
+  // Only XLSX is supported for Business Metrics
+  throw new Error('Only XLSX files are supported. Please export your Business Metrics as XLSX from the Allstate portal.');
 }
 
 export function validateBusinessMetricsExtraction(data: BusinessMetricsExtraction): { 
