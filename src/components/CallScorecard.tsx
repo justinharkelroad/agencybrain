@@ -80,8 +80,26 @@ export function CallScorecard({
   console.log('call.summary:', call?.summary);
   console.log('call.potential_rank:', call?.potential_rank);
   console.log('call.client_profile:', call?.client_profile);
-  
-  if (!call) return null;
+
+  // IMPORTANT: keep the dialog open and show a loading/empty state even when call is null
+  if (!call) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-center gap-3 py-10 text-muted-foreground">
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading call details…</span>
+              </>
+            ) : (
+              <span>Call details not available.</span>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const getRankColor = (rank: string) => {
     switch (rank?.toUpperCase()) {

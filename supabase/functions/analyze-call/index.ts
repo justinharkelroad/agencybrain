@@ -28,15 +28,26 @@ function buildServiceUserPrompt(transcript: string, skillCategories: any): strin
     { label: "Thanked client", criteria: "Did they thank the client?" }
   ];
 
-  const crmSections = skillCategories?.crmSections || [
-    { name: "Personal Details", placeholder: "Any personal info mentioned" },
-    { name: "Vehicles & Policies", placeholder: "Policy/vehicle details if discussed" },
-    { name: "Coverage Details", placeholder: "Coverage info discussed" },
-    { name: "Resolution / Next Step", placeholder: "What was resolved or scheduled" }
-  ];
+  const rawCrmSections = skillCategories?.crmSections;
+  const crmSections = Array.isArray(rawCrmSections) && rawCrmSections.length > 0
+    ? rawCrmSections.map((section: any) => {
+        if (typeof section === 'string') {
+          return { name: section, placeholder: 'Details mentioned in the call (if any)' };
+        }
+        return {
+          name: section?.name ?? String(section),
+          placeholder: section?.placeholder ?? 'Details mentioned in the call (if any)',
+        };
+      })
+    : [
+        { name: "Personal Details", placeholder: "Any personal info mentioned" },
+        { name: "Vehicles & Policies", placeholder: "Policy/vehicle details if discussed" },
+        { name: "Coverage Details", placeholder: "Coverage info discussed" },
+        { name: "Resolution / Next Step", placeholder: "What was resolved or scheduled" },
+      ];
 
   const summaryInstructions = skillCategories?.summaryInstructions || "2-3 sentences: why call occurred, how it was handled, outcome";
-  const suggestionsCount = skillCategories?.suggestionsCount || 3;
+  const suggestionsCount = Number(skillCategories?.numSuggestions ?? skillCategories?.suggestionsCount ?? 3);
 
   // Build scoring framework dynamically
   const scoringFramework = scoredSections.map((section: any, idx: number) => 
