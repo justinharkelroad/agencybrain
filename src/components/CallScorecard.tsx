@@ -731,46 +731,96 @@ export function CallScorecard({
           </div>
 
           {/* Corrective Action Plan */}
-          <Card className="border-t-4 border-t-blue-500">
-            <CardContent className="pt-4">
-              <h3 className="font-bold text-sm mb-4">CORRECTIVE ACTION PLAN</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Rapport Action */}
-                <div>
-                  <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.primary_focus || 
-                     call.critical_gaps?.corrective_plan?.rapport || 
-                     sectionScores.rapport?.coaching || 
-                     'Build deeper connection using the HWF framework before discussing insurance details.'}
-                  </p>
-                </div>
-                
-                {/* Value Building Action */}
-                <div>
-                  <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.secondary_focus || 
-                     call.critical_gaps?.corrective_plan?.value_building || 
-                     sectionScores.coverage?.coaching || 
-                     'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
-                  </p>
-                </div>
-                
-                {/* Closing Action */}
-                <div>
-                  <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {call.critical_gaps?.corrective_plan?.closing_focus || 
-                     call.critical_gaps?.corrective_plan?.closing || 
-                     sectionScores.closing?.coaching || 
-                     'Use assumptive close language and set hard follow-up appointments with specific times.'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {(() => {
+            // Get relevant tips from skill_scores based on keywords
+            const getRelevantTips = (keywords: string[]) => {
+              if (!Array.isArray(call.skill_scores)) return [];
+              return call.skill_scores
+                .filter((s: any) => keywords.some(k => 
+                  s.skill_name?.toLowerCase().includes(k.toLowerCase())
+                ))
+                .map((s: any) => s.tip)
+                .filter(Boolean);
+            };
+
+            // Group tips by coaching category
+            const rapportTips = getRelevantTips(['rapport', 'thanking', 'greeting', 'frame']);
+            const valueTips = getRelevantTips(['question', 'coverage', 'liability', 'value']);
+            const closingTips = getRelevantTips(['closing', 'assumptive', 'objection', 'follow-up', 'requote']);
+
+            return (
+              <Card className="border-t-4 border-t-blue-500">
+                <CardContent className="pt-4">
+                  <h3 className="font-bold text-sm mb-4">CORRECTIVE ACTION PLAN</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Rapport Action */}
+                    <div>
+                      <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {call.critical_gaps?.corrective_plan?.primary_focus || 
+                         call.critical_gaps?.corrective_plan?.rapport || 
+                         sectionScores.rapport?.coaching || 
+                         'Build deeper connection using the HWF framework before discussing insurance details.'}
+                      </p>
+                      {rapportTips.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {rapportTips.map((tip: string, i: number) => (
+                            <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
+                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span>{tip}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Value Building Action */}
+                    <div>
+                      <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {call.critical_gaps?.corrective_plan?.secondary_focus || 
+                         call.critical_gaps?.corrective_plan?.value_building || 
+                         sectionScores.coverage?.coaching || 
+                         'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
+                      </p>
+                      {valueTips.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {valueTips.map((tip: string, i: number) => (
+                            <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
+                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span>{tip}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Closing Action */}
+                    <div>
+                      <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {call.critical_gaps?.corrective_plan?.closing_focus || 
+                         call.critical_gaps?.corrective_plan?.closing || 
+                         sectionScores.closing?.coaching || 
+                         'Use assumptive close language and set hard follow-up appointments with specific times.'}
+                      </p>
+                      {closingTips.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {closingTips.map((tip: string, i: number) => (
+                            <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
+                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span>{tip}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Execution Clean Sheet */}
           <Card>
