@@ -24,6 +24,7 @@ import {
   ArrowLeftRight,
   ClipboardEdit,
   FileSpreadsheet,
+  Settings,
   type LucideIcon
 } from "lucide-react";
 
@@ -165,6 +166,14 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/training/agency',
         access: { staff: true, manager: true, owner: true },
+      },
+      {
+        id: 'manage-training',
+        title: 'Manage Training',
+        icon: Settings,
+        type: 'link',
+        url: '/training/agency/manage',
+        access: { staff: false, manager: false, owner: true },
       },
       {
         id: 'video-training-architect',
