@@ -75,7 +75,7 @@ export function CancelAuditEmptyState({
         <FileWarning className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
         <h3 className="text-lg font-medium text-foreground mb-2">No records yet</h3>
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          Upload your first Cancellation Audit or Pending Cancel report to start 
+          Upload your first Cancellation Audit and/or Pending Cancel report to start 
           tracking and managing at-risk policies.
         </p>
         {onUploadClick && (
