@@ -475,103 +475,139 @@ export function CallScorecard({
             </Card>
           </div>
 
-          {/* Three Section Scores */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Rapport */}
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-sm">RAPPORT</h3>
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </div>
-                
-                {/* Wins */}
-                {sectionScores.rapport?.wins?.map((win: string, i: number) => (
-                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{win}</span>
-                  </p>
-                ))}
-                
-                {/* Failures */}
-                {sectionScores.rapport?.failures?.map((failure: string, i: number) => (
-                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
-                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{failure}</span>
-                  </p>
-                ))}
-                
-                {sectionScores.rapport?.coaching && (
-                  <div className="mt-4 pt-3 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                    <p className="text-sm">{sectionScores.rapport.coaching}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* Three Section Scores OR Skill Breakdown */}
+          {(() => {
+            const hasLegacySections = sectionScores.rapport || sectionScores.coverage || sectionScores.closing;
+            const skillScoresArray = Array.isArray(call.skill_scores) ? call.skill_scores : [];
+            
+            if (hasLegacySections) {
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Rapport */}
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-sm">RAPPORT</h3>
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      
+                      {/* Wins */}
+                      {sectionScores.rapport?.wins?.map((win: string, i: number) => (
+                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{win}</span>
+                        </p>
+                      ))}
+                      
+                      {/* Failures */}
+                      {sectionScores.rapport?.failures?.map((failure: string, i: number) => (
+                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{failure}</span>
+                        </p>
+                      ))}
+                      
+                      {sectionScores.rapport?.coaching && (
+                        <div className="mt-4 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">COACHING</p>
+                          <p className="text-sm">{sectionScores.rapport.coaching}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-            {/* Coverage */}
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-sm">COVERAGE</h3>
-                  <Target className="h-4 w-4 text-muted-foreground" />
-                </div>
-                
-                {sectionScores.coverage?.wins?.map((win: string, i: number) => (
-                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{win}</span>
-                  </p>
-                ))}
-                
-                {sectionScores.coverage?.failures?.map((failure: string, i: number) => (
-                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
-                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{failure}</span>
-                  </p>
-                ))}
-                
-                {sectionScores.coverage?.coaching && (
-                  <div className="mt-4 pt-3 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                    <p className="text-sm">{sectionScores.coverage.coaching}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {/* Coverage */}
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-sm">COVERAGE</h3>
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      
+                      {sectionScores.coverage?.wins?.map((win: string, i: number) => (
+                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{win}</span>
+                        </p>
+                      ))}
+                      
+                      {sectionScores.coverage?.failures?.map((failure: string, i: number) => (
+                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{failure}</span>
+                        </p>
+                      ))}
+                      
+                      {sectionScores.coverage?.coaching && (
+                        <div className="mt-4 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">COACHING</p>
+                          <p className="text-sm">{sectionScores.coverage.coaching}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-            {/* Closing */}
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-sm">CLOSING</h3>
-                  <Target className="h-4 w-4 text-muted-foreground" />
+                  {/* Closing */}
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-sm">CLOSING</h3>
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      
+                      {sectionScores.closing?.wins?.map((win: string, i: number) => (
+                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{win}</span>
+                        </p>
+                      ))}
+                      
+                      {sectionScores.closing?.failures?.map((failure: string, i: number) => (
+                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                          <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>{failure}</span>
+                        </p>
+                      ))}
+                      
+                      {sectionScores.closing?.coaching && (
+                        <div className="mt-4 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">COACHING</p>
+                          <p className="text-sm">{sectionScores.closing.coaching}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
-                
-                {sectionScores.closing?.wins?.map((win: string, i: number) => (
-                  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{win}</span>
-                  </p>
-                ))}
-                
-                {sectionScores.closing?.failures?.map((failure: string, i: number) => (
-                  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
-                    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>{failure}</span>
-                  </p>
-                ))}
-                
-                {sectionScores.closing?.coaching && (
-                  <div className="mt-4 pt-3 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                    <p className="text-sm">{sectionScores.closing.coaching}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              );
+            } else if (skillScoresArray.length > 0) {
+              return (
+                <Card>
+                  <CardContent className="pt-4">
+                    <h3 className="font-bold text-sm mb-4">SKILL BREAKDOWN</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {skillScoresArray.map((skill: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-muted/30 rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-medium text-sm">{skill.skill_name}</span>
+                            <Badge variant={skill.score >= 7 ? "default" : skill.score >= 5 ? "secondary" : "destructive"}>
+                              {skill.score}/{skill.max_score || 10}
+                            </Badge>
+                          </div>
+                          {skill.feedback && (
+                            <p className="text-xs text-muted-foreground mb-2">{skill.feedback}</p>
+                          )}
+                          {skill.tip && (
+                            <p className="text-xs text-green-400">💡 {skill.tip}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+            return null;
+          })()}
 
           {/* Visual Charts Row */}
           <div className="grid md:grid-cols-2 gap-4">
