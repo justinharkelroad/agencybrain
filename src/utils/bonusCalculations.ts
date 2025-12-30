@@ -10,16 +10,27 @@ import type {
 // Point values per item type
 const AUTO_POINTS_PER_ITEM = 10;
 const HOME_POINTS_PER_ITEM = 20;
-const SPL_POINTS_PER_ITEM = 7.5;
+const DEFAULT_SPL_POINTS_PER_ITEM = 7.5;
+const FLORIDA_SPL_POINTS_PER_ITEM = 5;
+
+/**
+ * Get SPL points per item based on state setting
+ */
+export function getSplPointsPerItem(useFivePointSPL: boolean): number {
+  return useFivePointSPL ? FLORIDA_SPL_POINTS_PER_ITEM : DEFAULT_SPL_POINTS_PER_ITEM;
+}
 
 /**
  * Compute intermediate values (baseline points, losses, and items metrics)
  */
 export function computeIntermediateValues(inputs: CalculatorInputs): IntermediateValues {
-  // Point calculations (Auto=10pts, Home=20pts, SPL=7.5pts)
+  // Get SPL points per item based on state setting
+  const splPointsPerItemValue = getSplPointsPerItem(inputs.useFivePointSPL);
+  
+  // Point calculations (Auto=10pts, Home=20pts, SPL=5 or 7.5pts)
   const autoPoints = inputs.autoItemsInForce * AUTO_POINTS_PER_ITEM;
   const homePoints = inputs.homeItemsInForce * HOME_POINTS_PER_ITEM;
-  const splPoints = inputs.splItemsInForce * SPL_POINTS_PER_ITEM;
+  const splPoints = inputs.splItemsInForce * splPointsPerItemValue;
   
   const totalAutoHomeBaselinePoints = autoPoints + homePoints;
   const splBaselinePoints = splPoints;
@@ -33,18 +44,18 @@ export function computeIntermediateValues(inputs: CalculatorInputs): Intermediat
   const homePointLoss = homePoints * (1 - homeRetentionDecimal);
   const splPointLoss = splPoints * (1 - splRetentionDecimal);
   
-  // NEW: Baseline items (raw counts)
+  // Baseline items (raw counts)
   const autoHomeBaselineItems = inputs.autoItemsInForce + inputs.homeItemsInForce;
   const splBaselineItems = inputs.splItemsInForce;
   const totalBaselineItems = autoHomeBaselineItems + splBaselineItems;
   
-  // NEW: Points Per Item calculations (weighted average for Auto+Home)
+  // Points Per Item calculations (weighted average for Auto+Home)
   // Formula: Total Points / Total Items
   const autoHomePointsPerItem = autoHomeBaselineItems > 0 
     ? totalAutoHomeBaselinePoints / autoHomeBaselineItems 
     : 0;
   
-  const splPointsPerItem = SPL_POINTS_PER_ITEM; // Always 7.5
+  const splPointsPerItem = splPointsPerItemValue; // 5 or 7.5 based on setting
   
   // Combined weighted average
   const totalPoints = totalAutoHomeBaselinePoints + splBaselinePoints;
@@ -61,7 +72,6 @@ export function computeIntermediateValues(inputs: CalculatorInputs): Intermediat
     autoPointLoss,
     homePointLoss,
     splPointLoss,
-    // NEW fields
     autoHomeBaselineItems,
     splBaselineItems,
     totalBaselineItems,

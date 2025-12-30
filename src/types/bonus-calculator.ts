@@ -35,6 +35,9 @@ export interface CalculatorInputs {
   // PG Targets (user customizable)
   autoHomeTiers: BonusTierInput[]; // 7 tiers
   splTiers: BonusTierInput[];      // 7 tiers
+
+  // State-specific settings
+  useFivePointSPL: boolean; // Florida and similar states use 5 pts instead of 7.5
 }
 
 export interface TierResult {
@@ -130,4 +133,5 @@ export const DEFAULT_INPUTS: CalculatorInputs = {
   currentMonth: 1,
   autoHomeTiers: [...DEFAULT_AUTO_HOME_TIERS],
   splTiers: [...DEFAULT_SPL_TIERS],
+  useFivePointSPL: false,
 };

@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   CalculatorInputs,
   BonusTierInput,
@@ -676,6 +677,29 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
                   min={0}
                   max={100}
                 />
+                
+                {/* Florida SPL Points Toggle */}
+                <div className="pt-2 border-t border-border/50">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="useFivePointSPL"
+                      checked={inputs.useFivePointSPL}
+                      onCheckedChange={(checked) => updateInput('useFivePointSPL', checked === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-1">
+                      <Label 
+                        htmlFor="useFivePointSPL" 
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        Florida or similar state (SPL = 5 points per item)
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Check if your state only offers 5-point SPL products instead of 7.5
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
