@@ -43,6 +43,14 @@ export function hasOneOnOneAccess(tier: string | null | undefined): boolean {
 }
 
 /**
+ * Check if tier is strictly 1:1 Coaching (NOT Boardroom)
+ * Use this for features exclusive to 1:1 Coaching tier only
+ */
+export function isStrictlyOneOnOne(tier: string | null | undefined): boolean {
+  return normalizeTier(tier) === 'one_on_one';
+}
+
+/**
  * Check if tier has Boardroom level access (highest tier)
  */
 export function hasBoardroomAccess(tier: string | null | undefined): boolean {

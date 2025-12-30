@@ -9,7 +9,7 @@ import {
 import { NavItem } from "@/config/navigation";
 import { ExternalLink } from "lucide-react";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
-import { hasOneOnOneAccess } from "@/utils/tierAccess";
+import { isStrictlyOneOnOne } from "@/utils/tierAccess";
 
 interface SidebarNavItemProps {
   item: NavItem;
@@ -51,7 +51,7 @@ export function SidebarNavItem({
 
   const handleClick = () => {
     // Check tier requirement - show gate modal for Boardroom users
-    if (item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier)) {
+    if (item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier)) {
       setShowGateModal(true);
       return;
     }
@@ -80,7 +80,7 @@ export function SidebarNavItem({
     // For link items, use actual Link component for proper routing
     if (item.type === 'link' && item.url) {
       // Check tier requirement before rendering link
-      const needsGate = item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier);
+      const needsGate = item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier);
       
       return (
         <>
