@@ -6,6 +6,255 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to build dynamic service call prompt from template
+function buildServiceUserPrompt(transcript: string, skillCategories: any): string {
+  // Extract template sections or use defaults
+  const scoredSections = skillCategories?.scoredSections || [
+    { name: "Opening & Rapport", criteria: "Did the CSR greet warmly and identify themselves? Did they confirm the client's identity appropriately? Did they establish a positive tone?" },
+    { name: "Listening & Understanding", criteria: "Did they let the client fully explain their issue? Did they ask clarifying questions? Did they summarize the concern to confirm understanding?" },
+    { name: "Problem Resolution", criteria: "Did they provide clear, accurate information? Did they take ownership of the issue? Did they follow through on commitments?" },
+    { name: "Proactive Service", criteria: "Did they offer a policy review? Did they identify any coverage gaps or cross-sell opportunities? Did they ask for referrals?" },
+    { name: "Closing & Follow-Up", criteria: "Did they confirm the resolution? Did they set clear expectations for next steps? Did they thank the client?" }
+  ];
+
+  const checklistItems = skillCategories?.checklistItems || [
+    { label: "Greeted warmly", criteria: "Did the CSR greet the caller warmly and professionally?" },
+    { label: "Confirmed identity", criteria: "Did they verify the caller's identity?" },
+    { label: "Summarized concern", criteria: "Did they summarize the caller's concern to confirm understanding?" },
+    { label: "Took ownership", criteria: "Did they take ownership of the issue?" },
+    { label: "Offered policy review", criteria: "Did they offer a policy review?" },
+    { label: "Asked for referral", criteria: "Did they ask for referrals?" },
+    { label: "Set clear next steps", criteria: "Did they set clear expectations for next steps?" },
+    { label: "Thanked client", criteria: "Did they thank the client?" }
+  ];
+
+  const crmSections = skillCategories?.crmSections || [
+    { name: "Personal Details", placeholder: "Any personal info mentioned" },
+    { name: "Vehicles & Policies", placeholder: "Policy/vehicle details if discussed" },
+    { name: "Coverage Details", placeholder: "Coverage info discussed" },
+    { name: "Resolution / Next Step", placeholder: "What was resolved or scheduled" }
+  ];
+
+  const summaryInstructions = skillCategories?.summaryInstructions || "2-3 sentences: why call occurred, how it was handled, outcome";
+  const suggestionsCount = skillCategories?.suggestionsCount || 3;
+
+  // Build scoring framework dynamically
+  const scoringFramework = scoredSections.map((section: any, idx: number) => 
+    `**${idx + 1}. ${section.name.toUpperCase()}**\n${section.criteria}`
+  ).join('\n\n');
+
+  // Build section_scores JSON example dynamically
+  const sectionScoresExample = scoredSections.map((section: any) => ({
+    section_name: section.name,
+    score: 8,
+    max_score: 10,
+    feedback: "<2-3 sentences of specific feedback>",
+    tip: "<1 sentence improvement tip>"
+  }));
+
+  // Build checklist JSON example dynamically
+  const checklistExample = checklistItems.map((item: any) => ({
+    label: item.label,
+    checked: true,
+    evidence: "<quote from call or null if not observed>"
+  }));
+
+  // Build CRM notes template dynamically
+  const crmNotesTemplate = crmSections.map((section: any) => 
+    `**${section.name}**\\n- [${section.placeholder}]`
+  ).join('\\n\\n');
+
+  // Build suggestions array example
+  const suggestionsExample = Array.from({ length: suggestionsCount }, (_, i) => 
+    `<specific improvement suggestion ${i + 1}>`
+  );
+
+  return `Analyze this insurance service/customer support call transcript and provide a structured evaluation.
+
+## SCORING FRAMEWORK
+
+${scoringFramework}
+
+## CHECKLIST CRITERIA
+
+${checklistItems.map((item: any) => `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`).join('\n')}
+
+## REQUIRED JSON RESPONSE FORMAT
+
+{
+  "csr_name": "<first name only>",
+  "client_first_name": "<first name only>",
+  "section_scores": ${JSON.stringify(sectionScoresExample, null, 4)},
+  "overall_score": 7.4,
+  "summary": "<${summaryInstructions}>",
+  "crm_notes": "${crmNotesTemplate}",
+  "suggestions": ${JSON.stringify(suggestionsExample)},
+  "checklist": ${JSON.stringify(checklistExample, null, 4)}
+}
+
+IMPORTANT RULES:
+- Score each section 0-10
+- Overall score is the average of all section scores (one decimal place)
+- Be specific with feedback - cite quotes when possible
+- CRM notes should be formatted with markdown headers
+- Checklist evidence should quote the transcript when checked=true
+- First names only - no last names or PII
+
+## TRANSCRIPT
+${transcript}`;
+}
+
+// Helper function to build dynamic sales call prompt from template
+function buildSalesUserPrompt(transcript: string, skillCategories: any): string {
+  // Extract template sections or use defaults
+  const scoredSections = skillCategories?.scoredSections || [
+    { 
+      name: "Rapport", 
+      criteria: "HWF Framework (Home, Work, Family) - Build trust through genuine connection BEFORE discussing insurance. Look for: 'How long have you been here?', 'Are you working or retired?', 'Do you have any kids?' Note: Asking about roof year is NOT rapport." 
+    },
+    { 
+      name: "Coverage", 
+      criteria: "Differentiate through education, not order-taking. Did they educate on coverage and liability? Did they position as advisor vs price-quoting agent? Look for phrases like 'coverage assessment'." 
+    },
+    { 
+      name: "Closing", 
+      criteria: "Use Assumptive Close Language. Minimum two close attempts. Final ask for the sale. If follow-up set: must include exact date/time. Bonus: Ask for referrals." 
+    },
+    { 
+      name: "Objection Handling", 
+      criteria: "Use the Objection Loop: Acknowledge the concern, Address/Reframe with value, Check if resolved ('does that solve it?'), Ask again after handling." 
+    },
+    { 
+      name: "Discovery", 
+      criteria: "Did they uncover needs, budget, timeline, decision-makers? Did they ask about other policies or assets?" 
+    }
+  ];
+
+  const checklistItems = skillCategories?.checklistItems || [
+    { label: "HWF Framework", criteria: "Did they use Home/Work/Family rapport building?" },
+    { label: "Ask About Work", criteria: "Did they ask about the caller's occupation?" },
+    { label: "Explain Coverage", criteria: "Did they explain coverage options?" },
+    { label: "Deductible Value", criteria: "Did they explain deductible value?" },
+    { label: "Advisor Frame", criteria: "Did they position as an advisor?" },
+    { label: "Assumptive Close", criteria: "Did they use assumptive close language?" },
+    { label: "Ask for Sale", criteria: "Did they directly ask for the sale?" },
+    { label: "Set Follow Up", criteria: "Did they set a specific follow-up date/time?" }
+  ];
+
+  // Build scoring framework dynamically
+  const scoringFramework = scoredSections.map((section: any, idx: number) => 
+    `**${idx + 1}. ${section.name.toUpperCase()}**\n${section.criteria}`
+  ).join('\n\n');
+
+  // Generate section score fields dynamically
+  const sectionScoreFields = scoredSections.map((section: any) => {
+    const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return `  "${key}_score": <0-100>,
+  "${key}_wins": ["<specific thing done well>"],
+  "${key}_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
+  "${key}_coaching": "<2-3 sentences of specific, actionable coaching>"`;
+  }).join(',\n');
+
+  // Generate section_scores object structure
+  const sectionScoresStructure = scoredSections.map((section: any) => {
+    const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return `    "${key}": {
+      "score": <0-100>,
+      "wins": ["<specific thing done well>"],
+      "failures": ["<specific failure>"],
+      "coaching": "<coaching advice>"
+    }`;
+  }).join(',\n');
+
+  // Build checklist criteria explanation
+  const checklistCriteriaExplanation = checklistItems.map((item: any) => 
+    `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`
+  ).join('\n');
+
+  // Generate execution_checklist JSON structure
+  const checklistJsonStructure = checklistItems.map((item: any) => {
+    const key = item.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return `    "${key}": <true/false>`;
+  }).join(',\n');
+
+  // Generate skill_scores keys
+  const skillScoresKeys = scoredSections.map((section: any) => {
+    const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    return `    "${key}": <0-100>`;
+  }).join(',\n');
+
+  return `Analyze this insurance sales call transcript and provide a structured evaluation.
+
+## SCORING FRAMEWORK
+
+${scoringFramework}
+
+## EXECUTION CHECKLIST CRITERIA
+
+${checklistCriteriaExplanation}
+
+## REQUIRED JSON RESPONSE FORMAT
+
+{
+  "salesperson_name": "<first name of the agent from transcript, or 'Agent' if unclear>",
+  "potential_rank": "<VERY LOW | LOW | MEDIUM | HIGH | VERY HIGH>",
+  "potential_rank_rationale": "<3-4 sentences explaining the ranking with specific quotes and observations>",
+  
+  "critical_assessment": "<3-4 detailed sentences about the main issues or successes, citing specific moments from the call>",
+  
+  "skill_scores": {
+${skillScoresKeys}
+  },
+  
+  "section_scores": {
+${sectionScoresStructure}
+  },
+  
+  "execution_checklist": {
+${checklistJsonStructure}
+  },
+  
+  "corrective_action_plan": {
+    "primary_focus": "<2-3 sentences with specific phrases and techniques to implement>",
+    "secondary_focus": "<2-3 sentences on additional improvements>",
+    "closing_focus": "<2-3 sentences on specific closing techniques and language to use>"
+  },
+  
+  "crm_notes": {
+    "personal_rapport": "<family, work, hobbies mentioned>",
+    "motivation_to_switch": "<reasons stated>",
+    "coverage_gaps_discussed": "<limits, deductibles, concerns>",
+    "premium_insights": "<current carrier, budget, price expectations>",
+    "decision_process": "<who decides, timing, stakeholders>",
+    "quote_summary": "<what was quoted>",
+    "follow_up_details": "<date/time/purpose if set, otherwise 'None scheduled'>"
+  },
+  
+  "extracted_data": {
+    "client_first_name": "<first name only>",
+    "current_carrier": "<carrier name>",
+    "your_quote": "<premium quoted - format as $X/month or $X/year>",
+    "competitor_quote": "<their current premium - format as $X/month or $X/year>",
+    "assets": ["<vehicle 1>", "<vehicle 2>", "<home if applicable>"],
+    "timeline": "<decision timeline if mentioned>"
+  },
+  
+  "call_outcome": "<sold | not_sold | follow_up_scheduled | undecided>",
+  "summary": "<2-3 sentences: why call occurred, outcome, next step>"
+}
+
+IMPORTANT RULES:
+- Each section MUST have at least 1 win (something done well) and 1-2 failures
+- If they did something well, acknowledge it as a win even if the overall score is low
+- Coaching must be 2-3 full sentences with specific examples and phrases to use
+- Critical assessment must be 3-4 sentences minimum
+- Be specific - cite quotes from the transcript when possible
+- Format prices consistently as $X/month or $X/year
+
+## TRANSCRIPT
+${transcript}`;
+}
+
 serve(async (req) => {
   console.log('analyze-call invoked');
   console.log('Request method:', req.method);
@@ -69,6 +318,10 @@ serve(async (req) => {
     const callType = call.call_scoring_templates?.call_type || 'sales';
     console.log(`Analyzing ${callType} call...`);
 
+    // Extract skill categories from template
+    const skillCategories = call.call_scoring_templates?.skill_categories as any;
+    console.log('Using skill_categories from template:', JSON.stringify(skillCategories).substring(0, 500));
+
     // Use template prompt if available, otherwise fall back to hardcoded defaults
     const templatePrompt = call.call_scoring_templates?.system_prompt;
     
@@ -102,11 +355,6 @@ All analysis must be:
 - Triple-Checked — Verify every item through at least two distinct signals.
 - No PII — Never include last names, DOBs, specific addresses, bank/card info, SSNs.
 
-OPERATIONAL DEFINITIONS:
-- Explicit Close Attempt = a direct request for commitment today (e.g., "Let's get this started," "We can activate coverage now")
-- Assumptive Ownership Phrase = language implying the decision is made (e.g., "when we switch you," "your new policy will…")
-- Objection Loop = Acknowledge → Address/Reframe → Check ("does that solve it?") → Ask again
-
 Voice profile:
 - Tone: blunt, clean, directive, zero hype.
 - Sentences: short, active, present tense. 6–14 words.
@@ -116,261 +364,23 @@ Voice profile:
 You must respond with ONLY valid JSON - no markdown, no explanation.`;
 
     const systemPrompt = templatePrompt && templatePrompt.trim().length > 0
-      ? templatePrompt  // Use the custom prompt from the template
+      ? templatePrompt
       : (callType === 'service' ? defaultServicePrompt : defaultSalesPrompt);
 
-    // Enforce JSON-only output even if a custom template prompt asks for formatting.
+    // Enforce JSON-only output
     const enforcedSystemPrompt = `${systemPrompt}\n\nCRITICAL OUTPUT FORMAT: Respond with ONLY valid JSON. Do NOT use markdown. Do NOT use HTML. Do NOT add commentary.`;
 
     console.log('Using prompt source:', templatePrompt && templatePrompt.trim().length > 0 ? 'TEMPLATE' : 'HARDCODED DEFAULT');
+    console.log('Has custom scored sections:', skillCategories?.scoredSections?.length > 0 ? 'YES' : 'NO');
+    console.log('Has custom checklist items:', skillCategories?.checklistItems?.length > 0 ? 'YES' : 'NO');
 
-    // Service call user prompt
-    const serviceUserPrompt = `Analyze this insurance service/customer support call transcript and provide a structured evaluation.
+    // Build dynamic user prompt based on call type and template skill_categories
+    const userPrompt = callType === 'service' 
+      ? buildServiceUserPrompt(call.transcript, skillCategories)
+      : buildSalesUserPrompt(call.transcript, skillCategories);
 
-## SCORING FRAMEWORK
-
-**1. OPENING & RAPPORT**
-- Did the CSR greet warmly and identify themselves?
-- Did they confirm the client's identity appropriately?
-- Did they establish a positive tone?
-
-**2. LISTENING & UNDERSTANDING**
-- Did they let the client fully explain their issue?
-- Did they ask clarifying questions?
-- Did they summarize the concern to confirm understanding?
-
-**3. PROBLEM RESOLUTION**
-- Did they provide clear, accurate information?
-- Did they take ownership of the issue?
-- Did they follow through on commitments?
-
-**4. PROACTIVE SERVICE**
-- Did they offer a policy review?
-- Did they identify any coverage gaps or cross-sell opportunities?
-- Did they ask for referrals?
-
-**5. CLOSING & FOLLOW-UP**
-- Did they confirm the resolution?
-- Did they set clear expectations for next steps?
-- Did they thank the client?
-
-## REQUIRED JSON RESPONSE FORMAT
-
-{
-  "csr_name": "<first name only>",
-  "client_first_name": "<first name only>",
-  "section_scores": [
-    {
-      "section_name": "Opening & Rapport",
-      "score": 8,
-      "max_score": 10,
-      "feedback": "<2-3 sentences of specific feedback>",
-      "tip": "<1 sentence improvement tip>"
-    },
-    {
-      "section_name": "Listening & Understanding",
-      "score": 7,
-      "max_score": 10,
-      "feedback": "<2-3 sentences of specific feedback>",
-      "tip": "<1 sentence improvement tip>"
-    },
-    {
-      "section_name": "Problem Resolution",
-      "score": 9,
-      "max_score": 10,
-      "feedback": "<2-3 sentences of specific feedback>",
-      "tip": "<1 sentence improvement tip>"
-    },
-    {
-      "section_name": "Proactive Service",
-      "score": 5,
-      "max_score": 10,
-      "feedback": "<2-3 sentences of specific feedback>",
-      "tip": "<1 sentence improvement tip>"
-    },
-    {
-      "section_name": "Closing & Follow-Up",
-      "score": 8,
-      "max_score": 10,
-      "feedback": "<2-3 sentences of specific feedback>",
-      "tip": "<1 sentence improvement tip>"
-    }
-  ],
-  "overall_score": 7.4,
-  "summary": "<2-3 sentences: why call occurred, how it was handled, outcome>",
-  "crm_notes": "**Personal Details**\\n- [any personal info mentioned]\\n\\n**Vehicles & Policies**\\n- [policy/vehicle details if discussed]\\n\\n**Coverage Details**\\n- [coverage info discussed]\\n\\n**Resolution / Next Step**\\n- [what was resolved or scheduled]",
-  "suggestions": [
-    "<specific improvement suggestion 1>",
-    "<specific improvement suggestion 2>",
-    "<specific improvement suggestion 3>"
-  ],
-  "checklist": [
-    { "label": "Greeted warmly", "checked": true, "evidence": "<quote from call>" },
-    { "label": "Confirmed identity", "checked": true, "evidence": "<quote>" },
-    { "label": "Summarized concern", "checked": false, "evidence": null },
-    { "label": "Took ownership", "checked": true, "evidence": "<quote>" },
-    { "label": "Offered policy review", "checked": false, "evidence": null },
-    { "label": "Asked for referral", "checked": false, "evidence": null },
-    { "label": "Set clear next steps", "checked": true, "evidence": "<quote>" },
-    { "label": "Thanked client", "checked": true, "evidence": "<quote>" }
-  ]
-}
-
-IMPORTANT RULES:
-- Score each section 0-10
-- Overall score is the average of all section scores (one decimal place)
-- Be specific with feedback - cite quotes when possible
-- CRM notes should be formatted with markdown headers
-- Checklist evidence should quote the transcript when checked=true
-- First names only - no last names or PII
-
-## TRANSCRIPT
-${call.transcript}`;
-
-    // Extract custom checklist items from template's skill_categories
-    const skillCategories = call.call_scoring_templates?.skill_categories as any;
-    const customChecklistItems = skillCategories?.checklistItems || [];
-    
-    // Build dynamic checklist for sales calls
-    const defaultSalesChecklist = [
-      { label: "HWF Framework", key: "hwf_framework" },
-      { label: "Ask About Work", key: "ask_about_work" },
-      { label: "Explain Coverage", key: "explain_coverage" },
-      { label: "Deductible Value", key: "deductible_value" },
-      { label: "Advisor Frame", key: "advisor_frame" },
-      { label: "Assumptive Close", key: "assumptive_close" },
-      { label: "Ask for Sale", key: "ask_for_sale" },
-      { label: "Set Follow Up", key: "set_follow_up" }
-    ];
-    
-    // Use custom checklist if defined, otherwise use defaults
-    const salesChecklistItems = customChecklistItems.length > 0
-      ? customChecklistItems.map((item: any, idx: number) => ({
-          label: item.label,
-          key: item.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-          criteria: item.criteria
-        }))
-      : defaultSalesChecklist;
-    
-    // Generate the execution_checklist JSON structure for the prompt
-    const checklistJsonStructure = salesChecklistItems
-      .map((item: any) => `    "${item.key}": <true/false>`)
-      .join(',\n');
-    
-    // Generate checklist criteria explanation if custom
-    const checklistCriteriaExplanation = customChecklistItems.length > 0
-      ? `\n\n## EXECUTION CHECKLIST CRITERIA\n${customChecklistItems.map((item: any) => 
-          `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`
-        ).join('\n')}`
-      : '';
-
-    // Sales call user prompt (existing)
-    const salesUserPrompt = `Analyze this insurance sales call transcript and provide a structured evaluation.
-
-## SCORING FRAMEWORK
-
-**1. RAPPORT (HWF Framework - Home, Work, Family)**
-Objective: Build trust through genuine connection BEFORE discussing insurance.
-- Home: "How long have you been here?" / "Are you from here originally?"
-- Work: "Are you working or retired?" / "What kind of work do you do?"
-- Family: "Do you have any kids?" / "Any family in town?"
-Note: Asking about roof year or home details is NOT rapport - those are required facts. Look for EXPANSION conversations.
-
-**2. COVERAGE & LIABILITY**
-Objective: Differentiate through education, not order-taking.
-- Did they educate on coverage and liability even if budget was main concern?
-- Did they hold the frame while acknowledging budget?
-- Did they position as advisor vs price-quoting agent?
-- Look for phrases like "coverage assessment" or "I'm going to ask questions to make sure you're properly protected"
-
-**3. CLOSING**
-Objective: Use Assumptive Close Language to convert.
-Requirements:
-- Minimum two Assumptive Close attempts (e.g., "We'll just get this set up for you today")
-- Final ask for the sale (yes/no question for finality)
-- If follow-up set: must include exact date/time and clear desired outcome
-- Bonus: Did they ask for referrals or additional quotes?
-
-**4. OBJECTION HANDLING**
-Objective: Use the Objection Loop to overcome resistance.
-- Did they Acknowledge the concern?
-- Did they Address/Reframe with value or proof?
-- Did they Check if resolved ("does that solve it?")?
-- Did they Ask again after handling?
-${checklistCriteriaExplanation}
-
-## REQUIRED JSON RESPONSE FORMAT
-
-{
-  "salesperson_name": "<first name of the agent from transcript, or 'Agent' if unclear>",
-  "potential_rank": "<VERY LOW | LOW | MEDIUM | HIGH | VERY HIGH>",
-  "potential_rank_rationale": "<3-4 sentences explaining the ranking with specific quotes and observations>",
-  
-  "critical_assessment": "<3-4 detailed sentences about the main issues or successes, citing specific moments from the call>",
-  
-  "rapport_score": <0-100>,
-  "rapport_wins": ["<specific thing done well - be specific with quotes if possible>"],
-  "rapport_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
-  "rapport_coaching": "<2-3 sentences of specific, actionable coaching with examples of what to say>",
-  
-  "coverage_score": <0-100>,
-  "coverage_wins": ["<specific thing done well>"],
-  "coverage_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
-  "coverage_coaching": "<2-3 sentences of specific, actionable coaching with examples>",
-  
-  "closing_score": <0-100>,
-  "closing_wins": ["<specific thing done well - quote any close attempts>"],
-  "closing_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
-  "closing_coaching": "<2-3 sentences of specific, actionable coaching with example phrases to use>",
-  
-  "objection_handling_score": <0-100>,
-  "discovery_score": <0-100>,
-  
-  "execution_checklist": {
-${checklistJsonStructure}
-  },
-  
-  "corrective_action_plan": {
-    "rapport": "<2-3 sentences with specific phrases and techniques to implement>",
-    "value_building": "<2-3 sentences on how to better educate and position as advisor>",
-    "closing": "<2-3 sentences on specific closing techniques and language to use>"
-  },
-  
-  "crm_notes": {
-    "personal_rapport": "<family, work, hobbies mentioned>",
-    "motivation_to_switch": "<reasons stated>",
-    "coverage_gaps_discussed": "<limits, deductibles, concerns>",
-    "premium_insights": "<current carrier, budget, price expectations>",
-    "decision_process": "<who decides, timing, stakeholders>",
-    "quote_summary": "<what was quoted>",
-    "follow_up_details": "<date/time/purpose if set, otherwise 'None scheduled'>"
-  },
-  
-  "extracted_data": {
-    "client_first_name": "<first name only>",
-    "current_carrier": "<carrier name>",
-    "your_quote": "<premium quoted - format as $X/month or $X/year>",
-    "competitor_quote": "<their current premium - format as $X/month or $X/year>",
-    "assets": ["<vehicle 1>", "<vehicle 2>", "<home if applicable>"],
-    "timeline": "<decision timeline if mentioned>"
-  },
-  
-  "call_outcome": "<sold | not_sold | follow_up_scheduled | undecided>",
-  "summary": "<2-3 sentences: why call occurred, outcome, next step>"
-}
-
-IMPORTANT RULES:
-- Each section (rapport, coverage, closing) MUST have at least 1 win (something done well) and 1-2 failures
-- If they did something well, acknowledge it as a win even if the overall score is low
-- Coaching must be 2-3 full sentences with specific examples and phrases to use
-- Critical assessment must be 3-4 sentences minimum
-- Be specific - cite quotes from the transcript when possible
-- Format prices consistently as $X/month or $X/year
-
-## TRANSCRIPT
-${call.transcript}`;
-
-    const userPrompt = callType === 'service' ? serviceUserPrompt : salesUserPrompt;
+    console.log("Generated user prompt length:", userPrompt.length);
+    console.log("User prompt preview:", userPrompt.substring(0, 1000));
 
     console.log("Sending transcript to GPT-4o for analysis...");
 
@@ -460,10 +470,12 @@ ${call.transcript}`;
         ? parseFloat((totalScore / sectionScores.length).toFixed(1))
         : 0;
     } else {
-      // Sales calls: average of the three main sections
-      overallScore = Math.round(
-        (analysis.rapport_score + analysis.coverage_score + analysis.closing_score) / 3
-      );
+      // Sales calls: average of skill_scores (dynamic)
+      const skillScores = analysis.skill_scores || {};
+      const scores = Object.values(skillScores).filter((v): v is number => typeof v === 'number');
+      overallScore = scores.length > 0 
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+        : 0;
     }
 
     // Get existing whisper cost to calculate total
@@ -480,7 +492,7 @@ ${call.transcript}`;
     // Build update payload based on call type
     let updatePayload: Record<string, any> = {
       overall_score: overallScore,
-      call_type: callType, // Save call_type on the call record
+      call_type: callType,
       summary: analysis.summary,
       gpt_input_tokens: inputTokens,
       gpt_output_tokens: outputTokens,
@@ -495,7 +507,7 @@ ${call.transcript}`;
       updatePayload = {
         ...updatePayload,
         section_scores: analysis.section_scores,
-        closing_attempts: analysis.crm_notes, // Using closing_attempts to store CRM notes
+        closing_attempts: analysis.crm_notes,
         coaching_recommendations: analysis.suggestions,
         discovery_wins: analysis.checklist,
         client_profile: {
@@ -504,37 +516,12 @@ ${call.transcript}`;
         },
       };
     } else {
-      // Sales call specific fields
+      // Sales call specific fields - use dynamic skill_scores from analysis
       updatePayload = {
         ...updatePayload,
         potential_rank: analysis.potential_rank,
-        skill_scores: {
-          rapport: analysis.rapport_score,
-          coverage: analysis.coverage_score,
-          closing: analysis.closing_score,
-          objection_handling: analysis.objection_handling_score,
-          discovery: analysis.discovery_score
-        },
-        section_scores: {
-          rapport: {
-            score: analysis.rapport_score,
-            wins: analysis.rapport_wins,
-            failures: analysis.rapport_failures,
-            coaching: analysis.rapport_coaching
-          },
-          coverage: {
-            score: analysis.coverage_score,
-            wins: analysis.coverage_wins,
-            failures: analysis.coverage_failures,
-            coaching: analysis.coverage_coaching
-          },
-          closing: {
-            score: analysis.closing_score,
-            wins: analysis.closing_wins,
-            failures: analysis.closing_failures,
-            coaching: analysis.closing_coaching
-          }
-        },
+        skill_scores: analysis.skill_scores,
+        section_scores: analysis.section_scores,
         client_profile: analysis.extracted_data,
         discovery_wins: analysis.execution_checklist,
         critical_gaps: {
