@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { isCallScoringTier } from '@/utils/tierAccess';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +12,7 @@ import { AgencyBrainBadge } from '@/components/AgencyBrainBadge';
 
 export default function StaffLogin() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useStaffAuth();
+  const { login, isAuthenticated, user } = useStaffAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [agencySlug, setAgencySlug] = useState('');
@@ -19,9 +20,12 @@ export default function StaffLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - Call Scoring tier goes directly to call-scoring
   if (isAuthenticated) {
-    navigate('/staff/dashboard');
+    const redirectPath = isCallScoringTier(user?.agency_membership_tier) 
+      ? '/staff/call-scoring' 
+      : '/staff/dashboard';
+    navigate(redirectPath);
     return null;
   }
 
@@ -36,7 +40,11 @@ export default function StaffLogin() {
       setError(result.error);
       setLoading(false);
     } else {
-      navigate('/staff/dashboard');
+      // Redirect based on tier - Call Scoring tier goes directly to call-scoring
+      const redirectPath = isCallScoringTier(result.user?.agency_membership_tier) 
+        ? '/staff/call-scoring' 
+        : '/staff/dashboard';
+      navigate(redirectPath);
     }
   };
 
