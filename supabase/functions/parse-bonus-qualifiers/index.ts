@@ -38,45 +38,26 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: `Extract the bonus tier data from this image. There are TWO tables:
+                text: `Extract ONLY the PG Point Goal targets from this image. There are TWO tables:
 
-1. "Portfolio Growth - Auto, Home, AFS" (left table) - This is the Auto/Home table
-2. "Portfolio Growth - Other Personal Lines" (right table) - This is the SPL table
+1. "Portfolio Growth - Auto, Home, AFS" (left table) - Auto/Home goals
+2. "Portfolio Growth - Other Personal Lines" (right table) - SPL goals
 
-Each table has 7 rows with GOAL and % BONUS columns.
+Each table has 7 rows. I ONLY need the GOAL column values (the point targets).
+The bonus percentages are HARDCODED in our system (industry standard) - DO NOT extract them.
 
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):
 {
-  "autoHomeTiers": [
-    { "pgPointTarget": 254, "bonusPercentage": 0.05 },
-    { "pgPointTarget": 1226, "bonusPercentage": 0.50 },
-    { "pgPointTarget": 2198, "bonusPercentage": 1.00 },
-    { "pgPointTarget": 3170, "bonusPercentage": 1.50 },
-    { "pgPointTarget": 4142, "bonusPercentage": 2.00 },
-    { "pgPointTarget": 5114, "bonusPercentage": 2.50 },
-    { "pgPointTarget": 6086, "bonusPercentage": 3.00 }
-  ],
-  "splTiers": [
-    { "pgPointTarget": 442, "bonusPercentage": 0.05 },
-    { "pgPointTarget": 588, "bonusPercentage": 0.15 },
-    { "pgPointTarget": 733, "bonusPercentage": 0.30 },
-    { "pgPointTarget": 878, "bonusPercentage": 0.45 },
-    { "pgPointTarget": 1024, "bonusPercentage": 0.60 },
-    { "pgPointTarget": 1169, "bonusPercentage": 0.80 },
-    { "pgPointTarget": 1315, "bonusPercentage": 1.00 }
-  ]
+  "autoHomeTargets": [254, 1226, 2198, 3170, 4142, 5114, 6086],
+  "splTargets": [442, 588, 733, 878, 1024, 1169, 1315]
 }
 
 CRITICAL INSTRUCTIONS:
-- pgPointTarget is the GOAL number (integer, remove any commas)
-- bonusPercentage is the % BONUS column value. Read it EXACTLY as shown:
-  - If it says "0.0500%" in the image, that equals 0.05 in the JSON
-  - If it says "3.0000%" in the image, that equals 3.0 in the JSON
-  - Do NOT divide by 100 - the values in the image are already the final percentages
-- Sort each array by bonusPercentage ascending (lowest percentage first)
-- Extract ALL 7 tiers from EACH table separately
-- The LEFT table is autoHomeTiers, the RIGHT table is splTiers
-- Do NOT copy data between tables - they have DIFFERENT values`
+- Extract ONLY the GOAL numbers (integers, remove any commas)
+- autoHomeTargets: All 7 goal values from the LEFT table, sorted lowest to highest
+- splTargets: All 7 goal values from the RIGHT table, sorted lowest to highest
+- Each array must have exactly 7 numbers
+- Do NOT include percentages - we don't need them`
               },
               {
                 type: "image_url",
@@ -140,35 +121,44 @@ CRITICAL INSTRUCTIONS:
     
     const extracted = JSON.parse(jsonMatch[0]);
     
-    // Validate structure
-    if (!extracted.autoHomeTiers || !Array.isArray(extracted.autoHomeTiers)) {
-      throw new Error("Missing or invalid autoHomeTiers in response");
+    // Validate structure - now we expect just arrays of targets
+    if (!extracted.autoHomeTargets || !Array.isArray(extracted.autoHomeTargets)) {
+      throw new Error("Missing or invalid autoHomeTargets in response");
     }
-    if (!extracted.splTiers || !Array.isArray(extracted.splTiers)) {
-      throw new Error("Missing or invalid splTiers in response");
+    if (!extracted.splTargets || !Array.isArray(extracted.splTargets)) {
+      throw new Error("Missing or invalid splTargets in response");
     }
     
-    // Validate and clean tier data
-    // IMPORTANT: AI extracts values like 0.05 meaning "0.05%", but our system
-    // stores percentages as decimals (0.0005 for 0.05%). Divide by 100 to convert.
-    const validateTiers = (tiers: any[], name: string) => {
-      if (tiers.length !== 7) {
-        console.warn(`${name} has ${tiers.length} tiers instead of expected 7`);
+    // HARDCODED tier percentages - Allstate industry standard
+    const AUTO_HOME_PERCENTAGES = [0.0005, 0.005, 0.010, 0.015, 0.020, 0.025, 0.030];
+    const SPL_PERCENTAGES = [0.0005, 0.0015, 0.003, 0.0045, 0.006, 0.008, 0.010];
+    
+    // Validate and clean target data
+    const validateTargets = (targets: any[], name: string): number[] => {
+      if (targets.length !== 7) {
+        console.warn(`${name} has ${targets.length} targets instead of expected 7`);
       }
-      return tiers.map(tier => {
-        const rawPercentage = Number(tier.bonusPercentage) || 0;
-        // Convert from display format (0.05 = 0.05%) to decimal format (0.0005)
-        const decimalPercentage = rawPercentage / 100;
-        return {
-          pgPointTarget: Math.round(Number(tier.pgPointTarget) || 0),
-          bonusPercentage: decimalPercentage
-        };
-      }).sort((a, b) => a.bonusPercentage - b.bonusPercentage);
+      return targets
+        .map(t => Math.round(Number(t) || 0))
+        .filter(t => t > 0)
+        .sort((a, b) => a - b)
+        .slice(0, 7);
     };
     
+    const ahTargets = validateTargets(extracted.autoHomeTargets, "autoHomeTargets");
+    const splTargets = validateTargets(extracted.splTargets, "splTargets");
+    
+    // Build the response in the format expected by the frontend
+    // (which expects { pgPointTarget, bonusPercentage } objects)
     const result = {
-      autoHomeTiers: validateTiers(extracted.autoHomeTiers, "autoHomeTiers"),
-      splTiers: validateTiers(extracted.splTiers, "splTiers")
+      autoHomeTiers: ahTargets.map((target, i) => ({
+        pgPointTarget: target,
+        bonusPercentage: AUTO_HOME_PERCENTAGES[i] || 0
+      })),
+      splTiers: splTargets.map((target, i) => ({
+        pgPointTarget: target,
+        bonusPercentage: SPL_PERCENTAGES[i] || 0
+      }))
     };
     
     console.log("Extracted bonus qualifiers:", JSON.stringify(result, null, 2));
