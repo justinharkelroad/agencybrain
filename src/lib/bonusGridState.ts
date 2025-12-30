@@ -3,8 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 import { DataValidator, type DataIntegrityReport } from "./dataValidation";
 import { DataBackupManager } from "./dataBackup";
 
-const STORAGE_KEY = "bonusGrid:inputs-v1";
-const LEGACY_STORAGE_KEY = "bonusGrid:inputs-v1"; // For recovery
+const LEGACY_STORAGE_KEY = "bonusGrid:inputs-v1"; // Old static key for migration
+
+// User-scoped storage key
+const getUserStorageKey = (userId: string) => `bonusGrid:inputs-v1:${userId}`;
 
 export interface GridValidation {
   isValid: boolean;
@@ -20,63 +22,90 @@ export interface SaveResult {
 }
 
 let cachedState: Record<CellAddr, any> | null = null;
+let cachedUserId: string | null = null; // Track which user's data is cached
 let lastSaveTime = 0;
 let saveAttempts = 0;
 const MAX_SAVE_ATTEMPTS = 3;
 
+// Clear cache when user changes (called from auth)
+export function clearBonusGridCache() {
+  cachedState = null;
+  cachedUserId = null;
+}
+
 export async function getBonusGridState(): Promise<Record<CellAddr, any> | null> {
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    // No user logged in - clear cache and return null
+    cachedState = null;
+    cachedUserId = null;
+    return null;
+  }
+
+  // If cached for a different user, clear cache
+  if (cachedUserId && cachedUserId !== user.id) {
+    cachedState = null;
+    cachedUserId = null;
+  }
+
+  const userStorageKey = getUserStorageKey(user.id);
+
   // Try to get from database first
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data, error } = await supabase
-        .from('bonus_grid_saves')
-        .select('grid_data')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (!error && data && Object.keys(data.grid_data).length > 0) {
-        const validatedData = DataValidator.sanitizeGridData(data.grid_data as Record<CellAddr, any>);
-        cachedState = validatedData;
-        return validatedData;
-      }
+    const { data, error } = await supabase
+      .from('bonus_grid_saves')
+      .select('grid_data')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (!error && data && Object.keys(data.grid_data).length > 0) {
+      const validatedData = DataValidator.sanitizeGridData(data.grid_data as Record<CellAddr, any>);
+      cachedState = validatedData;
+      cachedUserId = user.id;
+      return validatedData;
     }
   } catch (error) {
     console.log('Database fetch failed, trying localStorage:', error);
   }
 
-  // Try legacy localStorage recovery
+  // Try legacy static localStorage recovery and migrate to user-scoped key
   try {
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyRaw) {
       const legacyState = JSON.parse(legacyRaw);
       if (Object.keys(legacyState).length > 0) {
-        console.log('Found legacy localStorage data, migrating...');
+        console.log('Found legacy localStorage data, migrating to user-scoped storage...');
         const validatedData = DataValidator.sanitizeGridData(legacyState);
         
         // Create backup before migration
         DataBackupManager.createPeriodicBackup(validatedData);
         
+        // Migrate to user-scoped localStorage
+        localStorage.setItem(userStorageKey, JSON.stringify(validatedData));
+        
+        // Clear the legacy key to prevent data leakage
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        localStorage.removeItem(`${LEGACY_STORAGE_KEY}:backup`);
+        
         // Attempt to migrate to database
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            await supabase
-              .from('bonus_grid_saves')
-              .upsert({
-                user_id: user.id,
-                grid_data: validatedData,
-                updated_at: new Date().toISOString()
-              });
-            console.log('Successfully migrated legacy data to database');
-          }
+          await supabase
+            .from('bonus_grid_saves')
+            .upsert({
+              user_id: user.id,
+              grid_data: validatedData,
+              updated_at: new Date().toISOString()
+            });
+          console.log('Successfully migrated legacy data to database');
         } catch (migrationError) {
-          console.error('Failed to migrate legacy data:', migrationError);
+          console.error('Failed to migrate legacy data to database:', migrationError);
         }
         
         cachedState = validatedData;
+        cachedUserId = user.id;
         return validatedData;
       }
     }
@@ -84,13 +113,14 @@ export async function getBonusGridState(): Promise<Record<CellAddr, any> | null>
     console.error('Failed to recover legacy data:', error);
   }
 
-  // Fallback to current localStorage
+  // Fallback to user-scoped localStorage
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(userStorageKey);
     const localState = raw ? JSON.parse(raw) : null;
     if (localState && Object.keys(localState).length > 0) {
       const validatedData = DataValidator.sanitizeGridData(localState);
       cachedState = validatedData;
+      cachedUserId = user.id;
       return validatedData;
     }
   } catch (error) {
@@ -101,19 +131,21 @@ export async function getBonusGridState(): Promise<Record<CellAddr, any> | null>
 }
 
 export function getBonusGridStateSync(): Record<CellAddr, any> | null {
-  // Return cached state for synchronous operations
-  if (cachedState) return cachedState;
+  // Return cached state for synchronous operations (only if we have a cached user)
+  if (cachedState && cachedUserId) return cachedState;
   
-  // Fallback to localStorage for immediate sync access
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  // Cannot safely access localStorage synchronously without knowing the user
+  // Return null - callers should use the async version when possible
+  return null;
 }
 
 export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<SaveResult> {
+  // Get current user - required for saving
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'User not authenticated' };
+  }
+
   saveAttempts++;
   
   // Pre-save validation
@@ -125,8 +157,9 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
   // Sanitize data before saving
   const sanitizedState = DataValidator.sanitizeGridData(state);
   
-  // Update cache
+  // Update cache with user context
   cachedState = sanitizedState;
+  cachedUserId = user.id;
   
   // Create backup before saving
   try {
@@ -135,30 +168,11 @@ export async function saveBonusGridState(state: Record<CellAddr, any>): Promise<
     console.warn('Failed to create backup:', backupError);
   }
   
-  // Save to localStorage for immediate access (multiple fallbacks)
-  const localSavePromises = [
-    // Primary localStorage save
-    new Promise<void>((resolve, reject) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizedState));
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-    }),
-    // Secondary localStorage save with different key
-    new Promise<void>((resolve, reject) => {
-      try {
-        localStorage.setItem(`${STORAGE_KEY}:backup`, JSON.stringify(sanitizedState));
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-    })
-  ];
-
+  // Save to user-scoped localStorage for immediate access
+  const userStorageKey = getUserStorageKey(user.id);
   try {
-    await Promise.allSettled(localSavePromises);
+    localStorage.setItem(userStorageKey, JSON.stringify(sanitizedState));
+    localStorage.setItem(`${userStorageKey}:backup`, JSON.stringify(sanitizedState));
   } catch (error) {
     console.warn('Failed to save to localStorage:', error);
   }

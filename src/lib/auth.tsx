@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
+import { clearBonusGridCache } from '@/lib/bonusGridState';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -105,6 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           queryClient.removeQueries({ queryKey: ["brainstorm-targets"] });
           queryClient.removeQueries({ queryKey: ["quarterly-targets"] });
           queryClient.removeQueries({ queryKey: ["auth-user"] });
+          
+          // Clear bonus grid cache and localStorage to prevent data leakage
+          clearBonusGridCache();
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('bonusGrid:')) {
+              localStorage.removeItem(key);
+            }
+          });
         }
         
         // Clear sidebar folder state on login so folders start closed
