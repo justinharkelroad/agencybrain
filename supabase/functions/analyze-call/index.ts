@@ -537,9 +537,21 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         client_profile: analysis.extracted_data || analysis.client_profile,
         discovery_wins: analysis.execution_checklist || analysis.checklist,
         critical_gaps: {
-          assessment: analysis.critical_assessment,
-          rationale: analysis.potential_rank_rationale,
-          corrective_plan: analysis.corrective_action_plan
+          assessment: analysis.critical_assessment || analysis.summary,
+          rationale: analysis.potential_rank_rationale || `Ranked as ${analysis.potential_rank} based on overall performance.`,
+          corrective_plan: analysis.corrective_action_plan || (
+            Array.isArray(analysis.coaching_recommendations) && analysis.coaching_recommendations.length >= 3
+              ? {
+                  primary_focus: analysis.coaching_recommendations[0],
+                  secondary_focus: analysis.coaching_recommendations[1],
+                  closing_focus: analysis.coaching_recommendations[2]
+                }
+              : {
+                  primary_focus: analysis.coaching_recommendations?.[0] || "Focus on building rapport.",
+                  secondary_focus: analysis.coaching_recommendations?.[1] || "Improve coverage education.",
+                  closing_focus: analysis.coaching_recommendations?.[2] || "Use assumptive close language."
+                }
+          )
         },
         closing_attempts: analysis.crm_notes || analysis.closing_attempts,
       };
