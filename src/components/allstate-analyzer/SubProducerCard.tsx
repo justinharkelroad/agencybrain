@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileText, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SubProducerMetrics } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { SubProducerMetrics, InsuredAggregate } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 import { SubProducerTransactionTable } from './SubProducerTransactionTable';
 
 interface Props {
@@ -18,9 +18,58 @@ export function SubProducerCard({ producer, isAgency }: Props) {
   const hasChargebacks = producer.premiumChargebacks > 0;
   const isNetNegative = producer.netPremium < 0;
   
-  // Defensive defaults for legacy data
-  const creditInsureds = producer.creditInsureds || [];
-  const chargebackInsureds = producer.chargebackInsureds || [];
+  // Hydrate insured arrays from raw transactions if missing
+  const { creditInsureds, chargebackInsureds } = useMemo(() => {
+    // If we already have insured arrays with data, use them
+    if ((producer.creditInsureds?.length || 0) > 0 || (producer.chargebackInsureds?.length || 0) > 0) {
+      return {
+        creditInsureds: producer.creditInsureds || [],
+        chargebackInsureds: producer.chargebackInsureds || []
+      };
+    }
+    
+    // Otherwise, rebuild from raw transaction arrays
+    const allTransactions = [
+      ...(producer.creditTransactions || []),
+      ...(producer.chargebackTransactions || [])
+    ];
+    
+    if (allTransactions.length === 0) {
+      return { creditInsureds: [], chargebackInsureds: [] };
+    }
+    
+    // Group by insured name
+    const insuredMap = new Map<string, { netPremium: number; netCommission: number; txnCount: number }>();
+    
+    for (const txn of allTransactions) {
+      const name = txn.insuredName || 'Unknown';
+      const existing = insuredMap.get(name) || { netPremium: 0, netCommission: 0, txnCount: 0 };
+      existing.netPremium += txn.premium || 0;
+      existing.netCommission += txn.commission || 0;
+      existing.txnCount += 1;
+      insuredMap.set(name, existing);
+    }
+    
+    // Categorize by net premium
+    const credits: InsuredAggregate[] = [];
+    const chargebacks: InsuredAggregate[] = [];
+    
+    insuredMap.forEach((data, name) => {
+      if (data.netPremium > 0.005) {
+        credits.push({ insuredName: name, netPremium: data.netPremium, netCommission: data.netCommission, transactionCount: data.txnCount });
+      } else if (data.netPremium < -0.005) {
+        chargebacks.push({ insuredName: name, netPremium: data.netPremium, netCommission: data.netCommission, transactionCount: data.txnCount });
+      }
+      // Net zero excluded
+    });
+    
+    // Sort: credits desc, chargebacks asc (most negative first)
+    credits.sort((a, b) => b.netPremium - a.netPremium);
+    chargebacks.sort((a, b) => a.netPremium - b.netPremium);
+    
+    return { creditInsureds: credits, chargebackInsureds: chargebacks };
+  }, [producer]);
+  
   const totalInsureds = creditInsureds.length + chargebackInsureds.length;
   
   return (
