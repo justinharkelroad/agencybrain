@@ -10,29 +10,6 @@ export interface BonusQualifiersExtraction {
   splTiers: BonusTier[];
 }
 
-interface RawTierData {
-  target: number;
-  percentage: number;
-}
-
-function parsePercentage(text: string): number {
-  // Handle formats like "0.05%", "3.0%", "3%"
-  const match = text.match(/(\d+\.?\d*)\s*%?/);
-  if (match) {
-    const value = parseFloat(match[1]);
-    // If value is already small (like 0.05), it's already a percentage
-    // If value is large (like 3), it's already a percentage
-    return value;
-  }
-  return 0;
-}
-
-function parseTarget(text: string): number {
-  // Handle formats like "1,000", "1000", "10,000"
-  const cleaned = text.replace(/,/g, '').trim();
-  return parseInt(cleaned, 10) || 0;
-}
-
 async function performOCR(imageSource: string | File): Promise<string> {
   const result = await Tesseract.recognize(imageSource, 'eng', {
     logger: (m) => {
@@ -44,80 +21,88 @@ async function performOCR(imageSource: string | File): Promise<string> {
   return result.data.text;
 }
 
-function extractTiersFromText(text: string, sectionKeywords: string[]): RawTierData[] {
-  const tiers: RawTierData[] = [];
+/**
+ * Parse the 4-column row structure from OCR text
+ * Each row: [Auto/Home Goal] [Auto/Home %] [SPL Goal] [SPL %]
+ * Example: "254 0.0500% 482 0.0500%"
+ */
+function parseOCRText(text: string): BonusQualifiersExtraction | null {
+  const autoHomeTiers: BonusTier[] = [];
+  const splTiers: BonusTier[] = [];
   
   // Split into lines
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   
-  // Find section start
-  let sectionStart = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const lineLower = lines[i].toLowerCase();
-    if (sectionKeywords.some(kw => lineLower.includes(kw.toLowerCase()))) {
-      sectionStart = i;
-      break;
-    }
-  }
+  console.log('Parsing OCR lines:', lines);
   
-  if (sectionStart === -1) {
-    // Try to extract from entire text if section not found
-    sectionStart = 0;
-  }
-  
-  // Extract number pairs (target, percentage)
-  // Pattern: look for lines with a large number followed by a small percentage
-  const tierPattern = /(\d{1,3}(?:,\d{3})*)\s+(\d+\.?\d*)\s*%?/g;
-  
-  const textToSearch = lines.slice(sectionStart).join('\n');
-  let match;
-  
-  while ((match = tierPattern.exec(textToSearch)) !== null) {
-    const target = parseTarget(match[1]);
-    const percentage = parsePercentage(match[2]);
+  // Find the data rows (lines with 4-column pattern)
+  for (const line of lines) {
+    // Pattern: [number] [percentage%] [number] [percentage%]
+    // Example: "254 0.0500% 482 0.0500%" or "1226 0.5000% 588 0.1500%"
+    // Handle OCR errors like "15000%" which should be "1.5000%"
+    const fourColumnPattern = /^(\d[\d,]*)\s+(\d+\.?\d*)\s*%\s+(\d[\d,]*)\s+(\d+\.?\d*)\s*%$/;
+    const match = line.match(fourColumnPattern);
     
-    // Validate: target should be reasonable (500-100000), percentage should be 0-10
-    if (target >= 500 && target <= 100000 && percentage >= 0.01 && percentage <= 10) {
-      tiers.push({ target, percentage });
-    }
-  }
-  
-  // Also try alternative pattern: percentage first, then target
-  const altPattern = /(\d+\.?\d*)\s*%\s+(\d{1,3}(?:,\d{3})*)/g;
-  while ((match = altPattern.exec(textToSearch)) !== null) {
-    const percentage = parsePercentage(match[1]);
-    const target = parseTarget(match[2]);
-    
-    if (target >= 500 && target <= 100000 && percentage >= 0.01 && percentage <= 10) {
-      // Check if we already have this tier
-      if (!tiers.some(t => t.target === target && t.percentage === percentage)) {
-        tiers.push({ target, percentage });
+    if (match) {
+      const ahGoal = parseInt(match[1].replace(/,/g, ''), 10);
+      let ahPercent = parseFloat(match[2]);
+      const splGoal = parseInt(match[3].replace(/,/g, ''), 10);
+      let splPercent = parseFloat(match[4]);
+      
+      // Fix OCR errors where decimal is missing (15000 should be 1.5000, 25000 should be 2.5000)
+      if (ahPercent > 100) {
+        ahPercent = ahPercent / 10000;
+      }
+      if (splPercent > 100) {
+        splPercent = splPercent / 10000;
+      }
+      
+      console.log(`Parsed row: AH=${ahGoal}/${ahPercent}%, SPL=${splGoal}/${splPercent}%`);
+      
+      // Validate ranges (goal: 100-100000, percentage: 0.01-10)
+      if (ahGoal >= 100 && ahGoal <= 100000 && ahPercent >= 0.01 && ahPercent <= 10) {
+        autoHomeTiers.push({
+          pgPointTarget: ahGoal,
+          bonusPercentage: ahPercent  // Already in correct format (0.05, 0.5, 1.0, etc.)
+        });
+      }
+      
+      if (splGoal >= 100 && splGoal <= 100000 && splPercent >= 0.01 && splPercent <= 10) {
+        splTiers.push({
+          pgPointTarget: splGoal,
+          bonusPercentage: splPercent
+        });
       }
     }
   }
   
-  return tiers;
-}
-
-function normalizeTiers(rawTiers: RawTierData[]): BonusTier[] {
-  // Sort by percentage ascending
-  const sorted = [...rawTiers].sort((a, b) => a.percentage - b.percentage);
+  // Sort by bonus percentage ascending
+  autoHomeTiers.sort((a, b) => a.bonusPercentage - b.bonusPercentage);
+  splTiers.sort((a, b) => a.bonusPercentage - b.bonusPercentage);
   
-  // Remove duplicates
-  const unique: RawTierData[] = [];
-  for (const tier of sorted) {
-    if (!unique.some(t => Math.abs(t.percentage - tier.percentage) < 0.01)) {
-      unique.push(tier);
-    }
+  // Validate we got some data
+  if (autoHomeTiers.length === 0 && splTiers.length === 0) {
+    console.error('No valid tier data extracted from OCR text');
+    return null;
   }
   
-  // Take up to 7 tiers
-  const finalTiers = unique.slice(0, 7);
+  // Log what was extracted for debugging
+  console.log('Extracted Auto/Home tiers:', autoHomeTiers);
+  console.log('Extracted SPL tiers:', splTiers);
   
-  return finalTiers.map(t => ({
-    pgPointTarget: t.target,
-    bonusPercentage: t.percentage / 100, // Convert to decimal (0.05% -> 0.0005)
-  }));
+  return {
+    autoHomeTiers: normalizeTo7Tiers(autoHomeTiers),
+    splTiers: normalizeTo7Tiers(splTiers)  // Don't copy from autoHome - return what we actually extracted
+  };
+}
+
+// Helper to ensure we have at most 7 tiers
+function normalizeTo7Tiers(tiers: BonusTier[]): BonusTier[] {
+  // If we have more than 7, take the first 7 (already sorted by percentage)
+  if (tiers.length > 7) {
+    return tiers.slice(0, 7);
+  }
+  return tiers;
 }
 
 export async function parseBonusQualifiersImage(file: File): Promise<BonusQualifiersExtraction | null> {
@@ -133,30 +118,9 @@ export async function parseBonusQualifiersImage(file: File): Promise<BonusQualif
     console.log('Starting OCR on image...');
     const text = await performOCR(dataUrl);
     console.log('OCR completed, text length:', text.length);
-    console.log('OCR text preview:', text.substring(0, 500));
+    console.log('OCR raw text:', text);
     
-    // Extract Auto/Home tiers
-    const autoHomeKeywords = ['auto, home', 'auto home', 'afs', 'auto/home'];
-    const autoHomeRaw = extractTiersFromText(text, autoHomeKeywords);
-    
-    // Extract SPL tiers
-    const splKeywords = ['other personal lines', 'specialty', 'spl', 'opl'];
-    const splRaw = extractTiersFromText(text, splKeywords);
-    
-    // If we couldn't separate, try to split the tiers in half
-    if (autoHomeRaw.length >= 7 && splRaw.length === 0) {
-      // Assume first half is auto/home, second half is SPL
-      const midpoint = Math.ceil(autoHomeRaw.length / 2);
-      return {
-        autoHomeTiers: normalizeTiers(autoHomeRaw.slice(0, midpoint)),
-        splTiers: normalizeTiers(autoHomeRaw.slice(midpoint)),
-      };
-    }
-    
-    return {
-      autoHomeTiers: normalizeTiers(autoHomeRaw),
-      splTiers: normalizeTiers(splRaw.length > 0 ? splRaw : autoHomeRaw),
-    };
+    return parseOCRText(text);
   } catch (error) {
     console.error('Error parsing bonus qualifiers image:', error);
     return null;
@@ -184,16 +148,13 @@ export async function parseBonusQualifiersPDF(file: File): Promise<BonusQualifie
       fullText += pageText + '\n';
     }
     
-    // If we got enough text, use it directly
+    console.log('PDF text extracted:', fullText);
+    
+    // If we got enough text, try to parse it
     if (fullText.replace(/\s/g, '').length > 100) {
-      const autoHomeRaw = extractTiersFromText(fullText, ['auto, home', 'auto home', 'afs']);
-      const splRaw = extractTiersFromText(fullText, ['other personal lines', 'specialty', 'spl']);
-      
-      if (autoHomeRaw.length > 0) {
-        return {
-          autoHomeTiers: normalizeTiers(autoHomeRaw),
-          splTiers: normalizeTiers(splRaw.length > 0 ? splRaw : autoHomeRaw),
-        };
+      const result = parseOCRText(fullText);
+      if (result && (result.autoHomeTiers.length > 0 || result.splTiers.length > 0)) {
+        return result;
       }
     }
     
@@ -218,14 +179,9 @@ export async function parseBonusQualifiersPDF(file: File): Promise<BonusQualifie
     console.log('Rendered PDF page to image, starting OCR...');
     
     const text = await performOCR(dataUrl);
+    console.log('OCR raw text:', text);
     
-    const autoHomeRaw = extractTiersFromText(text, ['auto, home', 'auto home', 'afs']);
-    const splRaw = extractTiersFromText(text, ['other personal lines', 'specialty', 'spl']);
-    
-    return {
-      autoHomeTiers: normalizeTiers(autoHomeRaw),
-      splTiers: normalizeTiers(splRaw.length > 0 ? splRaw : autoHomeRaw),
-    };
+    return parseOCRText(text);
   } catch (error) {
     console.error('Error parsing bonus qualifiers PDF:', error);
     return null;
