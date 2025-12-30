@@ -35,11 +35,11 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
         throw new Error('Failed to load agency information');
       }
 
-      // Generate slug from name if missing
-      const agencySlug = agency.slug || agency.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      // Slug should always exist due to database trigger - fail fast if missing
+      if (!agency.slug) {
+        throw new Error('Agency slug not configured - please contact support');
+      }
+      const agencySlug = agency.slug;
 
       const { data: rules, error: rulesError } = await supabase
         .from('scorecard_rules')
