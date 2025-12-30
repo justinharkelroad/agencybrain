@@ -533,14 +533,15 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         potential_rank: analysis.potential_rank,
         skill_scores: analysis.skill_scores,
         section_scores: analysis.section_scores,
-        client_profile: analysis.extracted_data,
-        discovery_wins: analysis.execution_checklist,
+        // Accept both key names - prompt spec OR what AI actually returns
+        client_profile: analysis.extracted_data || analysis.client_profile,
+        discovery_wins: analysis.execution_checklist || analysis.checklist,
         critical_gaps: {
           assessment: analysis.critical_assessment,
           rationale: analysis.potential_rank_rationale,
           corrective_plan: analysis.corrective_action_plan
         },
-        closing_attempts: analysis.crm_notes,
+        closing_attempts: analysis.crm_notes || analysis.closing_attempts,
       };
     }
 
