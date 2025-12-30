@@ -4,10 +4,16 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { StaffSidebar } from "./StaffSidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { ROIForecastersModal, CalcKey } from "@/components/ROIForecastersModal";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { getStaffHomePath } from "@/utils/tierAccess";
 
 export function StaffLayout() {
+  const { user } = useStaffAuth();
   const [roiOpen, setRoiOpen] = useState(false);
   const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
+
+  // Get the tier-aware home path for this user
+  const staffHomePath = getStaffHomePath(user?.agency_membership_tier);
 
   const handleOpenROI = (toolKey?: CalcKey) => {
     setRoiInitialTool(toolKey || null);
@@ -30,7 +36,7 @@ export function StaffLayout() {
         <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border flex items-center px-4 gap-3 pt-[env(safe-area-inset-top)] min-h-14">
           <SidebarTrigger className="shrink-0" />
           <div className="flex-1 flex justify-center min-w-0">
-            <AgencyBrainBadge asLink to="/staff/dashboard" />
+            <AgencyBrainBadge asLink to={staffHomePath} />
           </div>
         </div>
         

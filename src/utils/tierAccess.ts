@@ -55,3 +55,11 @@ export function hasBoardroomAccess(tier: string | null | undefined): boolean {
 export function isCallScoringTier(tier: string | null | undefined): boolean {
   return normalizeTier(tier) === 'call_scoring';
 }
+
+/**
+ * Get the appropriate staff home path based on tier
+ * Call Scoring tier goes to /staff/call-scoring, everyone else to /staff/dashboard
+ */
+export function getStaffHomePath(tier: string | null | undefined): string {
+  return isCallScoringTier(tier) ? '/staff/call-scoring' : '/staff/dashboard';
+}

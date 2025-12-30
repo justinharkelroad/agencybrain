@@ -165,14 +165,50 @@ Deno.serve(async (req) => {
     // Return session token and user data (without password hash)
     const { password_hash, ...userData } = staffUser;
 
-    console.log('Login successful for user:', username);
+    // Fetch additional data: role, team_member_name from team_members
+    let role = null;
+    let team_member_name = null;
+    if (staffUser.team_member_id) {
+      const { data: teamMember } = await supabase
+        .from('team_members')
+        .select('name, role')
+        .eq('id', staffUser.team_member_id)
+        .single();
+      
+      if (teamMember) {
+        role = teamMember.role;
+        team_member_name = teamMember.name;
+      }
+    }
+
+    // Fetch agency_membership_tier from profiles table
+    let agency_membership_tier = null;
+    if (staffUser.agency_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('membership_tier')
+        .eq('agency_id', staffUser.agency_id)
+        .limit(1)
+        .single();
+      
+      if (profile) {
+        agency_membership_tier = profile.membership_tier;
+      }
+    }
+
+    console.log('Login successful for user:', username, 'tier:', agency_membership_tier);
 
     return new Response(
       JSON.stringify({
         success: true,
         session_token: sessionToken,
         expires_at: expiresAt.toISOString(),
-        user: userData
+        user: {
+          ...userData,
+          role,
+          team_member_name,
+          agency_membership_tier
+        }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
