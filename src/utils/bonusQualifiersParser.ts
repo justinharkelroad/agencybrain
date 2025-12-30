@@ -132,11 +132,17 @@ export async function parseBonusQualifiersPDF(file: File): Promise<BonusQualifie
     // Dynamic import to avoid bundling issues
     const pdfjsLib = await import('pdfjs-dist');
     
-    // Set worker path with full https URL (not protocol-relative)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    // Use unpkg CDN which is more reliable for pdfjs-dist versions
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
     
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let pdf;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    } catch (workerError) {
+      console.error('PDF worker error:', workerError);
+      throw new Error(`PDF processing failed: ${workerError.message}`);
+    }
     
     // First try text extraction
     let fullText = '';

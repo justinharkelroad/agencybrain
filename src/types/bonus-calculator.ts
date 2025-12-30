@@ -79,27 +79,38 @@ export interface CombinedTierResult extends TierResult {
   autoHomeBonusPercent: number;
   splBonusPercent: number;
 }
+// HARDCODED TIER PERCENTAGES - These are Allstate industry-standard values
+// Identical for every agency nationwide - NEVER extracted or editable
+// Only PG Point Targets vary by agency
 
-// Default tier structures
-export const DEFAULT_AUTO_HOME_TIERS: BonusTierInput[] = [
-  { bonusPercentage: 0.030, pgPointTarget: 0 },  // 3.0%
-  { bonusPercentage: 0.025, pgPointTarget: 0 },  // 2.5%
-  { bonusPercentage: 0.020, pgPointTarget: 0 },  // 2.0%
-  { bonusPercentage: 0.015, pgPointTarget: 0 },  // 1.5%
-  { bonusPercentage: 0.010, pgPointTarget: 0 },  // 1.0%
-  { bonusPercentage: 0.005, pgPointTarget: 0 },  // 0.5%
-  { bonusPercentage: 0.0005, pgPointTarget: 0 }, // 0.05%
-];
+export const AUTO_HOME_TIER_PERCENTAGES = [
+  0.0005,  // 0.05% (Tier 1 - lowest)
+  0.005,   // 0.50% (Tier 2)
+  0.010,   // 1.00% (Tier 3)
+  0.015,   // 1.50% (Tier 4)
+  0.020,   // 2.00% (Tier 5)
+  0.025,   // 2.50% (Tier 6)
+  0.030,   // 3.00% (Tier 7 - highest)
+] as const;
 
-export const DEFAULT_SPL_TIERS: BonusTierInput[] = [
-  { bonusPercentage: 0.010, pgPointTarget: 0 },  // 1.0%
-  { bonusPercentage: 0.008, pgPointTarget: 0 },  // 0.8%
-  { bonusPercentage: 0.006, pgPointTarget: 0 },  // 0.6%
-  { bonusPercentage: 0.0045, pgPointTarget: 0 }, // 0.45%
-  { bonusPercentage: 0.003, pgPointTarget: 0 },  // 0.3%
-  { bonusPercentage: 0.0015, pgPointTarget: 0 }, // 0.15%
-  { bonusPercentage: 0.0005, pgPointTarget: 0 }, // 0.05%
-];
+export const SPL_TIER_PERCENTAGES = [
+  0.0005,  // 0.05% (Tier 1 - lowest)
+  0.0015,  // 0.15% (Tier 2)
+  0.003,   // 0.30% (Tier 3)
+  0.0045,  // 0.45% (Tier 4)
+  0.006,   // 0.60% (Tier 5)
+  0.008,   // 0.80% (Tier 6)
+  0.010,   // 1.00% (Tier 7 - highest)
+] as const;
+
+// Default tier structures - combine hardcoded percentages with zero targets
+export const DEFAULT_AUTO_HOME_TIERS: BonusTierInput[] = AUTO_HOME_TIER_PERCENTAGES.map(
+  (bonusPercentage) => ({ bonusPercentage, pgPointTarget: 0 })
+);
+
+export const DEFAULT_SPL_TIERS: BonusTierInput[] = SPL_TIER_PERCENTAGES.map(
+  (bonusPercentage) => ({ bonusPercentage, pgPointTarget: 0 })
+);
 
 export const DEFAULT_INPUTS: CalculatorInputs = {
   estimatedYearEndPremium: 16000000,

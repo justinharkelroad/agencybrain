@@ -208,11 +208,18 @@ export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetri
     // Dynamic import to avoid bundling issues
     const pdfjsLib = await import('pdfjs-dist');
     
-    // Set worker path with full https URL (not protocol-relative)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    // Use unpkg CDN which is more reliable for pdfjs-dist versions
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
     
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let pdf;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    } catch (workerError) {
+      console.error('PDF worker error:', workerError);
+      // Re-throw with a clear message - DON'T say "image-based" for worker errors
+      throw new Error(`PDF processing failed: ${workerError.message}`);
+    }
     
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -224,10 +231,10 @@ export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetri
       fullText += pageText + '\n';
     }
     
-    // Check if PDF is image-based (too little text)
+    // NOW check if it's actually image-based (no text extracted)
     if (fullText.replace(/\s/g, '').length < 100) {
-      console.warn('PDF appears to be image-based, insufficient text extracted');
-      return null;
+      console.warn('PDF has < 100 chars of text, likely image-based');
+      return null; // Will trigger "image-based" message
     }
     
     // Simple text-based extraction (less reliable than XLSX)

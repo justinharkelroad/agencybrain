@@ -15,6 +15,8 @@ import {
   DEFAULT_INPUTS,
   DEFAULT_AUTO_HOME_TIERS,
   DEFAULT_SPL_TIERS,
+  AUTO_HOME_TIER_PERCENTAGES,
+  SPL_TIER_PERCENTAGES,
   IntermediateValues,
   TierResult,
 } from '@/types/bonus-calculator';
@@ -415,16 +417,17 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
       }
       
       if (qualifiersData) {
+        // ONLY extract PG point targets - percentages are HARDCODED (industry standard)
         if (qualifiersData.autoHomeTiers.length > 0) {
-          updated.autoHomeTiers = qualifiersData.autoHomeTiers.map((t, i) => ({
-            bonusPercentage: t.bonusPercentage || DEFAULT_AUTO_HOME_TIERS[i]?.bonusPercentage || 0,
-            pgPointTarget: t.pgPointTarget,
+          updated.autoHomeTiers = AUTO_HOME_TIER_PERCENTAGES.map((bonusPercentage, i) => ({
+            bonusPercentage,
+            pgPointTarget: qualifiersData.autoHomeTiers[i]?.pgPointTarget || 0,
           }));
         }
         if (qualifiersData.splTiers.length > 0) {
-          updated.splTiers = qualifiersData.splTiers.map((t, i) => ({
-            bonusPercentage: t.bonusPercentage || DEFAULT_SPL_TIERS[i]?.bonusPercentage || 0,
-            pgPointTarget: t.pgPointTarget,
+          updated.splTiers = SPL_TIER_PERCENTAGES.map((bonusPercentage, i) => ({
+            bonusPercentage,
+            pgPointTarget: qualifiersData.splTiers[i]?.pgPointTarget || 0,
           }));
         }
       }
