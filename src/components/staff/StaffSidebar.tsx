@@ -116,8 +116,16 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
   // Filter navigation items based on role, callScoringEnabled setting, and tier
   const filteredNavigation = useMemo(() => {
+    // Call Scoring tier users only see dashboard and call-scoring
+    const callScoringAllowedIds = ['dashboard', 'call-scoring'];
+    
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
+        // For Call Scoring tier, only allow specific items
+        if (isCallScoringTier && !callScoringAllowedIds.includes(item.id)) {
+          return false;
+        }
+        
         // Check role-based access first
         if (!canAccessItem(item.access)) return false;
         
@@ -126,17 +134,17 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
           return callScoringEnabled === true;
         }
         
-        // Hide AI Sales Bot from Call Scoring tier entirely
-        if (item.id === 'ai-sales-bot' && isCallScoringTier) {
-          return false;
-        }
-        
         return true;
       });
     };
 
     return staffNavigationConfig
       .filter((entry) => {
+        // For Call Scoring tier, filter top-level items too
+        if (isCallScoringTier && !isNavFolder(entry) && !callScoringAllowedIds.includes(entry.id)) {
+          return false;
+        }
+        
         // Check folder/item level access
         if (isNavFolder(entry)) {
           return canAccessItem(entry.access);
