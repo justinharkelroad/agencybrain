@@ -428,51 +428,85 @@ export function CallScorecard({
               </CardContent>
             </Card>
 
-            {/* Extracted CRM Data */}
-            <Card>
-              <CardContent className="pt-4 space-y-3">
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <FileAudio className="h-3 w-3" />
-                  EXTRACTED CRM DATA
-                </p>
-                
-                {extractedData.your_quote && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">QUOTE COMPARISON</p>
-                    <p className="text-lg font-bold">
-                      {extractedData.your_quote}
-                      {extractedData.competitor_quote && (
-                        <span className="text-sm text-muted-foreground ml-2">
-                          vs <span className="text-green-400">{extractedData.competitor_quote}</span>
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {extractedData.assets?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">ASSETS</p>
-                    {extractedData.assets.map((asset: string, i: number) => (
-                      <p key={i} className="text-sm flex items-center gap-1">
-                        <span className="w-1 h-4 bg-blue-500 rounded" />
-                        {asset}
+              {/* Extracted CRM Data */}
+              <Card>
+                <CardContent className="pt-4 space-y-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FileAudio className="h-3 w-3" />
+                    EXTRACTED CRM DATA
+                  </p>
+                  
+                  {/* Legacy: Quote Comparison OR New: Budget Info */}
+                  {extractedData.your_quote ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">QUOTE COMPARISON</p>
+                      <p className="text-lg font-bold">
+                        {extractedData.your_quote}
+                        {extractedData.competitor_quote && (
+                          <span className="text-sm text-muted-foreground ml-2">
+                            vs <span className="text-green-400">{extractedData.competitor_quote}</span>
+                          </span>
+                        )}
                       </p>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ) : extractedData.budget_indicators && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">BUDGET</p>
+                      <p className="text-sm font-medium">{extractedData.budget_indicators}</p>
+                    </div>
+                  )}
 
-                {extractedData.timeline && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
-                    <p className="text-sm text-yellow-400 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {extractedData.timeline}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {/* Legacy: Assets OR New: Current Coverage */}
+                  {extractedData.assets?.length > 0 ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">ASSETS</p>
+                      {extractedData.assets.map((asset: string, i: number) => (
+                        <p key={i} className="text-sm flex items-center gap-1">
+                          <span className="w-1 h-4 bg-blue-500 rounded" />
+                          {asset}
+                        </p>
+                      ))}
+                    </div>
+                  ) : extractedData.current_coverage && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">CURRENT COVERAGE</p>
+                      <p className="text-sm flex items-center gap-1">
+                        <span className="w-1 h-4 bg-blue-500 rounded" />
+                        {extractedData.current_coverage}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Legacy: Timeline OR New: Household */}
+                  {extractedData.timeline ? (
+                    <div>
+                      <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
+                      <p className="text-sm text-yellow-400 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {extractedData.timeline}
+                      </p>
+                    </div>
+                  ) : extractedData.household_size && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">HOUSEHOLD</p>
+                      <p className="text-sm">{extractedData.household_size}</p>
+                    </div>
+                  )}
+
+                  {/* New: Pain Points (no legacy equivalent) */}
+                  {extractedData.pain_points?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">PAIN POINTS</p>
+                      {extractedData.pain_points.map((point: string, i: number) => (
+                        <p key={i} className="text-sm flex items-center gap-1 text-orange-400">
+                          <span className="w-1 h-4 bg-orange-500 rounded" />
+                          {point}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
           </div>
 
           {/* Three Section Scores OR Skill Breakdown */}
