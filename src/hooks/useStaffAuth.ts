@@ -95,7 +95,7 @@ export function useStaffAuth() {
         error: null,
       });
 
-      return { error: null };
+      return { error: null, user: data.user };
     } catch (err: any) {
       const errorMsg = err?.message || 'Login failed';
       setState(prev => ({ ...prev, loading: false, error: errorMsg }));

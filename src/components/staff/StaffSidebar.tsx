@@ -116,8 +116,8 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
   // Filter navigation items based on role, callScoringEnabled setting, and tier
   const filteredNavigation = useMemo(() => {
-    // Call Scoring tier users only see dashboard and call-scoring
-    const callScoringAllowedIds = ['dashboard', 'call-scoring'];
+    // Call Scoring tier users ONLY see call-scoring - nothing else
+    const callScoringAllowedIds = ['call-scoring'];
     
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
