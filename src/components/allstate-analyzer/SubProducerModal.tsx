@@ -14,6 +14,11 @@ interface Props {
 
 export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
   
+  // Filter out sub-producers with zero activity (net premium AND net commission both zero)
+  const activeProducers = data.producers.filter(
+    p => Math.abs(p.netPremium) > 0.005 || Math.abs(p.netCommission) > 0.005
+  );
+  
   const formatCutoffDate = (date: Date | string | undefined) => {
     if (!date) return 'N/A';
     // Handle both Date objects and ISO string dates (from JSON serialization)
@@ -107,9 +112,9 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
         <div className="grid grid-cols-4 gap-4 py-4 border-b">
           <div className="text-center">
             <div className="text-2xl font-bold text-primary">
-              {data.producerCount}
+              {activeProducers.length}
             </div>
-            <div className="text-xs text-muted-foreground">Producers</div>
+            <div className="text-xs text-muted-foreground">Active Producers</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold">
@@ -133,7 +138,7 @@ export function SubProducerModal({ isOpen, onClose, data, period }: Props) {
         
         {/* Producer Cards */}
         <div className="grid gap-4 mt-4">
-          {data.producers.map((producer) => (
+          {activeProducers.map((producer) => (
             <SubProducerCard key={producer.code || 'agency'} producer={producer} isAgency={producer.code === ''} />
           ))}
         </div>
