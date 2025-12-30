@@ -1,5 +1,8 @@
 project_id = "wjqyccbytctqwceuhzhk"
 
+[functions.parse-bonus-qualifiers]
+verify_jwt = false
+
 [functions.grade-roleplay]
 verify_jwt = false
 
