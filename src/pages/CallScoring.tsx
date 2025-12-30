@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
@@ -937,6 +938,7 @@ export default function CallScoring() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Phone className="h-6 w-6" />
             Call Scoring
+            <HelpVideoButton videoKey="call_scoring" />
           </h1>
           <p className="text-muted-foreground">
             Upload sales calls for AI-powered coaching analysis
