@@ -82,25 +82,26 @@ export interface CombinedTierResult extends TierResult {
 // HARDCODED TIER PERCENTAGES - These are Allstate industry-standard values
 // Identical for every agency nationwide - NEVER extracted or editable
 // Only PG Point Targets vary by agency
+// SORTED DESCENDING - highest bonus tiers first (for display)
 
 export const AUTO_HOME_TIER_PERCENTAGES = [
-  0.0005,  // 0.05% (Tier 1 - lowest)
-  0.005,   // 0.50% (Tier 2)
-  0.010,   // 1.00% (Tier 3)
-  0.015,   // 1.50% (Tier 4)
-  0.020,   // 2.00% (Tier 5)
-  0.025,   // 2.50% (Tier 6)
   0.030,   // 3.00% (Tier 7 - highest)
+  0.025,   // 2.50% (Tier 6)
+  0.020,   // 2.00% (Tier 5)
+  0.015,   // 1.50% (Tier 4)
+  0.010,   // 1.00% (Tier 3)
+  0.005,   // 0.50% (Tier 2)
+  0.0005,  // 0.05% (Tier 1 - lowest)
 ] as const;
 
 export const SPL_TIER_PERCENTAGES = [
-  0.0005,  // 0.05% (Tier 1 - lowest)
-  0.0015,  // 0.15% (Tier 2)
-  0.003,   // 0.30% (Tier 3)
-  0.0045,  // 0.45% (Tier 4)
-  0.006,   // 0.60% (Tier 5)
-  0.008,   // 0.80% (Tier 6)
   0.010,   // 1.00% (Tier 7 - highest)
+  0.008,   // 0.80% (Tier 6)
+  0.006,   // 0.60% (Tier 5)
+  0.0045,  // 0.45% (Tier 4)
+  0.003,   // 0.30% (Tier 3)
+  0.0015,  // 0.15% (Tier 2)
+  0.0005,  // 0.05% (Tier 1 - lowest)
 ] as const;
 
 // Default tier structures - combine hardcoded percentages with zero targets

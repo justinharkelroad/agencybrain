@@ -76,9 +76,9 @@ function parseOCRText(text: string): BonusQualifiersExtraction | null {
     }
   }
   
-  // Sort by bonus percentage ascending
-  autoHomeTiers.sort((a, b) => a.bonusPercentage - b.bonusPercentage);
-  splTiers.sort((a, b) => a.bonusPercentage - b.bonusPercentage);
+  // Sort by bonus percentage descending (highest first for display)
+  autoHomeTiers.sort((a, b) => b.bonusPercentage - a.bonusPercentage);
+  splTiers.sort((a, b) => b.bonusPercentage - a.bonusPercentage);
   
   // Validate we got some data
   if (autoHomeTiers.length === 0 && splTiers.length === 0) {
