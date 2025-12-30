@@ -28,9 +28,12 @@ import {
   formatNumber,
 } from '@/utils/bonusCalculations';
 import BonusForecastReportCard from './BonusForecastReportCard';
+import BonusCalculatorUpload from './BonusCalculatorUpload';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import type { BusinessMetricsExtraction } from '@/utils/businessMetricsParser';
+import type { BonusQualifiersExtraction } from '@/utils/bonusQualifiersParser';
 
 const STORAGE_KEY = 'bonusForecastCalc:inputs';
 
@@ -389,6 +392,47 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
     } catch {}
   };
 
+  // Handle extraction from uploaded files
+  const handleExtractionComplete = useCallback((
+    metricsData: BusinessMetricsExtraction | null,
+    qualifiersData: BonusQualifiersExtraction | null
+  ) => {
+    setInputs(prev => {
+      const updated = { ...prev };
+      
+      if (metricsData) {
+        if (metricsData.estimatedYearEndPremium > 0) updated.estimatedYearEndPremium = metricsData.estimatedYearEndPremium;
+        if (metricsData.autoItemsInForce > 0) updated.autoItemsInForce = metricsData.autoItemsInForce;
+        if (metricsData.autoPremiumWritten > 0) updated.autoPremiumWritten = metricsData.autoPremiumWritten;
+        if (metricsData.autoRetention > 0) updated.autoRetention = metricsData.autoRetention;
+        if (metricsData.homeItemsInForce > 0) updated.homeItemsInForce = metricsData.homeItemsInForce;
+        if (metricsData.homePremiumWritten > 0) updated.homePremiumWritten = metricsData.homePremiumWritten;
+        if (metricsData.homeRetention > 0) updated.homeRetention = metricsData.homeRetention;
+        if (metricsData.splItemsInForce > 0) updated.splItemsInForce = metricsData.splItemsInForce;
+        if (metricsData.splPremiumWritten > 0) updated.splPremiumWritten = metricsData.splPremiumWritten;
+        if (metricsData.splRetention > 0) updated.splRetention = metricsData.splRetention;
+        if (metricsData.newBusinessRetention > 0) updated.newBusinessRetention = metricsData.newBusinessRetention;
+      }
+      
+      if (qualifiersData) {
+        if (qualifiersData.autoHomeTiers.length > 0) {
+          updated.autoHomeTiers = qualifiersData.autoHomeTiers.map((t, i) => ({
+            bonusPercentage: t.bonusPercentage || DEFAULT_AUTO_HOME_TIERS[i]?.bonusPercentage || 0,
+            pgPointTarget: t.pgPointTarget,
+          }));
+        }
+        if (qualifiersData.splTiers.length > 0) {
+          updated.splTiers = qualifiersData.splTiers.map((t, i) => ({
+            bonusPercentage: t.bonusPercentage || DEFAULT_SPL_TIERS[i]?.bonusPercentage || 0,
+            pgPointTarget: t.pgPointTarget,
+          }));
+        }
+      }
+      
+      return updated;
+    });
+  }, []);
+
   // Compute all results
   const intermediate = useMemo(() => computeIntermediateValues(inputs), [inputs]);
   const autoHomeResults = useMemo(() => calculateAutoHomeGrid(inputs, intermediate), [inputs, intermediate]);
@@ -461,6 +505,9 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
           </Button>
         </div>
       </div>
+
+      {/* File Upload Section */}
+      <BonusCalculatorUpload onExtractionComplete={handleExtractionComplete} />
 
       {/* Input Sections */}
       <Collapsible open={inputsOpen} onOpenChange={setInputsOpen}>
