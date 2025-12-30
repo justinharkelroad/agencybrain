@@ -269,34 +269,40 @@ export function CallScorecard({
           <div className="p-6 space-y-6">
           {/* Key Metrics Row - Stack on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Your Quote */}
+            {/* Your Quote / Budget */}
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">YOUR QUOTE</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {extractedData.your_quote ? 'YOUR QUOTE' : extractedData.budget_indicators ? 'BUDGET' : 'YOUR QUOTE'}
+                </p>
                 <p className="text-xl sm:text-2xl font-bold break-words">
-                  {extractedData.your_quote || '--'}
+                  {extractedData.your_quote || extractedData.budget_indicators || '--'}
                 </p>
               </CardContent>
             </Card>
             
-            {/* Competitor */}
+            {/* Competitor / Current Coverage */}
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">COMPETITOR AVG</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {extractedData.competitor_quote ? 'COMPETITOR AVG' : extractedData.current_coverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
+                </p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">
-                  {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : '--'}
+                  {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : extractedData.current_coverage || '--'}
                 </p>
               </CardContent>
             </Card>
             
-            {/* Asset Profile */}
+            {/* Asset Profile / Household */}
             <Card className="bg-muted/30">
               <CardContent className="pt-4">
-                <p className="text-xs text-muted-foreground mb-1 text-center sm:text-left">ASSET PROFILE</p>
+                <p className="text-xs text-muted-foreground mb-1 text-center sm:text-left">
+                  {extractedData.assets ? 'ASSET PROFILE' : extractedData.household_size ? 'HOUSEHOLD' : 'ASSET PROFILE'}
+                </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm">
                   {extractedData.assets?.slice(0, 2).map((asset: string, i: number) => (
                     <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
-                  )) || <span className="text-muted-foreground">--</span>}
+                  )) || <span className="truncate max-w-full">{extractedData.household_size || '--'}</span>}
                 </div>
               </CardContent>
             </Card>
