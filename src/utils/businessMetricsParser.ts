@@ -205,20 +205,28 @@ export async function parseBusinessMetricsXLSX(file: File): Promise<BusinessMetr
 
 export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetricsExtraction | null> {
   try {
+    console.log('Starting PDF parsing...');
+    
     // Dynamic import to avoid bundling issues
     const pdfjsLib = await import('pdfjs-dist');
     
-    // Use unpkg CDN which is more reliable for pdfjs-dist versions
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+    // Use import.meta.url for bundler-resolved worker path (most reliable)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+    
+    const arrayBuffer = await file.arrayBuffer();
+    console.log('PDF loaded, size:', arrayBuffer.byteLength);
     
     let pdf;
     try {
-      const arrayBuffer = await file.arrayBuffer();
       pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    } catch (workerError) {
-      console.error('PDF worker error:', workerError);
-      // Re-throw with a clear message - DON'T say "image-based" for worker errors
-      throw new Error(`PDF processing failed: ${workerError.message}`);
+      console.log('PDF parsed, pages:', pdf.numPages);
+    } catch (workerError: any) {
+      console.error('PDF worker/document error:', workerError);
+      // Re-throw with clear message - NOT "image-based"
+      throw new Error(`PDF processing failed: ${workerError?.message || 'Unknown error'}`);
     }
     
     let fullText = '';
@@ -229,12 +237,15 @@ export async function parseBusinessMetricsPDF(file: File): Promise<BusinessMetri
         .map((item) => ('str' in item ? item.str : ''))
         .join(' ');
       fullText += pageText + '\n';
+      console.log(`Page ${i} text length:`, pageText.length);
     }
+    
+    console.log('Total extracted text length:', fullText.length);
     
     // NOW check if it's actually image-based (no text extracted)
     if (fullText.replace(/\s/g, '').length < 100) {
-      console.warn('PDF has < 100 chars of text, likely image-based');
-      return null; // Will trigger "image-based" message
+      console.log('PDF has < 100 chars - likely image-based');
+      return null; // This triggers the "image-based" message - correctly!
     }
     
     // Simple text-based extraction (less reliable than XLSX)
