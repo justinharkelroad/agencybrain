@@ -115,7 +115,7 @@ export default function Renewals() {
   const filteredAndSortedRecords = useMemo(() => {
     let result = records || [];
     
-    // Priority filter
+    // Priority filter (if toggle is on)
     if (showPriorityOnly) {
       result = result.filter(r => 
         r.is_priority === true ||
@@ -125,15 +125,10 @@ export default function Renewals() {
       );
     }
     
-    // Sort with priority items ALWAYS first, then by selected column
+    // Sort by selected column only (NO automatic priority sorting)
+    if (!sortColumn) return result;
+    
     return [...result].sort((a, b) => {
-      // Priority items always come first
-      if (a.is_priority && !b.is_priority) return -1;
-      if (!a.is_priority && b.is_priority) return 1;
-      
-      // Then apply column sorting
-      if (!sortColumn) return 0;
-      
       let aVal: any;
       let bVal: any;
       
@@ -161,10 +156,6 @@ export default function Renewals() {
         case 'current_status':
           aVal = (a.current_status || '').toLowerCase();
           bVal = (b.current_status || '').toLowerCase();
-          break;
-        case 'multi_line_indicator':
-          aVal = a.multi_line_indicator ? 1 : 0;
-          bVal = b.multi_line_indicator ? 1 : 0;
           break;
         default:
           return 0;
