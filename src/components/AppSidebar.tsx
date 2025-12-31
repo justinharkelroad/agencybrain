@@ -102,15 +102,21 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     return localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
   });
   
-  const handleFolderToggle = useCallback((folderId: string) => {
+  // Idempotent folder open/close - receives desired state, not toggle
+  const handleFolderOpenChange = useCallback((folderId: string, open: boolean) => {
     setOpenFolderId(prev => {
-      const newOpenId = prev === folderId ? null : folderId;
-      if (newOpenId) {
-        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, newOpenId);
+      if (open) {
+        // Opening: set this folder as open
+        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, folderId);
+        return folderId;
       } else {
-        localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
+        // Closing: only close if this folder is currently open
+        if (prev === folderId) {
+          localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
+          return null;
+        }
+        return prev;
       }
-      return newOpenId;
     });
   }, []);
 
@@ -341,7 +347,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                         storageKey={`sidebar-folder-${entry.id}`}
                         membershipTier={membershipTier}
                         openFolderId={openFolderId}
-                        onFolderToggle={handleFolderToggle}
+                        onFolderOpenChange={handleFolderOpenChange}
                       />
                     );
                   }

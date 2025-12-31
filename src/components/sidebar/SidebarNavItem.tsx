@@ -5,6 +5,7 @@ import {
   SidebarMenuButton,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { NavItem } from "@/config/navigation";
 import { ExternalLink } from "lucide-react";
@@ -28,7 +29,16 @@ export function SidebarNavItem({
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
+  
+  // Helper to dispatch navigation event and close mobile sidebar
+  const dispatchNavigation = () => {
+    window.dispatchEvent(new CustomEvent('sidebar-navigation'));
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
   
   // Hash-aware isActive logic
   const isActive = (() => {
@@ -55,6 +65,9 @@ export function SidebarNavItem({
       setShowGateModal(true);
       return;
     }
+    
+    // Dispatch navigation event for all navigation actions
+    dispatchNavigation();
     
     if (item.type === 'link' && item.url) {
       navigate(item.url);
@@ -103,7 +116,11 @@ export function SidebarNavItem({
                 asChild
                 isActive={isActive}
               >
-                <Link to={item.url} className="w-full">
+                <Link 
+                  to={item.url} 
+                  className="w-full"
+                  onClick={dispatchNavigation}
+                >
                   {content}
                 </Link>
               </SidebarMenuSubButton>
