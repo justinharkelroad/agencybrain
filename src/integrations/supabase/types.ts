@@ -4072,40 +4072,55 @@ export type Database = {
       }
       renewal_activities: {
         Row: {
+          activity_status: string | null
           activity_type: string
           agency_id: string
+          assigned_team_member_id: string | null
+          comments: string | null
+          completed_date: string | null
           created_at: string
+          created_by: string | null
+          created_by_display_name: string
           household_key: string
           id: string
-          notes: string | null
-          record_id: string
-          staff_member_id: string | null
-          user_display_name: string
-          user_id: string | null
+          renewal_record_id: string
+          scheduled_date: string | null
+          send_calendar_invite: boolean | null
+          subject: string | null
         }
         Insert: {
+          activity_status?: string | null
           activity_type: string
           agency_id: string
+          assigned_team_member_id?: string | null
+          comments?: string | null
+          completed_date?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_display_name: string
           household_key: string
           id?: string
-          notes?: string | null
-          record_id: string
-          staff_member_id?: string | null
-          user_display_name: string
-          user_id?: string | null
+          renewal_record_id: string
+          scheduled_date?: string | null
+          send_calendar_invite?: boolean | null
+          subject?: string | null
         }
         Update: {
+          activity_status?: string | null
           activity_type?: string
           agency_id?: string
+          assigned_team_member_id?: string | null
+          comments?: string | null
+          completed_date?: string | null
           created_at?: string
+          created_by?: string | null
+          created_by_display_name?: string
           household_key?: string
           id?: string
-          notes?: string | null
-          record_id?: string
-          staff_member_id?: string | null
-          user_display_name?: string
-          user_id?: string | null
+          renewal_record_id?: string
+          scheduled_date?: string | null
+          send_calendar_invite?: boolean | null
+          subject?: string | null
         }
         Relationships: [
           {
@@ -4117,14 +4132,14 @@ export type Database = {
           },
           {
             foreignKeyName: "renewal_activities_record_id_fkey"
-            columns: ["record_id"]
+            columns: ["renewal_record_id"]
             isOneToOne: false
             referencedRelation: "renewal_records"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "renewal_activities_staff_member_id_fkey"
-            columns: ["staff_member_id"]
+            columns: ["assigned_team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
             referencedColumns: ["id"]
@@ -4136,73 +4151,109 @@ export type Database = {
           account_type: string | null
           agency_id: string
           agent_number: string | null
-          assigned_to: string | null
+          amount_due: number | null
+          assigned_team_member_id: string | null
           created_at: string
           current_status: string
+          easy_pay: boolean | null
+          email: string | null
+          first_name: string | null
           household_key: string
           id: string
-          insured_email: string | null
-          insured_first_name: string | null
-          insured_last_name: string | null
-          insured_phone: string | null
-          insured_phone_alt: string | null
           is_active: boolean
+          item_count: number | null
+          last_activity_at: string | null
+          last_activity_by: string | null
+          last_activity_by_display_name: string | null
+          last_name: string | null
           last_upload_id: string | null
-          no_of_items: number | null
+          multi_line_indicator: boolean | null
+          notes: string | null
+          phone: string | null
+          phone_alt: string | null
           policy_number: string
           premium_cents: number | null
+          premium_change_dollars: number | null
+          premium_change_percent: number | null
+          premium_new: number | null
+          premium_old: number | null
           product_name: string | null
           renewal_effective_date: string | null
           renewal_status: string
           updated_at: string
+          years_prior_insurance: number | null
         }
         Insert: {
           account_type?: string | null
           agency_id: string
           agent_number?: string | null
-          assigned_to?: string | null
+          amount_due?: number | null
+          assigned_team_member_id?: string | null
           created_at?: string
           current_status?: string
+          easy_pay?: boolean | null
+          email?: string | null
+          first_name?: string | null
           household_key: string
           id?: string
-          insured_email?: string | null
-          insured_first_name?: string | null
-          insured_last_name?: string | null
-          insured_phone?: string | null
-          insured_phone_alt?: string | null
           is_active?: boolean
+          item_count?: number | null
+          last_activity_at?: string | null
+          last_activity_by?: string | null
+          last_activity_by_display_name?: string | null
+          last_name?: string | null
           last_upload_id?: string | null
-          no_of_items?: number | null
+          multi_line_indicator?: boolean | null
+          notes?: string | null
+          phone?: string | null
+          phone_alt?: string | null
           policy_number: string
           premium_cents?: number | null
+          premium_change_dollars?: number | null
+          premium_change_percent?: number | null
+          premium_new?: number | null
+          premium_old?: number | null
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
           updated_at?: string
+          years_prior_insurance?: number | null
         }
         Update: {
           account_type?: string | null
           agency_id?: string
           agent_number?: string | null
-          assigned_to?: string | null
+          amount_due?: number | null
+          assigned_team_member_id?: string | null
           created_at?: string
           current_status?: string
+          easy_pay?: boolean | null
+          email?: string | null
+          first_name?: string | null
           household_key?: string
           id?: string
-          insured_email?: string | null
-          insured_first_name?: string | null
-          insured_last_name?: string | null
-          insured_phone?: string | null
-          insured_phone_alt?: string | null
           is_active?: boolean
+          item_count?: number | null
+          last_activity_at?: string | null
+          last_activity_by?: string | null
+          last_activity_by_display_name?: string | null
+          last_name?: string | null
           last_upload_id?: string | null
-          no_of_items?: number | null
+          multi_line_indicator?: boolean | null
+          notes?: string | null
+          phone?: string | null
+          phone_alt?: string | null
           policy_number?: string
           premium_cents?: number | null
+          premium_change_dollars?: number | null
+          premium_change_percent?: number | null
+          premium_new?: number | null
+          premium_old?: number | null
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
           updated_at?: string
+          years_prior_insurance?: number | null
         }
         Relationships: [
           {
@@ -4214,7 +4265,7 @@ export type Database = {
           },
           {
             foreignKeyName: "renewal_records_assigned_to_fkey"
-            columns: ["assigned_to"]
+            columns: ["assigned_team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
             referencedColumns: ["id"]
@@ -7159,29 +7210,60 @@ export type Database = {
         }
         Returns: undefined
       }
-      upsert_renewal_record: {
-        Args: {
-          p_account_type?: string
-          p_agency_id: string
-          p_agent_number?: string
-          p_household_key: string
-          p_insured_email?: string
-          p_insured_first_name?: string
-          p_insured_last_name?: string
-          p_insured_phone?: string
-          p_insured_phone_alt?: string
-          p_last_upload_id?: string
-          p_no_of_items?: number
-          p_policy_number: string
-          p_premium_cents?: number
-          p_product_name?: string
-          p_renewal_effective_date?: string
-        }
-        Returns: {
-          record_id: string
-          was_created: boolean
-        }[]
-      }
+      upsert_renewal_record:
+        | {
+            Args: {
+              p_account_type?: string
+              p_agency_id: string
+              p_agent_number?: string
+              p_household_key: string
+              p_insured_email?: string
+              p_insured_first_name?: string
+              p_insured_last_name?: string
+              p_insured_phone?: string
+              p_insured_phone_alt?: string
+              p_last_upload_id?: string
+              p_no_of_items?: number
+              p_policy_number: string
+              p_premium_cents?: number
+              p_product_name?: string
+              p_renewal_effective_date?: string
+            }
+            Returns: {
+              record_id: string
+              was_created: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_account_type?: string
+              p_agency_id: string
+              p_agent_number?: string
+              p_amount_due?: number
+              p_easy_pay?: boolean
+              p_email?: string
+              p_first_name?: string
+              p_household_key?: string
+              p_item_count?: number
+              p_last_name?: string
+              p_multi_line_indicator?: boolean
+              p_phone?: string
+              p_phone_alt?: string
+              p_policy_number: string
+              p_premium_change_dollars?: number
+              p_premium_change_percent?: number
+              p_premium_new?: number
+              p_premium_old?: number
+              p_product_name?: string
+              p_renewal_effective_date: string
+              p_renewal_status?: string
+              p_upload_id: string
+              p_uploaded_by?: string
+              p_uploaded_by_display_name?: string
+              p_years_prior_insurance?: number
+            }
+            Returns: Json
+          }
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
