@@ -55,6 +55,15 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Get display name from profiles table
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', user?.id)
+        .single();
+      
+      const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.email || 'Unknown';
+      
       const { error } = await supabase
         .from('renewal_activities')
         .insert({
@@ -63,13 +72,13 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
           activity_type: 'note',
           comments: noteText.trim(),
           created_by: user?.id,
-          created_by_display_name: user?.user_metadata?.display_name || user?.email || 'Unknown',
+          created_by_display_name: displayName,
         });
       
       if (error) throw error;
       
       toast({ title: 'Note saved' });
-      setNoteText(''); // Clear the textarea
+      setNoteText('');
       queryClient.invalidateQueries({ queryKey: ['renewal-activities', record.id] });
     } catch (err) {
       console.error('Failed to save note:', err);

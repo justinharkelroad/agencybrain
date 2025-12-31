@@ -40,6 +40,19 @@ export function useCreateRenewalActivity() {
   
   return useMutation({
     mutationFn: async (params: CreateActivityParams) => {
+      // Get display name from profiles table for accuracy
+      let displayName = params.displayName;
+      if (params.userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', params.userId)
+          .single();
+        if (profile?.display_name) {
+          displayName = profile.display_name;
+        }
+      }
+      
       // Create activity
       const { error: activityError } = await supabase.from('renewal_activities').insert({
         renewal_record_id: params.renewalRecordId,
@@ -52,7 +65,7 @@ export function useCreateRenewalActivity() {
         send_calendar_invite: params.sendCalendarInvite || false,
         assigned_team_member_id: params.assignedTeamMemberId || null,
         created_by: params.userId,
-        created_by_display_name: params.displayName,
+        created_by_display_name: displayName,
       });
       if (activityError) throw activityError;
       
@@ -60,7 +73,7 @@ export function useCreateRenewalActivity() {
       const recordUpdates: Record<string, any> = {
         last_activity_at: new Date().toISOString(),
         last_activity_by: params.userId,
-        last_activity_by_display_name: params.displayName,
+        last_activity_by_display_name: displayName,
         updated_at: new Date().toISOString(),
       };
       if (params.updateRecordStatus) {
