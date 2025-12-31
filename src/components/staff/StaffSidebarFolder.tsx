@@ -22,6 +22,9 @@ interface StaffSidebarFolderProps {
   onNavClick?: () => void;
   onOpenModal?: (modalKey: string) => void;
   membershipTier?: string | null;
+  // Accordion behavior props
+  openFolderId?: string | null;
+  onFolderToggle?: (folderId: string) => void;
 }
 
 export function StaffSidebarFolder({
@@ -30,7 +33,9 @@ export function StaffSidebarFolder({
   storageKey,
   onNavClick,
   onOpenModal,
-  membershipTier
+  membershipTier,
+  openFolderId,
+  onFolderToggle
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -69,8 +74,11 @@ export function StaffSidebarFolder({
   
   const hasActiveChild = visibleItems.some(item => isItemActive(item));
   
+  // Use controlled state if accordion props provided, otherwise local state
+  const isControlled = openFolderId !== undefined && onFolderToggle !== undefined;
   
-  const [isOpen, setIsOpen] = useState(() => {
+  // Local state for uncontrolled mode
+  const [localOpen, setLocalOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
     if (stored !== null) {
       return stored === 'true';
@@ -78,15 +86,21 @@ export function StaffSidebarFolder({
     return hasActiveChild;
   });
 
+  // For uncontrolled mode - auto-expand on navigation
   useEffect(() => {
-    if (hasActiveChild && !isOpen) {
-      setIsOpen(true);
+    if (!isControlled && hasActiveChild && !localOpen) {
+      setLocalOpen(true);
     }
-  }, [hasActiveChild, location.pathname]);
+  }, [hasActiveChild, location.pathname, isControlled, localOpen]);
 
   const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    localStorage.setItem(storageKey, String(open));
+    if (isControlled) {
+      // In controlled mode, toggle this folder
+      onFolderToggle(folder.id);
+    } else {
+      setLocalOpen(open);
+      localStorage.setItem(storageKey, String(open));
+    }
   };
 
   const handleItemClick = (item: NavItem) => {
@@ -111,9 +125,11 @@ export function StaffSidebarFolder({
 
   if (visibleItems.length === 0) return null;
 
+  const effectiveOpen = isControlled ? openFolderId === folder.id : localOpen;
+
   return (
     <>
-      <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+      <Collapsible open={effectiveOpen} onOpenChange={handleOpenChange}>
         <SidebarMenuItem>
           <CollapsibleTrigger asChild>
             <SidebarMenuButton
@@ -127,7 +143,7 @@ export function StaffSidebarFolder({
               <ChevronRight 
                 className={cn(
                   "ml-auto h-4 w-4 transition-transform duration-200",
-                  isOpen && "rotate-90"
+                  effectiveOpen && "rotate-90"
                 )} 
               />
             </SidebarMenuButton>

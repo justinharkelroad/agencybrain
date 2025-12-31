@@ -17,6 +17,9 @@ interface SidebarFolderProps {
   onOpenModal?: (modalKey: string) => void;
   storageKey: string;
   membershipTier?: string | null;
+  // Accordion behavior props
+  openFolderId?: string | null;
+  onFolderToggle?: (folderId: string) => void;
 }
 
 export function SidebarFolder({ 
@@ -24,7 +27,9 @@ export function SidebarFolder({
   visibleItems, 
   onOpenModal,
   storageKey,
-  membershipTier
+  membershipTier,
+  openFolderId,
+  onFolderToggle
 }: SidebarFolderProps) {
   const location = useLocation();
   
@@ -47,7 +52,18 @@ export function SidebarFolder({
   
   const hasActiveChild = visibleItems.some(item => isItemActive(item));
   
-  const [isOpen, setIsOpen] = useState(() => {
+  // Use controlled state if accordion props provided, otherwise local state
+  const isControlled = openFolderId !== undefined && onFolderToggle !== undefined;
+  const isOpen = isControlled ? openFolderId === folder.id : (() => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored !== null) {
+      return stored === 'true';
+    }
+    return hasActiveChild;
+  })();
+  
+  // Local state for uncontrolled mode
+  const [localOpen, setLocalOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
     if (stored !== null) {
       return stored === 'true';
@@ -55,21 +71,29 @@ export function SidebarFolder({
     return hasActiveChild;
   });
 
+  // For uncontrolled mode - auto-expand on navigation
   useEffect(() => {
-    if (hasActiveChild && !isOpen) {
-      setIsOpen(true);
+    if (!isControlled && hasActiveChild && !localOpen) {
+      setLocalOpen(true);
     }
-  }, [hasActiveChild, location.pathname]);
+  }, [hasActiveChild, location.pathname, isControlled, localOpen]);
 
   const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    localStorage.setItem(storageKey, String(open));
+    if (isControlled) {
+      // In controlled mode, toggle this folder
+      onFolderToggle(folder.id);
+    } else {
+      setLocalOpen(open);
+      localStorage.setItem(storageKey, String(open));
+    }
   };
 
   if (visibleItems.length === 0) return null;
 
+  const effectiveOpen = isControlled ? isOpen : localOpen;
+
   return (
-    <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+    <Collapsible open={effectiveOpen} onOpenChange={handleOpenChange}>
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton
@@ -83,7 +107,7 @@ export function SidebarFolder({
             <ChevronRight 
               className={cn(
                 "ml-auto h-4 w-4 transition-transform duration-200",
-                isOpen && "rotate-90"
+                effectiveOpen && "rotate-90"
               )} 
             />
           </SidebarMenuButton>

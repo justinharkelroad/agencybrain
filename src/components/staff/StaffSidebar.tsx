@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath } from "@/utils/tierAccess";
 import {
   LogOut,
@@ -29,6 +29,8 @@ import { staffNavigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/
 import { StaffSidebarFolder } from "./StaffSidebarFolder";
 import { CalcKey } from "@/components/ROIForecastersModal";
 
+const STAFF_SIDEBAR_OPEN_FOLDER_KEY = 'staff-sidebar-open-folder';
+
 interface StaffSidebarProps {
   onOpenROI?: (toolKey: CalcKey) => void;
 }
@@ -39,6 +41,23 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const navigate = useNavigate();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
+  
+  // Accordion state - only one folder open at a time
+  const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
+    return localStorage.getItem(STAFF_SIDEBAR_OPEN_FOLDER_KEY);
+  });
+  
+  const handleFolderToggle = useCallback((folderId: string) => {
+    setOpenFolderId(prev => {
+      const newOpenId = prev === folderId ? null : folderId;
+      if (newOpenId) {
+        localStorage.setItem(STAFF_SIDEBAR_OPEN_FOLDER_KEY, newOpenId);
+      } else {
+        localStorage.removeItem(STAFF_SIDEBAR_OPEN_FOLDER_KEY);
+      }
+      return newOpenId;
+    });
+  }, []);
 
   // Get staff name and photo from user object
   const staffName = user?.team_member_name || user?.display_name || user?.email || '';
@@ -208,6 +227,38 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       handleNavClick();
     }
   };
+  
+  // Auto-expand folder containing active route
+  useEffect(() => {
+    const findFolderWithActiveChild = (): string | null => {
+      for (const entry of filteredNavigation) {
+        if (isNavFolder(entry)) {
+          for (const item of entry.items) {
+            if (!item.url) continue;
+            const itemHasHash = item.url.includes('#');
+            if (itemHasHash) {
+              const [itemPath, itemHash] = item.url.split('#');
+              if (location.pathname === itemPath && location.hash === `#${itemHash}`) {
+                return entry.id;
+              }
+            } else {
+              if (location.hash && location.pathname === item.url) continue;
+              if (location.pathname.startsWith(item.url)) {
+                return entry.id;
+              }
+            }
+          }
+        }
+      }
+      return null;
+    };
+    
+    const activeFolderId = findFolderWithActiveChild();
+    if (activeFolderId && activeFolderId !== openFolderId) {
+      setOpenFolderId(activeFolderId);
+      localStorage.setItem(STAFF_SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
+    }
+  }, [location.pathname, location.hash, filteredNavigation]);
 
   // Show loading skeleton while call scoring status is being fetched
   const isLoadingSettings = callScoringEnabled === null && !loading;
@@ -265,6 +316,8 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           onNavClick={handleNavClick}
                           onOpenModal={handleOpenModal}
                           membershipTier={user?.agency_membership_tier}
+                          openFolderId={openFolderId}
+                          onFolderToggle={handleFolderToggle}
                         />
                       );
                     }
