@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<WorkflowStatus, string> = { uncontacted: 'bg-slate-1
 
 export default function Renewals() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [context, setContext] = useState<RenewalUploadContext | null>(null);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -95,9 +97,21 @@ export default function Renewals() {
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
 
-  // Phase 3: Priority toggle handler
+  // Phase 3: Priority toggle handler with optimistic update
   const handleTogglePriority = async (recordId: string, isPriority: boolean) => {
     if (!context) return;
+    
+    // Optimistic update: Update local cache immediately before DB call
+    queryClient.setQueriesData<RenewalRecord[]>(
+      { queryKey: ['renewal-records'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.map(r => 
+          r.id === recordId ? { ...r, is_priority: isPriority } : r
+        );
+      }
+    );
+    
     try {
       await updateRecord.mutateAsync({
         id: recordId,
@@ -105,8 +119,18 @@ export default function Renewals() {
         displayName: context.displayName,
         userId: context.userId,
       });
-      toast.success(isPriority ? "Marked as priority" : "Priority removed");
+      // No toast on success - the star itself is the feedback
     } catch (error) {
+      // Revert optimistic update on error
+      queryClient.setQueriesData<RenewalRecord[]>(
+        { queryKey: ['renewal-records'] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return oldData.map(r => 
+            r.id === recordId ? { ...r, is_priority: !isPriority } : r
+          );
+        }
+      );
       toast.error("Failed to update priority");
     }
   };
