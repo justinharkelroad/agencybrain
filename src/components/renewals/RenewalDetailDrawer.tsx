@@ -1,25 +1,36 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Phone, Mail, Calendar, FileText, AlertCircle } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, type LucideIcon } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRenewalActivities } from '@/hooks/useRenewalActivities';
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { ScheduleActivityModal } from './ScheduleActivityModal';
+import { cn } from '@/lib/utils';
 import type { RenewalRecord, WorkflowStatus, RenewalUploadContext } from '@/types/renewal';
 
 interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
 
 const STATUS_COLORS: Record<WorkflowStatus, string> = {
-  uncontacted: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
-  success: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  unsuccessful: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  uncontacted: 'bg-slate-600 text-slate-100',
+  pending: 'bg-amber-600 text-amber-100',
+  success: 'bg-green-600 text-green-100',
+  unsuccessful: 'bg-red-600 text-red-100',
+};
+
+const activityStyles: Record<string, { icon: LucideIcon; color: string; label: string }> = {
+  call: { icon: Phone, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10', label: 'Call' },
+  voicemail: { icon: Voicemail, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10', label: 'Voicemail' },
+  text: { icon: MessageSquare, color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10', label: 'Text Sent' },
+  email: { icon: Mail, color: 'text-green-400 border-green-500/30 bg-green-500/10', label: 'Email' },
+  review_done: { icon: CheckCircle, color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10', label: 'Review Done' },
+  phone_call: { icon: Phone, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10', label: 'Attempted Call' },
+  appointment: { icon: Calendar, color: 'text-orange-400 border-orange-500/30 bg-orange-500/10', label: 'Appointment' },
+  note: { icon: FileText, color: 'text-gray-400 border-gray-500/30 bg-gray-500/10', label: 'Note' },
 };
 
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
@@ -33,56 +44,152 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
   const handleStatusChange = (s: WorkflowStatus) => { updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); };
   const handleSaveNotes = () => { updateRecord.mutate({ id: record.id, updates: { notes }, displayName: context.displayName, userId: context.userId }); };
-  const chg = record.premium_change_dollars || 0;
   const chgPct = record.premium_change_percent || 0;
 
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col">
-          <SheetHeader className="flex-shrink-0">
-            <div className="flex items-start justify-between">
-              <div><SheetTitle className="text-xl">{record.first_name} {record.last_name}</SheetTitle><p className="text-sm text-muted-foreground font-mono">{record.policy_number}</p></div>
+        <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700">
+          {/* Header row with key info */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div>
+              <h2 className="text-xl font-bold text-white">{record.first_name} {record.last_name}</h2>
+              <p className="text-gray-400 font-mono">{record.policy_number}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-semibold text-white">${record.premium_new?.toLocaleString() || '—'}</span>
+              <div className="flex items-center gap-1 text-green-400">
+                <MessageSquare className="h-4 w-4" />
+                <span className="font-medium">{activities.length}</span>
+              </div>
               <Badge className={STATUS_COLORS[record.current_status]}>{record.current_status}</Badge>
             </div>
-          </SheetHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="space-y-4 pb-6">
-              <div className="flex gap-2">
-                <Button onClick={() => setShowActivityModal(true)} size="sm"><Calendar className="h-4 w-4 mr-2" />Log Activity</Button>
-                <Select value={record.current_status} onValueChange={handleStatusChange}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="uncontacted">Uncontacted</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="success">Success</SelectItem><SelectItem value="unsuccessful">Unsuccessful</SelectItem></SelectContent></Select>
+          </div>
+
+          {/* Info Grid - 4 columns like Cancel Audit */}
+          <div className="grid grid-cols-4 gap-4 p-4 border-b border-gray-700 text-white">
+            {/* Contact */}
+            <div>
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <Phone className="h-4 w-4" />
+                <span className="text-sm font-medium">Contact</span>
               </div>
-              <Card><CardHeader className="py-3"><CardTitle className="text-sm">Contact</CardTitle></CardHeader><CardContent className="py-0 pb-3 space-y-2">
-                {record.email && <a href={`mailto:${record.email}`} className="flex items-center gap-2 text-sm text-primary hover:underline"><Mail className="h-4 w-4" />{record.email}</a>}
-                {record.phone && <a href={`tel:${record.phone}`} className="flex items-center gap-2 text-sm text-primary hover:underline"><Phone className="h-4 w-4" />{record.phone}</a>}
-              </CardContent></Card>
-              <Card><CardHeader className="py-3"><CardTitle className="text-sm">Premium</CardTitle></CardHeader><CardContent className="py-0 pb-3">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div><p className="text-xs text-muted-foreground">Old</p><p className="font-medium">${record.premium_old?.toLocaleString() ?? '-'}</p></div>
-                  <div><p className="text-xs text-muted-foreground">New</p><p className="font-medium">${record.premium_new?.toLocaleString() ?? '-'}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Change</p><p className={`font-medium ${chg > 0 ? 'text-red-600' : chg < 0 ? 'text-green-600' : ''}`}>{chg > 0 ? '+' : ''}${chg.toLocaleString()} ({chgPct > 0 ? '+' : ''}{chgPct.toFixed(1)}%)</p></div>
+              <p className="text-sm">Phone: {record.phone || '—'}</p>
+              <p className="text-sm truncate">Email: {record.email || '—'}</p>
+            </div>
+
+            {/* Policy Details */}
+            <div>
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <FileText className="h-4 w-4" />
+                <span className="text-sm font-medium">Policy</span>
+              </div>
+              <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
+              <p className="text-sm">Product: {record.product_name || '—'}</p>
+            </div>
+
+            {/* Dates */}
+            <div>
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm font-medium">Dates</span>
+              </div>
+              <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
+              <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
+            </div>
+
+            {/* Financials */}
+            <div>
+              <div className="flex items-center gap-2 text-gray-400 mb-2">
+                <DollarSign className="h-4 w-4" />
+                <span className="text-sm font-medium">Financials</span>
+              </div>
+              <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
+              <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
+              <p className={cn("text-sm font-medium", chgPct > 0 ? 'text-red-400' : chgPct < 0 ? 'text-green-400' : 'text-gray-400')}>
+                Change: {chgPct > 0 ? '+' : ''}{chgPct.toFixed(1)}%
+              </p>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-4">
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Calendar className="h-4 w-4 mr-2" />Log Activity
+                </Button>
+                <Select value={record.current_status} onValueChange={handleStatusChange}>
+                  <SelectTrigger className="w-[140px] bg-[#0d1117] border-gray-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="uncontacted">Uncontacted</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="unsuccessful">Unsuccessful</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-white text-sm">Notes</h3>
+                <Textarea 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  placeholder="Add notes..." 
+                  rows={3} 
+                  className="bg-[#0d1117] border-gray-700 text-white"
+                />
+                <Button size="sm" variant="outline" onClick={handleSaveNotes} disabled={notes === (record.notes || '')} className="border-gray-600">
+                  Save Notes
+                </Button>
+              </div>
+
+              {/* Activity History */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-white">Activity History</h3>
+                  <Badge variant="outline" className="text-green-400 border-green-500/30 bg-green-500/10">
+                    {activities.length} contacts
+                  </Badge>
                 </div>
-              </CardContent></Card>
-              <Card><CardHeader className="py-3"><CardTitle className="text-sm">Policy</CardTitle></CardHeader><CardContent className="py-0 pb-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">Product</span><span>{record.product_name}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Agent #</span><span className="font-mono">{record.agent_number}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Bundled</span><Badge variant={record.multi_line_indicator ? 'default' : 'secondary'}>{record.multi_line_indicator ? 'Yes' : 'No'}</Badge></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Effective</span><span>{record.renewal_effective_date}</span></div>
-              </CardContent></Card>
-              <Card><CardHeader className="py-3"><CardTitle className="text-sm">Notes</CardTitle></CardHeader><CardContent className="py-0 pb-3 space-y-2">
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add notes..." rows={3} />
-                <Button size="sm" variant="outline" onClick={handleSaveNotes} disabled={notes === (record.notes || '')}>Save Notes</Button>
-              </CardContent></Card>
-              <Card><CardHeader className="py-3"><CardTitle className="text-sm">Activity History</CardTitle></CardHeader><CardContent className="py-0 pb-3">
-                {activities.length === 0 ? <p className="text-sm text-muted-foreground">No activities yet.</p> : (
-                  <div className="space-y-3">{activities.map((a) => (
-                    <div key={a.id} className="flex gap-3 text-sm">
-                      <div className="flex-shrink-0 mt-0.5">{a.activity_type === 'phone_call' && <Phone className="h-4 w-4" />}{a.activity_type === 'appointment' && <Calendar className="h-4 w-4" />}{a.activity_type === 'email' && <Mail className="h-4 w-4" />}{a.activity_type === 'note' && <FileText className="h-4 w-4" />}{a.activity_type === 'status_change' && <AlertCircle className="h-4 w-4" />}</div>
-                      <div className="flex-1 min-w-0"><p className="font-medium capitalize">{a.activity_type.replace('_', ' ')}</p>{a.comments && <p className="text-muted-foreground">{a.comments}</p>}<p className="text-xs text-muted-foreground mt-1">{a.created_by_display_name} • {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</p></div>
-                    </div>
-                  ))}</div>
+
+                {activities.length === 0 ? (
+                  <p className="text-sm text-gray-400">No activities yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {activities.map((a) => {
+                      const style = activityStyles[a.activity_type] || { icon: FileText, color: 'text-gray-400 border-gray-700 bg-gray-800/50', label: a.activity_type };
+                      const Icon = style.icon;
+                      return (
+                        <div 
+                          key={a.id} 
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-lg border",
+                            style.color
+                          )}
+                        >
+                          <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{style.label}</span>
+                              <span className="text-xs text-gray-400">
+                                {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                            {a.comments && (
+                              <p className="text-sm text-gray-300 mt-1">{a.comments}</p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">by {a.created_by_display_name}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </CardContent></Card>
+              </div>
             </div>
           </ScrollArea>
         </SheetContent>
