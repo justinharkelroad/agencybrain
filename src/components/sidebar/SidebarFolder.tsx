@@ -80,8 +80,14 @@ export function SidebarFolder({
 
   const handleOpenChange = (open: boolean) => {
     if (isControlled) {
-      // In controlled mode, toggle this folder
-      onFolderToggle(folder.id);
+      // In controlled mode: only toggle when Radix wants to OPEN
+      // This prevents double-toggle issues from Radix firing multiple events
+      if (open) {
+        onFolderToggle(folder.id);
+      } else if (openFolderId === folder.id) {
+        // Only close if this folder is currently open
+        onFolderToggle(folder.id);
+      }
     } else {
       setLocalOpen(open);
       localStorage.setItem(storageKey, String(open));
