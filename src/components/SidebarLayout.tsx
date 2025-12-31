@@ -27,6 +27,34 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
     return () => window.removeEventListener('sidebar-navigation', handleNavigation);
   }, []);
 
+  // Debug: capture click targets to identify what intercepts sidebar clicks.
+  // Enable by running in DevTools: localStorage.setItem('debugSidebarClicks','1')
+  useEffect(() => {
+    if (localStorage.getItem('debugSidebarClicks') !== '1') return;
+
+    const debugClickCapture = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const path = (e.composedPath?.() ?? [])
+        .slice(0, 8)
+        .map((el: any) => (el?.tagName ? el.tagName : String(el)));
+
+      // eslint-disable-next-line no-console
+      console.log('Sidebar click capture:', {
+        tagName: target.tagName,
+        id: target.id,
+        className: target.className,
+        text: target.textContent?.trim().slice(0, 60),
+        inSidebar: target.closest?.('[data-sidebar]') !== null,
+        path,
+      });
+    };
+
+    document.addEventListener('click', debugClickCapture, true);
+    return () => document.removeEventListener('click', debugClickCapture, true);
+  }, []);
+
   // Capture-phase failsafe: unlock on any user interaction if page is stuck
   const handleFailsafeUnlock = useCallback(() => {
     if (isPageLocked()) {
