@@ -41,26 +41,10 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
       const startOfDayStr = `${dateStr}T00:00:00`;
       const endOfDayStr = `${dateStr}T23:59:59`;
       
-      // First get all renewal record IDs for this agency
-      const { data: renewalRecords, error: recordsError } = await supabase
-        .from('renewal_records')
-        .select('id')
-        .eq('agency_id', agencyId);
-      
-      if (recordsError) {
-        console.error('Error fetching renewal records:', recordsError);
-        return [];
-      }
-      
-      if (!renewalRecords || renewalRecords.length === 0) return [];
-      
-      const recordIds = renewalRecords.map(r => r.id);
-      
-      // Then get activities for those records on the selected date
       const { data, error } = await supabase
         .from('renewal_activities')
-        .select('id, activity_type, created_by_user_id, created_by_display_name, created_at')
-        .in('renewal_record_id', recordIds)
+        .select('id, activity_type, created_by, created_by_display_name, created_at')
+        .eq('agency_id', agencyId)
         .gte('created_at', startOfDayStr)
         .lte('created_at', endOfDayStr);
       
@@ -82,7 +66,7 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
     const userMap = new Map<string, ActivityByUser>();
     
     activities.forEach((activity) => {
-      const userId = activity.created_by_user_id || 'unknown';
+      const userId = activity.created_by || 'unknown';
       const displayName = activity.created_by_display_name || 'Unknown User';
       
       if (!userMap.has(userId)) {
