@@ -16,32 +16,116 @@ export function useRenewalUpload() {
     setIsUploading(true); setProgress(0); setError(null);
     try {
       const dateRange = getRenewalDateRange(records);
+      
+      // Create upload record
       const { data: upload, error: uploadError } = await supabase.from('renewal_uploads')
-        .insert({ agency_id: agencyId, filename, uploaded_by: userId, uploaded_by_display_name: displayName,
-          record_count: records.length, date_range_start: dateRange?.start, date_range_end: dateRange?.end })
-        .select().single();
+        .insert({ 
+          agency_id: agencyId, 
+          filename, 
+          uploaded_by: userId, 
+          uploaded_by_display_name: displayName,
+          record_count: records.length, 
+          date_range_start: dateRange?.start, 
+          date_range_end: dateRange?.end 
+        })
+        .select()
+        .single();
       if (uploadError) throw uploadError;
 
       let newCount = 0, updatedCount = 0;
+      
       for (let i = 0; i < records.length; i++) {
         const r = records[i];
-        const { data: result } = await supabase.rpc('upsert_renewal_record', {
-          p_agency_id: agencyId, p_upload_id: upload.id, p_policy_number: r.policyNumber,
-          p_renewal_effective_date: r.renewalEffectiveDate, p_first_name: r.firstName,
-          p_last_name: r.lastName, p_email: r.email, p_phone: r.phone, p_phone_alt: r.phoneAlt,
-          p_product_name: r.productName, p_agent_number: r.agentNumber, p_renewal_status: r.renewalStatus,
-          p_account_type: r.accountType, p_premium_old: r.premiumOld, p_premium_new: r.premiumNew,
-          p_premium_change_dollars: r.premiumChangeDollars, p_premium_change_percent: r.premiumChangePercent,
-          p_amount_due: r.amountDue, p_easy_pay: r.easyPay, p_multi_line_indicator: r.multiLineIndicator,
-          p_item_count: r.itemCount, p_years_prior_insurance: r.yearsPriorInsurance,
-          p_household_key: r.householdKey, p_uploaded_by: userId, p_uploaded_by_display_name: displayName,
-        });
-        if (result?.action === 'inserted') newCount++; else if (result?.action === 'updated') updatedCount++;
+        
+        // Check if record exists
+        const { data: existing } = await supabase
+          .from('renewal_records')
+          .select('id')
+          .eq('agency_id', agencyId)
+          .eq('policy_number', r.policyNumber)
+          .eq('renewal_effective_date', r.renewalEffectiveDate)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (existing) {
+          // Update existing record (preserve workflow fields)
+          const { error: updateError } = await supabase
+            .from('renewal_records')
+            .update({
+              first_name: r.firstName,
+              last_name: r.lastName,
+              email: r.email,
+              phone: r.phone,
+              phone_alt: r.phoneAlt,
+              product_name: r.productName,
+              agent_number: r.agentNumber,
+              renewal_status: r.renewalStatus,
+              account_type: r.accountType,
+              premium_old: r.premiumOld,
+              premium_new: r.premiumNew,
+              premium_change_dollars: r.premiumChangeDollars,
+              premium_change_percent: r.premiumChangePercent,
+              amount_due: r.amountDue,
+              easy_pay: r.easyPay,
+              multi_line_indicator: r.multiLineIndicator,
+              item_count: r.itemCount,
+              years_prior_insurance: r.yearsPriorInsurance,
+              household_key: r.householdKey,
+              last_upload_id: upload.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          
+          if (!updateError) updatedCount++;
+        } else {
+          // Insert new record
+          const { error: insertError } = await supabase
+            .from('renewal_records')
+            .insert({
+              agency_id: agencyId,
+              upload_id: upload.id,
+              last_upload_id: upload.id,
+              policy_number: r.policyNumber,
+              renewal_effective_date: r.renewalEffectiveDate,
+              first_name: r.firstName,
+              last_name: r.lastName,
+              email: r.email,
+              phone: r.phone,
+              phone_alt: r.phoneAlt,
+              product_name: r.productName,
+              agent_number: r.agentNumber,
+              renewal_status: r.renewalStatus,
+              account_type: r.accountType,
+              premium_old: r.premiumOld,
+              premium_new: r.premiumNew,
+              premium_change_dollars: r.premiumChangeDollars,
+              premium_change_percent: r.premiumChangePercent,
+              amount_due: r.amountDue,
+              easy_pay: r.easyPay,
+              multi_line_indicator: r.multiLineIndicator,
+              item_count: r.itemCount,
+              years_prior_insurance: r.yearsPriorInsurance,
+              household_key: r.householdKey,
+              uploaded_by: userId,
+              uploaded_by_display_name: displayName,
+              current_status: 'uncontacted',
+              is_active: true,
+            });
+          
+          if (!insertError) newCount++;
+        }
+        
         setProgress(Math.round(((i + 1) / records.length) * 100));
       }
+      
       return { uploadId: upload.id, totalRecords: records.length, newRecords: newCount, updatedRecords: updatedCount };
-    } catch (err) { const msg = err instanceof Error ? err.message : 'Upload failed'; setError(msg); throw err; }
-    finally { setIsUploading(false); }
+    } catch (err) { 
+      const msg = err instanceof Error ? err.message : 'Upload failed'; 
+      setError(msg); 
+      throw err; 
+    } finally { 
+      setIsUploading(false); 
+    }
   };
 
   const resetUpload = () => { setIsUploading(false); setProgress(0); setError(null); };
