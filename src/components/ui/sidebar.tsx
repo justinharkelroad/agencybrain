@@ -114,6 +114,13 @@ const SidebarProvider = React.forwardRef<
     // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed"
 
+    // Force close mobile sheet when leaving mobile breakpoint
+    React.useEffect(() => {
+      if (!isMobile && openMobile) {
+        setOpenMobile(false)
+      }
+    }, [isMobile, openMobile])
+
     const contextValue = React.useMemo<SidebarContext>(
       () => ({
         state,
