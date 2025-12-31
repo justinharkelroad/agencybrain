@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,11 +17,14 @@ import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpda
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
+import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { format, parseISO, getDay } from 'date-fns';
 
 const STATUS_COLORS: Record<WorkflowStatus, string> = { uncontacted: 'bg-slate-100 text-slate-700', pending: 'bg-amber-100 text-amber-700', success: 'bg-green-100 text-green-700', unsuccessful: 'bg-red-100 text-red-700' };
+const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function Renewals() {
   const { user } = useAuth();
@@ -43,6 +46,10 @@ export default function Renewals() {
   const [quickActivityRecord, setQuickActivityRecord] = useState<RenewalRecord | null>(null);
   const [quickActivityType, setQuickActivityType] = useState<'phone_call' | 'appointment' | null>(null);
   const [showPriorityOnly, setShowPriorityOnly] = useState(false);
+  
+  // Chart filter state
+  const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
+  const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const handleSort = (column: string) => {
@@ -142,6 +149,24 @@ export default function Renewals() {
   const filteredAndSortedRecords = useMemo(() => {
     let result = records || [];
 
+    // Chart date filter (specific date clicked)
+    if (chartDateFilter) {
+      result = result.filter(r => {
+        if (!r.renewal_effective_date) return false;
+        const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
+        return recordDate === chartDateFilter;
+      });
+    }
+
+    // Chart day-of-week filter (day bar clicked)
+    if (chartDayFilter !== null) {
+      result = result.filter(r => {
+        if (!r.renewal_effective_date) return false;
+        const dayOfWeek = getDay(parseISO(r.renewal_effective_date));
+        return dayOfWeek === chartDayFilter;
+      });
+    }
+
     // Priority filter (if toggle is on)
     if (showPriorityOnly) {
       result = result.filter(r =>
@@ -216,7 +241,7 @@ export default function Renewals() {
     if (!sortColumn) return result;
 
     return [...result].sort(compare);
-  }, [records, sortColumn, sortDirection, showPriorityOnly]);
+  }, [records, sortColumn, sortDirection, showPriorityOnly, chartDateFilter, chartDayFilter]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -232,6 +257,36 @@ export default function Renewals() {
         <div className="flex items-center gap-3"><RefreshCw className="h-8 w-8" /><h1 className="text-3xl font-bold">Renewals</h1></div>
         <Button onClick={() => setShowUploadModal(true)}><Upload className="h-4 w-4 mr-2" />Upload Report</Button>
       </div>
+      
+      {/* Dashboard Charts */}
+      <RenewalsDashboard
+        records={records}
+        onDateFilter={setChartDateFilter}
+        onDayOfWeekFilter={setChartDayFilter}
+        activeDateFilter={chartDateFilter}
+        activeDayFilter={chartDayFilter}
+      />
+      
+      {/* Active Chart Filter Indicator */}
+      {(chartDateFilter || chartDayFilter !== null) && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <span className="text-sm text-blue-400">
+            Filtered by: {chartDateFilter 
+              ? format(parseISO(chartDateFilter), 'EEEE, MMM d, yyyy') 
+              : `${DAY_NAMES_FULL[chartDayFilter!]}s`}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
+            onClick={() => { setChartDateFilter(null); setChartDayFilter(null); }}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear
+          </Button>
+        </div>
+      )}
+      
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All <Badge variant="secondary" className="ml-2">{stats?.total || 0}</Badge></TabsTrigger>
