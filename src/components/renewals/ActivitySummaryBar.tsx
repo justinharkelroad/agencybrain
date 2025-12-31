@@ -41,25 +41,38 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
       const startOfDayStr = `${dateStr}T00:00:00`;
       const endOfDayStr = `${dateStr}T23:59:59`;
       
+      // First get all renewal record IDs for this agency
+      const { data: renewalRecords, error: recordsError } = await supabase
+        .from('renewal_records')
+        .select('id')
+        .eq('agency_id', agencyId);
+      
+      if (recordsError) {
+        console.error('Error fetching renewal records:', recordsError);
+        return [];
+      }
+      
+      if (!renewalRecords || renewalRecords.length === 0) return [];
+      
+      const recordIds = renewalRecords.map(r => r.id);
+      
+      // Then get activities for those records on the selected date
       const { data, error } = await supabase
         .from('renewal_activities')
-        .select(`
-          id,
-          activity_type,
-          created_by_user_id,
-          created_by_display_name,
-          created_at,
-          renewal_record:renewal_records!inner(agency_id)
-        `)
-        .eq('renewal_record.agency_id', agencyId)
+        .select('id, activity_type, created_by_user_id, created_by_display_name, created_at')
+        .in('renewal_record_id', recordIds)
         .gte('created_at', startOfDayStr)
         .lte('created_at', endOfDayStr);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching activities:', error);
+        return [];
+      }
+      
       return data || [];
     },
     enabled: !!agencyId,
-    refetchInterval: isToday(selectedDate) ? 30000 : false, // Auto-refresh every 30s if viewing today
+    refetchInterval: isToday(selectedDate) ? 30000 : false,
   });
   
   // Aggregate by user
