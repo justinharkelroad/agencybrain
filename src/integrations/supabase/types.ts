@@ -7200,60 +7200,36 @@ export type Database = {
         }
         Returns: undefined
       }
-      upsert_renewal_record:
-        | {
-            Args: {
-              p_account_type?: string
-              p_agency_id: string
-              p_agent_number?: string
-              p_household_key: string
-              p_insured_email?: string
-              p_insured_first_name?: string
-              p_insured_last_name?: string
-              p_insured_phone?: string
-              p_insured_phone_alt?: string
-              p_last_upload_id?: string
-              p_no_of_items?: number
-              p_policy_number: string
-              p_premium_cents?: number
-              p_product_name?: string
-              p_renewal_effective_date?: string
-            }
-            Returns: {
-              record_id: string
-              was_created: boolean
-            }[]
-          }
-        | {
-            Args: {
-              p_account_type?: string
-              p_agency_id: string
-              p_agent_number?: string
-              p_amount_due?: number
-              p_easy_pay?: boolean
-              p_email?: string
-              p_first_name?: string
-              p_household_key?: string
-              p_item_count?: number
-              p_last_name?: string
-              p_multi_line_indicator?: boolean
-              p_phone?: string
-              p_phone_alt?: string
-              p_policy_number: string
-              p_premium_change_dollars?: number
-              p_premium_change_percent?: number
-              p_premium_new?: number
-              p_premium_old?: number
-              p_product_name?: string
-              p_renewal_effective_date: string
-              p_renewal_status?: string
-              p_upload_id: string
-              p_uploaded_by?: string
-              p_uploaded_by_display_name?: string
-              p_years_prior_insurance?: number
-            }
-            Returns: Json
-          }
+      upsert_renewal_record: {
+        Args: {
+          p_account_type?: string
+          p_agency_id: string
+          p_agent_number?: string
+          p_amount_due?: number
+          p_easy_pay?: boolean
+          p_email?: string
+          p_first_name?: string
+          p_household_key?: string
+          p_item_count?: number
+          p_last_name?: string
+          p_multi_line_indicator?: boolean
+          p_phone?: string
+          p_phone_alt?: string
+          p_policy_number: string
+          p_premium_change_dollars?: number
+          p_premium_change_percent?: number
+          p_premium_new?: number
+          p_premium_old?: number
+          p_product_name?: string
+          p_renewal_effective_date: string
+          p_renewal_status?: string
+          p_upload_id: string
+          p_uploaded_by?: string
+          p_uploaded_by_display_name?: string
+          p_years_prior_insurance?: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
