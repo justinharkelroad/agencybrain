@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
 import {
   Building2,
   Shield,
@@ -44,10 +44,12 @@ import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
 import { Badge } from "@/components/ui/badge";
 
 // New imports for navigation system
-import { navigationConfig, isNavFolder, NavEntry } from "@/config/navigation";
+import { navigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { SidebarNavItem, SidebarFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
+
+const SIDEBAR_OPEN_FOLDER_KEY = 'sidebar-open-folder';
 
 type AppSidebarProps = {
   onOpenROI?: (toolKey?: CalcKey) => void;
@@ -73,6 +75,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading } = useSidebarAccess();
+  const location = useLocation();
   
   // Check if user is on a Call Scoring tier
   const isCallScoringTier = membershipTier?.startsWith('Call Scoring');
@@ -93,6 +96,23 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   
   // Combine post/comment notifications with unread messages
   const totalExchangeNotifications = exchangeNotifications.total + unreadMessageCount;
+  
+  // Accordion state - only one folder open at a time
+  const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
+    return localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
+  });
+  
+  const handleFolderToggle = useCallback((folderId: string) => {
+    setOpenFolderId(prev => {
+      const newOpenId = prev === folderId ? null : folderId;
+      if (newOpenId) {
+        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, newOpenId);
+      } else {
+        localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
+      }
+      return newOpenId;
+    });
+  }, []);
 
   // Fetch user profile data for avatar
   useEffect(() => {
@@ -234,14 +254,44 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   };
 
   const visibleNavigation = getVisibleNavigation();
+  
+  // Auto-expand folder containing active route
+  useEffect(() => {
+    const findFolderWithActiveChild = (): string | null => {
+      for (const entry of visibleNavigation) {
+        if (isNavFolder(entry)) {
+          for (const item of entry.items) {
+            if (!item.url) continue;
+            const itemHasHash = item.url.includes('#');
+            if (itemHasHash) {
+              const [itemPath, itemHash] = item.url.split('#');
+              if (location.pathname === itemPath && location.hash === `#${itemHash}`) {
+                return entry.id;
+              }
+            } else {
+              if (location.hash && location.pathname === item.url) continue;
+              if (location.pathname.startsWith(item.url)) {
+                return entry.id;
+              }
+            }
+          }
+        }
+      }
+      return null;
+    };
+    
+    const activeFolderId = findFolderWithActiveChild();
+    if (activeFolderId && activeFolderId !== openFolderId) {
+      setOpenFolderId(activeFolderId);
+      localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
+    }
+  }, [location.pathname, location.hash, visibleNavigation]);
 
   const isActive = (path: string) => {
-    // Import location here to check active state
-    const pathname = window.location.pathname;
     if (path === '/training') {
-      return pathname === path || pathname.startsWith('/training/');
+      return location.pathname === path || location.pathname.startsWith('/training/');
     }
-    return pathname === path;
+    return location.pathname === path;
   };
 
   return (
@@ -290,6 +340,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                         onOpenModal={handleOpenModal}
                         storageKey={`sidebar-folder-${entry.id}`}
                         membershipTier={membershipTier}
+                        openFolderId={openFolderId}
+                        onFolderToggle={handleFolderToggle}
                       />
                     );
                   }
