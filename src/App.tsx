@@ -61,6 +61,7 @@ import Landing from "./pages/Landing";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
+import Renewals from "./pages/Renewals";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -245,6 +246,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <CancelAudit />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/renewals" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Renewals />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -855,6 +863,8 @@ const App = () => {
               <Route path="call-scoring" element={<CallScoring />} />
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
+              {/* Renewals */}
+              <Route path="renewals" element={<Renewals />} />
               {/* Life Targets / Theta Talk Track */}
               <Route path="life-targets" element={<LifeTargets />} />
               <Route path="theta-talk-track" element={<ThetaTalkTrack />} />

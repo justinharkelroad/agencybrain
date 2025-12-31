@@ -4070,6 +4070,218 @@ export type Database = {
           },
         ]
       }
+      renewal_activities: {
+        Row: {
+          activity_type: string
+          agency_id: string
+          created_at: string
+          household_key: string
+          id: string
+          notes: string | null
+          record_id: string
+          staff_member_id: string | null
+          user_display_name: string
+          user_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          agency_id: string
+          created_at?: string
+          household_key: string
+          id?: string
+          notes?: string | null
+          record_id: string
+          staff_member_id?: string | null
+          user_display_name: string
+          user_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agency_id?: string
+          created_at?: string
+          household_key?: string
+          id?: string
+          notes?: string | null
+          record_id?: string
+          staff_member_id?: string | null
+          user_display_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_activities_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_activities_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "renewal_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_activities_staff_member_id_fkey"
+            columns: ["staff_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      renewal_records: {
+        Row: {
+          account_type: string | null
+          agency_id: string
+          agent_number: string | null
+          assigned_to: string | null
+          created_at: string
+          current_status: string
+          household_key: string
+          id: string
+          insured_email: string | null
+          insured_first_name: string | null
+          insured_last_name: string | null
+          insured_phone: string | null
+          insured_phone_alt: string | null
+          is_active: boolean
+          last_upload_id: string | null
+          no_of_items: number | null
+          policy_number: string
+          premium_cents: number | null
+          product_name: string | null
+          renewal_effective_date: string | null
+          renewal_status: string
+          updated_at: string
+        }
+        Insert: {
+          account_type?: string | null
+          agency_id: string
+          agent_number?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          current_status?: string
+          household_key: string
+          id?: string
+          insured_email?: string | null
+          insured_first_name?: string | null
+          insured_last_name?: string | null
+          insured_phone?: string | null
+          insured_phone_alt?: string | null
+          is_active?: boolean
+          last_upload_id?: string | null
+          no_of_items?: number | null
+          policy_number: string
+          premium_cents?: number | null
+          product_name?: string | null
+          renewal_effective_date?: string | null
+          renewal_status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string | null
+          agency_id?: string
+          agent_number?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          current_status?: string
+          household_key?: string
+          id?: string
+          insured_email?: string | null
+          insured_first_name?: string | null
+          insured_last_name?: string | null
+          insured_phone?: string | null
+          insured_phone_alt?: string | null
+          is_active?: boolean
+          last_upload_id?: string | null
+          no_of_items?: number | null
+          policy_number?: string
+          premium_cents?: number | null
+          product_name?: string | null
+          renewal_effective_date?: string | null
+          renewal_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_records_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_last_upload_id_fkey"
+            columns: ["last_upload_id"]
+            isOneToOne: false
+            referencedRelation: "renewal_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      renewal_uploads: {
+        Row: {
+          agency_id: string
+          created_at: string
+          file_name: string | null
+          id: string
+          records_created: number
+          records_processed: number
+          records_updated: number
+          uploaded_by_name: string
+          uploaded_by_staff_id: string | null
+          uploaded_by_user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_updated?: number
+          uploaded_by_name: string
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          records_created?: number
+          records_processed?: number
+          records_updated?: number
+          uploaded_by_name?: string
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_uploads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_uploads_uploaded_by_staff_id_fkey"
+            columns: ["uploaded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roleplay_access_tokens: {
         Row: {
           agency_id: string
@@ -6825,6 +7037,10 @@ export type Database = {
         Args: { check_agency_id: string }
         Returns: boolean
       }
+      has_renewal_access: {
+        Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -6942,6 +7158,29 @@ export type Database = {
           p_submission: string
         }
         Returns: undefined
+      }
+      upsert_renewal_record: {
+        Args: {
+          p_account_type?: string
+          p_agency_id: string
+          p_agent_number?: string
+          p_household_key: string
+          p_insured_email?: string
+          p_insured_first_name?: string
+          p_insured_last_name?: string
+          p_insured_phone?: string
+          p_insured_phone_alt?: string
+          p_last_upload_id?: string
+          p_no_of_items?: number
+          p_policy_number: string
+          p_premium_cents?: number
+          p_product_name?: string
+          p_renewal_effective_date?: string
+        }
+        Returns: {
+          record_id: string
+          was_created: boolean
+        }[]
       }
     }
     Enums: {
