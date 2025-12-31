@@ -58,11 +58,11 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
       // Get display name from profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name')
+        .select('full_name')
         .eq('id', user?.id)
         .single();
       
-      const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.email || 'Unknown';
+      const displayName = profile?.full_name || user?.user_metadata?.display_name || user?.email || 'Unknown';
       
       const { error } = await supabase
         .from('renewal_activities')

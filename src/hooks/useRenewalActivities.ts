@@ -45,11 +45,11 @@ export function useCreateRenewalActivity() {
       if (params.userId) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('display_name')
+          .select('full_name')
           .eq('id', params.userId)
           .single();
-        if (profile?.display_name) {
-          displayName = profile.display_name;
+        if (profile?.full_name) {
+          displayName = profile.full_name;
         }
       }
       
