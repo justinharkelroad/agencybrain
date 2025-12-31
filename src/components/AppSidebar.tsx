@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Building2,
   Shield,
@@ -103,20 +103,47 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     const saved = localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
     return saved || null;
   });
+  const debugFolderState = localStorage.getItem('debugSidebarFolderState') === '1';
 
   // Simple toggle function
   const handleFolderToggle = useCallback((folderId: string) => {
+    if (debugFolderState) {
+      // eslint-disable-next-line no-console
+      console.log('handleFolderToggle called with:', folderId);
+      // eslint-disable-next-line no-console
+      console.log('Current openFolderId BEFORE:', openFolderId);
+    }
+
     setOpenFolderId(prev => {
+      if (debugFolderState) {
+        // eslint-disable-next-line no-console
+        console.log('setOpenFolderId callback, prev:', prev);
+      }
+
       const newValue = prev === folderId ? null : folderId;
+
+      if (debugFolderState) {
+        // eslint-disable-next-line no-console
+        console.log('setOpenFolderId newValue:', newValue);
+      }
+
       // Persist to localStorage
       if (newValue) {
         localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, newValue);
       } else {
         localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
       }
+
       return newValue;
     });
-  }, []);
+  }, [debugFolderState, openFolderId]);
+
+  // Debug state changes
+  useEffect(() => {
+    if (!debugFolderState) return;
+    // eslint-disable-next-line no-console
+    console.log('openFolderId STATE CHANGED TO:', openFolderId);
+  }, [debugFolderState, openFolderId]);
 
   // Fetch user profile data for avatar
   useEffect(() => {
@@ -229,10 +256,12 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   };
 
   // Filter navigation based on user access
-  const filteredNavigation = filterNavigation(navigationConfig, callScoringEnabled);
+  const filteredNavigation = useMemo(() => {
+    return filterNavigation(navigationConfig, callScoringEnabled);
+  }, [filterNavigation, callScoringEnabled]);
 
   // For Call Scoring tier, we need special handling - they only see Call Scoring + Exchange
-  const getVisibleNavigation = (): NavEntry[] => {
+  const visibleNavigation = useMemo<NavEntry[]>(() => {
     if (isCallScoringTier) {
       return filteredNavigation
         .map(entry => {
@@ -254,11 +283,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           return entry.id === 'call-scoring' || entry.id === 'the-exchange';
         });
     }
-    return filteredNavigation;
-  };
 
-  const visibleNavigation = getVisibleNavigation();
-  
+    return filteredNavigation;
+  }, [filteredNavigation, isCallScoringTier]);
+
   // Auto-expand folder containing active route
   useEffect(() => {
     const findFolderWithActiveChild = (): string | null => {
