@@ -1,7 +1,7 @@
 export type RenewalStatus = 'Renewal Taken' | 'Renewal Not Taken' | 'Pending' | string;
 export type WorkflowStatus = 'uncontacted' | 'pending' | 'success' | 'unsuccessful';
 export type AccountType = 'PL' | 'CL' | string;
-export type ActivityType = 'phone_call' | 'appointment' | 'email' | 'note' | 'status_change';
+export type ActivityType = 'phone_call' | 'appointment' | 'email' | 'note' | 'status_change' | 'call' | 'voicemail' | 'text' | 'review_done';
 export type ActivityStatus = 'called_no_answer' | 'called_left_message' | 'appointment_scheduled' | 'appointment_scheduled_not_discussed' | 'activity_complete_success' | 'activity_complete_unsuccessful';
 
 export interface RenewalUpload {
