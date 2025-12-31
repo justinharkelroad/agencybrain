@@ -15,7 +15,7 @@ interface HelpVideoModalProps {
 
 export function HelpVideoModal({ open, onClose, title, url, type }: HelpVideoModalProps) {
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background">
         <DialogHeader className="p-4 pb-2">
           <DialogTitle>{title}</DialogTitle>

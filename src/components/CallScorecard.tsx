@@ -84,7 +84,7 @@ export function CallScorecard({
   // IMPORTANT: keep the dialog open and show a loading/empty state even when call is null
   if (!call) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-center gap-3 py-10 text-muted-foreground">
             {loading ? (
@@ -209,7 +209,7 @@ export function CallScorecard({
   // Show loading state
   if (loading) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -220,7 +220,7 @@ export function CallScorecard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Export buttons - OUTSIDE the ref so they don't appear in export */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">

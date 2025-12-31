@@ -141,7 +141,7 @@ export function ProspectViewModal({
   const teamMemberName = teamMembers.find(m => m.id === prospect.team_member_id)?.name || 'Unknown';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">

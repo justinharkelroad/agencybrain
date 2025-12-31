@@ -315,7 +315,7 @@ export default function RoleplaySessionsCard() {
       </section>
 
       {/* Detail Dialog */}
-      <Dialog open={!!selectedSession} onOpenChange={() => setSelectedSession(null)}>
+      <Dialog open={!!selectedSession} onOpenChange={(open) => !open && setSelectedSession(null)}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Roleplay Session Details</DialogTitle>

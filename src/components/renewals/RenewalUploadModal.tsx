@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
@@ -19,6 +19,17 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
   const [parsedRecords, setParsedRecords] = useState<ParsedRenewalRecord[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const { uploadRecords, isUploading, progress, error: uploadError, resetUpload } = useRenewalUpload();
+
+  // Listen for sidebar navigation to force close dialog
+  useEffect(() => {
+    const handleNavigation = () => {
+      if (open) {
+        handleClose();
+      }
+    };
+    window.addEventListener('sidebar-navigation', handleNavigation);
+    return () => window.removeEventListener('sidebar-navigation', handleNavigation);
+  }, [open]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const f = acceptedFiles[0]; if (!f) return;

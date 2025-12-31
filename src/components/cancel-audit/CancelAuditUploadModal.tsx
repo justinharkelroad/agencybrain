@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,17 @@ export function CancelAuditUploadModal({
   const [parseErrors, setParseErrors] = useState<string[]>([]);
 
   const { uploadRecords, isUploading, progress } = useCancelAuditUpload();
+
+  // Listen for sidebar navigation to force close dialog
+  useEffect(() => {
+    const handleNavigation = () => {
+      if (open) {
+        handleClose();
+      }
+    };
+    window.addEventListener('sidebar-navigation', handleNavigation);
+    return () => window.removeEventListener('sidebar-navigation', handleNavigation);
+  }, [open]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {

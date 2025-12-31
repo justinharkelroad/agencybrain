@@ -62,7 +62,7 @@ export default function CreateCollectionDialog({
   const isValid = name.trim().length > 0 && controllingKpiKey.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Custom Detail Collection</DialogTitle>

@@ -155,7 +155,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
   const sectionScores = call.section_scores || [];
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Export buttons - OUTSIDE the ref */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">

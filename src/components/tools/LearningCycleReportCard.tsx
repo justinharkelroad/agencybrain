@@ -172,7 +172,7 @@ export function LearningCycleReportCard({ module, open, onClose }: LearningCycle
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => onClose()}>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto p-0" style={{ backgroundColor: COLORS.background }}>
         {/* Header Actions */}
         <div style={{ 
