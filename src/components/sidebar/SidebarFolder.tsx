@@ -95,13 +95,14 @@ export function SidebarFolder({
   return (
     <Collapsible open={effectiveOpen} onOpenChange={handleOpenChange}>
       <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton
-            tooltip={folder.title}
-            className={cn(
-              hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
-            )}
-          >
+        <SidebarMenuButton
+          asChild
+          tooltip={folder.title}
+          className={cn(
+            hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+        >
+          <CollapsibleTrigger type="button" className="w-full">
             <folder.icon className="h-4 w-4" />
             <span>{folder.title}</span>
             <ChevronRight 
@@ -110,8 +111,8 @@ export function SidebarFolder({
                 effectiveOpen && "rotate-90"
               )} 
             />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
+          </CollapsibleTrigger>
+        </SidebarMenuButton>
         
         <CollapsibleContent>
           <SidebarMenuSub>
