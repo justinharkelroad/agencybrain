@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, type RenewalFilters } from '@/hooks/useRenewalRecords';
+import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters } from '@/hooks/useRenewalRecords';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
+import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<WorkflowStatus, string> = { uncontacted: 'bg-slate-100 text-slate-700', pending: 'bg-amber-100 text-amber-700', success: 'bg-green-100 text-green-700', unsuccessful: 'bg-red-100 text-red-700' };
 
@@ -33,6 +36,12 @@ export default function Renewals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Phase 3: New state variables
+  const [quickActivityRecord, setQuickActivityRecord] = useState<RenewalRecord | null>(null);
+  const [quickActivityType, setQuickActivityType] = useState<'phone_call' | 'appointment' | null>(null);
+  const [showPriorityOnly, setShowPriorityOnly] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -84,11 +93,42 @@ export default function Renewals() {
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
+  const updateRecord = useUpdateRenewalRecord();
 
-  const sortedRecords = useMemo(() => {
-    if (!records || !sortColumn) return records;
+  // Phase 3: Priority toggle handler
+  const handleTogglePriority = async (recordId: string, isPriority: boolean) => {
+    if (!context) return;
+    try {
+      await updateRecord.mutateAsync({
+        id: recordId,
+        updates: { is_priority: isPriority },
+        displayName: context.displayName,
+        userId: context.userId,
+      });
+      toast.success(isPriority ? "Marked as priority" : "Priority removed");
+    } catch (error) {
+      toast.error("Failed to update priority");
+    }
+  };
+
+  // Phase 3: Updated filtering with priority support
+  const filteredAndSortedRecords = useMemo(() => {
+    let result = records || [];
     
-    return [...records].sort((a, b) => {
+    // Priority filter
+    if (showPriorityOnly) {
+      result = result.filter(r => 
+        r.is_priority === true ||
+        (r.premium_change_percent !== null && r.premium_change_percent > 10) ||
+        r.renewal_status === 'Renewal Not Taken' ||
+        r.current_status === 'uncontacted'
+      );
+    }
+    
+    // Then apply sorting
+    if (!sortColumn) return result;
+    
+    return [...result].sort((a, b) => {
       let aVal: any = a[sortColumn as keyof RenewalRecord];
       let bVal: any = b[sortColumn as keyof RenewalRecord];
       
@@ -108,7 +148,7 @@ export default function Renewals() {
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [records, sortColumn, sortDirection]);
+  }, [records, sortColumn, sortDirection, showPriorityOnly]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -133,11 +173,72 @@ export default function Renewals() {
           <TabsTrigger value="unsuccessful">Unsuccessful <Badge variant="secondary" className="ml-2">{stats?.unsuccessful || 0}</Badge></TabsTrigger>
         </TabsList>
       </Tabs>
-      <div className="flex flex-wrap gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" /></div>
-        <Select value={filters.bundledStatus || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, bundledStatus: v as any }))}><SelectTrigger className="w-[140px]"><SelectValue placeholder="Bundled" /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="bundled">Bundled</SelectItem><SelectItem value="monoline">Monoline</SelectItem></SelectContent></Select>
-        <Select value={filters.productName?.[0] || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, productName: v === 'all' ? undefined : [v] }))}><SelectTrigger className="w-[160px]"><SelectValue placeholder="Product" /></SelectTrigger><SelectContent><SelectItem value="all">All Products</SelectItem>{productNames.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent></Select>
+      
+      {/* Mobile filter toggle */}
+      <div className="md:hidden">
+        <Button
+          variant="outline"
+          onClick={() => setFiltersExpanded(!filtersExpanded)}
+          className="w-full justify-between"
+        >
+          Filters
+          <ChevronDown className={cn("h-4 w-4 transition-transform", filtersExpanded && "rotate-180")} />
+        </Button>
       </div>
+      
+      {/* Filter controls */}
+      <div className={cn(
+        "flex flex-wrap gap-4 items-center",
+        !filtersExpanded && "hidden md:flex"
+      )}>
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+        </div>
+        <Select value={filters.bundledStatus || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, bundledStatus: v as any }))}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Bundled" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="bundled">Bundled</SelectItem><SelectItem value="monoline">Monoline</SelectItem></SelectContent>
+        </Select>
+        <Select value={filters.productName?.[0] || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, productName: v === 'all' ? undefined : [v] }))}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Product" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All Products</SelectItem>{productNames.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
+        </Select>
+        
+        {/* Priority filter button */}
+        <Button
+          variant={showPriorityOnly ? "default" : "outline"}
+          onClick={() => setShowPriorityOnly(!showPriorityOnly)}
+          className={cn(
+            "gap-2",
+            showPriorityOnly && "bg-yellow-500 hover:bg-yellow-600 text-black"
+          )}
+        >
+          <Star className={cn("h-4 w-4", showPriorityOnly && "fill-current")} />
+          Priority Only
+        </Button>
+      </div>
+      
+      {/* Premium Change Legend */}
+      <div className="flex flex-wrap items-center gap-4 text-xs">
+        <span className="text-muted-foreground">Premium Change:</span>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-red-500/30" />
+          <span>High (&gt;15%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-orange-500/20" />
+          <span>Moderate (5-15%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-muted" />
+          <span>Minimal (±5%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-green-500/30" />
+          <span>Decrease (&lt;-5%)</span>
+        </div>
+      </div>
+      
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
@@ -146,45 +247,147 @@ export default function Renewals() {
         </div>
       )}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
-              <TableHead>Effective</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Policy</TableHead>
-              <SortableHeader column="product_name" label="Product" />
-              <SortableHeader column="premium_new" label="Premium" />
-              <SortableHeader column="premium_change_percent" label="Change" />
-              <SortableHeader column="multi_line_indicator" label="Bundled" />
-              <TableHead>Status</TableHead>
-              <TableHead>Assigned</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recordsLoading ? <TableRow><TableCell colSpan={11} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            : sortedRecords.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
-            : sortedRecords.map((r) => (
-              <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRecord(r)}>
-                <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} /></TableCell>
-                <TableCell>{r.renewal_effective_date}</TableCell>
-                <TableCell className="font-medium">{r.first_name} {r.last_name}</TableCell>
-                <TableCell className="font-mono text-sm">{r.policy_number}</TableCell>
-                <TableCell>{r.product_name}</TableCell>
-                <TableCell className="text-right">${r.premium_new?.toLocaleString() ?? '-'}</TableCell>
-                <TableCell className={`text-right ${(r.premium_change_percent || 0) > 0 ? 'text-red-600' : (r.premium_change_percent || 0) < 0 ? 'text-green-600' : ''}`}>{r.premium_change_percent != null ? `${r.premium_change_percent > 0 ? '+' : ''}${r.premium_change_percent.toFixed(1)}%` : '-'}</TableCell>
-                <TableCell><Badge variant={r.multi_line_indicator ? 'default' : 'secondary'}>{r.multi_line_indicator ? 'Yes' : 'No'}</Badge></TableCell>
-                <TableCell><Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge></TableCell>
-                <TableCell>{r.assigned_team_member?.name || '—'}</TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setSelectedRecord(r)}>View</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[900px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
+                <TableHead>Effective</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Policy</TableHead>
+                <SortableHeader column="product_name" label="Product" />
+                <SortableHeader column="premium_new" label="Premium" />
+                <SortableHeader column="premium_change_percent" label="Change" />
+                <SortableHeader column="multi_line_indicator" label="Bundled" />
+                <TableHead>Status</TableHead>
+                <TableHead>Assigned</TableHead>
+                <TableHead className="w-[140px] sticky right-0 bg-background">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {recordsLoading ? <TableRow><TableCell colSpan={11} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+              : filteredAndSortedRecords.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
+              : filteredAndSortedRecords.map((r) => (
+                <TableRow 
+                  key={r.id} 
+                  className={cn(
+                    "cursor-pointer hover:bg-muted/50",
+                    r.premium_change_percent !== null && r.premium_change_percent > 15 && "bg-red-500/10",
+                    r.premium_change_percent !== null && r.premium_change_percent > 5 && r.premium_change_percent <= 15 && "bg-orange-500/5",
+                    r.premium_change_percent !== null && r.premium_change_percent < -5 && "bg-green-500/10",
+                    r.is_priority && "ring-2 ring-yellow-500/50 ring-inset"
+                  )}
+                  onClick={() => setSelectedRecord(r)}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} /></TableCell>
+                  <TableCell>{r.renewal_effective_date}</TableCell>
+                  <TableCell className="font-medium">{r.first_name} {r.last_name}</TableCell>
+                  <TableCell className="font-mono text-sm">{r.policy_number}</TableCell>
+                  <TableCell>{r.product_name}</TableCell>
+                  <TableCell className="text-right">${r.premium_new?.toLocaleString() ?? '-'}</TableCell>
+                  <TableCell className={cn(
+                    "text-right",
+                    r.premium_change_percent !== null && r.premium_change_percent > 15 && "text-red-600",
+                    r.premium_change_percent !== null && r.premium_change_percent > 5 && r.premium_change_percent <= 15 && "text-orange-500",
+                    r.premium_change_percent !== null && r.premium_change_percent >= -5 && r.premium_change_percent <= 5 && "text-muted-foreground",
+                    r.premium_change_percent !== null && r.premium_change_percent < -5 && "text-green-600"
+                  )}>
+                    {r.premium_change_percent != null ? `${r.premium_change_percent > 0 ? '+' : ''}${r.premium_change_percent.toFixed(1)}%` : '-'}
+                  </TableCell>
+                  <TableCell><Badge variant={r.multi_line_indicator ? 'default' : 'secondary'}>{r.multi_line_indicator ? 'Yes' : 'No'}</Badge></TableCell>
+                  <TableCell><Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge></TableCell>
+                  <TableCell>{r.assigned_team_member?.name || '—'}</TableCell>
+                  <TableCell className="sticky right-0 bg-background" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedRecord(r);
+                        }}
+                        title="View details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQuickActivityRecord(r);
+                          setQuickActivityType('phone_call');
+                        }}
+                        title="Log phone call"
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQuickActivityRecord(r);
+                          setQuickActivityType('appointment');
+                        }}
+                        title="Schedule appointment"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn("h-8 w-8", r.is_priority && "text-yellow-500")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePriority(r.id, !r.is_priority);
+                        }}
+                        title={r.is_priority ? "Remove priority" : "Mark as priority"}
+                      >
+                        <Star className={cn("h-4 w-4", r.is_priority && "fill-current")} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toast.info("Cross-sell feature coming soon");
+                        }}
+                        title="Create cross-sell lead"
+                        disabled
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
       <RenewalUploadModal open={showUploadModal} onClose={() => setShowUploadModal(false)} context={context} />
       <RenewalDetailDrawer record={selectedRecord} open={!!selectedRecord} onClose={() => setSelectedRecord(null)} context={context} teamMembers={teamMembers} />
+      
+      {/* Quick Activity Modal */}
+      {quickActivityRecord && quickActivityType && (
+        <ScheduleActivityModal
+          open={!!quickActivityRecord}
+          onClose={() => {
+            setQuickActivityRecord(null);
+            setQuickActivityType(null);
+          }}
+          record={quickActivityRecord}
+          context={context}
+          teamMembers={teamMembers}
+          initialActivityType={quickActivityType}
+        />
+      )}
+      
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Records</AlertDialogTitle><AlertDialogDescription>Delete {selectedIds.size} record(s)?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );

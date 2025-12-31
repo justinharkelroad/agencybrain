@@ -103,7 +103,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700">
+        <SheetContent className="w-full sm:max-w-2xl max-h-screen overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700">
           <SheetHeader className="sr-only">
             <SheetTitle>{record.first_name} {record.last_name} - Renewal Details</SheetTitle>
             <SheetDescription>View and manage renewal record details</SheetDescription>
@@ -125,7 +125,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
           </div>
 
           {/* Info Stack - Vertical layout for better readability */}
-          <div className="space-y-4 p-4 border-b border-gray-700 text-white">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-gray-700 text-white">
             {/* Contact */}
             <div className="flex items-start gap-3">
               <Phone className="h-4 w-4 text-gray-400 mt-1" />
@@ -174,7 +174,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             <div className="p-4 space-y-4">
               {/* Action buttons */}
               <div className="flex gap-2">
-                <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
                 </Button>
                 <Select value={record.current_status} onValueChange={handleStatusChange}>

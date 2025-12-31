@@ -25,6 +25,7 @@ export interface RenewalRecord {
   last_activity_at: string | null; last_activity_by: string | null;
   last_activity_by_display_name: string | null; uploaded_by: string | null;
   uploaded_by_display_name: string | null; is_active: boolean;
+  is_priority?: boolean;
   created_at: string; updated_at: string;
   assigned_team_member?: { id: string; name: string } | null;
 }

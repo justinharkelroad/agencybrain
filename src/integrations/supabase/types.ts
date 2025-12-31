@@ -4161,6 +4161,7 @@ export type Database = {
           household_key: string | null
           id: string
           is_active: boolean
+          is_priority: boolean | null
           item_count: number | null
           last_activity_at: string | null
           last_activity_by: string | null
@@ -4200,6 +4201,7 @@ export type Database = {
           household_key?: string | null
           id?: string
           is_active?: boolean
+          is_priority?: boolean | null
           item_count?: number | null
           last_activity_at?: string | null
           last_activity_by?: string | null
@@ -4239,6 +4241,7 @@ export type Database = {
           household_key?: string | null
           id?: string
           is_active?: boolean
+          is_priority?: boolean | null
           item_count?: number | null
           last_activity_at?: string | null
           last_activity_by?: string | null

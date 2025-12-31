@@ -20,6 +20,7 @@ import { enableMetrics } from "@/lib/featureFlags";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ const Dashboard = () => {
   };
 
   const [agencyName, setAgencyName] = useState<string | null>(null);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
 
   const fetchAgencyName = async () => {
@@ -67,6 +69,7 @@ const Dashboard = () => {
       .eq('id', user.id)
       .maybeSingle();
     if (!error && profile?.agency_id) {
+      setAgencyId(profile.agency_id);
       const { data: agency, error: agencyError } = await supabase
         .from('agencies')
         .select('name')
@@ -77,6 +80,7 @@ const Dashboard = () => {
       }
     } else {
       setAgencyName(null);
+      setAgencyId(null);
     }
   };
 
@@ -133,7 +137,10 @@ const Dashboard = () => {
           {/* 4. Focus Targets */}
           {canViewFocusTargets && <MyCurrentFocus />}
           
-          {/* 5. Roleplay Sessions */}
+          {/* 5. Renewal Summary Widget */}
+          <RenewalSummaryWidget agencyId={agencyId} />
+          
+          {/* 6. Roleplay Sessions */}
           {canViewRoleplaySessions && <RoleplaySessionsCard />}
           
           {/* 6. Metrics Dashboard */}
