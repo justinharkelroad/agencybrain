@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,31 @@ export default function Renewals() {
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<RenewalFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const SortableHeader = ({ column, label }: { column: string; label: string }) => (
+    <TableHead 
+      className="cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {sortColumn === column && (
+          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </TableHead>
+  );
 
   useEffect(() => {
     async function load() {
@@ -59,6 +84,31 @@ export default function Renewals() {
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
+
+  const sortedRecords = useMemo(() => {
+    if (!records || !sortColumn) return records;
+    
+    return [...records].sort((a, b) => {
+      let aVal: any = a[sortColumn as keyof RenewalRecord];
+      let bVal: any = b[sortColumn as keyof RenewalRecord];
+      
+      // Handle nulls
+      if (aVal == null) aVal = sortDirection === 'asc' ? Infinity : -Infinity;
+      if (bVal == null) bVal = sortDirection === 'asc' ? Infinity : -Infinity;
+      
+      // Handle booleans (bundled)
+      if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0;
+      if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0;
+      
+      // Handle strings
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [records, sortColumn, sortDirection]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -97,11 +147,25 @@ export default function Renewals() {
       )}
       <Card>
         <Table>
-          <TableHeader><TableRow><TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead><TableHead>Effective</TableHead><TableHead>Customer</TableHead><TableHead>Policy</TableHead><TableHead>Product</TableHead><TableHead className="text-right">Premium</TableHead><TableHead className="text-right">Change</TableHead><TableHead>Bundled</TableHead><TableHead>Status</TableHead><TableHead>Assigned</TableHead><TableHead className="w-[50px]"></TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
+              <TableHead>Effective</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Policy</TableHead>
+              <SortableHeader column="product_name" label="Product" />
+              <SortableHeader column="premium_new" label="Premium" />
+              <SortableHeader column="premium_change_percent" label="Change" />
+              <SortableHeader column="multi_line_indicator" label="Bundled" />
+              <TableHead>Status</TableHead>
+              <TableHead>Assigned</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {recordsLoading ? <TableRow><TableCell colSpan={11} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-            : records.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
-            : records.map((r) => (
+            : sortedRecords.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
+            : sortedRecords.map((r) => (
               <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRecord(r)}>
                 <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} /></TableCell>
                 <TableCell>{r.renewal_effective_date}</TableCell>
