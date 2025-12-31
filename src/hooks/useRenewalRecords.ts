@@ -90,7 +90,7 @@ export function useUpdateRenewalRecord() {
   return useMutation({
     mutationFn: async ({ id, updates, displayName, userId }: {
       id: string;
-      updates: Partial<Pick<RenewalRecord, 'current_status' | 'notes' | 'assigned_team_member_id'>>;
+      updates: Partial<Pick<RenewalRecord, 'current_status' | 'notes' | 'assigned_team_member_id' | 'is_priority'>>;
       displayName: string;
       userId: string | null;
     }) => {

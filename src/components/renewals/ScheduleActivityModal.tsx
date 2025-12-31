@@ -9,7 +9,7 @@ import { useCreateRenewalActivity } from '@/hooks/useRenewalActivities';
 import type { RenewalRecord, RenewalUploadContext, ActivityType, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 
-interface Props { open: boolean; onClose: () => void; record: RenewalRecord; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
+interface Props { open: boolean; onClose: () => void; record: RenewalRecord; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; initialActivityType?: string; }
 
 const quickActions = [
   { type: 'call', label: 'Call', icon: Phone, color: 'border-blue-500 text-blue-400 hover:bg-blue-500/10' },
@@ -19,11 +19,18 @@ const quickActions = [
   { type: 'review_done', label: 'Review Done', icon: CheckCircle, color: 'border-yellow-500 text-yellow-400 hover:bg-yellow-500/10' },
 ];
 
-export function ScheduleActivityModal({ open, onClose, record, context, teamMembers }: Props) {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+export function ScheduleActivityModal({ open, onClose, record, context, teamMembers, initialActivityType }: Props) {
+  const [selectedType, setSelectedType] = useState<string | null>(initialActivityType || null);
   const [comments, setComments] = useState('');
   const [statusUpdate, setStatusUpdate] = useState('no_change');
   const createActivity = useCreateRenewalActivity();
+
+  // Sync with initialActivityType when it changes
+  useEffect(() => {
+    if (initialActivityType) {
+      setSelectedType(initialActivityType);
+    }
+  }, [initialActivityType, open]);
 
   // Listen for sidebar navigation to force close dialog
   useEffect(() => {
