@@ -4080,8 +4080,8 @@ export type Database = {
           completed_date: string | null
           created_at: string
           created_by: string | null
-          created_by_display_name: string
-          household_key: string
+          created_by_display_name: string | null
+          household_key: string | null
           id: string
           renewal_record_id: string
           scheduled_date: string | null
@@ -4097,8 +4097,8 @@ export type Database = {
           completed_date?: string | null
           created_at?: string
           created_by?: string | null
-          created_by_display_name: string
-          household_key: string
+          created_by_display_name?: string | null
+          household_key?: string | null
           id?: string
           renewal_record_id: string
           scheduled_date?: string | null
@@ -4114,8 +4114,8 @@ export type Database = {
           completed_date?: string | null
           created_at?: string
           created_by?: string | null
-          created_by_display_name?: string
-          household_key?: string
+          created_by_display_name?: string | null
+          household_key?: string | null
           id?: string
           renewal_record_id?: string
           scheduled_date?: string | null
