@@ -4158,7 +4158,7 @@ export type Database = {
           easy_pay: boolean | null
           email: string | null
           first_name: string | null
-          household_key: string
+          household_key: string | null
           id: string
           is_active: boolean
           item_count: number | null
@@ -4181,6 +4181,9 @@ export type Database = {
           renewal_effective_date: string | null
           renewal_status: string
           updated_at: string
+          upload_id: string | null
+          uploaded_by: string | null
+          uploaded_by_display_name: string | null
           years_prior_insurance: number | null
         }
         Insert: {
@@ -4194,7 +4197,7 @@ export type Database = {
           easy_pay?: boolean | null
           email?: string | null
           first_name?: string | null
-          household_key: string
+          household_key?: string | null
           id?: string
           is_active?: boolean
           item_count?: number | null
@@ -4217,6 +4220,9 @@ export type Database = {
           renewal_effective_date?: string | null
           renewal_status?: string
           updated_at?: string
+          upload_id?: string | null
+          uploaded_by?: string | null
+          uploaded_by_display_name?: string | null
           years_prior_insurance?: number | null
         }
         Update: {
@@ -4230,7 +4236,7 @@ export type Database = {
           easy_pay?: boolean | null
           email?: string | null
           first_name?: string | null
-          household_key?: string
+          household_key?: string | null
           id?: string
           is_active?: boolean
           item_count?: number | null
@@ -4253,6 +4259,9 @@ export type Database = {
           renewal_effective_date?: string | null
           renewal_status?: string
           updated_at?: string
+          upload_id?: string | null
+          uploaded_by?: string | null
+          uploaded_by_display_name?: string | null
           years_prior_insurance?: number | null
         }
         Relationships: [
@@ -4261,6 +4270,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_assigned_team_member_id_fkey"
+            columns: ["assigned_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
           {
