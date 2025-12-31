@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ROIForecastersModal, type CalcKey } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
+import { cleanupRadixLocks } from "@/lib/radixCleanup";
 
 type SidebarLayoutProps = {
   children: React.ReactNode;
@@ -11,6 +13,19 @@ type SidebarLayoutProps = {
 export function SidebarLayout({ children }: SidebarLayoutProps) {
   const [roiOpen, setRoiOpen] = useState(false);
   const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
+  const location = useLocation();
+
+  // Cleanup any stuck Radix locks on route change
+  useEffect(() => {
+    cleanupRadixLocks();
+  }, [location.pathname]);
+
+  // Also cleanup when sidebar navigation event fires
+  useEffect(() => {
+    const handleNavigation = () => cleanupRadixLocks();
+    window.addEventListener('sidebar-navigation', handleNavigation);
+    return () => window.removeEventListener('sidebar-navigation', handleNavigation);
+  }, []);
 
   const handleOpenROI = (toolKey?: CalcKey) => {
     setRoiInitialTool(toolKey || null);
