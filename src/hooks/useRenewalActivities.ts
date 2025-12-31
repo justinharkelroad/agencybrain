@@ -10,7 +10,7 @@ export function useRenewalActivities(renewalRecordId: string | null) {
       if (!renewalRecordId) return [];
       const { data, error } = await supabase
         .from('renewal_activities')
-        .select(`*, assigned_team_member:team_members!renewal_activities_assigned_team_member_id_fkey(id, name)`)
+        .select('*')
         .eq('renewal_record_id', renewalRecordId)
         .order('created_at', { ascending: false });
       if (error) throw error;
