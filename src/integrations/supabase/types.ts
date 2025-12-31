@@ -4283,38 +4283,35 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
-          file_name: string | null
+          date_range_end: string | null
+          date_range_start: string | null
+          filename: string | null
           id: string
-          records_created: number
-          records_processed: number
-          records_updated: number
-          uploaded_by_name: string
-          uploaded_by_staff_id: string | null
-          uploaded_by_user_id: string | null
+          record_count: number | null
+          uploaded_by: string | null
+          uploaded_by_display_name: string | null
         }
         Insert: {
           agency_id: string
           created_at?: string
-          file_name?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          filename?: string | null
           id?: string
-          records_created?: number
-          records_processed?: number
-          records_updated?: number
-          uploaded_by_name: string
-          uploaded_by_staff_id?: string | null
-          uploaded_by_user_id?: string | null
+          record_count?: number | null
+          uploaded_by?: string | null
+          uploaded_by_display_name?: string | null
         }
         Update: {
           agency_id?: string
           created_at?: string
-          file_name?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          filename?: string | null
           id?: string
-          records_created?: number
-          records_processed?: number
-          records_updated?: number
-          uploaded_by_name?: string
-          uploaded_by_staff_id?: string | null
-          uploaded_by_user_id?: string | null
+          record_count?: number | null
+          uploaded_by?: string | null
+          uploaded_by_display_name?: string | null
         }
         Relationships: [
           {
@@ -4322,13 +4319,6 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "renewal_uploads_uploaded_by_staff_id_fkey"
-            columns: ["uploaded_by_staff_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
