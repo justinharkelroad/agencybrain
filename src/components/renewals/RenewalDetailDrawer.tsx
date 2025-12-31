@@ -11,6 +11,9 @@ import { useRenewalActivities } from '@/hooks/useRenewalActivities';
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { ScheduleActivityModal } from './ScheduleActivityModal';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
 import type { RenewalRecord, WorkflowStatus, RenewalUploadContext } from '@/types/renewal';
 
 interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
@@ -35,15 +38,40 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(record?.notes || '');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
+  const queryClient = useQueryClient();
 
-  useEffect(() => { setNotes(record?.notes || ''); }, [record]);
+  useEffect(() => {
+    setNotes(record?.notes || '');
+  }, [record?.notes]);
+
   if (!record) return null;
 
   const handleStatusChange = (s: WorkflowStatus) => { updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); };
-  const handleSaveNotes = () => { updateRecord.mutate({ id: record.id, updates: { notes }, displayName: context.displayName, userId: context.userId }); };
+
+  const handleSaveNotes = async () => {
+    if (!record?.id) return;
+    
+    setIsSavingNotes(true);
+    try {
+      const { error } = await supabase
+        .from('renewal_records')
+        .update({ notes })
+        .eq('id', record.id);
+      
+      if (error) throw error;
+      
+      toast({ title: 'Notes saved' });
+      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+    } catch (err) {
+      toast({ title: 'Failed to save notes', variant: 'destructive' });
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
   const chgPct = record.premium_change_percent || 0;
 
   return (
@@ -142,8 +170,14 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   rows={3} 
                   className="bg-[#0d1117] border-gray-700 text-white"
                 />
-                <Button size="sm" variant="outline" onClick={handleSaveNotes} disabled={notes === (record.notes || '')} className="border-gray-600">
-                  Save Notes
+                <Button 
+                  onClick={handleSaveNotes} 
+                  disabled={isSavingNotes}
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-600"
+                >
+                  {isSavingNotes ? 'Saving...' : 'Save Notes'}
                 </Button>
               </div>
 
