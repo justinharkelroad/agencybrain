@@ -108,6 +108,7 @@ export function useStaffAuth() {
     
     setState({ user: null, sessionToken: null, loading: false, error: null });
     localStorage.removeItem('staff_session_token');
+    localStorage.removeItem('sidebarOpenFolder');
 
     if (token) {
       try {

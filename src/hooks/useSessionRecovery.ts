@@ -19,6 +19,7 @@ export function useSessionRecovery() {
     
     // Clear local storage
     localStorage.removeItem('sb-wjqyccbytctqwceuhzhk-auth-token');
+    localStorage.removeItem('sidebarOpenFolder');
     
     try {
       await supabase.auth.signOut({ scope: 'local' });
@@ -80,6 +81,7 @@ export function useSessionRecovery() {
       
       // Handle explicit sign out events from other tabs
       if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('sidebarOpenFolder');
         // Only redirect if we're not already on the auth page
         if (!window.location.pathname.includes('/auth')) {
           navigate('/auth');
