@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ROIForecastersModal, type CalcKey } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
-import { cleanupRadixLocks } from "@/lib/radixCleanup";
+import { cleanupRadixLocks, isPageLocked } from "@/lib/radixCleanup";
 
 type SidebarLayoutProps = {
   children: React.ReactNode;
@@ -26,6 +26,23 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
     window.addEventListener('sidebar-navigation', handleNavigation);
     return () => window.removeEventListener('sidebar-navigation', handleNavigation);
   }, []);
+
+  // Capture-phase failsafe: unlock on any user interaction if page is stuck
+  const handleFailsafeUnlock = useCallback(() => {
+    if (isPageLocked()) {
+      cleanupRadixLocks();
+    }
+  }, []);
+
+  useEffect(() => {
+    // Use capture phase so this runs even if events are blocked
+    window.addEventListener('pointerdown', handleFailsafeUnlock, true);
+    window.addEventListener('keydown', handleFailsafeUnlock, true);
+    return () => {
+      window.removeEventListener('pointerdown', handleFailsafeUnlock, true);
+      window.removeEventListener('keydown', handleFailsafeUnlock, true);
+    };
+  }, [handleFailsafeUnlock]);
 
   const handleOpenROI = (toolKey?: CalcKey) => {
     setRoiInitialTool(toolKey || null);
