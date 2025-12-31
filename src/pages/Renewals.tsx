@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star, Plus } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -125,24 +125,50 @@ export default function Renewals() {
       );
     }
     
-    // Then apply sorting
-    if (!sortColumn) return result;
-    
+    // Sort with priority items ALWAYS first, then by selected column
     return [...result].sort((a, b) => {
-      let aVal: any = a[sortColumn as keyof RenewalRecord];
-      let bVal: any = b[sortColumn as keyof RenewalRecord];
+      // Priority items always come first
+      if (a.is_priority && !b.is_priority) return -1;
+      if (!a.is_priority && b.is_priority) return 1;
       
-      // Handle nulls
-      if (aVal == null) aVal = sortDirection === 'asc' ? Infinity : -Infinity;
-      if (bVal == null) bVal = sortDirection === 'asc' ? Infinity : -Infinity;
+      // Then apply column sorting
+      if (!sortColumn) return 0;
       
-      // Handle booleans (bundled)
-      if (typeof aVal === 'boolean') aVal = aVal ? 1 : 0;
-      if (typeof bVal === 'boolean') bVal = bVal ? 1 : 0;
+      let aVal: any;
+      let bVal: any;
       
-      // Handle strings
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      switch (sortColumn) {
+        case 'renewal_effective_date':
+          aVal = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
+          bVal = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
+          break;
+        case 'premium_change_percent':
+          aVal = a.premium_change_percent ?? 0;
+          bVal = b.premium_change_percent ?? 0;
+          break;
+        case 'first_name':
+          aVal = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+          bVal = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+          break;
+        case 'premium_new':
+          aVal = a.premium_new ?? 0;
+          bVal = b.premium_new ?? 0;
+          break;
+        case 'product_name':
+          aVal = (a.product_name || '').toLowerCase();
+          bVal = (b.product_name || '').toLowerCase();
+          break;
+        case 'current_status':
+          aVal = (a.current_status || '').toLowerCase();
+          bVal = (b.current_status || '').toLowerCase();
+          break;
+        case 'multi_line_indicator':
+          aVal = a.multi_line_indicator ? 1 : 0;
+          bVal = b.multi_line_indicator ? 1 : 0;
+          break;
+        default:
+          return 0;
+      }
       
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
@@ -348,19 +374,6 @@ export default function Renewals() {
                         title={r.is_priority ? "Remove priority" : "Mark as priority"}
                       >
                         <Star className={cn("h-4 w-4", r.is_priority && "fill-current")} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toast.info("Cross-sell feature coming soon");
-                        }}
-                        title="Create cross-sell lead"
-                        disabled
-                      >
-                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
