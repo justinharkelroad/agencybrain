@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -43,6 +43,17 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const queryClient = useQueryClient();
+
+  // Listen for sidebar navigation to force close drawer
+  useEffect(() => {
+    const handleNavigation = () => {
+      if (open) {
+        onClose();
+      }
+    };
+    window.addEventListener('sidebar-navigation', handleNavigation);
+    return () => window.removeEventListener('sidebar-navigation', handleNavigation);
+  }, [open, onClose]);
 
   if (!record) return null;
 

@@ -228,7 +228,7 @@ export function LeaderBlueprintReportCard({ module, open, onClose }: LeaderBluep
   const categoryColor = categoryColors[blueprint.category] || COLORS.primary;
 
   return (
-    <Dialog open={open} onOpenChange={() => onClose()}>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-slate-900 border-slate-700">
         {/* Header Actions */}
         <div style={{ 

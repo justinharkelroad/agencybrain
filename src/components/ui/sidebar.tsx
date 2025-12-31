@@ -558,12 +558,25 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
+      onClick,
       ...props
     },
     ref
   ) => {
     const Comp = asChild ? Slot : "button"
-    const { isMobile, state } = useSidebar()
+    const { isMobile, state, setOpenMobile } = useSidebar()
+
+    // Nuclear option: dispatch event to close any open dialogs on navigation
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+      // Dispatch custom event to force close all dialogs/sheets
+      window.dispatchEvent(new CustomEvent('sidebar-navigation'))
+      // Close mobile sidebar if open
+      if (isMobile) {
+        setOpenMobile(false)
+      }
+      // Call original onClick if exists
+      onClick?.(e)
+    }
 
     const button = (
       <Comp
@@ -572,6 +585,7 @@ const SidebarMenuButton = React.forwardRef<
         data-size={size}
         data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+        onClick={handleClick}
         {...props}
       />
     )

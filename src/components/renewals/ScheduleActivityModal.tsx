@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Phone, Voicemail, MessageSquare, Mail, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,17 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
   const [comments, setComments] = useState('');
   const [statusUpdate, setStatusUpdate] = useState('no_change');
   const createActivity = useCreateRenewalActivity();
+
+  // Listen for sidebar navigation to force close dialog
+  useEffect(() => {
+    const handleNavigation = () => {
+      if (open) {
+        handleClose();
+      }
+    };
+    window.addEventListener('sidebar-navigation', handleNavigation);
+    return () => window.removeEventListener('sidebar-navigation', handleNavigation);
+  }, [open]);
 
   const handleSave = () => {
     if (!selectedType) return;
