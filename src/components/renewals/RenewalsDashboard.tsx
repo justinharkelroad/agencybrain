@@ -18,21 +18,23 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, activeDateFilter, activeDayFilter }: RenewalsDashboardProps) {
-  // Calculate data for the next 14 days chart
+  // Calculate data for the past 6 days + today (7 days total)
   const upcomingData = useMemo(() => {
     const today = startOfDay(new Date());
     const days: { date: string; dateLabel: string; count: number; dayName: string; isWeekend: boolean }[] = [];
-
-    for (let i = 0; i < 14; i++) {
+    
+    // Start 6 days ago, go through today (7 days total)
+    for (let i = -6; i <= 0; i++) {
       const date = addDays(today, i);
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayOfWeek = getDay(date);
+      
       const count = records.filter(r => {
         if (!r.renewal_effective_date) return false;
         const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
         return recordDate === dateStr;
       }).length;
-
+      
       days.push({
         date: dateStr,
         dateLabel: format(date, 'MMM d'),
@@ -41,7 +43,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6
       });
     }
-
+    
     return days;
   }, [records]);
 
@@ -51,38 +53,34 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
     return total / upcomingData.length;
   }, [upcomingData]);
 
-  // Calculate data by day of week - ONLY for next 14 days (same as line chart)
+  // Calculate data by day of week - same 7-day window as line chart
+  // Each day appears exactly once, so this is just a reorganized view of the same data
   const dayOfWeekData = useMemo(() => {
     const today = startOfDay(new Date());
-    const counts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+    const dayData: { day: string; dayIndex: number; count: number }[] = [];
     
-    // Only count renewals in the next 14 days
-    for (let i = 0; i < 14; i++) {
+    // Build data for each of the 7 days
+    for (let i = -6; i <= 0; i++) {
       const date = addDays(today, i);
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayOfWeek = getDay(date);
       
-      const countForDay = records.filter(r => {
+      const count = records.filter(r => {
         if (!r.renewal_effective_date) return false;
         const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
         return recordDate === dateStr;
       }).length;
       
-      counts[dayOfWeek] += countForDay;
+      dayData.push({
+        day: DAY_NAMES[dayOfWeek],
+        dayIndex: dayOfWeek,
+        count
+      });
     }
     
-    // Reorder to start with Monday
-    const reordered = [
-      { day: 'Mon', dayIndex: 1, count: counts[1] },
-      { day: 'Tue', dayIndex: 2, count: counts[2] },
-      { day: 'Wed', dayIndex: 3, count: counts[3] },
-      { day: 'Thu', dayIndex: 4, count: counts[4] },
-      { day: 'Fri', dayIndex: 5, count: counts[5] },
-      { day: 'Sat', dayIndex: 6, count: counts[6] },
-      { day: 'Sun', dayIndex: 0, count: counts[0] },
-    ];
-    
-    return reordered;
+    // Sort by day of week starting with Monday
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Mon-Sun
+    return dayData.sort((a, b) => dayOrder.indexOf(a.dayIndex) - dayOrder.indexOf(b.dayIndex));
   }, [records]);
 
   const maxDayCount = Math.max(...dayOfWeekData.map(d => d.count), 1);
@@ -125,7 +123,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
               <CalendarDays className="h-5 w-5 text-blue-400" />
               <CardTitle className="text-lg text-white">Upcoming Renewals</CardTitle>
             </div>
-            <span className="text-sm text-gray-400">Next 14 days</span>
+            <span className="text-xs text-gray-400">Last 7 days</span>
           </div>
         </CardHeader>
         <CardContent>
@@ -197,8 +195,8 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Click a point to filter by that date • Red = below average
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Click a point to filter by that date • <span className="text-red-400">Red</span> = below average
           </p>
         </CardContent>
       </Card>
