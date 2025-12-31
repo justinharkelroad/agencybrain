@@ -100,49 +100,49 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             </div>
           </div>
 
-          {/* Info Grid - 4 columns like Cancel Audit */}
-          <div className="grid grid-cols-4 gap-4 p-4 border-b border-gray-700 text-white">
+          {/* Info Stack - Vertical layout for better readability */}
+          <div className="space-y-4 p-4 border-b border-gray-700 text-white">
             {/* Contact */}
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 mb-2">
-                <Phone className="h-4 w-4" />
-                <span className="text-sm font-medium">Contact</span>
+            <div className="flex items-start gap-3">
+              <Phone className="h-4 w-4 text-gray-400 mt-1" />
+              <div>
+                <span className="text-sm font-medium text-gray-400">Contact</span>
+                <p className="text-sm">Phone: {record.phone || '—'}</p>
+                <p className="text-sm break-all">Email: {record.email || '—'}</p>
               </div>
-              <p className="text-sm">Phone: {record.phone || '—'}</p>
-              <p className="text-sm truncate">Email: {record.email || '—'}</p>
             </div>
-
-            {/* Policy Details */}
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 mb-2">
-                <FileText className="h-4 w-4" />
-                <span className="text-sm font-medium">Policy</span>
+            
+            {/* Policy */}
+            <div className="flex items-start gap-3">
+              <FileText className="h-4 w-4 text-gray-400 mt-1" />
+              <div>
+                <span className="text-sm font-medium text-gray-400">Policy</span>
+                <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
+                <p className="text-sm">Product: {record.product_name || '—'}</p>
               </div>
-              <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
-              <p className="text-sm">Product: {record.product_name || '—'}</p>
             </div>
-
+            
             {/* Dates */}
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 mb-2">
-                <Calendar className="h-4 w-4" />
-                <span className="text-sm font-medium">Dates</span>
+            <div className="flex items-start gap-3">
+              <Calendar className="h-4 w-4 text-gray-400 mt-1" />
+              <div>
+                <span className="text-sm font-medium text-gray-400">Dates</span>
+                <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
+                <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
               </div>
-              <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
-              <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
             </div>
-
+            
             {/* Financials */}
-            <div>
-              <div className="flex items-center gap-2 text-gray-400 mb-2">
-                <DollarSign className="h-4 w-4" />
-                <span className="text-sm font-medium">Financials</span>
+            <div className="flex items-start gap-3">
+              <DollarSign className="h-4 w-4 text-gray-400 mt-1" />
+              <div>
+                <span className="text-sm font-medium text-gray-400">Financials</span>
+                <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
+                <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
+                <p className={`text-sm font-medium ${(record.premium_change_percent || 0) < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  Change: {record.premium_change_percent?.toFixed(1) || 0}%
+                </p>
               </div>
-              <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
-              <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
-              <p className={cn("text-sm font-medium", chgPct > 0 ? 'text-red-400' : chgPct < 0 ? 'text-green-400' : 'text-gray-400')}>
-                Change: {chgPct > 0 ? '+' : ''}{chgPct.toFixed(1)}%
-              </p>
             </div>
           </div>
 
