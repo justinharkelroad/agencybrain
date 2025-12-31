@@ -51,16 +51,26 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
     return total / upcomingData.length;
   }, [upcomingData]);
 
-  // Calculate data by day of week
+  // Calculate data by day of week - ONLY for next 14 days (same as line chart)
   const dayOfWeekData = useMemo(() => {
+    const today = startOfDay(new Date());
     const counts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
-
-    records.forEach(r => {
-      if (!r.renewal_effective_date) return;
-      const dayOfWeek = getDay(parseISO(r.renewal_effective_date));
-      counts[dayOfWeek]++;
-    });
-
+    
+    // Only count renewals in the next 14 days
+    for (let i = 0; i < 14; i++) {
+      const date = addDays(today, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const dayOfWeek = getDay(date);
+      
+      const countForDay = records.filter(r => {
+        if (!r.renewal_effective_date) return false;
+        const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
+        return recordDate === dateStr;
+      }).length;
+      
+      counts[dayOfWeek] += countForDay;
+    }
+    
     // Reorder to start with Monday
     const reordered = [
       { day: 'Mon', dayIndex: 1, count: counts[1] },
@@ -71,7 +81,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
       { day: 'Sat', dayIndex: 6, count: counts[6] },
       { day: 'Sun', dayIndex: 0, count: counts[0] },
     ];
-
+    
     return reordered;
   }, [records]);
 
@@ -106,9 +116,9 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
   const hasActiveFilter = activeDateFilter !== null || activeDayFilter !== null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
       {/* Upcoming Renewals - Area Chart */}
-      <Card className="bg-[#1a1f2e] border-gray-700">
+      <Card className="bg-[#1a1f2e] border-gray-700 lg:col-span-3">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -194,17 +204,17 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
       </Card>
 
       {/* Day of Week Distribution - Horizontal Bar Chart */}
-      <Card className="bg-[#1a1f2e] border-gray-700">
+      <Card className="bg-[#1a1f2e] border-gray-700 lg:col-span-1">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-lg text-white">By Day of Week</CardTitle>
+              <CardTitle className="text-base text-white">By Day</CardTitle>
             </div>
             {hasActiveFilter && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <Button 
+                variant="ghost" 
+                size="sm" 
                 className="h-7 text-xs text-gray-400 hover:text-white"
                 onClick={() => {
                   onDateFilter(null);
@@ -223,35 +233,39 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
               <BarChart
                 data={dayOfWeekData}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 onClick={(data) => {
                   if (data && data.activePayload) {
                     const clickedDayIndex = data.activePayload[0].payload.dayIndex;
                     onDayOfWeekFilter(activeDayFilter === clickedDayIndex ? null : clickedDayIndex);
-                    onDateFilter(null); // Clear other filter
+                    onDateFilter(null);
                   }
                 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
-                <XAxis
-                  type="number"
-                  stroke="#9ca3af"
+                <XAxis 
+                  type="number" 
+                  stroke="#9ca3af" 
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
                   allowDecimals={false}
                 />
-                <YAxis
-                  type="category"
-                  dataKey="day"
-                  stroke="#9ca3af"
-                  fontSize={12}
+                <YAxis 
+                  type="category" 
+                  dataKey="day" 
+                  stroke="#9ca3af" 
+                  fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                  width={40}
+                  width={32}
                 />
                 <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} style={{ cursor: 'pointer' }}>
+                <Bar 
+                  dataKey="count" 
+                  radius={[0, 4, 4, 0]}
+                  style={{ cursor: 'pointer' }}
+                >
                   {dayOfWeekData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
