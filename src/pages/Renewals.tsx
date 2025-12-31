@@ -118,6 +118,9 @@ export default function Renewals() {
         updates: { is_priority: isPriority },
         displayName: context.displayName,
         userId: context.userId,
+        silent: true,
+        invalidate: false,
+        invalidateStats: false,
       });
       // No toast on success - the star itself is the feedback
     } catch (error) {
@@ -187,7 +190,8 @@ export default function Renewals() {
       
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      // Stable tie-breaker by id to prevent position jumping
+      return a.id.localeCompare(b.id);
     });
   }, [records, sortColumn, sortDirection, showPriorityOnly]);
 

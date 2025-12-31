@@ -28,7 +28,8 @@ export function useRenewalRecords(agencyId: string | null, filters: RenewalFilte
         .select(`*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)`)
         .eq('agency_id', agencyId)
         .eq('is_active', true)
-        .order('renewal_effective_date', { ascending: true });
+        .order('renewal_effective_date', { ascending: true })
+        .order('id', { ascending: true }); // Stable tie-breaker to prevent reorder on refetch
       
       if (filters.currentStatus?.length) query = query.in('current_status', filters.currentStatus);
       if (filters.renewalStatus?.length) query = query.in('renewal_status', filters.renewalStatus);
@@ -88,11 +89,14 @@ export function useRenewalStats(agencyId: string | null, dateRange?: { start: st
 export function useUpdateRenewalRecord() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, updates, displayName, userId }: {
+    mutationFn: async ({ id, updates, displayName, userId, silent, invalidate, invalidateStats }: {
       id: string;
       updates: Partial<Pick<RenewalRecord, 'current_status' | 'notes' | 'assigned_team_member_id' | 'is_priority'>>;
       displayName: string;
       userId: string | null;
+      silent?: boolean;
+      invalidate?: boolean;
+      invalidateStats?: boolean;
     }) => {
       const { error } = await supabase.from('renewal_records').update({
         ...updates,
@@ -102,13 +106,24 @@ export function useUpdateRenewalRecord() {
         updated_at: new Date().toISOString(),
       }).eq('id', id);
       if (error) throw error;
+      return { silent, invalidate, invalidateStats };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
-      queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
-      toast.success('Record updated');
+    onSuccess: (result) => {
+      if (result?.invalidate !== false) {
+        queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      }
+      if (result?.invalidateStats !== false) {
+        queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      }
+      if (!result?.silent) {
+        toast.success('Record updated');
+      }
     },
-    onError: () => toast.error('Failed to update record'),
+    onError: (_, variables) => {
+      if (!variables.silent) {
+        toast.error('Failed to update record');
+      }
+    },
   });
 }
 
