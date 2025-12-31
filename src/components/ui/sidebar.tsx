@@ -566,15 +566,10 @@ const SidebarMenuButton = React.forwardRef<
     const Comp = asChild ? Slot : "button"
     const { isMobile, state, setOpenMobile } = useSidebar()
 
-    // Nuclear option: dispatch event to close any open dialogs on navigation
+    // Only call original onClick - do NOT dispatch sidebar-navigation here
+    // Folder headers use this component but are not navigation actions
+    // Navigation dispatch is handled in SidebarNavItem for actual navigation clicks
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-      // Dispatch custom event to force close all dialogs/sheets
-      window.dispatchEvent(new CustomEvent('sidebar-navigation'))
-      // Close mobile sidebar if open
-      if (isMobile) {
-        setOpenMobile(false)
-      }
-      // Call original onClick if exists
       onClick?.(e)
     }
 

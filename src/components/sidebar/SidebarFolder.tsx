@@ -17,9 +17,9 @@ interface SidebarFolderProps {
   onOpenModal?: (modalKey: string) => void;
   storageKey: string;
   membershipTier?: string | null;
-  // Accordion behavior props
+  // Accordion behavior props - idempotent open/close
   openFolderId?: string | null;
-  onFolderToggle?: (folderId: string) => void;
+  onFolderOpenChange?: (folderId: string, open: boolean) => void;
 }
 
 export function SidebarFolder({ 
@@ -29,7 +29,7 @@ export function SidebarFolder({
   storageKey,
   membershipTier,
   openFolderId,
-  onFolderToggle
+  onFolderOpenChange
 }: SidebarFolderProps) {
   const location = useLocation();
   
@@ -53,7 +53,7 @@ export function SidebarFolder({
   const hasActiveChild = visibleItems.some(item => isItemActive(item));
   
   // Use controlled state if accordion props provided, otherwise local state
-  const isControlled = openFolderId !== undefined && onFolderToggle !== undefined;
+  const isControlled = openFolderId !== undefined && onFolderOpenChange !== undefined;
   const isOpen = isControlled ? openFolderId === folder.id : (() => {
     const stored = localStorage.getItem(storageKey);
     if (stored !== null) {
@@ -80,14 +80,8 @@ export function SidebarFolder({
 
   const handleOpenChange = (open: boolean) => {
     if (isControlled) {
-      // In controlled mode: only toggle when Radix wants to OPEN
-      // This prevents double-toggle issues from Radix firing multiple events
-      if (open) {
-        onFolderToggle(folder.id);
-      } else if (openFolderId === folder.id) {
-        // Only close if this folder is currently open
-        onFolderToggle(folder.id);
-      }
+      // In controlled mode: pass through the desired state directly (idempotent)
+      onFolderOpenChange(folder.id, open);
     } else {
       setLocalOpen(open);
       localStorage.setItem(storageKey, String(open));
