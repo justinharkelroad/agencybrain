@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarMenuItem,
-  SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
@@ -28,14 +26,14 @@ interface StaffSidebarFolderProps {
 }
 
 export function StaffSidebarFolder({
-  folder, 
-  visibleItems, 
+  folder,
+  visibleItems,
   storageKey,
   onNavClick,
   onOpenModal,
   membershipTier,
   openFolderId,
-  onFolderToggle
+  onFolderToggle,
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -44,44 +42,44 @@ export function StaffSidebarFolder({
   const [gatedFeatureName, setGatedFeatureName] = useState("");
 
   // Check if ANY hash-based item in this folder matches the current route
-  const activeHashItem = visibleItems.find(item => {
-    if (!item.url?.includes('#')) return false;
-    const [itemPath, itemHash] = item.url.split('#');
+  const activeHashItem = visibleItems.find((item) => {
+    if (!item.url?.includes("#")) return false;
+    const [itemPath, itemHash] = item.url.split("#");
     return location.pathname === itemPath && location.hash === `#${itemHash}`;
   });
 
   // Check if item is active, accounting for hash fragments
   const isItemActive = (item: NavItem): boolean => {
     if (!item.url) return false;
-    
+
     // If item URL has a hash (e.g., /staff/core4#monthly-missions)
-    if (item.url.includes('#')) {
-      const [itemPath, itemHash] = item.url.split('#');
+    if (item.url.includes("#")) {
+      const [itemPath, itemHash] = item.url.split("#");
       return location.pathname === itemPath && location.hash === `#${itemHash}`;
     }
-    
-    // For regular URLs: if a hash item is currently active, 
+
+    // For regular URLs: if a hash item is currently active,
     // don't also highlight the base route
     if (activeHashItem) {
-      const [hashItemPath] = activeHashItem.url!.split('#');
+      const [hashItemPath] = activeHashItem.url!.split("#");
       if (item.url === hashItemPath || hashItemPath.startsWith(item.url)) {
         return false;
       }
     }
-    
+
     return location.pathname.startsWith(item.url);
   };
-  
-  const hasActiveChild = visibleItems.some(item => isItemActive(item));
-  
+
+  const hasActiveChild = visibleItems.some((item) => isItemActive(item));
+
   // Use controlled state if accordion props provided, otherwise local state
   const isControlled = openFolderId !== undefined && onFolderToggle !== undefined;
-  
+
   // Local state for uncontrolled mode
   const [localOpen, setLocalOpen] = useState(() => {
     const stored = localStorage.getItem(storageKey);
     if (stored !== null) {
-      return stored === 'true';
+      return stored === "true";
     }
     return hasActiveChild;
   });
@@ -93,85 +91,99 @@ export function StaffSidebarFolder({
     }
   }, [hasActiveChild, location.pathname, isControlled, localOpen]);
 
-  const handleOpenChange = (open: boolean) => {
+  const effectiveOpen = isControlled ? openFolderId === folder.id : localOpen;
+
+  const handleToggle = () => {
     if (isControlled) {
-      // In controlled mode, toggle this folder
-      onFolderToggle(folder.id);
-    } else {
-      setLocalOpen(open);
-      localStorage.setItem(storageKey, String(open));
+      onFolderToggle?.(folder.id);
+      return;
     }
+
+    setLocalOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(storageKey, String(next));
+      return next;
+    });
   };
 
   const handleItemClick = (item: NavItem) => {
     // Check tier requirement - show gate modal for non-1:1 users
-    if (item.requiresTier === '1:1' && !hasOneOnOneAccess(membershipTier)) {
+    if (item.requiresTier === "1:1" && !hasOneOnOneAccess(membershipTier)) {
       setGatedFeatureName(item.title);
       setShowGateModal(true);
       return;
     }
-    
-    if (item.type === 'link' && item.url) {
+
+    if (item.type === "link" && item.url) {
       navigate(item.url);
       onNavClick?.();
-    } else if (item.type === 'modal' && item.modalKey && onOpenModal) {
+    } else if (item.type === "modal" && item.modalKey && onOpenModal) {
       onOpenModal(item.modalKey);
       onNavClick?.();
-    } else if (item.type === 'external' && item.externalUrl) {
-      window.open(item.externalUrl, '_blank', 'noopener,noreferrer');
+    } else if (item.type === "external" && item.externalUrl) {
+      window.open(item.externalUrl, "_blank", "noopener,noreferrer");
       onNavClick?.();
     }
   };
 
   if (visibleItems.length === 0) return null;
 
-  const effectiveOpen = isControlled ? openFolderId === folder.id : localOpen;
-
   return (
     <>
-      <Collapsible open={effectiveOpen} onOpenChange={handleOpenChange}>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            asChild
-            tooltip={folder.title}
+      <SidebarMenuItem>
+        {/* Simple button with direct onClick - NO RADIX COLLAPSIBLE */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // eslint-disable-next-line no-console
+            console.log("Folder clicked:", folder.title, "isOpen:", effectiveOpen);
+            handleToggle();
+          }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
+            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "transition-colors",
+            hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+        >
+          <folder.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+          {sidebarOpen && (
+            <span className="flex-1 truncate text-left">{folder.title}</span>
+          )}
+          <ChevronRight
             className={cn(
-              hasActiveChild && "bg-sidebar-accent text-sidebar-accent-foreground"
+              "ml-auto h-4 w-4 shrink-0 transition-transform duration-200",
+              effectiveOpen && "rotate-90"
             )}
-          >
-            <CollapsibleTrigger type="button" className="w-full">
-              <folder.icon className="h-4 w-4" strokeWidth={1.5} />
-              {sidebarOpen && <span>{folder.title}</span>}
-              <ChevronRight 
-                className={cn(
-                  "ml-auto h-4 w-4 transition-transform duration-200",
-                  effectiveOpen && "rotate-90"
-                )} 
-              />
-            </CollapsibleTrigger>
-          </SidebarMenuButton>
-          
-          <CollapsibleContent>
-            <SidebarMenuSub>
-              {visibleItems.map((item) => {
-                const isActive = isItemActive(item);
-                
-                return (
-                  <SidebarMenuSubItem key={item.id}>
-                    <SidebarMenuSubButton
-                      onClick={() => handleItemClick(item)}
-                      isActive={isActive}
-                      className="cursor-pointer"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                );
-              })}
-            </SidebarMenuSub>
-          </CollapsibleContent>
-        </SidebarMenuItem>
-      </Collapsible>
+          />
+        </button>
+
+        {/* Simple conditional render - NO RADIX COLLAPSIBLE CONTENT */}
+        {effectiveOpen && (
+          <SidebarMenuSub>
+            {visibleItems.map((item) => {
+              const isActive = isItemActive(item);
+
+              return (
+                <SidebarMenuSubItem key={item.id}>
+                  <SidebarMenuSubButton
+                    onClick={() => handleItemClick(item)}
+                    isActive={isActive}
+                    className="cursor-pointer"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        )}
+      </SidebarMenuItem>
+
       <MembershipGateModal
         open={showGateModal}
         onOpenChange={setShowGateModal}
