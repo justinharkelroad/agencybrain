@@ -49,7 +49,7 @@ import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { SidebarNavItem, SidebarFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
-const SIDEBAR_OPEN_FOLDER_KEY = 'sidebar-open-folder';
+const SIDEBAR_OPEN_FOLDER_KEY = 'sidebarOpenFolder';
 
 type AppSidebarProps = {
   onOpenROI?: (toolKey?: CalcKey) => void;
@@ -97,26 +97,24 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   // Combine post/comment notifications with unread messages
   const totalExchangeNotifications = exchangeNotifications.total + unreadMessageCount;
   
-  // Accordion state - only one folder open at a time
+  // State - single value for which folder is open
   const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
-    return localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
+    // Initialize from localStorage or current route
+    const saved = localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
+    return saved || null;
   });
-  
-  // Idempotent folder open/close - receives desired state, not toggle
-  const handleFolderOpenChange = useCallback((folderId: string, open: boolean) => {
+
+  // Simple toggle function
+  const handleFolderToggle = useCallback((folderId: string) => {
     setOpenFolderId(prev => {
-      if (open) {
-        // Opening: set this folder as open
-        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, folderId);
-        return folderId;
+      const newValue = prev === folderId ? null : folderId;
+      // Persist to localStorage
+      if (newValue) {
+        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, newValue);
       } else {
-        // Closing: only close if this folder is currently open
-        if (prev === folderId) {
-          localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
-          return null;
-        }
-        return prev;
+        localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
       }
+      return newValue;
     });
   }, []);
 
@@ -337,18 +335,29 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                   if (isNavFolder(entry)) {
                     // Get visible items for this folder
                     const visibleItems = entry.items;
-                    
+
                     return (
                       <SidebarFolder
                         key={entry.id}
-                        folder={entry}
-                        visibleItems={visibleItems}
-                        onOpenModal={handleOpenModal}
-                        storageKey={`sidebar-folder-${entry.id}`}
-                        membershipTier={membershipTier}
-                        openFolderId={openFolderId}
-                        onFolderOpenChange={handleFolderOpenChange}
-                      />
+                        folder={{
+                          id: entry.id,
+                          title: entry.title,
+                          icon: entry.icon,
+                          items: [],
+                        }}
+                        isOpen={openFolderId === entry.id}
+                        onToggle={() => handleFolderToggle(entry.id)}
+                      >
+                        {visibleItems.map((item) => (
+                          <SidebarNavItem
+                            key={item.id}
+                            item={item}
+                            isNested
+                            onOpenModal={handleOpenModal}
+                            membershipTier={membershipTier}
+                          />
+                        ))}
+                      </SidebarFolder>
                     );
                   }
                   
