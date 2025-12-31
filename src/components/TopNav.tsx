@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 
 import { useAuth } from "@/lib/auth";
@@ -92,6 +92,10 @@ export function TopNav({ title, onOpenROI, className }: TopNavProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation Menu</SheetTitle>
+                <SheetDescription>Main navigation menu</SheetDescription>
+              </SheetHeader>
               {!isOnDashboard && (
                 <Link to="/dashboard" onClick={() => setOpen(false)}>
                   <Button variant="secondary" className="w-full justify-start" isHeaderButton>Dashboard</Button>

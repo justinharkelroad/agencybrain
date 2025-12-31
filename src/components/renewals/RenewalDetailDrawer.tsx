@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, type LucideIcon } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -93,6 +93,10 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
     <>
       <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
         <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{record.first_name} {record.last_name} - Renewal Details</SheetTitle>
+            <SheetDescription>View and manage renewal record details</SheetDescription>
+          </SheetHeader>
           {/* Header row with key info */}
           <div className="flex items-center justify-between p-4 border-b border-gray-700">
             <div>

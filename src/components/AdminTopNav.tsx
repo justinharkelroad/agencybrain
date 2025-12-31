@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Menu } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -84,6 +84,10 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="pt-12 flex flex-col gap-3">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Admin Navigation Menu</SheetTitle>
+                <SheetDescription>Admin navigation menu</SheetDescription>
+              </SheetHeader>
               <Link to="/admin" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start" isHeaderButton>Dashboard</Button>
               </Link>
