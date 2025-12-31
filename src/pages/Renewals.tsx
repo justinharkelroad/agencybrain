@@ -18,6 +18,7 @@ import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
 import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
+import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -266,6 +267,9 @@ export default function Renewals() {
         activeDateFilter={chartDateFilter}
         activeDayFilter={chartDayFilter}
       />
+      
+      {/* Activity Summary - Previous Business Day */}
+      <ActivitySummaryBar agencyId={context.agencyId} />
       
       {/* Active Chart Filter Indicator */}
       {(chartDateFilter || chartDayFilter !== null) && (
