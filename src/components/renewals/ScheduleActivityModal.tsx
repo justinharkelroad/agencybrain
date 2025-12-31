@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Phone, Voicemail, MessageSquare, Mail, CheckCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,6 +58,9 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
       <DialogContent className="bg-[#1a1f2e] border-gray-700">
         <DialogHeader>
           <DialogTitle>Log Activity</DialogTitle>
+          <DialogDescription className="sr-only">
+            Log a contact activity for this renewal record
+          </DialogDescription>
         </DialogHeader>
         
         {/* Quick Action Buttons - user must select one */}

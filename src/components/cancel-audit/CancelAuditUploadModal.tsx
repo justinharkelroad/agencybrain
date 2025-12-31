@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
@@ -149,7 +149,7 @@ export function CancelAuditUploadModal({
   const canUpload = reportType && selectedFile && uploadState === 'idle';
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         {uploadState === 'success' && summary ? (
           <>
@@ -158,6 +158,9 @@ export function CancelAuditUploadModal({
                 <CheckCircle2 className="h-5 w-5" />
                 Upload Complete
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Upload and process cancel audit report files
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -215,6 +218,9 @@ export function CancelAuditUploadModal({
           <>
             <DialogHeader>
               <DialogTitle>Upload Cancel Audit Report</DialogTitle>
+              <DialogDescription className="sr-only">
+                Upload and process cancel audit report files
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
