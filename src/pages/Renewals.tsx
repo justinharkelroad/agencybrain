@@ -141,58 +141,81 @@ export default function Renewals() {
   // Phase 3: Updated filtering with priority support
   const filteredAndSortedRecords = useMemo(() => {
     let result = records || [];
-    
+
     // Priority filter (if toggle is on)
     if (showPriorityOnly) {
-      result = result.filter(r => 
+      result = result.filter(r =>
         r.is_priority === true ||
         (r.premium_change_percent !== null && r.premium_change_percent > 10) ||
         r.renewal_status === 'Renewal Not Taken' ||
         r.current_status === 'uncontacted'
       );
     }
-    
-    // Sort by selected column only (NO automatic priority sorting)
-    if (!sortColumn) return result;
-    
-    return [...result].sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
-      
-      switch (sortColumn) {
-        case 'renewal_effective_date':
-          aVal = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
-          bVal = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
-          break;
-        case 'premium_change_percent':
-          aVal = a.premium_change_percent ?? 0;
-          bVal = b.premium_change_percent ?? 0;
-          break;
-        case 'first_name':
-          aVal = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
-          bVal = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
-          break;
-        case 'premium_new':
-          aVal = a.premium_new ?? 0;
-          bVal = b.premium_new ?? 0;
-          break;
-        case 'product_name':
-          aVal = (a.product_name || '').toLowerCase();
-          bVal = (b.product_name || '').toLowerCase();
-          break;
-        case 'current_status':
-          aVal = (a.current_status || '').toLowerCase();
-          bVal = (b.current_status || '').toLowerCase();
-          break;
-        default:
-          return 0;
+
+    // Comparator used for both default and column sorting
+    const compare = (a: RenewalRecord, b: RenewalRecord) => {
+      // When Priority Only is active, always group starred items first
+      if (showPriorityOnly) {
+        const aP = a.is_priority ? 1 : 0;
+        const bP = b.is_priority ? 1 : 0;
+        if (aP !== bP) return bP - aP;
       }
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      // Stable tie-breaker by id to prevent position jumping
-      return a.id.localeCompare(b.id);
-    });
+
+      // Sort by selected column (if any)
+      if (sortColumn) {
+        let aVal: any;
+        let bVal: any;
+
+        switch (sortColumn) {
+          case 'renewal_effective_date':
+            aVal = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
+            bVal = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
+            break;
+          case 'premium_change_percent':
+            aVal = a.premium_change_percent ?? 0;
+            bVal = b.premium_change_percent ?? 0;
+            break;
+          case 'first_name':
+            aVal = `${a.first_name || ''} ${a.last_name || ''}`.toLowerCase();
+            bVal = `${b.first_name || ''} ${b.last_name || ''}`.toLowerCase();
+            break;
+          case 'premium_new':
+            aVal = a.premium_new ?? 0;
+            bVal = b.premium_new ?? 0;
+            break;
+          case 'product_name':
+            aVal = (a.product_name || '').toLowerCase();
+            bVal = (b.product_name || '').toLowerCase();
+            break;
+          case 'current_status':
+            aVal = (a.current_status || '').toLowerCase();
+            bVal = (b.current_status || '').toLowerCase();
+            break;
+          default:
+            break;
+        }
+
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      }
+
+      // Default stable ordering when no sortColumn (or when values tie)
+      const aDate = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
+      const bDate = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
+      if (aDate !== bDate) return aDate - bDate;
+
+      return sortDirection === 'desc'
+        ? b.id.localeCompare(a.id)
+        : a.id.localeCompare(b.id);
+    };
+
+    // If Priority Only is on, we still sort to group starred items first.
+    if (showPriorityOnly) return [...result].sort(compare);
+
+    // Otherwise only sort when the user selected a column.
+    if (!sortColumn) return result;
+
+    return [...result].sort(compare);
   }, [records, sortColumn, sortDirection, showPriorityOnly]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
