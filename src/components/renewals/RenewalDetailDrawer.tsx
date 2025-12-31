@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
@@ -38,38 +38,44 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
-  const [notes, setNotes] = useState(record?.notes || '');
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    setNotes(record?.notes || '');
-  }, [record?.notes]);
 
   if (!record) return null;
 
   const handleStatusChange = (s: WorkflowStatus) => { updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); };
 
-  const handleSaveNotes = async () => {
-    if (!record?.id) return;
+  const handleSaveNote = async () => {
+    if (!record?.id || !noteText.trim()) return;
     
-    setIsSavingNotes(true);
+    setIsSavingNote(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
-        .from('renewal_records')
-        .update({ notes })
-        .eq('id', record.id);
+        .from('renewal_activities')
+        .insert({
+          agency_id: record.agency_id,
+          renewal_record_id: record.id,
+          activity_type: 'note',
+          comments: noteText.trim(),
+          created_by: user?.id,
+          created_by_display_name: user?.user_metadata?.display_name || user?.email || 'Unknown',
+        });
       
       if (error) throw error;
       
-      toast({ title: 'Notes saved' });
-      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      toast({ title: 'Note saved' });
+      setNoteText(''); // Clear the textarea
+      queryClient.invalidateQueries({ queryKey: ['renewal-activities', record.id] });
     } catch (err) {
-      toast({ title: 'Failed to save notes', variant: 'destructive' });
+      console.error('Failed to save note:', err);
+      toast({ title: 'Failed to save note', variant: 'destructive' });
     } finally {
-      setIsSavingNotes(false);
+      setIsSavingNote(false);
     }
   };
   const chgPct = record.premium_change_percent || 0;
@@ -164,20 +170,20 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
               <div className="space-y-2">
                 <h3 className="font-semibold text-white text-sm">Notes</h3>
                 <Textarea 
-                  value={notes} 
-                  onChange={(e) => setNotes(e.target.value)} 
-                  placeholder="Add notes..." 
+                  value={noteText} 
+                  onChange={(e) => setNoteText(e.target.value)} 
+                  placeholder="Add a note..." 
                   rows={3} 
                   className="bg-[#0d1117] border-gray-700 text-white"
                 />
                 <Button 
-                  onClick={handleSaveNotes} 
-                  disabled={isSavingNotes}
+                  onClick={handleSaveNote} 
+                  disabled={isSavingNote || !noteText.trim()}
                   variant="outline"
                   size="sm"
                   className="border-gray-600"
                 >
-                  {isSavingNotes ? 'Saving...' : 'Save Notes'}
+                  {isSavingNote ? 'Saving...' : 'Save Note'}
                 </Button>
               </div>
 
