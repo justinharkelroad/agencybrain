@@ -119,12 +119,12 @@ export function useLogActivity() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
-      // Invalidate Hero Stats queries (partial match for all cancel-audit-stats-* keys)
+      // Invalidate Hero Stats queries (partial match for all cancel-audit-hero-* keys)
       queryClient.invalidateQueries({
         predicate: (query) =>
           Array.isArray(query.queryKey) &&
           typeof query.queryKey[0] === 'string' &&
-          query.queryKey[0].startsWith('cancel-audit-stats-')
+          query.queryKey[0].startsWith('cancel-audit-hero-')
       });
     },
   });
@@ -223,12 +223,12 @@ export function useUpdateRecordStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
-      // Invalidate Hero Stats queries (partial match for all cancel-audit-stats-* keys)
+      // Invalidate Hero Stats queries (partial match for all cancel-audit-hero-* keys)
       queryClient.invalidateQueries({
         predicate: (query) =>
           Array.isArray(query.queryKey) &&
           typeof query.queryKey[0] === 'string' &&
-          query.queryKey[0].startsWith('cancel-audit-stats-')
+          query.queryKey[0].startsWith('cancel-audit-hero-')
       });
     },
   });
