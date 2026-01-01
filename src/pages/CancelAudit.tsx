@@ -12,6 +12,7 @@ import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditReco
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
+import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
 import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
@@ -340,6 +341,13 @@ const CancelAuditPage = () => {
             weekOffset={weekOffset}
             onWeekChange={setWeekOffset}
           />
+        </div>
+      )}
+
+      {/* Activity Summary */}
+      {agencyId && (
+        <div className="container mx-auto px-4 pb-4">
+          <CancelAuditActivitySummary agencyId={agencyId} />
         </div>
       )}
 
