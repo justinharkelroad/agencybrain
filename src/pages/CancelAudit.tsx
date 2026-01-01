@@ -14,6 +14,7 @@ import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmpt
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
 import { CancelAuditHeroStats } from "@/components/cancel-audit/CancelAuditHeroStats";
 import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
+import { UrgencyTimeline } from "@/components/cancel-audit/UrgencyTimeline";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
 import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
@@ -24,6 +25,7 @@ import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-aud
 import { useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { differenceInDays, startOfDay, parseISO } from 'date-fns';
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
@@ -54,6 +56,7 @@ const CancelAuditPage = () => {
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);
+  const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
   
   // Selection state for bulk actions
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
@@ -82,7 +85,7 @@ const CancelAuditPage = () => {
   // Fetch counts for view toggle badges
   const { data: viewCounts } = useCancelAuditCounts(agencyId);
 
-  // Apply additional filters (status and untouched)
+  // Apply additional filters (status, untouched, and urgency)
   const filteredRecords = useMemo(() => {
     if (!records) return [];
     let filtered = records;
@@ -97,8 +100,40 @@ const CancelAuditPage = () => {
       filtered = filtered.filter(r => r.activity_count === 0);
     }
     
+    // Urgency filter
+    if (urgencyFilter) {
+      const today = startOfDay(new Date());
+      
+      filtered = filtered.filter(record => {
+        const dateStr = record.pending_cancel_date || record.cancel_date;
+        if (!dateStr) return false;
+        
+        const cancelDate = startOfDay(parseISO(dateStr));
+        const daysUntil = differenceInDays(cancelDate, today);
+        
+        switch (urgencyFilter) {
+          case 'overdue':
+            return daysUntil <= 0; // Past due or due today
+          case 'tomorrow':
+            return daysUntil === 1;
+          case '3days':
+            return daysUntil >= 2 && daysUntil <= 3;
+          case '7days':
+            return daysUntil >= 4 && daysUntil <= 7;
+          case '14days':
+            return daysUntil >= 8 && daysUntil <= 14;
+          case '21days':
+            return daysUntil >= 15 && daysUntil <= 21;
+          case 'beyond':
+            return daysUntil > 21;
+          default:
+            return true;
+        }
+      });
+    }
+    
     return filtered;
-  }, [records, viewMode, statusFilter, showUntouchedOnly]);
+  }, [records, viewMode, statusFilter, showUntouchedOnly, urgencyFilter]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
@@ -117,7 +152,7 @@ const CancelAuditPage = () => {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedRecordIds([]);
-  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch]);
+  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch, urgencyFilter]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -252,6 +287,7 @@ const CancelAuditPage = () => {
     setSearchQuery('');
     setDebouncedSearch('');
     setShowUntouchedOnly(false);
+    setUrgencyFilter(null);
   }, []);
 
   const handleSelectRecord = useCallback((recordId: string, selected: boolean) => {
@@ -299,7 +335,7 @@ const CancelAuditPage = () => {
 
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || urgencyFilter !== null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -356,6 +392,17 @@ const CancelAuditPage = () => {
       {agencyId && (
         <div className="container mx-auto px-4 pb-4">
           <CancelAuditActivitySummary agencyId={agencyId} />
+        </div>
+      )}
+
+      {/* Urgency Timeline */}
+      {agencyId && records && (
+        <div className="container mx-auto px-4 pb-4">
+          <UrgencyTimeline 
+            records={records}
+            onFilterByUrgency={setUrgencyFilter}
+            activeUrgencyFilter={urgencyFilter}
+          />
         </div>
       )}
 
