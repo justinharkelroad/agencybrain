@@ -1,26 +1,24 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useRenewalUpload } from '@/hooks/useRenewalUpload';
+import { useRenewalBackgroundUpload } from '@/hooks/useRenewalBackgroundUpload';
 import { parseRenewalExcel, getRenewalDateRange } from '@/lib/renewalParser';
 import type { ParsedRenewalRecord, RenewalUploadContext } from '@/types/renewal';
 
 interface Props { open: boolean; onClose: () => void; context: RenewalUploadContext; }
 
 export function RenewalUploadModal({ open, onClose, context }: Props) {
-  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [parsedRecords, setParsedRecords] = useState<ParsedRenewalRecord[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
-  const { uploadRecords, isUploading, progress, error: uploadError, resetUpload } = useRenewalUpload();
+  const [isStarting, setIsStarting] = useState(false);
+  const { startBackgroundUpload } = useRenewalBackgroundUpload();
 
   // Listen for sidebar navigation to force close dialog
   useEffect(() => {
@@ -45,21 +43,33 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop, accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'] },
-    maxFiles: 1, disabled: isUploading,
+    maxFiles: 1, disabled: isStarting,
   });
 
   const handleUpload = async () => { 
-    if (!file || !parsedRecords.length) return; 
+    if (!file || !parsedRecords.length) return;
+    
+    setIsStarting(true);
     try { 
-      await uploadRecords(parsedRecords, file.name, context); 
-      // Invalidate renewal queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
-      queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
-      handleClose(); 
-    } catch {} 
+      // Fire and forget - starts background processing immediately
+      await startBackgroundUpload(parsedRecords, file.name, context);
+      
+      // Close modal immediately - processing continues in background
+      handleClose();
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Failed to start upload');
+      setIsStarting(false);
+    }
   };
-  const handleClose = () => { setFile(null); setParsedRecords([]); setParseError(null); resetUpload(); onClose(); };
+  
+  const handleClose = () => { 
+    setFile(null); 
+    setParsedRecords([]); 
+    setParseError(null); 
+    setIsStarting(false);
+    onClose(); 
+  };
+  
   const dateRange = parsedRecords.length ? getRenewalDateRange(parsedRecords) : null;
 
   return (
@@ -85,7 +95,7 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
                   <p className="font-medium truncate">{file.name}</p>
                   <p className="text-sm text-muted-foreground">{parsedRecords.length} records{dateRange?.start && ` • ${dateRange.start} to ${dateRange.end}`}</p>
                 </div>
-                {!isUploading && <Button variant="ghost" size="icon" onClick={() => { setFile(null); setParsedRecords([]); }}><X className="h-4 w-4" /></Button>}
+                {!isStarting && <Button variant="ghost" size="icon" onClick={() => { setFile(null); setParsedRecords([]); }}><X className="h-4 w-4" /></Button>}
               </div>
               {parsedRecords.length > 0 && (
                 <ScrollArea className="h-[250px] border rounded-lg">
@@ -107,14 +117,15 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
                   </Table>
                 </ScrollArea>
               )}
-              {isUploading && <div className="space-y-2"><Progress value={progress} /><p className="text-sm text-center text-muted-foreground">Uploading... {progress}%</p></div>}
             </div>
           )}
-          {(parseError || uploadError) && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{parseError || uploadError}</AlertDescription></Alert>}
+          {parseError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{parseError}</AlertDescription></Alert>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isUploading}>Cancel</Button>
-          <Button onClick={handleUpload} disabled={!file || !parsedRecords.length || isUploading || !!parseError}>{isUploading ? 'Uploading...' : `Upload ${parsedRecords.length} Records`}</Button>
+          <Button variant="outline" onClick={handleClose} disabled={isStarting}>Cancel</Button>
+          <Button onClick={handleUpload} disabled={!file || !parsedRecords.length || isStarting || !!parseError}>
+            {isStarting ? 'Starting...' : `Upload ${parsedRecords.length} Records`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
