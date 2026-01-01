@@ -118,16 +118,14 @@ const CancelAuditPage = () => {
             return daysUntil === 1;
           case '3days':
             return daysUntil >= 2 && daysUntil <= 3;
-          case '7days':
-            return daysUntil >= 4 && daysUntil <= 7;
-          case '14days':
-            return daysUntil >= 8 && daysUntil <= 14;
-          case '21days':
-            return daysUntil >= 15 && daysUntil <= 21;
-          case 'beyond':
-            return daysUntil > 21;
-          default:
-            return true;
+        case '7days':
+          return daysUntil >= 4 && daysUntil <= 7;
+        case '14days':
+          return daysUntil >= 8 && daysUntil <= 14;
+        case 'beyond':
+          return daysUntil > 14;
+        default:
+          return true;
         }
       });
     }
