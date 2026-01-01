@@ -110,14 +110,14 @@ export function UrgencyTimeline({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
           {urgencyBuckets.map((bucket) => (
             <button
               key={bucket.key}
               onClick={() => handleBucketClick(bucket.key)}
               disabled={bucket.count === 0}
               className={cn(
-                "flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 transition-all min-w-[90px]",
+                "flex flex-col items-center justify-center px-2 py-3 rounded-lg border-2 transition-all w-full",
                 bucket.bgColor,
                 bucket.count === 0 ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-80",
                 activeUrgencyFilter === bucket.key 
