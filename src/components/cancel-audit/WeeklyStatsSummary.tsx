@@ -209,7 +209,7 @@ export function WeeklyStatsSummary({ agencyId, weekOffset, onWeekChange }: Weekl
             <div className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-2 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Team Activity:</span>
+                <span className="text-muted-foreground">Weekly Team Activity:</span>
                 <div className="flex flex-wrap gap-1">
                   {stats.byTeamMember.slice(0, 5).map((member, i) => (
                     <span key={member.name} className="text-foreground">

@@ -187,7 +187,7 @@ export function CancelAuditActivitySummary({ agencyId }: CancelAuditActivitySumm
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base text-foreground">Activity Summary</CardTitle>
+            <CardTitle className="text-base text-foreground">Daily Activity Summary</CardTitle>
           </div>
           
           {/* Date Navigation */}
