@@ -119,6 +119,8 @@ export function useLogActivity() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+      // Invalidate Daily Activity Summary for instant update
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
       // Invalidate Hero Stats queries (partial match for all cancel-audit-hero-* keys)
       queryClient.invalidateQueries({
         predicate: (query) =>
