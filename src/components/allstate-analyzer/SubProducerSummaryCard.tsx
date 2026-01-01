@@ -1,22 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Users, ChevronRight, TrendingDown, DollarSign, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SubProducerModal } from './SubProducerModal';
-import { SubProducerSummary } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { SubProducerSummary, TeamMemberForLookup, getProducerDisplayName } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 
 interface Props {
   data: SubProducerSummary;
   period: string;
+  teamMembers?: TeamMemberForLookup[];
 }
 
-export function SubProducerSummaryCard({ data, period }: Props) {
+export function SubProducerSummaryCard({ data, period, teamMembers = [] }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { totals, producerCount } = data;
   
+  // Enrich producers with team member names
+  const enrichedData = useMemo(() => {
+    return {
+      ...data,
+      producers: data.producers.map(p => ({
+        ...p,
+        displayName: getProducerDisplayName(p.code, teamMembers)
+      }))
+    };
+  }, [data, teamMembers]);
+  
   // Find producer with most chargebacks (for highlighting)
-  const highestChargebackProducer = data.producers
+  const highestChargebackProducer = enrichedData.producers
     .filter(p => p.premiumChargebacks > 0)
     .sort((a, b) => b.premiumChargebacks - a.premiumChargebacks)[0];
   
@@ -107,7 +119,7 @@ export function SubProducerSummaryCard({ data, period }: Props) {
       <SubProducerModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        data={data}
+        data={enrichedData}
         period={period}
       />
     </>

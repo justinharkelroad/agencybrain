@@ -36,6 +36,7 @@ type FormState = {
   status: MemberStatus;
   notes: string;
   hybridTeamAssignments: string[];
+  subProducerCode: string;
 };
 
 export default function AdminTeam() {
@@ -72,7 +73,7 @@ export default function AdminTeam() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
-        .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
+        .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
         .eq("agency_id", agencyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -107,11 +108,12 @@ export default function AdminTeam() {
     status: MEMBER_STATUS[0] as MemberStatus,
     notes: "",
     hybridTeamAssignments: [],
+    subProducerCode: "",
   });
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ name: "", email: "", role: MEMBER_ROLES[0] as Role, employment: EMPLOYMENT_TYPES[0] as Employment, status: MEMBER_STATUS[0] as MemberStatus, notes: "", hybridTeamAssignments: [] });
+    setForm({ name: "", email: "", role: MEMBER_ROLES[0] as Role, employment: EMPLOYMENT_TYPES[0] as Employment, status: MEMBER_STATUS[0] as MemberStatus, notes: "", hybridTeamAssignments: [], subProducerCode: "" });
   };
 
   const startCreate = () => {
@@ -128,7 +130,8 @@ export default function AdminTeam() {
       employment: m.employment, 
       status: m.status, 
       notes: m.notes || "",
-      hybridTeamAssignments: m.hybrid_team_assignments || []
+      hybridTeamAssignments: m.hybrid_team_assignments || [],
+      subProducerCode: m.sub_producer_code || ""
     });
     setOpen(true);
   };
@@ -144,7 +147,8 @@ export default function AdminTeam() {
         employment: form.employment,
         status: form.status,
         notes: form.notes,
-        hybrid_team_assignments: form.role === 'Hybrid' ? form.hybridTeamAssignments : null
+        hybrid_team_assignments: form.role === 'Hybrid' ? form.hybridTeamAssignments : null,
+        sub_producer_code: form.subProducerCode || null
       };
       
       if (editingId) {
@@ -301,6 +305,16 @@ export default function AdminTeam() {
                        </div>
                      )}
                     <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right" htmlFor="subProducerCode">Sub Producer Code</Label>
+                      <Input 
+                        id="subProducerCode" 
+                        value={form.subProducerCode} 
+                        onChange={(e) => setForm((f) => ({ ...f, subProducerCode: e.target.value }))} 
+                        className="col-span-3"
+                        placeholder="e.g., 401, 402 (optional)"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-3">
                       <Label className="text-right">Employment</Label>
                       <Select value={form.employment} onValueChange={(v) => setForm((f) => ({ ...f, employment: v as Employment }))}>
                         <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type" /></SelectTrigger>
@@ -344,6 +358,7 @@ export default function AdminTeam() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Sub-Prod Code</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Employment</TableHead>
@@ -355,6 +370,15 @@ export default function AdminTeam() {
                   {membersQuery.data?.map((m: any) => (
                     <TableRow key={m.id} className={m.status === 'inactive' ? 'opacity-60' : ''}>
                       <TableCell>{m.name}</TableCell>
+                      <TableCell>
+                        {m.sub_producer_code ? (
+                          <Badge variant="outline" className="font-mono">
+                            {m.sub_producer_code}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>{m.email}</TableCell>
                       <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                       <TableCell>{m.employment}</TableCell>

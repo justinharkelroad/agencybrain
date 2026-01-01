@@ -5521,6 +5521,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_member_role"]
           schedule_json: Json | null
           status: Database["public"]["Enums"]["app_member_status"]
+          sub_producer_code: string | null
           updated_at: string
         }
         Insert: {
@@ -5535,6 +5536,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_member_role"]
           schedule_json?: Json | null
           status?: Database["public"]["Enums"]["app_member_status"]
+          sub_producer_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -5549,6 +5551,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_member_role"]
           schedule_json?: Json | null
           status?: Database["public"]["Enums"]["app_member_status"]
+          sub_producer_code?: string | null
           updated_at?: string
         }
         Relationships: [
