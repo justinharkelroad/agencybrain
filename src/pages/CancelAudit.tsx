@@ -20,6 +20,7 @@ import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions
 import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
 import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
+import { useBulkDeleteCancelAuditRecords } from "@/hooks/useCancelAuditDelete";
 import { useToast } from "@/hooks/use-toast";
 import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-audit";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,9 @@ const CancelAuditPage = () => {
   
   // Selection state for bulk actions
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+  
+  // Bulk delete mutation
+  const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Debounce search input
@@ -319,6 +323,16 @@ const CancelAuditPage = () => {
     }
   }, [selectedRecordIds, queryClient]);
 
+  const handleBulkDelete = useCallback(() => {
+    if (selectedRecordIds.length === 0) return;
+    
+    bulkDeleteMutation.mutate(selectedRecordIds, {
+      onSuccess: () => {
+        setSelectedRecordIds([]);
+      },
+    });
+  }, [selectedRecordIds, bulkDeleteMutation]);
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -479,7 +493,9 @@ const CancelAuditPage = () => {
         selectedRecordIds={selectedRecordIds}
         onClearSelection={() => setSelectedRecordIds([])}
         onStatusUpdate={handleBulkStatusUpdate}
+        onDelete={handleBulkDelete}
         isUpdating={isBulkUpdating}
+        isDeleting={bulkDeleteMutation.isPending}
       />
 
       {/* Upload Modal */}

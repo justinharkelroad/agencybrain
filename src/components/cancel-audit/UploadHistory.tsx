@@ -1,6 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { FileUp, Clock } from 'lucide-react';
+import { FileUp, Clock, Trash2, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface UploadHistoryProps {
   agencyId: string;
@@ -23,6 +36,8 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export function UploadHistory({ agencyId }: UploadHistoryProps) {
+  const queryClient = useQueryClient();
+  
   const { data: uploads, isLoading } = useQuery({
     queryKey: ['cancel-audit-uploads', agencyId],
     queryFn: async () => {
@@ -31,11 +46,41 @@ export function UploadHistory({ agencyId }: UploadHistoryProps) {
         .select('*')
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
       if (error) throw error;
       return data;
     },
     enabled: !!agencyId,
+  });
+
+  const deleteUpload = useMutation({
+    mutationFn: async (uploadId: string) => {
+      // First delete all records associated with this upload
+      const { error: recordsError } = await supabase
+        .from('cancel_audit_records')
+        .delete()
+        .eq('last_upload_id', uploadId);
+      
+      if (recordsError) throw recordsError;
+      
+      // Then delete the upload record itself
+      const { error: uploadError } = await supabase
+        .from('cancel_audit_uploads')
+        .delete()
+        .eq('id', uploadId);
+      
+      if (uploadError) throw uploadError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+      toast.success('Upload and associated records deleted');
+    },
+    onError: () => {
+      toast.error('Failed to delete upload');
+    },
   });
 
   if (isLoading) {
@@ -60,7 +105,7 @@ export function UploadHistory({ agencyId }: UploadHistoryProps) {
         {uploads.map(upload => (
           <div 
             key={upload.id}
-            className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+            className="flex items-center justify-between p-2 rounded-md bg-muted/50 group"
           >
             <div className="flex items-center gap-2 min-w-0">
               <FileUp className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -75,9 +120,44 @@ export function UploadHistory({ agencyId }: UploadHistoryProps) {
                 </p>
               </div>
             </div>
-            <span className="text-xs text-muted-foreground flex-shrink-0">
-              {formatRelativeTime(upload.created_at)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                {formatRelativeTime(upload.created_at)}
+              </span>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    disabled={deleteUpload.isPending}
+                  >
+                    {deleteUpload.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete upload?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this upload and all {upload.records_processed} associated records. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteUpload.mutate(upload.id)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         ))}
       </div>

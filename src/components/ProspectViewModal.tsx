@@ -4,8 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabaseClient";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import { useDeleteProspect } from "@/hooks/useExplorerDelete";
 
 interface ProspectData {
   id: string;
@@ -37,6 +49,7 @@ interface ProspectViewModalProps {
   prospect: ProspectData | null;
   teamMembers: Array<{id: string, name: string}>;
   leadSources: Array<{id: string, name: string}>;
+  onDeleted?: () => void;
 }
 
 export function ProspectViewModal({ 
@@ -44,11 +57,14 @@ export function ProspectViewModal({
   onClose,
   prospect, 
   teamMembers, 
-  leadSources
+  leadSources,
+  onDeleted,
 }: ProspectViewModalProps) {
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [formCustomFields, setFormCustomFields] = useState<FormCustomField[]>([]);
   const [formCustomFieldValues, setFormCustomFieldValues] = useState<Record<string, string>>({});
+  
+  const deleteProspect = useDeleteProspect();
 
   useEffect(() => {
     if (prospect && isOpen) {
@@ -255,7 +271,43 @@ export function ProspectViewModal({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex justify-between sm:justify-between">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={deleteProspect.isPending}>
+                {deleteProspect.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this record?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete "{prospect.household_name}" and any associated sold policies. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    deleteProspect.mutate(prospect.id, {
+                      onSuccess: () => {
+                        onClose();
+                        onDeleted?.();
+                      },
+                    });
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
