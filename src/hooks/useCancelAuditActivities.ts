@@ -119,6 +119,10 @@ export function useLogActivity() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities', params.recordId] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+      // Invalidate Hero Stats queries
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-current'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-prior'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-all'] });
     },
   });
 }
@@ -216,6 +220,10 @@ export function useUpdateRecordStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+      // Invalidate Hero Stats queries
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-current'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-prior'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats-all'] });
     },
   });
 }
