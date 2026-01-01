@@ -63,6 +63,33 @@ export interface SubProducerSummary {
   homeCutoffDate: Date;
 }
 
+// Team member type for display name lookup
+export interface TeamMemberForLookup {
+  id: string;
+  name: string;
+  sub_producer_code: string | null;
+}
+
+// Helper function to get producer display name from team members
+export function getProducerDisplayName(
+  code: string, 
+  teamMembers: TeamMemberForLookup[] = []
+): string {
+  if (!code || code === '') return 'Agency';
+  
+  // Find team member with matching sub_producer_code
+  const member = teamMembers.find(tm => 
+    tm.sub_producer_code === code || 
+    tm.sub_producer_code === code.toString()
+  );
+  
+  if (member) {
+    return member.name;
+  }
+  
+  return `Sub-Producer: ${code}`;
+}
+
 // Helper: Parse orig policy eff date (MM/YYYY or MM/DD/YYYY format)
 function parseOrigDate(dateStr: string): Date | null {
   try {

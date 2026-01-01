@@ -23,20 +23,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ValidationResult, RateDiscrepancy, ExclusionReason, BusinessTypeMixComparison, CommissionRateSummary, LargeCancellationSummary } from '@/lib/allstate-analyzer/rate-validator';
-import { SubProducerSummary } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { SubProducerSummary, TeamMemberForLookup } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 import { StatementTransaction } from '@/lib/allstate-parser/excel-parser';
 import { BusinessTypeMixAnalysis } from './BusinessTypeMixAnalysis';
 import { CommissionRateSummaryCard } from './CommissionRateSummaryCard';
 import { LargeCancellationsAlert } from './LargeCancellationsAlert';
 import { SubProducerSummaryCard } from './SubProducerSummaryCard';
 import { ByLocationTab } from './ByLocationTab';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface DiscrepancyResultsProps {
   results: ValidationResult;
@@ -99,9 +97,40 @@ export function DiscrepancyResults({
   priorTransactions = [],
   agentNumbers = []
 }: DiscrepancyResultsProps) {
+  const { user } = useAuth();
   const [expandedSection, setExpandedSection] = useState<string | null>('underpayments');
   const [showAllUnderpayments, setShowAllUnderpayments] = useState(false);
   const [topLevelTab, setTopLevelTab] = useState<string>('combined');
+
+  // Fetch agency ID from user profile
+  const { data: agencyId } = useQuery({
+    queryKey: ['user-agency-id', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user!.id)
+        .single();
+      if (error) throw error;
+      return data?.agency_id as string | null;
+    },
+  });
+
+  // Fetch team members for sub-producer display names
+  const { data: teamMembers = [] } = useQuery<TeamMemberForLookup[]>({
+    queryKey: ['team-members-sub-prod', agencyId],
+    enabled: !!agencyId && !!subProducerData,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('id, name, sub_producer_code')
+        .eq('agency_id', agencyId!)
+        .eq('status', 'active');
+      if (error) throw error;
+      return (data || []) as TeamMemberForLookup[];
+    },
+  });
 
   const {
     potentialUnderpayments,
@@ -338,7 +367,7 @@ export function DiscrepancyResults({
 
           {/* Sub-Producer Breakdown */}
           {subProducerData && subProducerData.producerCount > 0 && currentPeriod && (
-            <SubProducerSummaryCard data={subProducerData} period={currentPeriod} />
+            <SubProducerSummaryCard data={subProducerData} period={currentPeriod} teamMembers={teamMembers} />
           )}
 
           {/* Sub-tabs for Underpayments and Excluded */}
