@@ -12,6 +12,7 @@ import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditReco
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
+import { CancelAuditHeroStats } from "@/components/cancel-audit/CancelAuditHeroStats";
 import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
@@ -332,6 +333,13 @@ const CancelAuditPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Hero Stats */}
+      {agencyId && (
+        <div className="container mx-auto px-4 py-6 pb-0">
+          <CancelAuditHeroStats agencyId={agencyId} />
+        </div>
+      )}
 
       {/* Weekly Stats Summary */}
       {agencyId && (
