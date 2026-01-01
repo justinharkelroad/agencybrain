@@ -613,6 +613,7 @@ export function DiscrepancyResults({
             statementPeriod={currentPeriod || 'Current Period'}
             priorPeriod={priorPeriod}
             potentialUnderpayments={potentialUnderpayments}
+            teamMembers={teamMembers}
           />
         </TabsContent>
       </Tabs>

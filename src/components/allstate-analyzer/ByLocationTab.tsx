@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { StatementTransaction } from '@/lib/allstate-parser/excel-parser';
 import { RateDiscrepancy } from '@/lib/allstate-analyzer/rate-validator';
+import { TeamMemberForLookup } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 
 // Import existing analysis components
 import { CommissionRateSummaryCard } from './CommissionRateSummaryCard';
@@ -36,6 +37,7 @@ interface Props {
   statementPeriod: string;
   priorPeriod?: string;
   potentialUnderpayments: RateDiscrepancy[];
+  teamMembers?: TeamMemberForLookup[];
 }
 
 export function ByLocationTab({ 
@@ -44,7 +46,8 @@ export function ByLocationTab({
   agentNumbers,
   statementPeriod,
   priorPeriod,
-  potentialUnderpayments
+  potentialUnderpayments,
+  teamMembers = []
 }: Props) {
   
   // Default to first agent number
@@ -171,7 +174,7 @@ export function ByLocationTab({
       )}
 
       {subProducerData && subProducerData.producerCount > 0 && (
-        <SubProducerSummaryCard data={subProducerData} period={statementPeriod} />
+        <SubProducerSummaryCard data={subProducerData} period={statementPeriod} teamMembers={teamMembers} />
       )}
 
       {largeCancellations && largeCancellations.count > 0 && (
