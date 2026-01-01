@@ -158,17 +158,65 @@ export function useBulkDeleteRenewals() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from('renewal_records')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
+      // First delete any associated activities
+      const { error: activitiesError } = await supabase
+        .from('renewal_activities')
+        .delete()
+        .in('renewal_record_id', ids);
+      
+      if (activitiesError) throw activitiesError;
+      
+      // Then hard delete the records
+      const { error } = await supabase
+        .from('renewal_records')
+        .delete()
         .in('id', ids);
+      
       if (error) throw error;
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
-      toast.success(`${ids.length} records removed`);
+      queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+      toast.success(`${ids.length} records deleted`);
     },
     onError: () => toast.error('Failed to delete records'),
+  });
+}
+
+export function useDeleteAllRenewalData() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (agencyId: string) => {
+      // Delete in order: activities -> records -> uploads
+      const { error: activitiesError } = await supabase
+        .from('renewal_activities')
+        .delete()
+        .eq('agency_id', agencyId);
+
+      if (activitiesError) throw activitiesError;
+
+      const { error: recordsError } = await supabase
+        .from('renewal_records')
+        .delete()
+        .eq('agency_id', agencyId);
+
+      if (recordsError) throw recordsError;
+
+      const { error: uploadsError } = await supabase
+        .from('renewal_uploads')
+        .delete()
+        .eq('agency_id', agencyId);
+
+      if (uploadsError) throw uploadsError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+      toast.success('All renewal data deleted');
+    },
+    onError: () => toast.error('Failed to delete renewal data'),
   });
 }
 
