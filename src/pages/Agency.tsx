@@ -107,6 +107,7 @@ export default function Agency() {
     status: MEMBER_STATUS[0] as MemberStatus,
     notes: "",
     hybridTeamAssignments: [] as string[],
+    subProducerCode: "",
   });
 
   // Staff Invite dialog state
@@ -200,7 +201,7 @@ export default function Agency() {
 
           const { data: team, error: tErr } = await supabase
             .from("team_members")
-            .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
+            .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
             .eq("agency_id", aId)
             .order("created_at", { ascending: false });
           if (tErr) throw tErr;
@@ -240,7 +241,7 @@ export default function Agency() {
   const refreshData = async (aId: string) => {
     const { data: team, error: tErr } = await supabase
       .from("team_members")
-      .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,created_at")
+      .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
       .eq("agency_id", aId)
       .order("created_at", { ascending: false });
     if (!tErr) setMembers(team || []);
@@ -301,7 +302,7 @@ export default function Agency() {
 
   const startCreate = () => {
     setEditingId(null);
-    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [] });
+    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "" });
     setMemberDialogOpen(true);
   };
 
@@ -314,7 +315,8 @@ export default function Agency() {
       employment: m.employment, 
       status: m.status, 
       notes: m.notes || "",
-      hybridTeamAssignments: m.hybrid_team_assignments || []
+      hybridTeamAssignments: m.hybrid_team_assignments || [],
+      subProducerCode: m.sub_producer_code || ""
     });
     setMemberDialogOpen(true);
   };
@@ -330,7 +332,8 @@ export default function Agency() {
         employment: memberForm.employment,
         status: memberForm.status,
         notes: memberForm.notes,
-        hybrid_team_assignments: memberForm.role === 'Hybrid' ? memberForm.hybridTeamAssignments : null
+        hybrid_team_assignments: memberForm.role === 'Hybrid' ? memberForm.hybridTeamAssignments : null,
+        sub_producer_code: memberForm.subProducerCode || null
       };
       
       if (editingId) {
@@ -1038,6 +1041,16 @@ export default function Agency() {
                        </SelectContent>
                      </Select>
                    </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                     <Label className="sm:text-right" htmlFor="subProducerCode">Sub Producer Code</Label>
+                     <Input 
+                       id="subProducerCode" 
+                       value={memberForm.subProducerCode} 
+                       onChange={(e) => setMemberForm((f) => ({ ...f, subProducerCode: e.target.value }))} 
+                       className="col-span-1 sm:col-span-3"
+                       placeholder="e.g., 401, 402 (optional)"
+                     />
+                   </div>
                    
                    {memberForm.role === 'Hybrid' && (
                      <div className="grid grid-cols-4 items-start gap-3">
@@ -1114,6 +1127,7 @@ export default function Agency() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Sub-Prod Code</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Employment</TableHead>
@@ -1129,6 +1143,15 @@ export default function Agency() {
                     <TableRow key={m.id} className={m.status === 'inactive' ? 'opacity-60' : ''}>
                       <TableCell>
                         <Link to={`/agency/team/${m.id}`} className="text-primary hover:underline">{m.name}</Link>
+                      </TableCell>
+                      <TableCell>
+                        {m.sub_producer_code ? (
+                          <Badge variant="outline" className="font-mono">
+                            {m.sub_producer_code}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{m.email}</TableCell>
                       <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
