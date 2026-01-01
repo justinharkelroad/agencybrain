@@ -77,11 +77,14 @@ export function getProducerDisplayName(
 ): string {
   if (!code || code === '') return 'Agency';
   
+  // Normalize code for comparison (trim whitespace, convert to string)
+  const normalizedCode = String(code).trim();
+  
   // Find team member with matching sub_producer_code
-  const member = teamMembers.find(tm => 
-    tm.sub_producer_code === code || 
-    tm.sub_producer_code === code.toString()
-  );
+  const member = teamMembers.find(tm => {
+    const tmCode = String(tm.sub_producer_code || '').trim();
+    return tmCode === normalizedCode;
+  });
   
   if (member) {
     return member.name;
