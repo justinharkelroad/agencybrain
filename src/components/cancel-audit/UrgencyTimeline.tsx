@@ -44,8 +44,7 @@ export function UrgencyTimeline({
       { key: '3days', label: '3 Days', count: 0, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-500' },
       { key: '7days', label: '7 Days', count: 0, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500' },
       { key: '14days', label: '14 Days', count: 0, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500' },
-      { key: '21days', label: '21 Days', count: 0, color: 'text-gray-400', bgColor: 'bg-gray-500/20', borderColor: 'border-gray-500' },
-      { key: 'beyond', label: '21+ Days', count: 0, color: 'text-gray-500', bgColor: 'bg-gray-500/10', borderColor: 'border-gray-600' },
+      { key: 'beyond', label: '21+ Days', count: 0, color: 'text-gray-400', bgColor: 'bg-gray-500/20', borderColor: 'border-gray-500' },
     ];
     
     workingRecords.forEach(record => {
@@ -74,12 +73,9 @@ export function UrgencyTimeline({
       } else if (daysUntil <= 14) {
         // 8-14 days
         buckets[4].count++;
-      } else if (daysUntil <= 21) {
-        // 15-21 days
-        buckets[5].count++;
       } else {
-        // 21+ days
-        buckets[6].count++;
+        // 15+ days
+        buckets[5].count++;
       }
     });
     
@@ -152,13 +148,12 @@ export function UrgencyTimeline({
                     key={bucket.key}
                     className={cn(
                       "h-full transition-all",
-                      bucket.key === 'overdue' && "bg-red-500",
-                      bucket.key === 'tomorrow' && "bg-orange-500",
-                      bucket.key === '3days' && "bg-yellow-500",
-                      bucket.key === '7days' && "bg-blue-500",
-                      bucket.key === '14days' && "bg-cyan-500",
-                      bucket.key === '21days' && "bg-gray-400",
-                      bucket.key === 'beyond' && "bg-gray-600"
+                  bucket.key === 'overdue' && "bg-red-500",
+                  bucket.key === 'tomorrow' && "bg-orange-500",
+                  bucket.key === '3days' && "bg-yellow-500",
+                  bucket.key === '7days' && "bg-blue-500",
+                  bucket.key === '14days' && "bg-cyan-500",
+                  bucket.key === 'beyond' && "bg-gray-400"
                     )}
                     style={{ width: `${(bucket.count / totalWorking) * 100}%` }}
                   />
