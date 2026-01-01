@@ -191,23 +191,40 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
 
 // Get weekly stats
 async function getStats(supabase: any, agencyId: string, params: any) {
-  const { weekOffset } = params || { weekOffset: 0 };
+  const { weekOffset, weekStart: clientWeekStart, weekEnd: clientWeekEnd } = params || { weekOffset: 0 };
 
-  // Calculate week boundaries (Monday to Sunday)
-  const today = new Date();
-  const currentDay = today.getDay();
-  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+  let weekStartStr: string;
+  let weekEndStr: string;
+  let weekStartISO: string;
+  let weekEndISO: string;
 
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() + mondayOffset + (weekOffset * 7));
-  weekStart.setHours(0, 0, 0, 0);
+  // Use client-provided dates if available (timezone-safe)
+  if (clientWeekStart && clientWeekEnd) {
+    weekStartStr = clientWeekStart;
+    weekEndStr = clientWeekEnd;
+    weekStartISO = `${clientWeekStart}T00:00:00.000Z`;
+    weekEndISO = `${clientWeekEnd}T23:59:59.999Z`;
+    console.log(`[getStats] Using client dates: ${weekStartStr} to ${weekEndStr}`);
+  } else {
+    // Fallback to server-side calculation (UTC)
+    const today = new Date();
+    const currentDay = today.getDay();
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
 
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() + mondayOffset + (weekOffset * 7));
+    weekStart.setHours(0, 0, 0, 0);
 
-  const weekStartISO = weekStart.toISOString();
-  const weekEndISO = weekEnd.toISOString();
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    weekStartStr = weekStart.toISOString().split("T")[0];
+    weekEndStr = weekEnd.toISOString().split("T")[0];
+    weekStartISO = weekStart.toISOString();
+    weekEndISO = weekEnd.toISOString();
+    console.log(`[getStats] Using server dates (fallback): ${weekStartStr} to ${weekEndStr}`);
+  }
 
   // Fetch all records for the agency
   const { data: records, error: recordsError } = await supabase
@@ -287,8 +304,8 @@ async function getStats(supabase: any, agencyId: string, params: any) {
     .sort((a, b) => b.contacts - a.contacts);
 
   return {
-    weekStart: weekStart.toISOString().split("T")[0],
-    weekEnd: weekEnd.toISOString().split("T")[0],
+    weekStart: weekStartStr,
+    weekEnd: weekEndStr,
     totalRecords,
     activeRecords: activeCount,
     needsAttentionCount,

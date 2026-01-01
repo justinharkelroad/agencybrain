@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { startOfWeek, endOfWeek, addWeeks, format } from 'date-fns';
 
 interface WeeklyStats {
   weekStart: string;
@@ -44,31 +45,32 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
     queryFn: async (): Promise<WeeklyStats> => {
       if (!agencyId) throw new Error('No agency ID');
 
-      // Staff portal: use edge function
+      // Calculate week boundaries using user's local timezone (Monday to Sunday)
+      const today = new Date();
+      const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 }); // 1 = Monday
+      const weekStart = addWeeks(currentWeekStart, weekOffset);
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 }); // Sunday
+
+      // Format as date strings (timezone-safe)
+      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+      const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+
+      // Staff portal: use edge function with client-calculated dates
       if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "get_stats",
-          params: { weekOffset },
+          params: { 
+            weekOffset,
+            weekStart: weekStartStr,
+            weekEnd: weekEndStr,
+          },
           sessionToken: staffSessionToken,
         });
       }
 
       // Regular auth: use direct Supabase query
-      // Calculate week boundaries (Monday to Sunday)
-      const today = new Date();
-      const currentDay = today.getDay();
-      const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
-      
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() + mondayOffset + (weekOffset * 7));
-      weekStart.setHours(0, 0, 0, 0);
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      const weekStartISO = weekStart.toISOString();
-      const weekEndISO = weekEnd.toISOString();
+      const weekStartISO = `${weekStartStr}T00:00:00`;
+      const weekEndISO = `${weekEndStr}T23:59:59`;
 
       // Fetch all records for the agency
       const { data: records, error: recordsError } = await supabase
@@ -148,8 +150,8 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
         .sort((a, b) => b.contacts - a.contacts);
 
       return {
-        weekStart: weekStart.toISOString().split('T')[0],
-        weekEnd: weekEnd.toISOString().split('T')[0],
+        weekStart: weekStartStr,
+        weekEnd: weekEndStr,
         totalRecords,
         activeRecords: activeCount,
         needsAttentionCount,
