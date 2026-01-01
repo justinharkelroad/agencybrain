@@ -32,12 +32,13 @@ export function SidebarNavItem({
   const { isMobile, setOpenMobile } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
   
-  // Helper to dispatch navigation event and close mobile sidebar
+  // Helper to close mobile sidebar and dispatch navigation event
   const dispatchNavigation = () => {
-    window.dispatchEvent(new CustomEvent('sidebar-navigation'));
+    // Close mobile sidebar FIRST before dispatching event
     if (isMobile) {
       setOpenMobile(false);
     }
+    window.dispatchEvent(new CustomEvent('sidebar-navigation'));
   };
   
   // Hash-aware isActive logic
@@ -66,8 +67,13 @@ export function SidebarNavItem({
       return;
     }
     
-    // Dispatch navigation event for all navigation actions
-    dispatchNavigation();
+    // Close mobile sidebar FIRST before any navigation
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+    
+    // Dispatch navigation event
+    window.dispatchEvent(new CustomEvent('sidebar-navigation'));
     
     if (item.type === 'link' && item.url) {
       navigate(item.url);
