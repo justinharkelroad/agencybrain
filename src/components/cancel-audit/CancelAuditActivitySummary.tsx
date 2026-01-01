@@ -40,6 +40,21 @@ interface ActivityByUser {
   notes: number;
 }
 
+// Get UTC timestamp strings for a local date's boundaries
+function getLocalDayBoundsInUTC(localDate: Date) {
+  // Start of the selected day in local time
+  const localStart = startOfDay(localDate);
+  // End of the selected day in local time (23:59:59.999)
+  const localEnd = new Date(localStart);
+  localEnd.setHours(23, 59, 59, 999);
+  
+  // Convert to ISO strings (includes timezone offset → UTC)
+  return {
+    startUTC: localStart.toISOString(),
+    endUTC: localEnd.toISOString(),
+  };
+}
+
 export function CancelAuditActivitySummary({ agencyId }: CancelAuditActivitySummaryProps) {
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -54,15 +69,15 @@ export function CancelAuditActivitySummary({ agencyId }: CancelAuditActivitySumm
     queryFn: async () => {
       if (!agencyId) return [];
       
-      const startOfDayStr = `${dateStr}T00:00:00`;
-      const endOfDayStr = `${dateStr}T23:59:59`;
+      // Get UTC bounds for the selected local date (handles timezone correctly)
+      const { startUTC, endUTC } = getLocalDayBoundsInUTC(selectedDate);
       
       const { data, error } = await supabase
         .from('cancel_audit_activities')
         .select('id, activity_type, user_id, user_display_name, created_at')
         .eq('agency_id', agencyId)
-        .gte('created_at', startOfDayStr)
-        .lte('created_at', endOfDayStr);
+        .gte('created_at', startUTC)
+        .lte('created_at', endUTC);
       
       if (error) {
         console.error('Error fetching activities:', error);
