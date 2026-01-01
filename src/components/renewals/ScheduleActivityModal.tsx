@@ -73,7 +73,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="bg-[#1a1f2e] border-gray-700">
+      <DialogContent className="bg-[#1a1f2e] border-gray-700 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log Activity</DialogTitle>
           <DialogDescription className="sr-only">
