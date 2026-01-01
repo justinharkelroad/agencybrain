@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, type LucideIcon } from 'lucide-react';
+import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRenewalActivities } from '@/hooks/useRenewalActivities';
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { ScheduleActivityModal } from './ScheduleActivityModal';
@@ -98,80 +97,103 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
       setIsSavingNote(false);
     }
   };
-  const chgPct = record.premium_change_percent || 0;
 
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full sm:max-w-2xl max-h-screen overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700">
+        <SheetContent className="w-full sm:max-w-2xl h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700 text-white [&>button.absolute]:hidden">
           <SheetHeader className="sr-only">
             <SheetTitle>{record.first_name} {record.last_name} - Renewal Details</SheetTitle>
             <SheetDescription>View and manage renewal record details</SheetDescription>
           </SheetHeader>
-          {/* Header row with key info */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <div>
-              <h2 className="text-xl font-bold text-white">{record.first_name} {record.last_name}</h2>
-              <p className="text-gray-400 font-mono">{record.policy_number}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold text-white">${record.premium_new?.toLocaleString() || '—'}</span>
-              <div className="flex items-center gap-1 text-green-400">
-                <MessageSquare className="h-4 w-4" />
-                <span className="font-medium">{activities.length}</span>
+          
+          {/* Sticky header with explicit close button */}
+          <div className="sticky top-0 z-20 bg-[#1a1f2e] border-b border-gray-700 p-4 shrink-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-white truncate">
+                  {record.first_name} {record.last_name}
+                </h2>
+                <p className="text-gray-400 font-mono truncate">{record.policy_number}</p>
               </div>
-              <Badge className={STATUS_COLORS[record.current_status]}>{record.current_status}</Badge>
-            </div>
-          </div>
 
-          {/* Info Stack - Vertical layout for better readability */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-gray-700 text-white">
-            {/* Contact */}
-            <div className="flex items-start gap-3">
-              <Phone className="h-4 w-4 text-gray-400 mt-1" />
-              <div>
-                <span className="text-sm font-medium text-gray-400">Contact</span>
-                <p className="text-sm">Phone: {record.phone || '—'}</p>
-                <p className="text-sm break-all">Email: {record.email || '—'}</p>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-10 w-10 shrink-0 text-white hover:bg-white/10"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </Button>
             </div>
-            
-            {/* Policy */}
-            <div className="flex items-start gap-3">
-              <FileText className="h-4 w-4 text-gray-400 mt-1" />
-              <div>
-                <span className="text-sm font-medium text-gray-400">Policy</span>
-                <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
-                <p className="text-sm">Product: {record.product_name || '—'}</p>
-              </div>
-            </div>
-            
-            {/* Dates */}
-            <div className="flex items-start gap-3">
-              <Calendar className="h-4 w-4 text-gray-400 mt-1" />
-              <div>
-                <span className="text-sm font-medium text-gray-400">Dates</span>
-                <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
-                <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
-              </div>
-            </div>
-            
-            {/* Financials */}
-            <div className="flex items-start gap-3">
-              <DollarSign className="h-4 w-4 text-gray-400 mt-1" />
-              <div>
-                <span className="text-sm font-medium text-gray-400">Financials</span>
-                <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
-                <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
-                <p className={`text-sm font-medium ${(record.premium_change_percent || 0) < 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  Change: {record.premium_change_percent?.toFixed(1) || 0}%
-                </p>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-lg font-semibold text-white">
+                ${record.premium_new?.toLocaleString() || '—'}
+              </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 text-green-400">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="font-medium">{activities.length}</span>
+                </div>
+                <Badge className={STATUS_COLORS[record.current_status]}>
+                  {record.current_status}
+                </Badge>
               </div>
             </div>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-4">
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Info Stack - Vertical layout for better readability */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-gray-700 text-white">
+              {/* Contact */}
+              <div className="flex items-start gap-3">
+                <Phone className="h-4 w-4 text-gray-400 mt-1" />
+                <div>
+                  <span className="text-sm font-medium text-gray-400">Contact</span>
+                  <p className="text-sm">Phone: {record.phone || '—'}</p>
+                  <p className="text-sm break-all">Email: {record.email || '—'}</p>
+                </div>
+              </div>
+
+              {/* Policy */}
+              <div className="flex items-start gap-3">
+                <FileText className="h-4 w-4 text-gray-400 mt-1" />
+                <div>
+                  <span className="text-sm font-medium text-gray-400">Policy</span>
+                  <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
+                  <p className="text-sm">Product: {record.product_name || '—'}</p>
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="flex items-start gap-3">
+                <Calendar className="h-4 w-4 text-gray-400 mt-1" />
+                <div>
+                  <span className="text-sm font-medium text-gray-400">Dates</span>
+                  <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
+                  <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+
+              {/* Financials */}
+              <div className="flex items-start gap-3">
+                <DollarSign className="h-4 w-4 text-gray-400 mt-1" />
+                <div>
+                  <span className="text-sm font-medium text-gray-400">Financials</span>
+                  <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
+                  <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
+                  <p className={`text-sm font-medium ${(record.premium_change_percent || 0) < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    Change: {record.premium_change_percent?.toFixed(1) || 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions / Notes / History */}
+            <div className="p-4 space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
               {/* Action buttons */}
               <div className="flex gap-2">
                 <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
@@ -193,15 +215,15 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
               {/* Notes */}
               <div className="space-y-2">
                 <h3 className="font-semibold text-white text-sm">Notes</h3>
-                <Textarea 
-                  value={noteText} 
-                  onChange={(e) => setNoteText(e.target.value)} 
-                  placeholder="Add a note..." 
-                  rows={3} 
+                <Textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Add a note..."
+                  rows={3}
                   className="bg-[#0d1117] border-gray-700 text-white"
                 />
-                <Button 
-                  onClick={handleSaveNote} 
+                <Button
+                  onClick={handleSaveNote}
                   disabled={isSavingNote || !noteText.trim()}
                   variant="outline"
                   size="sm"
@@ -228,8 +250,8 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                       const style = activityStyles[a.activity_type] || { icon: FileText, color: 'text-gray-400 border-gray-700 bg-gray-800/50', label: a.activity_type };
                       const Icon = style.icon;
                       return (
-                        <div 
-                          key={a.id} 
+                        <div
+                          key={a.id}
                           className={cn(
                             "flex items-start gap-3 p-3 rounded-lg border",
                             style.color
@@ -255,7 +277,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 )}
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </SheetContent>
       </Sheet>
       <ScheduleActivityModal open={showActivityModal} onClose={() => setShowActivityModal(false)} record={record} context={context} teamMembers={teamMembers} />
