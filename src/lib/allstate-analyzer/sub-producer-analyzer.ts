@@ -75,7 +75,8 @@ export function getProducerDisplayName(
   code: string, 
   teamMembers: TeamMemberForLookup[] = []
 ): string {
-  if (!code || code === '') return 'Agency';
+  // Treat blank, empty, or "000" as Agency-level transactions
+  if (!code || code === '' || code === '000') return 'Agency';
   
   // Normalize code for comparison (trim whitespace, convert to string)
   const normalizedCode = String(code).trim();
@@ -217,7 +218,7 @@ export function analyzeSubProducers(
     if (!isFirstTerm(tx)) continue;
     
     const code = String(tx.subProdCode || '').trim();
-    const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
+    const normalizedCode = (!code || code === 'NaN' || code === 'undefined' || code === '000') ? '' : code;
     const insuredName = (tx.namedInsured || '').trim();
     
     if (!producerInsuredMap.has(normalizedCode)) {
