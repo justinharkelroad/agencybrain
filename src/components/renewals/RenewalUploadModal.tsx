@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -15,6 +16,7 @@ import type { ParsedRenewalRecord, RenewalUploadContext } from '@/types/renewal'
 interface Props { open: boolean; onClose: () => void; context: RenewalUploadContext; }
 
 export function RenewalUploadModal({ open, onClose, context }: Props) {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [parsedRecords, setParsedRecords] = useState<ParsedRenewalRecord[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -46,7 +48,17 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
     maxFiles: 1, disabled: isUploading,
   });
 
-  const handleUpload = async () => { if (!file || !parsedRecords.length) return; try { await uploadRecords(parsedRecords, file.name, context); handleClose(); } catch {} };
+  const handleUpload = async () => { 
+    if (!file || !parsedRecords.length) return; 
+    try { 
+      await uploadRecords(parsedRecords, file.name, context); 
+      // Invalidate renewal queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+      handleClose(); 
+    } catch {} 
+  };
   const handleClose = () => { setFile(null); setParsedRecords([]); setParseError(null); resetUpload(); onClose(); };
   const dateRange = parsedRecords.length ? getRenewalDateRange(parsedRecords) : null;
 
