@@ -144,12 +144,16 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
     enabled: !!user?.id || !!staffSessionToken,
   });
 
+  // Debug logging for client-side
+  console.log('[SalesLeaderboard] staffSessionToken present?', !!staffSessionToken);
+
   // Fetch leaderboard data
   const { data: leaderboardData, isLoading } = useQuery({
     queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken],
     queryFn: async (): Promise<LeaderboardEntry[]> => {
       // Use edge function for staff users (bypasses RLS)
       if (staffSessionToken) {
+        console.log('[SalesLeaderboard] Using edge function for staff user');
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': staffSessionToken },
           body: { 
@@ -160,15 +164,16 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         });
 
         if (error) {
-          console.error('Error fetching leaderboard via edge function:', error);
+          console.error('[SalesLeaderboard] Edge function error:', error);
           throw error;
         }
 
         if (data?.error) {
-          console.error('Leaderboard error:', data.error);
+          console.error('[SalesLeaderboard] Response error:', data.error);
           throw new Error(data.error);
         }
 
+        console.log('[SalesLeaderboard] Success - got leaderboard data:', data.leaderboard?.length || 0, 'entries');
         return data.leaderboard || [];
       }
 

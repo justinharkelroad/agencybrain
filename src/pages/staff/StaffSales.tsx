@@ -54,12 +54,19 @@ export default function StaffSales() {
   
   const agencyId = user?.agency_id;
 
+  // Debug logging for client-side
+  console.log('[StaffSales] sessionToken present?', !!sessionToken);
+
   // Fetch staff's sales using edge function (bypasses RLS)
   const { data: salesResponse, isLoading, error } = useQuery({
     queryKey: ["staff-sales", agencyId, monthStart, monthEnd, sessionToken],
     queryFn: async (): Promise<StaffSalesResponse | null> => {
-      if (!sessionToken) return null;
+      if (!sessionToken) {
+        console.log('[StaffSales] No session token, skipping fetch');
+        return null;
+      }
 
+      console.log('[StaffSales] Invoking get_staff_sales edge function');
       const { data, error } = await supabase.functions.invoke('get_staff_sales', {
         headers: { 'x-staff-session': sessionToken },
         body: { 
@@ -70,15 +77,16 @@ export default function StaffSales() {
       });
 
       if (error) {
-        console.error('Error fetching staff sales:', error);
+        console.error('[StaffSales] Edge function error:', error);
         throw error;
       }
 
       if (data?.error) {
-        console.error('Staff sales error:', data.error);
+        console.error('[StaffSales] Response error:', data.error);
         throw new Error(data.error);
       }
 
+      console.log('[StaffSales] Success - got sales data');
       return data as StaffSalesResponse;
     },
     enabled: !!sessionToken && !!agencyId,
