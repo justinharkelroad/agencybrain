@@ -12,6 +12,7 @@ interface StaffUser {
   email: string | null;
   profile_photo_url: string | null;
   agency_membership_tier: string | null;
+  is_impersonation?: boolean;
 }
 
 interface StaffAuthState {
@@ -19,6 +20,7 @@ interface StaffAuthState {
   sessionToken: string | null;
   loading: boolean;
   error: string | null;
+  isImpersonation: boolean;
 }
 
 export function useStaffAuth() {
@@ -27,12 +29,15 @@ export function useStaffAuth() {
     sessionToken: null,
     loading: true,
     error: null,
+    isImpersonation: false,
   });
 
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const token = localStorage.getItem('staff_session_token');
+      const isImpersonation = localStorage.getItem('staff_is_impersonation') === 'true';
+      
       if (!token) {
         setState(prev => ({ ...prev, loading: false }));
         return;
@@ -45,7 +50,8 @@ export function useStaffAuth() {
 
         if (error || !data?.valid) {
           localStorage.removeItem('staff_session_token');
-          setState({ user: null, sessionToken: null, loading: false, error: null });
+          localStorage.removeItem('staff_is_impersonation');
+          setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
           return;
         }
 
@@ -54,11 +60,13 @@ export function useStaffAuth() {
           sessionToken: token,
           loading: false,
           error: null,
+          isImpersonation: isImpersonation || data.user?.is_impersonation || false,
         });
       } catch (err) {
         console.error('Session verification error:', err);
         localStorage.removeItem('staff_session_token');
-        setState({ user: null, sessionToken: null, loading: false, error: null });
+        localStorage.removeItem('staff_is_impersonation');
+        setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
       }
     };
 
@@ -80,6 +88,7 @@ export function useStaffAuth() {
       }
 
       localStorage.setItem('staff_session_token', data.session_token);
+      localStorage.removeItem('staff_is_impersonation');
       
       // Clear sidebar folder state on login so folders start closed
       Object.keys(localStorage).forEach(key => {
@@ -93,6 +102,7 @@ export function useStaffAuth() {
         sessionToken: data.session_token,
         loading: false,
         error: null,
+        isImpersonation: false,
       });
 
       return { error: null, user: data.user };
@@ -103,11 +113,25 @@ export function useStaffAuth() {
     }
   }, []);
 
+  const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser) => {
+    localStorage.setItem('staff_session_token', sessionToken);
+    localStorage.setItem('staff_is_impersonation', 'true');
+    
+    setState({
+      user: { ...user, is_impersonation: true },
+      sessionToken,
+      loading: false,
+      error: null,
+      isImpersonation: true,
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     const token = state.sessionToken;
     
-    setState({ user: null, sessionToken: null, loading: false, error: null });
+    setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
     localStorage.removeItem('staff_session_token');
+    localStorage.removeItem('staff_is_impersonation');
     localStorage.removeItem('sidebarOpenFolder');
 
     if (token) {
@@ -128,6 +152,8 @@ export function useStaffAuth() {
     error: state.error,
     login,
     logout,
+    setImpersonationSession,
     isAuthenticated: !!state.user && !!state.sessionToken,
+    isImpersonation: state.isImpersonation,
   };
 }

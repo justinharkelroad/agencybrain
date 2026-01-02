@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle } from "lucide-react";
+import { Plus, UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle, Loader2 } from "lucide-react";
 import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
 
 interface StaffUser {
@@ -87,6 +87,7 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const [linkTeamMemberId, setLinkTeamMemberId] = useState<string>("");
   const [linkCreateNew, setLinkCreateNew] = useState(false);
   const [linkNewTeamMemberRole, setLinkNewTeamMemberRole] = useState<string>("Sales");
+  const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
 
   // Fetch staff users with team member info
   const { data: staffUsers = [], isLoading } = useQuery({
@@ -421,6 +422,37 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
     setIsLinkDialogOpen(true);
   };
 
+  const handleTestAsStaff = async (user: StaffUser) => {
+    if (!user.is_active) {
+      toast.error("Cannot impersonate inactive staff user");
+      return;
+    }
+
+    setImpersonatingUserId(user.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-impersonate-staff', {
+        body: { staff_user_id: user.id }
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Impersonation failed');
+      }
+
+      // Open staff portal in new tab with the session
+      const staffUrl = new URL('/staff/login', window.location.origin);
+      staffUrl.searchParams.set('impersonate_token', data.session_token);
+      
+      window.open(staffUrl.toString(), '_blank');
+      toast.success(`Opened staff portal as ${user.display_name || user.username}`);
+    } catch (err: any) {
+      console.error('Impersonation error:', err);
+      toast.error(err.message || 'Failed to impersonate staff user');
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -633,6 +665,23 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onSelect={() => handleTestAsStaff(user)}
+                                disabled={!user.is_active || impersonatingUserId === user.id}
+                              >
+                                {impersonatingUserId === user.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Opening...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Test as Staff
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onSelect={() => handleEdit(user)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit

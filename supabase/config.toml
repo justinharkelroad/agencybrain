@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.get_dashboard_daily]
 verify_jwt = true
+
+[functions.admin-impersonate-staff]
+verify_jwt = true
