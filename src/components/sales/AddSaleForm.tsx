@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -21,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type ProductType = {
   id: string;
@@ -48,8 +49,50 @@ type LineItem = {
   is_vc_qualifying: boolean;
 };
 
+type Policy = {
+  id: string;
+  product_type_id: string;
+  policy_type_name: string;
+  policy_number: string;
+  effective_date: Date | undefined;
+  is_vc_qualifying: boolean;
+  lineItems: LineItem[];
+  isExpanded: boolean;
+};
+
+type SaleForEdit = {
+  id: string;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  customer_zip: string | null;
+  team_member_id: string | null;
+  sale_date: string | null;
+  is_bundle: boolean | null;
+  bundle_type: string | null;
+  sale_policies: {
+    id: string;
+    product_type_id: string | null;
+    policy_type_name: string;
+    policy_number: string | null;
+    effective_date: string;
+    is_vc_qualifying: boolean | null;
+    sale_items: {
+      id: string;
+      product_type_id: string | null;
+      product_type_name: string;
+      item_count: number | null;
+      premium: number | null;
+      points: number | null;
+      is_vc_qualifying: boolean | null;
+    }[];
+  }[];
+};
+
 interface AddSaleFormProps {
   onSuccess?: () => void;
+  editSale?: SaleForEdit | null;
+  onCancelEdit?: () => void;
 }
 
 // Format phone number as (XXX) XXX-XXXX
@@ -79,7 +122,7 @@ const isHomeProduct = (name: string) => {
   );
 };
 
-export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
+export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -88,14 +131,46 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
-  const [policyNumber, setPolicyNumber] = useState("");
-  const [effectiveDate, setEffectiveDate] = useState<Date | undefined>(
-    new Date()
-  );
   const [producerId, setProducerId] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [isBundle, setIsBundle] = useState(false);
+  const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [bundleType, setBundleType] = useState<string>("");
+
+  const isEditMode = !!editSale;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editSale) {
+      setCustomerName(editSale.customer_name);
+      setCustomerEmail(editSale.customer_email || "");
+      setCustomerPhone(editSale.customer_phone || "");
+      setCustomerZip(editSale.customer_zip || "");
+      setProducerId(editSale.team_member_id || "");
+      setSaleDate(editSale.sale_date ? new Date(editSale.sale_date) : new Date());
+      setBundleType(editSale.bundle_type || "");
+      
+      // Map policies and items
+      const mappedPolicies: Policy[] = editSale.sale_policies.map((policy) => ({
+        id: policy.id,
+        product_type_id: policy.product_type_id || "",
+        policy_type_name: policy.policy_type_name,
+        policy_number: policy.policy_number || "",
+        effective_date: new Date(policy.effective_date),
+        is_vc_qualifying: policy.is_vc_qualifying || false,
+        isExpanded: true,
+        lineItems: policy.sale_items.map((item) => ({
+          id: item.id,
+          product_type_id: item.product_type_id || "",
+          product_type_name: item.product_type_name,
+          item_count: item.item_count || 1,
+          premium: item.premium || 0,
+          points: item.points || 0,
+          is_vc_qualifying: item.is_vc_qualifying || false,
+        })),
+      }));
+      setPolicies(mappedPolicies);
+    }
+  }, [editSale]);
 
   // Fetch user's agency_id
   const { data: profile } = useQuery({
@@ -146,9 +221,9 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
     enabled: !!profile?.agency_id,
   });
 
-  // Calculate totals
-  const totals = useMemo(() => {
-    return lineItems.reduce(
+  // Calculate policy totals
+  const calculatePolicyTotals = (policy: Policy) => {
+    return policy.lineItems.reduce(
       (acc, item) => ({
         items: acc.items + item.item_count,
         premium: acc.premium + item.premium,
@@ -156,65 +231,75 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
       }),
       { items: 0, premium: 0, points: 0 }
     );
-  }, [lineItems]);
+  };
 
-  // Detect if bundle is possible (has both Auto and Home products)
-  const canBundle = useMemo(() => {
-    const hasAuto = lineItems.some((item) => isAutoProduct(item.product_type_name));
-    const hasHome = lineItems.some((item) => isHomeProduct(item.product_type_name));
+  // Calculate overall totals
+  const totals = useMemo(() => {
+    return policies.reduce(
+      (acc, policy) => {
+        const policyTotals = calculatePolicyTotals(policy);
+        return {
+          items: acc.items + policyTotals.items,
+          premium: acc.premium + policyTotals.premium,
+          points: acc.points + policyTotals.points,
+        };
+      },
+      { items: 0, premium: 0, points: 0 }
+    );
+  }, [policies]);
+
+  // Detect if bundle (has both Auto and Home products)
+  const bundleDetected = useMemo(() => {
+    const hasAuto = policies.some((p) => isAutoProduct(p.policy_type_name));
+    const hasHome = policies.some((p) => isHomeProduct(p.policy_type_name));
     return hasAuto && hasHome;
-  }, [lineItems]);
+  }, [policies]);
 
-  // Add a new line item
-  const addLineItem = () => {
-    setLineItems([
-      ...lineItems,
+  // Add a new policy
+  const addPolicy = () => {
+    setPolicies([
+      ...policies,
       {
         id: crypto.randomUUID(),
         product_type_id: "",
-        product_type_name: "",
-        item_count: 1,
-        premium: 0,
-        points: 0,
+        policy_type_name: "",
+        policy_number: "",
+        effective_date: new Date(),
         is_vc_qualifying: false,
+        lineItems: [],
+        isExpanded: true,
       },
     ]);
   };
 
-  // Remove a line item
-  const removeLineItem = (id: string) => {
-    setLineItems(lineItems.filter((item) => item.id !== id));
+  // Remove a policy
+  const removePolicy = (policyId: string) => {
+    setPolicies(policies.filter((p) => p.id !== policyId));
   };
 
-  // Update a line item
-  const updateLineItem = (
-    id: string,
-    field: keyof LineItem,
-    value: string | number | boolean
-  ) => {
-    setLineItems(
-      lineItems.map((item) => {
-        if (item.id !== id) return item;
+  // Toggle policy expansion
+  const togglePolicyExpand = (policyId: string) => {
+    setPolicies(
+      policies.map((p) =>
+        p.id === policyId ? { ...p, isExpanded: !p.isExpanded } : p
+      )
+    );
+  };
 
-        const updated = { ...item, [field]: value };
+  // Update policy
+  const updatePolicy = (policyId: string, field: keyof Policy, value: any) => {
+    setPolicies(
+      policies.map((p) => {
+        if (p.id !== policyId) return p;
 
-        // If product type changed, update points and VC status
+        const updated = { ...p, [field]: value };
+
+        // If policy type changed, update the VC status
         if (field === "product_type_id") {
-          const product = productTypes.find((p) => p.id === value);
+          const product = productTypes.find((pt) => pt.id === value);
           if (product) {
-            updated.product_type_name = product.name;
-            updated.points = (product.default_points || 0) * updated.item_count;
+            updated.policy_type_name = product.name;
             updated.is_vc_qualifying = product.is_vc_item || false;
-          }
-        }
-
-        // If item count changed, recalculate points
-        if (field === "item_count") {
-          const product = productTypes.find(
-            (p) => p.id === updated.product_type_id
-          );
-          if (product) {
-            updated.points = (product.default_points || 0) * (value as number);
           }
         }
 
@@ -223,16 +308,111 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
     );
   };
 
-  // Create sale mutation
-  const createSale = useMutation({
+  // Add line item to a policy
+  const addLineItem = (policyId: string) => {
+    setPolicies(
+      policies.map((p) => {
+        if (p.id !== policyId) return p;
+        return {
+          ...p,
+          lineItems: [
+            ...p.lineItems,
+            {
+              id: crypto.randomUUID(),
+              product_type_id: "",
+              product_type_name: "",
+              item_count: 1,
+              premium: 0,
+              points: 0,
+              is_vc_qualifying: false,
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  // Remove line item from a policy
+  const removeLineItem = (policyId: string, itemId: string) => {
+    setPolicies(
+      policies.map((p) => {
+        if (p.id !== policyId) return p;
+        return {
+          ...p,
+          lineItems: p.lineItems.filter((item) => item.id !== itemId),
+        };
+      })
+    );
+  };
+
+  // Update line item
+  const updateLineItem = (
+    policyId: string,
+    itemId: string,
+    field: keyof LineItem,
+    value: string | number | boolean
+  ) => {
+    setPolicies(
+      policies.map((p) => {
+        if (p.id !== policyId) return p;
+        return {
+          ...p,
+          lineItems: p.lineItems.map((item) => {
+            if (item.id !== itemId) return item;
+
+            const updated = { ...item, [field]: value };
+
+            // If product type changed, update points and VC status
+            if (field === "product_type_id") {
+              const product = productTypes.find((pt) => pt.id === value);
+              if (product) {
+                updated.product_type_name = product.name;
+                updated.points = (product.default_points || 0) * updated.item_count;
+                updated.is_vc_qualifying = product.is_vc_item || false;
+              }
+            }
+
+            // If item count changed, recalculate points
+            if (field === "item_count") {
+              const product = productTypes.find(
+                (pt) => pt.id === updated.product_type_id
+              );
+              if (product) {
+                updated.points = (product.default_points || 0) * (value as number);
+              }
+            }
+
+            return updated;
+          }),
+        };
+      })
+    );
+  };
+
+  // Create/Update sale mutation
+  const saveSale = useMutation({
     mutationFn: async () => {
       if (!profile?.agency_id) throw new Error("No agency found");
-      if (!effectiveDate) throw new Error("Effective date is required");
+      if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
-      if (lineItems.length === 0) throw new Error("At least one line item is required");
+      if (policies.length === 0) throw new Error("At least one policy is required");
+
+      // Validate each policy has an effective date and at least one item
+      for (const policy of policies) {
+        if (!policy.effective_date) {
+          throw new Error("Each policy must have an effective date");
+        }
+        if (!policy.product_type_id) {
+          throw new Error("Each policy must have a policy type selected");
+        }
+        if (policy.lineItems.length === 0) {
+          throw new Error(`Policy "${policy.policy_type_name}" must have at least one line item`);
+        }
+      }
 
       // Calculate VC totals
-      const vcItems = lineItems.filter((item) => item.is_vc_qualifying);
+      const allItems = policies.flatMap((p) => p.lineItems);
+      const vcItems = allItems.filter((item) => item.is_vc_qualifying);
       const vcTotals = vcItems.reduce(
         (acc, item) => ({
           items: acc.items + item.item_count,
@@ -242,64 +422,119 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
         { items: 0, premium: 0, points: 0 }
       );
 
-      // Create the sale
-      const { data: sale, error: saleError } = await supabase
-        .from("sales")
-        .insert({
-          agency_id: profile.agency_id,
-          team_member_id: producerId || null,
-          customer_name: customerName.trim(),
-          customer_email: customerEmail.trim() || null,
-          customer_phone: customerPhone.trim() || null,
-          customer_zip: customerZip.trim() || null,
-          policy_number: policyNumber.trim() || null,
-          effective_date: format(effectiveDate, "yyyy-MM-dd"),
-          sale_date: format(effectiveDate, "yyyy-MM-dd"),
-          total_items: totals.items,
-          total_premium: totals.premium,
-          total_points: totals.points,
-          is_vc_qualifying: vcItems.length > 0,
-          vc_items: vcTotals.items,
-          vc_premium: vcTotals.premium,
-          vc_points: vcTotals.points,
-          is_bundle: canBundle && isBundle,
-          bundle_type: canBundle && isBundle ? bundleType : null,
-          source: "manual",
-          created_by: user?.id,
-        })
-        .select("id")
-        .single();
+      // If editing, delete existing policies and items first
+      if (isEditMode && editSale) {
+        const { error: deleteItemsError } = await supabase
+          .from("sale_items")
+          .delete()
+          .in(
+            "sale_policy_id",
+            editSale.sale_policies.map((p) => p.id)
+          );
+        if (deleteItemsError) throw deleteItemsError;
 
-      if (saleError) throw saleError;
+        const { error: deletePoliciesError } = await supabase
+          .from("sale_policies")
+          .delete()
+          .eq("sale_id", editSale.id);
+        if (deletePoliciesError) throw deletePoliciesError;
+      }
 
-      // Create line items
-      const saleItems = lineItems.map((item) => ({
-        sale_id: sale.id,
-        product_type_id: item.product_type_id || null,
-        product_type_name: item.product_type_name,
-        item_count: item.item_count,
-        premium: item.premium,
-        points: item.points,
-        is_vc_qualifying: item.is_vc_qualifying,
-      }));
+      // Create or update the sale
+      const saleData = {
+        agency_id: profile.agency_id,
+        team_member_id: producerId || null,
+        customer_name: customerName.trim(),
+        customer_email: customerEmail.trim() || null,
+        customer_phone: customerPhone.trim() || null,
+        customer_zip: customerZip.trim() || null,
+        sale_date: format(saleDate, "yyyy-MM-dd"),
+        effective_date: format(policies[0].effective_date!, "yyyy-MM-dd"),
+        total_policies: policies.length,
+        total_items: totals.items,
+        total_premium: totals.premium,
+        total_points: totals.points,
+        is_vc_qualifying: vcItems.length > 0,
+        vc_items: vcTotals.items,
+        vc_premium: vcTotals.premium,
+        vc_points: vcTotals.points,
+        is_bundle: bundleDetected,
+        bundle_type: bundleDetected ? bundleType || null : null,
+        source: "manual",
+        created_by: user?.id,
+      };
 
-      const { error: itemsError } = await supabase
-        .from("sale_items")
-        .insert(saleItems);
+      let saleId: string;
 
-      if (itemsError) throw itemsError;
+      if (isEditMode && editSale) {
+        const { error: updateError } = await supabase
+          .from("sales")
+          .update(saleData)
+          .eq("id", editSale.id);
+        if (updateError) throw updateError;
+        saleId = editSale.id;
+      } else {
+        const { data: sale, error: saleError } = await supabase
+          .from("sales")
+          .insert(saleData)
+          .select("id")
+          .single();
+        if (saleError) throw saleError;
+        saleId = sale.id;
+      }
 
-      return sale;
+      // Create policies and items
+      for (const policy of policies) {
+        const policyTotals = calculatePolicyTotals(policy);
+
+        const { data: createdPolicy, error: policyError } = await supabase
+          .from("sale_policies")
+          .insert({
+            sale_id: saleId,
+            product_type_id: policy.product_type_id || null,
+            policy_type_name: policy.policy_type_name,
+            policy_number: policy.policy_number || null,
+            effective_date: format(policy.effective_date!, "yyyy-MM-dd"),
+            total_items: policyTotals.items,
+            total_premium: policyTotals.premium,
+            total_points: policyTotals.points,
+            is_vc_qualifying: policy.is_vc_qualifying,
+          })
+          .select("id")
+          .single();
+
+        if (policyError) throw policyError;
+
+        // Create line items for this policy
+        const saleItems = policy.lineItems.map((item) => ({
+          sale_id: saleId,
+          sale_policy_id: createdPolicy.id,
+          product_type_id: item.product_type_id || null,
+          product_type_name: item.product_type_name,
+          item_count: item.item_count,
+          premium: item.premium,
+          points: item.points,
+          is_vc_qualifying: item.is_vc_qualifying,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("sale_items")
+          .insert(saleItems);
+
+        if (itemsError) throw itemsError;
+      }
+
+      return { saleId };
     },
     onSuccess: () => {
-      toast.success("Sale created successfully!");
+      toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       resetForm();
       onSuccess?.();
     },
     onError: (error) => {
-      console.error("Error creating sale:", error);
-      toast.error(error.message || "Failed to create sale");
+      console.error("Error saving sale:", error);
+      toast.error(error.message || "Failed to save sale");
     },
   });
 
@@ -308,17 +543,15 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
     setCustomerEmail("");
     setCustomerPhone("");
     setCustomerZip("");
-    setPolicyNumber("");
-    setEffectiveDate(new Date());
     setProducerId("");
-    setLineItems([]);
-    setIsBundle(false);
+    setSaleDate(new Date());
+    setPolicies([]);
     setBundleType("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createSale.mutate();
+    saveSale.mutate();
   };
 
   return (
@@ -327,7 +560,7 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
         {/* Section 1: Customer Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Customer Information</CardTitle>
+            <CardTitle>{isEditMode ? "Edit Sale" : "Customer Information"}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -369,56 +602,18 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
                 value={customerZip}
                 onChange={(e) => setCustomerZip(e.target.value)}
                 placeholder="12345"
+                maxLength={10}
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* Section 2: Policy Info */}
+        {/* Section 2: Producer & Date */}
         <Card>
           <CardHeader>
-            <CardTitle>Policy Information</CardTitle>
+            <CardTitle>Producer & Date</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="policyNumber">Policy Number</Label>
-              <Input
-                id="policyNumber"
-                value={policyNumber}
-                onChange={(e) => setPolicyNumber(e.target.value)}
-                placeholder="POL-12345"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                Effective Date <span className="text-destructive">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !effectiveDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {effectiveDate ? (
-                      format(effectiveDate, "MMM d, yyyy")
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={effectiveDate}
-                    onSelect={setEffectiveDate}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="producer">Producer</Label>
               <Select value={producerId} onValueChange={setProducerId}>
@@ -434,152 +629,321 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>
+                Sale Date <span className="text-destructive">*</span>
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !saleDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {saleDate ? format(saleDate, "MMM d, yyyy") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={saleDate} onSelect={setSaleDate} />
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Section 3: Line Items */}
+        {/* Section 3: Policies */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Line Items</span>
-              <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+              <span>Policies</span>
+              <Button type="button" variant="outline" size="sm" onClick={addPolicy}>
                 <Plus className="h-4 w-4 mr-1" />
-                Add Item
+                Add Policy
               </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {lineItems.length === 0 ? (
+            {policies.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No items added yet. Click "Add Item" to get started.
+                No policies added yet. Click "Add Policy" to get started.
               </div>
             ) : (
               <div className="space-y-4">
-                {lineItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="grid gap-4 p-4 border rounded-lg sm:grid-cols-4 items-end"
-                  >
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label>Product Type</Label>
-                      <Select
-                        value={item.product_type_id}
-                        onValueChange={(value) =>
-                          updateLineItem(item.id, "product_type_id", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {productTypes.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name} ({product.default_points || 0} pts)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Item Count</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={item.item_count}
-                        onChange={(e) =>
-                          updateLineItem(
-                            item.id,
-                            "item_count",
-                            parseInt(e.target.value) || 1
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Premium ($)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={item.premium}
-                          onChange={(e) =>
-                            updateLineItem(
-                              item.id,
-                              "premium",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeLineItem(item.id)}
-                          className="shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground sm:col-span-4 flex gap-4">
-                      <span>Points: {item.points}</span>
-                      {item.is_vc_qualifying && (
-                        <span className="text-green-600">VC Qualifying</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {policies.map((policy, policyIndex) => {
+                  const policyTotals = calculatePolicyTotals(policy);
+                  return (
+                    <Collapsible
+                      key={policy.id}
+                      open={policy.isExpanded}
+                      onOpenChange={() => togglePolicyExpand(policy.id)}
+                    >
+                      <div className="border rounded-lg">
+                        {/* Policy Header */}
+                        <div className="flex items-center justify-between p-4 bg-muted/30">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="gap-2">
+                              {policy.isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                              <span className="font-medium">
+                                Policy {policyIndex + 1}
+                                {policy.policy_type_name && `: ${policy.policy_type_name}`}
+                              </span>
+                              {policy.is_vc_qualifying && (
+                                <Badge variant="default" className="bg-green-600 ml-2">
+                                  VC
+                                </Badge>
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm text-muted-foreground">
+                              {policyTotals.items} items · ${policyTotals.premium.toLocaleString()} · {policyTotals.points} pts
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removePolicy(policy.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
 
-                {/* Totals */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg mt-4">
-                  <div className="text-center">
-                    <div className="text-xl font-bold">{totals.items}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Total Items
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold">
-                      ${totals.premium.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Total Premium
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold">{totals.points}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Total Points
-                    </div>
-                  </div>
-                </div>
+                        {/* Policy Content */}
+                        <CollapsibleContent>
+                          <div className="p-4 space-y-4">
+                            {/* Policy Fields */}
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <div className="space-y-2">
+                                <Label>
+                                  Policy Type <span className="text-destructive">*</span>
+                                </Label>
+                                <Select
+                                  value={policy.product_type_id}
+                                  onValueChange={(value) =>
+                                    updatePolicy(policy.id, "product_type_id", value)
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select policy type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {productTypes.map((product) => (
+                                      <SelectItem key={product.id} value={product.id}>
+                                        {product.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Policy Number</Label>
+                                <Input
+                                  value={policy.policy_number}
+                                  onChange={(e) =>
+                                    updatePolicy(policy.id, "policy_number", e.target.value)
+                                  }
+                                  placeholder="POL-12345"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>
+                                  Effective Date <span className="text-destructive">*</span>
+                                </Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !policy.effective_date && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {policy.effective_date
+                                        ? format(policy.effective_date, "MMM d, yyyy")
+                                        : "Pick a date"}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={policy.effective_date}
+                                      onSelect={(date) =>
+                                        updatePolicy(policy.id, "effective_date", date)
+                                      }
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                            </div>
+
+                            {/* Line Items Header */}
+                            <div className="flex items-center justify-between mt-4">
+                              <Label className="text-sm font-medium">Line Items</Label>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addLineItem(policy.id)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Item
+                              </Button>
+                            </div>
+
+                            {/* Line Items */}
+                            {policy.lineItems.length === 0 ? (
+                              <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg">
+                                No items yet. Click "Add Item" to add line items.
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {policy.lineItems.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="grid gap-3 p-3 border rounded-lg sm:grid-cols-5 items-end bg-muted/10"
+                                  >
+                                    <div className="space-y-1 sm:col-span-2">
+                                      <Label className="text-xs">Product Type</Label>
+                                      <Select
+                                        value={item.product_type_id}
+                                        onValueChange={(value) =>
+                                          updateLineItem(policy.id, item.id, "product_type_id", value)
+                                        }
+                                      >
+                                        <SelectTrigger className="h-9">
+                                          <SelectValue placeholder="Select product" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {productTypes.map((product) => (
+                                            <SelectItem key={product.id} value={product.id}>
+                                              {product.name} ({product.default_points || 0} pts)
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Count</Label>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-9"
+                                        value={item.item_count}
+                                        onChange={(e) =>
+                                          updateLineItem(
+                                            policy.id,
+                                            item.id,
+                                            "item_count",
+                                            parseInt(e.target.value) || 1
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs">Premium ($)</Label>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        step={0.01}
+                                        className="h-9"
+                                        value={item.premium}
+                                        onChange={(e) =>
+                                          updateLineItem(
+                                            policy.id,
+                                            item.id,
+                                            "premium",
+                                            parseFloat(e.target.value) || 0
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                      <div className="flex-1 space-y-1">
+                                        <Label className="text-xs">Points</Label>
+                                        <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm">
+                                          {item.points}
+                                        </div>
+                                      </div>
+                                      {item.is_vc_qualifying && (
+                                        <Badge variant="default" className="bg-green-600 h-9">
+                                          VC
+                                        </Badge>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() => removeLineItem(policy.id, item.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Policy Subtotals */}
+                            {policy.lineItems.length > 0 && (
+                              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
+                                <div className="text-center">
+                                  <div className="font-semibold">{policyTotals.items}</div>
+                                  <div className="text-xs text-muted-foreground">Items</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-semibold">
+                                    ${policyTotals.premium.toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">Premium</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-semibold">{policyTotals.points}</div>
+                                  <div className="text-xs text-muted-foreground">Points</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Section 4: Bundle Detection */}
-        {canBundle && (
+        {/* Section 4: Sale Summary */}
+        {policies.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Bundle Options</CardTitle>
+              <CardTitle className="flex items-center gap-3">
+                Sale Summary
+                {bundleDetected && (
+                  <Badge variant="default" className="bg-blue-600">
+                    Bundle Detected
+                  </Badge>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isBundle"
-                  checked={isBundle}
-                  onCheckedChange={(checked) => setIsBundle(checked as boolean)}
-                />
-                <Label htmlFor="isBundle">This is a bundle</Label>
-              </div>
-              {isBundle && (
+              {/* Bundle Type Selection */}
+              {bundleDetected && (
                 <div className="space-y-2">
                   <Label>Bundle Type</Label>
                   <Select value={bundleType} onValueChange={setBundleType}>
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder="Select bundle type" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Preferred">Preferred</SelectItem>
@@ -588,28 +952,53 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
                   </Select>
                 </div>
               )}
+
+              {/* Totals */}
+              <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{policies.length}</div>
+                  <div className="text-sm text-muted-foreground">Policies</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{totals.items}</div>
+                  <div className="text-sm text-muted-foreground">Total Items</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">
+                    ${totals.premium.toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Total Premium</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{totals.points}</div>
+                  <div className="text-sm text-muted-foreground">Total Points</div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Submit Button */}
+        {/* Section 5: Actions */}
         <div className="flex justify-end gap-4">
+          {isEditMode && onCancelEdit && (
+            <Button type="button" variant="outline" onClick={onCancelEdit}>
+              Cancel
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={resetForm}>
             Clear Form
           </Button>
           <Button
             type="submit"
             disabled={
-              createSale.isPending ||
+              saveSale.isPending ||
               !customerName.trim() ||
-              !effectiveDate ||
-              lineItems.length === 0
+              !saleDate ||
+              policies.length === 0
             }
           >
-            {createSale.isPending && (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            )}
-            Create Sale
+            {saveSale.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditMode ? "Update Sale" : "Create Sale"}
           </Button>
         </div>
       </div>

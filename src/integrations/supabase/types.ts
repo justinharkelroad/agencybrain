@@ -4534,6 +4534,7 @@ export type Database = {
           product_type_id: string | null
           product_type_name: string
           sale_id: string
+          sale_policy_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -4545,6 +4546,7 @@ export type Database = {
           product_type_id?: string | null
           product_type_name: string
           sale_id: string
+          sale_policy_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -4556,6 +4558,7 @@ export type Database = {
           product_type_id?: string | null
           product_type_name?: string
           sale_id?: string
+          sale_policy_id?: string | null
         }
         Relationships: [
           {
@@ -4567,6 +4570,73 @@ export type Database = {
           },
           {
             foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_policy_id_fkey"
+            columns: ["sale_policy_id"]
+            isOneToOne: false
+            referencedRelation: "sale_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_policies: {
+        Row: {
+          created_at: string | null
+          effective_date: string
+          expiration_date: string | null
+          id: string
+          is_vc_qualifying: boolean | null
+          policy_number: string | null
+          policy_type_name: string
+          product_type_id: string | null
+          sale_id: string
+          total_items: number | null
+          total_points: number | null
+          total_premium: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          effective_date: string
+          expiration_date?: string | null
+          id?: string
+          is_vc_qualifying?: boolean | null
+          policy_number?: string | null
+          policy_type_name: string
+          product_type_id?: string | null
+          sale_id: string
+          total_items?: number | null
+          total_points?: number | null
+          total_premium?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          effective_date?: string
+          expiration_date?: string | null
+          id?: string
+          is_vc_qualifying?: boolean | null
+          policy_number?: string | null
+          policy_type_name?: string
+          product_type_id?: string | null
+          sale_id?: string
+          total_items?: number | null
+          total_points?: number | null
+          total_premium?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_policies_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_policies_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
