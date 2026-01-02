@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 interface SalePolicy {
@@ -39,12 +40,16 @@ interface LeaderboardEntry {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Get session token from header
     const sessionToken = req.headers.get('x-staff-session');
+    
+    // Debug logging
+    console.log('Session token received:', sessionToken ? 'yes' : 'no');
+    console.log('Session token prefix:', sessionToken?.substring(0, 20) + '...');
     
     if (!sessionToken) {
       console.error('No session token provided');
@@ -59,18 +64,44 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify session - split into two queries to avoid column name issues
+    // Verify session - using is_valid (correct column name, not is_active)
+    const nowISO = new Date().toISOString();
+    console.log('Checking session with expires_at >', nowISO);
+    
     const { data: session, error: sessionError } = await supabase
       .from('staff_sessions')
-      .select('staff_user_id, expires_at, is_active')
+      .select('staff_user_id, expires_at, is_valid')
       .eq('session_token', sessionToken)
-      .eq('is_active', true)
-      .gt('expires_at', new Date().toISOString())
-      .single();
+      .eq('is_valid', true)
+      .gt('expires_at', nowISO)
+      .maybeSingle();
 
-    if (sessionError || !session) {
+    console.log('Session query result:', JSON.stringify(session));
+    console.log('Session query error:', sessionError ? JSON.stringify(sessionError) : 'none');
+
+    // Check for schema errors (like column not existing) - return 500 not 401
+    if (sessionError) {
+      if (sessionError.code === '42703') {
+        console.error('Schema error - column does not exist:', sessionError);
+        return new Response(JSON.stringify({ 
+          error: 'Schema error', 
+          details: sessionError.message,
+          code: sessionError.code 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       console.error('Session verification failed:', sessionError);
-      return new Response(JSON.stringify({ error: 'Unauthorized - invalid session' }), {
+      return new Response(JSON.stringify({ error: 'Unauthorized - session error' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!session) {
+      console.error('No valid session found for token');
+      return new Response(JSON.stringify({ error: 'Unauthorized - invalid or expired session' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -83,8 +114,30 @@ serve(async (req) => {
       .eq('id', session.staff_user_id)
       .single();
 
-    if (staffError || !staffUser) {
+    console.log('Staff user query result:', JSON.stringify(staffUser));
+    console.log('Staff user query error:', staffError ? JSON.stringify(staffError) : 'none');
+
+    if (staffError) {
+      if (staffError.code === '42703') {
+        console.error('Schema error - column does not exist:', staffError);
+        return new Response(JSON.stringify({ 
+          error: 'Schema error', 
+          details: staffError.message,
+          code: staffError.code 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       console.error('Staff user lookup failed:', staffError);
+      return new Response(JSON.stringify({ error: 'Unauthorized - staff user error' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!staffUser) {
+      console.error('Staff user not found for id:', session.staff_user_id);
       return new Response(JSON.stringify({ error: 'Unauthorized - staff user not found' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -137,6 +190,7 @@ serve(async (req) => {
         console.error('Error fetching personal sales:', error);
       } else {
         personalSales = (data || []) as Sale[];
+        console.log('Personal sales found:', personalSales.length);
       }
     }
 
@@ -151,7 +205,7 @@ serve(async (req) => {
       { premium: 0, items: 0, points: 0, policies: 0 }
     );
 
-    console.log('Personal totals:', totals);
+    console.log('Personal totals:', JSON.stringify(totals));
 
     // Fetch leaderboard data if requested
     let leaderboard: LeaderboardEntry[] = [];
@@ -221,6 +275,8 @@ serve(async (req) => {
       console.log('Leaderboard entries:', leaderboard.length);
     }
 
+    console.log('Returning success response');
+    
     return new Response(JSON.stringify({
       personal_sales: personalSales,
       totals,

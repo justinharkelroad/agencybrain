@@ -2,13 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { DollarSign, Package, FileText, Trophy } from "lucide-react";
+import { DollarSign, Package, FileText, Trophy, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 interface StaffSalesSummaryProps {
   agencyId: string;
   teamMemberId: string;
+  showViewAll?: boolean;
 }
 
 interface SalesTotals {
@@ -18,11 +21,14 @@ interface SalesTotals {
   policies: number;
 }
 
-export function StaffSalesSummary({ agencyId, teamMemberId }: StaffSalesSummaryProps) {
+export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false }: StaffSalesSummaryProps) {
   const { sessionToken } = useStaffAuth();
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
+
+  // Debug logging for client-side
+  console.log('[StaffSalesSummary] sessionToken present?', !!sessionToken);
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
@@ -102,8 +108,15 @@ export function StaffSalesSummary({ agencyId, teamMemberId }: StaffSalesSummaryP
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>My Sales - {format(today, "MMMM yyyy")}</CardTitle>
+        {showViewAll && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/staff/sales" className="flex items-center gap-1">
+              View All <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-4">

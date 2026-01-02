@@ -190,6 +190,15 @@ export function StaffDashboard() {
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
 
+      {/* Sales Summary Widget - At Top */}
+      {user?.agency_id && user?.team_member_id && (
+        <StaffSalesSummary 
+          agencyId={user.agency_id} 
+          teamMemberId={user.team_member_id} 
+          showViewAll 
+        />
+      )}
+
       {/* Yesterday's Team Goals */}
       {user?.agency_id && (
         <div className="space-y-2">
@@ -309,10 +318,7 @@ export function StaffDashboard() {
         </CardContent>
       </Card>
 
-      {/* Sales Summary */}
-      {user?.agency_id && user?.team_member_id && (
-        <StaffSalesSummary agencyId={user.agency_id} teamMemberId={user.team_member_id} />
-      )}
+      {/* Sales Summary removed from here - moved to top of dashboard */}
 
       {/* Core 4 - All staff see this */}
       <StaffCore4Card />
