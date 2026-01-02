@@ -164,7 +164,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                 <Input
                   id="outbound_calls"
                   type="number"
-                  value={targets.outbound_calls}
+                  value={targets.outbound_calls === 0 ? "" : targets.outbound_calls}
                   onChange={(e) => updateTarget("outbound_calls", parseInt(e.target.value) || 0)}
                 />
               </div>
@@ -173,7 +173,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                 <Input
                   id="talk_minutes"
                   type="number"
-                  value={targets.talk_minutes}
+                  value={targets.talk_minutes === 0 ? "" : targets.talk_minutes}
                   onChange={(e) => updateTarget("talk_minutes", parseInt(e.target.value) || 0)}
                 />
               </div>
@@ -188,7 +188,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="quoted_count"
                       type="number"
-                      value={targets.quoted_count}
+                      value={targets.quoted_count === 0 ? "" : targets.quoted_count}
                       onChange={(e) => updateTarget("quoted_count", parseInt(e.target.value) || 0)}
                     />
                   </div>
@@ -197,7 +197,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="sold_items"
                       type="number"
-                      value={targets.sold_items}
+                      value={targets.sold_items === 0 ? "" : targets.sold_items}
                       onChange={(e) => updateTarget("sold_items", parseInt(e.target.value) || 0)}
                     />
                   </div>
@@ -209,7 +209,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="sold_policies"
                       type="number"
-                      value={targets.sold_policies}
+                      value={targets.sold_policies === 0 ? "" : targets.sold_policies}
                       onChange={(e) => updateTarget("sold_policies", parseInt(e.target.value) || 0)}
                     />
                   </div>
@@ -218,7 +218,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="sold_premium"
                       type="number"
-                      value={targets.sold_premium}
+                      value={targets.sold_premium === 0 ? "" : targets.sold_premium}
                       onChange={(e) => updateTarget("sold_premium", parseInt(e.target.value) || 0)}
                     />
                   </div>
@@ -235,7 +235,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="cross_sells_uncovered"
                       type="number"
-                      value={targets.cross_sells_uncovered}
+                      value={targets.cross_sells_uncovered === 0 ? "" : targets.cross_sells_uncovered}
                       onChange={(e) => updateTarget("cross_sells_uncovered", parseInt(e.target.value) || 0)}
                     />
                   </div>
@@ -244,7 +244,7 @@ export function KPIConfigDialog({ title, type, children }: KPIConfigDialogProps)
                     <Input
                       id="mini_reviews"
                       type="number"
-                      value={targets.mini_reviews}
+                      value={targets.mini_reviews === 0 ? "" : targets.mini_reviews}
                       onChange={(e) => updateTarget("mini_reviews", parseInt(e.target.value) || 0)}
                     />
                   </div>

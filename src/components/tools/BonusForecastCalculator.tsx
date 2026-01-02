@@ -93,8 +93,11 @@ function LabeledInput({
         )}
         <Input
           type={type}
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+          value={typeof value === 'number' && value === 0 ? '' : value}
+          onChange={(e) => {
+            const raw = e.target.value;
+            onChange(raw === '' ? 0 : parseFloat(raw) || 0);
+          }}
           className={`${prefix ? 'pl-7' : ''} ${suffix ? 'pr-8' : ''} bg-[#D9EAD3]/20 border-[#D9EAD3]/40`}
           min={min}
           max={max}
