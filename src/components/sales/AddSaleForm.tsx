@@ -834,36 +834,53 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                     <div className="space-y-1">
                                       <Label className="text-xs">Count</Label>
                                       <Input
-                                        type="number"
-                                        min={1}
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         className="h-9"
-                                        value={item.item_count}
-                                        onChange={(e) =>
-                                          updateLineItem(
-                                            policy.id,
-                                            item.id,
-                                            "item_count",
-                                            parseInt(e.target.value) || 1
-                                          )
-                                        }
+                                        value={item.item_count === 0 ? "" : item.item_count}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val === "" || /^\d+$/.test(val)) {
+                                            updateLineItem(
+                                              policy.id,
+                                              item.id,
+                                              "item_count",
+                                              val === "" ? 0 : parseInt(val)
+                                            );
+                                          }
+                                        }}
+                                        onBlur={(e) => {
+                                          if (e.target.value === "" || parseInt(e.target.value) < 1) {
+                                            updateLineItem(policy.id, item.id, "item_count", 1);
+                                          }
+                                        }}
                                       />
                                     </div>
                                     <div className="space-y-1">
                                       <Label className="text-xs">Premium ($)</Label>
                                       <Input
-                                        type="number"
-                                        min={0}
-                                        step={0.01}
+                                        type="text"
+                                        inputMode="decimal"
                                         className="h-9"
-                                        value={item.premium}
-                                        onChange={(e) =>
-                                          updateLineItem(
-                                            policy.id,
-                                            item.id,
-                                            "premium",
-                                            parseFloat(e.target.value) || 0
-                                          )
-                                        }
+                                        value={item.premium === 0 ? "" : item.premium}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                            updateLineItem(
+                                              policy.id,
+                                              item.id,
+                                              "premium",
+                                              val === "" ? 0 : parseFloat(val) || 0
+                                            );
+                                          }
+                                        }}
+                                        onBlur={(e) => {
+                                          if (e.target.value === "") {
+                                            updateLineItem(policy.id, item.id, "premium", 0);
+                                          }
+                                        }}
+                                        placeholder="0"
                                       />
                                     </div>
                                     <div className="flex items-end gap-2">
