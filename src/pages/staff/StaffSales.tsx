@@ -1,66 +1,91 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { Loader2, DollarSign, Package, FileText, Trophy } from "lucide-react";
-import { SalesDashboardWidget } from "@/components/sales/SalesDashboardWidget";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+}
+
+interface Sale {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+  sale_policies: SalePolicy[];
+}
+
+interface StaffSalesResponse {
+  personal_sales: Sale[];
+  totals: {
+    premium: number;
+    items: number;
+    points: number;
+    policies: number;
+  };
+  leaderboard: Array<{
+    team_member_id: string;
+    name: string;
+    premium: number;
+    items: number;
+    points: number;
+    policies: number;
+  }>;
+  team_member_id: string | null;
+  agency_id: string;
+}
+
 export default function StaffSales() {
-  const { user } = useStaffAuth();
+  const { user, sessionToken } = useStaffAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const queryClient = useQueryClient();
   
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
   
   const agencyId = user?.agency_id;
-  const teamMemberId = user?.team_member_id;
 
-  // Fetch staff's sales for current month
-  const { data: salesData, isLoading } = useQuery({
-    queryKey: ["staff-sales", agencyId, teamMemberId, monthStart, monthEnd],
-    queryFn: async () => {
-      if (!agencyId || !teamMemberId) return [];
+  // Fetch staff's sales using edge function (bypasses RLS)
+  const { data: salesResponse, isLoading, error } = useQuery({
+    queryKey: ["staff-sales", agencyId, monthStart, monthEnd, sessionToken],
+    queryFn: async (): Promise<StaffSalesResponse | null> => {
+      if (!sessionToken) return null;
 
-      const { data, error } = await supabase
-        .from("sales")
-        .select(`
-          id,
-          sale_date,
-          customer_name,
-          total_premium,
-          total_items,
-          total_points,
-          sale_policies(id, policy_type_name)
-        `)
-        .eq("agency_id", agencyId)
-        .eq("team_member_id", teamMemberId)
-        .gte("sale_date", monthStart)
-        .lte("sale_date", monthEnd)
-        .order("sale_date", { ascending: false });
+      const { data, error } = await supabase.functions.invoke('get_staff_sales', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { 
+          date_start: monthStart, 
+          date_end: monthEnd,
+          include_leaderboard: true 
+        }
+      });
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error('Error fetching staff sales:', error);
+        throw error;
+      }
+
+      if (data?.error) {
+        console.error('Staff sales error:', data.error);
+        throw new Error(data.error);
+      }
+
+      return data as StaffSalesResponse;
     },
-    enabled: !!agencyId && !!teamMemberId,
+    enabled: !!sessionToken && !!agencyId,
   });
 
-  // Calculate totals
-  const totals = salesData?.reduce(
-    (acc, sale) => ({
-      premium: acc.premium + (sale.total_premium || 0),
-      items: acc.items + (sale.total_items || 0),
-      points: acc.points + (sale.total_points || 0),
-      policies: acc.policies + (sale.sale_policies?.length || 0),
-    }),
-    { premium: 0, items: 0, points: 0, policies: 0 }
-  ) || { premium: 0, items: 0, points: 0, policies: 0 };
+  const salesData = salesResponse?.personal_sales || [];
+  const totals = salesResponse?.totals || { premium: 0, items: 0, points: 0, policies: 0 };
 
   if (!user) {
     return (
@@ -231,7 +256,12 @@ export default function StaffSales() {
         </TabsContent>
 
         <TabsContent value="leaderboard" className="mt-6">
-          {agencyId && <SalesLeaderboard agencyId={agencyId} />}
+          {agencyId && (
+            <SalesLeaderboard 
+              agencyId={agencyId} 
+              staffSessionToken={sessionToken || undefined}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>

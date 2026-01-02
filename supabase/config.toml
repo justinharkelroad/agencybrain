@@ -230,3 +230,6 @@ verify_jwt = true
 
 [functions.admin-impersonate-staff]
 verify_jwt = true
+
+[functions.get_staff_sales]
+verify_jwt = false
