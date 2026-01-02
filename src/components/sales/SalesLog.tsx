@@ -120,8 +120,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
     queryKey: [
       "sales",
       profile?.agency_id,
-      dateRange.from,
-      dateRange.to,
+      dateRange.from.toISOString(),
+      dateRange.to.toISOString(),
       selectedProducer,
     ],
     queryFn: async () => {
@@ -162,6 +162,9 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
       return (data || []) as Sale[];
     },
     enabled: !!profile?.agency_id,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Delete sale mutation
