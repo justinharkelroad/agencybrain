@@ -17,11 +17,45 @@ export interface RenewalFilters {
 }
 
 export function useRenewalRecords(agencyId: string | null, filters: RenewalFilters = {}) {
+  const staffSessionToken = getStaffSessionToken();
+  
   return useQuery({
-    queryKey: ['renewal-records', agencyId, filters],
+    queryKey: ['renewal-records', agencyId, filters, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
       
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[useRenewalRecords] Staff user detected, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            filters: {
+              currentStatus: filters.currentStatus,
+              renewalStatus: filters.renewalStatus,
+              productName: filters.productName,
+              bundledStatus: filters.bundledStatus,
+              accountType: filters.accountType,
+              assignedTeamMemberId: filters.assignedTeamMemberId,
+              dateRange: filters.dateRangeStart || filters.dateRangeEnd ? {
+                start: filters.dateRangeStart,
+                end: filters.dateRangeEnd
+              } : undefined,
+              searchQuery: filters.search
+            }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) {
+          console.error('[useRenewalRecords] Edge function error:', error);
+          throw error;
+        }
+        
+        console.log('[useRenewalRecords] Got records from edge function:', data?.records?.length);
+        return (data?.records || []) as RenewalRecord[];
+      }
+      
+      // Regular users: direct query (RLS handles access)
       let query = supabase
         .from('renewal_records')
         .select(`*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)`)
@@ -55,10 +89,30 @@ export function useRenewalRecords(agencyId: string | null, filters: RenewalFilte
 }
 
 export function useRenewalStats(agencyId: string | null, dateRange?: { start: string; end: string }) {
+  const staffSessionToken = getStaffSessionToken();
+  
   return useQuery({
-    queryKey: ['renewal-stats', agencyId, dateRange],
+    queryKey: ['renewal-stats', agencyId, dateRange, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return null;
+      
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[useRenewalStats] Staff user detected, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewal_stats', {
+          body: { dateRange },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) {
+          console.error('[useRenewalStats] Edge function error:', error);
+          throw error;
+        }
+        
+        return data?.stats || null;
+      }
+      
+      // Regular users: direct query
       let query = supabase
         .from('renewal_records')
         .select('current_status, multi_line_indicator')
