@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab } from "./training-tabs";
+import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab, StaffUsersTab } from "./training-tabs";
 
 export default function AdminTraining() {
   const navigate = useNavigate();
@@ -54,10 +54,11 @@ export default function AdminTraining() {
       </div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsTrigger value="staff">Staff Users</TabsTrigger>
         </TabsList>
         
         <TabsContent value="content">
@@ -70,6 +71,10 @@ export default function AdminTraining() {
         
         <TabsContent value="progress">
           <TrainingProgressTab agencyId={agencyId} />
+        </TabsContent>
+        
+        <TabsContent value="staff">
+          <StaffUsersTab agencyId={agencyId} />
         </TabsContent>
       </Tabs>
     </div>
