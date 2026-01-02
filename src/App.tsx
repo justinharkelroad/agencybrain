@@ -62,6 +62,7 @@ import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
+import Sales from "./pages/Sales";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -253,6 +254,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <Renewals />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Sales Route - Admin Only */}
+            <Route path="/sales" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Sales />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
