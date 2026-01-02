@@ -4,21 +4,55 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { DollarSign, Package, FileText, Trophy } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
 
 interface StaffSalesSummaryProps {
   agencyId: string;
   teamMemberId: string;
 }
 
+interface SalesTotals {
+  premium: number;
+  items: number;
+  points: number;
+  policies: number;
+}
+
 export function StaffSalesSummary({ agencyId, teamMemberId }: StaffSalesSummaryProps) {
+  const { sessionToken } = useStaffAuth();
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
+    queryFn: async (): Promise<SalesTotals> => {
+      // Use edge function to bypass RLS for staff users
+      if (sessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_sales', {
+          headers: { 'x-staff-session': sessionToken },
+          body: { 
+            date_start: monthStart, 
+            date_end: monthEnd,
+            include_leaderboard: false 
+          }
+        });
+
+        if (error) {
+          console.error('Error fetching staff sales summary:', error);
+          throw error;
+        }
+
+        if (data?.error) {
+          console.error('Staff sales summary error:', data.error);
+          throw new Error(data.error);
+        }
+
+        return data.totals || { premium: 0, items: 0, points: 0, policies: 0 };
+      }
+
+      // Fallback to direct query (for admin impersonation or testing)
+      const { data: salesData, error } = await supabase
         .from("sales")
         .select(`
           id,
@@ -34,12 +68,12 @@ export function StaffSalesSummary({ agencyId, teamMemberId }: StaffSalesSummaryP
 
       if (error) throw error;
 
-      const totals = (data || []).reduce(
+      const totals = (salesData || []).reduce(
         (acc, sale) => ({
           premium: acc.premium + (sale.total_premium || 0),
           items: acc.items + (sale.total_items || 0),
           points: acc.points + (sale.total_points || 0),
-          policies: acc.policies + (sale.sale_policies?.length || 0),
+          policies: acc.policies + ((sale.sale_policies as any[])?.length || 0),
         }),
         { premium: 0, items: 0, points: 0, policies: 0 }
       );

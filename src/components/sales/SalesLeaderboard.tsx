@@ -37,6 +37,7 @@ interface LeaderboardEntry {
 
 interface SalesLeaderboardProps {
   agencyId: string | null;
+  staffSessionToken?: string;
 }
 
 function getPeriodDates(period: Period): { start: string; end: string } {
@@ -88,7 +89,7 @@ function getPeriodLabel(period: Period): string {
   }
 }
 
-export function SalesLeaderboard({ agencyId }: SalesLeaderboardProps) {
+export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboardProps) {
   const { user } = useAuth();
   const [rankBy, setRankBy] = useState<RankMetric>("premium");
   const [period, setPeriod] = useState<Period>("this_month");
@@ -96,11 +97,21 @@ export function SalesLeaderboard({ agencyId }: SalesLeaderboardProps) {
   const { start, end } = getPeriodDates(period);
   const periodLabel = getPeriodLabel(period);
 
-  // Fetch current user's team_member_id if they're staff
+  // Get current user's team_member_id for highlighting
   const { data: currentUserTeamMemberId } = useQuery({
-    queryKey: ["current-user-team-member", user?.id],
+    queryKey: ["current-user-team-member", user?.id, staffSessionToken],
     queryFn: async () => {
+      // If using staff session, fetch from edge function response
+      if (staffSessionToken) {
+        const { data } = await supabase.functions.invoke('get_staff_sales', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { date_start: start, date_end: end, include_leaderboard: false }
+        });
+        return data?.team_member_id || null;
+      }
+
       if (!user?.id) return null;
+      
       // First check staff_users
       const { data: staffData } = await supabase
         .from("staff_users")
@@ -130,13 +141,38 @@ export function SalesLeaderboard({ agencyId }: SalesLeaderboardProps) {
       
       return teamMember?.id || null;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id || !!staffSessionToken,
   });
 
   // Fetch leaderboard data
   const { data: leaderboardData, isLoading } = useQuery({
-    queryKey: ["sales-leaderboard", agencyId, start, end],
-    queryFn: async () => {
+    queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken],
+    queryFn: async (): Promise<LeaderboardEntry[]> => {
+      // Use edge function for staff users (bypasses RLS)
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_sales', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { 
+            date_start: start, 
+            date_end: end,
+            include_leaderboard: true 
+          }
+        });
+
+        if (error) {
+          console.error('Error fetching leaderboard via edge function:', error);
+          throw error;
+        }
+
+        if (data?.error) {
+          console.error('Leaderboard error:', data.error);
+          throw new Error(data.error);
+        }
+
+        return data.leaderboard || [];
+      }
+
+      // Direct query for admin users (uses RLS)
       if (!agencyId) return [];
 
       // Get all active team members
@@ -183,13 +219,13 @@ export function SalesLeaderboard({ agencyId }: SalesLeaderboardProps) {
           aggregated[sale.team_member_id].premium += sale.total_premium || 0;
           aggregated[sale.team_member_id].items += sale.total_items || 0;
           aggregated[sale.team_member_id].points += sale.total_points || 0;
-          aggregated[sale.team_member_id].policies += sale.sale_policies?.length || 0;
+          aggregated[sale.team_member_id].policies += (sale.sale_policies as any[])?.length || 0;
         }
       }
 
       return Object.values(aggregated);
     },
-    enabled: !!agencyId,
+    enabled: !!agencyId || !!staffSessionToken,
   });
 
   // Sort and rank
@@ -220,7 +256,7 @@ export function SalesLeaderboard({ agencyId }: SalesLeaderboardProps) {
     }
   };
 
-  if (!agencyId) {
+  if (!agencyId && !staffSessionToken) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
