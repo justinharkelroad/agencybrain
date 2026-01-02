@@ -44,6 +44,11 @@ export function useSidebarAccess() {
 
   const checkItemAccess = useMemo(() => {
     return (item: NavItem, callScoringEnabled: boolean): boolean => {
+      // Check adminOnly flag first - only system admins can see these items
+      if (item.adminOnly && !userAccess.isAdmin) {
+        return false;
+      }
+
       // First check base access
       if (!canAccess(item.access)) return false;
 
@@ -59,7 +64,7 @@ export function useSidebarAccess() {
 
       return true;
     };
-  }, [canAccess, hasTierAccess]);
+  }, [canAccess, hasTierAccess, userAccess.isAdmin]);
 
   const filterNavigation = useMemo(() => {
     return (config: NavEntry[], callScoringEnabled: boolean): NavEntry[] => {

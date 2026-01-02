@@ -49,6 +49,7 @@ export type NavItem = {
   featureCheck?: string;
   settingCheck?: 'callScoringEnabled';
   requiresTier?: '1:1';  // Requires 1:1 Coaching tier - Boardroom users see gate modal
+  adminOnly?: boolean;   // Only visible to system admins (not regular agency owners)
 };
 
 export type NavFolder = {
@@ -77,7 +78,7 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
-  // Sales folder
+  // Sales folder - Sales Dashboard is admin-only for now
   {
     id: 'sales',
     title: 'Sales',
@@ -92,6 +93,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/sales',
         access: { staff: false, manager: true, owner: true },
+        adminOnly: true,  // Only system admins can see this for now
       },
       {
         id: 'ai-sales-bot',
