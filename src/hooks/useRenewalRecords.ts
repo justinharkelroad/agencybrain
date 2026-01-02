@@ -21,7 +21,6 @@ export function useRenewalRecords(agencyId: string | null, filters: RenewalFilte
     queryKey: ['renewal-records', agencyId, filters],
     queryFn: async () => {
       if (!agencyId) return [];
-      if (getStaffSessionToken()) throw new Error('Staff portal data access coming in Phase 3');
       
       let query = supabase
         .from('renewal_records')

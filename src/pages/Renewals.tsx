@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters } from '@/hooks/useRenewalRecords';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
@@ -29,6 +30,7 @@ const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 
 export default function Renewals() {
   const { user } = useAuth();
+  const { user: staffUser, loading: staffLoading } = useStaffAuth();
   const queryClient = useQueryClient();
   const [context, setContext] = useState<RenewalUploadContext | null>(null);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
@@ -78,18 +80,73 @@ export default function Renewals() {
 
   useEffect(() => {
     async function load() {
-      if (!user?.id) { setLoading(false); return; }
-      try {
-        const { data: p } = await supabase.from('profiles').select('agency_id, full_name').eq('id', user.id).single();
-        if (p?.agency_id) {
-          setContext({ agencyId: p.agency_id, userId: user.id, staffMemberId: null, displayName: p.full_name || user.email || 'Unknown' });
-          const { data: m } = await supabase.from('team_members').select('id, name').eq('agency_id', p.agency_id).eq('status', 'active').order('name');
-          setTeamMembers(m || []);
+      // Check for staff user first
+      if (staffUser?.agency_id) {
+        console.log('Staff user detected for Renewals:', staffUser);
+        setContext({
+          agencyId: staffUser.agency_id,
+          userId: staffUser.id,
+          staffMemberId: staffUser.team_member_id,
+          displayName: staffUser.display_name || staffUser.username || 'Staff User'
+        });
+        
+        // Fetch team members for staff user
+        try {
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('id, name')
+            .eq('agency_id', staffUser.agency_id)
+            .eq('status', 'active')
+            .order('name');
+          setTeamMembers(members || []);
+        } catch (err) {
+          console.error('Error fetching team members for staff:', err);
         }
-      } catch {} finally { setLoading(false); }
+        setLoading(false);
+        return;
+      }
+      
+      // Fall back to regular auth user
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('agency_id, full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (p?.agency_id) {
+          setContext({
+            agencyId: p.agency_id,
+            userId: user.id,
+            staffMemberId: null,
+            displayName: p.full_name || user.email || 'Unknown'
+          });
+          
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('id, name')
+            .eq('agency_id', p.agency_id)
+            .eq('status', 'active')
+            .order('name');
+          setTeamMembers(members || []);
+        }
+      } catch (err) {
+        console.error('Error loading renewals context:', err);
+      } finally {
+        setLoading(false);
+      }
     }
-    load();
-  }, [user]);
+    
+    // Wait for staff auth check to complete
+    if (!staffLoading) {
+      load();
+    }
+  }, [user, staffUser, staffLoading]);
 
   const effectiveFilters = useMemo(() => {
     const f = { ...filters };
@@ -249,7 +306,7 @@ export default function Renewals() {
   const handleBulkDelete = () => { bulkDelete.mutate(Array.from(selectedIds), { onSuccess: () => { setSelectedIds(new Set()); setShowDeleteDialog(false); } }); };
   const handleBulkStatus = (status: WorkflowStatus) => { if (!context) return; bulkUpdate.mutate({ ids: Array.from(selectedIds), updates: { current_status: status }, displayName: context.displayName, userId: context.userId }, { onSuccess: () => setSelectedIds(new Set()) }); };
 
-  if (loading) return <div className="container mx-auto p-6 flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 animate-spin" /></div>;
+  if (loading || staffLoading) return <div className="container mx-auto p-6 flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 animate-spin" /></div>;
   if (!context) return <div className="container mx-auto p-6"><Card className="p-6 text-center text-muted-foreground">Unable to load context.</Card></div>;
 
   return (
