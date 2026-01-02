@@ -889,22 +889,23 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                             type="text"
                                             inputMode="decimal"
                                             className="h-9"
-                                            value={item.premium === 0 ? "" : item.premium}
+                                            value={item.premium}
                                             onChange={(e) => {
                                               const val = e.target.value;
-                                              if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                              // Allow empty, digits, and decimals
+                                              if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
                                                 updateLineItem(
                                                   policy.id,
                                                   item.id,
                                                   "premium",
-                                                  val === "" ? 0 : parseFloat(val) || 0
+                                                  val === "" ? 0 : val as any
                                                 );
                                               }
                                             }}
                                             onBlur={(e) => {
-                                              if (e.target.value === "") {
-                                                updateLineItem(policy.id, item.id, "premium", 0);
-                                              }
+                                              // Clean up on blur - ensure it's a valid number
+                                              const parsed = parseFloat(e.target.value) || 0;
+                                              updateLineItem(policy.id, item.id, "premium", parsed);
                                             }}
                                             placeholder="0"
                                           />
@@ -945,23 +946,26 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                     type="text"
                                     inputMode="decimal"
                                     className="h-9"
-                                    value={policy.lineItems[0]?.premium === 0 ? "" : policy.lineItems[0]?.premium || ""}
+                                    value={policy.lineItems[0]?.premium ?? ""}
                                     onChange={(e) => {
                                       const val = e.target.value;
-                                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                      // Allow empty, digits, and decimals
+                                      if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
                                         if (policy.lineItems[0]) {
                                           updateLineItem(
                                             policy.id,
                                             policy.lineItems[0].id,
                                             "premium",
-                                            val === "" ? 0 : parseFloat(val) || 0
+                                            val === "" ? 0 : val as any
                                           );
                                         }
                                       }
                                     }}
                                     onBlur={(e) => {
-                                      if (e.target.value === "" && policy.lineItems[0]) {
-                                        updateLineItem(policy.id, policy.lineItems[0].id, "premium", 0);
+                                      // Clean up on blur - ensure it's a valid number
+                                      if (policy.lineItems[0]) {
+                                        const parsed = parseFloat(e.target.value) || 0;
+                                        updateLineItem(policy.id, policy.lineItems[0].id, "premium", parsed);
                                       }
                                     }}
                                     placeholder="0"
