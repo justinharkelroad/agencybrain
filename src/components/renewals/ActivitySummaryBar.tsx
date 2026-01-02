@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 interface ActivitySummaryBarProps {
   agencyId: string | null;
@@ -33,11 +34,31 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
     ? 'Today' 
     : format(selectedDate, 'EEEE, MMM d');
   
+  const staffSessionToken = getStaffSessionToken();
+  
   const { data: activities, isLoading } = useQuery({
-    queryKey: ['renewal-activity-summary', agencyId, dateStr],
+    queryKey: ['renewal-activity-summary', agencyId, dateStr, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
       
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[ActivitySummaryBar] Staff user detected, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewal_activities', {
+          body: { date: dateStr },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) {
+          console.error('[ActivitySummaryBar] Edge function error:', error);
+          return [];
+        }
+        
+        console.log('[ActivitySummaryBar] Got activities from edge function:', data?.activities?.length);
+        return data?.activities || [];
+      }
+      
+      // Regular users: direct query
       const startOfDayStr = `${dateStr}T00:00:00`;
       const endOfDayStr = `${dateStr}T23:59:59`;
       

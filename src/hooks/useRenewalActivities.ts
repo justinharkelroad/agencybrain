@@ -2,12 +2,33 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { RenewalActivity, ActivityType, WorkflowStatus } from '@/types/renewal';
+import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 export function useRenewalActivities(renewalRecordId: string | null) {
+  const staffSessionToken = getStaffSessionToken();
+  
   return useQuery({
-    queryKey: ['renewal-activities', renewalRecordId],
+    queryKey: ['renewal-activities', renewalRecordId, !!staffSessionToken],
     queryFn: async () => {
       if (!renewalRecordId) return [];
+      
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[useRenewalActivities] Staff user detected, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewal_activities', {
+          body: { renewalRecordId },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) {
+          console.error('[useRenewalActivities] Edge function error:', error);
+          throw error;
+        }
+        
+        return (data?.activities || []) as RenewalActivity[];
+      }
+      
+      // Regular users: direct query
       const { data, error } = await supabase
         .from('renewal_activities')
         .select('*')

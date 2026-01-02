@@ -233,3 +233,12 @@ verify_jwt = true
 
 [functions.get_staff_sales]
 verify_jwt = false
+
+[functions.get_staff_renewals]
+verify_jwt = false
+
+[functions.get_staff_renewal_activities]
+verify_jwt = false
+
+[functions.get_staff_renewal_stats]
+verify_jwt = false
