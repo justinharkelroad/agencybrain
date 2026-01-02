@@ -59,21 +59,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify session
+    // Verify session - split into two queries to avoid column name issues
     const { data: session, error: sessionError } = await supabase
       .from('staff_sessions')
-      .select(`
-        staff_user_id,
-        expires_at,
-        is_active,
-        staff_users!inner(
-          id,
-          agency_id,
-          team_member_id,
-          name,
-          display_name
-        )
-      `)
+      .select('staff_user_id, expires_at, is_active')
       .eq('session_token', sessionToken)
       .eq('is_active', true)
       .gt('expires_at', new Date().toISOString())
@@ -87,7 +76,23 @@ serve(async (req) => {
       });
     }
 
-    const staffUser = session.staff_users;
+    // Get staff user details
+    const { data: staffUser, error: staffError } = await supabase
+      .from('staff_users')
+      .select('id, agency_id, team_member_id, display_name')
+      .eq('id', session.staff_user_id)
+      .single();
+
+    if (staffError || !staffUser) {
+      console.error('Staff user lookup failed:', staffError);
+      return new Response(JSON.stringify({ error: 'Unauthorized - staff user not found' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log('Session verified for staff user:', staffUser.display_name);
+
     const agencyId = staffUser.agency_id;
     const teamMemberId = staffUser.team_member_id;
 
