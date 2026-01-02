@@ -3635,6 +3635,59 @@ export type Database = {
         }
         Relationships: []
       }
+      product_types: {
+        Row: {
+          agency_id: string | null
+          carrier: string | null
+          category: string
+          created_at: string | null
+          default_points: number | null
+          exclude_from_item_count: boolean | null
+          exclude_from_policy_count: boolean | null
+          id: string
+          is_active: boolean | null
+          is_vc_item: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          carrier?: string | null
+          category: string
+          created_at?: string | null
+          default_points?: number | null
+          exclude_from_item_count?: boolean | null
+          exclude_from_policy_count?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_vc_item?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          carrier?: string | null
+          category?: string
+          created_at?: string | null
+          default_points?: number | null
+          exclude_from_item_count?: boolean | null
+          exclude_from_policy_count?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          is_vc_item?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_types_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           agency_id: string | null
@@ -4466,6 +4519,228 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: true
             referencedRelation: "roleplay_access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_vc_qualifying: boolean | null
+          item_count: number | null
+          points: number | null
+          premium: number | null
+          product_type_id: string | null
+          product_type_name: string
+          sale_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_vc_qualifying?: boolean | null
+          item_count?: number | null
+          points?: number | null
+          premium?: number | null
+          product_type_id?: string | null
+          product_type_name: string
+          sale_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_vc_qualifying?: boolean | null
+          item_count?: number | null
+          points?: number | null
+          premium?: number | null
+          product_type_id?: string | null
+          product_type_name?: string
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          agency_id: string
+          bundle_type: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          customer_zip: string | null
+          effective_date: string
+          expiration_date: string | null
+          id: string
+          is_bundle: boolean | null
+          is_vc_qualifying: boolean | null
+          policy_number: string | null
+          sale_date: string | null
+          source: string | null
+          source_details: Json | null
+          subproducer_code: string | null
+          team_member_id: string | null
+          total_items: number | null
+          total_points: number | null
+          total_policies: number | null
+          total_premium: number | null
+          updated_at: string | null
+          vc_items: number | null
+          vc_points: number | null
+          vc_premium: number | null
+        }
+        Insert: {
+          agency_id: string
+          bundle_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          customer_zip?: string | null
+          effective_date: string
+          expiration_date?: string | null
+          id?: string
+          is_bundle?: boolean | null
+          is_vc_qualifying?: boolean | null
+          policy_number?: string | null
+          sale_date?: string | null
+          source?: string | null
+          source_details?: Json | null
+          subproducer_code?: string | null
+          team_member_id?: string | null
+          total_items?: number | null
+          total_points?: number | null
+          total_policies?: number | null
+          total_premium?: number | null
+          updated_at?: string | null
+          vc_items?: number | null
+          vc_points?: number | null
+          vc_premium?: number | null
+        }
+        Update: {
+          agency_id?: string
+          bundle_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          customer_zip?: string | null
+          effective_date?: string
+          expiration_date?: string | null
+          id?: string
+          is_bundle?: boolean | null
+          is_vc_qualifying?: boolean | null
+          policy_number?: string | null
+          sale_date?: string | null
+          source?: string | null
+          source_details?: Json | null
+          subproducer_code?: string | null
+          team_member_id?: string | null
+          total_items?: number | null
+          total_points?: number | null
+          total_policies?: number | null
+          total_premium?: number | null
+          updated_at?: string | null
+          vc_items?: number | null
+          vc_points?: number | null
+          vc_premium?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_goals: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          effective_month: string | null
+          effective_year: number | null
+          goal_focus: string
+          goal_name: string
+          id: string
+          is_active: boolean | null
+          measurement: string
+          rank: number | null
+          target_value: number
+          team_member_id: string | null
+          time_period: string
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          effective_month?: string | null
+          effective_year?: number | null
+          goal_focus?: string
+          goal_name: string
+          id?: string
+          is_active?: boolean | null
+          measurement: string
+          rank?: number | null
+          target_value: number
+          team_member_id?: string | null
+          time_period?: string
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          effective_month?: string | null
+          effective_year?: number | null
+          goal_focus?: string
+          goal_name?: string
+          id?: string
+          is_active?: boolean | null
+          measurement?: string
+          rank?: number | null
+          target_value?: number
+          team_member_id?: string | null
+          time_period?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_goals_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -5501,6 +5776,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "fk_targets_team_member_id"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_member_subproducer_codes: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          subproducer_code: string
+          team_member_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          subproducer_code: string
+          team_member_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          subproducer_code?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_member_subproducer_codes_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
