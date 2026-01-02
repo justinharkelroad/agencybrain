@@ -15,10 +15,12 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { Calendar as CalendarIcon, MoreVertical, Plus, Trash2, Edit } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Calendar as CalendarIcon, MoreVertical, Plus, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { format, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAgencyRosterWithStaffLogins } from '@/hooks/useAgencyRosterWithStaffLogins';
 
 interface TrainingAssignmentsTabProps {
   agencyId: string;
@@ -45,7 +47,14 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   const [filterModuleId, setFilterModuleId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Fetch staff users
+  // Fetch roster with staff login status
+  const { data: rosterData } = useAgencyRosterWithStaffLogins(agencyId);
+  const roster = rosterData?.roster || [];
+
+  // Get staff users with active logins for assignments
+  const activeStaffRoster = roster.filter(m => m.loginStatus === 'active' && m.staffUser);
+
+  // Fetch staff users (for assignment display - we still need this for existing assignments)
   const { data: staffUsers } = useQuery({
     queryKey: ['staff-users', agencyId],
     queryFn: async () => {
@@ -435,24 +444,54 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
             <div>
               <Label className="mb-2 block">Select Staff Members</Label>
               <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
-                {staffUsers?.map(staff => (
-                  <div key={staff.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`staff-${staff.id}`}
-                      checked={selectedStaffIds.includes(staff.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedStaffIds([...selectedStaffIds, staff.id]);
-                        } else {
-                          setSelectedStaffIds(selectedStaffIds.filter(id => id !== staff.id));
-                        }
-                      }}
-                    />
-                    <label htmlFor={`staff-${staff.id}`} className="text-sm cursor-pointer">
-                      {staff.display_name || staff.username}
-                    </label>
-                  </div>
-                ))}
+                {roster.filter(m => m.status === 'active').map(member => {
+                  const hasAccess = member.loginStatus === 'active';
+                  const staffUserId = member.staffUser?.id;
+                  
+                  return (
+                    <TooltipProvider key={member.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className={cn(
+                            "flex items-center gap-2",
+                            !hasAccess && "opacity-50"
+                          )}>
+                            <Checkbox
+                              id={`staff-${member.id}`}
+                              checked={staffUserId ? selectedStaffIds.includes(staffUserId) : false}
+                              onCheckedChange={(checked) => {
+                                if (!staffUserId || !hasAccess) return;
+                                if (checked) {
+                                  setSelectedStaffIds([...selectedStaffIds, staffUserId]);
+                                } else {
+                                  setSelectedStaffIds(selectedStaffIds.filter(id => id !== staffUserId));
+                                }
+                              }}
+                              disabled={!hasAccess}
+                            />
+                            <label 
+                              htmlFor={`staff-${member.id}`} 
+                              className={cn("text-sm cursor-pointer flex items-center gap-2", !hasAccess && "cursor-not-allowed")}
+                            >
+                              {member.name}
+                              {!hasAccess && (
+                                <AlertCircle className="h-3 w-3 text-amber-500" />
+                              )}
+                            </label>
+                          </div>
+                        </TooltipTrigger>
+                        {!hasAccess && (
+                          <TooltipContent>
+                            <p>Grant staff portal access first in Training → Staff Users</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })}
+                {roster.filter(m => m.status === 'active').length === 0 && (
+                  <p className="text-sm text-muted-foreground">No team members found</p>
+                )}
               </div>
             </div>
             <div>
