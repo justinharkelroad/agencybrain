@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -6,12 +6,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesLog } from "@/components/sales/SalesLog";
 import { AddSaleForm } from "@/components/sales/AddSaleForm";
+import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
+import { SalesGoals } from "@/components/sales/SalesGoals";
 import { Loader2 } from "lucide-react";
 
 export default function Sales() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState("log");
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+
+  // Fetch agency ID
+  useEffect(() => {
+    async function fetchAgencyId() {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("agency_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setAgencyId(data?.agency_id || null);
+    }
+    fetchAgencyId();
+  }, [user?.id]);
 
   // Fetch sale data for editing
   const { data: editSaleData, isLoading: isLoadingEditSale } = useQuery({
@@ -123,11 +140,13 @@ export default function Sales() {
       <h1 className="text-3xl font-bold mb-6">Sales</h1>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="log">Sales Log</TabsTrigger>
           <TabsTrigger value="add">
             {editingSaleId ? "Edit Sale" : "Add Sale"}
           </TabsTrigger>
+          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          <TabsTrigger value="goals">Goals</TabsTrigger>
         </TabsList>
 
         <TabsContent value="log" className="mt-6">
@@ -147,6 +166,14 @@ export default function Sales() {
               key={editingSaleId || "new"}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="leaderboard" className="mt-6">
+          <SalesLeaderboard agencyId={agencyId} />
+        </TabsContent>
+
+        <TabsContent value="goals" className="mt-6">
+          <SalesGoals agencyId={agencyId} />
         </TabsContent>
       </Tabs>
     </div>
