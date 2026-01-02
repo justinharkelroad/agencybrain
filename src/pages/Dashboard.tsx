@@ -125,8 +125,8 @@ const Dashboard = () => {
           )}
         </div>
         <PeriodRefreshProvider>
-          {/* 0. Sales Dashboard Widget - at top */}
-          <SalesDashboardWidget agencyId={agencyId} />
+          {/* 0. Sales Dashboard Widget - admin only for now */}
+          {isAdmin && <SalesDashboardWidget agencyId={agencyId} />}
           
           {/* 1. Core 4 + Flow */}
           <Core4Card />
