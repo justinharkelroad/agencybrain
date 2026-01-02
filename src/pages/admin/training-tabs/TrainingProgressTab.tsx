@@ -7,11 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, Download, ChevronDown, ChevronRight, Users, BookOpen, TrendingUp, AlertCircle, MessageSquare, Trash2 } from 'lucide-react';
+import { Loader2, Download, ChevronDown, ChevronRight, Users, BookOpen, TrendingUp, AlertCircle, MessageSquare, Trash2, UserX } from 'lucide-react';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { exportToCSV } from '@/utils/exportUtils';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useAgencyRosterWithStaffLogins, TeamMemberWithLogin } from '@/hooks/useAgencyRosterWithStaffLogins';
+import { Link } from 'react-router-dom';
 
 type SortField = 'name' | 'modules' | 'completed' | 'percentage' | 'lastActivity' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -31,12 +33,14 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
   const [expandedReflections, setExpandedReflections] = useState<Set<string>>(new Set());
   const [reflectionStaffFilter, setReflectionStaffFilter] = useState<string>('all');
 
-  // Fetch all data in parallel
-  const { data: allData, isLoading } = useQuery({
+  // Get unified roster with login status
+  const { data: rosterData, isLoading: rosterLoading } = useAgencyRosterWithStaffLogins(agencyId);
+
+  // Fetch training data (assignments, progress, etc.)
+  const { data: allData, isLoading: trainingLoading } = useQuery({
     queryKey: ['admin-training-progress', agencyId],
     queryFn: async () => {
       const [
-        { data: staffUsers, error: staffError },
         { data: assignments, error: assignmentsError },
         { data: lessonProgress, error: progressError },
         { data: quizAttempts, error: quizError },
@@ -44,7 +48,6 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
         { data: modules, error: modulesError },
         { data: quizzes, error: quizzesError }
       ] = await Promise.all([
-        supabase.from('staff_users').select('*').eq('agency_id', agencyId).eq('is_active', true),
         supabase.from('training_assignments').select('*').eq('agency_id', agencyId),
         supabase.from('staff_lesson_progress').select('*'),
         supabase.from('training_quiz_attempts').select('*').eq('agency_id', agencyId).order('completed_at', { ascending: false }),
@@ -53,7 +56,6 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
         supabase.from('training_quizzes').select('*').eq('agency_id', agencyId)
       ]);
 
-      if (staffError) throw staffError;
       if (assignmentsError) throw assignmentsError;
       if (progressError) throw progressError;
       if (quizError) throw quizError;
@@ -62,7 +64,6 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
       if (quizzesError) throw quizzesError;
 
       return {
-        staffUsers: staffUsers || [],
         assignments: assignments || [],
         lessonProgress: lessonProgress || [],
         quizAttempts: quizAttempts || [],
@@ -73,6 +74,16 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
     },
     enabled: !!agencyId,
   });
+
+  const isLoading = rosterLoading || trainingLoading;
+
+  // Get active staff users from roster (those with logins)
+  const activeStaffUsers = useMemo(() => {
+    if (!rosterData?.roster) return [];
+    return rosterData.roster
+      .filter(m => m.staffUser !== null)
+      .map(m => m.staffUser!);
+  }, [rosterData?.roster]);
 
   // Create lookup maps
   const moduleMap = useMemo(() => 
@@ -86,15 +97,15 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
   );
 
   const staffMap = useMemo(() =>
-    new Map(allData?.staffUsers.map(s => [s.id, s])),
-    [allData?.staffUsers]
+    new Map(activeStaffUsers.map(s => [s.id, s])),
+    [activeStaffUsers]
   );
 
-  // Calculate summary stats
+  // Calculate summary stats - now uses roster count for total
   const summaryStats = useMemo(() => {
-    if (!allData) return { totalStaff: 0, totalCompleted: 0, avgCompletion: 0, overdueCount: 0 };
+    if (!allData || !rosterData) return { totalTeamMembers: 0, staffWithLogins: 0, totalCompleted: 0, avgCompletion: 0, overdueCount: 0 };
 
-    const staffUserIds = new Set(allData.staffUsers.map(s => s.id));
+    const staffUserIds = new Set(activeStaffUsers.map(s => s.id));
     const totalCompleted = allData.lessonProgress.filter(
       p => staffUserIds.has(p.staff_user_id) && p.completed
     ).length;
@@ -114,23 +125,32 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
     ).length;
 
     return {
-      totalStaff: allData.staffUsers.length,
+      totalTeamMembers: rosterData.roster.length,
+      staffWithLogins: activeStaffUsers.length,
       totalCompleted,
       avgCompletion,
       overdueCount
     };
-  }, [allData]);
+  }, [allData, rosterData, activeStaffUsers]);
 
-  // Build staff progress data
+  // Build staff progress data - now based on roster (team members)
   const staffProgressData = useMemo(() => {
-    if (!allData) return [];
+    if (!allData || !rosterData) return [];
 
-    return allData.staffUsers.map((staff: any) => {
-      const staffAssignments = allData.assignments.filter(a => a.staff_user_id === staff.id);
+    return rosterData.roster.map((member: TeamMemberWithLogin) => {
+      const staffUserId = member.staffUser?.id;
+      const hasStaffLogin = member.loginStatus === 'active';
       
-      const completedLessons = allData.lessonProgress.filter(
-        p => p.staff_user_id === staff.id && p.completed
-      ).length;
+      // Get assignments for this staff user (if they have a login)
+      const staffAssignments = staffUserId 
+        ? allData.assignments.filter(a => a.staff_user_id === staffUserId)
+        : [];
+      
+      const completedLessons = staffUserId 
+        ? allData.lessonProgress.filter(
+            p => p.staff_user_id === staffUserId && p.completed
+          ).length
+        : 0;
 
       const totalLessons = staffAssignments.reduce((total, assignment) => {
         const moduleId = assignment.module_id;
@@ -142,8 +162,12 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
         ? Math.round((completedLessons / totalLessons) * 100)
         : 0;
 
-      const staffProgress = allData.lessonProgress.filter(p => p.staff_user_id === staff.id);
-      const staffQuizzes = allData.quizAttempts.filter(q => q.staff_user_id === staff.id);
+      const staffProgress = staffUserId 
+        ? allData.lessonProgress.filter(p => p.staff_user_id === staffUserId)
+        : [];
+      const staffQuizzes = staffUserId 
+        ? allData.quizAttempts.filter(q => q.staff_user_id === staffUserId)
+        : [];
       
       const progressDates = staffProgress
         .filter(p => p.completed_at)
@@ -158,19 +182,24 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
         ? new Date(Math.max(...allDates.map(d => d.getTime())))
         : null;
 
-      let status: 'On Track' | 'Behind' | 'Overdue' = 'On Track';
-      const hasOverdue = staffAssignments.some(a => a.due_date && isPast(parseISO(a.due_date)));
+      let status: 'On Track' | 'Behind' | 'Overdue' | 'No Access' = hasStaffLogin ? 'On Track' : 'No Access';
       
-      if (hasOverdue) {
-        status = 'Overdue';
-      } else if (completionPercentage < 50 && staffAssignments.some(a => a.due_date)) {
-        status = 'Behind';
+      if (hasStaffLogin) {
+        const hasOverdue = staffAssignments.some(a => a.due_date && isPast(parseISO(a.due_date)));
+        if (hasOverdue) {
+          status = 'Overdue';
+        } else if (completionPercentage < 50 && staffAssignments.some(a => a.due_date)) {
+          status = 'Behind';
+        }
       }
 
       return {
-        id: staff.id,
-        name: staff.display_name || staff.email,
-        email: staff.email,
+        id: member.id, // team_member.id
+        staffUserId,
+        name: member.name,
+        email: member.email,
+        loginStatus: member.loginStatus,
+        hasStaffLogin,
         assignedModules: staffAssignments.length,
         completedLessons,
         totalLessons,
@@ -180,7 +209,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
         assignments: staffAssignments
       };
     });
-  }, [allData]);
+  }, [allData, rosterData]);
 
   // Build quiz scores data with snapshot support
   const quizScoresData = useMemo(() => {
@@ -416,7 +445,16 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
     toast.success('Reflections exported to CSV');
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, hasStaffLogin?: boolean) => {
+    if (!hasStaffLogin || status === 'No Access') {
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          <UserX className="h-3 w-3 mr-1" />
+          No Access
+        </Badge>
+      );
+    }
+    
     const variants = {
       'On Track': 'default',
       'Behind': 'secondary',
@@ -442,7 +480,10 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold">Training Progress</h2>
-          <p className="text-muted-foreground text-sm">Monitor staff training completion and performance</p>
+          <p className="text-muted-foreground text-sm">
+            Monitor training completion for your team. Team roster is managed in{' '}
+            <Link to="/agency/manage?tab=team" className="text-primary hover:underline">My Agency → Team</Link>.
+          </p>
         </div>
         <Button onClick={handleExportCSV} variant="flat">
           <Download className="h-4 w-4 mr-2" />
@@ -454,11 +495,12 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
+            <CardTitle className="text-sm font-medium">Team Members</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.totalStaff}</div>
+            <div className="text-2xl font-bold">{summaryStats.totalTeamMembers}</div>
+            <p className="text-xs text-muted-foreground">{summaryStats.staffWithLogins} with portal access</p>
           </CardContent>
         </Card>
 
@@ -562,7 +604,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
                 {filteredAndSortedData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      No staff users found
+                      No team members found
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -576,19 +618,34 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{staff.name}</TableCell>
-                        <TableCell>{staff.assignedModules}</TableCell>
-                        <TableCell>{staff.completedLessons}/{staff.totalLessons}</TableCell>
-                        <TableCell>{staff.completionPercentage}%</TableCell>
-                        <TableCell>
-                          {staff.lastActivity 
-                            ? formatDistanceToNow(staff.lastActivity, { addSuffix: true })
-                            : 'Never'
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {staff.name}
+                            {!staff.hasStaffLogin && (
+                              <span className="text-xs text-muted-foreground">(no portal access)</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className={!staff.hasStaffLogin ? 'text-muted-foreground' : ''}>
+                          {staff.hasStaffLogin ? staff.assignedModules : '—'}
+                        </TableCell>
+                        <TableCell className={!staff.hasStaffLogin ? 'text-muted-foreground' : ''}>
+                          {staff.hasStaffLogin ? `${staff.completedLessons}/${staff.totalLessons}` : '—'}
+                        </TableCell>
+                        <TableCell className={!staff.hasStaffLogin ? 'text-muted-foreground' : ''}>
+                          {staff.hasStaffLogin ? `${staff.completionPercentage}%` : '—'}
+                        </TableCell>
+                        <TableCell className={!staff.hasStaffLogin ? 'text-muted-foreground' : ''}>
+                          {staff.hasStaffLogin 
+                            ? (staff.lastActivity 
+                                ? formatDistanceToNow(staff.lastActivity, { addSuffix: true })
+                                : 'Never')
+                            : '—'
                           }
                         </TableCell>
-                        <TableCell>{getStatusBadge(staff.status)}</TableCell>
+                        <TableCell>{getStatusBadge(staff.status, staff.hasStaffLogin)}</TableCell>
                       </TableRow>
-                      {expandedRows.has(staff.id) && (
+                      {expandedRows.has(staff.id) && staff.hasStaffLogin && (
                         <TableRow>
                           <TableCell colSpan={7} className="bg-muted/50 p-4">
                             <div className="space-y-2">
@@ -601,7 +658,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
                                     const module = moduleMap.get(assignment.module_id);
                                     const moduleLessons = allData?.lessons.filter(l => l.module_id === assignment.module_id) || [];
                                     const completedInModule = allData?.lessonProgress.filter(
-                                      p => p.staff_user_id === staff.id && 
+                                      p => p.staff_user_id === staff.staffUserId && 
                                            moduleLessons.some(l => l.id === p.lesson_id) &&
                                            p.completed
                                     ).length || 0;
@@ -715,7 +772,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Staff Members</SelectItem>
-                {allData?.staffUsers.map(staff => (
+                {activeStaffUsers.map(staff => (
                   <SelectItem key={staff.id} value={staff.id}>
                     {staff.display_name || staff.email}
                   </SelectItem>
