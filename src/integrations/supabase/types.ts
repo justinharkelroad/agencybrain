@@ -5644,6 +5644,8 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          impersonated_by: string | null
+          is_impersonation: boolean | null
           is_valid: boolean
           session_token: string
           staff_user_id: string
@@ -5652,6 +5654,8 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          impersonated_by?: string | null
+          is_impersonation?: boolean | null
           is_valid?: boolean
           session_token: string
           staff_user_id: string
@@ -5660,6 +5664,8 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          impersonated_by?: string | null
+          is_impersonation?: boolean | null
           is_valid?: boolean
           session_token?: string
           staff_user_id?: string
