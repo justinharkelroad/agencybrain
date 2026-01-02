@@ -52,6 +52,17 @@ interface AddSaleFormProps {
   onSuccess?: () => void;
 }
 
+// Format phone number as (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  const limited = digits.slice(0, 10);
+  
+  if (limited.length === 0) return '';
+  if (limited.length <= 3) return `(${limited}`;
+  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
+  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+};
+
 // Helper to determine if a product is "Auto" type
 const isAutoProduct = (name: string) => {
   const lower = name.toLowerCase();
@@ -346,8 +357,9 @@ export function AddSaleForm({ onSuccess }: AddSaleFormProps) {
               <Input
                 id="customerPhone"
                 value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
                 placeholder="(555) 123-4567"
+                maxLength={14}
               />
             </div>
             <div className="space-y-2">
