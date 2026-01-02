@@ -6,13 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRenewalActivities } from '@/hooks/useRenewalActivities';
+import { useRenewalActivities, useCreateRenewalActivity } from '@/hooks/useRenewalActivities';
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { ScheduleActivityModal } from './ScheduleActivityModal';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from '@/hooks/use-toast';
 import type { RenewalRecord, WorkflowStatus, RenewalUploadContext } from '@/types/renewal';
 
 interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
@@ -38,10 +35,9 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [isSavingNote, setIsSavingNote] = useState(false);
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
-  const queryClient = useQueryClient();
+  const createActivity = useCreateRenewalActivity();
 
   // Listen for sidebar navigation to force close drawer
   useEffect(() => {
@@ -56,46 +52,25 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
   if (!record) return null;
 
-  const handleStatusChange = (s: WorkflowStatus) => { updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); };
+  const handleStatusChange = (s: WorkflowStatus) => { 
+    updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); 
+  };
 
-  const handleSaveNote = async () => {
+  const handleSaveNote = () => {
     if (!record?.id || !noteText.trim()) return;
     
-    setIsSavingNote(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Get display name from profiles table
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user?.id)
-        .single();
-      
-      const displayName = profile?.full_name || user?.user_metadata?.display_name || user?.email || 'Unknown';
-      
-      const { error } = await supabase
-        .from('renewal_activities')
-        .insert({
-          agency_id: record.agency_id,
-          renewal_record_id: record.id,
-          activity_type: 'note',
-          comments: noteText.trim(),
-          created_by: user?.id,
-          created_by_display_name: displayName,
-        });
-      
-      if (error) throw error;
-      
-      toast({ title: 'Note saved' });
-      setNoteText('');
-      queryClient.invalidateQueries({ queryKey: ['renewal-activities', record.id] });
-    } catch (err) {
-      console.error('Failed to save note:', err);
-      toast({ title: 'Failed to save note', variant: 'destructive' });
-    } finally {
-      setIsSavingNote(false);
-    }
+    createActivity.mutate({
+      renewalRecordId: record.id,
+      agencyId: context.agencyId,
+      activityType: 'note',
+      comments: noteText.trim(),
+      displayName: context.displayName,
+      userId: context.userId,
+    }, {
+      onSuccess: () => {
+        setNoteText('');
+      }
+    });
   };
 
   return (
@@ -224,12 +199,12 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 />
                 <Button
                   onClick={handleSaveNote}
-                  disabled={isSavingNote || !noteText.trim()}
+                  disabled={createActivity.isPending || !noteText.trim()}
                   variant="outline"
                   size="sm"
                   className="border-gray-600"
                 >
-                  {isSavingNote ? 'Saving...' : 'Save Note'}
+                  {createActivity.isPending ? 'Saving...' : 'Save Note'}
                 </Button>
               </div>
 

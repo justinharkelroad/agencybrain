@@ -58,9 +58,41 @@ interface CreateActivityParams {
 
 export function useCreateRenewalActivity() {
   const queryClient = useQueryClient();
+  const staffSessionToken = getStaffSessionToken();
   
   return useMutation({
     mutationFn: async (params: CreateActivityParams) => {
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[useCreateRenewalActivity] Staff user detected, calling edge function');
+        const { data, error } = await supabase.functions.invoke('log_staff_renewal_activity', {
+          body: {
+            renewalRecordId: params.renewalRecordId,
+            activityType: params.activityType,
+            activityStatus: params.activityStatus,
+            subject: params.subject,
+            comments: params.comments,
+            scheduledDate: params.scheduledDate?.toISOString(),
+            sendCalendarInvite: params.sendCalendarInvite,
+            assignedTeamMemberId: params.assignedTeamMemberId,
+            updateRecordStatus: params.updateRecordStatus,
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) {
+          console.error('[useCreateRenewalActivity] Edge function error:', error);
+          throw error;
+        }
+        
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+        
+        return;
+      }
+      
+      // Regular users: direct Supabase call
       // Get display name from profiles table for accuracy
       let displayName = params.displayName;
       if (params.userId) {
