@@ -86,6 +86,14 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
     items: [
       {
+        id: 'sales-dashboard',
+        title: 'Sales Dashboard',
+        icon: LayoutDashboard,
+        type: 'link',
+        url: '/sales',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',
         icon: Bot,
@@ -377,6 +385,14 @@ export const staffNavigationConfig: NavEntry[] = [
     isFolder: true,
     access: { staff: true, manager: true, owner: true },
     items: [
+      {
+        id: 'sales-dashboard',
+        title: 'Sales Dashboard',
+        icon: LayoutDashboard,
+        type: 'link',
+        url: '/staff/sales',
+        access: { staff: true, manager: true, owner: true },
+      },
       {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',
