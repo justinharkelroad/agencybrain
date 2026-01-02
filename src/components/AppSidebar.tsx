@@ -59,7 +59,6 @@ type AppSidebarProps = {
 // Admin-only items (system-wide admin access)
 const adminOnlyItems = [
   { title: "Admin Portal", url: "/admin", icon: Shield },
-  { title: "Sales", url: "/sales", icon: DollarSign },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },

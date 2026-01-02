@@ -123,6 +123,7 @@ import ExchangePostPage from "./pages/ExchangePost";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
+import StaffSales from "./pages/staff/StaffSales";
 
 // Training pages
 import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
@@ -879,6 +880,8 @@ const App = () => {
               <Route path="theta-talk-track" element={<ThetaTalkTrack />} />
               {/* AI Sales Bot / Roleplay */}
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
+              {/* Staff Sales */}
+              <Route path="sales" element={<StaffSales />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
