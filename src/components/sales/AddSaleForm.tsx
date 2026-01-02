@@ -106,20 +106,33 @@ const formatPhoneNumber = (value: string): string => {
   return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
 };
 
-// Helper to determine if a product is "Auto" type
-const isAutoProduct = (name: string) => {
-  const lower = name.toLowerCase();
-  return lower.includes("auto");
-};
+// Auto products for Preferred Bundle detection
+const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
+const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 
-// Helper to determine if a product is "Home" type (Home, Condo, Landlord)
-const isHomeProduct = (name: string) => {
-  const lower = name.toLowerCase();
-  return (
-    lower.includes("homeowner") ||
-    lower.includes("condo") ||
-    lower.includes("landlord")
+// Helper to detect bundle type automatically
+const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: string | null } => {
+  const productNames = policies.map(p => p.policy_type_name).filter(Boolean);
+  
+  const hasAuto = productNames.some(name => 
+    AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
   );
+  const hasHome = productNames.some(name => 
+    HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
+  );
+  
+  // Preferred Bundle: Auto + Home
+  if (hasAuto && hasHome) {
+    return { isBundle: true, bundleType: 'Preferred' };
+  }
+  
+  // Standard Bundle: Multiple policies but not Auto + Home
+  if (policies.filter(p => p.policy_type_name).length > 1) {
+    return { isBundle: true, bundleType: 'Standard' };
+  }
+  
+  // Monoline: Single policy
+  return { isBundle: false, bundleType: null };
 };
 
 // Multi-item product types (can have multiple line items with item counts)
@@ -143,7 +156,6 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [producerId, setProducerId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
   const [policies, setPolicies] = useState<Policy[]>([]);
-  const [bundleType, setBundleType] = useState<string>("");
 
   const isEditMode = !!editSale;
 
@@ -156,7 +168,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerZip(editSale.customer_zip || "");
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? new Date(editSale.sale_date) : new Date());
-      setBundleType(editSale.bundle_type || "");
+      // Bundle type is now auto-calculated, no need to restore
       
       // Map policies and items
       const mappedPolicies: Policy[] = editSale.sale_policies.map((policy) => ({
@@ -257,12 +269,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     );
   }, [policies]);
 
-  // Detect if bundle (has both Auto and Home products)
-  const bundleDetected = useMemo(() => {
-    const hasAuto = policies.some((p) => isAutoProduct(p.policy_type_name));
-    const hasHome = policies.some((p) => isHomeProduct(p.policy_type_name));
-    return hasAuto && hasHome;
-  }, [policies]);
+  // Auto-detect bundle type based on policies
+  const bundleInfo = useMemo(() => detectBundleType(policies), [policies]);
 
   // Add a new policy
   const addPolicy = () => {
@@ -494,8 +502,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         vc_items: vcTotals.items,
         vc_premium: vcTotals.premium,
         vc_points: vcTotals.points,
-        is_bundle: bundleDetected,
-        bundle_type: bundleDetected ? bundleType || null : null,
+        is_bundle: bundleInfo.isBundle,
+        bundle_type: bundleInfo.bundleType,
         source: "manual",
         created_by: user?.id,
       };
@@ -582,7 +590,6 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setProducerId("");
     setSaleDate(new Date());
     setPolicies([]);
-    setBundleType("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1028,29 +1035,19 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 Sale Summary
-                {bundleDetected && (
+                {bundleInfo.isBundle && bundleInfo.bundleType === 'Preferred' && (
                   <Badge variant="default" className="bg-blue-600">
-                    Bundle Detected
+                    Preferred Bundle
+                  </Badge>
+                )}
+                {bundleInfo.isBundle && bundleInfo.bundleType === 'Standard' && (
+                  <Badge variant="secondary">
+                    Standard Bundle
                   </Badge>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Bundle Type Selection */}
-              {bundleDetected && (
-                <div className="space-y-2">
-                  <Label>Bundle Type</Label>
-                  <Select value={bundleType} onValueChange={setBundleType}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select bundle type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Preferred">Preferred</SelectItem>
-                      <SelectItem value="Standard">Standard</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Totals */}
               <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
