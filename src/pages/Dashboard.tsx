@@ -21,6 +21,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
+import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -124,6 +125,9 @@ const Dashboard = () => {
           )}
         </div>
         <PeriodRefreshProvider>
+          {/* 0. Sales Dashboard Widget - at top */}
+          <SalesDashboardWidget agencyId={agencyId} />
+          
           {/* 1. Core 4 + Flow */}
           <Core4Card />
           {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
