@@ -44,7 +44,7 @@ type LineItem = {
   product_type_id: string;
   product_type_name: string;
   item_count: number;
-  premium: number;
+  premium: number | string;
   points: number;
   is_vc_qualifying: boolean;
 };
@@ -247,7 +247,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     return policy.lineItems.reduce(
       (acc, item) => ({
         items: acc.items + item.item_count,
-        premium: acc.premium + item.premium,
+        premium:
+          acc.premium +
+          (typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0),
         points: acc.points + item.points,
       }),
       { items: 0, premium: 0, points: 0 }
@@ -460,7 +462,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       const vcTotals = vcItems.reduce(
         (acc, item) => ({
           items: acc.items + item.item_count,
-          premium: acc.premium + item.premium,
+          premium:
+            acc.premium +
+            (typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0),
           points: acc.points + item.points,
         }),
         { items: 0, premium: 0, points: 0 }
@@ -556,7 +560,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           product_type_id: item.product_type_id || null,
           product_type_name: item.product_type_name,
           item_count: item.item_count,
-          premium: item.premium,
+          premium:
+            typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0,
           points: item.points,
           is_vc_qualifying: item.is_vc_qualifying,
         }));
@@ -896,7 +901,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                             type="text"
                                             inputMode="decimal"
                                             className="h-9"
-                                            value={item.premium}
+                                            value={item.premium === 0 ? "" : item.premium}
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               // Allow empty, digits, and decimals
@@ -905,7 +910,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                                   policy.id,
                                                   item.id,
                                                   "premium",
-                                                  val === "" ? 0 : val as any
+                                                  val === "" ? 0 : (val as any)
                                                 );
                                               }
                                             }}
@@ -914,7 +919,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                               const parsed = parseFloat(e.target.value) || 0;
                                               updateLineItem(policy.id, item.id, "premium", parsed);
                                             }}
-                                            placeholder="0"
+                                            placeholder="0.00"
                                           />
                                         </div>
                                         <div className="flex items-end gap-2">
@@ -953,7 +958,11 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                     type="text"
                                     inputMode="decimal"
                                     className="h-9"
-                                    value={policy.lineItems[0]?.premium ?? ""}
+                                    value={
+                                      policy.lineItems[0]?.premium === 0
+                                        ? ""
+                                        : (policy.lineItems[0]?.premium ?? "")
+                                    }
                                     onChange={(e) => {
                                       const val = e.target.value;
                                       // Allow empty, digits, and decimals
@@ -963,7 +972,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                             policy.id,
                                             policy.lineItems[0].id,
                                             "premium",
-                                            val === "" ? 0 : val as any
+                                            val === "" ? 0 : (val as any)
                                           );
                                         }
                                       }
@@ -972,10 +981,15 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                       // Clean up on blur - ensure it's a valid number
                                       if (policy.lineItems[0]) {
                                         const parsed = parseFloat(e.target.value) || 0;
-                                        updateLineItem(policy.id, policy.lineItems[0].id, "premium", parsed);
+                                        updateLineItem(
+                                          policy.id,
+                                          policy.lineItems[0].id,
+                                          "premium",
+                                          parsed
+                                        );
                                       }
                                     }}
-                                    placeholder="0"
+                                    placeholder="0.00"
                                   />
                                 </div>
                                 <div className="flex items-end gap-3">

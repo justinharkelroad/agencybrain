@@ -83,7 +83,7 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
               type="number"
               min={1}
               max={100}
-              value={dailyQuotedTarget}
+              value={dailyQuotedTarget === 0 ? "" : dailyQuotedTarget}
               onChange={(e) => setDailyQuotedTarget(parseInt(e.target.value) || 0)}
             />
             <p className="text-xs text-muted-foreground">
@@ -97,7 +97,7 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
               type="number"
               min={1}
               max={100}
-              value={dailySoldTarget}
+              value={dailySoldTarget === 0 ? "" : dailySoldTarget}
               onChange={(e) => setDailySoldTarget(parseInt(e.target.value) || 0)}
             />
             <p className="text-xs text-muted-foreground">

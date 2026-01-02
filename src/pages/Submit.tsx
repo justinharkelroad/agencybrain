@@ -910,10 +910,17 @@ export default function Submit() {
                       type="number"
                       step="0.01"
                       placeholder="0.00"
-                      value={typeof source.soldPremium === 'number' ? source.soldPremium : ''}
+                      value={
+                        typeof source.soldPremium === "number"
+                          ? source.soldPremium === 0
+                            ? ""
+                            : source.soldPremium
+                          : ""
+                      }
                       onChange={(e) => {
+                        const val = e.target.value;
                         const newSources = [...formData.marketing.leadSources];
-                        newSources[index].soldPremium = parseFloat(e.target.value) || 0;
+                        newSources[index].soldPremium = val === "" ? 0 : parseFloat(val) || 0;
                         updateFormData('marketing', 'leadSources', newSources);
                       }}
                     />
