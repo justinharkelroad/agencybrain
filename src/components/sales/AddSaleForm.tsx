@@ -340,23 +340,27 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     );
   };
 
-  // Add line item to a policy
+  // Add line item to a policy (inherits product type from policy)
   const addLineItem = (policyId: string) => {
     setPolicies(
       policies.map((p) => {
         if (p.id !== policyId) return p;
+        
+        // Get the policy's product type info to inherit
+        const product = productTypes.find((pt) => pt.id === p.product_type_id);
+        
         return {
           ...p,
           lineItems: [
             ...p.lineItems,
             {
               id: crypto.randomUUID(),
-              product_type_id: "",
-              product_type_name: "",
+              product_type_id: p.product_type_id,
+              product_type_name: p.policy_type_name,
               item_count: 1,
               premium: 0,
-              points: 0,
-              is_vc_qualifying: false,
+              points: product?.default_points || 0,
+              is_vc_qualifying: product?.is_vc_item || false,
             },
           ],
         };
@@ -842,30 +846,16 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                   </div>
                                 ) : (
                                   <div className="space-y-3">
-                                    {policy.lineItems.map((item) => (
+                                    {policy.lineItems.map((item, itemIndex) => (
                                       <div
                                         key={item.id}
-                                        className="grid gap-3 p-3 border rounded-lg sm:grid-cols-5 items-end bg-muted/10"
+                                        className="grid gap-3 p-3 border rounded-lg sm:grid-cols-4 items-end bg-muted/10"
                                       >
-                                        <div className="space-y-1 sm:col-span-2">
-                                          <Label className="text-xs">Product Type</Label>
-                                          <Select
-                                            value={item.product_type_id}
-                                            onValueChange={(value) =>
-                                              updateLineItem(policy.id, item.id, "product_type_id", value)
-                                            }
-                                          >
-                                            <SelectTrigger className="h-9">
-                                              <SelectValue placeholder="Select product" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {productTypes.map((product) => (
-                                                <SelectItem key={product.id} value={product.id}>
-                                                  {product.name} ({product.default_points || 0} pts)
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
+                                        <div className="space-y-1">
+                                          <Label className="text-xs">Item #{itemIndex + 1}</Label>
+                                          <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm">
+                                            {policy.policy_type_name}
+                                          </div>
                                         </div>
                                         <div className="space-y-1">
                                           <Label className="text-xs">Count</Label>
