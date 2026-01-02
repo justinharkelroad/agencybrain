@@ -122,6 +122,15 @@ const isHomeProduct = (name: string) => {
   );
 };
 
+// Multi-item product types (can have multiple line items with item counts)
+const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners"];
+
+const isMultiItemProduct = (productName: string): boolean => {
+  return MULTI_ITEM_PRODUCTS.some(
+    (name) => productName.toLowerCase() === name.toLowerCase()
+  );
+};
+
 export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -294,12 +303,35 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
         const updated = { ...p, [field]: value };
 
-        // If policy type changed, update the VC status
+        // If policy type changed, update the VC status and auto-create line item for single-item products
         if (field === "product_type_id") {
           const product = productTypes.find((pt) => pt.id === value);
           if (product) {
             updated.policy_type_name = product.name;
             updated.is_vc_qualifying = product.is_vc_item || false;
+
+            // For single-item products, auto-create/update a single line item
+            if (!isMultiItemProduct(product.name)) {
+              // Keep existing premium if there's already a line item, otherwise start at 0
+              const existingPremium = p.lineItems.length > 0 ? p.lineItems[0].premium : 0;
+              updated.lineItems = [
+                {
+                  id: p.lineItems.length > 0 ? p.lineItems[0].id : crypto.randomUUID(),
+                  product_type_id: product.id,
+                  product_type_name: product.name,
+                  item_count: 1,
+                  premium: existingPremium,
+                  points: product.default_points || 0,
+                  is_vc_qualifying: product.is_vc_item || false,
+                },
+              ];
+            } else {
+              // For multi-item products, clear line items if switching from single-item
+              // but only if there's exactly one auto-created item with same product
+              if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name) && p.policy_type_name) {
+                updated.lineItems = [];
+              }
+            }
           }
         }
 
@@ -785,134 +817,190 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                               </div>
                             </div>
 
-                            {/* Line Items Header */}
-                            <div className="flex items-center justify-between mt-4">
-                              <Label className="text-sm font-medium">Line Items</Label>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addLineItem(policy.id)}
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add Item
-                              </Button>
-                            </div>
-
-                            {/* Line Items */}
-                            {policy.lineItems.length === 0 ? (
-                              <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg">
-                                No items yet. Click "Add Item" to add line items.
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {policy.lineItems.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="grid gap-3 p-3 border rounded-lg sm:grid-cols-5 items-end bg-muted/10"
+                            {/* Conditional rendering based on product type */}
+                            {isMultiItemProduct(policy.policy_type_name) ? (
+                              /* Multi-item products: Full line items interface */
+                              <>
+                                {/* Line Items Header */}
+                                <div className="flex items-center justify-between mt-4">
+                                  <Label className="text-sm font-medium">Line Items</Label>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => addLineItem(policy.id)}
                                   >
-                                    <div className="space-y-1 sm:col-span-2">
-                                      <Label className="text-xs">Product Type</Label>
-                                      <Select
-                                        value={item.product_type_id}
-                                        onValueChange={(value) =>
-                                          updateLineItem(policy.id, item.id, "product_type_id", value)
-                                        }
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Add Item
+                                  </Button>
+                                </div>
+
+                                {/* Line Items */}
+                                {policy.lineItems.length === 0 ? (
+                                  <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg">
+                                    No items yet. Click "Add Item" to add line items.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {policy.lineItems.map((item) => (
+                                      <div
+                                        key={item.id}
+                                        className="grid gap-3 p-3 border rounded-lg sm:grid-cols-5 items-end bg-muted/10"
                                       >
-                                        <SelectTrigger className="h-9">
-                                          <SelectValue placeholder="Select product" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {productTypes.map((product) => (
-                                            <SelectItem key={product.id} value={product.id}>
-                                              {product.name} ({product.default_points || 0} pts)
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Count</Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        className="h-9"
-                                        value={item.item_count === 0 ? "" : item.item_count}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          if (val === "" || /^\d+$/.test(val)) {
-                                            updateLineItem(
-                                              policy.id,
-                                              item.id,
-                                              "item_count",
-                                              val === "" ? 0 : parseInt(val)
-                                            );
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (e.target.value === "" || parseInt(e.target.value) < 1) {
-                                            updateLineItem(policy.id, item.id, "item_count", 1);
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Premium ($)</Label>
-                                      <Input
-                                        type="text"
-                                        inputMode="decimal"
-                                        className="h-9"
-                                        value={item.premium === 0 ? "" : item.premium}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                                            updateLineItem(
-                                              policy.id,
-                                              item.id,
-                                              "premium",
-                                              val === "" ? 0 : parseFloat(val) || 0
-                                            );
-                                          }
-                                        }}
-                                        onBlur={(e) => {
-                                          if (e.target.value === "") {
-                                            updateLineItem(policy.id, item.id, "premium", 0);
-                                          }
-                                        }}
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                      <div className="flex-1 space-y-1">
-                                        <Label className="text-xs">Points</Label>
-                                        <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm">
-                                          {item.points}
+                                        <div className="space-y-1 sm:col-span-2">
+                                          <Label className="text-xs">Product Type</Label>
+                                          <Select
+                                            value={item.product_type_id}
+                                            onValueChange={(value) =>
+                                              updateLineItem(policy.id, item.id, "product_type_id", value)
+                                            }
+                                          >
+                                            <SelectTrigger className="h-9">
+                                              <SelectValue placeholder="Select product" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {productTypes.map((product) => (
+                                                <SelectItem key={product.id} value={product.id}>
+                                                  {product.name} ({product.default_points || 0} pts)
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-xs">Count</Label>
+                                          <Input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            className="h-9"
+                                            value={item.item_count === 0 ? "" : item.item_count}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              if (val === "" || /^\d+$/.test(val)) {
+                                                updateLineItem(
+                                                  policy.id,
+                                                  item.id,
+                                                  "item_count",
+                                                  val === "" ? 0 : parseInt(val)
+                                                );
+                                              }
+                                            }}
+                                            onBlur={(e) => {
+                                              if (e.target.value === "" || parseInt(e.target.value) < 1) {
+                                                updateLineItem(policy.id, item.id, "item_count", 1);
+                                              }
+                                            }}
+                                          />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-xs">Premium ($)</Label>
+                                          <Input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="h-9"
+                                            value={item.premium === 0 ? "" : item.premium}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                                updateLineItem(
+                                                  policy.id,
+                                                  item.id,
+                                                  "premium",
+                                                  val === "" ? 0 : parseFloat(val) || 0
+                                                );
+                                              }
+                                            }}
+                                            onBlur={(e) => {
+                                              if (e.target.value === "") {
+                                                updateLineItem(policy.id, item.id, "premium", 0);
+                                              }
+                                            }}
+                                            placeholder="0"
+                                          />
+                                        </div>
+                                        <div className="flex items-end gap-2">
+                                          <div className="flex-1 space-y-1">
+                                            <Label className="text-xs">Points</Label>
+                                            <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm">
+                                              {item.points}
+                                            </div>
+                                          </div>
+                                          {item.is_vc_qualifying && (
+                                            <Badge variant="default" className="bg-green-600 h-9">
+                                              VC
+                                            </Badge>
+                                          )}
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9"
+                                            onClick={() => removeLineItem(policy.id, item.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                          </Button>
                                         </div>
                                       </div>
-                                      {item.is_vc_qualifying && (
-                                        <Badge variant="default" className="bg-green-600 h-9">
-                                          VC
-                                        </Badge>
-                                      )}
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9"
-                                        onClick={() => removeLineItem(policy.id, item.id)}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            ) : policy.policy_type_name ? (
+                              /* Single-item products: Simplified interface */
+                              <div className="grid gap-4 mt-4 sm:grid-cols-3 items-end">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Premium ($)</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="h-9"
+                                    value={policy.lineItems[0]?.premium === 0 ? "" : policy.lineItems[0]?.premium || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                        if (policy.lineItems[0]) {
+                                          updateLineItem(
+                                            policy.id,
+                                            policy.lineItems[0].id,
+                                            "premium",
+                                            val === "" ? 0 : parseFloat(val) || 0
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (e.target.value === "" && policy.lineItems[0]) {
+                                        updateLineItem(policy.id, policy.lineItems[0].id, "premium", 0);
+                                      }
+                                    }}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div className="flex items-end gap-3">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs">Points</Label>
+                                    <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm min-w-[60px]">
+                                      {policy.lineItems[0]?.points || 0}
                                     </div>
                                   </div>
-                                ))}
+                                  {policy.is_vc_qualifying && (
+                                    <Badge variant="default" className="bg-green-600 h-9">
+                                      VC
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              /* No product type selected yet */
+                              <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg mt-4">
+                                Select a policy type to add details.
                               </div>
                             )}
 
-                            {/* Policy Subtotals */}
-                            {policy.lineItems.length > 0 && (
-                              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
+                            {/* Policy Subtotals - only show for multi-item products with items */}
+                            {isMultiItemProduct(policy.policy_type_name) && policy.lineItems.length > 0 && (
+                              <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>
                                   <div className="text-xs text-muted-foreground">Items</div>
