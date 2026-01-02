@@ -55,7 +55,7 @@ serve(async (req) => {
     // Build query
     let query = supabase
       .from('renewal_records')
-      .select('current_status, bundling, premium_cents')
+      .select('current_status, multi_line_indicator, premium_new')
       .eq('agency_id', agencyId)
       .eq('is_active', true);
 
@@ -81,7 +81,7 @@ serve(async (req) => {
       total: records.length,
       byStatus: {} as Record<string, number>,
       byBundling: { mono: 0, multi: 0 },
-      totalPremiumCents: 0,
+      totalPremium: 0,
     };
 
     records.forEach((r: any) => {
@@ -89,12 +89,12 @@ serve(async (req) => {
       const status = r.current_status || 'unknown';
       stats.byStatus[status] = (stats.byStatus[status] || 0) + 1;
       
-      // Count by bundling
-      if (r.bundling === 'mono') stats.byBundling.mono++;
-      else if (r.bundling === 'multi') stats.byBundling.multi++;
+      // Count by bundling (multi_line_indicator is boolean)
+      if (r.multi_line_indicator) stats.byBundling.multi++;
+      else stats.byBundling.mono++;
       
-      // Sum premium
-      stats.totalPremiumCents += r.premium_cents || 0;
+      // Sum premium (premium_new is already in dollars)
+      stats.totalPremium += r.premium_new || 0;
     });
 
     console.log('[get_staff_renewal_stats] Returning stats for', records.length, 'records');
