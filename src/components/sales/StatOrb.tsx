@@ -1,4 +1,4 @@
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatOrbProps {
@@ -69,8 +69,9 @@ export function StatOrb({
       
       {/* Projection */}
       {projection !== undefined && projection !== null && (
-        <span className="text-xs text-muted-foreground">
-          → {typeof projection === "number" ? projection.toLocaleString() : projection}
+        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+          <TrendingUp className="h-3 w-3" />
+          {typeof projection === "number" ? projection.toLocaleString() : projection}
         </span>
       )}
       
