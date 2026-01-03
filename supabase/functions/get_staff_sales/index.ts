@@ -10,6 +10,10 @@ const corsHeaders = {
 interface SalePolicy {
   id: string;
   policy_type_name: string | null;
+  policy_number: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
 }
 
 interface Sale {
@@ -183,7 +187,7 @@ serve(async (req) => {
           total_items,
           total_points,
           team_member_id,
-          sale_policies(id, policy_type_name)
+          sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
         `)
         .eq('agency_id', agencyId)
         .eq('team_member_id', teamMemberId);

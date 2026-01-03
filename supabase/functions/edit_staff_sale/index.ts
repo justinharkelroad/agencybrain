@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-staff-session",
 };
 
+interface PolicyUpdate {
+  id: string;
+  total_premium: number;
+  total_items: number;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -67,7 +73,16 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json();
-    const { sale_id, customer_name, customer_email, customer_phone, customer_zip, sale_date, total_premium, total_items } = body;
+    const { 
+      sale_id, 
+      customer_name, 
+      customer_email, 
+      customer_phone, 
+      customer_zip, 
+      sale_date,
+      policy_updates,
+      policy_deletions 
+    } = body;
 
     if (!sale_id) {
       return new Response(
@@ -99,22 +114,77 @@ serve(async (req) => {
       );
     }
 
-    // Build update object with only provided fields
-    const updateData: Record<string, any> = {};
+    // Process policy deletions first
+    if (policy_deletions && Array.isArray(policy_deletions) && policy_deletions.length > 0) {
+      console.log(`[edit_staff_sale] Deleting ${policy_deletions.length} policies`);
+      
+      const { error: deleteError } = await supabase
+        .from("sale_policies")
+        .delete()
+        .in("id", policy_deletions)
+        .eq("sale_id", sale_id); // Extra safety check
+
+      if (deleteError) {
+        console.error("[edit_staff_sale] Policy deletion error:", deleteError);
+        return new Response(
+          JSON.stringify({ error: "Failed to delete policies" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Process policy updates
+    if (policy_updates && Array.isArray(policy_updates) && policy_updates.length > 0) {
+      console.log(`[edit_staff_sale] Updating ${policy_updates.length} policies`);
+      
+      for (const update of policy_updates as PolicyUpdate[]) {
+        const { error: updateError } = await supabase
+          .from("sale_policies")
+          .update({
+            total_premium: update.total_premium,
+            total_items: update.total_items,
+          })
+          .eq("id", update.id)
+          .eq("sale_id", sale_id); // Extra safety check
+
+        if (updateError) {
+          console.error("[edit_staff_sale] Policy update error:", updateError);
+          // Continue with other updates, don't fail entire operation
+        }
+      }
+    }
+
+    // Recalculate sale totals from remaining policies
+    const { data: remainingPolicies, error: policiesError } = await supabase
+      .from("sale_policies")
+      .select("total_premium, total_items, total_points")
+      .eq("sale_id", sale_id);
+
+    if (policiesError) {
+      console.error("[edit_staff_sale] Error fetching remaining policies:", policiesError);
+    }
+
+    const newTotals = (remainingPolicies || []).reduce(
+      (acc, p) => ({
+        total_premium: acc.total_premium + (p.total_premium || 0),
+        total_items: acc.total_items + (p.total_items || 0),
+        total_points: acc.total_points + (p.total_points || 0),
+      }),
+      { total_premium: 0, total_items: 0, total_points: 0 }
+    );
+
+    // Build update object for the sale
+    const updateData: Record<string, any> = {
+      total_premium: newTotals.total_premium,
+      total_items: newTotals.total_items,
+      total_points: newTotals.total_points,
+    };
+    
     if (customer_name !== undefined) updateData.customer_name = customer_name;
     if (customer_email !== undefined) updateData.customer_email = customer_email;
     if (customer_phone !== undefined) updateData.customer_phone = customer_phone;
     if (customer_zip !== undefined) updateData.customer_zip = customer_zip;
     if (sale_date !== undefined) updateData.sale_date = sale_date;
-    if (total_premium !== undefined) updateData.total_premium = total_premium;
-    if (total_items !== undefined) updateData.total_items = total_items;
-
-    if (Object.keys(updateData).length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No fields to update" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     // Perform the update
     const { data: updatedSale, error: updateError } = await supabase
@@ -132,7 +202,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[edit_staff_sale] Sale ${sale_id} updated by staff ${staffUser.username}`);
+    console.log(`[edit_staff_sale] Sale ${sale_id} updated by staff ${staffUser.username}. New totals: premium=${newTotals.total_premium}, items=${newTotals.total_items}, points=${newTotals.total_points}`);
 
     return new Response(
       JSON.stringify({ success: true, sale: updatedSale }),
