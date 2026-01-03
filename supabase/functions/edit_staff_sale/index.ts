@@ -67,7 +67,7 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json();
-    const { sale_id, customer_name, customer_email, customer_phone, customer_zip, sale_date } = body;
+    const { sale_id, customer_name, customer_email, customer_phone, customer_zip, sale_date, total_premium, total_items } = body;
 
     if (!sale_id) {
       return new Response(
@@ -106,6 +106,8 @@ serve(async (req) => {
     if (customer_phone !== undefined) updateData.customer_phone = customer_phone;
     if (customer_zip !== undefined) updateData.customer_zip = customer_zip;
     if (sale_date !== undefined) updateData.sale_date = sale_date;
+    if (total_premium !== undefined) updateData.total_premium = total_premium;
+    if (total_items !== undefined) updateData.total_items = total_items;
 
     if (Object.keys(updateData).length === 0) {
       return new Response(

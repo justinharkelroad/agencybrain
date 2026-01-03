@@ -47,6 +47,8 @@ export function StaffEditSaleModal({
     customer_phone: sale?.customer_phone || "",
     customer_zip: sale?.customer_zip || "",
     sale_date: sale?.sale_date || "",
+    total_premium: sale?.total_premium?.toString() || "0",
+    total_items: sale?.total_items?.toString() || "0",
   });
 
   // Update form when sale changes
@@ -58,6 +60,8 @@ export function StaffEditSaleModal({
         customer_phone: sale.customer_phone || "",
         customer_zip: sale.customer_zip || "",
         sale_date: sale.sale_date || "",
+        total_premium: sale.total_premium?.toString() || "0",
+        total_items: sale.total_items?.toString() || "0",
       });
     }
   }, [sale]);
@@ -77,6 +81,8 @@ export function StaffEditSaleModal({
           customer_phone: formData.customer_phone || null,
           customer_zip: formData.customer_zip || null,
           sale_date: formData.sale_date,
+          total_premium: parseFloat(formData.total_premium) || 0,
+          total_items: parseInt(formData.total_items) || 0,
         },
       });
 
@@ -164,17 +170,35 @@ export function StaffEditSaleModal({
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="total_premium">Premium ($)</Label>
+              <Input
+                id="total_premium"
+                type="number"
+                step="0.01"
+                value={formData.total_premium}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, total_premium: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="total_items">Items</Label>
+              <Input
+                id="total_items"
+                type="number"
+                value={formData.total_items}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, total_items: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+
           <div className="pt-2 border-t text-sm text-muted-foreground">
             <div className="flex justify-between">
-              <span>Premium:</span>
-              <span>${(sale.total_premium || 0).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Items:</span>
-              <span>{sale.total_items || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Points:</span>
+              <span>Points (calculated):</span>
               <span>{sale.total_points || 0}</span>
             </div>
           </div>
