@@ -36,7 +36,7 @@ export function GoalProgressRing({
   size = "lg",
   showPercentage = true,
   animated = true,
-  formatValue = (v) => `$${v.toLocaleString()}`,
+  formatValue = (v) => v.toLocaleString(),
 }: GoalProgressRingProps) {
   const [animatedPercent, setAnimatedPercent] = useState(0);
   const config = sizeConfig[size];
