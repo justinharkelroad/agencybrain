@@ -41,7 +41,7 @@ interface SalesGoal {
   rank: number | null;
   is_active: boolean;
   team_member?: { name: string } | null;
-  assignments?: { team_member_id: string }[];
+  assignments?: { team_member_id: string; team_member: { name: string } | null }[];
 }
 
 interface GoalProgress {
@@ -143,7 +143,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
         .select(`
           *,
           team_member:team_members(name),
-          assignments:sales_goal_assignments(team_member_id)
+          assignments:sales_goal_assignments(team_member_id, team_member:team_members(name))
         `)
         .eq("agency_id", agencyId)
         .eq("is_active", true)
@@ -468,8 +468,14 @@ function GoalCard({ goal, progress, currentValue, formatValue, getMeasurementLab
               </Badge>
             )}
           </div>
-          {showAssignee && goal.team_member && (
-            <p className="text-sm text-muted-foreground">Assigned to: {goal.team_member.name}</p>
+          {showAssignee && (goal.team_member || (goal.assignments && goal.assignments.length > 0)) && (
+            <p className="text-sm text-muted-foreground">
+              Assigned to: {
+                goal.team_member 
+                  ? goal.team_member.name 
+                  : goal.assignments?.map(a => a.team_member?.name).filter(Boolean).join(", ")
+              }
+            </p>
           )}
         </div>
         {canEdit && (
