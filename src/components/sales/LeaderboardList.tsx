@@ -29,21 +29,21 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
   return (
     <div className="space-y-2 mt-6">
       {/* Header */}
-      <div className="grid grid-cols-14 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        <div className="col-span-1">#</div>
-        <div className="col-span-3">Name</div>
-        <div className={cn("col-span-2 text-right", metric === 'premium' && "text-foreground font-bold")}>
+      <div className="flex gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <div className="w-10 shrink-0">#</div>
+        <div className="flex-1 min-w-0">Name</div>
+        <div className={cn("w-20 text-right shrink-0", metric === 'premium' && "text-foreground font-bold")}>
           Premium
         </div>
-        <div className={cn("col-span-2 text-right", metric === 'items' && "text-foreground font-bold")}>
+        <div className={cn("w-14 text-right shrink-0", metric === 'items' && "text-foreground font-bold")}>
           Items
         </div>
-        <div className={cn("col-span-2 text-right", metric === 'points' && "text-foreground font-bold")}>
+        <div className={cn("w-14 text-right shrink-0", metric === 'points' && "text-foreground font-bold")}>
           Points
         </div>
-        <div className="col-span-2 text-right">Policies</div>
-        <div className={cn("col-span-2 text-right", metric === 'households' && "text-foreground font-bold")}>
-          Households
+        <div className="w-16 text-right shrink-0">Policies</div>
+        <div className={cn("w-20 text-right shrink-0", metric === 'households' && "text-foreground font-bold")}>
+          HH
         </div>
       </div>
 
@@ -62,12 +62,10 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
               ease: [0.4, 0, 0.2, 1]
             }}
             className={cn(
-              "grid grid-cols-14 gap-2 px-4 py-3 rounded-lg transition-all duration-200",
+              "flex gap-2 px-4 py-3 rounded-lg transition-all duration-200",
               "hover:translate-x-1 hover:shadow-md cursor-default",
-              // Glassmorphic style
               "bg-card/50 backdrop-blur-sm border border-border/50",
               index % 2 === 0 ? "bg-muted/5" : "bg-transparent",
-              // Current user highlight
               producer.isCurrentUser && [
                 "border-primary/50 bg-primary/5",
                 "shadow-[0_0_15px_rgba(var(--primary),0.15)]"
@@ -75,7 +73,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             )}
           >
             {/* Rank Badge */}
-            <div className="col-span-1 flex items-center">
+            <div className="w-10 shrink-0 flex items-center">
               <div className={cn(
                 "w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold",
                 "bg-muted text-muted-foreground",
@@ -86,7 +84,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             </div>
 
             {/* Name */}
-            <div className="col-span-3 flex items-center">
+            <div className="flex-1 min-w-0 flex items-center">
               <span className={cn(
                 "font-medium truncate",
                 producer.isCurrentUser && "text-primary"
@@ -94,7 +92,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
                 {producer.name}
               </span>
               {producer.isCurrentUser && (
-                <span className="ml-2 text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                <span className="ml-2 text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full shrink-0">
                   YOU
                 </span>
               )}
@@ -102,7 +100,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
 
             {/* Premium */}
             <div className={cn(
-              "col-span-2 flex items-center justify-end text-sm",
+              "w-20 shrink-0 flex items-center justify-end text-sm",
               metric === 'premium' && "font-bold text-foreground"
             )}>
               {formatCurrency(producer.premium)}
@@ -110,7 +108,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
 
             {/* Items */}
             <div className={cn(
-              "col-span-2 flex items-center justify-end text-sm",
+              "w-14 shrink-0 flex items-center justify-end text-sm",
               metric === 'items' && "font-bold text-foreground"
             )}>
               {producer.items}
@@ -118,20 +116,20 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
 
             {/* Points */}
             <div className={cn(
-              "col-span-2 flex items-center justify-end text-sm",
+              "w-14 shrink-0 flex items-center justify-end text-sm",
               metric === 'points' && "font-bold text-foreground"
             )}>
               {producer.points}
             </div>
 
             {/* Policies */}
-            <div className="col-span-2 flex items-center justify-end text-sm text-muted-foreground">
+            <div className="w-16 shrink-0 flex items-center justify-end text-sm text-muted-foreground">
               {producer.policies}
             </div>
 
             {/* Households */}
             <div className={cn(
-              "col-span-2 flex items-center justify-end text-sm",
+              "w-20 shrink-0 flex items-center justify-end text-sm",
               metric === 'households' && "font-bold text-foreground"
             )}>
               {producer.households}
