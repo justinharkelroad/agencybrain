@@ -163,7 +163,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       {/* Main Content */}
       <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
         {/* Left Orbs */}
-        <div className="flex lg:flex-col gap-4 order-2 lg:order-1">
+        <div className="flex flex-row lg:flex-col gap-4">
           <StatOrb
             value={`$${premium.toLocaleString()}`}
             label="Premium"
@@ -181,7 +181,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
 
         {/* Center Ring */}
-        <div className="flex-shrink-0 order-1 lg:order-2">
+        <div className="flex-shrink-0">
           {goal > 0 ? (
             <GoalProgressRing
               current={premium}
@@ -215,7 +215,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
 
         {/* Right Orbs */}
-        <div className="flex lg:flex-col gap-4 order-3">
+        <div className="flex flex-row lg:flex-col gap-4">
           <StatOrb
             value={data?.items || 0}
             label="Items"
