@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -50,7 +50,7 @@ export function StaffEditSaleModal({
   });
 
   // Update form when sale changes
-  useState(() => {
+  useEffect(() => {
     if (sale) {
       setFormData({
         customer_name: sale.customer_name || "",
@@ -60,7 +60,7 @@ export function StaffEditSaleModal({
         sale_date: sale.sale_date || "",
       });
     }
-  });
+  }, [sale]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
