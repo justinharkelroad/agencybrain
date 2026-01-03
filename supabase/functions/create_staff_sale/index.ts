@@ -25,6 +25,7 @@ interface Policy {
 }
 
 interface CreateSaleRequest {
+  lead_source_id?: string;
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
@@ -122,6 +123,13 @@ serve(async (req) => {
       );
     }
 
+    if (!body.lead_source_id) {
+      return new Response(
+        JSON.stringify({ error: 'Lead source is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!body.policies || body.policies.length === 0) {
       return new Response(
         JSON.stringify({ error: 'At least one policy is required' }),
@@ -135,6 +143,7 @@ serve(async (req) => {
       .insert({
         agency_id: staffUser.agency_id,
         team_member_id: staffUser.team_member_id,
+        lead_source_id: body.lead_source_id,
         customer_name: body.customer_name,
         customer_email: body.customer_email || null,
         customer_phone: body.customer_phone || null,

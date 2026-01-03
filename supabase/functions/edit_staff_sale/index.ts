@@ -75,6 +75,7 @@ serve(async (req) => {
     const body = await req.json();
     const { 
       sale_id, 
+      lead_source_id,
       customer_name, 
       customer_email, 
       customer_phone, 
@@ -180,6 +181,7 @@ serve(async (req) => {
       total_points: newTotals.total_points,
     };
     
+    if (lead_source_id !== undefined) updateData.lead_source_id = lead_source_id;
     if (customer_name !== undefined) updateData.customer_name = customer_name;
     if (customer_email !== undefined) updateData.customer_email = customer_email;
     if (customer_phone !== undefined) updateData.customer_phone = customer_phone;

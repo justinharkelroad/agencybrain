@@ -83,6 +83,7 @@ serve(async (req) => {
         total_items,
         total_points,
         team_member_id,
+        lead_source_id,
         sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
       `
       )

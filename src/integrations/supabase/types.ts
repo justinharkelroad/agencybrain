@@ -4659,6 +4659,7 @@ export type Database = {
           id: string
           is_bundle: boolean | null
           is_vc_qualifying: boolean | null
+          lead_source_id: string | null
           policy_number: string | null
           sale_date: string | null
           source: string | null
@@ -4688,6 +4689,7 @@ export type Database = {
           id?: string
           is_bundle?: boolean | null
           is_vc_qualifying?: boolean | null
+          lead_source_id?: string | null
           policy_number?: string | null
           sale_date?: string | null
           source?: string | null
@@ -4717,6 +4719,7 @@ export type Database = {
           id?: string
           is_bundle?: boolean | null
           is_vc_qualifying?: boolean | null
+          lead_source_id?: string | null
           policy_number?: string | null
           sale_date?: string | null
           source?: string | null
@@ -4738,6 +4741,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
             referencedColumns: ["id"]
           },
           {

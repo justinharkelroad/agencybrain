@@ -10,6 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Trash2 } from "lucide-react";
 
@@ -29,6 +36,7 @@ interface Sale {
   customer_email?: string | null;
   customer_phone?: string | null;
   customer_zip?: string | null;
+  lead_source_id?: string | null;
   total_premium: number | null;
   total_items: number | null;
   total_points: number | null;
@@ -50,6 +58,7 @@ interface StaffEditSaleModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionToken: string;
+  leadSources?: { id: string; name: string }[];
 }
 
 export function StaffEditSaleModal({
@@ -57,6 +66,7 @@ export function StaffEditSaleModal({
   open,
   onOpenChange,
   sessionToken,
+  leadSources = [],
 }: StaffEditSaleModalProps) {
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
@@ -68,6 +78,7 @@ export function StaffEditSaleModal({
     customer_phone: "",
     customer_zip: "",
     sale_date: "",
+    lead_source_id: "",
   });
   const [policies, setPolicies] = useState<PolicyEdit[]>([]);
 
@@ -94,6 +105,7 @@ export function StaffEditSaleModal({
           customer_phone: fullSale.customer_phone || "",
           customer_zip: fullSale.customer_zip || "",
           sale_date: fullSale.sale_date || "",
+          lead_source_id: fullSale.lead_source_id || "",
         });
 
         setPolicies(
@@ -118,6 +130,7 @@ export function StaffEditSaleModal({
           customer_phone: sale.customer_phone || "",
           customer_zip: sale.customer_zip || "",
           sale_date: sale.sale_date || "",
+          lead_source_id: sale.lead_source_id || "",
         });
 
         setPolicies(
@@ -180,6 +193,7 @@ export function StaffEditSaleModal({
         headers: { "x-staff-session": sessionToken },
         body: {
           sale_id: sale.id,
+          lead_source_id: formData.lead_source_id || null,
           customer_name: formData.customer_name || null,
           customer_email: formData.customer_email || null,
           customer_phone: formData.customer_phone || null,
@@ -290,6 +304,26 @@ export function StaffEditSaleModal({
                 disabled={isLoadingDetails}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lead_source_id">Lead Source</Label>
+            <Select
+              value={formData.lead_source_id}
+              onValueChange={(val) => setFormData(prev => ({ ...prev, lead_source_id: val }))}
+              disabled={isLoadingDetails}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select lead source..." />
+              </SelectTrigger>
+              <SelectContent>
+                {leadSources.map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="pt-4 border-t">

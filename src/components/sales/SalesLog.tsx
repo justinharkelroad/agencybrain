@@ -57,6 +57,10 @@ type Sale = {
   is_vc_qualifying: boolean | null;
   is_bundle: boolean | null;
   bundle_type: string | null;
+  lead_source_id: string | null;
+  lead_source?: {
+    name: string;
+  } | null;
   team_member?: {
     name: string;
   } | null;
@@ -145,6 +149,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
           is_vc_qualifying,
           is_bundle,
           bundle_type,
+          lead_source_id,
+          lead_source:lead_sources(name),
           team_member:team_members!sales_team_member_id_fkey(name)
         `
         )
@@ -350,6 +356,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Lead Source</TableHead>
                       <TableHead>Producer</TableHead>
                       <TableHead className="text-center">Policies</TableHead>
                       <TableHead className="text-right">Items</TableHead>
@@ -378,6 +385,9 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                               {sale.bundle_type || "Bundle"}
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {sale.lead_source?.name || "—"}
                         </TableCell>
                         <TableCell>
                           {sale.team_member?.name || "—"}

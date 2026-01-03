@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useLeadSources } from "@/hooks/useLeadSources";
 import { format, parse } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +67,7 @@ interface PdfUploadFormProps {
   staffSessionToken?: string;
   staffUserId?: string;
   staffTeamMemberId?: string | null;
+  leadSources?: { id: string; name: string }[];
 }
 
 // Auto products for Preferred Bundle detection
@@ -104,13 +106,15 @@ export function PdfUploadForm({
   staffSessionToken,
   staffUserId,
   staffTeamMemberId,
+  leadSources: staffLeadSources = [],
 }: PdfUploadFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   // More robust staff mode detection - check both session token and team member ID
   const isStaffMode = !!staffSessionToken || !!staffTeamMemberId;
 
-  // Fetch profile for agency_id (admin mode)
+  // Fetch lead sources for admin mode
+  const { leadSources: adminLeadSources } = useLeadSources();
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
@@ -142,6 +146,7 @@ export function PdfUploadForm({
   const [productTypeId, setProductTypeId] = useState('');
   const [itemCount, setItemCount] = useState(1);
   const [producerId, setProducerId] = useState('');
+  const [leadSourceId, setLeadSourceId] = useState('');
 
   // Fetch product types
   const { data: productTypes = [] } = useQuery<ProductType[]>({
@@ -249,6 +254,7 @@ export function PdfUploadForm({
       if (!effectiveDate) throw new Error('Effective date is required');
       if (!customerName.trim()) throw new Error('Customer name is required');
       if (!productTypeId) throw new Error('Product type is required');
+      if (!leadSourceId) throw new Error('Lead source is required');
 
       const selectedProduct = productTypes.find(pt => pt.id === productTypeId);
       if (!selectedProduct) throw new Error('Invalid product type');
@@ -265,6 +271,7 @@ export function PdfUploadForm({
       const bundleType = null;
 
       const salePayload = {
+        lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
         customer_zip: customerZip || null,
         sale_date: format(new Date(), 'yyyy-MM-dd'),
@@ -321,6 +328,7 @@ export function PdfUploadForm({
           .insert({
             agency_id: effectiveAgencyId,
             team_member_id: producerId || null,
+            lead_source_id: leadSourceId,
             customer_name: customerName.trim(),
             customer_zip: customerZip || null,
             sale_date: format(new Date(), 'yyyy-MM-dd'),
@@ -412,6 +420,7 @@ export function PdfUploadForm({
     setProductTypeId('');
     setItemCount(1);
     setProducerId('');
+    setLeadSourceId('');
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -659,6 +668,32 @@ export function PdfUploadForm({
                   value={itemCount}
                   onChange={(e) => setItemCount(parseInt(e.target.value) || 1)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lead Source Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Lead Source</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="leadSource">
+                  Lead Source <span className="text-destructive">*</span>
+                </Label>
+                <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select lead source..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(isStaffMode ? staffLeadSources : adminLeadSources).map((source) => (
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

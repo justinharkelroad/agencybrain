@@ -171,6 +171,19 @@ serve(async (req) => {
     console.log('Fetching sales for agency:', agencyId, 'team_member:', teamMemberId);
     console.log('Date range:', date_start, 'to', date_end);
 
+    // Fetch lead sources for the agency
+    const { data: leadSources, error: leadSourcesError } = await supabase
+      .from('lead_sources')
+      .select('id, name')
+      .eq('agency_id', agencyId)
+      .eq('is_active', true)
+      .order('order_index', { ascending: true });
+
+    if (leadSourcesError) {
+      console.error('Error fetching lead sources:', leadSourcesError);
+    }
+    console.log('Lead sources found:', leadSources?.length || 0);
+
     // Fetch personal sales (if team_member_id exists)
     let personalSales: Sale[] = [];
     if (teamMemberId) {
@@ -187,6 +200,7 @@ serve(async (req) => {
           total_items,
           total_points,
           team_member_id,
+          lead_source_id,
           sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
         `)
         .eq('agency_id', agencyId)
@@ -319,6 +333,7 @@ serve(async (req) => {
       leaderboard,
       team_member_id: teamMemberId,
       agency_id: agencyId,
+      lead_sources: leadSources || [],
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
