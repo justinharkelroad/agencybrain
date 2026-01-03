@@ -6,10 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesLog } from "@/components/sales/SalesLog";
 import { AddSaleForm } from "@/components/sales/AddSaleForm";
-import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesGoals } from "@/components/sales/SalesGoals";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { PromoGoalsList } from "@/components/sales/PromoGoalsList";
+import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { Loader2 } from "lucide-react";
 
 export default function Sales() {
@@ -148,7 +148,7 @@ export default function Sales() {
             {editingSaleId ? "Edit Sale" : "Add Sale"}
           </TabsTrigger>
           <TabsTrigger value="upload">Upload PDF</TabsTrigger>
-          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
         </TabsList>
 
@@ -178,8 +178,8 @@ export default function Sales() {
           />
         </TabsContent>
 
-        <TabsContent value="leaderboard" className="mt-6">
-          <SalesLeaderboard agencyId={agencyId} />
+        <TabsContent value="analytics" className="mt-6">
+          <SalesBreakdownTabs agencyId={agencyId} />
         </TabsContent>
 
         <TabsContent value="goals" className="mt-6 space-y-6">
