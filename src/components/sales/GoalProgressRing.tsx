@@ -5,16 +5,17 @@ interface GoalProgressRingProps {
   current: number;
   target: number;
   label?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   showPercentage?: boolean;
   animated?: boolean;
   formatValue?: (value: number) => string;
 }
 
 const sizeConfig = {
-  sm: { dimension: 120, strokeWidth: 6, fontSize: { percent: 20, value: 12, label: 10 } },
-  md: { dimension: 180, strokeWidth: 10, fontSize: { percent: 32, value: 16, label: 12 } },
-  lg: { dimension: 240, strokeWidth: 12, fontSize: { percent: 48, value: 20, label: 14 } },
+  xs: { dimension: 80, strokeWidth: 4, fontSize: { percent: 14, value: 10, label: 8 } },
+  sm: { dimension: 100, strokeWidth: 5, fontSize: { percent: 16, value: 11, label: 9 } },
+  md: { dimension: 160, strokeWidth: 8, fontSize: { percent: 28, value: 14, label: 11 } },
+  lg: { dimension: 200, strokeWidth: 10, fontSize: { percent: 40, value: 18, label: 13 } },
 };
 
 function getGlowColor(percent: number): string {

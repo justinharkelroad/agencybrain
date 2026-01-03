@@ -187,9 +187,43 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
-        {/* Left Orbs */}
-        <div className="flex flex-row lg:flex-col gap-4">
+      <div className="flex flex-col items-center gap-6">
+        {/* Center Ring - Smaller on mobile */}
+        <div className="flex-shrink-0">
+          {goal > 0 ? (
+            <GoalProgressRing
+              current={premium}
+              target={goal}
+              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
+              size="md"
+              showPercentage
+              animated
+            />
+          ) : (
+            <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
+              <svg width={160} height={160} className="transform -rotate-90 opacity-30">
+                <circle
+                  cx={80}
+                  cy={80}
+                  r={72}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth={8}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-muted-foreground text-xs">No Goal Set</span>
+                <span className="text-2xl font-bold text-foreground mt-1">
+                  ${premium.toLocaleString()}
+                </span>
+                <span className="text-xs text-muted-foreground mt-1">This Month</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Stats Grid - All orbs in responsive grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 w-full">
           <StatOrb
             value={`$${premium.toLocaleString()}`}
             label="Premium"
@@ -214,44 +248,6 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             animationDelay={250}
             projection={householdsProj}
           />
-        </div>
-
-        {/* Center Ring */}
-        <div className="flex-shrink-0">
-          {goal > 0 ? (
-            <GoalProgressRing
-              current={premium}
-              target={goal}
-              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
-              size="lg"
-              showPercentage
-              animated
-            />
-          ) : (
-            <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
-              <svg width={240} height={240} className="transform -rotate-90 opacity-30">
-                <circle
-                  cx={120}
-                  cy={120}
-                  r={108}
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.1)"
-                  strokeWidth={12}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-muted-foreground text-sm">No Goal Set</span>
-                <span className="text-3xl font-bold text-foreground mt-1">
-                  ${premium.toLocaleString()}
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">This Month</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Orbs */}
-        <div className="flex flex-row lg:flex-col gap-4">
           <StatOrb
             value={items}
             label="Items"

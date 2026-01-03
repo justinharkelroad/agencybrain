@@ -119,12 +119,12 @@ export default function StaffSales() {
       <h1 className="text-3xl font-bold mb-6">My Sales</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="add">Add Sale</TabsTrigger>
-          <TabsTrigger value="upload">Upload PDF</TabsTrigger>
-          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-5 md:max-w-2xl">
+          <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
+          <TabsTrigger value="history" className="flex-shrink-0">History</TabsTrigger>
+          <TabsTrigger value="add" className="flex-shrink-0">Add Sale</TabsTrigger>
+          <TabsTrigger value="upload" className="flex-shrink-0">Upload PDF</TabsTrigger>
+          <TabsTrigger value="leaderboard" className="flex-shrink-0">Leaderboard</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6 space-y-6">
