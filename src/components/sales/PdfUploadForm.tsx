@@ -161,13 +161,13 @@ export function PdfUploadForm({
 
   // Fetch team members (admin only)
   const { data: teamMembers = [] } = useQuery<TeamMember[]>({
-    queryKey: ["team-members", effectiveAgencyId],
+    queryKey: ["team-members-active", effectiveAgencyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
         .select("id, name")
         .eq("agency_id", effectiveAgencyId)
-        .eq("is_active", true)
+        .eq("status", "active")
         .order("name");
       if (error) throw error;
       return data || [];
