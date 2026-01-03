@@ -9,6 +9,7 @@ interface StatOrbProps {
   trend?: { value: number; direction: "up" | "down" };
   onClick?: () => void;
   animationDelay?: number;
+  projection?: number | string | null;
 }
 
 const orbColors = {
@@ -36,7 +37,8 @@ export function StatOrb({
   color, 
   trend, 
   onClick,
-  animationDelay = 0 
+  animationDelay = 0,
+  projection 
 }: StatOrbProps) {
   const colorConfig = orbColors[color];
   
@@ -64,6 +66,13 @@ export function StatOrb({
       <span className="text-2xl font-bold text-foreground leading-none">
         {typeof value === "number" ? value.toLocaleString() : value}
       </span>
+      
+      {/* Projection */}
+      {projection !== undefined && projection !== null && (
+        <span className="text-xs text-muted-foreground">
+          → {typeof projection === "number" ? projection.toLocaleString() : projection}
+        </span>
+      )}
       
       {/* Label */}
       <span className="text-xs text-muted-foreground">
