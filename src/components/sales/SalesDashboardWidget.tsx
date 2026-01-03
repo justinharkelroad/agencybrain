@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Link } from "react-router-dom";
-import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target } from "lucide-react";
+import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
@@ -78,6 +78,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         .select(`
           id,
           sale_date,
+          customer_name,
           total_premium,
           total_items,
           total_points,
@@ -99,6 +100,10 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
       const totalItems = data?.reduce((sum, s) => sum + (s.total_items || 0), 0) || 0;
       const totalPoints = data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
       const totalPolicies = data?.reduce((sum, s) => sum + (s.sale_policies?.length || 0), 0) || 0;
+      
+      // Count unique households (distinct customer names)
+      const uniqueCustomers = new Set(data?.map(s => s.customer_name?.toLowerCase().trim()).filter(Boolean));
+      const totalHouseholds = uniqueCustomers.size;
 
       // Calculate today's sales
       const todaySales = data?.filter(s => s.sale_date === todayStr) || [];
@@ -113,6 +118,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         totalItems,
         totalPoints,
         totalPolicies,
+        totalHouseholds,
         salesCount: data?.length || 0,
         todayPremium,
         weekPremium,
@@ -151,7 +157,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
   if (!agencyId) return null;
 
-  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, todayPremium: 0, weekPremium: 0 };
+  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, totalHouseholds: 0, todayPremium: 0, weekPremium: 0 };
   const hasGoal = !!goalData;
   const monthlyGoal = goalData?.target_value || 0;
   
@@ -214,6 +220,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={Trophy}
                 color="orange"
                 animationDelay={100}
+              />
+              <StatOrb
+                value={stats.totalHouseholds}
+                label="Households"
+                icon={Users}
+                color="cyan"
+                animationDelay={150}
               />
             </div>
 

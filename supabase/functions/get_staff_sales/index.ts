@@ -194,15 +194,22 @@ serve(async (req) => {
       }
     }
 
-    // Calculate personal totals
+    // Calculate personal totals including unique households
+    const uniqueCustomers = new Set(
+      personalSales
+        .map(sale => sale.customer_name?.toLowerCase().trim())
+        .filter(Boolean)
+    );
+
     const totals = personalSales.reduce(
       (acc, sale) => ({
         premium: acc.premium + (sale.total_premium || 0),
         items: acc.items + (sale.total_items || 0),
         points: acc.points + (sale.total_points || 0),
         policies: acc.policies + (sale.sale_policies?.length || 0),
+        households: uniqueCustomers.size,
       }),
-      { premium: 0, items: 0, points: 0, policies: 0 }
+      { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
     );
 
     console.log('Personal totals:', JSON.stringify(totals));

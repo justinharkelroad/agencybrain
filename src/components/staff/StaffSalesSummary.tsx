@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, differenceInDays, getDaysInMonth } from "date-fns";
-import { DollarSign, Package, FileText, Trophy, ArrowRight } from "lucide-react";
+import { DollarSign, Package, FileText, Trophy, ArrowRight, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { Link } from "react-router-dom";
@@ -20,6 +20,7 @@ interface SalesTotals {
   items: number;
   points: number;
   policies: number;
+  households: number;
 }
 
 export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false }: StaffSalesSummaryProps) {
@@ -53,13 +54,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           throw new Error(data.error);
         }
 
-        return data.totals || { premium: 0, items: 0, points: 0, policies: 0 };
+        return {
+          premium: data.totals?.premium || 0,
+          items: data.totals?.items || 0,
+          points: data.totals?.points || 0,
+          policies: data.totals?.policies || 0,
+          households: data.totals?.households || 0,
+        };
       }
 
       const { data: salesData, error } = await supabase
         .from("sales")
         .select(`
           id,
+          customer_name,
           total_premium,
           total_items,
           total_points,
@@ -72,14 +80,17 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
       if (error) throw error;
 
+      const uniqueCustomers = new Set(salesData?.map(s => s.customer_name?.toLowerCase().trim()).filter(Boolean));
+
       const totals = (salesData || []).reduce(
         (acc, sale) => ({
           premium: acc.premium + (sale.total_premium || 0),
           items: acc.items + (sale.total_items || 0),
           points: acc.points + (sale.total_points || 0),
           policies: acc.policies + ((sale.sale_policies as any[])?.length || 0),
+          households: uniqueCustomers.size,
         }),
-        { premium: 0, items: 0, points: 0, policies: 0 }
+        { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
       );
 
       return totals;
@@ -171,6 +182,13 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             icon={Trophy}
             color="orange"
             animationDelay={200}
+          />
+          <StatOrb
+            value={data?.households || 0}
+            label="Households"
+            icon={Users}
+            color="cyan"
+            animationDelay={250}
           />
         </div>
 
