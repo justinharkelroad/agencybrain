@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
-import { useState } from "react";
-import { BarChart3, Loader2 } from "lucide-react";
+import { DrillDownTable } from "./DrillDownTable";
+import { BarChart3, Loader2, X } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -38,8 +39,12 @@ interface BundleRow {
   households: number;
 }
 
+const PAGE_SIZE = 10;
+
 export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByBundleChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
+  const [selectedBundle, setSelectedBundle] = useState<string | null>(null);
+  const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ["sales-by-bundle", agencyId, startDate, endDate, staffSessionToken],
@@ -107,6 +112,22 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
     return value.toLocaleString();
   };
 
+  const handleBarClick = (data: any) => {
+    const clickedBundle = data?.bundle_type;
+    if (!clickedBundle) return;
+    
+    if (selectedBundle === clickedBundle) {
+      setSelectedBundle(null);
+    } else {
+      setSelectedBundle(clickedBundle);
+      setDrillPage(1);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedBundle(null);
+  };
+
   if (isLoading) {
     return (
       <Card className="border-border/50">
@@ -120,7 +141,15 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
   return (
     <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">Sales by Bundle Type</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-lg font-semibold">Sales by Bundle Type</CardTitle>
+          {selectedBundle && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={handleClearSelection}>
+              {selectedBundle}
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+        </div>
         <MetricToggle 
           value={metric} 
           onChange={setMetric} 
@@ -167,13 +196,41 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar dataKey={metric} radius={[4, 4, 0, 0]}>
+              <Bar 
+                dataKey={metric} 
+                radius={[4, 4, 0, 0]}
+                onClick={handleBarClick}
+                cursor="pointer"
+              >
                 {chartData.map((entry) => (
-                  <Cell key={entry.bundle_type} fill={BUNDLE_COLORS[entry.bundle_type] || "#8b5cf6"} />
+                  <Cell 
+                    key={entry.bundle_type} 
+                    fill={selectedBundle === entry.bundle_type ? '#3b82f6' : (BUNDLE_COLORS[entry.bundle_type] || "#8b5cf6")}
+                    stroke={selectedBundle === entry.bundle_type ? '#ffffff' : 'none'}
+                    strokeWidth={selectedBundle === entry.bundle_type ? 2 : 0}
+                  />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        )}
+
+        {selectedBundle && agencyId && (
+          <DrillDownTable
+            filter={{
+              type: 'bundle_type',
+              value: selectedBundle,
+              displayLabel: selectedBundle,
+            }}
+            agencyId={agencyId}
+            startDate={startDate}
+            endDate={endDate}
+            page={drillPage}
+            pageSize={PAGE_SIZE}
+            onPageChange={setDrillPage}
+            onClear={handleClearSelection}
+            staffSessionToken={staffSessionToken}
+          />
         )}
       </CardContent>
     </Card>
