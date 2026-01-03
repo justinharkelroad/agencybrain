@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2, CheckCircle2, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { parseDateLocal } from "@/lib/utils";
 import type { FocusItem } from "@/hooks/useFocusItems";
 
 interface FocusItemCardProps {
@@ -40,7 +41,8 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
   };
 
   const priorityInfo = priorityConfig[item.priority_level];
-  const daysOld = formatDistanceToNow(new Date(item.created_at), { addSuffix: true });
+  const createdDate = parseDateLocal(item.created_at) || new Date(item.created_at);
+  const daysOld = formatDistanceToNow(createdDate, { addSuffix: true });
 
   return (
     <div

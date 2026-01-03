@@ -32,7 +32,7 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, todayLocal, toLocalDate } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -274,7 +274,7 @@ export function PdfUploadForm({
         lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
         customer_zip: customerZip || null,
-        sale_date: format(new Date(), 'yyyy-MM-dd'),
+        sale_date: format(todayLocal(), 'yyyy-MM-dd'),
         effective_date: format(effectiveDate, 'yyyy-MM-dd'),
         expiration_date: expirationDate ? format(expirationDate, 'yyyy-MM-dd') : null,
         source: 'pdf_upload',
@@ -331,7 +331,7 @@ export function PdfUploadForm({
             lead_source_id: leadSourceId,
             customer_name: customerName.trim(),
             customer_zip: customerZip || null,
-            sale_date: format(new Date(), 'yyyy-MM-dd'),
+            sale_date: format(todayLocal(), 'yyyy-MM-dd'),
             effective_date: format(effectiveDate, 'yyyy-MM-dd'),
             total_policies: 1,
             total_items: itemCount,

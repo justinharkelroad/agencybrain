@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { formatDateLocal } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -119,7 +119,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
     if (!data) return [];
     return data.map((row) => ({
       ...row,
-      dateLabel: format(parseISO(row.sale_date), "MMM d"),
+      dateLabel: formatDateLocal(row.sale_date, "MMM d"),
     }));
   }, [data]);
 
@@ -156,7 +156,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
     );
   }
 
-  const selectedDateLabel = selectedDate ? format(parseISO(selectedDate), "MMM d, yyyy") : "";
+  const selectedDateLabel = selectedDate ? formatDateLocal(selectedDate) : "";
 
   return (
     <Card className="border-border/50">

@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, GripVertical, CheckCircle2 } from "lucide-react";
+import { parseDateLocal } from "@/lib/utils";
 import type { StaffFocusItem } from "@/hooks/useStaffFocusItems";
 
 const priorityConfig = {
@@ -82,7 +83,7 @@ export function StaffFocusItemCard({ item, onEdit, onDelete }: StaffFocusItemCar
 
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground/70">
-              {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+              {formatDistanceToNow(parseDateLocal(item.created_at) || new Date(item.created_at), { addSuffix: true })}
             </span>
 
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

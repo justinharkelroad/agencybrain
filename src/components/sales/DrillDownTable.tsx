@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { formatDateLocal } from "@/lib/utils";
 
 export type DrillDownFilterType = 'date' | 'policy_type' | 'lead_source' | 'bundle_type' | 'zipcode';
 
@@ -232,7 +232,7 @@ export function DrillDownTable({
                 {records.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">
-                      {format(parseISO(record.sale_date), "MMM d, yyyy")}
+                      {formatDateLocal(record.sale_date)}
                     </TableCell>
                     <TableCell>{record.customer_name}</TableCell>
                     <TableCell className="text-muted-foreground">

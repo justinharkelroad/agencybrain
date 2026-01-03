@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trophy, Plus, Loader2, Pencil, Trash2, Users, Calendar, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
+import { formatDateLocal } from "@/lib/utils";
 import { usePromoGoals, PromoGoalWithProgress } from "@/hooks/usePromoGoals";
 import { CreatePromoGoalModal } from "./CreatePromoGoalModal";
 import { cn } from "@/lib/utils";
@@ -271,7 +271,7 @@ function PromoGoalRow({
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              {format(parseISO(goal.start_date), "MMM d")} - {format(parseISO(goal.end_date), "MMM d, yyyy")}
+              {formatDateLocal(goal.start_date, "MMM d")} - {formatDateLocal(goal.end_date, "MMM d, yyyy")}
             </span>
             <span>
               <span className="text-muted-foreground">Target:</span>{" "}

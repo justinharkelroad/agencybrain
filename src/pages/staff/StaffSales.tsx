@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { formatDateLocal } from "@/lib/utils";
 import { Loader2, DollarSign, Package, FileText, Trophy, Pencil } from "lucide-react";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
@@ -217,7 +218,7 @@ export default function StaffSales() {
                     {salesData.slice(0, 5).map((sale) => (
                       <TableRow key={sale.id}>
                         <TableCell>
-                          {format(new Date(sale.sale_date), "MMM d, yyyy")}
+                          {formatDateLocal(sale.sale_date)}
                         </TableCell>
                         <TableCell>{sale.customer_name}</TableCell>
                         <TableCell className="text-right">
@@ -269,7 +270,7 @@ export default function StaffSales() {
                       return (
                         <TableRow key={sale.id}>
                           <TableCell>
-                            {format(new Date(sale.sale_date), "MMM d, yyyy")}
+                            {formatDateLocal(sale.sale_date)}
                           </TableCell>
                           <TableCell>{sale.customer_name}</TableCell>
                           <TableCell>{leadSourceName}</TableCell>

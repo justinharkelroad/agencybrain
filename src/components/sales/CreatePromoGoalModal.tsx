@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Trophy } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { todayLocal } from "@/lib/utils";
 import { PromoGoalWithProgress } from "@/hooks/usePromoGoals";
 
 interface CreatePromoGoalModalProps {
@@ -44,8 +45,8 @@ export function CreatePromoGoalModal({
   const [goalName, setGoalName] = useState("");
   const [description, setDescription] = useState("");
   const [bonusAmount, setBonusAmount] = useState("");
-  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  const [startDate, setStartDate] = useState(format(todayLocal(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(addDays(todayLocal(), 30), "yyyy-MM-dd"));
   const [promoSource, setPromoSource] = useState<"sales" | "metrics">("sales");
   const [measurement, setMeasurement] = useState("premium");
   const [productTypeId, setProductTypeId] = useState<string>("all");
@@ -120,8 +121,8 @@ export function CreatePromoGoalModal({
         setGoalName("");
         setDescription("");
         setBonusAmount("");
-        setStartDate(format(new Date(), "yyyy-MM-dd"));
-        setEndDate(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+        setStartDate(format(todayLocal(), "yyyy-MM-dd"));
+        setEndDate(format(addDays(todayLocal(), 30), "yyyy-MM-dd"));
         setPromoSource("sales");
         setMeasurement("premium");
         setProductTypeId("all");
