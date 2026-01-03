@@ -135,6 +135,12 @@ export function CreatePromoGoalModal({
 
   const savePromoMutation = useMutation({
     mutationFn: async () => {
+      // Normalize product_type_id: never send empty string to UUID column
+      let normalizedProductTypeId: string | null = null;
+      if (promoSource === "sales" && productTypeId && productTypeId !== "all" && productTypeId !== "") {
+        normalizedProductTypeId = productTypeId;
+      }
+
       const goalData = {
         agency_id: agencyId,
         goal_type: "promo" as const,
@@ -145,7 +151,7 @@ export function CreatePromoGoalModal({
         end_date: endDate,
         promo_source: promoSource,
         measurement: promoSource === "sales" ? measurement : "count",
-        product_type_id: promoSource === "sales" && productTypeId !== "all" ? productTypeId : null,
+        product_type_id: normalizedProductTypeId,
         kpi_slug: promoSource === "metrics" ? kpiSlug : null,
         target_value: parseFloat(targetValue) || 0,
         goal_focus: "all",
@@ -197,8 +203,8 @@ export function CreatePromoGoalModal({
       toast.success(isEditing ? "Promo goal updated" : "Promo goal created");
       onOpenChange(false);
     },
-    onError: (error) => {
-      toast.error(isEditing ? "Failed to update promo goal" : "Failed to create promo goal");
+    onError: (error: Error) => {
+      toast.error(`${isEditing ? "Failed to update promo goal" : "Failed to create promo goal"}: ${error.message}`);
       console.error(error);
     },
   });
