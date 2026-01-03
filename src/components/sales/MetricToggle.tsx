@@ -1,4 +1,4 @@
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 export type MetricType = "items" | "premium" | "points" | "policies" | "households";
 
@@ -22,22 +22,21 @@ export function MetricToggle({
   availableMetrics = ["items", "premium", "points", "policies", "households"] 
 }: MetricToggleProps) {
   return (
-    <ToggleGroup 
-      type="single" 
-      value={value} 
-      onValueChange={(v) => v && onChange(v as MetricType)}
-      className="justify-start"
-    >
+    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
       {availableMetrics.map((metric) => (
-        <ToggleGroupItem 
-          key={metric} 
-          value={metric} 
-          aria-label={`Show ${METRIC_LABELS[metric]}`}
-          className="text-xs px-3"
+        <button
+          key={metric}
+          onClick={() => onChange(metric)}
+          className={cn(
+            "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+            value === metric
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
         >
           {METRIC_LABELS[metric]}
-        </ToggleGroupItem>
+        </button>
       ))}
-    </ToggleGroup>
+    </div>
   );
 }

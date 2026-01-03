@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { BarChart3, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   BarChart,
@@ -14,6 +14,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 
 interface SalesByDateChartProps {
@@ -31,6 +32,17 @@ interface SalesByDateRow {
   policies: number;
   households: number;
 }
+
+const CHART_COLORS = [
+  '#22c55e', // green
+  '#3b82f6', // blue  
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
+];
 
 export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByDateChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
@@ -115,7 +127,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border/50">
         <CardContent className="flex items-center justify-center h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
@@ -124,46 +136,53 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
   }
 
   return (
-    <Card>
+    <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-medium">Sales by Date</CardTitle>
+        <CardTitle className="text-lg font-semibold">Sales by Date</CardTitle>
         <MetricToggle value={metric} onChange={setMetric} />
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No sales data for this period
+          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+            <BarChart3 className="h-12 w-12 mb-2 opacity-50" />
+            <p>No sales data for this period</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <CartesianGrid 
+                strokeDasharray="3 3" 
+                stroke="hsl(var(--border))" 
+                vertical={false}
+              />
               <XAxis
                 dataKey="dateLabel"
-                className="text-muted-foreground"
-                tick={{ fontSize: 11 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                 tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
               />
               <YAxis
-                className="text-muted-foreground"
-                tick={{ fontSize: 11 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                 tickLine={false}
+                axisLine={false}
                 tickFormatter={metric === "premium" ? (v) => `$${v}` : undefined}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
+                  backgroundColor: 'hsl(222 47% 11%)',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
                 }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
+                labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar
-                dataKey={metric}
-                fill="hsl(var(--primary))"
-                radius={[4, 4, 0, 0]}
-              />
+              <Bar dataKey={metric} radius={[4, 4, 0, 0]}>
+                {chartData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}

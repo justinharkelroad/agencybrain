@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { BarChart3, Loader2 } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -14,6 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from "recharts";
 
 interface SalesByZipcodeChartProps {
@@ -23,12 +24,15 @@ interface SalesByZipcodeChartProps {
   staffSessionToken?: string;
 }
 
-const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+const CHART_COLORS = [
+  '#22c55e', // green
+  '#3b82f6', // blue  
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
 ];
 
 interface ZipcodeRow {
@@ -37,6 +41,33 @@ interface ZipcodeRow {
   premium: number;
   households: number;
 }
+
+const RankBadge = (props: any) => {
+  const { x, y, width, index } = props;
+  if (width < 20) return null;
+  
+  return (
+    <g>
+      <circle 
+        cx={x + width + 16} 
+        cy={y + 12} 
+        r={10} 
+        fill="#10b981" 
+      />
+      <text 
+        x={x + width + 16} 
+        y={y + 12} 
+        textAnchor="middle" 
+        dominantBaseline="middle" 
+        fill="white" 
+        fontSize={10} 
+        fontWeight="bold"
+      >
+        {index + 1}
+      </text>
+    </g>
+  );
+};
 
 export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByZipcodeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
@@ -113,7 +144,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border/50">
         <CardContent className="flex items-center justify-center h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
@@ -122,9 +153,9 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
   }
 
   return (
-    <Card>
+    <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-medium">Sales by Zipcode (Top 15)</CardTitle>
+        <CardTitle className="text-lg font-semibold">Sales by Zipcode (Top 15)</CardTitle>
         <MetricToggle 
           value={metric} 
           onChange={setMetric} 
@@ -133,42 +164,53 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No zipcode data for this period
+          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+            <BarChart3 className="h-12 w-12 mb-2 opacity-50" />
+            <p>No zipcode data for this period</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(300, chartData.length * 40)}>
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+              margin={{ top: 5, right: 50, left: 60, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+              <CartesianGrid 
+                strokeDasharray="3 3" 
+                stroke="hsl(var(--border))" 
+                horizontal={false} 
+              />
               <XAxis
                 type="number"
-                className="text-muted-foreground"
-                tick={{ fontSize: 11 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
                 tickFormatter={metric === "premium" ? (v) => `$${v}` : undefined}
               />
               <YAxis
                 type="category"
                 dataKey="zipcode"
-                className="text-muted-foreground"
-                tick={{ fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 13 }}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
                 width={55}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
+                  backgroundColor: 'hsl(222 47% 11%)',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
               <Bar dataKey={metric} radius={[0, 4, 4, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {chartData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
+                <LabelList content={<RankBadge />} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
