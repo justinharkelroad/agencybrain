@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDate, todayLocal } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type ProductType = {
@@ -117,7 +117,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
-  const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
+  const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
 
   // Fetch product types
@@ -163,7 +163,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         product_type_id: "",
         policy_type_name: "",
         policy_number: "",
-        effective_date: saleDate,
+        effective_date: toLocalDate(saleDate),
         is_vc_qualifying: false,
         lineItems: [],
         isExpanded: true,
@@ -534,7 +534,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={saleDate} onSelect={setSaleDate} />
+                  <Calendar mode="single" selected={saleDate} onSelect={(d) => setSaleDate(toLocalDate(d))} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -664,7 +664,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                       mode="single"
                                       selected={policy.effective_date}
                                       onSelect={(date) =>
-                                        updatePolicy(policy.id, "effective_date", date)
+                                        updatePolicy(policy.id, "effective_date", toLocalDate(date))
                                       }
                                     />
                                   </PopoverContent>
