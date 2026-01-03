@@ -181,7 +181,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
 
         {/* Center Ring */}
-        <div className="order-1 lg:order-2">
+        <div className="flex-shrink-0 order-1 lg:order-2">
           {goal > 0 ? (
             <GoalProgressRing
               current={premium}
@@ -192,22 +192,23 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
               animated
             />
           ) : (
-            <div className="relative">
-              <GoalProgressRing
-                current={0}
-                target={100}
-                size="lg"
-                showPercentage={false}
-                animated={false}
-              />
+            <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
+              <svg width={240} height={240} className="transform -rotate-90 opacity-30">
+                <circle
+                  cx={120}
+                  cy={120}
+                  r={108}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth={12}
+                />
+              </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-muted-foreground text-sm">No Goal Set</span>
                 <span className="text-3xl font-bold text-foreground mt-1">
                   ${premium.toLocaleString()}
                 </span>
-                <span className="text-xs text-muted-foreground mt-1">
-                  This Month
-                </span>
+                <span className="text-xs text-muted-foreground mt-1">This Month</span>
               </div>
             </div>
           )}
