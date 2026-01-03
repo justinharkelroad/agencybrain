@@ -59,3 +59,15 @@ export function isValidUUID(v: string | null | undefined): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
+// Creates a Date at local midnight for a given date (fixes react-day-picker UTC issue)
+export function toLocalDate(date: Date | undefined): Date | undefined {
+  if (!date) return undefined;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// Creates today's date at local midnight
+export function todayLocal(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+

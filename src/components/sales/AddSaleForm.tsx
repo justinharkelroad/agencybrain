@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDate, todayLocal } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type ProductType = {
@@ -156,7 +156,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
   const [producerId, setProducerId] = useState("");
-  const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
+  const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
 
   const isEditMode = !!editSale;
@@ -170,7 +170,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerZip(editSale.customer_zip || "");
       setLeadSourceId((editSale as any).lead_source_id || "");
       setProducerId(editSale.team_member_id || "");
-      setSaleDate(editSale.sale_date ? new Date(editSale.sale_date) : new Date());
+      setSaleDate(editSale.sale_date ? toLocalDate(new Date(editSale.sale_date + 'T12:00:00')) : todayLocal());
       // Bundle type is now auto-calculated, no need to restore
       
       // Map policies and items
@@ -179,7 +179,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         product_type_id: policy.product_type_id || "",
         policy_type_name: policy.policy_type_name,
         policy_number: policy.policy_number || "",
-        effective_date: new Date(policy.effective_date),
+        effective_date: toLocalDate(new Date(policy.effective_date + 'T12:00:00')),
         is_vc_qualifying: policy.is_vc_qualifying || false,
         isExpanded: true,
         lineItems: policy.sale_items.map((item) => ({
@@ -602,7 +602,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setCustomerZip("");
     setLeadSourceId("");
     setProducerId("");
-    setSaleDate(new Date());
+    setSaleDate(todayLocal());
     setPolicies([]);
   };
 
@@ -721,7 +721,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={saleDate} onSelect={setSaleDate} />
+                  <Calendar mode="single" selected={saleDate} onSelect={(d) => setSaleDate(toLocalDate(d))} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -851,7 +851,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                       mode="single"
                                       selected={policy.effective_date}
                                       onSelect={(date) =>
-                                        updatePolicy(policy.id, "effective_date", date)
+                                        updatePolicy(policy.id, "effective_date", toLocalDate(date))
                                       }
                                     />
                                   </PopoverContent>
