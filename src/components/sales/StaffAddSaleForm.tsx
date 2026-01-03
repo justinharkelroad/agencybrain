@@ -59,6 +59,7 @@ interface StaffAddSaleFormProps {
   agencyId?: string;
   staffSessionToken?: string;
   staffTeamMemberId?: string | null;
+  leadSources?: { id: string; name: string }[];
 }
 
 // Format phone number as (XXX) XXX-XXXX
@@ -107,7 +108,7 @@ const isMultiItemProduct = (productName: string): boolean => {
   );
 };
 
-export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staffTeamMemberId }: StaffAddSaleFormProps) {
+export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staffTeamMemberId, leadSources = [] }: StaffAddSaleFormProps) {
   const queryClient = useQueryClient();
 
   // Form state
@@ -115,6 +116,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
+  const [leadSourceId, setLeadSourceId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
   const [policies, setPolicies] = useState<Policy[]>([]);
 
@@ -323,6 +325,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!agencyId) throw new Error("No agency found");
       if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
+      if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
       if (!staffSessionToken) throw new Error("Staff session required");
 
@@ -354,6 +357,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       );
 
       const salePayload = {
+        lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
@@ -415,6 +419,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setCustomerEmail("");
     setCustomerPhone("");
     setCustomerZip("");
+    setLeadSourceId("");
     setSaleDate(new Date());
     setPolicies([]);
   };
@@ -484,6 +489,23 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                 placeholder="12345"
                 maxLength={10}
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="leadSource">
+                Lead Source <span className="text-destructive">*</span>
+              </Label>
+              <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select lead source..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {leadSources.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

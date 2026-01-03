@@ -32,7 +32,13 @@ interface Sale {
   total_premium: number | null;
   total_items: number | null;
   total_points: number | null;
+  lead_source_id: string | null;
   sale_policies: SalePolicy[];
+}
+
+interface LeadSource {
+  id: string;
+  name: string;
 }
 
 interface StaffSalesResponse {
@@ -53,6 +59,7 @@ interface StaffSalesResponse {
   }>;
   team_member_id: string | null;
   agency_id: string;
+  lead_sources: LeadSource[];
 }
 
 export default function StaffSales() {
@@ -107,6 +114,7 @@ export default function StaffSales() {
 
   const salesData = salesResponse?.personal_sales || [];
   const totals = salesResponse?.totals || { premium: 0, items: 0, points: 0, policies: 0 };
+  const leadSources = salesResponse?.lead_sources || [];
 
   const handleSaleCreated = () => {
     queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
@@ -245,6 +253,7 @@ export default function StaffSales() {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Customer</TableHead>
+                      <TableHead>Lead Source</TableHead>
                       <TableHead>Policies</TableHead>
                       <TableHead className="text-right">Premium</TableHead>
                       <TableHead className="text-right">Items</TableHead>
@@ -253,36 +262,40 @@ export default function StaffSales() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salesData.map((sale) => (
-                      <TableRow key={sale.id}>
-                        <TableCell>
-                          {format(new Date(sale.sale_date), "MMM d, yyyy")}
-                        </TableCell>
-                        <TableCell>{sale.customer_name}</TableCell>
-                        <TableCell>
-                          {sale.sale_policies?.map((p) => p.policy_type_name).join(", ") || "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ${(sale.total_premium || 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {sale.total_items || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {sale.total_points || 0}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setEditingSale(sale)}
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {salesData.map((sale) => {
+                      const leadSourceName = leadSources.find(ls => ls.id === sale.lead_source_id)?.name || "—";
+                      return (
+                        <TableRow key={sale.id}>
+                          <TableCell>
+                            {format(new Date(sale.sale_date), "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell>{sale.customer_name}</TableCell>
+                          <TableCell>{leadSourceName}</TableCell>
+                          <TableCell>
+                            {sale.sale_policies?.map((p) => p.policy_type_name).join(", ") || "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            ${(sale.total_premium || 0).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {sale.total_items || 0}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {sale.total_points || 0}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingSale(sale)}
+                              className="h-8 w-8"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               ) : (
@@ -299,6 +312,7 @@ export default function StaffSales() {
             agencyId={agencyId}
             staffSessionToken={sessionToken || undefined}
             staffTeamMemberId={user?.team_member_id}
+            leadSources={leadSources}
             onSuccess={handleSaleCreated}
           />
         </TabsContent>
@@ -309,6 +323,7 @@ export default function StaffSales() {
             staffSessionToken={sessionToken || undefined}
             staffUserId={user?.id}
             staffTeamMemberId={user?.team_member_id}
+            leadSources={leadSources}
             onSuccess={handleSaleCreated}
           />
         </TabsContent>
@@ -330,6 +345,7 @@ export default function StaffSales() {
           open={!!editingSale}
           onOpenChange={(open) => !open && setEditingSale(null)}
           sessionToken={sessionToken}
+          leadSources={leadSources}
         />
       )}
     </div>

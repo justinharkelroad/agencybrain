@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useLeadSources } from "@/hooks/useLeadSources";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,6 +154,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
+  const [leadSourceId, setLeadSourceId] = useState("");
   const [producerId, setProducerId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(new Date());
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -166,6 +168,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerEmail(editSale.customer_email || "");
       setCustomerPhone(editSale.customer_phone || "");
       setCustomerZip(editSale.customer_zip || "");
+      setLeadSourceId((editSale as any).lead_source_id || "");
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? new Date(editSale.sale_date) : new Date());
       // Bundle type is now auto-calculated, no need to restore
@@ -241,6 +244,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     },
     enabled: !!profile?.agency_id,
   });
+
+  // Fetch lead sources
+  const { leadSources } = useLeadSources();
 
   // Calculate policy totals
   const calculatePolicyTotals = (policy: Policy) => {
@@ -441,6 +447,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       if (!profile?.agency_id) throw new Error("No agency found");
       if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
+      if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
 
       // Validate each policy has an effective date and at least one item
@@ -492,6 +499,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       const saleData = {
         agency_id: profile.agency_id,
         team_member_id: producerId || null,
+        lead_source_id: leadSourceId || null,
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim() || null,
         customer_phone: customerPhone.trim() || null,
@@ -592,6 +600,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setCustomerEmail("");
     setCustomerPhone("");
     setCustomerZip("");
+    setLeadSourceId("");
     setProducerId("");
     setSaleDate(new Date());
     setPolicies([]);
@@ -652,6 +661,23 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                 placeholder="12345"
                 maxLength={10}
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="leadSource">
+                Lead Source <span className="text-destructive">*</span>
+              </Label>
+              <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select lead source..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {leadSources.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
