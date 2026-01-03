@@ -75,7 +75,7 @@ export function SubProducerSummaryCard({ data, period, teamMembers = [] }: Props
               <div className="text-xl font-bold">
                 ${totals.premiumWritten.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </div>
-              <div className="text-xs text-muted-foreground">Written</div>
+              <div className="text-xs text-muted-foreground">Issued</div>
             </div>
             
             <div className="text-center p-3 rounded-lg bg-muted/50">

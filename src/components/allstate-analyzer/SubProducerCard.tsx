@@ -97,7 +97,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
           <div className="text-xs font-medium text-muted-foreground mb-2">Premium (First-Term, Net per Insured)</div>
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <div className="text-muted-foreground text-xs">Written</div>
+              <div className="text-muted-foreground text-xs">Issued</div>
               <div className="font-medium">
                 ${producer.premiumWritten.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>

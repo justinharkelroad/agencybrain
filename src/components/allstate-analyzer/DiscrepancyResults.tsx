@@ -170,7 +170,7 @@ export function DiscrepancyResults({
       'Category',
       'Business Type',
       'Bundle Type',
-      'Written Premium',
+      'Issued Premium',
       'Actual VC Rate',
       'Expected VC Rate',
       'Missing VC $',
