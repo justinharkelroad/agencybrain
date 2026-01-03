@@ -16,6 +16,10 @@ import { Button } from "@/components/ui/button";
 interface SalePolicy {
   id: string;
   policy_type_name: string | null;
+  policy_number: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
 }
 
 interface Sale {
