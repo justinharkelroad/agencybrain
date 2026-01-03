@@ -134,6 +134,7 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
             size="sm"
             showPercentage
             animated
+            formatValue={formatValue}
           />
         </div>
 
