@@ -87,31 +87,35 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!teamMemberId,
   });
 
-  // Fetch personal or agency goal
+  // Fetch personal or agency goal from sales_goals table
   const { data: goalData } = useQuery({
     queryKey: ["staff-sales-goal", agencyId, teamMemberId],
     queryFn: async () => {
-      // First check for personal goal
+      // First check for personal goal (assigned to this team member)
       const { data: personalGoal } = await supabase
-        .from("team_member_goals")
-        .select("premium_goal")
+        .from("sales_goals")
+        .select("target_value, goal_name")
+        .eq("agency_id", agencyId)
         .eq("team_member_id", teamMemberId)
-        .eq("month_year", format(today, "yyyy-MM"))
+        .eq("measurement", "premium")
+        .eq("is_active", true)
         .maybeSingle();
 
-      if (personalGoal?.premium_goal) {
-        return { goal: personalGoal.premium_goal, type: "personal" };
+      if (personalGoal?.target_value) {
+        return { goal: personalGoal.target_value, type: "personal", name: personalGoal.goal_name };
       }
 
-      // Fallback to agency goal
+      // Fallback to agency goal (no team_member_id)
       const { data: agencyGoal } = await supabase
-        .from("agency_sales_goals")
-        .select("premium_goal")
+        .from("sales_goals")
+        .select("target_value, goal_name")
         .eq("agency_id", agencyId)
-        .eq("month_year", format(today, "yyyy-MM"))
+        .is("team_member_id", null)
+        .eq("measurement", "premium")
+        .eq("is_active", true)
         .maybeSingle();
 
-      return { goal: agencyGoal?.premium_goal || 0, type: "agency" };
+      return { goal: agencyGoal?.target_value || 0, type: "agency", name: agencyGoal?.goal_name };
     },
     enabled: !!agencyId && !!teamMemberId,
   });
