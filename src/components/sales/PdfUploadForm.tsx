@@ -107,7 +107,8 @@ export function PdfUploadForm({
 }: PdfUploadFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isStaffMode = !!staffSessionToken;
+  // More robust staff mode detection - check both session token and team member ID
+  const isStaffMode = !!staffSessionToken || !!staffTeamMemberId;
 
   // Fetch profile for agency_id (admin mode)
   const { data: profile } = useQuery({
@@ -662,13 +663,17 @@ export function PdfUploadForm({
             </CardContent>
           </Card>
 
-          {/* Producer Selection (Admin only) */}
-          {!isStaffMode && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Producer</CardTitle>
-              </CardHeader>
-              <CardContent>
+          {/* Producer Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Producer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isStaffMode ? (
+                <p className="text-sm text-muted-foreground">
+                  This sale will be assigned to you automatically.
+                </p>
+              ) : (
                 <div className="space-y-2">
                   <Label htmlFor="producer">Assign to Producer</Label>
                   <Select value={producerId} onValueChange={setProducerId}>
@@ -684,9 +689,9 @@ export function PdfUploadForm({
                     </SelectContent>
                   </Select>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           {/* Vehicles (if extracted) */}
           {extractedData?.vehicles && extractedData.vehicles.length > 0 && (
