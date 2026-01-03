@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, differenceInDays, getDaysInMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { DollarSign, Package, FileText, Trophy, ArrowRight, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
@@ -8,6 +8,12 @@ import { Link } from "react-router-dom";
 import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
 import { StatOrb } from "@/components/sales/StatOrb";
 import { cn } from "@/lib/utils";
+import { 
+  getBusinessDaysInMonth, 
+  getBusinessDaysElapsed, 
+  calculateProjection,
+  formatProjection 
+} from "@/utils/businessDays";
 
 interface StaffSalesSummaryProps {
   agencyId: string;
@@ -28,8 +34,10 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
-  const daysElapsed = differenceInDays(today, startOfMonth(today)) + 1;
-  const totalDays = getDaysInMonth(today);
+  
+  // Use business days instead of calendar days
+  const bizDaysElapsed = getBusinessDaysElapsed(today);
+  const bizDaysTotal = getBusinessDaysInMonth(today);
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
@@ -122,8 +130,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   });
 
   const premium = data?.premium || 0;
+  const items = data?.items || 0;
+  const points = data?.points || 0;
+  const policies = data?.policies || 0;
+  const households = data?.households || 0;
   const goal = goalData?.goal || 0;
-  const projectedMonthEnd = daysElapsed > 0 ? Math.round((premium / daysElapsed) * totalDays) : 0;
+  
+  // Calculate projections for all metrics using business days
+  const premiumProj = calculateProjection(premium, bizDaysElapsed, bizDaysTotal);
+  const itemsProj = calculateProjection(items, bizDaysElapsed, bizDaysTotal);
+  const pointsProj = calculateProjection(points, bizDaysElapsed, bizDaysTotal);
+  const policiesProj = calculateProjection(policies, bizDaysElapsed, bizDaysTotal);
+  const householdsProj = calculateProjection(households, bizDaysElapsed, bizDaysTotal);
+  
+  const dailyRate = bizDaysElapsed > 0 ? premium / bizDaysElapsed : 0;
 
   if (isLoading) {
     return (
@@ -175,20 +195,23 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             icon={DollarSign}
             color="green"
             animationDelay={0}
+            projection={formatProjection(premiumProj, '$')}
           />
           <StatOrb
-            value={data?.points || 0}
+            value={points}
             label="Points"
             icon={Trophy}
             color="orange"
             animationDelay={200}
+            projection={pointsProj}
           />
           <StatOrb
-            value={data?.households || 0}
+            value={households}
             label="Households"
             icon={Users}
             color="cyan"
             animationDelay={250}
+            projection={householdsProj}
           />
         </div>
 
@@ -229,18 +252,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         {/* Right Orbs */}
         <div className="flex flex-row lg:flex-col gap-4">
           <StatOrb
-            value={data?.items || 0}
+            value={items}
             label="Items"
             icon={Package}
             color="blue"
             animationDelay={100}
+            projection={itemsProj}
           />
           <StatOrb
-            value={data?.policies || 0}
+            value={policies}
             label="Policies"
             icon={FileText}
             color="purple"
             animationDelay={300}
+            projection={policiesProj}
           />
         </div>
       </div>
@@ -251,15 +276,17 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         "grid grid-cols-2 gap-4 text-center"
       )}>
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Day {daysElapsed} of {totalDays}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">
+            Biz Day {bizDaysElapsed} of {bizDaysTotal}
+          </p>
           <p className="text-lg font-semibold text-foreground mt-1">
-            ${Math.round(premium / daysElapsed).toLocaleString()}/day
+            ${Math.round(dailyRate).toLocaleString()}/day
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Projected</p>
           <p className="text-lg font-semibold text-foreground mt-1">
-            ${projectedMonthEnd.toLocaleString()}
+            {formatProjection(premiumProj, '$')}
           </p>
         </div>
       </div>

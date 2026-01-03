@@ -4,40 +4,20 @@ import { useAuth } from "@/lib/auth";
 import { Link } from "react-router-dom";
 import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfDay, subDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { StatOrb } from "./StatOrb";
 import { PacingIndicator } from "./PacingIndicator";
+import { 
+  getBusinessDaysInMonth, 
+  getBusinessDaysElapsed, 
+  getBusinessDaysRemaining,
+  calculateProjection,
+  formatProjection 
+} from "@/utils/businessDays";
 
 interface SalesDashboardWidgetProps {
   agencyId: string | null;
-}
-
-// Calculate business days in a month
-function getBusinessDaysInMonth(date: Date): number {
-  const start = startOfMonth(date);
-  const end = endOfMonth(date);
-  const days = eachDayOfInterval({ start, end });
-  return days.filter(d => !isWeekend(d)).length;
-}
-
-// Calculate business days elapsed
-function getBusinessDaysElapsed(date: Date): number {
-  const start = startOfMonth(date);
-  const today = new Date();
-  const end = today > date ? endOfMonth(date) : today;
-  if (end < start) return 0;
-  const days = eachDayOfInterval({ start, end });
-  return days.filter(d => !isWeekend(d)).length;
-}
-
-// Calculate remaining business days
-function getBusinessDaysRemaining(date: Date): number {
-  const today = new Date();
-  const end = endOfMonth(date);
-  if (today > end) return 0;
-  const days = eachDayOfInterval({ start: today, end });
-  return days.filter(d => !isWeekend(d)).length;
 }
 
 export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
@@ -48,6 +28,11 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const monthLabel = format(today, "MMMM yyyy");
   const todayStr = format(startOfDay(today), "yyyy-MM-dd");
   const weekStart = format(subDays(today, 6), "yyyy-MM-dd");
+
+  // Business days calculations
+  const bizDaysTotal = getBusinessDaysInMonth(today);
+  const bizDaysElapsed = getBusinessDaysElapsed(today);
+  const bizDaysRemaining = getBusinessDaysRemaining(today);
 
   // Fetch team_member_id for staff users
   const { data: staffData } = useQuery({
@@ -161,19 +146,16 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const hasGoal = !!goalData;
   const monthlyGoal = goalData?.target_value || 0;
   
-  // Calculate pacing
-  const businessDaysInMonth = getBusinessDaysInMonth(today);
-  const businessDaysElapsed = getBusinessDaysElapsed(today);
-  const businessDaysRemaining = getBusinessDaysRemaining(today);
-  
-  const dailyTarget = businessDaysInMonth > 0 ? monthlyGoal / businessDaysInMonth : 0;
-  const expectedToDate = dailyTarget * businessDaysElapsed;
+  // Calculate pacing using business days
+  const dailyTarget = bizDaysTotal > 0 ? monthlyGoal / bizDaysTotal : 0;
   const stillNeed = Math.max(0, monthlyGoal - stats.totalPremium);
   
-  // Projected month-end (based on current pace)
-  const projectedMonthEnd = businessDaysElapsed > 0 
-    ? (stats.totalPremium / businessDaysElapsed) * businessDaysInMonth 
-    : 0;
+  // Calculate projections for all metrics
+  const premiumProj = calculateProjection(stats.totalPremium, bizDaysElapsed, bizDaysTotal);
+  const itemsProj = calculateProjection(stats.totalItems, bizDaysElapsed, bizDaysTotal);
+  const pointsProj = calculateProjection(stats.totalPoints, bizDaysElapsed, bizDaysTotal);
+  const policiesProj = calculateProjection(stats.totalPolicies, bizDaysElapsed, bizDaysTotal);
+  const householdsProj = calculateProjection(stats.totalHouseholds, bizDaysElapsed, bizDaysTotal);
 
   return (
     <div className="sales-widget-glass p-6 space-y-6">
@@ -213,6 +195,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={DollarSign}
                 color="green"
                 animationDelay={0}
+                projection={formatProjection(premiumProj, '$')}
               />
               <StatOrb
                 value={stats.totalPoints}
@@ -220,6 +203,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={Trophy}
                 color="orange"
                 animationDelay={100}
+                projection={pointsProj}
               />
               <StatOrb
                 value={stats.totalHouseholds}
@@ -227,6 +211,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={Users}
                 color="cyan"
                 animationDelay={150}
+                projection={householdsProj}
               />
             </div>
 
@@ -274,6 +259,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={Package}
                 color="blue"
                 animationDelay={200}
+                projection={itemsProj}
               />
               <StatOrb
                 value={stats.totalPolicies}
@@ -281,6 +267,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 icon={FileText}
                 color="purple"
                 animationDelay={300}
+                projection={policiesProj}
               />
             </div>
           </div>
@@ -289,9 +276,9 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           {hasGoal && (
             <PacingIndicator
               dailyTarget={dailyTarget}
-              currentDaily={businessDaysElapsed > 0 ? stats.totalPremium / businessDaysElapsed : 0}
+              currentDaily={bizDaysElapsed > 0 ? stats.totalPremium / bizDaysElapsed : 0}
               amountNeeded={stillNeed}
-              daysRemaining={businessDaysRemaining}
+              daysRemaining={bizDaysRemaining}
             />
           )}
 
@@ -315,11 +302,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <div className="text-center">
               <div className={cn(
                 "text-lg font-semibold",
-                projectedMonthEnd >= monthlyGoal ? "text-emerald-500" : "text-foreground"
+                premiumProj !== null && premiumProj >= monthlyGoal ? "text-emerald-500" : "text-foreground"
               )}>
-                ${Math.round(projectedMonthEnd).toLocaleString()}
+                {formatProjection(premiumProj, '$')}
               </div>
-              <div className="text-xs text-muted-foreground">Projected</div>
+              <div className="text-xs text-muted-foreground">
+                Projected (Biz Day {bizDaysElapsed}/{bizDaysTotal})
+              </div>
             </div>
           </div>
         </>
