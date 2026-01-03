@@ -251,3 +251,6 @@ verify_jwt = false
 
 [functions.create_staff_sale]
 verify_jwt = false
+
+[functions.get_staff_goal]
+verify_jwt = false

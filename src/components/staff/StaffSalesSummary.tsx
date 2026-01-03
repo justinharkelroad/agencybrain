@@ -87,37 +87,27 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!teamMemberId,
   });
 
-  // Fetch personal or agency goal from sales_goals table
+  // Fetch personal or agency goal via edge function (staff users need edge function to bypass RLS)
   const { data: goalData } = useQuery({
-    queryKey: ["staff-sales-goal", agencyId, teamMemberId],
+    queryKey: ["staff-sales-goal", agencyId, teamMemberId, sessionToken],
     queryFn: async () => {
-      // First check for personal goal (assigned to this team member)
-      const { data: personalGoal } = await supabase
-        .from("sales_goals")
-        .select("target_value, goal_name")
-        .eq("agency_id", agencyId)
-        .eq("team_member_id", teamMemberId)
-        .eq("measurement", "premium")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (personalGoal?.target_value) {
-        return { goal: personalGoal.target_value, type: "personal", name: personalGoal.goal_name };
+      if (!sessionToken) {
+        return { goal: 0, type: "agency", name: null };
       }
 
-      // Fallback to agency goal (no team_member_id)
-      const { data: agencyGoal } = await supabase
-        .from("sales_goals")
-        .select("target_value, goal_name")
-        .eq("agency_id", agencyId)
-        .is("team_member_id", null)
-        .eq("measurement", "premium")
-        .eq("is_active", true)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke('get_staff_goal', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { team_member_id: teamMemberId }
+      });
 
-      return { goal: agencyGoal?.target_value || 0, type: "agency", name: agencyGoal?.goal_name };
+      if (error || data?.error) {
+        console.error('Error fetching staff goal:', error || data?.error);
+        return { goal: 0, type: "agency", name: null };
+      }
+
+      return data || { goal: 0, type: "agency", name: null };
     },
-    enabled: !!agencyId && !!teamMemberId,
+    enabled: !!agencyId && !!teamMemberId && !!sessionToken,
   });
 
   const premium = data?.premium || 0;
