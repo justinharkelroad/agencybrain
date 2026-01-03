@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Gift, Loader2, ArrowRight, Users, CheckCircle2, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { GoalProgressRing } from "./GoalProgressRing";
-import { cn } from "@/lib/utils";
+import { cn, parseDateLocal, todayLocal } from "@/lib/utils";
 
 interface AdminPromoGoalsWidgetProps {
   agencyId: string | null;
@@ -64,15 +64,14 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
 
       if (goalsError) throw goalsError;
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = todayLocal();
 
       // Process each goal and calculate progress per staff member
       const promosWithProgress: PromoWithProgress[] = [];
 
       for (const goal of goals || []) {
-        const startDate = new Date(goal.start_date);
-        const endDate = new Date(goal.end_date);
+        const startDate = parseDateLocal(goal.start_date);
+        const endDate = parseDateLocal(goal.end_date);
 
         let status: 'active' | 'upcoming' | 'ended' = 'active';
         if (today < startDate) {
