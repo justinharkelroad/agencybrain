@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { Loader2, DollarSign, Package, FileText, Trophy, Pencil } from "lucide-react";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
+import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
@@ -134,12 +135,13 @@ export default function StaffSales() {
       <h1 className="text-3xl font-bold mb-6">My Sales</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-5 md:max-w-2xl">
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-6 md:max-w-3xl">
           <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
           <TabsTrigger value="history" className="flex-shrink-0">History</TabsTrigger>
           <TabsTrigger value="add" className="flex-shrink-0">Add Sale</TabsTrigger>
           <TabsTrigger value="upload" className="flex-shrink-0">Upload PDF</TabsTrigger>
           <TabsTrigger value="leaderboard" className="flex-shrink-0">Leaderboard</TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-shrink-0">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6 space-y-6">
@@ -332,6 +334,16 @@ export default function StaffSales() {
           {agencyId && (
             <SalesLeaderboard 
               agencyId={agencyId} 
+              staffSessionToken={sessionToken || undefined}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-6">
+          {agencyId && (
+            <SalesBreakdownTabs 
+              agencyId={agencyId}
+              showLeaderboard={false}
               staffSessionToken={sessionToken || undefined}
             />
           )}

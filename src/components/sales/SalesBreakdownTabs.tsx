@@ -11,6 +11,8 @@ import { startOfMonth, endOfMonth, subMonths, startOfYear, format } from "date-f
 
 interface SalesBreakdownTabsProps {
   agencyId: string | null;
+  showLeaderboard?: boolean;
+  staffSessionToken?: string;
 }
 
 type Period = "this_month" | "last_month" | "this_year" | "last_90_days";
@@ -53,7 +55,7 @@ function getPeriodDates(period: Period): { start: string; end: string; label: st
   }
 }
 
-export function SalesBreakdownTabs({ agencyId }: SalesBreakdownTabsProps) {
+export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken }: SalesBreakdownTabsProps) {
   const [activeTab, setActiveTab] = useState("by-date");
   const [period, setPeriod] = useState<Period>("this_month");
   
@@ -77,13 +79,15 @@ export function SalesBreakdownTabs({ agencyId }: SalesBreakdownTabsProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-4xl grid-cols-6">
+        <TabsList className={`grid w-full max-w-4xl ${showLeaderboard ? 'grid-cols-6' : 'grid-cols-5'}`}>
           <TabsTrigger value="by-date" className="text-xs sm:text-sm">By Date</TabsTrigger>
           <TabsTrigger value="by-policy" className="text-xs sm:text-sm">By Policy</TabsTrigger>
           <TabsTrigger value="by-source" className="text-xs sm:text-sm">By Source</TabsTrigger>
           <TabsTrigger value="by-bundle" className="text-xs sm:text-sm">By Bundle</TabsTrigger>
           <TabsTrigger value="by-zipcode" className="text-xs sm:text-sm">By Zipcode</TabsTrigger>
-          <TabsTrigger value="leaderboard" className="text-xs sm:text-sm">Leaderboard</TabsTrigger>
+          {showLeaderboard && (
+            <TabsTrigger value="leaderboard" className="text-xs sm:text-sm">Leaderboard</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="by-date" className="mt-4">
@@ -106,9 +110,11 @@ export function SalesBreakdownTabs({ agencyId }: SalesBreakdownTabsProps) {
           <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} />
         </TabsContent>
 
-        <TabsContent value="leaderboard" className="mt-4">
-          <SalesLeaderboard agencyId={agencyId} />
-        </TabsContent>
+        {showLeaderboard && (
+          <TabsContent value="leaderboard" className="mt-4">
+            <SalesLeaderboard agencyId={agencyId} staffSessionToken={staffSessionToken} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
