@@ -6,7 +6,8 @@ interface PodiumEntry {
   name: string;
   initials: string;
   value: number;
-  metric: 'premium' | 'items' | 'points';
+  metric: 'premium' | 'items' | 'points' | 'households';
+  households?: number;
   isCurrentUser?: boolean;
   premium?: number;
   items?: number;
@@ -16,10 +17,10 @@ interface PodiumEntry {
 
 interface LeaderboardPodiumProps {
   topThree: PodiumEntry[];
-  metric: 'premium' | 'items' | 'points';
+  metric: 'premium' | 'items' | 'points' | 'households';
 }
 
-const formatValue = (value: number, metric: 'premium' | 'items' | 'points') => {
+const formatValue = (value: number, metric: 'premium' | 'items' | 'points' | 'households') => {
   if (metric === 'premium') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
@@ -31,25 +32,19 @@ const getMedalColors = (rank: 1 | 2 | 3) => {
     case 1:
       return {
         border: 'border-[#FFD700]',
-        shadow: 'shadow-[0_0_25px_rgba(255,215,0,0.5)]',
-        glow: 'rgba(255, 215, 0, 0.4)',
-        bg: 'bg-gradient-to-br from-[#FFD700]/20 to-[#FFA500]/10',
+        bg: 'bg-transparent',
         text: 'text-[#FFD700]',
       };
     case 2:
       return {
         border: 'border-[#C0C0C0]',
-        shadow: 'shadow-[0_0_20px_rgba(192,192,192,0.4)]',
-        glow: 'rgba(192, 192, 192, 0.3)',
-        bg: 'bg-gradient-to-br from-[#C0C0C0]/20 to-[#A8A8A8]/10',
+        bg: 'bg-transparent',
         text: 'text-[#C0C0C0]',
       };
     case 3:
       return {
         border: 'border-[#CD7F32]',
-        shadow: 'shadow-[0_0_20px_rgba(205,127,50,0.4)]',
-        glow: 'rgba(205, 127, 50, 0.3)',
-        bg: 'bg-gradient-to-br from-[#CD7F32]/20 to-[#B8860B]/10',
+        bg: 'bg-transparent',
         text: 'text-[#CD7F32]',
       };
   }
@@ -74,7 +69,7 @@ const getInitials = (name: string) => {
 
 interface PodiumPlaceProps {
   entry: PodiumEntry;
-  metric: 'premium' | 'items' | 'points';
+  metric: 'premium' | 'items' | 'points' | 'households';
   animationDelay: number;
 }
 
@@ -122,14 +117,9 @@ function PodiumPlace({ entry, metric, animationDelay }: PodiumPlaceProps) {
           "rounded-full flex items-center justify-center relative",
           "border-[3px]",
           colors.border,
-          colors.shadow,
           colors.bg,
-          "transition-all duration-300",
           entry.isCurrentUser && "ring-2 ring-primary ring-offset-2 ring-offset-background"
         )}
-        style={{
-          animation: 'avatarPulse 2s ease-in-out infinite',
-        }}
       >
         <span className={cn(fontSize, "font-bold text-foreground")}>
           {entry.initials || getInitials(entry.name)}
@@ -165,9 +155,9 @@ function PodiumPlace({ entry, metric, animationDelay }: PodiumPlaceProps) {
         {formatValue(entry.value, metric)}
       </motion.p>
 
-      {/* Secondary Stats (on hover - simplified for now) */}
+      {/* Secondary Stats */}
       <p className="text-xs text-muted-foreground mt-1">
-        {entry.items ?? 0} items • {entry.policies ?? 0} policies
+        {entry.items ?? 0} items • {entry.policies ?? 0} policies • {entry.households ?? 0} households
       </p>
     </motion.div>
   );

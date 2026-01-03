@@ -35,6 +35,7 @@ interface LeaderboardEntry {
   items: number;
   points: number;
   policies: number;
+  households: number;
 }
 
 serve(async (req) => {
@@ -236,6 +237,7 @@ serve(async (req) => {
         .from('sales')
         .select(`
           team_member_id,
+          customer_name,
           total_premium,
           total_items,
           total_points,
@@ -255,7 +257,7 @@ serve(async (req) => {
       console.log('Found sales for leaderboard:', allSales?.length || 0);
 
       // Aggregate by team member
-      const aggregated: Record<string, LeaderboardEntry> = {};
+      const aggregated: Record<string, LeaderboardEntry & { customerNames: Set<string> }> = {};
 
       for (const tm of (teamMembers || []) as TeamMember[]) {
         aggregated[tm.id] = {
@@ -265,6 +267,8 @@ serve(async (req) => {
           items: 0,
           points: 0,
           policies: 0,
+          households: 0,
+          customerNames: new Set(),
         };
       }
 
@@ -275,10 +279,25 @@ serve(async (req) => {
           aggregated[tmId].items += sale.total_items || 0;
           aggregated[tmId].points += sale.total_points || 0;
           aggregated[tmId].policies += (sale.sale_policies as any[])?.length || 0;
+          
+          // Track unique households
+          const customerName = (sale as any).customer_name?.toLowerCase().trim();
+          if (customerName) {
+            aggregated[tmId].customerNames.add(customerName);
+          }
         }
       }
 
-      leaderboard = Object.values(aggregated);
+      // Convert to leaderboard entries (calculate households from Set size)
+      leaderboard = Object.values(aggregated).map(entry => ({
+        team_member_id: entry.team_member_id,
+        name: entry.name,
+        premium: entry.premium,
+        items: entry.items,
+        points: entry.points,
+        policies: entry.policies,
+        households: entry.customerNames.size,
+      }));
       console.log('Leaderboard entries:', leaderboard.length);
     }
 
