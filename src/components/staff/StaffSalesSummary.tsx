@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, differenceInDays, getDaysInMonth } from "date-fns";
 import { DollarSign, Package, FileText, Trophy, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
+import { StatOrb } from "@/components/sales/StatOrb";
+import { cn } from "@/lib/utils";
 
 interface StaffSalesSummaryProps {
   agencyId: string;
@@ -26,14 +27,12 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
-
-  // Debug logging for client-side
-  console.log('[StaffSalesSummary] sessionToken present?', !!sessionToken);
+  const daysElapsed = differenceInDays(today, startOfMonth(today)) + 1;
+  const totalDays = getDaysInMonth(today);
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
     queryFn: async (): Promise<SalesTotals> => {
-      // Use edge function to bypass RLS for staff users
       if (sessionToken) {
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': sessionToken },
@@ -57,7 +56,6 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         return data.totals || { premium: 0, items: 0, points: 0, policies: 0 };
       }
 
-      // Fallback to direct query (for admin impersonation or testing)
       const { data: salesData, error } = await supabase
         .from("sales")
         .select(`
@@ -89,75 +87,169 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!teamMemberId,
   });
 
+  // Fetch personal or agency goal
+  const { data: goalData } = useQuery({
+    queryKey: ["staff-sales-goal", agencyId, teamMemberId],
+    queryFn: async () => {
+      // First check for personal goal
+      const { data: personalGoal } = await supabase
+        .from("team_member_goals")
+        .select("premium_goal")
+        .eq("team_member_id", teamMemberId)
+        .eq("month_year", format(today, "yyyy-MM"))
+        .maybeSingle();
+
+      if (personalGoal?.premium_goal) {
+        return { goal: personalGoal.premium_goal, type: "personal" };
+      }
+
+      // Fallback to agency goal
+      const { data: agencyGoal } = await supabase
+        .from("agency_sales_goals")
+        .select("premium_goal")
+        .eq("agency_id", agencyId)
+        .eq("month_year", format(today, "yyyy-MM"))
+        .maybeSingle();
+
+      return { goal: agencyGoal?.premium_goal || 0, type: "agency" };
+    },
+    enabled: !!agencyId && !!teamMemberId,
+  });
+
+  const premium = data?.premium || 0;
+  const goal = goalData?.goal || 0;
+  const projectedMonthEnd = daysElapsed > 0 ? Math.round((premium / daysElapsed) * totalDays) : 0;
+
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>My Sales - {format(today, "MMMM yyyy")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+      <div className="sales-widget-glass rounded-3xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-6 w-24" />
+        </div>
+        <div className="flex flex-col items-center gap-6">
+          <Skeleton className="h-48 w-48 rounded-full" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
             {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-20" />
+              <Skeleton key={i} className="h-24 rounded-2xl" />
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>My Sales - {format(today, "MMMM yyyy")}</CardTitle>
-        {showViewAll && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/staff/sales" className="flex items-center gap-1">
-              View All <ArrowRight className="h-4 w-4" />
+    <div className="sales-widget-glass rounded-3xl p-6 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-foreground">My Sales</h3>
+        <div className="flex items-center gap-3">
+          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+            {format(today, "MMMM yyyy")}
+          </span>
+          {showViewAll && (
+            <Link 
+              to="/staff/sales" 
+              className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 group"
+            >
+              View All 
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Premium</p>
-              <p className="text-xl font-bold">${(data?.premium || 0).toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Items</p>
-              <p className="text-xl font-bold">{data?.items || 0}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Policies</p>
-              <p className="text-xl font-bold">{data?.policies || 0}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-              <Trophy className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Points</p>
-              <p className="text-xl font-bold">{data?.points || 0}</p>
-            </div>
-          </div>
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+        {/* Left Orbs */}
+        <div className="flex lg:flex-col gap-4 order-2 lg:order-1">
+          <StatOrb
+            value={`$${premium.toLocaleString()}`}
+            label="Premium"
+            icon={DollarSign}
+            color="green"
+            animationDelay={0}
+          />
+          <StatOrb
+            value={data?.points || 0}
+            label="Points"
+            icon={Trophy}
+            color="orange"
+            animationDelay={200}
+          />
+        </div>
+
+        {/* Center Ring */}
+        <div className="order-1 lg:order-2">
+          {goal > 0 ? (
+            <GoalProgressRing
+              current={premium}
+              target={goal}
+              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
+              size="lg"
+              showPercentage
+              animated
+            />
+          ) : (
+            <div className="relative">
+              <GoalProgressRing
+                current={0}
+                target={100}
+                size="lg"
+                showPercentage={false}
+                animated={false}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-muted-foreground text-sm">No Goal Set</span>
+                <span className="text-3xl font-bold text-foreground mt-1">
+                  ${premium.toLocaleString()}
+                </span>
+                <span className="text-xs text-muted-foreground mt-1">
+                  This Month
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Orbs */}
+        <div className="flex lg:flex-col gap-4 order-3">
+          <StatOrb
+            value={data?.items || 0}
+            label="Items"
+            icon={Package}
+            color="blue"
+            animationDelay={100}
+          />
+          <StatOrb
+            value={data?.policies || 0}
+            label="Policies"
+            icon={FileText}
+            color="purple"
+            animationDelay={300}
+          />
+        </div>
+      </div>
+
+      {/* Footer Stats */}
+      <div className={cn(
+        "mt-8 pt-4 border-t border-border/30",
+        "grid grid-cols-2 gap-4 text-center"
+      )}>
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Day {daysElapsed} of {totalDays}</p>
+          <p className="text-lg font-semibold text-foreground mt-1">
+            ${Math.round(premium / daysElapsed).toLocaleString()}/day
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Projected</p>
+          <p className="text-lg font-semibold text-foreground mt-1">
+            ${projectedMonthEnd.toLocaleString()}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
