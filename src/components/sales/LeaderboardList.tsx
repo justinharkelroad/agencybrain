@@ -41,8 +41,8 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
         <div className={cn("w-14 text-right shrink-0", metric === 'points' && "text-foreground font-bold")}>
           Points
         </div>
-        <div className="w-16 text-right shrink-0">Policies</div>
-        <div className={cn("w-20 text-right shrink-0", metric === 'households' && "text-foreground font-bold")}>
+        <div className="w-14 text-right shrink-0">Policies</div>
+        <div className={cn("w-14 text-right shrink-0", metric === 'households' && "text-foreground font-bold")}>
           HH
         </div>
       </div>
@@ -123,13 +123,13 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             </div>
 
             {/* Policies */}
-            <div className="w-16 shrink-0 flex items-center justify-end text-sm text-muted-foreground">
+            <div className="w-14 shrink-0 flex items-center justify-end text-sm text-muted-foreground">
               {producer.policies}
             </div>
 
             {/* Households */}
             <div className={cn(
-              "w-20 shrink-0 flex items-center justify-end text-sm",
+              "w-14 shrink-0 flex items-center justify-end text-sm",
               metric === 'households' && "font-bold text-foreground"
             )}>
               {producer.households}
