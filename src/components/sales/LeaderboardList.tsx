@@ -8,6 +8,7 @@ interface LeaderboardListEntry {
   items: number;
   points: number;
   policies: number;
+  households: number;
   isCurrentUser?: boolean;
   team_member_id: string;
 }
@@ -15,7 +16,7 @@ interface LeaderboardListEntry {
 interface LeaderboardListProps {
   producers: LeaderboardListEntry[];
   startRank: number;
-  metric: 'premium' | 'items' | 'points';
+  metric: 'premium' | 'items' | 'points' | 'households';
 }
 
 const formatCurrency = (value: number) => {
@@ -28,7 +29,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
   return (
     <div className="space-y-2 mt-6">
       {/* Header */}
-      <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="grid grid-cols-14 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
         <div className="col-span-1">#</div>
         <div className="col-span-3">Name</div>
         <div className={cn("col-span-2 text-right", metric === 'premium' && "text-foreground font-bold")}>
@@ -41,6 +42,9 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
           Points
         </div>
         <div className="col-span-2 text-right">Policies</div>
+        <div className={cn("col-span-2 text-right", metric === 'households' && "text-foreground font-bold")}>
+          Households
+        </div>
       </div>
 
       {/* List Items */}
@@ -58,7 +62,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
               ease: [0.4, 0, 0.2, 1]
             }}
             className={cn(
-              "grid grid-cols-12 gap-2 px-4 py-3 rounded-lg transition-all duration-200",
+              "grid grid-cols-14 gap-2 px-4 py-3 rounded-lg transition-all duration-200",
               "hover:translate-x-1 hover:shadow-md cursor-default",
               // Glassmorphic style
               "bg-card/50 backdrop-blur-sm border border-border/50",
@@ -124,6 +128,14 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             <div className="col-span-2 flex items-center justify-end text-sm text-muted-foreground">
               {producer.policies}
             </div>
+
+            {/* Households */}
+            <div className={cn(
+              "col-span-2 flex items-center justify-end text-sm",
+              metric === 'households' && "font-bold text-foreground"
+            )}>
+              {producer.households}
+            </div>
           </motion.div>
         );
       })}
@@ -182,7 +194,7 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
               )}
             </div>
             
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-5 gap-2 text-center">
               <div className={cn(metric === 'premium' && "font-bold")}>
                 <p className="text-xs text-muted-foreground mb-0.5">Premium</p>
                 <p className="text-sm">{formatCurrency(producer.premium)}</p>
@@ -198,6 +210,10 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
               <div>
                 <p className="text-xs text-muted-foreground mb-0.5">Policies</p>
                 <p className="text-sm text-muted-foreground">{producer.policies}</p>
+              </div>
+              <div className={cn(metric === 'households' && "font-bold")}>
+                <p className="text-xs text-muted-foreground mb-0.5">HH</p>
+                <p className="text-sm">{producer.households}</p>
               </div>
             </div>
           </motion.div>

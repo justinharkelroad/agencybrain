@@ -18,7 +18,7 @@ import { LeaderboardPodium } from "./LeaderboardPodium";
 import { LeaderboardList, LeaderboardListMobile } from "./LeaderboardList";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
-type RankMetric = "premium" | "items" | "points";
+type RankMetric = "premium" | "items" | "points" | "households";
 type Period = "this_month" | "last_month" | "this_quarter" | "ytd";
 
 interface LeaderboardEntry {
@@ -28,6 +28,7 @@ interface LeaderboardEntry {
   items: number;
   points: number;
   policies: number;
+  households: number;
 }
 
 interface SalesLeaderboardProps {
@@ -179,6 +180,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .from("sales")
         .select(`
           team_member_id,
+          customer_name,
           total_premium,
           total_items,
           total_points,
@@ -190,7 +192,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       if (salesError) throw salesError;
 
-      const aggregated: Record<string, LeaderboardEntry> = {};
+      const aggregated: Record<string, LeaderboardEntry & { customerNames: Set<string> }> = {};
 
       for (const tm of teamMembers || []) {
         aggregated[tm.id] = {
@@ -200,6 +202,8 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           items: 0,
           points: 0,
           policies: 0,
+          households: 0,
+          customerNames: new Set(),
         };
       }
 
@@ -209,10 +213,25 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           aggregated[sale.team_member_id].items += sale.total_items || 0;
           aggregated[sale.team_member_id].points += sale.total_points || 0;
           aggregated[sale.team_member_id].policies += (sale.sale_policies as any[])?.length || 0;
+          
+          // Track unique households
+          const customerName = sale.customer_name?.toLowerCase().trim();
+          if (customerName) {
+            aggregated[sale.team_member_id].customerNames.add(customerName);
+          }
         }
       }
 
-      return Object.values(aggregated);
+      // Convert to LeaderboardEntry array
+      return Object.values(aggregated).map(entry => ({
+        team_member_id: entry.team_member_id,
+        name: entry.name,
+        premium: entry.premium,
+        items: entry.items,
+        points: entry.points,
+        policies: entry.policies,
+        households: entry.customerNames.size,
+      }));
     },
     enabled: !!agencyId || !!staffSessionToken,
   });
@@ -227,6 +246,8 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           return b.items - a.items;
         case "points":
           return b.points - a.points;
+        case "households":
+          return b.households - a.households;
         case "premium":
         default:
           return b.premium - a.premium;
@@ -242,18 +263,26 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
   // Split into podium (top 3) and rest
   const topThree = useMemo(() => {
-    return rankedData.slice(0, 3).map(entry => ({
-      rank: entry.rank as 1 | 2 | 3,
-      name: entry.name,
-      initials: getInitials(entry.name),
-      value: rankBy === 'premium' ? entry.premium : rankBy === 'items' ? entry.items : entry.points,
-      metric: rankBy,
-      isCurrentUser: entry.isCurrentUser,
-      premium: entry.premium,
-      items: entry.items,
-      points: entry.points,
-      policies: entry.policies,
-    }));
+    return rankedData.slice(0, 3).map(entry => {
+      let value = entry.premium;
+      if (rankBy === 'items') value = entry.items;
+      else if (rankBy === 'points') value = entry.points;
+      else if (rankBy === 'households') value = entry.households;
+      
+      return {
+        rank: entry.rank as 1 | 2 | 3,
+        name: entry.name,
+        initials: getInitials(entry.name),
+        value,
+        metric: rankBy,
+        isCurrentUser: entry.isCurrentUser,
+        premium: entry.premium,
+        items: entry.items,
+        points: entry.points,
+        policies: entry.policies,
+        households: entry.households,
+      };
+    });
   }, [rankedData, rankBy]);
 
   const restOfList = useMemo(() => {
@@ -297,14 +326,14 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           
           {/* Metric Toggle - Segmented Control */}
           <div className="flex items-center justify-center sm:justify-start gap-1 p-1 bg-muted/50 rounded-lg w-fit">
-            {(['premium', 'items', 'points'] as RankMetric[]).map((metric) => (
+            {(['premium', 'items', 'points', 'households'] as RankMetric[]).map((metric) => (
               <Button
                 key={metric}
                 variant="ghost"
                 size="sm"
                 onClick={() => setRankBy(metric)}
                 className={cn(
-                  "px-4 py-1.5 h-8 rounded-md transition-all duration-200",
+                  "px-3 py-1.5 h-8 rounded-md transition-all duration-200",
                   rankBy === metric 
                     ? "bg-background shadow-sm text-foreground font-semibold" 
                     : "text-muted-foreground hover:text-foreground hover:bg-transparent"
