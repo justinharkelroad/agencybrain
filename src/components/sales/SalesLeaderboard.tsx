@@ -11,17 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
+import { LeaderboardPodium } from "./LeaderboardPodium";
+import { LeaderboardList, LeaderboardListMobile } from "./LeaderboardList";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 type RankMetric = "premium" | "items" | "points";
 type Period = "this_month" | "last_month" | "this_quarter" | "ytd";
@@ -89,10 +84,20 @@ function getPeriodLabel(period: Period): string {
   }
 }
 
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
 export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboardProps) {
   const { user } = useAuth();
   const [rankBy, setRankBy] = useState<RankMetric>("premium");
   const [period, setPeriod] = useState<Period>("this_month");
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   const { start, end } = getPeriodDates(period);
   const periodLabel = getPeriodLabel(period);
@@ -101,7 +106,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
   const { data: currentUserTeamMemberId } = useQuery({
     queryKey: ["current-user-team-member", user?.id, staffSessionToken],
     queryFn: async () => {
-      // If using staff session, fetch from edge function response
       if (staffSessionToken) {
         const { data } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': staffSessionToken },
@@ -112,7 +116,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       if (!user?.id) return null;
       
-      // First check staff_users
       const { data: staffData } = await supabase
         .from("staff_users")
         .select("team_member_id")
@@ -120,7 +123,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .maybeSingle();
       if (staffData?.team_member_id) return staffData.team_member_id;
       
-      // Then check profiles -> agency -> team_members
       const { data: profileData } = await supabase
         .from("profiles")
         .select("agency_id")
@@ -128,7 +130,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .maybeSingle();
       if (!profileData?.agency_id) return null;
       
-      // Try to find a team member with matching email
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user?.email) return null;
       
@@ -144,16 +145,11 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
     enabled: !!user?.id || !!staffSessionToken,
   });
 
-  // Debug logging for client-side
-  console.log('[SalesLeaderboard] staffSessionToken present?', !!staffSessionToken);
-
   // Fetch leaderboard data
   const { data: leaderboardData, isLoading } = useQuery({
     queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken],
     queryFn: async (): Promise<LeaderboardEntry[]> => {
-      // Use edge function for staff users (bypasses RLS)
       if (staffSessionToken) {
-        console.log('[SalesLeaderboard] Using edge function for staff user');
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': staffSessionToken },
           body: { 
@@ -163,24 +159,14 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           }
         });
 
-        if (error) {
-          console.error('[SalesLeaderboard] Edge function error:', error);
-          throw error;
-        }
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
-        if (data?.error) {
-          console.error('[SalesLeaderboard] Response error:', data.error);
-          throw new Error(data.error);
-        }
-
-        console.log('[SalesLeaderboard] Success - got leaderboard data:', data.leaderboard?.length || 0, 'entries');
         return data.leaderboard || [];
       }
 
-      // Direct query for admin users (uses RLS)
       if (!agencyId) return [];
 
-      // Get all active team members
       const { data: teamMembers, error: tmError } = await supabase
         .from("team_members")
         .select("id, name")
@@ -189,7 +175,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       if (tmError) throw tmError;
 
-      // Get sales data for the period
       const { data: sales, error: salesError } = await supabase
         .from("sales")
         .select(`
@@ -205,7 +190,6 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       if (salesError) throw salesError;
 
-      // Aggregate by team member
       const aggregated: Record<string, LeaderboardEntry> = {};
 
       for (const tm of teamMembers || []) {
@@ -249,17 +233,32 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
       }
     });
 
-    return sorted;
-  }, [leaderboardData, rankBy]);
+    return sorted.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      isCurrentUser: entry.team_member_id === currentUserTeamMemberId,
+    }));
+  }, [leaderboardData, rankBy, currentUserTeamMemberId]);
 
-  const getMedal = (rank: number) => {
-    switch (rank) {
-      case 1: return "🥇";
-      case 2: return "🥈";
-      case 3: return "🥉";
-      default: return rank;
-    }
-  };
+  // Split into podium (top 3) and rest
+  const topThree = useMemo(() => {
+    return rankedData.slice(0, 3).map(entry => ({
+      rank: entry.rank as 1 | 2 | 3,
+      name: entry.name,
+      initials: getInitials(entry.name),
+      value: rankBy === 'premium' ? entry.premium : rankBy === 'items' ? entry.items : entry.points,
+      metric: rankBy,
+      isCurrentUser: entry.isCurrentUser,
+      premium: entry.premium,
+      items: entry.items,
+      points: entry.points,
+      policies: entry.policies,
+    }));
+  }, [rankedData, rankBy]);
+
+  const restOfList = useMemo(() => {
+    return rankedData.slice(3);
+  }, [rankedData]);
 
   if (!agencyId && !staffSessionToken) {
     return (
@@ -272,37 +271,17 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <CardTitle>Leaderboard - {periodLabel}</CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-muted-foreground">Rank By:</span>
-              <div className="flex gap-1">
-                <Button
-                  variant={rankBy === "premium" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setRankBy("premium")}
-                >
-                  Premium
-                </Button>
-                <Button
-                  variant={rankBy === "items" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setRankBy("items")}
-                >
-                  Items
-                </Button>
-                <Button
-                  variant={rankBy === "points" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setRankBy("points")}
-                >
-                  Points
-                </Button>
-              </div>
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col gap-4">
+          {/* Title and Period */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-xl font-bold">Leaderboard</CardTitle>
+              <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
             </div>
+            
+            {/* Period Selector */}
             <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -315,61 +294,63 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
               </SelectContent>
             </Select>
           </div>
+          
+          {/* Metric Toggle - Segmented Control */}
+          <div className="flex items-center justify-center sm:justify-start gap-1 p-1 bg-muted/50 rounded-lg w-fit">
+            {(['premium', 'items', 'points'] as RankMetric[]).map((metric) => (
+              <Button
+                key={metric}
+                variant="ghost"
+                size="sm"
+                onClick={() => setRankBy(metric)}
+                className={cn(
+                  "px-4 py-1.5 h-8 rounded-md transition-all duration-200",
+                  rankBy === metric 
+                    ? "bg-background shadow-sm text-foreground font-semibold" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                )}
+              >
+                {metric.charAt(0).toUpperCase() + metric.slice(1)}
+              </Button>
+            ))}
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      
+      <CardContent className="pt-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
           </div>
         ) : rankedData.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No producers found
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-lg mb-2">No producers found</p>
+            <p className="text-sm">Start making sales to appear on the leaderboard!</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">#</TableHead>
-                  <TableHead>Producer</TableHead>
-                  <TableHead className={cn("text-right", rankBy === "premium" && "font-bold")}>Premium</TableHead>
-                  <TableHead className={cn("text-right", rankBy === "items" && "font-bold")}>Items</TableHead>
-                  <TableHead className={cn("text-right", rankBy === "points" && "font-bold")}>Points</TableHead>
-                  <TableHead className="text-right">Policies</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rankedData.map((entry, index) => {
-                  const rank = index + 1;
-                  const isCurrentUser = entry.team_member_id === currentUserTeamMemberId;
-                  
-                  return (
-                    <TableRow 
-                      key={entry.team_member_id}
-                      className={cn(isCurrentUser && "bg-primary/10")}
-                    >
-                      <TableCell className="font-medium text-lg">
-                        {getMedal(rank)}
-                      </TableCell>
-                      <TableCell className={cn("font-medium", isCurrentUser && "text-primary")}>
-                        {entry.name}
-                      </TableCell>
-                      <TableCell className={cn("text-right", rankBy === "premium" && "font-bold")}>
-                        ${entry.premium.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </TableCell>
-                      <TableCell className={cn("text-right", rankBy === "items" && "font-bold")}>
-                        {entry.items}
-                      </TableCell>
-                      <TableCell className={cn("text-right", rankBy === "points" && "font-bold")}>
-                        {entry.points}
-                      </TableCell>
-                      <TableCell className="text-right">{entry.policies}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          <div>
+            {/* Podium */}
+            <LeaderboardPodium topThree={topThree} metric={rankBy} />
+            
+            {/* Divider */}
+            {restOfList.length > 0 && (
+              <div className="border-t border-border/50 my-4" />
+            )}
+            
+            {/* Rest of List */}
+            {isMobile ? (
+              <LeaderboardListMobile 
+                producers={restOfList} 
+                startRank={4} 
+                metric={rankBy} 
+              />
+            ) : (
+              <LeaderboardList 
+                producers={restOfList} 
+                startRank={4} 
+                metric={rankBy} 
+              />
+            )}
           </div>
         )}
       </CardContent>
