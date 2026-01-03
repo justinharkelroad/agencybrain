@@ -586,6 +586,10 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     onSuccess: () => {
       toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["sales"] });
+      // Invalidate promo widgets so progress refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
+      queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-promo-goals"] });
       resetForm();
       onSuccess?.();
     },

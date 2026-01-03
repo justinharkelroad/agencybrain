@@ -200,6 +200,10 @@ export function CreatePromoGoalModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals-member"] });
+      // Invalidate dashboard promo widgets so progress refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
+      queryClient.invalidateQueries({ queryKey: ["sales-dashboard-widget"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-promo-goals"] });
       toast.success(isEditing ? "Promo goal updated" : "Promo goal created");
       onOpenChange(false);
     },
