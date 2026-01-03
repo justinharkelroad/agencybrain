@@ -32,6 +32,7 @@ interface SalesGoal {
   team_member_id: string | null;
   goal_name: string;
   goal_focus: string;
+  goal_type?: string | null;
   measurement: string;
   target_value: number;
   time_period: string;
@@ -40,6 +41,7 @@ interface SalesGoal {
   rank: number | null;
   is_active: boolean;
   team_member?: { name: string } | null;
+  assignments?: { team_member_id: string }[];
 }
 
 interface GoalProgress {
@@ -140,7 +142,8 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
         .from("sales_goals")
         .select(`
           *,
-          team_member:team_members(name)
+          team_member:team_members(name),
+          assignments:sales_goal_assignments(team_member_id)
         `)
         .eq("agency_id", agencyId)
         .eq("is_active", true)
@@ -285,8 +288,21 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
   }) || [];
 
   // Separate agency-wide and individual goals
-  const agencyGoals = displayGoals.filter(g => g.team_member_id === null);
-  const individualGoals = displayGoals.filter(g => g.team_member_id !== null);
+  // For promo goals (goal_type = 'promo'), check assignments table instead of team_member_id
+  const agencyGoals = displayGoals.filter(g => {
+    if (g.goal_type === 'promo') {
+      // Promo is agency-wide only if it has NO assignments
+      return !g.assignments || g.assignments.length === 0;
+    }
+    return g.team_member_id === null;
+  });
+  const individualGoals = displayGoals.filter(g => {
+    if (g.goal_type === 'promo') {
+      // Promo is individual if it has at least one assignment
+      return g.assignments && g.assignments.length > 0;
+    }
+    return g.team_member_id !== null;
+  });
 
   if (!agencyId) {
     return (
