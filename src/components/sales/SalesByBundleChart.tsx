@@ -20,6 +20,7 @@ interface SalesByBundleChartProps {
   agencyId: string | null;
   startDate: string;
   endDate: string;
+  staffSessionToken?: string;
 }
 
 const BUNDLE_COLORS: Record<string, string> = {
@@ -30,14 +31,33 @@ const BUNDLE_COLORS: Record<string, string> = {
 
 const BUNDLE_ORDER = ["Preferred", "Standard", "Monoline"];
 
-export function SalesByBundleChart({ agencyId, startDate, endDate }: SalesByBundleChartProps) {
+interface BundleRow {
+  bundle_type: string;
+  items: number;
+  premium: number;
+  households: number;
+}
+
+export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByBundleChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-bundle", agencyId, startDate, endDate],
+    queryKey: ["sales-by-bundle", agencyId, startDate, endDate, staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
 
+      // If staff session, use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'by-bundle', start_date: startDate, end_date: endDate }
+        });
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        return (result?.data || []) as BundleRow[];
+      }
+
+      // Admin path - direct query
       const { data: sales, error } = await supabase
         .from("sales")
         .select("bundle_type, total_items, total_premium, customer_name")
@@ -47,7 +67,6 @@ export function SalesByBundleChart({ agencyId, startDate, endDate }: SalesByBund
 
       if (error) throw error;
 
-      // Group by bundle type
       const grouped = (sales || []).reduce((acc, sale) => {
         const bundleType = sale.bundle_type || "Monoline";
         
@@ -67,7 +86,6 @@ export function SalesByBundleChart({ agencyId, startDate, endDate }: SalesByBund
         return acc;
       }, {} as Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }>);
 
-      // Convert and sort by predefined order
       return BUNDLE_ORDER
         .filter((bt) => grouped[bt])
         .map((bt) => ({
@@ -75,7 +93,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate }: SalesByBund
           items: grouped[bt].items,
           premium: grouped[bt].premium,
           households: grouped[bt].households.size,
-        }));
+        })) as BundleRow[];
     },
     enabled: !!agencyId,
   });

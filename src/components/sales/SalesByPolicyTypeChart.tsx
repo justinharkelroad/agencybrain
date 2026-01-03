@@ -20,6 +20,7 @@ interface SalesByPolicyTypeChartProps {
   agencyId: string | null;
   startDate: string;
   endDate: string;
+  staffSessionToken?: string;
 }
 
 const COLORS = [
@@ -30,15 +31,33 @@ const COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesByPolicyTypeChartProps) {
+interface PolicyTypeRow {
+  policy_type: string;
+  items: number;
+  premium: number;
+  points: number;
+}
+
+export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByPolicyTypeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-policy-type", agencyId, startDate, endDate],
+    queryKey: ["sales-by-policy-type", agencyId, startDate, endDate, staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
 
-      // Get sale_items joined with product_types and sales
+      // If staff session, use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'by-policy-type', start_date: startDate, end_date: endDate }
+        });
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        return (result?.data || []) as PolicyTypeRow[];
+      }
+
+      // Admin path - direct query
       const { data: salesData, error: salesError } = await supabase
         .from("sales")
         .select("id")
@@ -50,7 +69,6 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesBy
       const saleIds = (salesData || []).map((s) => s.id);
       if (saleIds.length === 0) return [];
 
-      // Get sale_policies for these sales
       const { data: policies, error: policiesError } = await supabase
         .from("sale_policies")
         .select("id")
@@ -60,7 +78,6 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesBy
       const policyIds = (policies || []).map((p) => p.id);
       if (policyIds.length === 0) return [];
 
-      // Get sale_items with product type info
       const { data: items, error: itemsError } = await supabase
         .from("sale_items")
         .select(`
@@ -74,7 +91,6 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesBy
 
       if (itemsError) throw itemsError;
 
-      // Get product types for proper names
       const { data: productTypes } = await supabase
         .from("product_types")
         .select("id, name")
@@ -82,7 +98,6 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesBy
 
       const ptMap = new Map((productTypes || []).map((pt) => [pt.id, pt.name]));
 
-      // Group by product type
       const grouped: Record<string, { policy_type: string; items: number; premium: number; points: number }> = {};
       
       for (const item of items || []) {
@@ -98,8 +113,7 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate }: SalesBy
         grouped[typeName].points += item.points || 0;
       }
 
-      const result = Object.values(grouped).sort((a, b) => b.items - a.items);
-      return result;
+      return Object.values(grouped).sort((a, b) => b.items - a.items) as PolicyTypeRow[];
     },
     enabled: !!agencyId,
   });

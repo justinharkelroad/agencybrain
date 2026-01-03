@@ -20,6 +20,7 @@ interface SalesBySourceChartProps {
   agencyId: string | null;
   startDate: string;
   endDate: string;
+  staffSessionToken?: string;
 }
 
 const COLORS = [
@@ -30,15 +31,34 @@ const COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-export function SalesBySourceChart({ agencyId, startDate, endDate }: SalesBySourceChartProps) {
+interface SourceRow {
+  lead_source: string;
+  items: number;
+  premium: number;
+  policies: number;
+  households: number;
+}
+
+export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionToken }: SalesBySourceChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-source", agencyId, startDate, endDate],
+    queryKey: ["sales-by-source", agencyId, startDate, endDate, staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
 
-      // Get sales with lead source
+      // If staff session, use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'by-source', start_date: startDate, end_date: endDate }
+        });
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        return (result?.data || []) as SourceRow[];
+      }
+
+      // Admin path - direct query
       const { data: sales, error } = await supabase
         .from("sales")
         .select(`
@@ -54,7 +74,6 @@ export function SalesBySourceChart({ agencyId, startDate, endDate }: SalesBySour
 
       if (error) throw error;
 
-      // Get lead sources for this agency
       const { data: leadSources } = await supabase
         .from("lead_sources")
         .select("id, name")
@@ -65,7 +84,6 @@ export function SalesBySourceChart({ agencyId, startDate, endDate }: SalesBySour
         sourceMap.set(ls.id, ls.name);
       }
 
-      // Group by lead source
       const grouped: Record<string, { lead_source: string; items: number; premium: number; policies: number; households: Set<string> }> = {};
       
       for (const sale of sales || []) {
@@ -91,7 +109,7 @@ export function SalesBySourceChart({ agencyId, startDate, endDate }: SalesBySour
         }
       }
 
-      const result = Object.values(grouped)
+      return Object.values(grouped)
         .map((row) => ({
           lead_source: row.lead_source,
           items: row.items,
@@ -99,8 +117,7 @@ export function SalesBySourceChart({ agencyId, startDate, endDate }: SalesBySour
           policies: row.policies,
           households: row.households.size,
         }))
-        .sort((a, b) => b.items - a.items);
-      return result;
+        .sort((a, b) => b.items - a.items) as SourceRow[];
     },
     enabled: !!agencyId,
   });
