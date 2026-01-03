@@ -20,6 +20,7 @@ interface SalesByZipcodeChartProps {
   agencyId: string | null;
   startDate: string;
   endDate: string;
+  staffSessionToken?: string;
 }
 
 const COLORS = [
@@ -30,14 +31,33 @@ const COLORS = [
   "hsl(var(--chart-5))",
 ];
 
-export function SalesByZipcodeChart({ agencyId, startDate, endDate }: SalesByZipcodeChartProps) {
+interface ZipcodeRow {
+  zipcode: string;
+  items: number;
+  premium: number;
+  households: number;
+}
+
+export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByZipcodeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-zipcode", agencyId, startDate, endDate],
+    queryKey: ["sales-by-zipcode", agencyId, startDate, endDate, staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
 
+      // If staff session, use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'by-zipcode', start_date: startDate, end_date: endDate }
+        });
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        return (result?.data || []) as ZipcodeRow[];
+      }
+
+      // Admin path - direct query
       const { data: sales, error } = await supabase
         .from("sales")
         .select("customer_zip, total_items, total_premium, customer_name")
@@ -48,7 +68,6 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate }: SalesByZip
 
       if (error) throw error;
 
-      // Group by zipcode
       const grouped: Record<string, { zipcode: string; items: number; premium: number; households: Set<string> }> = {};
       
       for (const sale of sales || []) {
@@ -70,8 +89,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate }: SalesByZip
         }
       }
 
-      // Convert and sort, limit to top 15
-      const result = Object.values(grouped)
+      return Object.values(grouped)
         .map((row) => ({
           zipcode: row.zipcode,
           items: row.items,
@@ -79,8 +97,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate }: SalesByZip
           households: row.households.size,
         }))
         .sort((a, b) => b.items - a.items)
-        .slice(0, 15);
-      return result;
+        .slice(0, 15) as ZipcodeRow[];
     },
     enabled: !!agencyId,
   });

@@ -91,23 +91,23 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
         </TabsList>
 
         <TabsContent value="by-date" className="mt-4">
-          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} />
+          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
         </TabsContent>
 
         <TabsContent value="by-policy" className="mt-4">
-          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} />
+          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
         </TabsContent>
 
         <TabsContent value="by-source" className="mt-4">
-          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} />
+          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
         </TabsContent>
 
         <TabsContent value="by-bundle" className="mt-4">
-          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} />
+          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
         </TabsContent>
 
         <TabsContent value="by-zipcode" className="mt-4">
-          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} />
+          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
         </TabsContent>
 
         {showLeaderboard && (

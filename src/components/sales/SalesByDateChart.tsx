@@ -20,6 +20,7 @@ interface SalesByDateChartProps {
   agencyId: string | null;
   startDate: string;
   endDate: string;
+  staffSessionToken?: string;
 }
 
 interface SalesByDateRow {
@@ -31,14 +32,26 @@ interface SalesByDateRow {
   households: number;
 }
 
-export function SalesByDateChart({ agencyId, startDate, endDate }: SalesByDateChartProps) {
+export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByDateChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-date", agencyId, startDate, endDate],
+    queryKey: ["sales-by-date", agencyId, startDate, endDate, staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
 
+      // If staff session, use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'by-date', start_date: startDate, end_date: endDate }
+        });
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        return (result?.data || []) as SalesByDateRow[];
+      }
+
+      // Admin path - direct query
       const { data, error } = await supabase
         .from("sales")
         .select("sale_date, total_items, total_premium, total_points, customer_name")
