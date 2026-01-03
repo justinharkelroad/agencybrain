@@ -41,7 +41,7 @@ interface SalesGoal {
   rank: number | null;
   is_active: boolean;
   team_member?: { name: string } | null;
-  assignments?: { team_member_id: string; team_member: { name: string } | null }[];
+  sales_goal_assignments?: { team_member_id: string; team_member: { name: string } | null }[];
 }
 
 interface GoalProgress {
@@ -143,7 +143,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
         .select(`
           *,
           team_member:team_members(name),
-          assignments:sales_goal_assignments(team_member_id, team_member:team_members(name))
+          sales_goal_assignments(team_member_id, team_member:team_members(name))
         `)
         .eq("agency_id", agencyId)
         .eq("is_active", true)
@@ -292,14 +292,14 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
   const agencyGoals = displayGoals.filter(g => {
     if (g.goal_type === 'promo') {
       // Promo is agency-wide only if it has NO assignments
-      return !g.assignments || g.assignments.length === 0;
+      return !g.sales_goal_assignments || g.sales_goal_assignments.length === 0;
     }
     return g.team_member_id === null;
   });
   const individualGoals = displayGoals.filter(g => {
     if (g.goal_type === 'promo') {
       // Promo is individual if it has at least one assignment
-      return g.assignments && g.assignments.length > 0;
+      return g.sales_goal_assignments && g.sales_goal_assignments.length > 0;
     }
     return g.team_member_id !== null;
   });
@@ -468,12 +468,12 @@ function GoalCard({ goal, progress, currentValue, formatValue, getMeasurementLab
               </Badge>
             )}
           </div>
-          {showAssignee && (goal.team_member || (goal.assignments && goal.assignments.length > 0)) && (
+          {showAssignee && (goal.team_member || (goal.sales_goal_assignments && goal.sales_goal_assignments.length > 0)) && (
             <p className="text-sm text-muted-foreground">
               Assigned to: {
                 goal.team_member 
                   ? goal.team_member.name 
-                  : goal.assignments?.map(a => a.team_member?.name).filter(Boolean).join(", ")
+                  : goal.sales_goal_assignments?.map(a => a.team_member?.name).filter(Boolean).join(", ")
               }
             </p>
           )}
