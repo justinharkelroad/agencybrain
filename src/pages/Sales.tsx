@@ -9,6 +9,7 @@ import { AddSaleForm } from "@/components/sales/AddSaleForm";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesGoals } from "@/components/sales/SalesGoals";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
+import { PromoGoalsList } from "@/components/sales/PromoGoalsList";
 import { Loader2 } from "lucide-react";
 
 export default function Sales() {
@@ -181,7 +182,8 @@ export default function Sales() {
           <SalesLeaderboard agencyId={agencyId} />
         </TabsContent>
 
-        <TabsContent value="goals" className="mt-6">
+        <TabsContent value="goals" className="mt-6 space-y-6">
+          <PromoGoalsList agencyId={agencyId} />
           <SalesGoals agencyId={agencyId} />
         </TabsContent>
       </Tabs>

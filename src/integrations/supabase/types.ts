@@ -4749,18 +4749,62 @@ export type Database = {
           },
         ]
       }
+      sales_goal_assignments: {
+        Row: {
+          created_at: string | null
+          id: string
+          sales_goal_id: string
+          team_member_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          sales_goal_id: string
+          team_member_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          sales_goal_id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_goal_assignments_sales_goal_id_fkey"
+            columns: ["sales_goal_id"]
+            isOneToOne: false
+            referencedRelation: "sales_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goal_assignments_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_goals: {
         Row: {
           agency_id: string
+          bonus_amount_cents: number | null
           created_at: string | null
+          description: string | null
           effective_month: string | null
           effective_year: number | null
+          end_date: string | null
           goal_focus: string
           goal_name: string
+          goal_type: string | null
           id: string
           is_active: boolean | null
+          kpi_slug: string | null
           measurement: string
+          product_type_id: string | null
+          promo_source: string | null
           rank: number | null
+          start_date: string | null
           target_value: number
           team_member_id: string | null
           time_period: string
@@ -4768,15 +4812,23 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          bonus_amount_cents?: number | null
           created_at?: string | null
+          description?: string | null
           effective_month?: string | null
           effective_year?: number | null
+          end_date?: string | null
           goal_focus?: string
           goal_name: string
+          goal_type?: string | null
           id?: string
           is_active?: boolean | null
+          kpi_slug?: string | null
           measurement: string
+          product_type_id?: string | null
+          promo_source?: string | null
           rank?: number | null
+          start_date?: string | null
           target_value: number
           team_member_id?: string | null
           time_period?: string
@@ -4784,15 +4836,23 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          bonus_amount_cents?: number | null
           created_at?: string | null
+          description?: string | null
           effective_month?: string | null
           effective_year?: number | null
+          end_date?: string | null
           goal_focus?: string
           goal_name?: string
+          goal_type?: string | null
           id?: string
           is_active?: boolean | null
+          kpi_slug?: string | null
           measurement?: string
+          product_type_id?: string | null
+          promo_source?: string | null
           rank?: number | null
+          start_date?: string | null
           target_value?: number
           team_member_id?: string | null
           time_period?: string
@@ -4804,6 +4864,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_goals_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
             referencedColumns: ["id"]
           },
           {

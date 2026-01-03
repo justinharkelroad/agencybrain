@@ -7,6 +7,7 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { Link } from "react-router-dom";
 import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
 import { StatOrb } from "@/components/sales/StatOrb";
+import { StaffPromoGoalsWidget } from "@/components/sales/StaffPromoGoalsWidget";
 import { cn } from "@/lib/utils";
 import { 
   getBusinessDaysInMonth, 
@@ -289,6 +290,11 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             {formatProjection(premiumProj, '$')}
           </p>
         </div>
+      </div>
+
+      {/* Promo Goals Section */}
+      <div className="mt-6">
+        <StaffPromoGoalsWidget agencyId={agencyId} teamMemberId={teamMemberId} />
       </div>
     </div>
   );
