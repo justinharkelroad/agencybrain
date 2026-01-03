@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { formatDateLocal } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -193,7 +193,7 @@ export function SaleDetailModal({ saleId, open, onOpenChange, onEdit }: SaleDeta
               {sale.sale_date && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>Sale Date: {format(new Date(sale.sale_date), "MMMM d, yyyy")}</span>
+                  <span>Sale Date: {formatDateLocal(sale.sale_date, "MMMM d, yyyy")}</span>
                 </div>
               )}
             </div>
@@ -221,7 +221,7 @@ export function SaleDetailModal({ saleId, open, onOpenChange, onEdit }: SaleDeta
                       </div>
                       <div className="text-sm font-normal text-muted-foreground">
                         {policy.policy_number && `#${policy.policy_number} · `}
-                        Effective: {format(new Date(policy.effective_date), "MMM d, yyyy")}
+                        Effective: {formatDateLocal(policy.effective_date)}
                       </div>
                     </CardTitle>
                   </CardHeader>

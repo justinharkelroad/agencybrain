@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarIcon, Loader2, Pencil, Trash2, Eye } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateLocal } from "@/lib/utils";
 import { SaleDetailModal } from "./SaleDetailModal";
 
 type Sale = {
@@ -375,7 +375,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                       >
                         <TableCell>
                           {sale.sale_date
-                            ? format(new Date(sale.sale_date), "MMM d, yyyy")
+                            ? formatDateLocal(sale.sale_date)
                             : "—"}
                         </TableCell>
                         <TableCell className="font-medium">

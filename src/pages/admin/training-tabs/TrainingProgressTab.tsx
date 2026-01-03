@@ -671,7 +671,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
                                         </span>
                                         {assignment.due_date && (
                                           <span className={isPast(parseISO(assignment.due_date)) ? 'text-destructive' : 'text-muted-foreground'}>
-                                            Due: {new Date(assignment.due_date).toLocaleDateString()}
+                                            Due: {new Date(assignment.due_date + 'T12:00:00').toLocaleDateString()}
                                           </span>
                                         )}
                                       </div>

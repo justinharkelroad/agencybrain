@@ -371,11 +371,11 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
                       </TableCell>
                       <TableCell>{assignment.training_modules?.name}</TableCell>
                       <TableCell>
-                        {format(new Date(assignment.assigned_at), 'MMM d, yyyy')}
+                        {new Date(assignment.assigned_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </TableCell>
                       <TableCell>
                         {assignment.due_date ? (
-                          format(new Date(assignment.due_date), 'MMM d, yyyy')
+                          new Date(assignment.due_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
                         ) : (
                           <span className="text-muted-foreground">No due date</span>
                         )}
