@@ -65,13 +65,137 @@ serve(async (req) => {
     }
 
     const agencyId = staffUser.agency_id;
-    const { type, start_date, end_date } = await req.json();
+    const body = await req.json();
+    const { type, start_date, end_date } = body;
 
     console.log(`[get_staff_sales_analytics] Type: ${type}, Agency: ${agencyId}, Dates: ${start_date} - ${end_date}`);
 
     let result: unknown;
 
     switch (type) {
+      case "drilldown": {
+        const { filter_type, filter_value, page = 1, page_size = 10 } = body;
+        console.log(`[get_staff_sales_analytics] Drilldown: ${filter_type}=${filter_value}, page=${page}`);
+
+        let saleIds: string[] | null = null;
+
+        // For policy_type, we need to find matching sale IDs first
+        if (filter_type === 'policy_type') {
+          const { data: saleItems } = await supabaseAdmin
+            .from("sale_items")
+            .select("sale_policy_id")
+            .eq("product_type_name", filter_value);
+
+          if (!saleItems || saleItems.length === 0) {
+            result = { data: [], total_count: 0, page, page_size };
+            break;
+          }
+
+          const salePolicyIds = [...new Set(saleItems.map((i: any) => i.sale_policy_id))];
+
+          const { data: salePolicies } = await supabaseAdmin
+            .from("sale_policies")
+            .select("sale_id")
+            .in("id", salePolicyIds);
+
+          if (!salePolicies || salePolicies.length === 0) {
+            result = { data: [], total_count: 0, page, page_size };
+            break;
+          }
+
+          saleIds = [...new Set(salePolicies.map((p: any) => p.sale_id))];
+        }
+
+        // Build query
+        let query = supabaseAdmin
+          .from("sales")
+          .select("id, sale_date, customer_name, total_items, total_premium, total_points, team_member_id, lead_source_id", { count: 'exact' })
+          .eq("agency_id", agencyId)
+          .gte("sale_date", start_date)
+          .lte("sale_date", end_date)
+          .order("sale_date", { ascending: false });
+
+        // Apply filter
+        if (filter_type === 'date') {
+          query = query.eq('sale_date', filter_value);
+        } else if (filter_type === 'lead_source') {
+          if (filter_value === 'Not Set') {
+            query = query.is('lead_source_id', null);
+          } else {
+            const { data: leadSources } = await supabaseAdmin
+              .from("lead_sources")
+              .select("id")
+              .eq("agency_id", agencyId)
+              .eq("name", filter_value)
+              .limit(1);
+            
+            if (leadSources && leadSources.length > 0) {
+              query = query.eq('lead_source_id', leadSources[0].id);
+            } else {
+              result = { data: [], total_count: 0, page, page_size };
+              break;
+            }
+          }
+        } else if (filter_type === 'bundle_type') {
+          if (filter_value === 'Monoline') {
+            query = query.is('bundle_type', null);
+          } else {
+            query = query.eq('bundle_type', filter_value);
+          }
+        } else if (filter_type === 'zipcode') {
+          query = query.eq('customer_zip', filter_value);
+        } else if (filter_type === 'policy_type' && saleIds) {
+          query = query.in('id', saleIds);
+        }
+
+        // Apply pagination
+        const { data: sales, count, error: queryError } = await query
+          .range((page - 1) * page_size, page * page_size - 1);
+
+        if (queryError) throw queryError;
+
+        // Get team member and lead source names
+        const teamMemberIds = [...new Set((sales || []).map((s: any) => s.team_member_id).filter(Boolean))];
+        const leadSourceIds = [...new Set((sales || []).map((s: any) => s.lead_source_id).filter(Boolean))];
+
+        const teamMemberMap = new Map<string, string>();
+        const leadSourceMap = new Map<string, string>();
+
+        if (teamMemberIds.length > 0) {
+          const { data: teamMembers } = await supabaseAdmin
+            .from("team_members")
+            .select("id, name")
+            .in("id", teamMemberIds);
+          for (const tm of teamMembers || []) {
+            teamMemberMap.set(tm.id, tm.name);
+          }
+        }
+
+        if (leadSourceIds.length > 0) {
+          const { data: leadSources } = await supabaseAdmin
+            .from("lead_sources")
+            .select("id, name")
+            .in("id", leadSourceIds);
+          for (const ls of leadSources || []) {
+            leadSourceMap.set(ls.id, ls.name);
+          }
+        }
+
+        const records = (sales || []).map((sale: any) => ({
+          id: sale.id,
+          sale_date: sale.sale_date,
+          customer_name: sale.customer_name || "Unknown",
+          lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
+          producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
+          total_items: sale.total_items || 0,
+          total_premium: sale.total_premium || 0,
+          total_points: sale.total_points || 0,
+        }));
+
+        result = { data: records, total_count: count || 0, page, page_size };
+        break;
+      }
+
       case "by-date": {
         const { data: sales, error } = await supabaseAdmin
           .from("sales")
@@ -308,9 +432,9 @@ serve(async (req) => {
         });
     }
 
-    console.log(`[get_staff_sales_analytics] Returning ${Array.isArray(result) ? result.length : 0} records`);
+    console.log(`[get_staff_sales_analytics] Returning ${Array.isArray(result) ? result.length : 'object'} records`);
 
-    return new Response(JSON.stringify({ data: result }), {
+    return new Response(JSON.stringify(type === "drilldown" ? result : { data: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

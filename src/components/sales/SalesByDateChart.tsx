@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
-import { useState } from "react";
-import { BarChart3, Loader2 } from "lucide-react";
+import { DrillDownTable } from "./DrillDownTable";
+import { BarChart3, Loader2, X } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   BarChart,
@@ -44,8 +45,12 @@ const CHART_COLORS = [
   '#f97316', // orange
 ];
 
+const PAGE_SIZE = 10;
+
 export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByDateChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ["sales-by-date", agencyId, startDate, endDate, staffSessionToken],
@@ -125,6 +130,22 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
     return value.toLocaleString();
   };
 
+  const handleBarClick = (data: any) => {
+    const clickedDate = data?.sale_date;
+    if (!clickedDate) return;
+    
+    if (selectedDate === clickedDate) {
+      setSelectedDate(null);
+    } else {
+      setSelectedDate(clickedDate);
+      setDrillPage(1);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedDate(null);
+  };
+
   if (isLoading) {
     return (
       <Card className="border-border/50">
@@ -135,10 +156,20 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
     );
   }
 
+  const selectedDateLabel = selectedDate ? format(parseISO(selectedDate), "MMM d, yyyy") : "";
+
   return (
     <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">Sales by Date</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-lg font-semibold">Sales by Date</CardTitle>
+          {selectedDate && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={handleClearSelection}>
+              {selectedDateLabel}
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+        </div>
         <MetricToggle value={metric} onChange={setMetric} />
       </CardHeader>
       <CardContent>
@@ -178,13 +209,41 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar dataKey={metric} radius={[4, 4, 0, 0]}>
-                {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              <Bar 
+                dataKey={metric} 
+                radius={[4, 4, 0, 0]}
+                onClick={handleBarClick}
+                cursor="pointer"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={selectedDate === entry.sale_date ? '#3b82f6' : CHART_COLORS[index % CHART_COLORS.length]}
+                    stroke={selectedDate === entry.sale_date ? '#ffffff' : 'none'}
+                    strokeWidth={selectedDate === entry.sale_date ? 2 : 0}
+                  />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        )}
+
+        {selectedDate && agencyId && (
+          <DrillDownTable
+            filter={{
+              type: 'date',
+              value: selectedDate,
+              displayLabel: selectedDateLabel,
+            }}
+            agencyId={agencyId}
+            startDate={startDate}
+            endDate={endDate}
+            page={drillPage}
+            pageSize={PAGE_SIZE}
+            onPageChange={setDrillPage}
+            onClear={handleClearSelection}
+            staffSessionToken={staffSessionToken}
+          />
         )}
       </CardContent>
     </Card>

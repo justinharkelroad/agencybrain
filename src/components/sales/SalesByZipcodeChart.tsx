@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
-import { useState } from "react";
-import { BarChart3, Loader2 } from "lucide-react";
+import { DrillDownTable } from "./DrillDownTable";
+import { BarChart3, Loader2, X } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -69,8 +70,12 @@ const RankBadge = (props: any) => {
   );
 };
 
+const PAGE_SIZE = 10;
+
 export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByZipcodeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
+  const [selectedZipcode, setSelectedZipcode] = useState<string | null>(null);
+  const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ["sales-by-zipcode", agencyId, startDate, endDate, staffSessionToken],
@@ -142,6 +147,22 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
     return value.toLocaleString();
   };
 
+  const handleBarClick = (data: any) => {
+    const clickedZipcode = data?.zipcode;
+    if (!clickedZipcode) return;
+    
+    if (selectedZipcode === clickedZipcode) {
+      setSelectedZipcode(null);
+    } else {
+      setSelectedZipcode(clickedZipcode);
+      setDrillPage(1);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedZipcode(null);
+  };
+
   if (isLoading) {
     return (
       <Card className="border-border/50">
@@ -155,7 +176,15 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
   return (
     <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg font-semibold">Sales by Zipcode (Top 15)</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-lg font-semibold">Sales by Zipcode (Top 15)</CardTitle>
+          {selectedZipcode && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={handleClearSelection}>
+              {selectedZipcode}
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+        </div>
         <MetricToggle 
           value={metric} 
           onChange={setMetric} 
@@ -206,14 +235,42 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar dataKey={metric} radius={[0, 4, 4, 0]}>
-                {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              <Bar 
+                dataKey={metric} 
+                radius={[0, 4, 4, 0]}
+                onClick={handleBarClick}
+                cursor="pointer"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={selectedZipcode === entry.zipcode ? '#3b82f6' : CHART_COLORS[index % CHART_COLORS.length]}
+                    stroke={selectedZipcode === entry.zipcode ? '#ffffff' : 'none'}
+                    strokeWidth={selectedZipcode === entry.zipcode ? 2 : 0}
+                  />
                 ))}
                 <LabelList content={<RankBadge />} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        )}
+
+        {selectedZipcode && agencyId && (
+          <DrillDownTable
+            filter={{
+              type: 'zipcode',
+              value: selectedZipcode,
+              displayLabel: selectedZipcode,
+            }}
+            agencyId={agencyId}
+            startDate={startDate}
+            endDate={endDate}
+            page={drillPage}
+            pageSize={PAGE_SIZE}
+            onPageChange={setDrillPage}
+            onClear={handleClearSelection}
+            staffSessionToken={staffSessionToken}
+          />
         )}
       </CardContent>
     </Card>
