@@ -8,6 +8,7 @@ import { SalesLog } from "@/components/sales/SalesLog";
 import { AddSaleForm } from "@/components/sales/AddSaleForm";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesGoals } from "@/components/sales/SalesGoals";
+import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { Loader2 } from "lucide-react";
 
 export default function Sales() {
@@ -140,11 +141,12 @@ export default function Sales() {
       <h1 className="text-3xl font-bold mb-6">Sales</h1>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-3xl grid-cols-5">
           <TabsTrigger value="log">Sales Log</TabsTrigger>
           <TabsTrigger value="add">
             {editingSaleId ? "Edit Sale" : "Add Sale"}
           </TabsTrigger>
+          <TabsTrigger value="upload">Upload PDF</TabsTrigger>
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
         </TabsList>
@@ -166,6 +168,13 @@ export default function Sales() {
               key={editingSaleId || "new"}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="upload" className="mt-6">
+          <PdfUploadForm 
+            agencyId={agencyId}
+            onSuccess={handleSaleCreated}
+          />
         </TabsContent>
 
         <TabsContent value="leaderboard" className="mt-6">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
@@ -8,6 +8,8 @@ import { Loader2, DollarSign, Package, FileText, Trophy } from "lucide-react";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
+import { StaffAddSaleForm } from "@/components/sales/StaffAddSaleForm";
 
 interface SalePolicy {
   id: string;
@@ -46,6 +48,7 @@ interface StaffSalesResponse {
 
 export default function StaffSales() {
   const { user, sessionToken } = useStaffAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   
   const today = new Date();
@@ -95,6 +98,11 @@ export default function StaffSales() {
   const salesData = salesResponse?.personal_sales || [];
   const totals = salesResponse?.totals || { premium: 0, items: 0, points: 0, policies: 0 };
 
+  const handleSaleCreated = () => {
+    queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
+    setActiveTab("overview");
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -108,9 +116,11 @@ export default function StaffSales() {
       <h1 className="text-3xl font-bold mb-6">My Sales</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="add">Add Sale</TabsTrigger>
+          <TabsTrigger value="upload">Upload PDF</TabsTrigger>
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
         </TabsList>
 
@@ -261,6 +271,25 @@ export default function StaffSales() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="add" className="mt-6">
+          <StaffAddSaleForm
+            agencyId={agencyId}
+            staffSessionToken={sessionToken || undefined}
+            staffTeamMemberId={user?.team_member_id}
+            onSuccess={handleSaleCreated}
+          />
+        </TabsContent>
+
+        <TabsContent value="upload" className="mt-6">
+          <PdfUploadForm
+            agencyId={agencyId}
+            staffSessionToken={sessionToken || undefined}
+            staffUserId={user?.id}
+            staffTeamMemberId={user?.team_member_id}
+            onSuccess={handleSaleCreated}
+          />
         </TabsContent>
 
         <TabsContent value="leaderboard" className="mt-6">

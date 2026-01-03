@@ -242,3 +242,12 @@ verify_jwt = false
 
 [functions.get_staff_renewal_stats]
 verify_jwt = false
+
+[functions.log_staff_renewal_activity]
+verify_jwt = false
+
+[functions.parse-sale-pdf]
+verify_jwt = false
+
+[functions.create_staff_sale]
+verify_jwt = false
