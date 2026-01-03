@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfDay, subDays } from "date-fns";
+import { GoalProgressRing } from "./GoalProgressRing";
+import { StatOrb } from "./StatOrb";
+import { PacingIndicator } from "./PacingIndicator";
 
 interface SalesDashboardWidgetProps {
   agencyId: string | null;
@@ -46,6 +46,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
   const monthLabel = format(today, "MMMM yyyy");
+  const todayStr = format(startOfDay(today), "yyyy-MM-dd");
+  const weekStart = format(subDays(today, 6), "yyyy-MM-dd");
 
   // Fetch team_member_id for staff users
   const { data: staffData } = useQuery({
@@ -75,6 +77,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         .from("sales")
         .select(`
           id,
+          sale_date,
           total_premium,
           total_items,
           total_points,
@@ -97,12 +100,22 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
       const totalPoints = data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
       const totalPolicies = data?.reduce((sum, s) => sum + (s.sale_policies?.length || 0), 0) || 0;
 
+      // Calculate today's sales
+      const todaySales = data?.filter(s => s.sale_date === todayStr) || [];
+      const todayPremium = todaySales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
+
+      // Calculate this week's sales
+      const weekSales = data?.filter(s => s.sale_date >= weekStart) || [];
+      const weekPremium = weekSales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
+
       return {
         totalPremium,
         totalItems,
         totalPoints,
         totalPolicies,
         salesCount: data?.length || 0,
+        todayPremium,
+        weekPremium,
       };
     },
     enabled: !!agencyId,
@@ -138,7 +151,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
   if (!agencyId) return null;
 
-  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0 };
+  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, todayPremium: 0, weekPremium: 0 };
   const hasGoal = !!goalData;
   const monthlyGoal = goalData?.target_value || 0;
   
@@ -148,78 +161,156 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const businessDaysRemaining = getBusinessDaysRemaining(today);
   
   const dailyTarget = businessDaysInMonth > 0 ? monthlyGoal / businessDaysInMonth : 0;
-  const todaysGoal = dailyTarget * businessDaysElapsed;
-  const stillNeed = Math.max(0, todaysGoal - stats.totalPremium);
-  const progressPercent = monthlyGoal > 0 ? Math.min(100, (stats.totalPremium / monthlyGoal) * 100) : 0;
+  const expectedToDate = dailyTarget * businessDaysElapsed;
+  const stillNeed = Math.max(0, monthlyGoal - stats.totalPremium);
+  
+  // Projected month-end (based on current pace)
+  const projectedMonthEnd = businessDaysElapsed > 0 
+    ? (stats.totalPremium / businessDaysElapsed) * businessDaysInMonth 
+    : 0;
 
   return (
-    <Card className="border-border/10 bg-muted/20">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-medium flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-primary" />
-          Sales - {monthLabel}
-        </CardTitle>
-        <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
-          <Link to="/sales" className="flex items-center gap-1">
-            View All <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    <div className="sales-widget-glass p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <Trophy className="h-5 w-5 text-primary" />
           </div>
-        ) : (
-          <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-background/50 rounded-lg p-4 text-center">
-                <div className="flex items-center justify-center gap-1 text-2xl font-bold text-primary">
-                  <DollarSign className="h-5 w-5" />
-                  {stats.totalPremium.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </div>
-                <div className="text-sm text-muted-foreground">Premium</div>
-              </div>
-              <div className="bg-background/50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-foreground">{stats.totalItems}</div>
-                <div className="text-sm text-muted-foreground">Items</div>
-              </div>
-              <div className="bg-background/50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-foreground">{stats.totalPolicies}</div>
-                <div className="text-sm text-muted-foreground">Policies</div>
-              </div>
-              <div className="bg-background/50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-foreground">{stats.totalPoints}</div>
-                <div className="text-sm text-muted-foreground">Points</div>
-              </div>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Sales Performance</h2>
+            <p className="text-sm text-muted-foreground">{monthLabel}</p>
+          </div>
+        </div>
+        <Link 
+          to="/sales" 
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+        >
+          View All 
+          <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Main Content: Ring + Orbs */}
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+            {/* Left Orbs */}
+            <div className="flex flex-row lg:flex-col gap-4">
+              <StatOrb
+                value={`$${Math.round(stats.totalPremium / 1000)}k`}
+                label="Premium"
+                icon={DollarSign}
+                color="green"
+                animationDelay={0}
+              />
+              <StatOrb
+                value={stats.totalPoints}
+                label="Points"
+                icon={Trophy}
+                color="orange"
+                animationDelay={100}
+              />
             </div>
 
-            {/* Pacing Section (only if goal exists) */}
-            {hasGoal && (
-              <div className="bg-background/30 rounded-lg p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span>
-                    <span className="text-muted-foreground">Today's Goal:</span>{" "}
-                    <span className="font-medium">${todaysGoal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  </span>
-                  <span>
-                    <span className="text-muted-foreground">Still Need:</span>{" "}
-                    <span className={cn("font-medium", stillNeed > 0 ? "text-amber-500" : "text-green-500")}>
-                      ${stillNeed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    </span>
-                  </span>
-                  <span className="font-medium">{progressPercent.toFixed(0)}%</span>
+            {/* Center Ring */}
+            <div className="flex-shrink-0">
+              {hasGoal ? (
+                <GoalProgressRing
+                  current={stats.totalPremium}
+                  target={monthlyGoal}
+                  size="lg"
+                  animated={true}
+                />
+              ) : (
+                <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
+                  {/* No goal state */}
+                  <svg width={240} height={240} className="transform -rotate-90 opacity-30">
+                    <circle
+                      cx={120}
+                      cy={120}
+                      r={108}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.1)"
+                      strokeWidth={12}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <Target className="h-8 w-8 text-muted-foreground mb-2" />
+                    <span className="text-lg font-semibold text-foreground">No Goal Set</span>
+                    <Link 
+                      to="/sales?tab=goals" 
+                      className="text-sm text-primary hover:underline mt-1"
+                    >
+                      Set a Goal →
+                    </Link>
+                  </div>
                 </div>
-                <Progress value={progressPercent} className="h-2" />
-                <div className="text-xs text-muted-foreground text-center">
-                  {businessDaysRemaining} business days remaining in month
-                </div>
+              )}
+            </div>
+
+            {/* Right Orbs */}
+            <div className="flex flex-row lg:flex-col gap-4">
+              <StatOrb
+                value={stats.totalItems}
+                label="Items"
+                icon={Package}
+                color="blue"
+                animationDelay={200}
+              />
+              <StatOrb
+                value={stats.totalPolicies}
+                label="Policies"
+                icon={FileText}
+                color="purple"
+                animationDelay={300}
+              />
+            </div>
+          </div>
+
+          {/* Pacing Indicator (only if goal exists) */}
+          {hasGoal && (
+            <PacingIndicator
+              dailyTarget={dailyTarget}
+              currentDaily={businessDaysElapsed > 0 ? stats.totalPremium / businessDaysElapsed : 0}
+              amountNeeded={stillNeed}
+              daysRemaining={businessDaysRemaining}
+            />
+          )}
+
+          {/* Footer Stats Row */}
+          <div className={cn(
+            "grid grid-cols-3 gap-4 pt-4",
+            "border-t border-white/10 dark:border-white/5"
+          )}>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-foreground">
+                ${stats.todayPremium.toLocaleString()}
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+              <div className="text-xs text-muted-foreground">Today</div>
+            </div>
+            <div className="text-center border-x border-white/10 dark:border-white/5">
+              <div className="text-lg font-semibold text-foreground">
+                ${stats.weekPremium.toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">This Week</div>
+            </div>
+            <div className="text-center">
+              <div className={cn(
+                "text-lg font-semibold",
+                projectedMonthEnd >= monthlyGoal ? "text-emerald-500" : "text-foreground"
+              )}>
+                ${Math.round(projectedMonthEnd).toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">Projected</div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
