@@ -245,7 +245,7 @@ async function calculateSalesProgress(
   }
 
   if (measurement === "policies") {
-    const { data, error } = await supabase
+    let query = supabase
       .from("sale_policies")
       .select("id, sale:sales!inner(team_member_id, agency_id, sale_date)")
       .eq("sale.team_member_id", teamMemberId)
@@ -253,6 +253,12 @@ async function calculateSalesProgress(
       .gte("sale.sale_date", startDate)
       .lte("sale.sale_date", endDate);
 
+    // Apply product type filter if specified
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data?.length || 0;
   }
