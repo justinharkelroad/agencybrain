@@ -16,7 +16,7 @@ interface LeaderboardListEntry {
 interface LeaderboardListProps {
   producers: LeaderboardListEntry[];
   startRank: number;
-  metric: 'premium' | 'items' | 'points' | 'households';
+  metric: 'premium' | 'items' | 'points' | 'households' | 'policies';
 }
 
 const formatCurrency = (value: number) => {
@@ -41,7 +41,9 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
         <div className={cn("w-14 text-right shrink-0", metric === 'points' && "text-foreground font-bold")}>
           Points
         </div>
-        <div className="w-14 text-right shrink-0">Policies</div>
+        <div className={cn("w-14 text-right shrink-0", metric === 'policies' && "text-foreground font-bold")}>
+          Policies
+        </div>
         <div className={cn("w-14 text-right shrink-0", metric === 'households' && "text-foreground font-bold")}>
           HH
         </div>
@@ -123,7 +125,10 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             </div>
 
             {/* Policies */}
-            <div className="w-14 shrink-0 flex items-center justify-end text-sm text-muted-foreground">
+            <div className={cn(
+              "w-14 shrink-0 flex items-center justify-end text-sm",
+              metric === 'policies' && "font-bold text-foreground"
+            )}>
               {producer.policies}
             </div>
 
@@ -205,9 +210,9 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
                 <p className="text-xs text-muted-foreground mb-0.5">Points</p>
                 <p className="text-sm">{producer.points}</p>
               </div>
-              <div>
+              <div className={cn(metric === 'policies' && "font-bold")}>
                 <p className="text-xs text-muted-foreground mb-0.5">Policies</p>
-                <p className="text-sm text-muted-foreground">{producer.policies}</p>
+                <p className="text-sm">{producer.policies}</p>
               </div>
               <div className={cn(metric === 'households' && "font-bold")}>
                 <p className="text-xs text-muted-foreground mb-0.5">HH</p>

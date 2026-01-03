@@ -6,7 +6,7 @@ interface PodiumEntry {
   name: string;
   initials: string;
   value: number;
-  metric: 'premium' | 'items' | 'points' | 'households';
+  metric: 'premium' | 'items' | 'points' | 'households' | 'policies';
   households?: number;
   isCurrentUser?: boolean;
   premium?: number;
@@ -17,10 +17,10 @@ interface PodiumEntry {
 
 interface LeaderboardPodiumProps {
   topThree: PodiumEntry[];
-  metric: 'premium' | 'items' | 'points' | 'households';
+  metric: 'premium' | 'items' | 'points' | 'households' | 'policies';
 }
 
-const formatValue = (value: number, metric: 'premium' | 'items' | 'points' | 'households') => {
+const formatValue = (value: number, metric: 'premium' | 'items' | 'points' | 'households' | 'policies') => {
   if (metric === 'premium') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
@@ -69,7 +69,7 @@ const getInitials = (name: string) => {
 
 interface PodiumPlaceProps {
   entry: PodiumEntry;
-  metric: 'premium' | 'items' | 'points' | 'households';
+  metric: 'premium' | 'items' | 'points' | 'households' | 'policies';
   animationDelay: number;
 }
 

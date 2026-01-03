@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -13,12 +12,12 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, subMonths } from "date-fns";
-import { cn } from "@/lib/utils";
 import { LeaderboardPodium } from "./LeaderboardPodium";
 import { LeaderboardList, LeaderboardListMobile } from "./LeaderboardList";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { MetricToggle, MetricType } from "./MetricToggle";
 
-type RankMetric = "premium" | "items" | "points" | "households";
+type RankMetric = MetricType;
 type Period = "this_month" | "last_month" | "this_quarter" | "ytd";
 
 interface LeaderboardEntry {
@@ -96,7 +95,7 @@ const getInitials = (name: string) => {
 
 export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboardProps) {
   const { user } = useAuth();
-  const [rankBy, setRankBy] = useState<RankMetric>("premium");
+  const [rankBy, setRankBy] = useState<RankMetric>("items");
   const [period, setPeriod] = useState<Period>("this_month");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
@@ -248,6 +247,8 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           return b.points - a.points;
         case "households":
           return b.households - a.households;
+        case "policies":
+          return b.policies - a.policies;
         case "premium":
         default:
           return b.premium - a.premium;
@@ -268,6 +269,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
       if (rankBy === 'items') value = entry.items;
       else if (rankBy === 'points') value = entry.points;
       else if (rankBy === 'households') value = entry.households;
+      else if (rankBy === 'policies') value = entry.policies;
       
       return {
         rank: entry.rank as 1 | 2 | 3,
@@ -324,25 +326,12 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
             </Select>
           </div>
           
-          {/* Metric Toggle - Segmented Control */}
-          <div className="flex items-center justify-center sm:justify-start gap-1 p-1 bg-muted/50 rounded-lg w-fit">
-            {(['premium', 'items', 'points', 'households'] as RankMetric[]).map((metric) => (
-              <Button
-                key={metric}
-                variant="ghost"
-                size="sm"
-                onClick={() => setRankBy(metric)}
-                className={cn(
-                  "px-3 py-1.5 h-8 rounded-md transition-all duration-200",
-                  rankBy === metric 
-                    ? "bg-background shadow-sm text-foreground font-semibold" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-transparent"
-                )}
-              >
-                {metric.charAt(0).toUpperCase() + metric.slice(1)}
-              </Button>
-            ))}
-          </div>
+          {/* Metric Toggle */}
+          <MetricToggle 
+            value={rankBy} 
+            onChange={setRankBy}
+            availableMetrics={["items", "premium", "points", "policies", "households"]}
+          />
         </div>
       </CardHeader>
       
