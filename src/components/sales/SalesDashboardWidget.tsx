@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Link } from "react-router-dom";
-import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target, Users } from "lucide-react";
+import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target, Users, Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { StatOrb } from "./StatOrb";
 import { PacingIndicator } from "./PacingIndicator";
+import { AdminPromoGoalsWidget } from "./AdminPromoGoalsWidget";
 import { 
   getBusinessDaysInMonth, 
   getBusinessDaysElapsed, 
@@ -311,6 +312,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               </div>
             </div>
           </div>
+
+          {/* Admin Promo Goals Section */}
+          {(isAgencyOwner || isAdmin) && (
+            <div className="pt-4 border-t border-white/10 dark:border-white/5">
+              <AdminPromoGoalsWidget agencyId={agencyId} />
+            </div>
+          )}
         </>
       )}
     </div>
