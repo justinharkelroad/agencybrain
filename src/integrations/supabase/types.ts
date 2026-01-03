@@ -1162,6 +1162,260 @@ export type Database = {
           },
         ]
       }
+      comp_payouts: {
+        Row: {
+          agency_id: string
+          base_commission: number | null
+          bonus_amount: number | null
+          chargeback_count: number | null
+          chargeback_premium: number | null
+          comp_plan_id: string | null
+          created_at: string | null
+          finalized_at: string | null
+          id: string
+          issued_items: number | null
+          issued_points: number | null
+          issued_policies: number | null
+          issued_premium: number | null
+          net_items: number | null
+          net_premium: number | null
+          paid_at: string | null
+          period_month: number
+          period_year: number
+          rollover_premium: number | null
+          status: string | null
+          team_member_id: string
+          tier_commission_value: number | null
+          tier_threshold_met: number | null
+          total_payout: number | null
+          updated_at: string | null
+          written_households: number | null
+          written_items: number | null
+          written_points: number | null
+          written_policies: number | null
+          written_premium: number | null
+        }
+        Insert: {
+          agency_id: string
+          base_commission?: number | null
+          bonus_amount?: number | null
+          chargeback_count?: number | null
+          chargeback_premium?: number | null
+          comp_plan_id?: string | null
+          created_at?: string | null
+          finalized_at?: string | null
+          id?: string
+          issued_items?: number | null
+          issued_points?: number | null
+          issued_policies?: number | null
+          issued_premium?: number | null
+          net_items?: number | null
+          net_premium?: number | null
+          paid_at?: string | null
+          period_month: number
+          period_year: number
+          rollover_premium?: number | null
+          status?: string | null
+          team_member_id: string
+          tier_commission_value?: number | null
+          tier_threshold_met?: number | null
+          total_payout?: number | null
+          updated_at?: string | null
+          written_households?: number | null
+          written_items?: number | null
+          written_points?: number | null
+          written_policies?: number | null
+          written_premium?: number | null
+        }
+        Update: {
+          agency_id?: string
+          base_commission?: number | null
+          bonus_amount?: number | null
+          chargeback_count?: number | null
+          chargeback_premium?: number | null
+          comp_plan_id?: string | null
+          created_at?: string | null
+          finalized_at?: string | null
+          id?: string
+          issued_items?: number | null
+          issued_points?: number | null
+          issued_policies?: number | null
+          issued_premium?: number | null
+          net_items?: number | null
+          net_premium?: number | null
+          paid_at?: string | null
+          period_month?: number
+          period_year?: number
+          rollover_premium?: number | null
+          status?: string | null
+          team_member_id?: string
+          tier_commission_value?: number | null
+          tier_threshold_met?: number | null
+          total_payout?: number | null
+          updated_at?: string | null
+          written_households?: number | null
+          written_items?: number | null
+          written_points?: number | null
+          written_policies?: number | null
+          written_premium?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_payouts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_payouts_comp_plan_id_fkey"
+            columns: ["comp_plan_id"]
+            isOneToOne: false
+            referencedRelation: "comp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_payouts_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_plan_assignments: {
+        Row: {
+          comp_plan_id: string
+          created_at: string | null
+          effective_date: string
+          end_date: string | null
+          id: string
+          team_member_id: string
+        }
+        Insert: {
+          comp_plan_id: string
+          created_at?: string | null
+          effective_date?: string
+          end_date?: string | null
+          id?: string
+          team_member_id: string
+        }
+        Update: {
+          comp_plan_id?: string
+          created_at?: string | null
+          effective_date?: string
+          end_date?: string | null
+          id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_plan_assignments_comp_plan_id_fkey"
+            columns: ["comp_plan_id"]
+            isOneToOne: false
+            referencedRelation: "comp_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_plan_assignments_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_plan_tiers: {
+        Row: {
+          commission_value: number
+          comp_plan_id: string
+          created_at: string | null
+          id: string
+          min_threshold: number
+          sort_order: number
+        }
+        Insert: {
+          commission_value: number
+          comp_plan_id: string
+          created_at?: string | null
+          id?: string
+          min_threshold: number
+          sort_order?: number
+        }
+        Update: {
+          commission_value?: number
+          comp_plan_id?: string
+          created_at?: string | null
+          id?: string
+          min_threshold?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_plan_tiers_comp_plan_id_fkey"
+            columns: ["comp_plan_id"]
+            isOneToOne: false
+            referencedRelation: "comp_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_plans: {
+        Row: {
+          agency_id: string
+          brokered_counts_toward_tier: boolean | null
+          brokered_flat_rate: number | null
+          chargeback_rule: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          payout_type: string
+          policy_type_filter: string[] | null
+          tier_metric: string
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          brokered_counts_toward_tier?: boolean | null
+          brokered_flat_rate?: number | null
+          chargeback_rule?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          payout_type?: string
+          policy_type_filter?: string[] | null
+          tier_metric?: string
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          brokered_counts_toward_tier?: boolean | null
+          brokered_flat_rate?: number | null
+          chargeback_rule?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          payout_type?: string
+          policy_type_filter?: string[] | null
+          tier_metric?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_plans_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comp_statement_uploads: {
         Row: {
           agency_id: string
