@@ -16,6 +16,9 @@ interface Sale {
   id: string;
   sale_date: string;
   customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  customer_zip: string | null;
   total_premium: number | null;
   total_items: number | null;
   total_points: number | null;
@@ -173,6 +176,9 @@ serve(async (req) => {
           id,
           sale_date,
           customer_name,
+          customer_email,
+          customer_phone,
+          customer_zip,
           total_premium,
           total_items,
           total_points,
