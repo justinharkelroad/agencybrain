@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { BarChart3, Loader2 } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -24,9 +24,9 @@ interface SalesByBundleChartProps {
 }
 
 const BUNDLE_COLORS: Record<string, string> = {
-  Preferred: "hsl(var(--chart-1))",
-  Standard: "hsl(var(--chart-2))",
-  Monoline: "hsl(var(--chart-3))",
+  Preferred: "#22c55e",  // green
+  Standard: "#3b82f6",   // blue
+  Monoline: "#f59e0b",   // amber
 };
 
 const BUNDLE_ORDER = ["Preferred", "Standard", "Monoline"];
@@ -109,7 +109,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border/50">
         <CardContent className="flex items-center justify-center h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
@@ -118,9 +118,9 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
   }
 
   return (
-    <Card>
+    <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-medium">Sales by Bundle Type</CardTitle>
+        <CardTitle className="text-lg font-semibold">Sales by Bundle Type</CardTitle>
         <MetricToggle 
           value={metric} 
           onChange={setMetric} 
@@ -129,8 +129,9 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No sales data for this period
+          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
+            <BarChart3 className="h-12 w-12 mb-2 opacity-50" />
+            <p>No sales data for this period</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
@@ -138,28 +139,37 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <CartesianGrid 
+                strokeDasharray="3 3" 
+                stroke="hsl(var(--border))" 
+                vertical={false}
+              />
               <XAxis
                 dataKey="bundle_type"
-                className="text-muted-foreground"
-                tick={{ fontSize: 12 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 13 }}
+                tickLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
               />
               <YAxis
-                className="text-muted-foreground"
-                tick={{ fontSize: 11 }}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
                 tickFormatter={metric === "premium" ? (v) => `$${v}` : undefined}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
+                  backgroundColor: 'hsl(222 47% 11%)',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
               <Bar dataKey={metric} radius={[4, 4, 0, 0]}>
                 {chartData.map((entry) => (
-                  <Cell key={entry.bundle_type} fill={BUNDLE_COLORS[entry.bundle_type] || "hsl(var(--primary))"} />
+                  <Cell key={entry.bundle_type} fill={BUNDLE_COLORS[entry.bundle_type] || "#8b5cf6"} />
                 ))}
               </Bar>
             </BarChart>
