@@ -125,13 +125,13 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
       "bg-muted/30 rounded-lg p-3 border-l-4",
       goal.isAchieved ? "border-l-green-500" : "border-l-primary"
     )}>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
         {/* Activity Ring */}
         <div className="flex-shrink-0">
           <GoalProgressRing
             current={goal.progress}
             target={goal.target_value}
-            size="sm"
+            size="xs"
             showPercentage
             animated
             formatValue={formatValue}
@@ -139,8 +139,8 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
         </div>
 
         {/* Goal Info */}
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 space-y-1 text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-2">
             <span className="font-medium text-sm truncate">{goal.goal_name}</span>
             {goal.isAchieved && (
               <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -151,7 +151,7 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
             {formatValue(goal.progress)} / {formatValue(goal.target_value)} {goal.measurement}
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center justify-center sm:justify-start gap-3 text-xs flex-wrap">
             {!goal.isAchieved && goal.daysRemaining > 0 && (
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Clock className="h-3 w-3" />
