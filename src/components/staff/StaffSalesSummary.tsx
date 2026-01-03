@@ -294,7 +294,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
       {/* Promo Goals Section */}
       <div className="mt-6">
-        <StaffPromoGoalsWidget agencyId={agencyId} teamMemberId={teamMemberId} />
+        <StaffPromoGoalsWidget sessionToken={sessionToken} />
       </div>
     </div>
   );

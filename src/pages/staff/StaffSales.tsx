@@ -4,12 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { Loader2, DollarSign, Package, FileText, Trophy } from "lucide-react";
+import { Loader2, DollarSign, Package, FileText, Trophy, Pencil } from "lucide-react";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { StaffAddSaleForm } from "@/components/sales/StaffAddSaleForm";
+import { StaffEditSaleModal } from "@/components/staff/StaffEditSaleModal";
+import { Button } from "@/components/ui/button";
 
 interface SalePolicy {
   id: string;
@@ -50,6 +52,7 @@ export default function StaffSales() {
   const { user, sessionToken } = useStaffAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -239,6 +242,7 @@ export default function StaffSales() {
                       <TableHead className="text-right">Premium</TableHead>
                       <TableHead className="text-right">Items</TableHead>
                       <TableHead className="text-right">Points</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -259,6 +263,16 @@ export default function StaffSales() {
                         </TableCell>
                         <TableCell className="text-right">
                           {sale.total_points || 0}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingSale(sale)}
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -301,6 +315,16 @@ export default function StaffSales() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Sale Modal */}
+      {sessionToken && (
+        <StaffEditSaleModal
+          sale={editingSale}
+          open={!!editingSale}
+          onOpenChange={(open) => !open && setEditingSale(null)}
+          sessionToken={sessionToken}
+        />
+      )}
     </div>
   );
 }

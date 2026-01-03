@@ -254,3 +254,9 @@ verify_jwt = false
 
 [functions.get_staff_goal]
 verify_jwt = false
+
+[functions.get_staff_promo_goals]
+verify_jwt = false
+
+[functions.edit_staff_sale]
+verify_jwt = false
