@@ -1,7 +1,7 @@
 // Core payout calculation logic
 
 import { CompPlan, CompPlanTier } from "@/hooks/useCompPlans";
-import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
+import { SubProducerMetrics, SubProducerTransaction } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { PayoutCalculation, TierMatch, SubProducerPerformance } from "./types";
 
 interface TeamMember {
@@ -13,6 +13,88 @@ interface TeamMember {
 interface Assignment {
   team_member_id: string;
   comp_plan_id: string;
+}
+
+/**
+ * Parse a date string that could be in various formats
+ */
+function parseTransactionDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  
+  try {
+    const parts = String(dateStr).split('/');
+    if (parts.length === 2) {
+      // MM/YYYY format
+      const month = parseInt(parts[0], 10) - 1;
+      const year = parseInt(parts[1], 10);
+      return new Date(year, month, 1);
+    } else if (parts.length === 3) {
+      // MM/DD/YYYY format
+      const month = parseInt(parts[0], 10) - 1;
+      const day = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    // Try direct parsing
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Filter chargebacks based on the 3-month rule (90 days)
+ * Only includes chargebacks where the policy was in force for less than 90 days
+ */
+export function filterChargebacksByThreeMonthRule(
+  chargebackTransactions: SubProducerTransaction[],
+  statementMonth: number,
+  statementYear: number
+): {
+  eligibleChargebacks: SubProducerTransaction[];
+  excludedChargebacks: SubProducerTransaction[];
+  eligiblePremium: number;
+  excludedPremium: number;
+} {
+  // Use the statement date as reference for calculating days in force
+  const statementDate = new Date(statementYear, statementMonth - 1, 28); // End of statement month
+  
+  const eligibleChargebacks: SubProducerTransaction[] = [];
+  const excludedChargebacks: SubProducerTransaction[] = [];
+  
+  for (const cb of chargebackTransactions) {
+    const effectiveDate = parseTransactionDate(cb.origPolicyEffDate);
+    
+    if (!effectiveDate) {
+      // If we can't parse the date, include the chargeback (conservative approach)
+      eligibleChargebacks.push(cb);
+      continue;
+    }
+    
+    // Calculate days in force
+    const daysInForce = Math.floor(
+      (statementDate.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    if (daysInForce < 90) {
+      // Policy cancelled within 90 days - chargeback applies
+      eligibleChargebacks.push(cb);
+    } else {
+      // Policy was in force > 90 days - chargeback excluded
+      excludedChargebacks.push(cb);
+    }
+  }
+  
+  const eligiblePremium = eligibleChargebacks.reduce((sum, cb) => sum + Math.abs(cb.premium), 0);
+  const excludedPremium = excludedChargebacks.reduce((sum, cb) => sum + Math.abs(cb.premium), 0);
+  
+  return {
+    eligibleChargebacks,
+    excludedChargebacks,
+    eligiblePremium,
+    excludedPremium,
+  };
 }
 
 /**
@@ -65,7 +147,7 @@ export function getMetricValue(
 }
 
 /**
- * Calculate commission based on payout type and tier
+ * Calculate commission based on payout type, tier, and chargeback rule
  */
 export function calculateCommission(
   performance: SubProducerPerformance,
@@ -78,40 +160,59 @@ export function calculateCommission(
   
   const { commissionValue } = tierMatch;
   let baseCommission = 0;
-  let bonusAmount = 0;
+  const bonusAmount = 0;
   
-  // Calculate based on payout type (matching UI values)
+  // Determine which chargeback amount to use based on rule
+  let effectiveChargebackPremium = 0;
+  let effectiveChargebackCount = 0;
+  
+  switch (plan.chargeback_rule) {
+    case 'none':
+      // No chargebacks deducted
+      effectiveChargebackPremium = 0;
+      effectiveChargebackCount = 0;
+      break;
+    case 'three_month':
+      // Only count chargebacks where policy was in force < 90 days
+      effectiveChargebackPremium = performance.eligibleChargebackPremium;
+      effectiveChargebackCount = performance.eligibleChargebackCount;
+      break;
+    case 'full':
+    default:
+      // All chargebacks apply
+      effectiveChargebackPremium = performance.chargebackPremium;
+      effectiveChargebackCount = performance.chargebackCount;
+      break;
+  }
+  
+  // Calculate effective net premium for commission calculation
+  const effectiveNetPremium = performance.issuedPremium - effectiveChargebackPremium;
+  
+  // Calculate based on payout type
   switch (plan.payout_type) {
     case 'percent_of_premium':
-      // Commission value is a percentage of net premium
-      baseCommission = performance.netPremium * (commissionValue / 100);
+      // Commission value is a percentage of effective net premium
+      baseCommission = effectiveNetPremium * (commissionValue / 100);
       break;
     case 'flat_per_item':
-      // Commission value is a flat amount per issued item
-      baseCommission = performance.issuedItems * commissionValue;
+      // Commission value is a flat amount per issued item minus chargebacks
+      baseCommission = (performance.issuedItems - effectiveChargebackCount) * commissionValue;
       break;
     case 'flat_per_policy':
-      // Commission value is a flat amount per issued policy
-      baseCommission = performance.issuedPolicies * commissionValue;
+      // Commission value is a flat amount per issued policy minus chargebacks
+      baseCommission = (performance.issuedPolicies - effectiveChargebackCount) * commissionValue;
       break;
     case 'flat_per_household':
       // Commission value is a flat amount per household
       baseCommission = performance.writtenHouseholds * commissionValue;
       break;
     default:
-      // Default to percentage of net premium
-      baseCommission = performance.netPremium * (commissionValue / 100);
+      // Default to percentage of effective net premium
+      baseCommission = effectiveNetPremium * (commissionValue / 100);
   }
   
-  // Apply chargeback rule
-  if (plan.chargeback_rule === 'full' && performance.chargebackPremium > 0) {
-    // Chargebacks are already reflected in netPremium for percentage
-    // For flat rate payouts, deduct based on chargeback count
-    if (plan.payout_type !== 'percent_of_premium') {
-      const chargebackDeduction = performance.chargebackCount * commissionValue;
-      baseCommission = Math.max(0, baseCommission - chargebackDeduction);
-    }
-  }
+  // Ensure non-negative
+  baseCommission = Math.max(0, baseCommission);
   
   const totalPayout = baseCommission + bonusAmount;
   
@@ -120,12 +221,36 @@ export function calculateCommission(
 
 /**
  * Convert SubProducerMetrics to SubProducerPerformance
+ * Includes 3-month rule filtering when applicable
  */
 export function convertToPerformance(
   metrics: SubProducerMetrics,
   teamMemberId: string | null,
-  teamMemberName: string | null
+  teamMemberName: string | null,
+  chargebackRule: string,
+  periodMonth: number,
+  periodYear: number
 ): SubProducerPerformance {
+  // Apply 3-month rule filtering if applicable
+  let eligibleChargebackPremium = metrics.premiumChargebacks;
+  let eligibleChargebackCount = metrics.chargebackCount;
+  let excludedChargebackCount = 0;
+  
+  if (chargebackRule === 'three_month' && metrics.chargebackTransactions?.length > 0) {
+    const filtered = filterChargebacksByThreeMonthRule(
+      metrics.chargebackTransactions,
+      periodMonth,
+      periodYear
+    );
+    eligibleChargebackPremium = filtered.eligiblePremium;
+    eligibleChargebackCount = filtered.eligibleChargebacks.length;
+    excludedChargebackCount = filtered.excludedChargebacks.length;
+  } else if (chargebackRule === 'none') {
+    eligibleChargebackPremium = 0;
+    eligibleChargebackCount = 0;
+    excludedChargebackCount = metrics.chargebackCount;
+  }
+  
   return {
     subProdCode: metrics.code,
     teamMemberId,
@@ -144,13 +269,24 @@ export function convertToPerformance(
     issuedPolicies: metrics.policiesIssued,
     issuedPoints: metrics.creditCount,
     
-    // Chargebacks
+    // All chargebacks
     chargebackPremium: metrics.premiumChargebacks,
     chargebackCount: metrics.chargebackCount,
     
-    // Net
+    // 3-month rule filtered chargebacks
+    eligibleChargebackPremium,
+    eligibleChargebackCount,
+    excludedChargebackCount,
+    
+    // Net (based on all chargebacks - display purposes)
     netPremium: metrics.netPremium,
     netItems: metrics.creditCount - metrics.chargebackCount,
+    
+    // Raw data for detail views
+    creditInsureds: metrics.creditInsureds || [],
+    chargebackInsureds: metrics.chargebackInsureds || [],
+    creditTransactions: metrics.creditTransactions || [],
+    chargebackTransactions: metrics.chargebackTransactions || [],
   };
 }
 
@@ -197,9 +333,15 @@ export function calculateMemberPayout(
     issuedPolicies: performance.issuedPolicies,
     issuedPoints: performance.issuedPoints,
     
-    // Chargebacks
+    // Chargebacks (all)
     chargebackPremium: performance.chargebackPremium,
     chargebackCount: performance.chargebackCount,
+    
+    // 3-Month Rule tracking
+    eligibleChargebackPremium: performance.eligibleChargebackPremium,
+    eligibleChargebackCount: performance.eligibleChargebackCount,
+    excludedChargebackCount: performance.excludedChargebackCount,
+    chargebackRule: plan.chargeback_rule,
     
     // Net
     netPremium: performance.netPremium,
@@ -218,7 +360,12 @@ export function calculateMemberPayout(
     // Rollover (written - issued for future months)
     rolloverPremium: 0, // Calculated separately if needed
     
+    // Status
     status: 'draft',
+    
+    // Raw data for detail views
+    creditInsureds: performance.creditInsureds,
+    chargebackInsureds: performance.chargebackInsureds,
   };
 }
 
@@ -279,9 +426,6 @@ export function calculateAllPayouts(
       continue;
     }
     
-    // Convert metrics to performance
-    const performance = convertToPerformance(metrics, teamMember.id, teamMember.name);
-    
     // Calculate payout for each assigned plan
     for (const planId of memberPlanIds) {
       const plan = planById.get(planId);
@@ -294,6 +438,16 @@ export function calculateAllPayouts(
         warnings.push(`Plan "${plan.name}" is inactive, skipping`);
         continue;
       }
+      
+      // Convert metrics to performance with plan's chargeback rule
+      const performance = convertToPerformance(
+        metrics, 
+        teamMember.id, 
+        teamMember.name,
+        plan.chargeback_rule,
+        periodMonth,
+        periodYear
+      );
       
       const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear);
       payouts.push(payout);
