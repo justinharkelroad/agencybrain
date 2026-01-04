@@ -90,6 +90,7 @@ interface TeamMember {
 
 interface PdfUploadFormProps {
   onSuccess?: () => void;
+  onSwitchToManual?: () => void;
   agencyId?: string | null;
   // Staff portal props
   staffSessionToken?: string;
@@ -146,6 +147,7 @@ function generateId(): string {
 
 export function PdfUploadForm({
   onSuccess,
+  onSwitchToManual,
   agencyId,
   staffSessionToken,
   staffUserId,
@@ -692,6 +694,20 @@ export function PdfUploadForm({
               Supports Allstate Purchase Confirmation PDFs (max 10MB)
             </p>
           </div>
+          
+          {/* Manual entry link */}
+          {onSwitchToManual && (
+            <div className="text-center mt-6">
+              <span className="text-sm text-muted-foreground">or </span>
+              <button
+                type="button"
+                onClick={onSwitchToManual}
+                className="text-sm text-muted-foreground hover:text-primary hover:underline transition-colors"
+              >
+                Enter Sale Manually →
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

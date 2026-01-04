@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Link } from "react-router-dom";
-import { BarChart3, DollarSign, Package, FileText, Trophy, Loader2, Target, Users } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BarChart3, DollarSign, Package, FileText, Trophy, Loader2, Target, Users, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
@@ -26,6 +26,7 @@ interface SalesDashboardWidgetProps {
 }
 
 export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
+  const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const { user, isAgencyOwner, isAdmin } = useAuth();
   const today = new Date();
@@ -176,15 +177,26 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setShowAnalytics(true)}
-          className="gap-2"
-        >
-          <BarChart3 className="h-4 w-4" />
-          <span className="hidden sm:inline">Analytics</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate('/sales?tab=upload')}
+            className="gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Upload Sale</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAnalytics(true)}
+            className="gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Analytics</span>
+          </Button>
+        </div>
       </div>
 
       {/* Analytics Slide-Over */}
