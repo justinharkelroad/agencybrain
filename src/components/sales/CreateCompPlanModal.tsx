@@ -66,7 +66,7 @@ export function CreateCompPlanModal({
   agencyId,
   editPlan,
 }: CreateCompPlanModalProps) {
-  console.log("CreateCompPlanModal RENDER", { open, editPlan: editPlan?.id });
+  
   
   const isEditing = !!editPlan;
   const { createPlan, updatePlan } = useCompPlanMutations(agencyId);
@@ -122,7 +122,7 @@ export function CreateCompPlanModal({
 
   // Initialize form when editing
   useEffect(() => {
-    console.log("useEffect: editPlan triggered", { editPlan: editPlan?.id });
+    
     if (editPlan) {
       setName(editPlan.name);
       setDescription(editPlan.description || "");
@@ -149,11 +149,6 @@ export function CreateCompPlanModal({
 
   // Set existing assignments when loaded
   useEffect(() => {
-    console.log("useEffect: existingAssignments triggered", {
-      open,
-      editPlanId: editPlan?.id,
-      assignmentsLength: existingAssignments.length,
-    });
     if (!open || !editPlan?.id) return;
     if (existingAssignments.length === 0) return;
 
@@ -195,13 +190,8 @@ export function CreateCompPlanModal({
       return;
     }
 
-    // Validate tier thresholds are in ascending order
+    // Sort tiers by threshold (ascending)
     const sortedTiers = [...tiers].sort((a, b) => a.min_threshold - b.min_threshold);
-    const hasFirstTierAtZero = sortedTiers[0]?.min_threshold === 0;
-    if (!hasFirstTierAtZero) {
-      toast.error("First tier must start at 0");
-      return;
-    }
 
     const formData = {
       id: editPlan?.id,
@@ -236,7 +226,7 @@ export function CreateCompPlanModal({
   };
 
   const setMemberChecked = useCallback((memberId: string, checked: boolean) => {
-    console.log("setMemberChecked called", { memberId, checked });
+    
     setSelectedMembers((prev) => {
       const isCurrentlySelected = prev.includes(memberId);
       // Idempotent: only change if needed
@@ -251,7 +241,7 @@ export function CreateCompPlanModal({
   }, []);
 
   const handleTiersChange = useCallback((newTiers: TierFormData[]) => {
-    console.log("handleTiersChange called", { tiersLength: newTiers.length });
+    
     setTiers(newTiers);
   }, []);
 
@@ -434,7 +424,7 @@ export function CreateCompPlanModal({
                           id={inputId}
                           checked={isSelected}
                           onChange={(e) => {
-                            console.log("native checkbox onChange", { memberId: member.id, checked: e.target.checked });
+                            
                             setMemberChecked(member.id, e.target.checked);
                           }}
                           className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-background"
