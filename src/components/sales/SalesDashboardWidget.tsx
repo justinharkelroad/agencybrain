@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Link } from "react-router-dom";
-import { ArrowRight, DollarSign, Package, FileText, Trophy, Loader2, Target, Users, Gift } from "lucide-react";
+import { BarChart3, DollarSign, Package, FileText, Trophy, Loader2, Target, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { StatOrb } from "./StatOrb";
 import { PacingIndicator } from "./PacingIndicator";
 import { AdminPromoGoalsWidget } from "./AdminPromoGoalsWidget";
+import { SalesBreakdownTabs } from "./SalesBreakdownTabs";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
   getBusinessDaysInMonth, 
   getBusinessDaysElapsed, 
@@ -22,6 +26,7 @@ interface SalesDashboardWidgetProps {
 }
 
 export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const { user, isAgencyOwner, isAdmin } = useAuth();
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -171,14 +176,34 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>
         </div>
-        <Link 
-          to="/sales" 
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowAnalytics(true)}
+          className="gap-2"
         >
-          View All 
-          <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-        </Link>
+          <BarChart3 className="h-4 w-4" />
+          <span className="hidden sm:inline">Analytics</span>
+        </Button>
       </div>
+
+      {/* Analytics Slide-Over */}
+      <Sheet open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-4xl overflow-y-auto"
+        >
+          <SheetHeader>
+            <SheetTitle>Sales Analytics</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <SalesBreakdownTabs 
+              agencyId={agencyId} 
+              showLeaderboard={true}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
