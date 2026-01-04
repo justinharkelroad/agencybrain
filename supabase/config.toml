@@ -266,3 +266,6 @@ verify_jwt = false
 
 [functions.get-staff-commission]
 verify_jwt = false
+
+[functions.send-payout-notification]
+verify_jwt = false
