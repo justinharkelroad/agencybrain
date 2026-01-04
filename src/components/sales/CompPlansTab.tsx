@@ -2,8 +2,12 @@ import { useState } from "react";
 import { useCompPlans, CompPlan } from "@/hooks/useCompPlans";
 import { CompPlanCard } from "./CompPlanCard";
 import { CreateCompPlanModal } from "./CreateCompPlanModal";
-import { Loader2, Plus, FileText } from "lucide-react";
+import { StatementReportSelector } from "./StatementReportSelector";
+import { PayoutPreview } from "./PayoutPreview";
+import { Loader2, Plus, FileText, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 
 interface CompPlansTabProps {
   agencyId: string | null;
@@ -13,6 +17,31 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
   const { data: plans, isLoading, error } = useCompPlans(agencyId);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CompPlan | null>(null);
+  
+  // Payout calculator state
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [subProducerData, setSubProducerData] = useState<SubProducerMetrics[] | undefined>();
+  const [statementMonth, setStatementMonth] = useState<number | undefined>();
+  const [statementYear, setStatementYear] = useState<number | undefined>();
+
+  const handleReportSelect = (report: { 
+    id: string; 
+    statement_month: number; 
+    statement_year: number; 
+    comparison_data: { subProducerData?: SubProducerMetrics[] } 
+  } | null) => {
+    if (report) {
+      setSelectedReportId(report.id);
+      setSubProducerData(report.comparison_data?.subProducerData);
+      setStatementMonth(report.statement_month);
+      setStatementYear(report.statement_year);
+    } else {
+      setSelectedReportId(null);
+      setSubProducerData(undefined);
+      setStatementMonth(undefined);
+      setStatementYear(undefined);
+    }
+  };
 
   const handleCreateClick = () => {
     setEditingPlan(null);
@@ -101,6 +130,35 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
             />
           ))}
         </div>
+
+        {/* Payout Calculator Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Calculate Payouts
+            </CardTitle>
+            <CardDescription>
+              Select a statement report to calculate team member commissions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StatementReportSelector
+              agencyId={agencyId}
+              selectedReportId={selectedReportId}
+              onSelect={handleReportSelect}
+            />
+          </CardContent>
+        </Card>
+
+        {selectedReportId && (
+          <PayoutPreview
+            agencyId={agencyId}
+            subProducerData={subProducerData}
+            statementMonth={statementMonth}
+            statementYear={statementYear}
+          />
+        )}
       </div>
 
       <CreateCompPlanModal
