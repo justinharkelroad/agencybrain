@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,108 @@ const TIER_METRIC_LABELS: Record<string, string> = {
   points: "Points",
   households: "Households",
 };
+
+// Separate component for tier row to handle local editing state
+function TierRow({
+  tier,
+  index,
+  onUpdate,
+  onRemove,
+  isPercent,
+  isPremiumMetric,
+  canRemove,
+}: {
+  tier: TierFormData;
+  index: number;
+  onUpdate: (index: number, field: keyof TierFormData, value: number) => void;
+  onRemove: (index: number) => void;
+  isPercent: boolean;
+  isPremiumMetric: boolean;
+  canRemove: boolean;
+}) {
+  const [thresholdValue, setThresholdValue] = useState(tier.min_threshold.toString());
+  const [commissionValue, setCommissionValue] = useState(tier.commission_value.toString());
+
+  const handleThresholdChange = (value: string) => {
+    setThresholdValue(value);
+  };
+
+  const handleThresholdBlur = () => {
+    const numValue = thresholdValue === "" ? 0 : parseFloat(thresholdValue);
+    const finalValue = isNaN(numValue) ? 0 : numValue;
+    setThresholdValue(finalValue.toString());
+    onUpdate(index, "min_threshold", finalValue);
+  };
+
+  const handleCommissionChange = (value: string) => {
+    setCommissionValue(value);
+  };
+
+  const handleCommissionBlur = () => {
+    const numValue = commissionValue === "" ? 0 : parseFloat(commissionValue);
+    const finalValue = isNaN(numValue) ? 0 : numValue;
+    setCommissionValue(finalValue.toString());
+    onUpdate(index, "commission_value", finalValue);
+  };
+
+  return (
+    <div className="grid grid-cols-[24px_1fr_1fr_40px] gap-3 items-center p-2 rounded-lg border bg-card">
+      <div className="flex items-center justify-center text-muted-foreground">
+        <GripVertical className="h-4 w-4" />
+      </div>
+      
+      <div className="relative">
+        {isPremiumMetric && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            $
+          </span>
+        )}
+        <Input
+          type="number"
+          value={thresholdValue}
+          onChange={(e) => handleThresholdChange(e.target.value)}
+          onBlur={handleThresholdBlur}
+          className={isPremiumMetric ? "pl-7" : ""}
+          min={0}
+          step={isPremiumMetric ? 100 : 1}
+        />
+      </div>
+      
+      <div className="relative">
+        {!isPercent && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            $
+          </span>
+        )}
+        <Input
+          type="number"
+          value={commissionValue}
+          onChange={(e) => handleCommissionChange(e.target.value)}
+          onBlur={handleCommissionBlur}
+          className={!isPercent ? "pl-7" : ""}
+          min={0}
+          step={isPercent ? 0.5 : 0.25}
+        />
+        {isPercent && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            %
+          </span>
+        )}
+      </div>
+      
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={() => onRemove(index)}
+        className="text-muted-foreground hover:text-destructive"
+        disabled={!canRemove}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export function CommissionTierEditor({
   tiers,
@@ -45,19 +148,10 @@ export function CommissionTierEditor({
     onChange(newTiers.map((t, i) => ({ ...t, sort_order: i })));
   };
 
-  const updateTier = (index: number, field: keyof TierFormData, value: string) => {
+  const updateTier = (index: number, field: keyof TierFormData, value: number) => {
     const newTiers = [...tiers];
-    const numValue = value === "" ? 0 : parseFloat(value);
-    newTiers[index] = { ...newTiers[index], [field]: isNaN(numValue) ? 0 : numValue };
+    newTiers[index] = { ...newTiers[index], [field]: value };
     onChange(newTiers);
-  };
-
-  const getDisplayValue = (value: number, inputId: string) => {
-    const input = document.getElementById(inputId) as HTMLInputElement | null;
-    if (input && document.activeElement === input && input.value === "") {
-      return "";
-    }
-    return value;
   };
 
   const isPercent = payoutType === "percent_of_premium";
@@ -91,78 +185,16 @@ export function CommissionTierEditor({
 
           {/* Tier rows */}
           {tiers.map((tier, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-[24px_1fr_1fr_40px] gap-3 items-center p-2 rounded-lg border bg-card"
-            >
-              <div className="flex items-center justify-center text-muted-foreground">
-                <GripVertical className="h-4 w-4" />
-              </div>
-              
-              <div className="relative">
-                {isPremiumMetric && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    $
-                  </span>
-                )}
-                <Input
-                  id={`tier-threshold-${index}`}
-                  type="number"
-                  value={tier.min_threshold || ""}
-                  onChange={(e) =>
-                    updateTier(index, "min_threshold", e.target.value)
-                  }
-                  onBlur={(e) => {
-                    if (e.target.value === "") {
-                      updateTier(index, "min_threshold", "0");
-                    }
-                  }}
-                  className={isPremiumMetric ? "pl-7" : ""}
-                  min={0}
-                  step={isPremiumMetric ? 100 : 1}
-                />
-              </div>
-              
-              <div className="relative">
-                {!isPercent && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    $
-                  </span>
-                )}
-                <Input
-                  id={`tier-commission-${index}`}
-                  type="number"
-                  value={tier.commission_value || ""}
-                  onChange={(e) =>
-                    updateTier(index, "commission_value", e.target.value)
-                  }
-                  onBlur={(e) => {
-                    if (e.target.value === "") {
-                      updateTier(index, "commission_value", "0");
-                    }
-                  }}
-                  className={!isPercent ? "pl-7" : ""}
-                  min={0}
-                  step={isPercent ? 0.5 : 0.25}
-                />
-                {isPercent && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    %
-                  </span>
-                )}
-              </div>
-              
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeTier(index)}
-                className="text-muted-foreground hover:text-destructive"
-                disabled={tiers.length === 1 && index === 0}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <TierRow
+              key={tier.id || `tier-${index}`}
+              tier={tier}
+              index={index}
+              onUpdate={updateTier}
+              onRemove={removeTier}
+              isPercent={isPercent}
+              isPremiumMetric={isPremiumMetric}
+              canRemove={tiers.length > 1 || index > 0}
+            />
           ))}
         </div>
       )}
