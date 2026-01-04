@@ -159,11 +159,12 @@ Deno.serve(async (req) => {
     }
 
     // Calculate current month written premium from sales data
-    // First, determine date range for the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
-    const startStr = startDate.toISOString().split("T")[0];
-    const endStr = endDate.toISOString().split("T")[0];
+    // Build date strings directly to avoid timezone issues
+    const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+    
+    console.log(`[get-staff-commission] Date range: ${startStr} to ${endStr}`);
 
     // Get sales for the period with all relevant metrics
     const { data: sales, error: salesError } = await supabase
