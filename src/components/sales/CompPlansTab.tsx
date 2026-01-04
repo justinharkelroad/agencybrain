@@ -21,9 +21,9 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
   const [editingPlan, setEditingPlan] = useState<CompPlan | null>(null);
   const [activeTab, setActiveTab] = useState("calculate");
   
-  // Payout calculator state
+  // Payout calculator state - subProducerData is an object with producers array
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [subProducerData, setSubProducerData] = useState<SubProducerMetrics[] | undefined>();
+  const [subProducerData, setSubProducerData] = useState<{ producers: SubProducerMetrics[]; producerCount: number } | undefined>();
   const [statementMonth, setStatementMonth] = useState<number | undefined>();
   const [statementYear, setStatementYear] = useState<number | undefined>();
 
@@ -31,7 +31,7 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
     id: string; 
     statement_month: number; 
     statement_year: number; 
-    comparison_data: { subProducerData?: SubProducerMetrics[] } 
+    comparison_data: { subProducerData?: { producers: SubProducerMetrics[]; producerCount: number } } 
   } | null) => {
     if (report) {
       setSelectedReportId(report.id);

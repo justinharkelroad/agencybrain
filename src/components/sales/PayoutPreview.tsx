@@ -12,9 +12,17 @@ import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyze
 import { format } from "date-fns";
 import { toast } from "sonner";
 
+// The subProducerData from comparison reports is an object with producers array
+interface SubProducerDataWrapper {
+  producers: SubProducerMetrics[];
+  producerCount: number;
+  totals?: Record<string, unknown>;
+  statementMonth?: string;
+}
+
 interface PayoutPreviewProps {
   agencyId: string | null;
-  subProducerData?: SubProducerMetrics[];
+  subProducerData?: SubProducerDataWrapper;
   statementMonth?: number;
   statementYear?: number;
 }
@@ -59,13 +67,15 @@ export function PayoutPreview({
   }, [currentDate]);
 
   const handleCalculate = () => {
-    if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
+    // subProducerData is an object with producers array, not an array itself
+    const producers = subProducerData?.producers;
+    if (!producers || producers.length === 0) {
       toast.error("Please select a statement report with sub-producer data");
       setWarnings(["No sub-producer data available. Upload a commission statement first."]);
       return;
     }
 
-    const result = calculatePayouts(subProducerData, selectedMonth, selectedYear);
+    const result = calculatePayouts(producers, selectedMonth, selectedYear);
     setCalculatedPayouts(result.payouts);
     setWarnings(result.warnings);
     setHasCalculated(true);
@@ -205,7 +215,7 @@ export function PayoutPreview({
             </div>
             <div className="p-3 rounded-lg bg-muted">
               <div className="text-sm text-muted-foreground">Sub-Producers</div>
-              <div className="text-2xl font-bold">{subProducerData?.length || 0}</div>
+              <div className="text-2xl font-bold">{subProducerData?.producerCount || subProducerData?.producers?.length || 0}</div>
             </div>
           </div>
         </CardContent>

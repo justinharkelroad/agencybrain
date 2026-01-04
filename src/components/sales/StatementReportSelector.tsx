@@ -4,12 +4,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileSpreadsheet, Loader2 } from "lucide-react";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 
+// subProducerData is an object with producers array, not an array itself
+interface SubProducerDataWrapper {
+  producers: SubProducerMetrics[];
+  producerCount: number;
+}
+
 interface StatementReport {
   id: string;
   statement_month: number;
   statement_year: number;
   comparison_data: {
-    subProducerData?: SubProducerMetrics[];
+    subProducerData?: SubProducerDataWrapper;
   };
   created_at: string;
 }
@@ -96,9 +102,11 @@ export function StatementReportSelector({ agencyId, onSelect, selectedReportId }
           {reports.map((report) => (
             <SelectItem key={report.id} value={report.id}>
               {MONTHS[report.statement_month - 1]} {report.statement_year}
-              {report.comparison_data?.subProducerData?.length 
-                ? ` (${report.comparison_data.subProducerData.length} producers)` 
-                : ""}
+              {report.comparison_data?.subProducerData?.producerCount 
+                ? ` (${report.comparison_data.subProducerData.producerCount} producers)` 
+                : report.comparison_data?.subProducerData?.producers?.length
+                  ? ` (${report.comparison_data.subProducerData.producers.length} producers)`
+                  : ""}
             </SelectItem>
           ))}
         </SelectContent>

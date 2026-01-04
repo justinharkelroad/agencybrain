@@ -154,7 +154,7 @@ export default function CompensationAnalyzer() {
                     {(currentReport.comparison_data as any)?.subProducerData && (
                       <PayoutPreview
                         agencyId={currentReport.agency_id}
-                        subProducerData={(currentReport.comparison_data as any).subProducerData as SubProducerMetrics[]}
+                        subProducerData={(currentReport.comparison_data as any).subProducerData}
                         statementMonth={(currentReport.current_upload as any)?.statement_month}
                         statementYear={(currentReport.current_upload as any)?.statement_year}
                       />
