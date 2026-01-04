@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { BRAND, buildEmailHtml, EmailComponents } from '../_shared/email-template.ts';
+import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,28 @@ Deno.serve(async (req) => {
 
   try {
     const { agencyId } = await req.json().catch(() => ({}));
+    
+    // Check if today is a valid day to send summary
+    // Skip Sunday (reports on Saturday) and Monday (reports on Sunday)
+    const now = new Date();
+    if (!shouldSendDailySummary(now)) {
+      const dayName = getDayName(now);
+      logStructured('daily_summary_skipped', { 
+        reason: 'non_business_day_report',
+        today: dayName,
+        message: `Skipping daily summary - yesterday was not a business day (weekend)`
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          skipped: true, 
+          reason: 'Yesterday was not a business day (weekend)',
+          today: dayName
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     logStructured('daily_summary_start', { agencyId: agencyId || 'ALL' });
 
