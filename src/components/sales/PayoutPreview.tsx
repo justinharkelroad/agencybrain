@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users } from "lucide-react";
@@ -11,6 +11,7 @@ import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PayoutDetailRow } from "./PayoutDetailRow";
 
 // The subProducerData from comparison reports is an object with producers array
 interface SubProducerDataWrapper {
@@ -274,7 +275,6 @@ export function PayoutPreview({
               </div>
             </div>
 
-            {/* Payouts Table */}
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -291,26 +291,12 @@ export function PayoutPreview({
                 </TableHeader>
                 <TableBody>
                   {calculatedPayouts.map((payout, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{payout.teamMemberName}</TableCell>
-                      <TableCell>{payout.compPlanName}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(payout.writtenPremium)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(payout.netPremium)}</TableCell>
-                      <TableCell className="text-right">
-                        {payout.tierMatch 
-                          ? formatCurrency(payout.tierMatch.minThreshold) 
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {payout.tierCommissionValue > 0 
-                          ? `${payout.tierCommissionValue}%` 
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-primary">
-                        {formatCurrency(payout.totalPayout)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(payout.status)}</TableCell>
-                    </TableRow>
+                    <PayoutDetailRow 
+                      key={idx}
+                      payout={payout}
+                      formatCurrency={formatCurrency}
+                      getStatusBadge={getStatusBadge}
+                    />
                   ))}
                 </TableBody>
               </Table>

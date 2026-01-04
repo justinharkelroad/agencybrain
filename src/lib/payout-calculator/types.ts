@@ -1,5 +1,7 @@
 // Types for payout calculation engine
 
+import { SubProducerTransaction, InsuredAggregate } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+
 export interface SubProducerPerformance {
   subProdCode: string;
   teamMemberId: string | null;
@@ -18,13 +20,24 @@ export interface SubProducerPerformance {
   issuedPolicies: number;
   issuedPoints: number;
   
-  // Chargebacks
+  // Chargebacks (all)
   chargebackPremium: number;
   chargebackCount: number;
+  
+  // 3-Month Rule filtered chargebacks
+  eligibleChargebackPremium: number;  // Only chargebacks where policy < 90 days
+  eligibleChargebackCount: number;
+  excludedChargebackCount: number;    // Chargebacks excluded (policy > 90 days)
   
   // Net
   netPremium: number;
   netItems: number;
+  
+  // Raw data for detail views
+  creditInsureds: InsuredAggregate[];
+  chargebackInsureds: InsuredAggregate[];
+  creditTransactions: SubProducerTransaction[];
+  chargebackTransactions: SubProducerTransaction[];
 }
 
 export interface TierMatch {
@@ -55,9 +68,15 @@ export interface PayoutCalculation {
   issuedPolicies: number;
   issuedPoints: number;
   
-  // Chargebacks
+  // Chargebacks (all)
   chargebackPremium: number;
   chargebackCount: number;
+  
+  // 3-Month Rule tracking
+  eligibleChargebackPremium: number;
+  eligibleChargebackCount: number;
+  excludedChargebackCount: number;
+  chargebackRule: string;
   
   // Net
   netPremium: number;
@@ -78,6 +97,10 @@ export interface PayoutCalculation {
   
   // Status
   status: 'draft' | 'finalized' | 'paid';
+  
+  // Raw data for detail views
+  creditInsureds: InsuredAggregate[];
+  chargebackInsureds: InsuredAggregate[];
 }
 
 export interface PayoutPeriod {
