@@ -44,24 +44,25 @@ interface ZipcodeRow {
 }
 
 const RankBadge = (props: any) => {
-  const { x, y, width, index } = props;
+  const { x, y, width, height, index } = props;
   if (width < 20) return null;
   
   return (
     <g>
       <circle 
-        cx={x + width + 16} 
-        cy={y + 12} 
-        r={10} 
-        fill="#10b981" 
+        cx={x + width + 18} 
+        cy={y + (height / 2)} 
+        r={12} 
+        fill="#10b981"
+        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}
       />
       <text 
-        x={x + width + 16} 
-        y={y + 12} 
+        x={x + width + 18} 
+        y={y + (height / 2)} 
         textAnchor="middle" 
         dominantBaseline="middle" 
         fill="white" 
-        fontSize={10} 
+        fontSize={11} 
         fontWeight="bold"
       >
         {index + 1}
@@ -237,7 +238,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
               />
               <Bar 
                 dataKey={metric} 
-                radius={[0, 4, 4, 0]}
+                radius={[8, 8, 8, 8]}
                 onClick={handleBarClick}
                 cursor="pointer"
               >
