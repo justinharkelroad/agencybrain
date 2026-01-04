@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, XCircle, AlertTriangle, X } from 'lucide-react';
+import { FileText, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +21,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
   const hasChargebacks = payout.chargebackCount > 0;
   const hasExcludedChargebacks = payout.excludedChargebackCount > 0;
   const is3MonthRule = payout.chargebackRule === 'three_month';
+  const isNoChargebacks = payout.chargebackRule === 'none';
   
   const creditInsureds = payout.creditInsureds || [];
   const chargebackInsureds = payout.chargebackInsureds || [];
@@ -121,6 +122,16 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                 <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                 <span className="text-sm text-amber-600 dark:text-amber-400">
                   {payout.excludedChargebackCount} chargeback{payout.excludedChargebackCount !== 1 ? 's' : ''} excluded (policy in force &gt; 90 days)
+                </span>
+              </div>
+            )}
+
+            {/* No Chargebacks Rule Info */}
+            {isNoChargebacks && payout.chargebackCount > 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
+                <Info className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <span className="text-sm text-blue-600 dark:text-blue-400">
+                  Chargebacks not applied per comp plan settings
                 </span>
               </div>
             )}

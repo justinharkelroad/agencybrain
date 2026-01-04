@@ -1325,6 +1325,41 @@ export type Database = {
           },
         ]
       }
+      comp_plan_brokered_tiers: {
+        Row: {
+          commission_value: number
+          comp_plan_id: string
+          created_at: string | null
+          id: string
+          min_threshold: number
+          sort_order: number
+        }
+        Insert: {
+          commission_value?: number
+          comp_plan_id: string
+          created_at?: string | null
+          id?: string
+          min_threshold?: number
+          sort_order?: number
+        }
+        Update: {
+          commission_value?: number
+          comp_plan_id?: string
+          created_at?: string | null
+          id?: string
+          min_threshold?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_plan_brokered_tiers_comp_plan_id_fkey"
+            columns: ["comp_plan_id"]
+            isOneToOne: false
+            referencedRelation: "comp_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comp_plan_tiers: {
         Row: {
           commission_value: number
@@ -1365,6 +1400,7 @@ export type Database = {
           agency_id: string
           brokered_counts_toward_tier: boolean | null
           brokered_flat_rate: number | null
+          brokered_payout_type: string | null
           chargeback_rule: string
           created_at: string | null
           description: string | null
@@ -1380,6 +1416,7 @@ export type Database = {
           agency_id: string
           brokered_counts_toward_tier?: boolean | null
           brokered_flat_rate?: number | null
+          brokered_payout_type?: string | null
           chargeback_rule?: string
           created_at?: string | null
           description?: string | null
@@ -1395,6 +1432,7 @@ export type Database = {
           agency_id?: string
           brokered_counts_toward_tier?: boolean | null
           brokered_flat_rate?: number | null
+          brokered_payout_type?: string | null
           chargeback_rule?: string
           created_at?: string | null
           description?: string | null

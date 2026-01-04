@@ -46,6 +46,12 @@ const PAYOUT_TYPES = [
   { value: "flat_per_household", label: "Flat $ per Household" },
 ];
 
+const BROKERED_PAYOUT_TYPES = [
+  { value: "flat_per_item", label: "Flat Rate per Item" },
+  { value: "percent_of_premium", label: "% of Premium" },
+  { value: "tiered", label: "Tiered" },
+];
+
 const TIER_METRICS = [
   { value: "items", label: "Items Sold" },
   { value: "policies", label: "Policies Written" },
@@ -78,8 +84,12 @@ export function CreateCompPlanModal({
   const [tierMetric, setTierMetric] = useState("items");
   const [chargebackRule, setChargebackRule] = useState("none");
   const [isActive, setIsActive] = useState(true);
+  const [brokeredPayoutType, setBrokeredPayoutType] = useState("flat_per_item");
   const [brokeredFlatRate, setBrokeredFlatRate] = useState<string>("");
   const [brokeredCountsTowardTier, setBrokeredCountsTowardTier] = useState(false);
+  const [brokeredTiers, setBrokeredTiers] = useState<TierFormData[]>([
+    { min_threshold: 0, commission_value: 0, sort_order: 0 },
+  ]);
   const [tiers, setTiers] = useState<TierFormData[]>([
     { min_threshold: 0, commission_value: 0, sort_order: 0 },
   ]);
@@ -130,11 +140,22 @@ export function CreateCompPlanModal({
       setTierMetric(editPlan.tier_metric);
       setChargebackRule(editPlan.chargeback_rule);
       setIsActive(editPlan.is_active);
+      setBrokeredPayoutType(editPlan.brokered_payout_type || "flat_per_item");
       setBrokeredFlatRate(editPlan.brokered_flat_rate?.toString() || "");
       setBrokeredCountsTowardTier(editPlan.brokered_counts_toward_tier || false);
       setTiers(
         editPlan.tiers.length > 0
           ? editPlan.tiers.map((t, i) => ({
+              id: t.id,
+              min_threshold: t.min_threshold,
+              commission_value: t.commission_value,
+              sort_order: i,
+            }))
+          : [{ min_threshold: 0, commission_value: 0, sort_order: 0 }]
+      );
+      setBrokeredTiers(
+        editPlan.brokered_tiers && editPlan.brokered_tiers.length > 0
+          ? editPlan.brokered_tiers.map((t, i) => ({
               id: t.id,
               min_threshold: t.min_threshold,
               commission_value: t.commission_value,
@@ -171,8 +192,10 @@ export function CreateCompPlanModal({
     setTierMetric("items");
     setChargebackRule("none");
     setIsActive(true);
+    setBrokeredPayoutType("flat_per_item");
     setBrokeredFlatRate("");
     setBrokeredCountsTowardTier(false);
+    setBrokeredTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setSelectedMembers([]);
   };
@@ -192,6 +215,7 @@ export function CreateCompPlanModal({
 
     // Sort tiers by threshold (ascending)
     const sortedTiers = [...tiers].sort((a, b) => a.min_threshold - b.min_threshold);
+    const sortedBrokeredTiers = [...brokeredTiers].sort((a, b) => a.min_threshold - b.min_threshold);
 
     const formData = {
       id: editPlan?.id,
@@ -201,10 +225,12 @@ export function CreateCompPlanModal({
       tier_metric: tierMetric,
       chargeback_rule: chargebackRule,
       policy_type_filter: null,
+      brokered_payout_type: brokeredPayoutType,
       brokered_flat_rate: brokeredFlatRate ? parseFloat(brokeredFlatRate) : null,
       brokered_counts_toward_tier: brokeredCountsTowardTier,
       is_active: isActive,
       tiers: sortedTiers,
+      brokered_tiers: brokeredPayoutType === 'tiered' ? sortedBrokeredTiers : [],
       assigned_member_ids: selectedMembers,
     };
 
@@ -353,37 +379,96 @@ export function CreateCompPlanModal({
             {/* Brokered Business */}
             <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
               <Label className="text-base font-medium">Brokered Business</Label>
+              
+              {/* Payout Type Selector */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brokered-rate">Flat Rate per Item</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      $
-                    </span>
-                    <Input
-                      id="brokered-rate"
-                      type="number"
-                      value={brokeredFlatRate}
-                      onChange={(e) => setBrokeredFlatRate(e.target.value)}
-                      className="pl-7"
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
-                    />
+                  <Label>Payout Type</Label>
+                  <Select value={brokeredPayoutType} onValueChange={setBrokeredPayoutType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BROKERED_PAYOUT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Flat Rate per Item Input */}
+                {brokeredPayoutType === 'flat_per_item' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="brokered-rate">Rate per Item</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        id="brokered-rate"
+                        type="number"
+                        value={brokeredFlatRate}
+                        onChange={(e) => setBrokeredFlatRate(e.target.value)}
+                        className="pl-7"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <Checkbox
-                    id="brokered-counts"
-                    checked={brokeredCountsTowardTier}
-                    onCheckedChange={(checked) =>
-                      setBrokeredCountsTowardTier(checked === true)
-                    }
+                )}
+
+                {/* Percent of Premium Input */}
+                {brokeredPayoutType === 'percent_of_premium' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="brokered-percent">Percentage</Label>
+                    <div className="relative">
+                      <Input
+                        id="brokered-percent"
+                        type="number"
+                        value={brokeredFlatRate}
+                        onChange={(e) => setBrokeredFlatRate(e.target.value)}
+                        className="pr-7"
+                        placeholder="0"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tiered Brokered Commission */}
+              {brokeredPayoutType === 'tiered' && (
+                <div className="space-y-2 pt-2">
+                  <Label className="text-sm text-muted-foreground">Brokered Commission Tiers</Label>
+                  <CommissionTierEditor
+                    tiers={brokeredTiers}
+                    onChange={setBrokeredTiers}
+                    payoutType="percent_of_premium"
+                    tierMetric={tierMetric}
                   />
-                  <Label htmlFor="brokered-counts" className="font-normal">
-                    Counts toward tier threshold
-                  </Label>
                 </div>
+              )}
+
+              {/* Counts toward tier checkbox */}
+              <div className="flex items-center gap-2 pt-2">
+                <Checkbox
+                  id="brokered-counts"
+                  checked={brokeredCountsTowardTier}
+                  onCheckedChange={(checked) =>
+                    setBrokeredCountsTowardTier(checked === true)
+                  }
+                />
+                <Label htmlFor="brokered-counts" className="font-normal">
+                  Counts toward tier threshold
+                </Label>
               </div>
             </div>
 
