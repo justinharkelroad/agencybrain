@@ -34,6 +34,7 @@ interface DrillDownTableProps {
   staffSessionToken?: string;
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
+  leadSources?: { id: string; name: string }[];
 }
 
 interface SaleRecord {
@@ -78,6 +79,7 @@ export function DrillDownTable({
   staffSessionToken,
   canEditAllSales = false,
   currentTeamMemberId,
+  leadSources = [],
 }: DrillDownTableProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -371,6 +373,7 @@ export function DrillDownTable({
           open={!!editSaleId}
           onOpenChange={handleEditModalClose}
           sessionToken={staffSessionToken}
+          leadSources={leadSources}
         />
       )}
     </div>

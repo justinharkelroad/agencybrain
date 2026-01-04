@@ -24,6 +24,7 @@ interface SalesByBundleChartProps {
   staffSessionToken?: string;
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
+  leadSources?: { id: string; name: string }[];
 }
 
 const BUNDLE_COLORS: Record<string, string> = {
@@ -43,7 +44,7 @@ interface BundleRow {
 
 const PAGE_SIZE = 10;
 
-export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesByBundleChartProps) {
+export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [] }: SalesByBundleChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedBundle, setSelectedBundle] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -234,6 +235,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
             staffSessionToken={staffSessionToken}
             canEditAllSales={canEditAllSales}
             currentTeamMemberId={currentTeamMemberId}
+            leadSources={leadSources}
           />
         )}
       </CardContent>

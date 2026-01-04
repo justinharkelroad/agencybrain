@@ -27,7 +27,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validate session (must be valid + not expired)
+    // Validate session
     const nowISO = new Date().toISOString();
     const { data: session, error: sessionError } = await supabase
       .from("staff_sessions")
@@ -38,98 +38,50 @@ serve(async (req) => {
       .maybeSingle();
 
     if (sessionError || !session) {
-      console.error("[get_staff_sale_details] Invalid session:", sessionError);
+      console.error("[get_staff_lead_sources] Invalid session:", sessionError);
       return new Response(JSON.stringify({ error: "Invalid or expired session" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Get staff user's agency
     const { data: staffUser, error: staffError } = await supabase
       .from("staff_users")
-      .select("id, agency_id, team_member_id")
+      .select("id, agency_id")
       .eq("id", session.staff_user_id)
       .single();
 
-    if (staffError || !staffUser?.team_member_id) {
-      console.error("[get_staff_sale_details] Staff user not found:", staffError);
+    if (staffError || !staffUser?.agency_id) {
+      console.error("[get_staff_lead_sources] Staff user not found:", staffError);
       return new Response(JSON.stringify({ error: "Staff user not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { sale_id } = body;
-
-    if (!sale_id) {
-      return new Response(JSON.stringify({ error: "Missing sale_id" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Query sale scoped to the staff user's agency (allows viewing all agency sales)
-    const { data: sale, error: saleError } = await supabase
-      .from("sales")
-      .select(
-        `
-        id,
-        sale_date,
-        customer_name,
-        customer_email,
-        customer_phone,
-        customer_zip,
-        total_premium,
-        total_items,
-        total_points,
-        team_member_id,
-        lead_source_id,
-        is_vc_qualifying,
-        is_bundle,
-        bundle_type,
-        team_member:team_members(name),
-        sale_policies(
-          id,
-          policy_type_name,
-          policy_number,
-          effective_date,
-          total_premium,
-          total_items,
-          total_points,
-          is_vc_qualifying,
-          sale_items(
-            id,
-            product_type_name,
-            item_count,
-            premium,
-            points,
-            is_vc_qualifying
-          )
-        )
-      `
-      )
-      .eq("id", sale_id)
+    // Fetch lead sources for the agency
+    const { data: leadSources, error: lsError } = await supabase
+      .from("lead_sources")
+      .select("id, name")
       .eq("agency_id", staffUser.agency_id)
-      .single();
+      .eq("active", true)
+      .order("name");
 
-    if (saleError || !sale) {
-      console.error("[get_staff_sale_details] Sale not found:", saleError);
-      return new Response(JSON.stringify({ error: "Sale not found" }), {
-        status: 404,
+    if (lsError) {
+      console.error("[get_staff_lead_sources] Error fetching lead sources:", lsError);
+      return new Response(JSON.stringify({ error: "Failed to fetch lead sources" }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Determine if user can edit (only their own sales)
-    const canEdit = sale.team_member_id === staffUser.team_member_id;
-
-    return new Response(JSON.stringify({ success: true, sale, can_edit: canEdit }), {
+    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [] }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[get_staff_sale_details] Unexpected error:", error);
+    console.error("[get_staff_lead_sources] Unexpected error:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error", details: error?.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
