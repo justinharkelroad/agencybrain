@@ -220,12 +220,18 @@ export function CreateCompPlanModal({
     }
   };
 
-  const toggleMember = useCallback((memberId: string) => {
-    setSelectedMembers((prev) =>
-      prev.includes(memberId)
-        ? prev.filter((id) => id !== memberId)
-        : [...prev, memberId]
-    );
+  const setMemberChecked = useCallback((memberId: string, checked: boolean) => {
+    setSelectedMembers((prev) => {
+      const isCurrentlySelected = prev.includes(memberId);
+      // Idempotent: only change if needed
+      if (checked && !isCurrentlySelected) {
+        return [...prev, memberId];
+      }
+      if (!checked && isCurrentlySelected) {
+        return prev.filter((id) => id !== memberId);
+      }
+      return prev; // No change needed
+    });
   }, []);
 
   const handleTiersChange = useCallback((newTiers: TierFormData[]) => {
@@ -389,22 +395,25 @@ export function CreateCompPlanModal({
                 </p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
-                  {teamMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
-                      onClick={() => toggleMember(member.id)}
-                    >
-                      <Checkbox
-                        checked={selectedMembers.includes(member.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onCheckedChange={() => toggleMember(member.id)}
-                      />
-                      <span className="text-sm truncate">
-                        {member.name}
-                      </span>
-                    </div>
-                  ))}
+                  {teamMembers.map((member) => {
+                    const isSelected = selectedMembers.includes(member.id);
+                    return (
+                      <div
+                        key={member.id}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                        onClick={() => setMemberChecked(member.id, !isSelected)}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={(checked) => setMemberChecked(member.id, checked === true)}
+                        />
+                        <span className="text-sm truncate">
+                          {member.name}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
