@@ -198,7 +198,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
               />
               <Bar 
                 dataKey={metric} 
-                radius={[4, 4, 0, 0]}
+                radius={[12, 12, 0, 0]}
                 onClick={handleBarClick}
                 cursor="pointer"
               >
