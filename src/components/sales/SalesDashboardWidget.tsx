@@ -212,6 +212,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <SalesBreakdownTabs 
               agencyId={agencyId} 
               showLeaderboard={true}
+              canEditAllSales={isAgencyOwner || isAdmin}
+              currentTeamMemberId={teamMemberId || undefined}
             />
           </div>
         </SheetContent>

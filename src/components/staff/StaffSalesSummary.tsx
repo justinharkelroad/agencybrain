@@ -326,6 +326,8 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
               agencyId={agencyId} 
               showLeaderboard={true}
               staffSessionToken={sessionToken || undefined}
+              canEditAllSales={false}
+              currentTeamMemberId={teamMemberId}
             />
           </div>
         </SheetContent>

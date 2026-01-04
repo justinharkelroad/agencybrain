@@ -13,6 +13,8 @@ interface SalesBreakdownTabsProps {
   agencyId: string | null;
   showLeaderboard?: boolean;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 type Period = "this_month" | "last_month" | "this_year" | "last_90_days";
@@ -55,7 +57,7 @@ function getPeriodDates(period: Period): { start: string; end: string; label: st
   }
 }
 
-export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken }: SalesBreakdownTabsProps) {
+export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken, canEditAllSales = false, currentTeamMemberId }: SalesBreakdownTabsProps) {
   const [activeTab, setActiveTab] = useState("by-date");
   const [period, setPeriod] = useState<Period>("this_month");
   
@@ -91,23 +93,23 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
         </TabsList>
 
         <TabsContent value="by-date" className="mt-4">
-          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
+          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} />
         </TabsContent>
 
         <TabsContent value="by-policy" className="mt-4">
-          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
+          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} />
         </TabsContent>
 
         <TabsContent value="by-source" className="mt-4">
-          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
+          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} />
         </TabsContent>
 
         <TabsContent value="by-bundle" className="mt-4">
-          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
+          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} />
         </TabsContent>
 
         <TabsContent value="by-zipcode" className="mt-4">
-          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} />
+          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} />
         </TabsContent>
 
         {showLeaderboard && (

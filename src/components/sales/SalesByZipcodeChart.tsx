@@ -23,6 +23,8 @@ interface SalesByZipcodeChartProps {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 const CHART_COLORS = [
@@ -73,7 +75,7 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByZipcodeChartProps) {
+export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesByZipcodeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedZipcode, setSelectedZipcode] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -271,6 +273,8 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
             onPageChange={setDrillPage}
             onClear={handleClearSelection}
             staffSessionToken={staffSessionToken}
+            canEditAllSales={canEditAllSales}
+            currentTeamMemberId={currentTeamMemberId}
           />
         )}
       </CardContent>

@@ -31,6 +31,8 @@ interface DrillDownTableProps {
   onPageChange: (page: number) => void;
   onClear: () => void;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 interface SaleRecord {
@@ -73,6 +75,8 @@ export function DrillDownTable({
   onPageChange,
   onClear,
   staffSessionToken,
+  canEditAllSales = false,
+  currentTeamMemberId,
 }: DrillDownTableProps) {
   const queryClient = useQueryClient();
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -348,6 +352,8 @@ export function DrillDownTable({
         open={!!selectedSaleId}
         onOpenChange={(open) => !open && setSelectedSaleId(null)}
         onEdit={handleEditSale}
+        canEditAllSales={canEditAllSales}
+        currentTeamMemberId={currentTeamMemberId}
       />
 
       {/* Staff Edit Modal (uses edge function) */}
