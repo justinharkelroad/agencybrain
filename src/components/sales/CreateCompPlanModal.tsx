@@ -85,10 +85,10 @@ export function CreateCompPlanModal({
       if (!agencyId) return [];
       const { data, error } = await supabase
         .from("team_members")
-        .select("id, first_name, last_name")
+        .select("id, name")
         .eq("agency_id", agencyId)
         .eq("status", "active")
-        .order("first_name");
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -386,7 +386,7 @@ export function CreateCompPlanModal({
                         onCheckedChange={() => toggleMember(member.id)}
                       />
                       <span className="text-sm truncate">
-                        {member.first_name} {member.last_name}
+                        {member.name}
                       </span>
                     </div>
                   ))}
