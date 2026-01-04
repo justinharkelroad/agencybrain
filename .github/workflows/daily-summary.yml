@@ -2,8 +2,9 @@ name: Daily Summary Email
 
 on:
   schedule:
-    # Run at 3 PM UTC (10 AM EST)
-    - cron: '0 15 * * *'
+    # Run at 3 PM UTC (10 AM EST) only Tuesday-Saturday
+    # Skips Sunday (would report Saturday) and Monday (would report Sunday)
+    - cron: '0 15 * * 2-6'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
