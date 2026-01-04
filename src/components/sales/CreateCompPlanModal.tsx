@@ -87,7 +87,7 @@ export function CreateCompPlanModal({
         .from("team_members")
         .select("id, first_name, last_name")
         .eq("agency_id", agencyId)
-        .eq("is_active", true)
+        .eq("status", "active")
         .order("first_name");
       if (error) throw error;
       return data;
