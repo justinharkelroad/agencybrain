@@ -80,29 +80,34 @@ export function calculateCommission(
   let baseCommission = 0;
   let bonusAmount = 0;
   
-  // Calculate based on payout type
+  // Calculate based on payout type (matching UI values)
   switch (plan.payout_type) {
-    case 'percentage':
+    case 'percent_of_premium':
       // Commission value is a percentage of net premium
       baseCommission = performance.netPremium * (commissionValue / 100);
       break;
-    case 'per_item':
+    case 'flat_per_item':
       // Commission value is a flat amount per issued item
       baseCommission = performance.issuedItems * commissionValue;
       break;
-    case 'per_policy':
+    case 'flat_per_policy':
       // Commission value is a flat amount per issued policy
       baseCommission = performance.issuedPolicies * commissionValue;
       break;
+    case 'flat_per_household':
+      // Commission value is a flat amount per household
+      baseCommission = performance.writtenHouseholds * commissionValue;
+      break;
     default:
+      // Default to percentage of net premium
       baseCommission = performance.netPremium * (commissionValue / 100);
   }
   
   // Apply chargeback rule
-  if (plan.chargeback_rule === 'deduct' && performance.chargebackPremium > 0) {
+  if (plan.chargeback_rule === 'full' && performance.chargebackPremium > 0) {
     // Chargebacks are already reflected in netPremium for percentage
-    // For per_item/per_policy, we might deduct based on chargeback count
-    if (plan.payout_type !== 'percentage') {
+    // For flat rate payouts, deduct based on chargeback count
+    if (plan.payout_type !== 'percent_of_premium') {
       const chargebackDeduction = performance.chargebackCount * commissionValue;
       baseCommission = Math.max(0, baseCommission - chargebackDeduction);
     }
