@@ -45,10 +45,19 @@ export function CommissionTierEditor({
     onChange(newTiers.map((t, i) => ({ ...t, sort_order: i })));
   };
 
-  const updateTier = (index: number, field: keyof TierFormData, value: number) => {
+  const updateTier = (index: number, field: keyof TierFormData, value: string) => {
     const newTiers = [...tiers];
-    newTiers[index] = { ...newTiers[index], [field]: value };
+    const numValue = value === "" ? 0 : parseFloat(value);
+    newTiers[index] = { ...newTiers[index], [field]: isNaN(numValue) ? 0 : numValue };
     onChange(newTiers);
+  };
+
+  const getDisplayValue = (value: number, inputId: string) => {
+    const input = document.getElementById(inputId) as HTMLInputElement | null;
+    if (input && document.activeElement === input && input.value === "") {
+      return "";
+    }
+    return value;
   };
 
   const isPercent = payoutType === "percent_of_premium";
@@ -97,11 +106,17 @@ export function CommissionTierEditor({
                   </span>
                 )}
                 <Input
+                  id={`tier-threshold-${index}`}
                   type="number"
-                  value={tier.min_threshold}
+                  value={tier.min_threshold || ""}
                   onChange={(e) =>
-                    updateTier(index, "min_threshold", parseFloat(e.target.value) || 0)
+                    updateTier(index, "min_threshold", e.target.value)
                   }
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      updateTier(index, "min_threshold", "0");
+                    }
+                  }}
                   className={isPremiumMetric ? "pl-7" : ""}
                   min={0}
                   step={isPremiumMetric ? 100 : 1}
@@ -115,11 +130,17 @@ export function CommissionTierEditor({
                   </span>
                 )}
                 <Input
+                  id={`tier-commission-${index}`}
                   type="number"
-                  value={tier.commission_value}
+                  value={tier.commission_value || ""}
                   onChange={(e) =>
-                    updateTier(index, "commission_value", parseFloat(e.target.value) || 0)
+                    updateTier(index, "commission_value", e.target.value)
                   }
+                  onBlur={(e) => {
+                    if (e.target.value === "") {
+                      updateTier(index, "commission_value", "0");
+                    }
+                  }}
                   className={!isPercent ? "pl-7" : ""}
                   min={0}
                   step={isPercent ? 0.5 : 0.25}
