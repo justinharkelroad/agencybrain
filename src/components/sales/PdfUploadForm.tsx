@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLeadSources } from "@/hooks/useLeadSources";
-import { format, parse } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,15 +24,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   Upload, 
   FileText, 
   Loader2, 
   CalendarIcon, 
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Plus,
+  Trash2,
+  Pencil,
+  Package,
+  Car,
+  Home,
+  AlertTriangle
 } from "lucide-react";
-import { cn, todayLocal, toLocalDate } from "@/lib/utils";
+import { cn, todayLocal } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -45,6 +59,20 @@ interface ExtractedSaleData {
   itemCount: number;
   vehicles?: string[];
   confidence: 'high' | 'medium' | 'low';
+}
+
+interface StagedPolicy {
+  id: string; // unique identifier for UI
+  productTypeId: string;
+  productTypeName: string;
+  policyNumber: string;
+  effectiveDate: Date | undefined;
+  expirationDate: Date | undefined;
+  premium: number;
+  itemCount: number;
+  vehicles?: string[];
+  confidence: 'high' | 'medium' | 'low';
+  filename: string;
 }
 
 interface ProductType {
@@ -92,12 +120,28 @@ const PRODUCT_TYPE_MAPPING: Record<string, string> = {
   'boatowners': 'Boatowners',
 };
 
+// Icon mapping for product types
+const PRODUCT_ICONS: Record<string, React.ReactNode> = {
+  'Standard Auto': <Car className="h-4 w-4" />,
+  'Non-Standard Auto': <Car className="h-4 w-4" />,
+  'Specialty Auto': <Car className="h-4 w-4" />,
+  'Homeowners': <Home className="h-4 w-4" />,
+  'North Light Homeowners': <Home className="h-4 w-4" />,
+  'Condo': <Home className="h-4 w-4" />,
+  'North Light Condo': <Home className="h-4 w-4" />,
+  'Renters': <Home className="h-4 w-4" />,
+};
+
 function matchProductType(extracted: string, productTypes: ProductType[]): ProductType | null {
   const normalized = extracted.toLowerCase().trim();
   const mappedName = PRODUCT_TYPE_MAPPING[normalized] || extracted;
   return productTypes.find(pt => 
     pt.name.toLowerCase() === mappedName.toLowerCase()
   ) || null;
+}
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
 }
 
 export function PdfUploadForm({
@@ -133,20 +177,36 @@ export function PdfUploadForm({
 
   // State
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'review'>('idle');
-  const [filename, setFilename] = useState<string>('');
-  const [extractedData, setExtractedData] = useState<ExtractedSaleData | null>(null);
+  const [currentFilename, setCurrentFilename] = useState<string>('');
+  const [showUploadDropzone, setShowUploadDropzone] = useState(false);
 
-  // Form state for review/edit
+  // Multi-policy state
+  const [stagedPolicies, setStagedPolicies] = useState<StagedPolicy[]>([]);
+
+  // Shared customer info state
   const [customerName, setCustomerName] = useState('');
   const [customerZip, setCustomerZip] = useState('');
-  const [policyNumber, setPolicyNumber] = useState('');
-  const [effectiveDate, setEffectiveDate] = useState<Date | undefined>();
-  const [expirationDate, setExpirationDate] = useState<Date | undefined>();
-  const [premium, setPremium] = useState<string>('');
-  const [productTypeId, setProductTypeId] = useState('');
-  const [itemCount, setItemCount] = useState(1);
   const [producerId, setProducerId] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
+
+  // Edit modal state
+  const [editingPolicy, setEditingPolicy] = useState<StagedPolicy | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Edit form state (for modal)
+  const [editProductTypeId, setEditProductTypeId] = useState('');
+  const [editPolicyNumber, setEditPolicyNumber] = useState('');
+  const [editEffectiveDate, setEditEffectiveDate] = useState<Date | undefined>();
+  const [editExpirationDate, setEditExpirationDate] = useState<Date | undefined>();
+  const [editPremium, setEditPremium] = useState('');
+  const [editItemCount, setEditItemCount] = useState(1);
+
+  // Customer name mismatch warning
+  const [showNameMismatchWarning, setShowNameMismatchWarning] = useState(false);
+  const [pendingPolicyData, setPendingPolicyData] = useState<{
+    data: ExtractedSaleData;
+    filename: string;
+  } | null>(null);
 
   // Fetch product types
   const { data: productTypes = [] } = useQuery<ProductType[]>({
@@ -180,6 +240,29 @@ export function PdfUploadForm({
     enabled: !!effectiveAgencyId && !isStaffMode,
   });
 
+  // Add policy to staged list
+  const addPolicyToStaged = (data: ExtractedSaleData, filename: string) => {
+    const matched = matchProductType(data.productType, productTypes);
+    
+    const newPolicy: StagedPolicy = {
+      id: generateId(),
+      productTypeId: matched?.id || '',
+      productTypeName: matched?.name || data.productType,
+      policyNumber: data.policyNumber || '',
+      effectiveDate: data.effectiveDate ? new Date(data.effectiveDate) : undefined,
+      expirationDate: data.expirationDate ? new Date(data.expirationDate) : undefined,
+      premium: data.premium || 0,
+      itemCount: data.itemCount || 1,
+      vehicles: data.vehicles,
+      confidence: data.confidence,
+      filename,
+    };
+
+    setStagedPolicies(prev => [...prev, newPolicy]);
+    setShowUploadDropzone(false);
+    setCurrentFilename('');
+  };
+
   // Parse PDF mutation
   const parsePdf = useMutation({
     mutationFn: async (file: File) => {
@@ -203,111 +286,150 @@ export function PdfUploadForm({
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       
-      return data.data as ExtractedSaleData;
+      return { extractedData: data.data as ExtractedSaleData, filename: file.name };
     },
-    onSuccess: (data) => {
-      setExtractedData(data);
-      
-      // Populate form with extracted data
-      setCustomerName(data.customerName || '');
-      setCustomerZip(data.customerZip || '');
-      setPolicyNumber(data.policyNumber || '');
-      
-      // Parse dates
-      if (data.effectiveDate) {
-        try {
-          setEffectiveDate(new Date(data.effectiveDate));
-        } catch {
-          // Ignore invalid date
+    onSuccess: ({ extractedData, filename }) => {
+      // If this is the first policy, set customer info from it
+      if (stagedPolicies.length === 0) {
+        setCustomerName(extractedData.customerName || '');
+        setCustomerZip(extractedData.customerZip || '');
+        addPolicyToStaged(extractedData, filename);
+        setUploadState('review');
+        toast.success('PDF parsed successfully!');
+      } else {
+        // Check if customer name differs
+        const existingName = customerName.trim().toLowerCase();
+        const newName = (extractedData.customerName || '').trim().toLowerCase();
+        
+        if (existingName && newName && existingName !== newName) {
+          // Show warning and store pending data
+          setPendingPolicyData({ data: extractedData, filename });
+          setShowNameMismatchWarning(true);
+        } else {
+          addPolicyToStaged(extractedData, filename);
+          toast.success('Policy added to bundle!');
         }
       }
-      if (data.expirationDate) {
-        try {
-          setExpirationDate(new Date(data.expirationDate));
-        } catch {
-          // Ignore invalid date
-        }
-      }
       
-      setPremium(data.premium?.toString() || '');
-      setItemCount(data.itemCount || 1);
-
-      // Match product type
-      const matched = matchProductType(data.productType, productTypes);
-      if (matched) {
-        setProductTypeId(matched.id);
-      }
-
       setUploadState('review');
-      toast.success('PDF parsed successfully!');
     },
     onError: (error) => {
       console.error('PDF parse error:', error);
       toast.error(error.message || 'Failed to parse PDF');
-      setUploadState('idle');
+      if (stagedPolicies.length === 0) {
+        setUploadState('idle');
+      } else {
+        setShowUploadDropzone(false);
+      }
     },
   });
 
   // Create sale mutation
   const createSale = useMutation({
     mutationFn: async () => {
-      if (!effectiveDate) throw new Error('Effective date is required');
+      if (stagedPolicies.length === 0) throw new Error('At least one policy is required');
       if (!customerName.trim()) throw new Error('Customer name is required');
-      if (!productTypeId) throw new Error('Product type is required');
       if (!leadSourceId) throw new Error('Lead source is required');
 
-      const selectedProduct = productTypes.find(pt => pt.id === productTypeId);
-      if (!selectedProduct) throw new Error('Invalid product type');
+      // Validate each policy has required fields
+      for (const policy of stagedPolicies) {
+        if (!policy.productTypeId) throw new Error(`Product type is required for all policies`);
+        if (!policy.effectiveDate) throw new Error(`Effective date is required for all policies`);
+      }
 
-      const premiumValue = parseFloat(premium) || 0;
-      const points = (selectedProduct.default_points || 0) * itemCount;
-      const isVcQualifying = selectedProduct.is_vc_item || false;
+      // Calculate totals
+      const totalPremium = stagedPolicies.reduce((sum, p) => sum + (p.premium || 0), 0);
+      const totalItems = stagedPolicies.reduce((sum, p) => sum + (p.itemCount || 0), 0);
+      const totalPoints = stagedPolicies.reduce((sum, p) => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return sum + ((pt?.default_points || 0) * p.itemCount);
+      }, 0);
 
       // Detect bundle type
-      const productName = selectedProduct.name;
-      const hasAuto = AUTO_PRODUCTS.some(a => productName.toLowerCase() === a.toLowerCase());
-      const hasHome = HOME_PRODUCTS.some(h => productName.toLowerCase() === h.toLowerCase());
-      const isBundle = false; // Single policy from PDF
-      const bundleType = null;
+      const productNames = stagedPolicies.map(p => p.productTypeName);
+      const hasAuto = productNames.some(name => 
+        AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+      );
+      const hasHome = productNames.some(name => 
+        HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
+      );
+      const isBundle = stagedPolicies.length > 1;
+      let bundleType = null;
+      if (hasAuto && hasHome) {
+        bundleType = 'preferred_bundle';
+      } else if (isBundle) {
+        bundleType = 'multi_policy';
+      }
+
+      // Check if any policy is VC qualifying
+      const isVcQualifying = stagedPolicies.some(p => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return pt?.is_vc_item;
+      });
+
+      const vcItems = stagedPolicies.reduce((sum, p) => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return sum + (pt?.is_vc_item ? p.itemCount : 0);
+      }, 0);
+
+      const vcPremium = stagedPolicies.reduce((sum, p) => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return sum + (pt?.is_vc_item ? p.premium : 0);
+      }, 0);
+
+      const vcPoints = stagedPolicies.reduce((sum, p) => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return sum + (pt?.is_vc_item ? (pt?.default_points || 0) * p.itemCount : 0);
+      }, 0);
+
+      // Use first policy's effective date for the sale
+      const firstEffectiveDate = stagedPolicies[0].effectiveDate!;
+
+      const policiesPayload = stagedPolicies.map(policy => {
+        const pt = productTypes.find(t => t.id === policy.productTypeId)!;
+        const points = (pt.default_points || 0) * policy.itemCount;
+        const isVc = pt.is_vc_item || false;
+        
+        return {
+          product_type_id: policy.productTypeId,
+          policy_type_name: pt.name,
+          policy_number: policy.policyNumber || undefined,
+          effective_date: format(policy.effectiveDate!, 'yyyy-MM-dd'),
+          is_vc_qualifying: isVc,
+          items: [{
+            product_type_id: policy.productTypeId,
+            product_type_name: pt.name,
+            item_count: policy.itemCount,
+            premium: policy.premium,
+            points: points,
+            is_vc_qualifying: isVc,
+          }]
+        };
+      });
 
       const salePayload = {
         lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
         customer_zip: customerZip || null,
         sale_date: format(todayLocal(), 'yyyy-MM-dd'),
-        effective_date: format(effectiveDate, 'yyyy-MM-dd'),
-        expiration_date: expirationDate ? format(expirationDate, 'yyyy-MM-dd') : null,
+        effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
         source: 'pdf_upload',
         source_details: {
-          filename,
+          filenames: stagedPolicies.map(p => p.filename),
           extracted_at: new Date().toISOString(),
-          confidence: extractedData?.confidence || 'low',
+          policy_count: stagedPolicies.length,
         },
-        total_policies: 1,
-        total_items: itemCount,
-        total_premium: premiumValue,
-        total_points: points,
+        total_policies: stagedPolicies.length,
+        total_items: totalItems,
+        total_premium: totalPremium,
+        total_points: totalPoints,
         is_vc_qualifying: isVcQualifying,
-        vc_items: isVcQualifying ? itemCount : 0,
-        vc_premium: isVcQualifying ? premiumValue : 0,
-        vc_points: isVcQualifying ? points : 0,
+        vc_items: vcItems,
+        vc_premium: vcPremium,
+        vc_points: vcPoints,
         is_bundle: isBundle,
         bundle_type: bundleType,
-        policies: [{
-          product_type_id: productTypeId,
-          policy_type_name: selectedProduct.name,
-          policy_number: policyNumber || undefined,
-          effective_date: format(effectiveDate, 'yyyy-MM-dd'),
-          is_vc_qualifying: isVcQualifying,
-          items: [{
-            product_type_id: productTypeId,
-            product_type_name: selectedProduct.name,
-            item_count: itemCount,
-            premium: premiumValue,
-            points: points,
-            is_vc_qualifying: isVcQualifying,
-          }]
-        }]
+        policies: policiesPayload
       };
 
       if (isStaffMode) {
@@ -332,22 +454,22 @@ export function PdfUploadForm({
             customer_name: customerName.trim(),
             customer_zip: customerZip || null,
             sale_date: format(todayLocal(), 'yyyy-MM-dd'),
-            effective_date: format(effectiveDate, 'yyyy-MM-dd'),
-            total_policies: 1,
-            total_items: itemCount,
-            total_premium: premiumValue,
-            total_points: points,
+            effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
+            total_policies: stagedPolicies.length,
+            total_items: totalItems,
+            total_premium: totalPremium,
+            total_points: totalPoints,
             is_vc_qualifying: isVcQualifying,
-            vc_items: isVcQualifying ? itemCount : 0,
-            vc_premium: isVcQualifying ? premiumValue : 0,
-            vc_points: isVcQualifying ? points : 0,
+            vc_items: vcItems,
+            vc_premium: vcPremium,
+            vc_points: vcPoints,
             is_bundle: isBundle,
             bundle_type: bundleType,
             source: 'pdf_upload',
             source_details: {
-              filename,
+              filenames: stagedPolicies.map(p => p.filename),
               extracted_at: new Date().toISOString(),
-              confidence: extractedData?.confidence || 'low',
+              policy_count: stagedPolicies.length,
             },
             created_by: user?.id,
           })
@@ -356,40 +478,45 @@ export function PdfUploadForm({
 
         if (saleError) throw saleError;
 
-        // Create policy
-        const { data: createdPolicy, error: policyError } = await supabase
-          .from('sale_policies')
-          .insert({
-            sale_id: sale.id,
-            product_type_id: productTypeId,
-            policy_type_name: selectedProduct.name,
-            policy_number: policyNumber || null,
-            effective_date: format(effectiveDate, 'yyyy-MM-dd'),
-            total_items: itemCount,
-            total_premium: premiumValue,
-            total_points: points,
-            is_vc_qualifying: isVcQualifying,
-          })
-          .select('id')
-          .single();
+        // Create policies and items for each staged policy
+        for (const policy of stagedPolicies) {
+          const pt = productTypes.find(t => t.id === policy.productTypeId)!;
+          const points = (pt.default_points || 0) * policy.itemCount;
+          const isVc = pt.is_vc_item || false;
 
-        if (policyError) throw policyError;
+          const { data: createdPolicy, error: policyError } = await supabase
+            .from('sale_policies')
+            .insert({
+              sale_id: sale.id,
+              product_type_id: policy.productTypeId,
+              policy_type_name: pt.name,
+              policy_number: policy.policyNumber || null,
+              effective_date: format(policy.effectiveDate!, 'yyyy-MM-dd'),
+              total_items: policy.itemCount,
+              total_premium: policy.premium,
+              total_points: points,
+              is_vc_qualifying: isVc,
+            })
+            .select('id')
+            .single();
 
-        // Create line item
-        const { error: itemError } = await supabase
-          .from('sale_items')
-          .insert({
-            sale_id: sale.id,
-            sale_policy_id: createdPolicy.id,
-            product_type_id: productTypeId,
-            product_type_name: selectedProduct.name,
-            item_count: itemCount,
-            premium: premiumValue,
-            points: points,
-            is_vc_qualifying: isVcQualifying,
-          });
+          if (policyError) throw policyError;
 
-        if (itemError) throw itemError;
+          const { error: itemError } = await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: sale.id,
+              sale_policy_id: createdPolicy.id,
+              product_type_id: policy.productTypeId,
+              product_type_name: pt.name,
+              item_count: policy.itemCount,
+              premium: policy.premium,
+              points: points,
+              is_vc_qualifying: isVc,
+            });
+
+          if (itemError) throw itemError;
+        }
 
         return { sale_id: sale.id };
       }
@@ -413,18 +540,77 @@ export function PdfUploadForm({
 
   const resetForm = () => {
     setUploadState('idle');
-    setFilename('');
-    setExtractedData(null);
+    setCurrentFilename('');
+    setStagedPolicies([]);
     setCustomerName('');
     setCustomerZip('');
-    setPolicyNumber('');
-    setEffectiveDate(undefined);
-    setExpirationDate(undefined);
-    setPremium('');
-    setProductTypeId('');
-    setItemCount(1);
     setProducerId('');
     setLeadSourceId('');
+    setShowUploadDropzone(false);
+    setEditingPolicy(null);
+    setEditModalOpen(false);
+  };
+
+  const removePolicy = (policyId: string) => {
+    setStagedPolicies(prev => prev.filter(p => p.id !== policyId));
+    // If no policies left, go back to idle state
+    if (stagedPolicies.length <= 1) {
+      setUploadState('idle');
+      setCustomerName('');
+      setCustomerZip('');
+    }
+  };
+
+  const openEditModal = (policy: StagedPolicy) => {
+    setEditingPolicy(policy);
+    setEditProductTypeId(policy.productTypeId);
+    setEditPolicyNumber(policy.policyNumber);
+    setEditEffectiveDate(policy.effectiveDate);
+    setEditExpirationDate(policy.expirationDate);
+    setEditPremium(policy.premium.toString());
+    setEditItemCount(policy.itemCount);
+    setEditModalOpen(true);
+  };
+
+  const saveEditedPolicy = () => {
+    if (!editingPolicy) return;
+
+    const pt = productTypes.find(t => t.id === editProductTypeId);
+    
+    setStagedPolicies(prev => prev.map(p => {
+      if (p.id === editingPolicy.id) {
+        return {
+          ...p,
+          productTypeId: editProductTypeId,
+          productTypeName: pt?.name || p.productTypeName,
+          policyNumber: editPolicyNumber,
+          effectiveDate: editEffectiveDate,
+          expirationDate: editExpirationDate,
+          premium: parseFloat(editPremium) || 0,
+          itemCount: editItemCount,
+        };
+      }
+      return p;
+    }));
+
+    setEditModalOpen(false);
+    setEditingPolicy(null);
+    toast.success('Policy updated');
+  };
+
+  const handleNameMismatchContinue = () => {
+    if (pendingPolicyData) {
+      addPolicyToStaged(pendingPolicyData.data, pendingPolicyData.filename);
+      toast.success('Policy added to bundle!');
+    }
+    setShowNameMismatchWarning(false);
+    setPendingPolicyData(null);
+  };
+
+  const handleNameMismatchCancel = () => {
+    setShowNameMismatchWarning(false);
+    setPendingPolicyData(null);
+    setShowUploadDropzone(false);
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -441,7 +627,7 @@ export function PdfUploadForm({
       return;
     }
 
-    setFilename(file.name);
+    setCurrentFilename(file.name);
     setUploadState('uploading');
     parsePdf.mutate(file);
   }, [parsePdf]);
@@ -452,20 +638,32 @@ export function PdfUploadForm({
       'application/pdf': ['.pdf']
     },
     maxFiles: 1,
-    disabled: uploadState !== 'idle'
+    disabled: uploadState === 'uploading'
   });
 
-  const getConfidenceBadge = (confidence: string) => {
-    switch (confidence) {
-      case 'high':
-        return <Badge variant="default" className="bg-green-500">High Confidence</Badge>;
-      case 'medium':
-        return <Badge variant="secondary" className="bg-yellow-500 text-black">Medium Confidence</Badge>;
-      default:
-        return <Badge variant="destructive">Low Confidence</Badge>;
-    }
+  // Calculate bundle info
+  const productNames = stagedPolicies.map(p => p.productTypeName);
+  const hasAuto = productNames.some(name => 
+    AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+  );
+  const hasHome = productNames.some(name => 
+    HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
+  );
+  const isBundle = stagedPolicies.length > 1;
+  const bundleLabel = hasAuto && hasHome 
+    ? `Bundle: ${productNames.join(' + ')}`
+    : isBundle 
+      ? `Multi-Policy: ${productNames.join(' + ')}`
+      : null;
+
+  const totalPremium = stagedPolicies.reduce((sum, p) => sum + (p.premium || 0), 0);
+  const totalItems = stagedPolicies.reduce((sum, p) => sum + (p.itemCount || 0), 0);
+
+  const getProductIcon = (productName: string) => {
+    return PRODUCT_ICONS[productName] || <FileText className="h-4 w-4" />;
   };
 
+  // Idle state - show initial upload dropzone
   if (uploadState === 'idle') {
     return (
       <Card>
@@ -499,7 +697,8 @@ export function PdfUploadForm({
     );
   }
 
-  if (uploadState === 'uploading') {
+  // Uploading state
+  if (uploadState === 'uploading' && stagedPolicies.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -507,7 +706,7 @@ export function PdfUploadForm({
         </CardHeader>
         <CardContent className="flex flex-col items-center py-12">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-lg font-medium">Extracting data from {filename}...</p>
+          <p className="text-lg font-medium">Extracting data from {currentFilename}...</p>
           <p className="text-sm text-muted-foreground mt-2">
             This may take a few seconds
           </p>
@@ -516,268 +715,416 @@ export function PdfUploadForm({
     );
   }
 
-  // Review state
+  // Review state - show staged policies and customer info
   return (
     <div className="space-y-6">
-      {/* Extraction Summary */}
+      {/* Customer Information Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <CardTitle className="text-lg">{filename}</CardTitle>
-              <p className="text-sm text-muted-foreground">Review and edit extracted data</p>
-            </div>
-          </div>
-          {extractedData && getConfidenceBadge(extractedData.confidence)}
+        <CardHeader>
+          <CardTitle>Customer Information</CardTitle>
         </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="customerName">
+              Customer Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="customerName"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="John Smith"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customerZip">Zip Code</Label>
+            <Input
+              id="customerZip"
+              value={customerZip}
+              onChange={(e) => setCustomerZip(e.target.value)}
+              placeholder="12345"
+              maxLength={10}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="leadSource">
+              Lead Source <span className="text-destructive">*</span>
+            </Label>
+            <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select lead source..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(isStaffMode ? staffLeadSources : adminLeadSources).map((source) => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {!isStaffMode && (
+            <div className="space-y-2">
+              <Label htmlFor="producer">Assign to Producer</Label>
+              <Select value={producerId} onValueChange={setProducerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select producer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {isStaffMode && (
+            <div className="space-y-2">
+              <Label>Producer</Label>
+              <p className="text-sm text-muted-foreground pt-2">
+                This sale will be assigned to you automatically.
+              </p>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
-      {/* Edit Form */}
-      <form onSubmit={(e) => { e.preventDefault(); createSale.mutate(); }}>
-        <div className="grid gap-6">
-          {/* Customer Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="customerName">
-                  Customer Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="customerName"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="John Smith"
-                  required
-                  className={cn(
-                    !customerName && extractedData?.confidence === 'low' && "border-yellow-500"
-                  )}
-                />
+      {/* Policies Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Policies</CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowUploadDropzone(true)}
+            disabled={showUploadDropzone || uploadState === 'uploading'}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Policy
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Staged Policies List */}
+          {stagedPolicies.map((policy) => (
+            <div
+              key={policy.id}
+              className="border rounded-lg p-4 bg-muted/30"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    {getProductIcon(policy.productTypeName)}
+                  </div>
+                  <div>
+                    <div className="font-medium flex items-center gap-2">
+                      {policy.productTypeName || 'Unknown Product'}
+                      {!policy.productTypeId && (
+                        <Badge variant="destructive" className="text-xs">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Select Type
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                      {policy.policyNumber && (
+                        <span>Policy: {policy.policyNumber}</span>
+                      )}
+                      {policy.effectiveDate && (
+                        <span>Eff: {format(policy.effectiveDate, 'MM/dd/yyyy')}</span>
+                      )}
+                      <span>${policy.premium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                      <span>{policy.itemCount} item{policy.itemCount !== 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditModal(policy)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removePolicy(policy.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="customerZip">Zip Code</Label>
-                <Input
-                  id="customerZip"
-                  value={customerZip}
-                  onChange={(e) => setCustomerZip(e.target.value)}
-                  placeholder="12345"
-                  maxLength={10}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          ))}
 
-          {/* Policy Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Policy Details</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="productType">
-                  Product Type <span className="text-destructive">*</span>
-                </Label>
-                <Select value={productTypeId} onValueChange={setProductTypeId} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select product type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productTypes.map((pt) => (
-                      <SelectItem key={pt.id} value={pt.id}>
-                        {pt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Add Policy Dropzone (shown when user clicks "+ Add Policy") */}
+          {showUploadDropzone && (
+            <div className="border-2 border-dashed rounded-lg p-6 mt-4">
+              {uploadState === 'uploading' ? (
+                <div className="flex flex-col items-center py-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                  <p className="text-sm font-medium">Extracting from {currentFilename}...</p>
+                </div>
+              ) : (
+                <div
+                  {...getRootProps()}
+                  className={cn(
+                    "text-center cursor-pointer transition-colors",
+                    isDragActive ? "opacity-70" : ""
+                  )}
+                >
+                  <input {...getInputProps()} />
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    {isDragActive ? "Drop the PDF here" : "Drop another PDF or click to select"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add another policy to this sale
+                  </p>
+                </div>
+              )}
+              <div className="flex justify-center mt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowUploadDropzone(false)}
+                  disabled={uploadState === 'uploading'}
+                >
+                  Cancel
+                </Button>
               </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {stagedPolicies.length === 0 && !showUploadDropzone && (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No policies added yet</p>
+              <p className="text-sm">Upload a PDF to get started</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bundle Indicator & Totals */}
+      {stagedPolicies.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            {bundleLabel && (
+              <div className="flex items-center gap-2 mb-4">
+                <Package className="h-5 w-5 text-primary" />
+                <Badge variant="secondary" className="text-sm">
+                  {bundleLabel}
+                </Badge>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-sm">
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Total Premium</p>
+                <p className="text-2xl font-bold">
+                  ${totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="text-muted-foreground">Total Items</p>
+                <p className="text-2xl font-bold">{totalItems}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={resetForm}
+          disabled={createSale.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => createSale.mutate()}
+          disabled={
+            createSale.isPending || 
+            stagedPolicies.length === 0 || 
+            !customerName.trim() || 
+            !leadSourceId ||
+            stagedPolicies.some(p => !p.productTypeId || !p.effectiveDate)
+          }
+          className="flex-1"
+        >
+          {createSale.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating Sale...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Create Sale{stagedPolicies.length > 1 ? ` (${stagedPolicies.length} Policies)` : ''}
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Edit Policy Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Policy</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Product Type <span className="text-destructive">*</span></Label>
+              <Select value={editProductTypeId} onValueChange={setEditProductTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productTypes.map((pt) => (
+                    <SelectItem key={pt.id} value={pt.id}>
+                      {pt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Policy Number</Label>
+              <Input
+                value={editPolicyNumber}
+                onChange={(e) => setEditPolicyNumber(e.target.value)}
+                placeholder="123456789"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Effective Date <span className="text-destructive">*</span></Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !editEffectiveDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editEffectiveDate ? format(editEffectiveDate, "MMM d, yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editEffectiveDate}
+                    onSelect={setEditEffectiveDate}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>Expiration Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !editExpirationDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editExpirationDate ? format(editExpirationDate, "MMM d, yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editExpirationDate}
+                    onSelect={setEditExpirationDate}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="policyNumber">Policy Number</Label>
+                <Label>Premium ($)</Label>
                 <Input
-                  id="policyNumber"
-                  value={policyNumber}
-                  onChange={(e) => setPolicyNumber(e.target.value)}
-                  placeholder="123456789"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>
-                  Effective Date <span className="text-destructive">*</span>
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !effectiveDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {effectiveDate ? format(effectiveDate, "MMM d, yyyy") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={effectiveDate}
-                      onSelect={setEffectiveDate}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label>Expiration Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !expirationDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {expirationDate ? format(expirationDate, "MMM d, yyyy") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={expirationDate}
-                      onSelect={setExpirationDate}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="premium">Premium ($)</Label>
-                <Input
-                  id="premium"
                   type="number"
                   step="0.01"
-                  value={premium}
-                  onChange={(e) => setPremium(e.target.value)}
+                  value={editPremium}
+                  onChange={(e) => setEditPremium(e.target.value)}
                   placeholder="0.00"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="itemCount">Item Count</Label>
+                <Label>Item Count</Label>
                 <Input
-                  id="itemCount"
                   type="number"
                   min="1"
-                  value={itemCount}
-                  onChange={(e) => setItemCount(parseInt(e.target.value) || 1)}
+                  value={editItemCount}
+                  onChange={(e) => setEditItemCount(parseInt(e.target.value) || 1)}
                 />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Lead Source Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Lead Source</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="leadSource">
-                  Lead Source <span className="text-destructive">*</span>
-                </Label>
-                <Select value={leadSourceId} onValueChange={setLeadSourceId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select lead source..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(isStaffMode ? staffLeadSources : adminLeadSources).map((source) => (
-                      <SelectItem key={source.id} value={source.id}>
-                        {source.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Producer Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Producer</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isStaffMode ? (
-                <p className="text-sm text-muted-foreground">
-                  This sale will be assigned to you automatically.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="producer">Assign to Producer</Label>
-                  <Select value={producerId} onValueChange={setProducerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select producer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Vehicles (if extracted) */}
-          {extractedData?.vehicles && extractedData.vehicles.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Vehicles Detected</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc list-inside space-y-1">
-                  {extractedData.vehicles.map((vehicle, i) => (
-                    <li key={i} className="text-sm">{vehicle}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={resetForm}
-              disabled={createSale.isPending}
-            >
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createSale.isPending || !customerName || !productTypeId || !effectiveDate}
-              className="flex-1"
-            >
-              {createSale.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Sale...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Create Sale
-                </>
-              )}
+            <Button onClick={saveEditedPolicy} disabled={!editProductTypeId || !editEffectiveDate}>
+              Save Changes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Name Mismatch Warning Dialog */}
+      <Dialog open={showNameMismatchWarning} onOpenChange={setShowNameMismatchWarning}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Customer Name Mismatch
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              The customer name from this PDF differs from the existing customer:
+            </p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between p-2 bg-muted rounded">
+                <span className="text-muted-foreground">Current:</span>
+                <span className="font-medium">{customerName}</span>
+              </div>
+              <div className="flex justify-between p-2 bg-muted rounded">
+                <span className="text-muted-foreground">New PDF:</span>
+                <span className="font-medium">{pendingPolicyData?.data.customerName}</span>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-4">
+              Do you want to add this policy to the same sale anyway?
+            </p>
           </div>
-        </div>
-      </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleNameMismatchCancel}>
+              Cancel
+            </Button>
+            <Button onClick={handleNameMismatchContinue}>
+              Add Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
