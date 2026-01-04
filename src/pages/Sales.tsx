@@ -10,6 +10,7 @@ import { SalesGoals } from "@/components/sales/SalesGoals";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { PromoGoalsList } from "@/components/sales/PromoGoalsList";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
+import { CompPlansTab } from "@/components/sales/CompPlansTab";
 import { Loader2 } from "lucide-react";
 
 export default function Sales() {
@@ -142,7 +143,7 @@ export default function Sales() {
       <h1 className="text-3xl font-bold mb-6">Sales</h1>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full max-w-3xl grid-cols-5">
+        <TabsList className="grid w-full max-w-4xl grid-cols-6">
           <TabsTrigger value="log">Sales Log</TabsTrigger>
           <TabsTrigger value="add">
             {editingSaleId ? "Edit Sale" : "Add Sale"}
@@ -150,6 +151,7 @@ export default function Sales() {
           <TabsTrigger value="upload">Upload PDF</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
+          <TabsTrigger value="compensation">Compensation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="log" className="mt-6">
@@ -185,6 +187,10 @@ export default function Sales() {
         <TabsContent value="goals" className="mt-6 space-y-6">
           <PromoGoalsList agencyId={agencyId} />
           <SalesGoals agencyId={agencyId} />
+        </TabsContent>
+
+        <TabsContent value="compensation" className="mt-6">
+          <CompPlansTab agencyId={agencyId} />
         </TabsContent>
       </Tabs>
     </div>
