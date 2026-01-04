@@ -84,7 +84,28 @@ serve(async (req) => {
         total_points,
         team_member_id,
         lead_source_id,
-        sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
+        is_vc_qualifying,
+        is_bundle,
+        bundle_type,
+        team_member:team_members(name),
+        sale_policies(
+          id,
+          policy_type_name,
+          policy_number,
+          effective_date,
+          total_premium,
+          total_items,
+          total_points,
+          is_vc_qualifying,
+          sale_items(
+            id,
+            product_type_name,
+            item_count,
+            premium,
+            points,
+            is_vc_qualifying
+          )
+        )
       `
       )
       .eq("id", sale_id)

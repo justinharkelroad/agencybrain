@@ -66,6 +66,7 @@ interface SaleDetailModalProps {
   onEdit?: (saleId: string) => void;
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
+  staffSessionToken?: string;
 }
 
 export function SaleDetailModal({ 
@@ -75,12 +76,46 @@ export function SaleDetailModal({
   onEdit,
   canEditAllSales = false,
   currentTeamMemberId,
+  staffSessionToken,
 }: SaleDetailModalProps) {
   const { data: sale, isLoading } = useQuery<SaleDetail | null>({
-    queryKey: ["sale-detail", saleId],
+    queryKey: ["sale-detail", saleId, staffSessionToken],
     queryFn: async () => {
       if (!saleId) return null;
 
+      // Staff path - use edge function
+      if (staffSessionToken) {
+        const { data: result, error } = await supabase.functions.invoke('get_staff_sale_details', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { sale_id: saleId }
+        });
+        
+        if (error) throw error;
+        if (result?.error) throw new Error(result.error);
+        
+        // Map edge function response to SaleDetail type
+        const s = result.sale;
+        return {
+          id: s.id,
+          sale_date: s.sale_date,
+          customer_name: s.customer_name,
+          customer_email: s.customer_email,
+          customer_phone: s.customer_phone,
+          customer_zip: s.customer_zip,
+          team_member_id: s.team_member_id,
+          total_policies: s.sale_policies?.length || 0,
+          total_items: s.total_items,
+          total_premium: s.total_premium,
+          total_points: s.total_points,
+          is_vc_qualifying: s.is_vc_qualifying,
+          is_bundle: s.is_bundle,
+          bundle_type: s.bundle_type,
+          team_member: s.team_member,
+          sale_policies: s.sale_policies || [],
+        } as SaleDetail;
+      }
+
+      // Admin path - direct query
       const { data, error } = await supabase
         .from("sales")
         .select(

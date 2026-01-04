@@ -29,6 +29,15 @@ export default function Sales() {
     }
   }, [tabFromUrl]);
 
+  // Handle edit param from URL (for navigation from DrillDownTable)
+  const editParam = searchParams.get("edit");
+  useEffect(() => {
+    if (editParam) {
+      setEditingSaleId(editParam);
+      setActiveTab("add");
+    }
+  }, [editParam]);
+
   // Fetch agency ID
   useEffect(() => {
     async function fetchAgencyId() {

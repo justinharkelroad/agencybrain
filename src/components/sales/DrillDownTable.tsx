@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -79,6 +80,7 @@ export function DrillDownTable({
   currentTeamMemberId,
 }: DrillDownTableProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [editSaleData, setEditSaleData] = useState<StaffSaleForEdit | null>(null);
@@ -211,18 +213,23 @@ export function DrillDownTable({
     // Close the detail modal
     setSelectedSaleId(null);
     
-    // Find the record to get basic info for the edit modal
-    const record = records.find(r => r.id === saleId);
-    if (record) {
-      setEditSaleData({
-        id: record.id,
-        sale_date: record.sale_date,
-        customer_name: record.customer_name,
-        total_premium: record.total_premium,
-        total_items: record.total_items,
-        total_points: record.total_points,
-      });
-      setEditSaleId(saleId);
+    if (staffSessionToken) {
+      // Staff flow - use StaffEditSaleModal
+      const record = records.find(r => r.id === saleId);
+      if (record) {
+        setEditSaleData({
+          id: record.id,
+          sale_date: record.sale_date,
+          customer_name: record.customer_name,
+          total_premium: record.total_premium,
+          total_items: record.total_items,
+          total_points: record.total_points,
+        });
+        setEditSaleId(saleId);
+      }
+    } else {
+      // Admin/Owner flow - navigate to Sales page edit mode
+      navigate(`/sales?tab=add&edit=${saleId}`);
     }
   };
 
@@ -354,6 +361,7 @@ export function DrillDownTable({
         onEdit={handleEditSale}
         canEditAllSales={canEditAllSales}
         currentTeamMemberId={currentTeamMemberId}
+        staffSessionToken={staffSessionToken}
       />
 
       {/* Staff Edit Modal (uses edge function) */}
