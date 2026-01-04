@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -11,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { formatDateLocal } from "@/lib/utils";
+import { SaleDetailModal } from "./SaleDetailModal";
+import { StaffEditSaleModal } from "@/components/staff/StaffEditSaleModal";
 
 export type DrillDownFilterType = 'date' | 'policy_type' | 'lead_source' | 'bundle_type' | 'zipcode';
 
@@ -46,6 +49,20 @@ interface DrillDownResponse {
   total_count: number;
 }
 
+// Minimal sale structure for staff edit modal
+interface StaffSaleForEdit {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  customer_zip?: string | null;
+  lead_source_id?: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
 export function DrillDownTable({
   filter,
   agencyId,
@@ -57,6 +74,11 @@ export function DrillDownTable({
   onClear,
   staffSessionToken,
 }: DrillDownTableProps) {
+  const queryClient = useQueryClient();
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [editSaleId, setEditSaleId] = useState<string | null>(null);
+  const [editSaleData, setEditSaleData] = useState<StaffSaleForEdit | null>(null);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["drill-down", agencyId, filter.type, filter.value, startDate, endDate, page, pageSize, staffSessionToken],
     queryFn: async (): Promise<DrillDownResponse> => {
@@ -177,6 +199,39 @@ export function DrillDownTable({
   const hasNextPage = page * pageSize < totalCount;
   const hasPrevPage = page > 1;
 
+  const handleCustomerClick = (record: SaleRecord) => {
+    setSelectedSaleId(record.id);
+  };
+
+  const handleEditSale = (saleId: string) => {
+    // Close the detail modal
+    setSelectedSaleId(null);
+    
+    // Find the record to get basic info for the edit modal
+    const record = records.find(r => r.id === saleId);
+    if (record) {
+      setEditSaleData({
+        id: record.id,
+        sale_date: record.sale_date,
+        customer_name: record.customer_name,
+        total_premium: record.total_premium,
+        total_items: record.total_items,
+        total_points: record.total_points,
+      });
+      setEditSaleId(saleId);
+    }
+  };
+
+  const handleEditModalClose = (open: boolean) => {
+    if (!open) {
+      setEditSaleId(null);
+      setEditSaleData(null);
+      // Invalidate queries to refresh data after edit
+      queryClient.invalidateQueries({ queryKey: ["drill-down"] });
+      queryClient.invalidateQueries({ queryKey: ["sale-detail"] });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="mt-6 border-t border-border pt-6">
@@ -234,7 +289,14 @@ export function DrillDownTable({
                     <TableCell className="font-medium">
                       {formatDateLocal(record.sale_date)}
                     </TableCell>
-                    <TableCell>{record.customer_name}</TableCell>
+                    <TableCell>
+                      <button
+                        className="text-left hover:underline hover:text-primary transition-colors cursor-pointer font-medium"
+                        onClick={() => handleCustomerClick(record)}
+                      >
+                        {record.customer_name}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {record.lead_source_name || "Not Set"}
                     </TableCell>
@@ -278,6 +340,24 @@ export function DrillDownTable({
             </div>
           )}
         </>
+      )}
+
+      {/* Sale Detail Modal */}
+      <SaleDetailModal
+        saleId={selectedSaleId}
+        open={!!selectedSaleId}
+        onOpenChange={(open) => !open && setSelectedSaleId(null)}
+        onEdit={handleEditSale}
+      />
+
+      {/* Staff Edit Modal (uses edge function) */}
+      {staffSessionToken && editSaleData && (
+        <StaffEditSaleModal
+          sale={editSaleData}
+          open={!!editSaleId}
+          onOpenChange={handleEditModalClose}
+          sessionToken={staffSessionToken}
+        />
       )}
     </div>
   );
