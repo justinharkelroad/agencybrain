@@ -6,6 +6,34 @@ import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
 
+// Helper function to send payout notifications
+async function sendPayoutNotifications(
+  payoutIds: string[],
+  notificationType: 'finalized' | 'paid',
+  agencyId: string
+): Promise<{ sent: number; skipped: number; errors?: string[] }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('send-payout-notification', {
+      body: {
+        payout_ids: payoutIds,
+        notification_type: notificationType,
+        agency_id: agencyId,
+      },
+    });
+
+    if (error) {
+      console.error('Error sending payout notifications:', error);
+      return { sent: 0, skipped: 0, errors: [error.message] };
+    }
+
+    return data || { sent: 0, skipped: 0 };
+  } catch (err: any) {
+    console.error('Failed to send payout notifications:', err);
+    return { sent: 0, skipped: 0, errors: [err.message] };
+  }
+}
+
+
 interface TeamMember {
   id: string;
   name: string;
@@ -184,10 +212,34 @@ export function usePayoutCalculator(agencyId: string | null) {
         .eq("status", "draft");
 
       if (error) throw error;
+      return { month, year };
     },
-    onSuccess: () => {
+    onSuccess: async ({ month, year }) => {
       toast.success("Payouts finalized");
       queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+
+      // Send notification emails
+      if (agencyId) {
+        const { data: payouts } = await supabase
+          .from("comp_payouts")
+          .select("id")
+          .eq("agency_id", agencyId)
+          .eq("period_month", month)
+          .eq("period_year", year)
+          .eq("status", "finalized");
+
+        if (payouts && payouts.length > 0) {
+          const payoutIds = payouts.map(p => p.id);
+          const result = await sendPayoutNotifications(payoutIds, 'finalized', agencyId);
+          
+          if (result.sent > 0) {
+            toast.success(`Statement emails sent to ${result.sent} team member${result.sent !== 1 ? 's' : ''}`);
+          }
+          if (result.errors && result.errors.length > 0) {
+            toast.error("Some notification emails failed to send");
+          }
+        }
+      }
     },
     onError: (error) => {
       console.error("Error finalizing payouts:", error);
@@ -212,10 +264,34 @@ export function usePayoutCalculator(agencyId: string | null) {
         .eq("status", "finalized");
 
       if (error) throw error;
+      return { month, year };
     },
-    onSuccess: () => {
+    onSuccess: async ({ month, year }) => {
       toast.success("Payouts marked as paid");
       queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+
+      // Send notification emails
+      if (agencyId) {
+        const { data: payouts } = await supabase
+          .from("comp_payouts")
+          .select("id")
+          .eq("agency_id", agencyId)
+          .eq("period_month", month)
+          .eq("period_year", year)
+          .eq("status", "paid");
+
+        if (payouts && payouts.length > 0) {
+          const payoutIds = payouts.map(p => p.id);
+          const result = await sendPayoutNotifications(payoutIds, 'paid', agencyId);
+          
+          if (result.sent > 0) {
+            toast.success(`Payment confirmation emails sent to ${result.sent} team member${result.sent !== 1 ? 's' : ''}`);
+          }
+          if (result.errors && result.errors.length > 0) {
+            toast.error("Some notification emails failed to send");
+          }
+        }
+      }
     },
     onError: (error) => {
       console.error("Error marking payouts as paid:", error);
