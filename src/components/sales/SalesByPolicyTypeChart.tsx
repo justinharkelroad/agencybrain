@@ -25,6 +25,7 @@ interface SalesByPolicyTypeChartProps {
   staffSessionToken?: string;
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
+  leadSources?: { id: string; name: string }[];
 }
 
 const CHART_COLORS = [
@@ -75,7 +76,7 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesByPolicyTypeChartProps) {
+export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [] }: SalesByPolicyTypeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedPolicyType, setSelectedPolicyType] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -297,6 +298,7 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSess
             staffSessionToken={staffSessionToken}
             canEditAllSales={canEditAllSales}
             currentTeamMemberId={currentTeamMemberId}
+            leadSources={leadSources}
           />
         )}
       </CardContent>

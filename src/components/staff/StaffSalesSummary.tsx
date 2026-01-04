@@ -46,6 +46,26 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const bizDaysElapsed = getBusinessDaysElapsed(today);
   const bizDaysTotal = getBusinessDaysInMonth(today);
 
+  // Fetch lead sources for staff to use in edit modal
+  const { data: leadSources = [] } = useQuery({
+    queryKey: ["staff-lead-sources", agencyId, sessionToken],
+    queryFn: async () => {
+      if (!sessionToken) return [];
+      
+      const { data, error } = await supabase.functions.invoke('get_staff_lead_sources', {
+        headers: { 'x-staff-session': sessionToken },
+      });
+      
+      if (error || data?.error) {
+        console.error('Error fetching lead sources:', error || data?.error);
+        return [];
+      }
+      
+      return (data?.lead_sources || []) as { id: string; name: string }[];
+    },
+    enabled: !!agencyId && !!sessionToken,
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
     queryFn: async (): Promise<SalesTotals> => {
@@ -328,6 +348,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
               staffSessionToken={sessionToken || undefined}
               canEditAllSales={false}
               currentTeamMemberId={teamMemberId}
+              leadSources={leadSources}
             />
           </div>
         </SheetContent>

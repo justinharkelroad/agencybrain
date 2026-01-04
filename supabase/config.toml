@@ -269,3 +269,7 @@ verify_jwt = false
 
 [functions.send-payout-notification]
 verify_jwt = false
+
+[functions.get_staff_lead_sources]
+verify_jwt = false
+
