@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,6 +21,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { Loader2 } from "lucide-react";
+
+// Stable empty arrays to avoid new references each render
+const EMPTY_TEAM_MEMBERS: { id: string; name: string }[] = [];
+const EMPTY_ASSIGNMENTS: string[] = [];
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -81,7 +86,7 @@ export function CreateCompPlanModal({
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   // Fetch team members
-  const { data: teamMembers = [] } = useQuery({
+  const { data: teamMembersData } = useQuery({
     queryKey: ["team-members-comp", agencyId],
     queryFn: async () => {
       if (!agencyId) return [];
@@ -96,9 +101,10 @@ export function CreateCompPlanModal({
     },
     enabled: !!agencyId && open,
   });
+  const teamMembers = teamMembersData ?? EMPTY_TEAM_MEMBERS;
 
   // Fetch current assignments if editing
-  const { data: existingAssignments = [] } = useQuery({
+  const { data: existingAssignmentsData } = useQuery({
     queryKey: ["comp-plan-assignments", editPlan?.id],
     queryFn: async () => {
       if (!editPlan?.id) return [];
@@ -112,6 +118,7 @@ export function CreateCompPlanModal({
     },
     enabled: !!editPlan?.id && open,
   });
+  const existingAssignments = existingAssignmentsData ?? EMPTY_ASSIGNMENTS;
 
   // Initialize form when editing
   useEffect(() => {
@@ -257,6 +264,11 @@ export function CreateCompPlanModal({
           <DialogTitle>
             {isEditing ? "Edit Compensation Plan" : "Create Compensation Plan"}
           </DialogTitle>
+          <DialogDescription>
+            {isEditing 
+              ? "Update plan settings, tiers, and staff assignments." 
+              : "Configure commission structure and assign team members."}
+          </DialogDescription>
         </DialogHeader>
 
         <div
@@ -410,28 +422,25 @@ export function CreateCompPlanModal({
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
                   {teamMembers.map((member) => {
                     const isSelected = selectedMembers.includes(member.id);
+                    const inputId = `staff-${member.id}`;
                     return (
-                      <div
+                      <label
                         key={member.id}
+                        htmlFor={inputId}
                         className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 cursor-pointer"
-                        onClick={() => {
-                          console.log("staff row onClick", { memberId: member.id, nextChecked: !isSelected });
-                          setMemberChecked(member.id, !isSelected);
-                        }}
                       >
-                        <Checkbox
+                        <input
+                          type="checkbox"
+                          id={inputId}
                           checked={isSelected}
-                          onClick={(e) => {
-                            console.log("staff checkbox onClick stopPropagation", { memberId: member.id });
-                            e.stopPropagation();
+                          onChange={(e) => {
+                            console.log("native checkbox onChange", { memberId: member.id, checked: e.target.checked });
+                            setMemberChecked(member.id, e.target.checked);
                           }}
-                          onCheckedChange={(checked) => {
-                            console.log("staff checkbox onCheckedChange", { memberId: member.id, checked });
-                            setMemberChecked(member.id, checked === true);
-                          }}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-background"
                         />
                         <span className="text-sm truncate">{member.name}</span>
-                      </div>
+                      </label>
                     );
                   })}
                 </div>
