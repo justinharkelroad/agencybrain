@@ -65,7 +65,7 @@ serve(async (req) => {
       .from("lead_sources")
       .select("id, name")
       .eq("agency_id", staffUser.agency_id)
-      .eq("active", true)
+      .eq("is_active", true)
       .order("name");
 
     if (lsError) {
