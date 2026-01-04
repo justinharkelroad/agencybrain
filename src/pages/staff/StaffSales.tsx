@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,8 +69,26 @@ interface StaffSalesResponse {
 export default function StaffSales() {
   const { user, sessionToken } = useStaffAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+
+  // Sync tab with URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
+  const handleSwitchToManualEntry = () => {
+    handleTabChange("add");
+  };
   
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -136,7 +155,7 @@ export default function StaffSales() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <h1 className="text-3xl font-bold mb-6">My Sales</h1>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-7 md:max-w-4xl">
           <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
           <TabsTrigger value="history" className="flex-shrink-0">History</TabsTrigger>
@@ -333,6 +352,7 @@ export default function StaffSales() {
             staffTeamMemberId={user?.team_member_id}
             leadSources={leadSources}
             onSuccess={handleSaleCreated}
+            onSwitchToManual={handleSwitchToManualEntry}
           />
         </TabsContent>
 
