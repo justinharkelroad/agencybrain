@@ -23,6 +23,8 @@ interface SalesByPolicyTypeChartProps {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 const CHART_COLORS = [
@@ -73,7 +75,7 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByPolicyTypeChartProps) {
+export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesByPolicyTypeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedPolicyType, setSelectedPolicyType] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -293,6 +295,8 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSess
             onPageChange={setDrillPage}
             onClear={handleClearSelection}
             staffSessionToken={staffSessionToken}
+            canEditAllSales={canEditAllSales}
+            currentTeamMemberId={currentTeamMemberId}
           />
         )}
       </CardContent>

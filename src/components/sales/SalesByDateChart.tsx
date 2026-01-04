@@ -23,6 +23,8 @@ interface SalesByDateChartProps {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 interface SalesByDateRow {
@@ -47,7 +49,7 @@ const CHART_COLORS = [
 
 const PAGE_SIZE = 10;
 
-export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken }: SalesByDateChartProps) {
+export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesByDateChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -243,6 +245,8 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
             onPageChange={setDrillPage}
             onClear={handleClearSelection}
             staffSessionToken={staffSessionToken}
+            canEditAllSales={canEditAllSales}
+            currentTeamMemberId={currentTeamMemberId}
           />
         )}
       </CardContent>

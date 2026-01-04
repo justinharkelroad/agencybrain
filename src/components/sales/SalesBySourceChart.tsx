@@ -23,6 +23,8 @@ interface SalesBySourceChartProps {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
 const CHART_COLORS = [
@@ -74,7 +76,7 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionToken }: SalesBySourceChartProps) {
+export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId }: SalesBySourceChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
@@ -291,6 +293,8 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
             onPageChange={setDrillPage}
             onClear={handleClearSelection}
             staffSessionToken={staffSessionToken}
+            canEditAllSales={canEditAllSales}
+            currentTeamMemberId={currentTeamMemberId}
           />
         )}
       </CardContent>

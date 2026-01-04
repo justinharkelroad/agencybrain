@@ -64,9 +64,18 @@ interface SaleDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit?: (saleId: string) => void;
+  canEditAllSales?: boolean;
+  currentTeamMemberId?: string;
 }
 
-export function SaleDetailModal({ saleId, open, onOpenChange, onEdit }: SaleDetailModalProps) {
+export function SaleDetailModal({ 
+  saleId, 
+  open, 
+  onOpenChange, 
+  onEdit,
+  canEditAllSales = false,
+  currentTeamMemberId,
+}: SaleDetailModalProps) {
   const { data: sale, isLoading } = useQuery<SaleDetail | null>({
     queryKey: ["sale-detail", saleId],
     queryFn: async () => {
@@ -126,7 +135,7 @@ export function SaleDetailModal({ saleId, open, onOpenChange, onEdit }: SaleDeta
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Sale Details</span>
-            {sale && onEdit && (
+            {sale && onEdit && (canEditAllSales || sale.team_member_id === currentTeamMemberId) && (
               <Button variant="outline" size="sm" onClick={() => onEdit(sale.id)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Sale
