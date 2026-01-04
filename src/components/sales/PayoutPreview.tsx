@@ -10,6 +10,7 @@ import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface PayoutPreviewProps {
   agencyId: string | null;
@@ -58,7 +59,8 @@ export function PayoutPreview({
   }, [currentDate]);
 
   const handleCalculate = () => {
-    if (!subProducerData || subProducerData.length === 0) {
+    if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
+      toast.error("Please select a statement report with sub-producer data");
       setWarnings(["No sub-producer data available. Upload a commission statement first."]);
       return;
     }

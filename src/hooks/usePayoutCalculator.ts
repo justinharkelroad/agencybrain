@@ -128,10 +128,15 @@ export function usePayoutCalculator(agencyId: string | null) {
 
   // Calculate payouts from sub-producer data
   const calculatePayouts = (
-    subProducerData: SubProducerMetrics[],
+    subProducerData: SubProducerMetrics[] | undefined | null,
     month: number,
     year: number
   ): { payouts: PayoutCalculation[]; warnings: string[] } => {
+    // Guard against missing data
+    if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
+      return { payouts: [], warnings: ['No sub-producer data available for this statement'] };
+    }
+    
     return calculateAllPayouts(
       subProducerData,
       plans,

@@ -226,13 +226,19 @@ export function calculateMemberPayout(
  * Calculate payouts for all assigned team members
  */
 export function calculateAllPayouts(
-  subProducerData: SubProducerMetrics[],
+  subProducerData: SubProducerMetrics[] | undefined | null,
   plans: CompPlan[],
   assignments: Assignment[],
   teamMembers: TeamMember[],
   periodMonth: number,
   periodYear: number
 ): { payouts: PayoutCalculation[]; warnings: string[] } {
+  // Guard against missing data
+  if (!subProducerData || !Array.isArray(subProducerData)) {
+    console.warn('calculateAllPayouts: subProducerData is not available');
+    return { payouts: [], warnings: ['No sub-producer data provided'] };
+  }
+  
   const payouts: PayoutCalculation[] = [];
   const warnings: string[] = [];
   
