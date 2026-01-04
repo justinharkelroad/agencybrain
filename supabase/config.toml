@@ -263,3 +263,6 @@ verify_jwt = false
 
 [functions.get_staff_sales_analytics]
 verify_jwt = false
+
+[functions.get-staff-commission]
+verify_jwt = false

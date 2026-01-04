@@ -4,9 +4,11 @@ import { CompPlanCard } from "./CompPlanCard";
 import { CreateCompPlanModal } from "./CreateCompPlanModal";
 import { StatementReportSelector } from "./StatementReportSelector";
 import { PayoutPreview } from "./PayoutPreview";
-import { Loader2, Plus, FileText, Calculator } from "lucide-react";
+import { PayoutHistoryTab } from "./PayoutHistoryTab";
+import { Loader2, Plus, FileText, Calculator, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 
 interface CompPlansTabProps {
@@ -17,6 +19,7 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
   const { data: plans, isLoading, error } = useCompPlans(agencyId);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CompPlan | null>(null);
+  const [activeTab, setActiveTab] = useState("calculate");
   
   // Payout calculator state
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -131,34 +134,53 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
           ))}
         </div>
 
-        {/* Payout Calculator Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
-              Calculate Payouts
-            </CardTitle>
-            <CardDescription>
-              Select a statement report to calculate team member commissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StatementReportSelector
-              agencyId={agencyId}
-              selectedReportId={selectedReportId}
-              onSelect={handleReportSelect}
-            />
-          </CardContent>
-        </Card>
+        {/* Payout Management Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="calculate" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Calculate
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              History
+            </TabsTrigger>
+          </TabsList>
 
-        {selectedReportId && (
-          <PayoutPreview
-            agencyId={agencyId}
-            subProducerData={subProducerData}
-            statementMonth={statementMonth}
-            statementYear={statementYear}
-          />
-        )}
+          <TabsContent value="calculate" className="mt-6 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5" />
+                  Calculate Payouts
+                </CardTitle>
+                <CardDescription>
+                  Select a statement report to calculate team member commissions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StatementReportSelector
+                  agencyId={agencyId}
+                  selectedReportId={selectedReportId}
+                  onSelect={handleReportSelect}
+                />
+              </CardContent>
+            </Card>
+
+            {selectedReportId && (
+              <PayoutPreview
+                agencyId={agencyId}
+                subProducerData={subProducerData}
+                statementMonth={statementMonth}
+                statementYear={statementYear}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-6">
+            <PayoutHistoryTab agencyId={agencyId} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <CreateCompPlanModal

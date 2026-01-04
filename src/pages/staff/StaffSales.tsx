@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { formatDateLocal } from "@/lib/utils";
-import { Loader2, DollarSign, Package, FileText, Trophy, Pencil } from "lucide-react";
+import { Loader2, DollarSign, Package, FileText, Trophy, Pencil, Wallet } from "lucide-react";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
+import { StaffCommissionWidget } from "@/components/sales/StaffCommissionWidget";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
@@ -136,13 +137,17 @@ export default function StaffSales() {
       <h1 className="text-3xl font-bold mb-6">My Sales</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-6 md:max-w-3xl">
+        <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-7 md:max-w-4xl">
           <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
           <TabsTrigger value="history" className="flex-shrink-0">History</TabsTrigger>
           <TabsTrigger value="add" className="flex-shrink-0">Add Sale</TabsTrigger>
           <TabsTrigger value="upload" className="flex-shrink-0">Upload PDF</TabsTrigger>
           <TabsTrigger value="leaderboard" className="flex-shrink-0">Leaderboard</TabsTrigger>
           <TabsTrigger value="analytics" className="flex-shrink-0">Analytics</TabsTrigger>
+          <TabsTrigger value="compensation" className="flex-shrink-0">
+            <Wallet className="h-4 w-4 mr-1 md:mr-0 lg:mr-1" />
+            <span className="hidden lg:inline">Compensation</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6 space-y-6">
@@ -348,6 +353,10 @@ export default function StaffSales() {
               staffSessionToken={sessionToken || undefined}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="compensation" className="mt-6">
+          {sessionToken && <StaffCommissionWidget sessionToken={sessionToken} />}
         </TabsContent>
       </Tabs>
 
