@@ -67,17 +67,21 @@ export function useCompPlanMutations(agencyId: string | null) {
         if (tiersError) throw tiersError;
       }
 
-      // 3. Create assignments
+      // 3. Create assignments using UPSERT to handle re-assignment on same day
       if (data.assigned_member_ids.length > 0) {
-        const assignmentsToInsert = data.assigned_member_ids.map((memberId) => ({
+        const today = new Date().toISOString().split("T")[0];
+        const assignmentsToUpsert = data.assigned_member_ids.map((memberId) => ({
           comp_plan_id: plan.id,
           team_member_id: memberId,
-          effective_date: new Date().toISOString().split("T")[0],
+          effective_date: today,
+          end_date: null,
         }));
 
         const { error: assignError } = await supabase
           .from("comp_plan_assignments")
-          .insert(assignmentsToInsert);
+          .upsert(assignmentsToUpsert, { 
+            onConflict: 'comp_plan_id,team_member_id,effective_date' 
+          });
 
         if (assignError) throw assignError;
       }
@@ -179,11 +183,15 @@ export function useCompPlanMutations(agencyId: string | null) {
             comp_plan_id: data.id!,
             team_member_id: memberId,
             effective_date: today,
+            end_date: null,
           }));
           
+          // Use UPSERT to handle re-assignment on same day (reactivates ended assignment)
           const { error: assignError } = await supabase
             .from('comp_plan_assignments')
-            .insert(newAssignments);
+            .upsert(newAssignments, { 
+              onConflict: 'comp_plan_id,team_member_id,effective_date' 
+            });
           
           if (assignError) throw assignError;
         }
