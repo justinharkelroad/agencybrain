@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompPlan } from "@/hooks/useCompPlans";
-import { Users, DollarSign, Percent, TrendingUp, FileText } from "lucide-react";
+import { Users, DollarSign, Percent, TrendingUp, FileText, Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -13,6 +14,7 @@ import {
 
 interface CompPlanCardProps {
   plan: CompPlan;
+  onEdit?: () => void;
 }
 
 const TIER_METRIC_LABELS: Record<string, string> = {
@@ -36,7 +38,7 @@ const CHARGEBACK_LABELS: Record<string, string> = {
   three_month: "3-Month Rule",
 };
 
-export function CompPlanCard({ plan }: CompPlanCardProps) {
+export function CompPlanCard({ plan, onEdit }: CompPlanCardProps) {
   const formatValue = (value: number, type: string) => {
     if (type === "percent_of_premium") {
       return `${value}%`;
@@ -61,9 +63,16 @@ export function CompPlanCard({ plan }: CompPlanCardProps) {
               <p className="text-sm text-muted-foreground">{plan.description}</p>
             )}
           </div>
-          <Badge variant={plan.is_active ? "default" : "secondary"}>
-            {plan.is_active ? "Active" : "Inactive"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={plan.is_active ? "default" : "secondary"}>
+              {plan.is_active ? "Active" : "Inactive"}
+            </Badge>
+            {onEdit && (
+              <Button variant="ghost" size="icon" onClick={onEdit}>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
