@@ -169,10 +169,14 @@ Deno.serve(async (req) => {
     // Get sales for the period with all relevant metrics
     const { data: sales, error: salesError } = await supabase
       .from("sales")
-      .select("total_premium, total_items, customer_id")
+      .select("total_premium, total_items")
       .eq("team_member_id", staffUser.team_member_id)
       .gte("sale_date", startStr)
       .lte("sale_date", endStr);
+
+    if (salesError) {
+      console.error("[get-staff-commission] Sales query error:", salesError);
+    }
 
     let currentMonthWrittenPremium = 0;
     let currentMonthWrittenItems = 0;
@@ -183,9 +187,8 @@ Deno.serve(async (req) => {
       currentMonthWrittenPremium = sales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
       currentMonthWrittenItems = sales.reduce((sum, s) => sum + (s.total_items || 0), 0);
       currentMonthWrittenPolicies = sales.length;
-      // Count unique customer_ids for households
-      const uniqueCustomers = new Set(sales.map(s => s.customer_id).filter(Boolean));
-      currentMonthWrittenHouseholds = uniqueCustomers.size;
+      // Households not currently trackable without customer_id column
+      currentMonthWrittenHouseholds = 0;
     }
 
     // If we have a payout record, use its values instead (more accurate from statement)
