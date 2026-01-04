@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -139,10 +139,20 @@ export function CreateCompPlanModal({
 
   // Set existing assignments when loaded
   useEffect(() => {
-    if (existingAssignments.length > 0) {
-      setSelectedMembers(existingAssignments);
-    }
-  }, [existingAssignments]);
+    if (!open || !editPlan?.id) return;
+    if (existingAssignments.length === 0) return;
+
+    const sameMembers = (a: string[], b: string[]) => {
+      if (a.length !== b.length) return false;
+      const setA = new Set(a);
+      for (const id of b) {
+        if (!setA.has(id)) return false;
+      }
+      return true;
+    };
+
+    setSelectedMembers((prev) => (sameMembers(prev, existingAssignments) ? prev : existingAssignments));
+  }, [existingAssignments, open, editPlan?.id]);
 
   const resetForm = () => {
     setName("");
@@ -210,13 +220,17 @@ export function CreateCompPlanModal({
     }
   };
 
-  const toggleMember = (memberId: string) => {
+  const toggleMember = useCallback((memberId: string) => {
     setSelectedMembers((prev) =>
       prev.includes(memberId)
         ? prev.filter((id) => id !== memberId)
         : [...prev, memberId]
     );
-  };
+  }, []);
+
+  const handleTiersChange = useCallback((newTiers: TierFormData[]) => {
+    setTiers(newTiers);
+  }, []);
 
   const isPending = createPlan.isPending || updatePlan.isPending;
 
@@ -355,7 +369,7 @@ export function CreateCompPlanModal({
             {/* Commission Tiers */}
             <CommissionTierEditor
               tiers={tiers}
-              onChange={setTiers}
+              onChange={handleTiersChange}
               payoutType={payoutType}
               tierMetric={tierMetric}
             />
@@ -383,6 +397,7 @@ export function CreateCompPlanModal({
                     >
                       <Checkbox
                         checked={selectedMembers.includes(member.id)}
+                        onClick={(e) => e.stopPropagation()}
                         onCheckedChange={() => toggleMember(member.id)}
                       />
                       <span className="text-sm truncate">
