@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -249,7 +249,10 @@ export function CreateCompPlanModal({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-auto pr-4" style={{ maxHeight: 'calc(90vh - 120px)' }}>
+        <div
+          className="flex-1 overflow-auto pr-4"
+          style={{ maxHeight: "calc(90vh - 120px)" }}
+        >
           <form onSubmit={handleSubmit} className="space-y-6 pb-4">
             {/* Basic Info */}
             <div className="space-y-4">
@@ -389,7 +392,7 @@ export function CreateCompPlanModal({
                   {selectedMembers.length} selected
                 </span>
               </div>
-              
+
               {teamMembers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No active team members found.
@@ -407,11 +410,11 @@ export function CreateCompPlanModal({
                         <Checkbox
                           checked={isSelected}
                           onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={(checked) => setMemberChecked(member.id, checked === true)}
+                          onCheckedChange={(checked) =>
+                            setMemberChecked(member.id, checked === true)
+                          }
                         />
-                        <span className="text-sm truncate">
-                          {member.name}
-                        </span>
+                        <span className="text-sm truncate">{member.name}</span>
                       </div>
                     );
                   })}
@@ -435,8 +438,7 @@ export function CreateCompPlanModal({
               </Button>
             </div>
           </form>
-        </ScrollArea>
-      </DialogContent>
+        </div>
     </Dialog>
   );
 }
