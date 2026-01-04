@@ -44,7 +44,7 @@ const PAYOUT_TYPES = [
 const TIER_METRICS = [
   { value: "items", label: "Items Sold" },
   { value: "policies", label: "Policies Written" },
-  { value: "premium", label: "Premium Volume" },
+  { value: "premium", label: "Written Premium" },
   { value: "points", label: "Points Earned" },
   { value: "households", label: "Households Sold" },
 ];
