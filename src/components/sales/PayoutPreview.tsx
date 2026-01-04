@@ -9,9 +9,9 @@ import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users } from 
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { PayoutDetailRow } from "./PayoutDetailRow";
+import { PayoutDetailSheet } from "./PayoutDetailSheet";
 
 // The subProducerData from comparison reports is an object with producers array
 interface SubProducerDataWrapper {
@@ -45,6 +45,7 @@ export function PayoutPreview({
   const [calculatedPayouts, setCalculatedPayouts] = useState<PayoutCalculation[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [hasCalculated, setHasCalculated] = useState(false);
+  const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
 
   const { 
     calculatePayouts, 
@@ -296,6 +297,7 @@ export function PayoutPreview({
                       payout={payout}
                       formatCurrency={formatCurrency}
                       getStatusBadge={getStatusBadge}
+                      onClick={() => setSelectedPayout(payout)}
                     />
                   ))}
                 </TableBody>
@@ -317,6 +319,14 @@ export function PayoutPreview({
           </CardContent>
         </Card>
       )}
+
+      {/* Detail Sheet */}
+      <PayoutDetailSheet
+        payout={selectedPayout}
+        open={!!selectedPayout}
+        onOpenChange={(open) => !open && setSelectedPayout(null)}
+        formatCurrency={formatCurrency}
+      />
     </div>
   );
 }
