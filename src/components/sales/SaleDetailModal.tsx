@@ -36,6 +36,7 @@ type SaleDetail = {
   is_vc_qualifying: boolean | null;
   is_bundle: boolean | null;
   bundle_type: string | null;
+  canEdit?: boolean; // Permission flag from edge function
   team_member: {
     name: string;
   } | null;
@@ -110,6 +111,7 @@ export function SaleDetailModal({
           is_vc_qualifying: s.is_vc_qualifying,
           is_bundle: s.is_bundle,
           bundle_type: s.bundle_type,
+          canEdit: result.can_edit, // Store permission from edge function
           team_member: s.team_member,
           sale_policies: s.sale_policies || [],
         } as SaleDetail;
@@ -170,7 +172,7 @@ export function SaleDetailModal({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Sale Details</span>
-            {sale && onEdit && (canEditAllSales || sale.team_member_id === currentTeamMemberId) && (
+            {sale && onEdit && (canEditAllSales || sale.canEdit || sale.team_member_id === currentTeamMemberId) && (
               <Button variant="outline" size="sm" onClick={() => onEdit(sale.id)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Sale
