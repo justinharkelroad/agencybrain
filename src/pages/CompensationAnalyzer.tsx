@@ -8,8 +8,10 @@ import { CompSettingsForm } from "@/components/compensation/CompSettingsForm";
 import { StatementUploader } from "@/components/compensation/StatementUploader";
 import { ReportHistory } from "@/components/compensation/ReportHistory";
 import { DiscrepancyResults } from "@/components/allstate-analyzer/DiscrepancyResults";
+import { PayoutPreview } from "@/components/sales/PayoutPreview";
 import { ValidationResult } from "@/lib/allstate-analyzer/rate-validator";
 import { supabase } from "@/integrations/supabase/client";
+import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 
 export default function CompensationAnalyzer() {
   const [activeTab, setActiveTab] = useState("upload");
@@ -146,6 +148,16 @@ export default function CompensationAnalyzer() {
                           </pre>
                         </div>
                       </>
+                    )}
+
+                    {/* Payout Calculator Section */}
+                    {(currentReport.comparison_data as any)?.subProducerData && (
+                      <PayoutPreview
+                        agencyId={currentReport.agency_id}
+                        subProducerData={(currentReport.comparison_data as any).subProducerData as SubProducerMetrics[]}
+                        statementMonth={(currentReport.current_upload as any)?.statement_month}
+                        statementYear={(currentReport.current_upload as any)?.statement_year}
+                      />
                     )}
                   </div>
                 ) : (
