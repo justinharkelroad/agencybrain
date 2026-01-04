@@ -126,24 +126,29 @@ export function usePayoutCalculator(agencyId: string | null) {
     return data || [];
   };
 
-  // Calculate payouts from sub-producer data
-  const calculatePayouts = (
+  // Calculate payouts from sub-producer data (async for promo bonus calculation)
+  const calculatePayouts = async (
     subProducerData: SubProducerMetrics[] | undefined | null,
     month: number,
     year: number
-  ): { payouts: PayoutCalculation[]; warnings: string[] } => {
+  ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> => {
     // Guard against missing data
     if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
       return { payouts: [], warnings: ['No sub-producer data available for this statement'] };
     }
     
-    return calculateAllPayouts(
+    if (!agencyId) {
+      return { payouts: [], warnings: ['No agency ID available'] };
+    }
+    
+    return await calculateAllPayouts(
       subProducerData,
       plans,
       assignments,
       teamMembers,
       month,
-      year
+      year,
+      agencyId
     );
   };
 
