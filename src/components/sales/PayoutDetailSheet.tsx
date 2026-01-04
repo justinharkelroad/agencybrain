@@ -1,12 +1,14 @@
-import React from 'react';
-import { FileText, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, XCircle, AlertTriangle, Info, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PayoutCalculation } from '@/lib/payout-calculator/types';
 import { InsuredAggregate } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { CommissionStatementExport } from './CommissionStatementExport';
 
 interface PayoutDetailSheetProps {
   payout: PayoutCalculation | null;
@@ -16,6 +18,8 @@ interface PayoutDetailSheetProps {
 }
 
 export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }: PayoutDetailSheetProps) {
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  
   if (!payout) return null;
 
   const hasChargebacks = payout.chargebackCount > 0;
@@ -39,12 +43,25 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-hidden flex flex-col">
         <SheetHeader className="flex-shrink-0">
-          <SheetTitle className="text-lg font-semibold">
-            {payout.teamMemberName}
-          </SheetTitle>
-          <SheetDescription className="text-sm">
-            {payout.compPlanName}
-          </SheetDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <SheetTitle className="text-lg font-semibold">
+                {payout.teamMemberName}
+              </SheetTitle>
+              <SheetDescription className="text-sm">
+                {payout.compPlanName}
+              </SheetDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowExportDialog(true)}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export Statement
+            </Button>
+          </div>
         </SheetHeader>
 
         <ScrollArea className="flex-1 -mx-6 px-6">
@@ -158,6 +175,13 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
             </div>
           </div>
         </ScrollArea>
+        
+        {/* Export Dialog */}
+        <CommissionStatementExport
+          payout={payout}
+          open={showExportDialog}
+          onOpenChange={setShowExportDialog}
+        />
       </SheetContent>
     </Sheet>
   );
