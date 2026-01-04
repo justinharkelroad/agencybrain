@@ -2,7 +2,9 @@
 
 import { CompPlan, CompPlanTier } from "@/hooks/useCompPlans";
 import { SubProducerMetrics, SubProducerTransaction } from "@/lib/allstate-analyzer/sub-producer-analyzer";
-import { PayoutCalculation, TierMatch, SubProducerPerformance } from "./types";
+import { PayoutCalculation, TierMatch, SubProducerPerformance, AchievedPromo } from "./types";
+import { supabase } from "@/integrations/supabase/client";
+import { calculatePromoProgress, PromoGoal } from "@/hooks/usePromoGoals";
 
 interface TeamMember {
   id: string;
@@ -291,13 +293,113 @@ export function convertToPerformance(
 }
 
 /**
+ * Calculate promo bonuses for a team member for a given period
+ */
+export async function calculatePromoBonus(
+  teamMemberId: string,
+  agencyId: string,
+  periodMonth: number,
+  periodYear: number
+): Promise<{ bonusAmount: number; achievedPromos: AchievedPromo[] }> {
+  // Get the start and end of the payout period
+  const periodStart = new Date(periodYear, periodMonth - 1, 1);
+  const periodEnd = new Date(periodYear, periodMonth, 0); // Last day of month
+  
+  const periodStartStr = periodStart.toISOString().split('T')[0];
+  const periodEndStr = periodEnd.toISOString().split('T')[0];
+  
+  try {
+    // Get promo goals assigned to this team member
+    const { data: assignments, error: assignError } = await supabase
+      .from("sales_goal_assignments")
+      .select("sales_goal_id")
+      .eq("team_member_id", teamMemberId);
+    
+    if (assignError) {
+      console.error("Error fetching promo assignments:", assignError);
+      return { bonusAmount: 0, achievedPromos: [] };
+    }
+    
+    const goalIds = assignments?.map(a => a.sales_goal_id) || [];
+    if (goalIds.length === 0) {
+      return { bonusAmount: 0, achievedPromos: [] };
+    }
+    
+    // Fetch promo goals that overlap with this period
+    const { data: goals, error: goalsError } = await supabase
+      .from("sales_goals")
+      .select(`
+        id,
+        goal_name,
+        measurement,
+        target_value,
+        bonus_amount_cents,
+        start_date,
+        end_date,
+        promo_source,
+        product_type_id,
+        kpi_slug,
+        goal_focus
+      `)
+      .in("id", goalIds)
+      .eq("goal_type", "promo")
+      .eq("is_active", true)
+      .lte("start_date", periodEndStr)  // Promo starts before/during period end
+      .gte("end_date", periodStartStr); // Promo ends after/during period start
+    
+    if (goalsError) {
+      console.error("Error fetching promo goals:", goalsError);
+      return { bonusAmount: 0, achievedPromos: [] };
+    }
+    
+    if (!goals || goals.length === 0) {
+      return { bonusAmount: 0, achievedPromos: [] };
+    }
+    
+    const achievedPromos: AchievedPromo[] = [];
+    let totalBonus = 0;
+    
+    for (const goal of goals) {
+      try {
+        const progress = await calculatePromoProgress(
+          goal as PromoGoal,
+          teamMemberId,
+          agencyId
+        );
+        
+        if (progress >= goal.target_value) {
+          const bonusAmountDollars = (goal.bonus_amount_cents || 0) / 100;
+          totalBonus += bonusAmountDollars;
+          
+          achievedPromos.push({
+            promoId: goal.id,
+            promoName: goal.goal_name,
+            bonusAmount: bonusAmountDollars,
+            targetValue: goal.target_value,
+            achievedValue: progress,
+          });
+        }
+      } catch (e) {
+        console.error(`Error calculating promo progress for ${goal.goal_name}:`, e);
+      }
+    }
+    
+    return { bonusAmount: totalBonus, achievedPromos };
+  } catch (e) {
+    console.error("Error in calculatePromoBonus:", e);
+    return { bonusAmount: 0, achievedPromos: [] };
+  }
+}
+
+/**
  * Calculate payout for a single team member
  */
 export function calculateMemberPayout(
   performance: SubProducerPerformance,
   plan: CompPlan,
   periodMonth: number,
-  periodYear: number
+  periodYear: number,
+  promoBonus: { bonusAmount: number; achievedPromos: AchievedPromo[] } = { bonusAmount: 0, achievedPromos: [] }
 ): PayoutCalculation {
   // Get the metric value for tier matching
   const metricValue = getMetricValue(performance, plan.tier_metric);
@@ -306,11 +408,14 @@ export function calculateMemberPayout(
   const tierMatch = findMatchingTier(plan.tiers, metricValue);
   
   // Calculate commission
-  const { baseCommission, bonusAmount, totalPayout } = calculateCommission(
+  const { baseCommission } = calculateCommission(
     performance,
     plan,
     tierMatch
   );
+  
+  // Add promo bonus to total
+  const totalPayout = baseCommission + promoBonus.bonusAmount;
   
   return {
     teamMemberId: performance.teamMemberId || '',
@@ -354,8 +459,11 @@ export function calculateMemberPayout(
     
     // Commission
     baseCommission,
-    bonusAmount,
+    bonusAmount: promoBonus.bonusAmount,
     totalPayout,
+    
+    // Promo bonuses
+    achievedPromos: promoBonus.achievedPromos,
     
     // Rollover (written - issued for future months)
     rolloverPremium: 0, // Calculated separately if needed
@@ -370,16 +478,17 @@ export function calculateMemberPayout(
 }
 
 /**
- * Calculate payouts for all assigned team members
+ * Calculate payouts for all assigned team members (async for promo bonus calculation)
  */
-export function calculateAllPayouts(
+export async function calculateAllPayouts(
   subProducerData: SubProducerMetrics[] | undefined | null,
   plans: CompPlan[],
   assignments: Assignment[],
   teamMembers: TeamMember[],
   periodMonth: number,
-  periodYear: number
-): { payouts: PayoutCalculation[]; warnings: string[] } {
+  periodYear: number,
+  agencyId: string
+): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
     console.warn('calculateAllPayouts: subProducerData is not available');
@@ -410,6 +519,9 @@ export function calculateAllPayouts(
     assignmentsByMember.set(a.team_member_id, existing);
   });
   
+  // Cache promo bonuses by team member to avoid duplicate calculations
+  const promoBonusCache = new Map<string, { bonusAmount: number; achievedPromos: AchievedPromo[] }>();
+  
   // Process each sub-producer's data
   for (const metrics of subProducerData) {
     const code = metrics.code.trim();
@@ -424,6 +536,13 @@ export function calculateAllPayouts(
     if (!memberPlanIds || memberPlanIds.length === 0) {
       warnings.push(`No compensation plan assigned to: ${teamMember.name}`);
       continue;
+    }
+    
+    // Calculate promo bonus once per team member (cache it)
+    let promoBonus = promoBonusCache.get(teamMember.id);
+    if (!promoBonus) {
+      promoBonus = await calculatePromoBonus(teamMember.id, agencyId, periodMonth, periodYear);
+      promoBonusCache.set(teamMember.id, promoBonus);
     }
     
     // Calculate payout for each assigned plan
@@ -449,7 +568,7 @@ export function calculateAllPayouts(
         periodYear
       );
       
-      const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear);
+      const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear, promoBonus);
       payouts.push(payout);
     }
   }

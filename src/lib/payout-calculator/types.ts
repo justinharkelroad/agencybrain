@@ -47,6 +47,14 @@ export interface TierMatch {
   metricValue: number;
 }
 
+export interface AchievedPromo {
+  promoId: string;
+  promoName: string;
+  bonusAmount: number;
+  targetValue: number;
+  achievedValue: number;
+}
+
 export interface PayoutCalculation {
   teamMemberId: string;
   teamMemberName: string;
@@ -91,6 +99,9 @@ export interface PayoutCalculation {
   baseCommission: number;
   bonusAmount: number;
   totalPayout: number;
+  
+  // Promo bonuses
+  achievedPromos: AchievedPromo[];
   
   // Rollover
   rolloverPremium: number;

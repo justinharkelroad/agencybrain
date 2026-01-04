@@ -68,7 +68,7 @@ export function PayoutPreview({
     return years;
   }, [currentDate]);
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     // subProducerData is an object with producers array, not an array itself
     const producers = subProducerData?.producers;
     if (!producers || producers.length === 0) {
@@ -77,7 +77,7 @@ export function PayoutPreview({
       return;
     }
 
-    const result = calculatePayouts(producers, selectedMonth, selectedYear);
+    const result = await calculatePayouts(producers, selectedMonth, selectedYear);
     setCalculatedPayouts(result.payouts);
     setWarnings(result.warnings);
     setHasCalculated(true);
