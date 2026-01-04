@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, TrendingUp, DollarSign, Target, Award, BarChart3 } from "lucide-react";
+import { Loader2, TrendingUp, DollarSign, Target, Award, BarChart3, CheckCircle2, Building } from "lucide-react";
 import { 
   getBusinessDaysInMonth, 
   getBusinessDaysElapsed 
@@ -20,8 +20,16 @@ interface CommissionData {
     name: string;
     payout_type: string;
     tier_metric: string;
+    brokered_payout_type: string | null;
+    brokered_counts_toward_tier: boolean | null;
+    brokered_flat_rate: number | null;
   } | null;
   tiers: Array<{
+    min_threshold: number;
+    commission_value: number;
+    sort_order: number;
+  }>;
+  brokered_tiers: Array<{
     min_threshold: number;
     commission_value: number;
     sort_order: number;
@@ -30,6 +38,7 @@ interface CommissionData {
     written_premium: number;
     written_items: number;
     written_policies: number;
+    written_households: number;
     net_premium: number;
     tier_threshold_met: number | null;
     tier_commission_value: number | null;
@@ -37,6 +46,9 @@ interface CommissionData {
     status: string;
   } | null;
   current_month_written_premium: number;
+  current_month_written_items: number;
+  current_month_written_policies: number;
+  current_month_written_households: number;
   team_member_name: string;
 }
 
@@ -44,6 +56,85 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+
+// Helper functions for dynamic display
+function getMetricValue(data: CommissionData): number {
+  switch (data.plan?.tier_metric) {
+    case 'items': return data.current_month_written_items;
+    case 'policies': return data.current_month_written_policies;
+    case 'households': return data.current_month_written_households;
+    case 'premium':
+    default: return data.current_month_written_premium;
+  }
+}
+
+function getMetricLabel(tierMetric: string): string {
+  switch (tierMetric) {
+    case 'items': return 'items';
+    case 'policies': return 'policies';
+    case 'households': return 'households';
+    case 'points': return 'points';
+    default: return '';
+  }
+}
+
+function formatCommissionValue(value: number, payoutType: string): string {
+  switch (payoutType) {
+    case 'percent_of_premium': return `${value}%`;
+    case 'flat_per_item': return `$${value}/item`;
+    case 'flat_per_policy': return `$${value}/policy`;
+    case 'flat_per_household': return `$${value}/HH`;
+    default: return `${value}%`;
+  }
+}
+
+function formatThreshold(threshold: number, tierMetric: string): string {
+  if (tierMetric === 'premium') {
+    return `$${threshold.toLocaleString()}+`;
+  }
+  return `${threshold.toLocaleString()}+ ${getMetricLabel(tierMetric)}`;
+}
+
+function formatMetricDisplay(value: number, tierMetric: string): string {
+  if (tierMetric === 'premium') {
+    return `$${value.toLocaleString()}`;
+  }
+  return value.toLocaleString();
+}
+
+function getProductionLabel(tierMetric: string): string {
+  switch (tierMetric) {
+    case 'items': return 'Written Items';
+    case 'policies': return 'Written Policies';
+    case 'households': return 'Households';
+    case 'points': return 'Points';
+    case 'premium':
+    default: return 'Written Premium';
+  }
+}
+
+function calculatePayout(
+  metricValue: number, 
+  premium: number,
+  items: number,
+  policies: number,
+  households: number,
+  commissionValue: number, 
+  payoutType: string
+): number {
+  switch (payoutType) {
+    case 'percent_of_premium':
+      return premium * (commissionValue / 100);
+    case 'flat_per_item':
+      return items * commissionValue;
+    case 'flat_per_policy':
+      return policies * commissionValue;
+    case 'flat_per_household':
+      return households * commissionValue;
+    default:
+      return premium * (commissionValue / 100);
+  }
+}
 
 export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetProps) {
   const today = new Date();
@@ -103,12 +194,13 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
     );
   }
 
-  const { plan, tiers, current_payout, current_month_written_premium } = data;
+  const { plan, tiers, brokered_tiers, current_payout, current_month_written_premium, current_month_written_items, current_month_written_policies, current_month_written_households } = data;
   const periodLabel = `${MONTHS[currentMonth - 1]} ${currentYear}`;
 
-  // Find current and next tier based on written premium
-  const metricValue = current_month_written_premium;
+  // Get the correct metric value based on plan settings
+  const metricValue = getMetricValue(data);
   const sortedTiers = [...tiers].sort((a, b) => a.min_threshold - b.min_threshold);
+  const sortedBrokeredTiers = [...(brokered_tiers || [])].sort((a, b) => a.min_threshold - b.min_threshold);
   
   let currentTier: typeof sortedTiers[0] | null = null;
   let nextTier: typeof sortedTiers[0] | null = null;
@@ -126,18 +218,17 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
     nextTier = sortedTiers[0];
   }
 
-  // Calculate progress to next tier
-  const progressToNextTier = nextTier
-    ? Math.min(100, (metricValue / nextTier.min_threshold) * 100)
-    : 100;
-
-  const amountToNextTier = nextTier
-    ? Math.max(0, nextTier.min_threshold - metricValue)
-    : 0;
-
   // Estimate payout based on current production
   const estimatedPayout = currentTier
-    ? metricValue * (currentTier.commission_value / 100)
+    ? calculatePayout(
+        metricValue,
+        current_month_written_premium,
+        current_month_written_items,
+        current_month_written_policies,
+        current_month_written_households,
+        currentTier.commission_value,
+        plan.payout_type
+      )
     : 0;
 
   // ========== PROJECTION CALCULATIONS ==========
@@ -159,8 +250,30 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
     }
   }
   
+  // Calculate projected values for payout calculation
+  const projectedPremium = plan.tier_metric === 'premium' 
+    ? projectedMonthEnd 
+    : (businessDaysElapsed > 0 ? (current_month_written_premium / businessDaysElapsed) * businessDaysInMonth : 0);
+  const projectedItems = plan.tier_metric === 'items' 
+    ? projectedMonthEnd 
+    : (businessDaysElapsed > 0 ? (current_month_written_items / businessDaysElapsed) * businessDaysInMonth : 0);
+  const projectedPolicies = plan.tier_metric === 'policies' 
+    ? projectedMonthEnd 
+    : (businessDaysElapsed > 0 ? (current_month_written_policies / businessDaysElapsed) * businessDaysInMonth : 0);
+  const projectedHouseholds = plan.tier_metric === 'households' 
+    ? projectedMonthEnd 
+    : (businessDaysElapsed > 0 ? (current_month_written_households / businessDaysElapsed) * businessDaysInMonth : 0);
+  
   const projectedPayout = projectedTier
-    ? projectedMonthEnd * (projectedTier.commission_value / 100)
+    ? calculatePayout(
+        projectedMonthEnd,
+        projectedPremium,
+        projectedItems,
+        projectedPolicies,
+        projectedHouseholds,
+        projectedTier.commission_value,
+        plan.payout_type
+      )
     : 0;
   
   // Determine projection message
@@ -168,27 +281,96 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
     if (!projectedTier && sortedTiers.length > 0) {
       const firstTier = sortedTiers[0];
       const neededDaily = firstTier.min_threshold / businessDaysInMonth;
-      return `Increase daily average to $${neededDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })} to reach the $${firstTier.min_threshold.toLocaleString()} tier`;
+      const formattedNeeded = plan.tier_metric === 'premium' 
+        ? `$${neededDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}` 
+        : neededDaily.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      return `Increase daily average to ${formattedNeeded} to reach the ${formatThreshold(firstTier.min_threshold, plan.tier_metric)} tier`;
     }
     if (projectedTier && currentTier && projectedTier.min_threshold === currentTier.min_threshold) {
-      return `On track to stay at ${projectedTier.commission_value}%`;
+      return `On track to stay at ${formatCommissionValue(projectedTier.commission_value, plan.payout_type)}`;
     }
     if (projectedTier && (!currentTier || projectedTier.min_threshold > currentTier.min_threshold)) {
-      return `Keep this pace to unlock the ${projectedTier.commission_value}% tier!`;
+      return `Keep this pace to unlock the ${formatCommissionValue(projectedTier.commission_value, plan.payout_type)} tier!`;
     }
     if (nextTier && projectedTier && projectedTier.min_threshold < nextTier.min_threshold) {
-      return `Push a bit harder to reach the $${nextTier.min_threshold.toLocaleString()} tier!`;
+      return `Push a bit harder to reach the ${formatThreshold(nextTier.min_threshold, plan.tier_metric)} tier!`;
     }
     return null;
   };
   
-  // Progress toward projected tier threshold
-  const projectedTierProgress = projectedTier
-    ? Math.min(100, (projectedMonthEnd / projectedTier.min_threshold) * 100)
-    : 0;
-  
-  // Show projection only if at least 1 business day elapsed and some premium
+  // Show projection only if at least 1 business day elapsed and some production
   const showProjection = businessDaysElapsed >= 1 && metricValue > 0;
+
+  // Tier rendering helper
+  const renderTierCard = (
+    tier: typeof sortedTiers[0], 
+    index: number, 
+    isCurrent: boolean, 
+    isAchieved: boolean, 
+    isProjected: boolean,
+    tierMetric: string,
+    payoutType: string,
+    currentValue: number
+  ) => {
+    const tierProgress = Math.min(100, (currentValue / tier.min_threshold) * 100);
+    
+    return (
+      <div
+        key={index}
+        className={`p-3 rounded-lg border transition-all ${
+          isCurrent
+            ? "bg-primary/10 border-primary/30"
+            : isAchieved
+            ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+            : isProjected
+            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+            : "bg-muted/30 border-muted"
+        }`}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm">
+              {formatThreshold(tier.min_threshold, tierMetric)}
+            </span>
+            {isAchieved && (
+              <Badge className="bg-green-600 text-white text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                ACHIEVED
+              </Badge>
+            )}
+            {isProjected && !isAchieved && (
+              <Badge variant="outline" className="text-xs text-amber-600 border-amber-400 dark:text-amber-400 dark:border-amber-600">
+                Projected
+              </Badge>
+            )}
+            {isCurrent && !isAchieved && (
+              <Badge className="text-xs">Current</Badge>
+            )}
+          </div>
+          <Badge 
+            variant={isAchieved ? "default" : "outline"} 
+            className={isAchieved ? "bg-green-600" : ""}
+          >
+            {formatCommissionValue(tier.commission_value, payoutType)}
+          </Badge>
+        </div>
+        
+        {/* Progress bar */}
+        <Progress 
+          value={tierProgress} 
+          className={`h-2 ${isAchieved ? '[&>div]:bg-green-500' : ''}`}
+        />
+        
+        {/* Progress text for unachieved tiers */}
+        {!isAchieved && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {formatMetricDisplay(currentValue, tierMetric)} / {formatMetricDisplay(tier.min_threshold, tierMetric)}
+            {tierMetric !== 'premium' && ` ${getMetricLabel(tierMetric)}`} ({tierProgress.toFixed(0)}%)
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -218,8 +400,8 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
           {/* Current Production */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Written Premium</p>
-              <p className="text-2xl font-bold">${metricValue.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">{getProductionLabel(plan.tier_metric)}</p>
+              <p className="text-2xl font-bold">{formatMetricDisplay(metricValue, plan.tier_metric)}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Estimated Payout</p>
@@ -240,7 +422,7 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
               </div>
               {currentTier ? (
                 <Badge className="bg-primary text-primary-foreground">
-                  {currentTier.commission_value}% Rate
+                  {formatCommissionValue(currentTier.commission_value, plan.payout_type)}
                 </Badge>
               ) : (
                 <Badge variant="secondary">No tier reached</Badge>
@@ -248,7 +430,7 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
             </div>
             {currentTier && (
               <p className="text-sm text-muted-foreground">
-                You've reached the ${currentTier.min_threshold.toLocaleString()}+ tier
+                You've reached the {formatThreshold(currentTier.min_threshold, plan.tier_metric)} tier
               </p>
             )}
           </div>
@@ -262,13 +444,13 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                   <span className="font-medium">Next Tier</span>
                 </div>
                 <span className="text-sm">
-                  ${nextTier.min_threshold.toLocaleString()} ({nextTier.commission_value}%)
+                  {formatThreshold(nextTier.min_threshold, plan.tier_metric)} ({formatCommissionValue(nextTier.commission_value, plan.payout_type)})
                 </span>
               </div>
-              <Progress value={progressToNextTier} className="h-3" />
+              <Progress value={Math.min(100, (metricValue / nextTier.min_threshold) * 100)} className="h-3" />
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>{progressToNextTier.toFixed(0)}% there</span>
-                <span>${amountToNextTier.toLocaleString()} to go</span>
+                <span>{Math.min(100, (metricValue / nextTier.min_threshold) * 100).toFixed(0)}% there</span>
+                <span>{formatMetricDisplay(Math.max(0, nextTier.min_threshold - metricValue), plan.tier_metric)} to go</span>
               </div>
             </div>
           )}
@@ -290,20 +472,20 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Daily Average</p>
                     <p className="text-lg font-semibold">
-                      ${dailyAverage.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {formatMetricDisplay(Math.round(dailyAverage), plan.tier_metric)}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Projected Premium</p>
+                    <p className="text-xs text-muted-foreground">Projected {getProductionLabel(plan.tier_metric)}</p>
                     <p className="text-lg font-semibold">
-                      ${projectedMonthEnd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      {formatMetricDisplay(Math.round(projectedMonthEnd), plan.tier_metric)}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Projected Tier</p>
                     <p className="text-lg font-semibold">
                       {projectedTier 
-                        ? `$${projectedTier.min_threshold.toLocaleString()}+ (${projectedTier.commission_value}%)`
+                        ? `${formatThreshold(projectedTier.min_threshold, plan.tier_metric)}`
                         : "Below tiers"
                       }
                     </p>
@@ -331,17 +513,6 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                     </p>
                   )}
                 </div>
-
-                {/* Progress toward projected tier */}
-                {projectedTier && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Progress toward ${projectedTier.min_threshold.toLocaleString()} tier</span>
-                      <span>{projectedTierProgress.toFixed(0)}%</span>
-                    </div>
-                    <Progress value={projectedTierProgress} className="h-2" />
-                  </div>
-                )}
               </div>
             </>
           )}
@@ -357,7 +528,7 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
             </>
           )}
 
-          {/* All Tiers */}
+          {/* All Tiers with Individual Progress Bars */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -368,35 +539,50 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                 const isCurrent = currentTier?.min_threshold === tier.min_threshold;
                 const isAchieved = metricValue >= tier.min_threshold;
                 const isProjected = projectedTier?.min_threshold === tier.min_threshold && !isCurrent;
-                return (
-                  <div
-                    key={index}
-                    className={`flex items-center justify-between p-2 rounded-md text-sm ${
-                      isCurrent
-                        ? "bg-primary/10 border border-primary/20"
-                        : isProjected
-                        ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800"
-                        : isAchieved
-                        ? "bg-muted/50"
-                        : "opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>${tier.min_threshold.toLocaleString()}+</span>
-                      {isProjected && !isCurrent && (
-                        <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-                          Projected
-                        </Badge>
-                      )}
-                    </div>
-                    <Badge variant={isCurrent ? "default" : isAchieved ? "secondary" : "outline"}>
-                      {tier.commission_value}%
-                    </Badge>
-                  </div>
+                
+                return renderTierCard(
+                  tier, 
+                  index, 
+                  isCurrent, 
+                  isAchieved, 
+                  isProjected, 
+                  plan.tier_metric, 
+                  plan.payout_type,
+                  metricValue
                 );
               })}
             </div>
           </div>
+
+          {/* Brokered Tiers Section */}
+          {sortedBrokeredTiers.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Brokered Business Tiers</span>
+                </div>
+                <div className="space-y-2">
+                  {sortedBrokeredTiers.map((tier, index) => {
+                    const isAchieved = metricValue >= tier.min_threshold;
+                    const brokeredPayoutType = plan.brokered_payout_type || plan.payout_type;
+                    
+                    return renderTierCard(
+                      tier, 
+                      index, 
+                      false, // Brokered tiers don't have a "current" state in same way
+                      isAchieved, 
+                      false, 
+                      plan.tier_metric, 
+                      brokeredPayoutType,
+                      metricValue
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -108,10 +108,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get comp plan
+    // Get comp plan with brokered settings
     const { data: plan, error: planError } = await supabase
       .from("comp_plans")
-      .select("id, name, payout_type, tier_metric")
+      .select("id, name, payout_type, tier_metric, brokered_payout_type, brokered_counts_toward_tier, brokered_flat_rate")
       .eq("id", assignment.comp_plan_id)
       .single();
 
@@ -134,10 +134,21 @@ Deno.serve(async (req) => {
       console.error("[get-staff-commission] Error fetching tiers:", tiersError);
     }
 
+    // Get brokered tiers
+    const { data: brokeredTiers, error: brokeredTiersError } = await supabase
+      .from("comp_plan_brokered_tiers")
+      .select("min_threshold, commission_value, sort_order")
+      .eq("comp_plan_id", plan.id)
+      .order("sort_order", { ascending: true });
+
+    if (brokeredTiersError) {
+      console.error("[get-staff-commission] Error fetching brokered tiers:", brokeredTiersError);
+    }
+
     // Get current payout for this period
     const { data: currentPayout, error: payoutError } = await supabase
       .from("comp_payouts")
-      .select("written_premium, written_items, written_policies, net_premium, tier_threshold_met, tier_commission_value, total_payout, status")
+      .select("written_premium, written_items, written_policies, written_households, net_premium, tier_threshold_met, tier_commission_value, total_payout, status")
       .eq("team_member_id", staffUser.team_member_id)
       .eq("period_month", month)
       .eq("period_year", year)
@@ -154,32 +165,54 @@ Deno.serve(async (req) => {
     const startStr = startDate.toISOString().split("T")[0];
     const endStr = endDate.toISOString().split("T")[0];
 
-    // Get sales for the period
+    // Get sales for the period with all relevant metrics
     const { data: sales, error: salesError } = await supabase
       .from("sales")
-      .select("total_premium")
+      .select("total_premium, total_items, customer_id")
       .eq("team_member_id", staffUser.team_member_id)
       .gte("sale_date", startStr)
       .lte("sale_date", endStr);
 
     let currentMonthWrittenPremium = 0;
+    let currentMonthWrittenItems = 0;
+    let currentMonthWrittenPolicies = 0;
+    let currentMonthWrittenHouseholds = 0;
+
     if (!salesError && sales) {
       currentMonthWrittenPremium = sales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
+      currentMonthWrittenItems = sales.reduce((sum, s) => sum + (s.total_items || 0), 0);
+      currentMonthWrittenPolicies = sales.length;
+      // Count unique customer_ids for households
+      const uniqueCustomers = new Set(sales.map(s => s.customer_id).filter(Boolean));
+      currentMonthWrittenHouseholds = uniqueCustomers.size;
     }
 
-    // If we have a payout record, use its written_premium instead (more accurate from statement)
+    // If we have a payout record, use its values instead (more accurate from statement)
     if (currentPayout?.written_premium) {
       currentMonthWrittenPremium = currentPayout.written_premium;
     }
+    if (currentPayout?.written_items) {
+      currentMonthWrittenItems = currentPayout.written_items;
+    }
+    if (currentPayout?.written_policies) {
+      currentMonthWrittenPolicies = currentPayout.written_policies;
+    }
+    if (currentPayout?.written_households) {
+      currentMonthWrittenHouseholds = currentPayout.written_households;
+    }
 
-    console.log(`[get-staff-commission] Success - plan=${plan.name}, premium=${currentMonthWrittenPremium}`);
+    console.log(`[get-staff-commission] Success - plan=${plan.name}, premium=${currentMonthWrittenPremium}, items=${currentMonthWrittenItems}, policies=${currentMonthWrittenPolicies}, households=${currentMonthWrittenHouseholds}`);
 
     return new Response(
       JSON.stringify({
         plan,
         tiers: tiers || [],
+        brokered_tiers: brokeredTiers || [],
         current_payout: currentPayout || null,
         current_month_written_premium: currentMonthWrittenPremium,
+        current_month_written_items: currentMonthWrittenItems,
+        current_month_written_policies: currentMonthWrittenPolicies,
+        current_month_written_households: currentMonthWrittenHouseholds,
         team_member_name: teamMember.name,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
