@@ -439,6 +439,7 @@ export function CreateCompPlanModal({
             </div>
           </form>
         </div>
+      </DialogContent>
     </Dialog>
   );
 }
