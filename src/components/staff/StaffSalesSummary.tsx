@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { DollarSign, Package, FileText, Trophy, ArrowRight, Users } from "lucide-react";
+import { DollarSign, Package, FileText, Trophy, Users, Upload, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
 import { StatOrb } from "@/components/sales/StatOrb";
 import { StaffPromoGoalsWidget } from "@/components/sales/StaffPromoGoalsWidget";
+import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { cn } from "@/lib/utils";
 import { 
   getBusinessDaysInMonth, 
@@ -32,6 +36,8 @@ interface SalesTotals {
 
 export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false }: StaffSalesSummaryProps) {
   const { sessionToken } = useStaffAuth();
+  const navigate = useNavigate();
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
@@ -175,13 +181,26 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             {format(today, "MMMM yyyy")}
           </span>
           {showViewAll && (
-            <Link 
-              to="/staff/sales" 
-              className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 group"
-            >
-              View All 
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/staff/sales?tab=upload')}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Upload Sale</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAnalytics(true)}
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Analytics</span>
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -292,6 +311,25 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       <div className="mt-6">
         <StaffPromoGoalsWidget sessionToken={sessionToken} />
       </div>
+
+      {/* Analytics Slide-Over */}
+      <Sheet open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-4xl overflow-y-auto"
+        >
+          <SheetHeader>
+            <SheetTitle>Sales Analytics</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <SalesBreakdownTabs 
+              agencyId={agencyId} 
+              showLeaderboard={true}
+              staffSessionToken={sessionToken || undefined}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
