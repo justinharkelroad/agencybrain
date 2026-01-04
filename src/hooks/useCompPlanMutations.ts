@@ -10,10 +10,12 @@ export interface CompPlanFormData {
   tier_metric: string;
   chargeback_rule: string;
   policy_type_filter: string[] | null;
+  brokered_payout_type: string;
   brokered_flat_rate: number | null;
   brokered_counts_toward_tier: boolean;
   is_active: boolean;
   tiers: TierFormData[];
+  brokered_tiers: TierFormData[];
   assigned_member_ids: string[];
 }
 
@@ -42,6 +44,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           tier_metric: data.tier_metric,
           chargeback_rule: data.chargeback_rule,
           policy_type_filter: data.policy_type_filter,
+          brokered_payout_type: data.brokered_payout_type,
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
           is_active: data.is_active,
@@ -67,7 +70,23 @@ export function useCompPlanMutations(agencyId: string | null) {
         if (tiersError) throw tiersError;
       }
 
-      // 3. Create assignments using UPSERT to handle re-assignment on same day
+      // 3. Create brokered tiers (if tiered brokered payout)
+      if (data.brokered_tiers && data.brokered_tiers.length > 0) {
+        const brokeredTiersToInsert = data.brokered_tiers.map((tier, index) => ({
+          comp_plan_id: plan.id,
+          min_threshold: tier.min_threshold,
+          commission_value: tier.commission_value,
+          sort_order: index,
+        }));
+
+        const { error: brokeredTiersError } = await supabase
+          .from("comp_plan_brokered_tiers")
+          .insert(brokeredTiersToInsert);
+
+        if (brokeredTiersError) throw brokeredTiersError;
+      }
+
+      // 4. Create assignments using UPSERT to handle re-assignment on same day
       if (data.assigned_member_ids.length > 0) {
         const today = new Date().toISOString().split("T")[0];
         const assignmentsToUpsert = data.assigned_member_ids.map((memberId) => ({
@@ -112,6 +131,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           tier_metric: data.tier_metric,
           chargeback_rule: data.chargeback_rule,
           policy_type_filter: data.policy_type_filter,
+          brokered_payout_type: data.brokered_payout_type,
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
           is_active: data.is_active,
@@ -141,6 +161,29 @@ export function useCompPlanMutations(agencyId: string | null) {
           .insert(tiersToInsert);
 
         if (tiersError) throw tiersError;
+      }
+
+      // 3. Delete existing brokered tiers and recreate
+      const { error: deleteBrokeredError } = await supabase
+        .from("comp_plan_brokered_tiers")
+        .delete()
+        .eq("comp_plan_id", data.id);
+
+      if (deleteBrokeredError) throw deleteBrokeredError;
+
+      if (data.brokered_tiers && data.brokered_tiers.length > 0) {
+        const brokeredTiersToInsert = data.brokered_tiers.map((tier, index) => ({
+          comp_plan_id: data.id!,
+          min_threshold: tier.min_threshold,
+          commission_value: tier.commission_value,
+          sort_order: index,
+        }));
+
+        const { error: brokeredTiersError } = await supabase
+          .from("comp_plan_brokered_tiers")
+          .insert(brokeredTiersToInsert);
+
+        if (brokeredTiersError) throw brokeredTiersError;
       }
 
       // 3. Handle staff assignments - use upsert logic to avoid duplicate key errors

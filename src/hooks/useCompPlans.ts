@@ -17,12 +17,14 @@ export interface CompPlan {
   tier_metric: string;
   chargeback_rule: string;
   brokered_flat_rate: number | null;
+  brokered_payout_type: string | null;
   brokered_counts_toward_tier: boolean | null;
   policy_type_filter: string[] | null;
   is_active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
   tiers: CompPlanTier[];
+  brokered_tiers: CompPlanTier[];
   assigned_count: number;
 }
 
@@ -52,6 +54,15 @@ export function useCompPlans(agencyId: string | null) {
 
       if (tiersError) throw tiersError;
 
+      // Fetch brokered tiers for these plans
+      const { data: brokeredTiers, error: brokeredTiersError } = await supabase
+        .from("comp_plan_brokered_tiers")
+        .select("*")
+        .in("comp_plan_id", planIds)
+        .order("sort_order");
+
+      if (brokeredTiersError) throw brokeredTiersError;
+
       // Fetch assignment counts
       const { data: assignments, error: assignmentsError } = await supabase
         .from("comp_plan_assignments")
@@ -71,6 +82,7 @@ export function useCompPlans(agencyId: string | null) {
       return plans.map((plan) => ({
         ...plan,
         tiers: (tiers || []).filter((t) => t.comp_plan_id === plan.id),
+        brokered_tiers: (brokeredTiers || []).filter((t) => t.comp_plan_id === plan.id),
         assigned_count: assignmentCounts[plan.id] || 0,
       })) as CompPlan[];
     },
