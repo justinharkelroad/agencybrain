@@ -209,7 +209,10 @@ export default function Sales() {
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
-          <SalesBreakdownTabs agencyId={agencyId} />
+          <SalesBreakdownTabs 
+            agencyId={agencyId} 
+            canEditAllSales={true}
+          />
         </TabsContent>
 
         <TabsContent value="goals" className="mt-6 space-y-6">
