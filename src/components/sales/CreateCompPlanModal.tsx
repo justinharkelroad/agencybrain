@@ -377,7 +377,6 @@ export function CreateCompPlanModal({
 
             {/* Commission Tiers */}
             <CommissionTierEditor
-              key={`${payoutType}-${tierMetric}`}
               tiers={tiers}
               onChange={handleTiersChange}
               payoutType={payoutType}
