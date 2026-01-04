@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,9 +15,19 @@ import { Loader2 } from "lucide-react";
 
 export default function Sales() {
   const { isAdmin, user } = useAuth();
-  const [activeTab, setActiveTab] = useState("log");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "log");
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
+
+  // Sync tab from URL on mount and when URL changes
+  useEffect(() => {
+    const validTabs = ["log", "add", "upload", "analytics", "goals", "compensation"];
+    if (tabFromUrl && validTabs.includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   // Fetch agency ID
   useEffect(() => {
@@ -132,10 +142,18 @@ export default function Sales() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    // Update URL without navigation
+    setSearchParams(tab === "log" ? {} : { tab });
     // Clear editing state when switching to log tab
     if (tab === "log") {
       setEditingSaleId(null);
     }
+  };
+
+  const handleSwitchToManualEntry = () => {
+    setActiveTab("add");
+    setSearchParams({ tab: "add" });
+    setEditingSaleId(null);
   };
 
   return (
@@ -177,6 +195,7 @@ export default function Sales() {
           <PdfUploadForm 
             agencyId={agencyId}
             onSuccess={handleSaleCreated}
+            onSwitchToManual={handleSwitchToManualEntry}
           />
         </TabsContent>
 
