@@ -222,14 +222,14 @@ export function CreateCompPlanModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {isEditing ? "Edit Compensation Plan" : "Create Compensation Plan"}
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 overflow-auto pr-4" style={{ maxHeight: 'calc(90vh - 120px)' }}>
           <form onSubmit={handleSubmit} className="space-y-6 pb-4">
             {/* Basic Info */}
             <div className="space-y-4">
