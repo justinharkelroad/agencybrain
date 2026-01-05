@@ -8,6 +8,7 @@ import {
   AccessConfig, 
   isNavFolder 
 } from '@/config/navigation';
+import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 
 export interface UserAccess {
   isStaff: boolean;
@@ -18,7 +19,7 @@ export interface UserAccess {
 
 export function useSidebarAccess() {
   const { isAdmin, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
-  const { effectiveRole, loading } = useUserPermissions();
+  const { effectiveRole, loading, agencyId } = useUserPermissions();
 
   const userAccess = useMemo<UserAccess>(() => {
     const isOwner = isAdmin || isAgencyOwner;
@@ -44,8 +45,8 @@ export function useSidebarAccess() {
 
   const checkItemAccess = useMemo(() => {
     return (item: NavItem, callScoringEnabled: boolean): boolean => {
-      // Check adminOnly flag first - only system admins can see these items
-      if (item.adminOnly && !userAccess.isAdmin) {
+      // Check adminOnly flag - system admins and beta agencies can see these items
+      if (item.adminOnly && !userAccess.isAdmin && !hasSalesBetaAccess(agencyId)) {
         return false;
       }
 
