@@ -406,7 +406,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                         </TableCell>
                         <TableCell className="text-center">
                           {sale.is_vc_qualifying ? (
-                            <Badge variant="default" className="bg-green-600">
+                            <Badge variant="default" className="bg-green-600 text-slate-900">
                               Yes
                             </Badge>
                           ) : (
