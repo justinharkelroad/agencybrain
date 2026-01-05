@@ -29,6 +29,8 @@ import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
+import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
+import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -1387,6 +1389,13 @@ export default function Agency() {
                 Note: Managers and agency owners can always upload calls regardless of this setting.
               </p>
             </div>
+
+            {/* Sales Email Notifications - Only show for agencies with sales beta access */}
+            {hasSalesBetaAccess(agencyId) && (
+              <div className="border-t pt-6">
+                <SalesEmailSettings agencyId={agencyId} />
+              </div>
+            )}
             
           </CardContent>
         </Card>

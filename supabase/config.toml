@@ -273,3 +273,9 @@ verify_jwt = false
 [functions.get_staff_lead_sources]
 verify_jwt = false
 
+[functions.send-sale-notification]
+verify_jwt = false
+
+[functions.send-daily-sales-summary]
+verify_jwt = false
+

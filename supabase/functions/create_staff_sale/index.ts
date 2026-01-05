@@ -230,6 +230,30 @@ serve(async (req) => {
 
     console.log('[create_staff_sale] Sale creation complete');
 
+    // Trigger real-time sale notification (non-blocking)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      
+      fetch(`${supabaseUrl}/functions/v1/send-sale-notification`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sale_id: sale.id,
+          agency_id: staffUser.agency_id,
+        }),
+      }).catch(emailError => {
+        // Log but don't fail the sale
+        console.error('[create_staff_sale] Email notification failed:', emailError);
+      });
+    } catch (emailError) {
+      // Log but don't fail the sale
+      console.error('[create_staff_sale] Email notification setup failed:', emailError);
+    }
+
     return new Response(
       JSON.stringify({ success: true, sale_id: sale.id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
