@@ -166,9 +166,9 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json().catch(() => ({}));
-    const { date_start, date_end, include_leaderboard = true } = body;
+    const { date_start, date_end, include_leaderboard = true, scope = "personal" } = body;
 
-    console.log('Fetching sales for agency:', agencyId, 'team_member:', teamMemberId);
+    console.log('Fetching sales for agency:', agencyId, 'team_member:', teamMemberId, 'scope:', scope);
     console.log('Date range:', date_start, 'to', date_end);
 
     // Fetch lead sources for the agency
@@ -184,10 +184,16 @@ serve(async (req) => {
     }
     console.log('Lead sources found:', leadSources?.length || 0);
 
-    // Fetch personal sales (if team_member_id exists)
+    // Determine if we're fetching personal or team-wide sales
+    const isTeamScope = scope === "team";
+
+    // Fetch sales based on scope
+    let salesForTotals: Sale[] = [];
     let personalSales: Sale[] = [];
-    if (teamMemberId) {
-      const personalQuery = supabase
+    
+    if (isTeamScope) {
+      // For team scope, fetch all agency sales for totals (no team_member filter)
+      const teamQuery = supabase
         .from('sales')
         .select(`
           id,
@@ -203,30 +209,64 @@ serve(async (req) => {
           lead_source_id,
           sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
         `)
-        .eq('agency_id', agencyId)
-        .eq('team_member_id', teamMemberId);
+        .eq('agency_id', agencyId);
 
-      if (date_start) personalQuery.gte('sale_date', date_start);
-      if (date_end) personalQuery.lte('sale_date', date_end);
-      personalQuery.order('sale_date', { ascending: false });
+      if (date_start) teamQuery.gte('sale_date', date_start);
+      if (date_end) teamQuery.lte('sale_date', date_end);
+      teamQuery.order('sale_date', { ascending: false });
 
-      const { data, error } = await personalQuery;
+      const { data, error } = await teamQuery;
       if (error) {
-        console.error('Error fetching personal sales:', error);
+        console.error('Error fetching team sales:', error);
       } else {
-        personalSales = (data || []) as Sale[];
-        console.log('Personal sales found:', personalSales.length);
+        salesForTotals = (data || []) as Sale[];
+        console.log('Team sales found:', salesForTotals.length);
+      }
+    } else {
+      // For personal scope, fetch only the staff member's sales
+      if (teamMemberId) {
+        const personalQuery = supabase
+          .from('sales')
+          .select(`
+            id,
+            sale_date,
+            customer_name,
+            customer_email,
+            customer_phone,
+            customer_zip,
+            total_premium,
+            total_items,
+            total_points,
+            team_member_id,
+            lead_source_id,
+            sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
+          `)
+          .eq('agency_id', agencyId)
+          .eq('team_member_id', teamMemberId);
+
+        if (date_start) personalQuery.gte('sale_date', date_start);
+        if (date_end) personalQuery.lte('sale_date', date_end);
+        personalQuery.order('sale_date', { ascending: false });
+
+        const { data, error } = await personalQuery;
+        if (error) {
+          console.error('Error fetching personal sales:', error);
+        } else {
+          personalSales = (data || []) as Sale[];
+          salesForTotals = personalSales;
+          console.log('Personal sales found:', personalSales.length);
+        }
       }
     }
 
-    // Calculate personal totals including unique households
+    // Calculate totals including unique households
     const uniqueCustomers = new Set(
-      personalSales
+      salesForTotals
         .map(sale => sale.customer_name?.toLowerCase().trim())
         .filter(Boolean)
     );
 
-    const totals = personalSales.reduce(
+    const totals = salesForTotals.reduce(
       (acc, sale) => ({
         premium: acc.premium + (sale.total_premium || 0),
         items: acc.items + (sale.total_items || 0),
@@ -237,12 +277,12 @@ serve(async (req) => {
       { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
     );
 
-    console.log('Personal totals:', JSON.stringify(totals));
+    console.log('Totals (scope=' + scope + '):', JSON.stringify(totals));
 
-    // Fetch leaderboard data if requested
+    // Fetch leaderboard data if requested (only for personal scope to avoid redundant work)
     let leaderboard: LeaderboardEntry[] = [];
     
-    if (include_leaderboard) {
+    if (include_leaderboard && !isTeamScope) {
       // Get all active team members for this agency
       const { data: teamMembers, error: tmError } = await supabase
         .from('team_members')
@@ -328,12 +368,13 @@ serve(async (req) => {
     console.log('Returning success response');
     
     return new Response(JSON.stringify({
-      personal_sales: personalSales,
+      personal_sales: isTeamScope ? [] : personalSales,
       totals,
       leaderboard,
       team_member_id: teamMemberId,
       agency_id: agencyId,
       lead_sources: leadSources || [],
+      scope,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

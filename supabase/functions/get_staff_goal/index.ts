@@ -79,43 +79,58 @@ serve(async (req) => {
       });
     }
 
-    // First check for personal goal
-    const { data: personalGoal, error: personalError } = await supabase
+    // First check for personal goal (standard monthly goal, not promo/custom)
+    // Use order + limit instead of maybeSingle to avoid errors with multiple active goals
+    const { data: personalGoals, error: personalError } = await supabase
       .from("sales_goals")
-      .select("target_value, goal_name")
+      .select("target_value, goal_name, measurement")
       .eq("agency_id", staffUser.agency_id)
       .eq("team_member_id", team_member_id)
-      .eq("measurement", "premium")
+      .eq("goal_type", "standard")
+      .eq("time_period", "monthly")
       .eq("is_active", true)
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    console.log("get_staff_goal: Personal goal query result:", { personalGoal, error: personalError?.message });
+    console.log("get_staff_goal: Personal goal query result:", { personalGoals, error: personalError?.message });
 
+    const personalGoal = personalGoals?.[0];
     if (personalGoal?.target_value) {
       console.log("get_staff_goal: Returning personal goal:", personalGoal.target_value);
       return new Response(
-        JSON.stringify({ goal: personalGoal.target_value, type: "personal", name: personalGoal.goal_name }),
+        JSON.stringify({ 
+          goal: personalGoal.target_value, 
+          type: "personal", 
+          name: personalGoal.goal_name,
+          measurement: personalGoal.measurement || "premium",
+          has_personal_goal: true
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fallback to agency goal
-    const { data: agencyGoal, error: agencyError } = await supabase
+    // Fallback to agency goal (standard monthly, agency-wide)
+    const { data: agencyGoals, error: agencyError } = await supabase
       .from("sales_goals")
-      .select("target_value, goal_name")
+      .select("target_value, goal_name, measurement")
       .eq("agency_id", staffUser.agency_id)
       .is("team_member_id", null)
-      .eq("measurement", "premium")
+      .eq("goal_type", "standard")
+      .eq("time_period", "monthly")
       .eq("is_active", true)
-      .maybeSingle();
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
-    console.log("get_staff_goal: Agency goal query result:", { agencyGoal, error: agencyError?.message });
+    console.log("get_staff_goal: Agency goal query result:", { agencyGoals, error: agencyError?.message });
 
+    const agencyGoal = agencyGoals?.[0];
     return new Response(
       JSON.stringify({ 
         goal: agencyGoal?.target_value || 0, 
         type: "agency", 
-        name: agencyGoal?.goal_name 
+        name: agencyGoal?.goal_name || null,
+        measurement: agencyGoal?.measurement || "premium",
+        has_personal_goal: false
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

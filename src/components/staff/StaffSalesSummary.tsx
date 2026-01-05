@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
-import { DollarSign, Package, FileText, Trophy, Users, Upload, BarChart3 } from "lucide-react";
+import { DollarSign, Package, FileText, Trophy, Users, Upload, BarChart3, AlertTriangle, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { useNavigate } from "react-router-dom";
 import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
@@ -34,10 +35,83 @@ interface SalesTotals {
   households: number;
 }
 
+interface TierData {
+  currentTier: { min_threshold: number; commission_value: number } | null;
+  nextTier: { min_threshold: number; commission_value: number } | null;
+  currentCommission: number;
+  nextCommission: number | null;
+  targetValue: number | null;
+  amountNeeded: number;
+  atMaxTier: boolean;
+  belowFirstTier: boolean;
+}
+
+// Helper to get metric value based on metric type
+function getMetricValue(totals: SalesTotals | null, metric: string): number {
+  if (!totals) return 0;
+  switch (metric) {
+    case "premium": return totals.premium;
+    case "items": return totals.items;
+    case "policies": return totals.policies;
+    case "points": return totals.points;
+    default: return totals.premium;
+  }
+}
+
+// Helper to format metric value
+function formatMetricValue(value: number, metric: string): string {
+  if (metric === "premium") {
+    return `$${value.toLocaleString()}`;
+  }
+  return value.toLocaleString();
+}
+
+// Calculate tier progress
+function calculateTierGoal(
+  tiers: Array<{ min_threshold: number; commission_value: number }> | null,
+  currentValue: number
+): TierData | null {
+  if (!tiers?.length) return null;
+  
+  // Sort by min_threshold ascending
+  const sorted = [...tiers].sort((a, b) => 
+    Number(a.min_threshold) - Number(b.min_threshold)
+  );
+  
+  let currentTier = null;
+  let nextTier = null;
+  
+  for (const tier of sorted) {
+    if (currentValue >= Number(tier.min_threshold)) {
+      currentTier = tier;
+    } else if (!nextTier) {
+      nextTier = tier;
+    }
+  }
+  
+  const belowFirstTier = !currentTier && sorted.length > 0;
+  const atMaxTier = !!currentTier && !nextTier;
+  
+  return {
+    currentTier,
+    nextTier,
+    currentCommission: currentTier ? Number(currentTier.commission_value) : 0,
+    nextCommission: nextTier ? Number(nextTier.commission_value) : null,
+    targetValue: nextTier ? Number(nextTier.min_threshold) : (belowFirstTier ? Number(sorted[0].min_threshold) : null),
+    amountNeeded: nextTier 
+      ? Number(nextTier.min_threshold) - currentValue 
+      : (belowFirstTier ? Number(sorted[0].min_threshold) - currentValue : 0),
+    atMaxTier,
+    belowFirstTier,
+  };
+}
+
 export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false }: StaffSalesSummaryProps) {
   const { sessionToken } = useStaffAuth();
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [viewMode, setViewMode] = useState<"personal" | "team">("personal");
+  
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
@@ -66,7 +140,8 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!sessionToken,
   });
 
-  const { data, isLoading } = useQuery({
+  // Fetch personal sales
+  const { data: personalData, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
     queryFn: async (): Promise<SalesTotals> => {
       if (sessionToken) {
@@ -75,7 +150,8 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           body: { 
             date_start: monthStart, 
             date_end: monthEnd,
-            include_leaderboard: false 
+            include_leaderboard: false,
+            scope: "personal"
           }
         });
 
@@ -133,12 +209,44 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!teamMemberId,
   });
 
-  // Fetch personal or agency goal via edge function (staff users need edge function to bypass RLS)
+  // Fetch team sales (only when toggle is on team)
+  const { data: teamData, isLoading: teamLoading } = useQuery({
+    queryKey: ["staff-team-sales", agencyId, monthStart, monthEnd, sessionToken],
+    queryFn: async (): Promise<SalesTotals | null> => {
+      if (!sessionToken) return null;
+      
+      const { data, error } = await supabase.functions.invoke('get_staff_sales', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { 
+          date_start: monthStart, 
+          date_end: monthEnd,
+          include_leaderboard: false,
+          scope: "team"
+        }
+      });
+
+      if (error || data?.error) {
+        console.error('Error fetching team sales:', error || data?.error);
+        return null;
+      }
+
+      return {
+        premium: data.totals?.premium || 0,
+        items: data.totals?.items || 0,
+        points: data.totals?.points || 0,
+        policies: data.totals?.policies || 0,
+        households: data.totals?.households || 0,
+      };
+    },
+    enabled: viewMode === "team" && !!sessionToken,
+  });
+
+  // Fetch goal data
   const { data: goalData } = useQuery({
     queryKey: ["staff-sales-goal", agencyId, teamMemberId, sessionToken],
     queryFn: async () => {
       if (!sessionToken) {
-        return { goal: 0, type: "agency", name: null };
+        return { goal: 0, type: "agency", name: null, measurement: "premium", has_personal_goal: false };
       }
 
       const { data, error } = await supabase.functions.invoke('get_staff_goal', {
@@ -148,20 +256,47 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
       if (error || data?.error) {
         console.error('Error fetching staff goal:', error || data?.error);
-        return { goal: 0, type: "agency", name: null };
+        return { goal: 0, type: "agency", name: null, measurement: "premium", has_personal_goal: false };
       }
 
-      return data || { goal: 0, type: "agency", name: null };
+      return data || { goal: 0, type: "agency", name: null, measurement: "premium", has_personal_goal: false };
     },
     enabled: !!agencyId && !!teamMemberId && !!sessionToken,
   });
 
-  const premium = data?.premium || 0;
-  const items = data?.items || 0;
-  const points = data?.points || 0;
-  const policies = data?.policies || 0;
-  const households = data?.households || 0;
-  const goal = goalData?.goal || 0;
+  // Fetch commission data for tier display
+  const { data: commissionData } = useQuery({
+    queryKey: ["staff-commission", teamMemberId, today.getMonth() + 1, today.getFullYear(), sessionToken],
+    queryFn: async () => {
+      if (!sessionToken) return null;
+      
+      const { data, error } = await supabase.functions.invoke("get-staff-commission", {
+        headers: { "x-staff-session": sessionToken },
+        body: { 
+          month: today.getMonth() + 1, 
+          year: today.getFullYear() 
+        }
+      });
+      
+      if (error || data?.error) {
+        console.error('Error fetching commission data:', error || data?.error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!sessionToken && !!teamMemberId,
+  });
+
+  // Determine which data to display based on view mode
+  const displayData = viewMode === "personal" ? personalData : teamData;
+  const displayLoading = viewMode === "personal" ? isLoading : teamLoading;
+
+  const premium = displayData?.premium || 0;
+  const items = displayData?.items || 0;
+  const points = displayData?.points || 0;
+  const policies = displayData?.policies || 0;
+  const households = displayData?.households || 0;
   
   // Calculate projections for all metrics using business days
   const premiumProj = calculateProjection(premium, bizDaysElapsed, bizDaysTotal);
@@ -172,7 +307,144 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   
   const dailyRate = bizDaysElapsed > 0 ? premium / bizDaysElapsed : 0;
 
-  if (isLoading) {
+  // Smart goal selection
+  const goalConfig = useMemo(() => {
+    // For team view, always use agency goal
+    if (viewMode === "team") {
+      const metric = goalData?.measurement || "premium";
+      return {
+        type: "agency" as const,
+        target: goalData?.goal || 0,
+        current: getMetricValue(teamData, metric),
+        metric,
+        label: goalData?.name || "Agency Goal",
+        sublabel: null,
+        footer: null,
+        banner: null,
+        showCelebration: false,
+        formatValue: (v: number) => formatMetricValue(v, metric)
+      };
+    }
+    
+    // Priority 1: Personal goal
+    if (goalData?.has_personal_goal && goalData?.goal) {
+      const metric = goalData.measurement || "premium";
+      return {
+        type: "personal" as const,
+        target: goalData.goal,
+        current: getMetricValue(personalData || null, metric),
+        metric,
+        label: goalData.name || "Personal Goal",
+        sublabel: null,
+        footer: null,
+        banner: null,
+        showCelebration: false,
+        formatValue: (v: number) => formatMetricValue(v, metric)
+      };
+    }
+    
+    // Priority 2: Commission plan tier
+    if (commissionData?.plan && commissionData?.tiers?.length > 0) {
+      const tierMetric = commissionData.plan.tier_metric || "premium";
+      // Use commission data's current values for consistency
+      const currentMetricValue = tierMetric === "premium" 
+        ? (commissionData.current_month_written_premium || getMetricValue(personalData || null, tierMetric))
+        : tierMetric === "items" 
+          ? (commissionData.current_month_written_items || getMetricValue(personalData || null, tierMetric))
+          : getMetricValue(personalData || null, tierMetric);
+      
+      const tierData = calculateTierGoal(commissionData.tiers, currentMetricValue);
+      
+      if (tierData) {
+        // At max tier - celebration state
+        if (tierData.atMaxTier) {
+          return {
+            type: "max_tier" as const,
+            target: currentMetricValue,
+            current: currentMetricValue,
+            metric: tierMetric,
+            label: `Top Tier: ${tierData.currentCommission}%`,
+            sublabel: "Maximum tier achieved!",
+            footer: null,
+            banner: null,
+            showCelebration: true,
+            formatValue: (v: number) => formatMetricValue(v, tierMetric)
+          };
+        }
+        
+        // Below first tier
+        if (tierData.belowFirstTier && tierData.nextCommission !== null) {
+          return {
+            type: "tier" as const,
+            target: tierData.targetValue || 0,
+            current: currentMetricValue,
+            metric: tierMetric,
+            label: `First Tier: ${tierData.nextCommission}%`,
+            sublabel: "Current: 0%",
+            footer: `${formatMetricValue(tierData.amountNeeded, tierMetric)} to unlock`,
+            banner: null,
+            showCelebration: false,
+            formatValue: (v: number) => formatMetricValue(v, tierMetric)
+          };
+        }
+        
+        // Working toward next tier (normal case)
+        if (tierData.nextTier && tierData.nextCommission !== null) {
+          return {
+            type: "tier" as const,
+            target: tierData.targetValue || 0,
+            current: currentMetricValue,
+            metric: tierMetric,
+            label: `Next: ${tierData.nextCommission}%`,
+            sublabel: `Current: ${tierData.currentCommission}%`,
+            footer: `${formatMetricValue(tierData.amountNeeded, tierMetric)} to unlock`,
+            banner: null,
+            showCelebration: false,
+            formatValue: (v: number) => formatMetricValue(v, tierMetric)
+          };
+        }
+      }
+    }
+    
+    // Priority 3: Agency goal fallback
+    if (goalData?.goal) {
+      const metric = goalData.measurement || "premium";
+      return {
+        type: "agency" as const,
+        target: goalData.goal,
+        current: getMetricValue(personalData || null, metric),
+        metric,
+        label: goalData.name || "Agency Goal",
+        sublabel: null,
+        footer: null,
+        banner: {
+          type: "warning" as const,
+          message: "No personal goal set. Progress is based on the agency goal."
+        },
+        showCelebration: false,
+        formatValue: (v: number) => formatMetricValue(v, metric)
+      };
+    }
+    
+    // No goal at all
+    return {
+      type: "none" as const,
+      target: 0,
+      current: premium,
+      metric: "premium",
+      label: "No Goal",
+      sublabel: null,
+      footer: null,
+      banner: {
+        type: "info" as const,
+        message: "No goal or commission plan configured. Ask your manager to set one up."
+      },
+      showCelebration: false,
+      formatValue: (v: number) => `$${v.toLocaleString()}`
+    };
+  }, [viewMode, personalData, teamData, goalData, commissionData, premium]);
+
+  if (isLoading || displayLoading) {
     return (
       <div className="sales-widget-glass rounded-3xl p-6">
         <div className="flex items-center justify-between mb-6">
@@ -194,13 +466,41 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   return (
     <div className="sales-widget-glass rounded-3xl p-6 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-foreground">My Sales</h3>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h3 className="text-lg font-semibold text-foreground">
+          {viewMode === "personal" ? "My Sales" : "Team Sales"}
+        </h3>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex rounded-lg bg-muted p-1">
+            <button
+              onClick={() => setViewMode("personal")}
+              className={cn(
+                "px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                viewMode === "personal" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              My Numbers
+            </button>
+            <button
+              onClick={() => setViewMode("team")}
+              className={cn(
+                "px-3 py-1 text-sm font-medium rounded-md transition-colors",
+                viewMode === "team" 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Team
+            </button>
+          </div>
+          
           <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
             {format(today, "MMMM yyyy")}
           </span>
-          {showViewAll && (
+          {showViewAll && viewMode === "personal" && (
             <div className="flex items-center gap-2">
               <Button 
                 variant="outline" 
@@ -224,6 +524,21 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           )}
         </div>
       </div>
+
+      {/* Banner for goal warnings */}
+      {goalConfig.banner && viewMode === "personal" && (
+        <Alert 
+          variant={goalConfig.banner.type === "warning" ? "warning" : "default"} 
+          className="mb-4"
+        >
+          {goalConfig.banner.type === "warning" ? (
+            <AlertTriangle className="h-4 w-4" />
+          ) : (
+            <Info className="h-4 w-4" />
+          )}
+          <AlertDescription>{goalConfig.banner.message}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Main Content: Ring + Orbs - 3 column layout on desktop */}
       <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-6 lg:gap-4">
@@ -257,14 +572,18 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
         {/* Center Ring - Larger and prominent */}
         <div className="flex-shrink-0 order-1 lg:order-2">
-          {goal > 0 ? (
+          {goalConfig.target > 0 || goalConfig.showCelebration ? (
             <GoalProgressRing
-              current={premium}
-              target={goal}
-              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
+              current={goalConfig.current}
+              target={goalConfig.target || goalConfig.current}
+              label={goalConfig.label}
+              sublabel={goalConfig.sublabel || undefined}
+              footer={goalConfig.footer || undefined}
               size="lg"
               showPercentage
               animated
+              showCelebration={goalConfig.showCelebration}
+              formatValue={goalConfig.formatValue}
             />
           ) : (
             <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
@@ -331,10 +650,12 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
       </div>
 
-      {/* Promo Goals Section */}
-      <div className="mt-6">
-        <StaffPromoGoalsWidget sessionToken={sessionToken} />
-      </div>
+      {/* Promo Goals Section - only show in personal view */}
+      {viewMode === "personal" && (
+        <div className="mt-6">
+          <StaffPromoGoalsWidget sessionToken={sessionToken} />
+        </div>
+      )}
 
       {/* Analytics Slide-Over */}
       <Sheet open={showAnalytics} onOpenChange={setShowAnalytics}>
