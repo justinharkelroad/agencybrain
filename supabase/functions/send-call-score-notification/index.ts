@@ -430,6 +430,32 @@ async function getRecipients(supabase: any, agencyId: string, teamMemberId: stri
     }
   }
   
+  // 4. All Managers in the agency (team_members with role 'Manager')
+  const { data: managers } = await supabase
+    .from('team_members')
+    .select('id, email')
+    .eq('agency_id', agencyId)
+    .eq('role', 'Manager');
+  
+  if (managers && managers.length > 0) {
+    console.log(`[getRecipients] Found ${managers.length} managers in agency`);
+    for (const manager of managers) {
+      // First try staff_users email (more likely to be current), fallback to team_members email
+      const { data: managerStaffUser } = await supabase
+        .from('staff_users')
+        .select('email')
+        .eq('team_member_id', manager.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      const emailToUse = managerStaffUser?.email || manager.email;
+      if (emailToUse) {
+        recipients.add(emailToUse.toLowerCase());
+        console.log(`[getRecipients] Added manager email: ${emailToUse}`);
+      }
+    }
+  }
+  
   return Array.from(recipients);
 }
 

@@ -341,6 +341,16 @@ export default function Agency() {
       if (editingId) {
         const { error } = await supabase.from("team_members").update(updateData).eq("id", editingId);
         if (error) throw error;
+        
+        // Sync email to linked staff_users record
+        const { error: staffError } = await supabase
+          .from("staff_users")
+          .update({ email: memberForm.email })
+          .eq("team_member_id", editingId);
+        
+        if (staffError) {
+          console.error("Failed to sync email to staff_users:", staffError);
+        }
       } else {
         const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
         if (error) throw error;
