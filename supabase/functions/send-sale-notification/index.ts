@@ -46,6 +46,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body: SaleNotificationRequest = await req.json();
     
+    console.log('[send-sale-notification] Function invoked');
+    console.log('[send-sale-notification] Request body:', JSON.stringify(body));
     console.log('[send-sale-notification] Processing sale:', body.sale_id);
 
     // 1. Check if agency has real-time notifications enabled

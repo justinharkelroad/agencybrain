@@ -74,6 +74,7 @@ export default function Sales() {
           customer_email,
           customer_phone,
           customer_zip,
+          lead_source_id,
           team_member_id,
           sale_date,
           is_bundle,

@@ -13,6 +13,13 @@ import { AdminPromoGoalsWidget } from "./AdminPromoGoalsWidget";
 import { SalesBreakdownTabs } from "./SalesBreakdownTabs";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   getBusinessDaysInMonth, 
   getBusinessDaysElapsed, 
@@ -25,9 +32,19 @@ interface SalesDashboardWidgetProps {
   agencyId: string | null;
 }
 
+type MeasurementType = "premium" | "items" | "points" | "policies";
+
+const MEASUREMENT_LABELS: Record<MeasurementType, string> = {
+  premium: "Premium",
+  items: "Items",
+  points: "Points",
+  policies: "Policies",
+};
+
 export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const { user, isAgencyOwner, isAdmin } = useAuth();
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -119,17 +136,17 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
     enabled: !!agencyId,
   });
 
-  // Fetch monthly goal (for premium)
-  const { data: goalData } = useQuery({
-    queryKey: ["sales-goal-widget", agencyId, teamMemberId, isStaff],
+  // Fetch ALL monthly goals (not just premium)
+  const { data: goalsData } = useQuery({
+    queryKey: ["sales-goals-widget-all", agencyId, teamMemberId, isStaff],
     queryFn: async () => {
-      if (!agencyId) return null;
+      if (!agencyId) return [];
 
       let query = supabase
         .from("sales_goals")
         .select("*")
         .eq("agency_id", agencyId)
-        .eq("measurement", "premium")
+        .eq("goal_type", "standard")
         .eq("time_period", "monthly")
         .eq("is_active", true);
 
@@ -140,22 +157,42 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         query = query.is("team_member_id", null);
       }
 
-      const { data, error } = await query.order("team_member_id", { ascending: false, nullsFirst: false }).limit(1);
+      const { data, error } = await query.order("rank", { ascending: true });
       if (error) throw error;
-      return data?.[0] || null;
+      return data || [];
     },
     enabled: !!agencyId,
   });
 
+  // Set default selected goal when goals load
+  const goals = goalsData || [];
+  const activeGoal = selectedGoalId 
+    ? goals.find(g => g.id === selectedGoalId) 
+    : goals[0];
+
   if (!agencyId) return null;
 
   const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, totalHouseholds: 0, todayPremium: 0, weekPremium: 0 };
-  const hasGoal = !!goalData;
-  const monthlyGoal = goalData?.target_value || 0;
+  const hasGoal = !!activeGoal;
+  const monthlyGoal = activeGoal?.target_value || 0;
+  const goalMeasurement = (activeGoal?.measurement as MeasurementType) || "premium";
+  
+  // Get current value based on measurement type
+  const getCurrentValue = (measurement: MeasurementType): number => {
+    switch (measurement) {
+      case "premium": return stats.totalPremium;
+      case "items": return stats.totalItems;
+      case "points": return stats.totalPoints;
+      case "policies": return stats.totalPolicies;
+      default: return stats.totalPremium;
+    }
+  };
+
+  const currentValue = getCurrentValue(goalMeasurement);
   
   // Calculate pacing using business days
   const dailyTarget = bizDaysTotal > 0 ? monthlyGoal / bizDaysTotal : 0;
-  const stillNeed = Math.max(0, monthlyGoal - stats.totalPremium);
+  const stillNeed = Math.max(0, monthlyGoal - currentValue);
   
   // Calculate projections for all metrics
   const premiumProj = calculateProjection(stats.totalPremium, bizDaysElapsed, bizDaysTotal);
@@ -163,6 +200,14 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const pointsProj = calculateProjection(stats.totalPoints, bizDaysElapsed, bizDaysTotal);
   const policiesProj = calculateProjection(stats.totalPolicies, bizDaysElapsed, bizDaysTotal);
   const householdsProj = calculateProjection(stats.totalHouseholds, bizDaysElapsed, bizDaysTotal);
+
+  // Format value based on measurement type
+  const formatGoalValue = (value: number, measurement: MeasurementType): string => {
+    if (measurement === "premium") {
+      return `$${value.toLocaleString()}`;
+    }
+    return value.toLocaleString();
+  };
 
   return (
     <div className="sales-widget-glass p-6 space-y-6">
@@ -225,6 +270,27 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         </div>
       ) : (
         <>
+          {/* Goal Selector - only show if multiple goals exist */}
+          {goals.length > 1 && (
+            <div className="flex justify-center">
+              <Select
+                value={selectedGoalId || goals[0]?.id || ""}
+                onValueChange={setSelectedGoalId}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select goal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {goals.map((goal) => (
+                    <SelectItem key={goal.id} value={goal.id}>
+                      {MEASUREMENT_LABELS[goal.measurement as MeasurementType] || goal.measurement} Goal
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Main Content: Ring + Orbs - 3 column layout on desktop */}
           <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-6 lg:gap-4">
             {/* Left Orbs - Stack vertically on desktop, align toward center */}
@@ -259,10 +325,12 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <div className="flex-shrink-0 order-1 lg:order-2">
               {hasGoal ? (
                 <GoalProgressRing
-                  current={stats.totalPremium}
+                  current={currentValue}
                   target={monthlyGoal}
                   size="lg"
                   animated={true}
+                  label={MEASUREMENT_LABELS[goalMeasurement]}
+                  formatValue={(v) => formatGoalValue(v, goalMeasurement)}
                 />
               ) : (
                 <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
@@ -316,9 +384,10 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           {hasGoal && (
             <PacingIndicator
               dailyTarget={dailyTarget}
-              currentDaily={bizDaysElapsed > 0 ? stats.totalPremium / bizDaysElapsed : 0}
+              currentDaily={bizDaysElapsed > 0 ? currentValue / bizDaysElapsed : 0}
               amountNeeded={stillNeed}
               daysRemaining={bizDaysRemaining}
+              measurement={goalMeasurement}
             />
           )}
 

@@ -7,6 +7,7 @@ interface PacingIndicatorProps {
   amountNeeded: number;
   daysRemaining: number;
   streak?: number;
+  measurement?: "premium" | "items" | "points" | "policies";
 }
 
 type PaceStatus = "ahead" | "on-track" | "behind";
@@ -48,10 +49,22 @@ export function PacingIndicator({
   amountNeeded,
   daysRemaining,
   streak = 0,
+  measurement = "premium",
 }: PacingIndicatorProps) {
   const status = getPaceStatus(currentDaily, dailyTarget);
   const config = statusConfig[status];
   const StatusIcon = config.icon;
+
+  // Calculate needed per day
+  const neededPerDay = Math.round(amountNeeded / Math.max(daysRemaining, 1));
+  
+  // Format value based on measurement type
+  const formatValue = (value: number): string => {
+    if (measurement === "premium") {
+      return `$${value.toLocaleString()}`;
+    }
+    return value.toLocaleString();
+  };
 
   return (
     <div className="w-full">
@@ -68,7 +81,7 @@ export function PacingIndicator({
           <span className="text-sm">
             <span className="text-muted-foreground">Daily Pace:</span>{" "}
             <span className="font-semibold text-foreground">
-              ${Math.round(amountNeeded / Math.max(daysRemaining, 1)).toLocaleString()}
+              {formatValue(neededPerDay)}
             </span>
             <span className="text-muted-foreground text-xs ml-1">needed/day</span>
           </span>
