@@ -512,7 +512,24 @@ export function CallScorecard({
           {/* Three Section Scores OR Skill Breakdown */}
           {(() => {
             const hasLegacySections = sectionScores.rapport || sectionScores.coverage || sectionScores.closing;
-            const skillScoresArray = Array.isArray(call.skill_scores) ? call.skill_scores : [];
+            
+            // Handle both array and object formats for skill_scores
+            const skillScoresArray = (() => {
+              if (Array.isArray(call.skill_scores)) {
+                return call.skill_scores;
+              }
+              // Convert object format {closing: 50, rapport: 60} to array format
+              if (call.skill_scores && typeof call.skill_scores === 'object') {
+                return Object.entries(call.skill_scores as Record<string, number>).map(([key, value]) => ({
+                  skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                  score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
+                  max_score: 10,
+                  feedback: (sectionScores as any)?.[key]?.coaching || null,
+                  tip: null
+                }));
+              }
+              return [];
+            })();
             
             if (hasLegacySections) {
               return (

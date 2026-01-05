@@ -560,12 +560,31 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         },
       };
     } else {
-      // Sales call specific fields - use normalized skill_scores for consistent storage
-      const normalizedSkillScores = (analysis as any)._normalizedSkillScores || normalizeSkillScores(analysis.skill_scores);
+      // Sales call specific fields
+      // Convert skill_scores to array format for consistent UI display
+      let skillScoresForStorage = analysis.skill_scores;
+      
+      // If skill_scores is an object (not array), convert to array format using section_scores data
+      if (skillScoresForStorage && !Array.isArray(skillScoresForStorage)) {
+        console.log('[analyze-call] skill_scores returned as object, converting to array format');
+        const skillScoresObj = skillScoresForStorage as Record<string, number>;
+        skillScoresForStorage = Object.entries(skillScoresObj).map(([key, score]) => {
+          const sectionData = (analysis.section_scores as any)?.[key];
+          return {
+            skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+            score: typeof score === 'number' ? (score <= 10 ? score : Math.round(score / 10)) : 0,
+            max_score: 10,
+            feedback: sectionData?.coaching || null,
+            tip: null
+          };
+        });
+        console.log('[analyze-call] Converted skill_scores to array:', JSON.stringify(skillScoresForStorage));
+      }
+      
       updatePayload = {
         ...updatePayload,
         potential_rank: analysis.potential_rank,
-        skill_scores: normalizedSkillScores, // Store normalized object format
+        skill_scores: skillScoresForStorage, // Store as array for UI consistency
         section_scores: analysis.section_scores, // Keep original for detailed view
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
