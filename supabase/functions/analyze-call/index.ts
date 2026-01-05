@@ -492,15 +492,12 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
      }
    ]
 
-2. "execution_checklist": MUST be an ARRAY (not object) with evidence quotes for each item:
+2. "execution_checklist": MUST be an ARRAY (not object) for each checklist item:
    [
      {
        "label": "<checklist item name>",
        "checked": true | false,
-       "evidence": {
-         "text": "<verbatim quote proving this, or null if not observed>",
-         "timestamp_seconds": <integer timestamp>
-       }
+       "evidence": "<verbatim quote proving this was done, or null if not observed>"
      }
    ]
 
@@ -744,7 +741,23 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         ...updatePayload,
         potential_rank: analysis.potential_rank,
         skill_scores: skillScoresForStorage, // Store as array for UI consistency
-        section_scores: analysis.section_scores, // Keep original for detailed view
+        section_scores: (() => {
+          // Normalize section_scores keys for UI compatibility
+          const raw = analysis.section_scores || {};
+          const keyMap: Record<string, string> = {
+            'opening__rapport': 'rapport',
+            'opening_rapport': 'rapport',
+            'coverage_education': 'coverage',
+            'coverage__education': 'coverage',
+          };
+          const normalized: Record<string, any> = {};
+          for (const [key, value] of Object.entries(raw)) {
+            const normalizedKey = keyMap[key] || key;
+            normalized[normalizedKey] = value;
+          }
+          console.log('[analyze-call] Normalized section_scores keys:', Object.keys(normalized));
+          return normalized;
+        })(), // Normalized for UI
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
         discovery_wins: checklistData, // Store normalized checklist array

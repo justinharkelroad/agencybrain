@@ -527,7 +527,11 @@ export function CallScorecard({
 
           {/* Three Section Scores OR Skill Breakdown */}
           {(() => {
-            const hasLegacySections = sectionScores.rapport || sectionScores.coverage || sectionScores.closing;
+            // Check for both normalized keys and alternate GPT output keys
+            const rapportData = sectionScores.rapport || (sectionScores as any).opening__rapport || (sectionScores as any).opening_rapport;
+            const coverageData = sectionScores.coverage || (sectionScores as any).coverage_education || (sectionScores as any).coverage__education;
+            const closingData = sectionScores.closing;
+            const hasLegacySections = rapportData || coverageData || closingData;
             
             // Handle both array and object formats for skill_scores
             const skillScoresArray = (() => {
@@ -559,7 +563,7 @@ export function CallScorecard({
                       </div>
                       
                       {/* Wins */}
-                      {sectionScores.rapport?.wins?.map((win: string, i: number) => (
+                      {rapportData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
@@ -567,17 +571,17 @@ export function CallScorecard({
                       ))}
                       
                       {/* Failures */}
-                      {sectionScores.rapport?.failures?.map((failure: string, i: number) => (
+                      {rapportData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
                       ))}
                       
-                      {sectionScores.rapport?.coaching && (
+                      {rapportData?.coaching && (
                         <div className="mt-4 pt-3 border-t">
                           <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                          <p className="text-sm">{sectionScores.rapport.coaching}</p>
+                          <p className="text-sm">{rapportData.coaching}</p>
                         </div>
                       )}
                     </CardContent>
@@ -591,24 +595,24 @@ export function CallScorecard({
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
                       
-                      {sectionScores.coverage?.wins?.map((win: string, i: number) => (
+                      {coverageData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
                         </p>
                       ))}
                       
-                      {sectionScores.coverage?.failures?.map((failure: string, i: number) => (
+                      {coverageData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
                       ))}
                       
-                      {sectionScores.coverage?.coaching && (
+                      {coverageData?.coaching && (
                         <div className="mt-4 pt-3 border-t">
                           <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                          <p className="text-sm">{sectionScores.coverage.coaching}</p>
+                          <p className="text-sm">{coverageData.coaching}</p>
                         </div>
                       )}
                     </CardContent>
@@ -622,24 +626,24 @@ export function CallScorecard({
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
                       
-                      {sectionScores.closing?.wins?.map((win: string, i: number) => (
+                      {closingData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
                         </p>
                       ))}
                       
-                      {sectionScores.closing?.failures?.map((failure: string, i: number) => (
+                      {closingData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
                       ))}
                       
-                      {sectionScores.closing?.coaching && (
+                      {closingData?.coaching && (
                         <div className="mt-4 pt-3 border-t">
                           <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-                          <p className="text-sm">{sectionScores.closing.coaching}</p>
+                          <p className="text-sm">{closingData.coaching}</p>
                         </div>
                       )}
                     </CardContent>
