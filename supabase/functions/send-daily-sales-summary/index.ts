@@ -301,9 +301,9 @@ serve(async (req) => {
       <div style="background: ${BRAND.colors.lightBg}; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
         <h2 style="font-size: 16px; margin: 0 0 16px 0; color: ${BRAND.colors.primary};">TEAM TOTALS</h2>
         <div style="display: flex; flex-wrap: wrap; gap: 16px;">
-          <div style="flex: 1; min-width: 100px;">
+          <div style="flex: 1; min-width: 140px;">
             <div style="color: #6b7280; font-size: 12px; text-transform: uppercase;">Premium</div>
-            <div style="font-size: 24px; font-weight: 700; color: ${BRAND.colors.green};">${formatCurrency(teamTotals.premium)}</div>
+            <div style="font-size: 24px; font-weight: 700; color: ${BRAND.colors.green}; white-space: nowrap;">${formatCurrency(teamTotals.premium)}</div>
           </div>
           <div style="flex: 1; min-width: 60px;">
             <div style="color: #6b7280; font-size: 12px; text-transform: uppercase;">Items</div>
