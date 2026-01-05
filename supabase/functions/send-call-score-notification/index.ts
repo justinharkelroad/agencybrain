@@ -55,13 +55,40 @@ function getStarsForScore(score: number, max: number = 10): string {
 }
 
 // Dynamic section renderers
-function renderSkillScores(skillScores: Record<string, number> | null): string {
-  if (!skillScores || Object.keys(skillScores).length === 0) return '';
+function renderSkillScores(skillScores: any): string {
+  if (!skillScores) return '';
   
-  const rows = Object.entries(skillScores).map(([key, score]) => `
+  let entries: [string, number][] = [];
+  
+  // Handle array format: [{ skill_name: "Rapport", score: 7 }, ...]
+  if (Array.isArray(skillScores)) {
+    entries = skillScores
+      .filter((item: any) => item && (item.skill_name || item.name) && typeof item.score === 'number')
+      .map((item: any) => {
+        const name = item.skill_name || item.name || 'Unknown';
+        // Scale 0-10 scores to 0-100 if needed
+        const score = typeof item.score === 'number' 
+          ? (item.score <= 10 ? Math.round(item.score * 10) : item.score) 
+          : 0;
+        return [name, score] as [string, number];
+      });
+  } 
+  // Handle object format: { rapport: 70, coverage: 80, ... }
+  else if (typeof skillScores === 'object' && Object.keys(skillScores).length > 0) {
+    entries = Object.entries(skillScores)
+      .filter(([_, value]) => typeof value === 'number')
+      .map(([key, value]) => {
+        const score = typeof value === 'number' ? value : 0;
+        return [formatSnakeCase(key), score] as [string, number];
+      });
+  }
+  
+  if (entries.length === 0) return '';
+  
+  const rows = entries.map(([name, score]) => `
     <tr>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${formatSnakeCase(key)}</td>
-      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${renderProgressBar(score as number)}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${name}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${renderProgressBar(score)}</td>
       <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">${score}/100</td>
     </tr>
   `).join('');
