@@ -604,11 +604,6 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
     }
 
     console.log("Raw AI response:", analysisText.substring(0, 500));
-    
-    // Log key fields for debugging
-    console.log("[analyze-call] notable_quotes:", JSON.stringify(analysis?.notable_quotes)?.substring(0, 300) || 'undefined');
-    console.log("[analyze-call] execution_checklist type:", Array.isArray(analysis?.execution_checklist) ? 'array' : typeof analysis?.execution_checklist);
-    console.log("[analyze-call] crm_notes type:", typeof analysis?.crm_notes);
 
     // Parse the JSON response
     let analysis;
@@ -632,6 +627,11 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Log key fields for debugging (AFTER analysis is parsed)
+    console.log("[analyze-call] notable_quotes:", JSON.stringify(analysis?.notable_quotes)?.substring(0, 300) || 'undefined');
+    console.log("[analyze-call] execution_checklist type:", Array.isArray(analysis?.execution_checklist) ? 'array' : typeof analysis?.execution_checklist);
+    console.log("[analyze-call] crm_notes type:", typeof analysis?.crm_notes);
 
     // Calculate overall score based on call type
     let overallScore: number;
