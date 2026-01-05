@@ -2,6 +2,7 @@
 export const SALES_BETA_AGENCY_IDS = [
   '1ddf77da-68a2-46a5-a32f-e813088b797e', // Chandler Insurance
   '979e8713-c266-4b23-96a9-fabd34f1fc9e', // Harkelroad Family Insurance
+  '16889dfb-b836-467d-986d-fcc3f0390eb3', // Josh Katyl
 ];
 
 export function hasSalesBetaAccess(agencyId: string | null): boolean {
