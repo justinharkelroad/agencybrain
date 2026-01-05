@@ -77,7 +77,7 @@ const copyToClipboard = async (text: string) => {
 };
 
 export default function Agency() {
-  const { user, membershipTier } = useAuth();
+  const { user, membershipTier, isAdmin } = useAuth();
   const { toast: toastHook } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -1390,8 +1390,8 @@ export default function Agency() {
               </p>
             </div>
 
-            {/* Sales Email Notifications - Only show for agencies with sales beta access */}
-            {hasSalesBetaAccess(agencyId) && (
+            {/* Sales Email Notifications - Show for admins or agencies with sales beta access */}
+            {(isAdmin || hasSalesBetaAccess(agencyId)) && (
               <div className="border-t pt-6">
                 <SalesEmailSettings agencyId={agencyId} />
               </div>
