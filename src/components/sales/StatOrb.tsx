@@ -48,8 +48,8 @@ export function StatOrb({
       className={cn(
         "relative group",
         "bg-card border border-border",
-        "rounded-2xl p-4 min-w-[100px]",
-        "flex flex-col items-center justify-center gap-1",
+        "rounded-2xl p-3 sm:p-4 min-w-[80px] sm:min-w-[100px]",
+        "flex flex-col items-center justify-center gap-0.5 sm:gap-1",
         "transition-all duration-300 ease-out",
         "hover:bg-accent/50",
         "animate-orb-fade-in",
@@ -60,23 +60,23 @@ export function StatOrb({
       }}
     >
       {/* Icon */}
-      <Icon className={cn("h-5 w-5", colorConfig.icon)} />
+      <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", colorConfig.icon)} />
       
       {/* Value */}
-      <span className="text-2xl font-bold text-foreground leading-none">
+      <span className="text-lg sm:text-2xl font-bold text-foreground leading-none truncate max-w-full">
         {typeof value === "number" ? value.toLocaleString() : value}
       </span>
       
       {/* Projection */}
       {projection !== undefined && projection !== null && (
-        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-          <TrendingUp className="h-3 w-3" />
+        <span className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-0.5">
+          <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
           {typeof projection === "number" ? projection.toLocaleString() : projection}
         </span>
       )}
       
       {/* Label */}
-      <span className="text-xs text-muted-foreground">
+      <span className="text-[10px] sm:text-xs text-muted-foreground">
         {label}
       </span>
       
