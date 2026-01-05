@@ -65,7 +65,7 @@ export function useSidebarAccess() {
 
       return true;
     };
-  }, [canAccess, hasTierAccess, userAccess.isAdmin]);
+  }, [canAccess, hasTierAccess, userAccess.isAdmin, agencyId]);
 
   const filterNavigation = useMemo(() => {
     return (config: NavEntry[], callScoringEnabled: boolean): NavEntry[] => {
