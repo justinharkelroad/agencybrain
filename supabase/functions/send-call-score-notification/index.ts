@@ -58,6 +58,47 @@ function getStarsForScore(score: number, max: number = 10): string {
 function renderSkillScores(skillScores: any): string {
   if (!skillScores) return '';
   
+  // Check if we have detailed array format with feedback
+  if (Array.isArray(skillScores)) {
+    const hasDetailedData = skillScores.some((item: any) => item?.feedback || item?.tip);
+    
+    if (hasDetailedData) {
+      // Render detailed skill breakdown with feedback and tips
+      const cards = skillScores
+        .filter((item: any) => item && (item.skill_name || item.name))
+        .map((item: any) => {
+          const name = item.skill_name || item.name || 'Unknown';
+          const score = typeof item.score === 'number' ? item.score : 0;
+          const maxScore = item.max_score || 10;
+          const feedback = item.feedback;
+          const tip = item.tip;
+          
+          return `
+            <div style="background: #1e283a; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #ffffff; font-size: 14px;">${name}</strong>
+                <span style="background: #374151; color: #9ca3af; padding: 4px 10px; border-radius: 9999px; font-size: 12px;">${score}/${maxScore}</span>
+              </div>
+              ${feedback ? `<p style="margin: 8px 0; color: #d1d5db; font-size: 13px; line-height: 1.5;">${feedback}</p>` : ''}
+              ${tip ? `
+                <div style="margin-top: 8px; background: rgba(250, 204, 21, 0.1); padding: 8px 12px; border-radius: 6px;">
+                  <span style="color: #facc15; font-size: 12px;">💡 ${tip}</span>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+
+      return `
+        <div style="margin-bottom: 24px;">
+          <h3 style="color: #1e283a; margin-bottom: 12px; font-size: 16px;">📊 SKILL BREAKDOWN</h3>
+          ${cards}
+        </div>
+      `;
+    }
+  }
+  
+  // Fallback: Simple table format for scores only
   let entries: [string, number][] = [];
   
   // Handle array format: [{ skill_name: "Rapport", score: 7 }, ...]
