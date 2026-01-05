@@ -266,6 +266,36 @@ IMPORTANT RULES:
 ${transcript}`;
 }
 
+// Helper function to normalize skill_scores from array to object format
+function normalizeSkillScores(skillScores: any): Record<string, number> {
+  if (!skillScores) return {};
+  
+  // If already an object with number values, return as-is
+  if (!Array.isArray(skillScores)) {
+    const normalized: Record<string, number> = {};
+    for (const [key, value] of Object.entries(skillScores)) {
+      if (typeof value === 'number') {
+        normalized[key] = value;
+      }
+    }
+    return normalized;
+  }
+  
+  // Convert array format to object
+  // Array format: [{ skill_name: "Rapport", score: 7 }, ...]
+  const result: Record<string, number> = {};
+  for (const item of skillScores) {
+    const name = item?.skill_name || item?.name || item?.section_name;
+    const score = item?.score;
+    if (name && typeof score === 'number') {
+      const key = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      // Scale 0-10 scores to 0-100 for consistency
+      result[key] = score <= 10 ? Math.round(score * 10) : score;
+    }
+  }
+  return result;
+}
+
 serve(async (req) => {
   console.log('analyze-call invoked');
   console.log('Request method:', req.method);
@@ -481,12 +511,15 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         ? parseFloat((totalScore / sectionScores.length).toFixed(1))
         : 0;
     } else {
-      // Sales calls: average of skill_scores (dynamic)
-      const skillScores = analysis.skill_scores || {};
-      const scores = Object.values(skillScores).filter((v): v is number => typeof v === 'number');
+      // Sales calls: normalize skill_scores and calculate average
+      const normalizedSkillScores = normalizeSkillScores(analysis.skill_scores);
+      console.log('Normalized skill_scores:', JSON.stringify(normalizedSkillScores));
+      const scores = Object.values(normalizedSkillScores);
       overallScore = scores.length > 0 
         ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-        : 0;
+        : (typeof analysis.overall_score === 'number' ? analysis.overall_score : 0);
+      // Store normalized version for use in update payload
+      (analysis as any)._normalizedSkillScores = normalizedSkillScores;
     }
 
     // Get existing whisper cost to calculate total
@@ -527,12 +560,13 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         },
       };
     } else {
-      // Sales call specific fields - use dynamic skill_scores from analysis
+      // Sales call specific fields - use normalized skill_scores for consistent storage
+      const normalizedSkillScores = (analysis as any)._normalizedSkillScores || normalizeSkillScores(analysis.skill_scores);
       updatePayload = {
         ...updatePayload,
         potential_rank: analysis.potential_rank,
-        skill_scores: analysis.skill_scores,
-        section_scores: analysis.section_scores,
+        skill_scores: normalizedSkillScores, // Store normalized object format
+        section_scores: analysis.section_scores, // Keep original for detailed view
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
         discovery_wins: analysis.execution_checklist || analysis.checklist,
