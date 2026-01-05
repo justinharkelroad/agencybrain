@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
 import { SalesLog } from "@/components/sales/SalesLog";
 import { AddSaleForm } from "@/components/sales/AddSaleForm";
 import { SalesGoals } from "@/components/sales/SalesGoals";
@@ -129,8 +130,8 @@ export default function Sales() {
     enabled: !!editingSaleId,
   });
 
-  // Admin-only access
-  if (!isAdmin) {
+  // Admin or beta agency access
+  if (!isAdmin && !hasSalesBetaAccess(agencyId)) {
     return <Navigate to="/dashboard" replace />;
   }
 

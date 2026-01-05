@@ -22,6 +22,7 @@ import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
 import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
+import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -125,8 +126,8 @@ const Dashboard = () => {
           )}
         </div>
         <PeriodRefreshProvider>
-          {/* 0. Sales Dashboard Widget - admin only for now */}
-          {isAdmin && <SalesDashboardWidget agencyId={agencyId} />}
+          {/* 0. Sales Dashboard Widget - admin and beta agencies */}
+          {(isAdmin || hasSalesBetaAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
           
           {/* 1. Core 4 + Flow */}
           <Core4Card />
