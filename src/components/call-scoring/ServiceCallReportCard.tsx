@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   User, CheckCircle2, XCircle, Clock, Download, 
-  Loader2, Headphones, FileText, Lightbulb, ClipboardList
+  Loader2, Headphones, FileText, Lightbulb, ClipboardList,
+  MessageSquareQuote
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { toast } from 'sonner';
@@ -24,6 +25,13 @@ interface ChecklistItem {
   evidence?: string;
 }
 
+interface NotableQuote {
+  text: string;
+  speaker: 'agent' | 'customer';
+  timestamp_seconds?: number;
+  context?: string;
+}
+
 interface ServiceCallReportCardProps {
   call: {
     id: string;
@@ -40,6 +48,7 @@ interface ServiceCallReportCardProps {
     checklist?: ChecklistItem[];
     client_first_name?: string;
     csr_name?: string;
+    notable_quotes?: NotableQuote[];
     // Database column mappings (alternative field names)
     closing_attempts?: string;           // Maps to crm_notes
     coaching_recommendations?: string[]; // Maps to suggestions
@@ -100,6 +109,19 @@ export function ServiceCallReportCard({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTimestamp = (seconds: number | undefined | null): string => {
+    if (seconds === undefined || seconds === null) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleTimestampClick = (seconds: number) => {
+    const formatted = formatTimestamp(seconds);
+    navigator.clipboard.writeText(formatted);
+    toast.success(`Timestamp ${formatted} copied`);
   };
 
   const formatDate = (dateStr: string) => {
@@ -396,6 +418,76 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                 <p className="text-sm font-bold mt-4" style={{ color: COLORS.blue }}>
                   Goal: Implement these improvements on your next call.
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Notable Quotes with Timestamps */}
+          {call.notable_quotes && Array.isArray(call.notable_quotes) && call.notable_quotes.length > 0 && (
+            <Card 
+              className="border-l-4"
+              style={{ 
+                backgroundColor: COLORS.cardBg, 
+                borderColor: COLORS.border,
+                borderLeftColor: '#a855f7' 
+              }}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <MessageSquareQuote className="h-4 w-4" style={{ color: '#a855f7' }} />
+                  KEY MOMENTS
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {call.notable_quotes.map((quote, idx) => (
+                    <div 
+                      key={idx} 
+                      className="p-3 rounded-lg"
+                      style={{ 
+                        backgroundColor: quote.speaker === 'agent' ? COLORS.blueBg : COLORS.greenBg,
+                        border: `1px solid ${quote.speaker === 'agent' ? COLORS.blue : COLORS.green}30`
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        {quote.timestamp_seconds !== undefined && quote.timestamp_seconds !== null && (
+                          <button
+                            onClick={() => handleTimestampClick(quote.timestamp_seconds!)}
+                            className="flex-shrink-0 px-2 py-1 text-xs font-mono rounded border hover:opacity-80 transition-opacity"
+                            style={{ 
+                              backgroundColor: COLORS.cardBg, 
+                              borderColor: COLORS.border,
+                              color: COLORS.text 
+                            }}
+                            title="Click to copy timestamp"
+                          >
+                            {formatTimestamp(quote.timestamp_seconds)}
+                          </button>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm italic" style={{ color: COLORS.text }}>"{quote.text}"</p>
+                          {quote.context && (
+                            <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
+                              → {quote.context}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <Badge 
+                          variant="outline" 
+                          className="flex-shrink-0 text-xs"
+                          style={{ 
+                            color: quote.speaker === 'agent' ? COLORS.blue : COLORS.green,
+                            borderColor: quote.speaker === 'agent' ? `${COLORS.blue}50` : `${COLORS.green}50`
+                          }}
+                        >
+                          {quote.speaker === 'agent' ? 'Agent' : 'Customer'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

@@ -7,7 +7,18 @@ const corsHeaders = {
 };
 
 // Helper function to build dynamic service call prompt from template
-function buildServiceUserPrompt(transcript: string, skillCategories: any): string {
+function buildServiceUserPrompt(
+  transcript: string, 
+  skillCategories: any,
+  transcriptSegments?: Array<{start: number; end: number; text: string}>
+): string {
+  // Build timestamped transcript if segments available
+  let transcriptWithTimestamps = transcript;
+  if (transcriptSegments && transcriptSegments.length > 0) {
+    transcriptWithTimestamps = transcriptSegments
+      .map(seg => `[${Math.floor(seg.start / 60)}:${String(Math.floor(seg.start % 60)).padStart(2, '0')}] ${seg.text}`)
+      .join('\n');
+  }
   // Extract template sections or use defaults
   const scoredSections = skillCategories?.scoredSections || [
     { name: "Opening & Rapport", criteria: "Did the CSR greet warmly and identify themselves? Did they confirm the client's identity appropriately? Did they establish a positive tone?" },
@@ -90,6 +101,20 @@ ${scoringFramework}
 
 ${checklistItems.map((item: any) => `- **${item.label}**: ${item.criteria || 'Did this occur during the call?'}`).join('\n')}
 
+## NOTABLE QUOTES EXTRACTION
+Identify 3-5 significant moments from the call. For each quote:
+- Copy the exact words spoken (verbatim, 10-30 words)
+- Identify if it was the agent or customer speaking
+- Use the timestamp from the transcript (convert [M:SS] to total seconds, e.g., [2:35] = 155)
+- Explain why this moment matters for coaching
+
+Focus on quotes that demonstrate:
+- Strong or weak rapport building
+- Empathetic responses or missed empathy opportunities
+- Problem resolution skills
+- Proactive service moments
+- Key customer concerns or satisfaction signals
+
 ## REQUIRED JSON RESPONSE FORMAT
 
 {
@@ -100,7 +125,15 @@ ${checklistItems.map((item: any) => `- **${item.label}**: ${item.criteria || 'Di
   "summary": "<${summaryInstructions}>",
   "crm_notes": "${crmNotesTemplate}",
   "suggestions": ${JSON.stringify(suggestionsExample)},
-  "checklist": ${JSON.stringify(checklistExample, null, 4)}
+  "checklist": ${JSON.stringify(checklistExample, null, 4)},
+  "notable_quotes": [
+    {
+      "text": "Exact quote from the call - copy verbatim",
+      "speaker": "agent",
+      "timestamp_seconds": 125,
+      "context": "Brief explanation of why this quote is significant"
+    }
+  ]
 }
 
 IMPORTANT RULES:
@@ -110,13 +143,25 @@ IMPORTANT RULES:
 - CRM notes should be formatted with markdown headers
 - Checklist evidence should quote the transcript when checked=true
 - First names only - no last names or PII
+- Extract 3-5 notable quotes with timestamps
 
-## TRANSCRIPT
-${transcript}`;
+## TRANSCRIPT (with timestamps)
+${transcriptWithTimestamps}`;
 }
 
 // Helper function to build dynamic sales call prompt from template
-function buildSalesUserPrompt(transcript: string, skillCategories: any): string {
+function buildSalesUserPrompt(
+  transcript: string, 
+  skillCategories: any,
+  transcriptSegments?: Array<{start: number; end: number; text: string}>
+): string {
+  // Build timestamped transcript if segments available
+  let transcriptWithTimestamps = transcript;
+  if (transcriptSegments && transcriptSegments.length > 0) {
+    transcriptWithTimestamps = transcriptSegments
+      .map(seg => `[${Math.floor(seg.start / 60)}:${String(Math.floor(seg.start % 60)).padStart(2, '0')}] ${seg.text}`)
+      .join('\n');
+  }
   // Extract template sections or use defaults
   const scoredSections = skillCategories?.scoredSections || [
     { 
@@ -204,6 +249,20 @@ ${scoringFramework}
 
 ${checklistCriteriaExplanation}
 
+## NOTABLE QUOTES EXTRACTION
+Identify 3-5 significant moments from the call. For each quote:
+- Copy the exact words spoken (verbatim, 10-30 words)
+- Identify if it was the agent or customer speaking
+- Use the timestamp from the transcript (convert [M:SS] to total seconds, e.g., [2:35] = 155)
+- Explain why this moment matters for coaching
+
+Focus on quotes that demonstrate:
+- Strong or weak rapport building
+- Good or missed discovery questions
+- Objection handling (successful or failed)
+- Closing attempts
+- Key customer concerns or buying signals
+
 ## REQUIRED JSON RESPONSE FORMAT
 
 {
@@ -251,7 +310,16 @@ ${checklistJsonStructure}
   },
   
   "call_outcome": "<sold | not_sold | follow_up_scheduled | undecided>",
-  "summary": "<2-3 sentences: why call occurred, outcome, next step>"
+  "summary": "<2-3 sentences: why call occurred, outcome, next step>",
+  
+  "notable_quotes": [
+    {
+      "text": "Exact quote from the call - copy verbatim",
+      "speaker": "agent",
+      "timestamp_seconds": 125,
+      "context": "Brief explanation of why this quote is significant"
+    }
+  ]
 }
 
 IMPORTANT RULES:
@@ -261,9 +329,10 @@ IMPORTANT RULES:
 - Critical assessment must be 3-4 sentences minimum
 - Be specific - cite quotes from the transcript when possible
 - Format prices consistently as $X/month or $X/year
+- Extract 3-5 notable quotes with timestamps
 
-## TRANSCRIPT
-${transcript}`;
+## TRANSCRIPT (with timestamps)
+${transcriptWithTimestamps}`;
 }
 
 // Helper function to normalize skill_scores from array to object format
@@ -416,9 +485,11 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
     console.log('Has custom checklist items:', skillCategories?.checklistItems?.length > 0 ? 'YES' : 'NO');
 
     // Build dynamic user prompt based on call type and template skill_categories
+    // Pass transcript_segments for timestamped quotes extraction
+    const transcriptSegments = call.transcript_segments as Array<{start: number; end: number; text: string}> | undefined;
     const userPrompt = callType === 'service' 
-      ? buildServiceUserPrompt(call.transcript, skillCategories)
-      : buildSalesUserPrompt(call.transcript, skillCategories);
+      ? buildServiceUserPrompt(call.transcript, skillCategories, transcriptSegments)
+      : buildSalesUserPrompt(call.transcript, skillCategories, transcriptSegments);
 
     console.log("Generated user prompt length:", userPrompt.length);
     console.log("User prompt preview:", userPrompt.substring(0, 1000));
@@ -554,6 +625,7 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         closing_attempts: analysis.crm_notes,
         coaching_recommendations: analysis.suggestions,
         discovery_wins: analysis.checklist,
+        notable_quotes: analysis.notable_quotes || [],
         client_profile: {
           csr_name: analysis.csr_name,
           client_first_name: analysis.client_first_name,
@@ -589,6 +661,7 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
         discovery_wins: analysis.execution_checklist || analysis.checklist,
+        notable_quotes: analysis.notable_quotes || [],
         critical_gaps: {
           assessment: analysis.critical_assessment || analysis.summary,
           rationale: analysis.potential_rank_rationale || `Ranked as ${analysis.potential_rank} based on overall performance.`,
