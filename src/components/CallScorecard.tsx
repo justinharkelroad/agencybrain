@@ -13,7 +13,8 @@ import {
 import { 
   User, Users, Target, AlertTriangle, CheckCircle2, XCircle,
   FileAudio, Clock, ChevronDown, ChevronUp, Download, 
-  Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX
+  Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX,
+  MessageSquareQuote
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
@@ -110,6 +111,21 @@ export function CallScorecard({
       case 'VERY LOW': return 'text-red-400 bg-red-500/20';
       default: return 'text-muted-foreground bg-muted';
     }
+  };
+
+  // Format seconds to MM:SS for timestamp display
+  const formatTimestamp = (seconds: number | undefined | null): string => {
+    if (seconds === undefined || seconds === null) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Copy timestamp to clipboard
+  const handleTimestampClick = (seconds: number) => {
+    const formatted = formatTimestamp(seconds);
+    navigator.clipboard.writeText(formatted);
+    toast.success(`Timestamp ${formatted} copied`);
   };
 
   const sectionScores = call.section_scores || {};
@@ -937,6 +953,69 @@ export function CallScorecard({
               )}
             </CardContent>
           </Card>
+
+          {/* Notable Quotes with Timestamps */}
+          {call.notable_quotes && Array.isArray(call.notable_quotes) && call.notable_quotes.length > 0 && (
+            <Card className="border-l-4 border-l-purple-500">
+              <CardContent className="pt-4">
+                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                  <MessageSquareQuote className="h-4 w-4 text-purple-400" />
+                  KEY MOMENTS
+                </h3>
+                <div className="space-y-3">
+                  {call.notable_quotes.map((quote: {
+                    text: string;
+                    speaker: 'agent' | 'customer';
+                    timestamp_seconds?: number;
+                    context?: string;
+                  }, idx: number) => (
+                    <div 
+                      key={idx} 
+                      className={`p-3 rounded-lg border ${
+                        quote.speaker === 'agent' 
+                          ? 'bg-blue-500/10 border-blue-500/30' 
+                          : 'bg-green-500/10 border-green-500/30'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Timestamp button */}
+                        {quote.timestamp_seconds !== undefined && quote.timestamp_seconds !== null && (
+                          <button
+                            onClick={() => handleTimestampClick(quote.timestamp_seconds!)}
+                            className="flex-shrink-0 px-2 py-1 text-xs font-mono bg-background/80 rounded border border-border hover:bg-muted transition-colors"
+                            title="Click to copy timestamp"
+                          >
+                            {formatTimestamp(quote.timestamp_seconds)}
+                          </button>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm italic">"{quote.text}"</p>
+                          {quote.context && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              → {quote.context}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Speaker badge */}
+                        <Badge 
+                          variant="outline" 
+                          className={`flex-shrink-0 text-xs ${
+                            quote.speaker === 'agent' 
+                              ? 'text-blue-400 border-blue-500/50' 
+                              : 'text-green-400 border-green-500/50'
+                          }`}
+                        >
+                          {quote.speaker === 'agent' ? 'Agent' : 'Customer'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Staff Acknowledgment Section */}
           <div className="mt-6 pt-6 border-t border-border">
