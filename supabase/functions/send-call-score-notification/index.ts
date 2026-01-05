@@ -420,6 +420,54 @@ function renderSummary(summary: string | null): string {
   `;
 }
 
+function renderNotableQuotes(notableQuotes: any[] | null): string {
+  if (!notableQuotes || !Array.isArray(notableQuotes) || notableQuotes.length === 0) return '';
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const quotes = notableQuotes.map((quote: any) => {
+    const isAgent = quote.speaker === 'agent';
+    const bgColor = isAgent ? '#dbeafe' : '#dcfce7';
+    const borderColor = isAgent ? '#3b82f6' : '#22c55e';
+    const badgeColor = isAgent ? '#1d4ed8' : '#16a34a';
+    const speakerLabel = isAgent ? 'Agent' : 'Customer';
+    
+    return `
+      <div style="background: ${bgColor}; border: 1px solid ${borderColor}40; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+        <table style="width: 100%;">
+          <tr>
+            ${quote.timestamp_seconds !== undefined ? `
+              <td style="width: 50px; vertical-align: top; padding-right: 8px;">
+                <span style="font-family: monospace; font-size: 12px; background: #f9fafb; border: 1px solid #e5e7eb; padding: 4px 8px; border-radius: 4px;">${formatTime(quote.timestamp_seconds)}</span>
+              </td>
+            ` : ''}
+            <td style="vertical-align: top;">
+              <p style="margin: 0; font-style: italic; color: #1f2937;">"${quote.text}"</p>
+              ${quote.context ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #6b7280;">→ ${quote.context}</p>` : ''}
+            </td>
+            <td style="width: 70px; vertical-align: top; text-align: right;">
+              <span style="display: inline-block; font-size: 11px; color: ${badgeColor}; border: 1px solid ${badgeColor}50; padding: 2px 8px; border-radius: 9999px;">${speakerLabel}</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div style="margin-bottom: 24px;">
+      <h3 style="color: #1e283a; margin-bottom: 12px; font-size: 16px;">💬 KEY MOMENTS</h3>
+      <div style="border-left: 4px solid #a855f7; padding-left: 16px;">
+        ${quotes}
+      </div>
+    </div>
+  `;
+}
+
 // Get recipients (team member, agency owner, key employees)
 async function getRecipients(supabase: any, agencyId: string, teamMemberId: string): Promise<string[]> {
   const recipients = new Set<string>();
@@ -556,6 +604,7 @@ serve(async (req) => {
         coaching_recommendations,
         client_profile,
         summary,
+        notable_quotes,
         agent_talk_percent,
         customer_talk_percent,
         dead_air_percent,
@@ -655,11 +704,13 @@ serve(async (req) => {
       emailBody += renderCriticalAssessment(call.critical_gaps, call.summary);
       emailBody += renderSectionScoresSales(call.section_scores as Record<string, any>);
       emailBody += renderExecutionChecklist(call.discovery_wins);
+      emailBody += renderNotableQuotes(call.notable_quotes as any[]);
       emailBody += renderActionPlan(call.critical_gaps);
     } else {
       // Service call
       emailBody += renderSectionScoresService(call.section_scores as any[]);
       emailBody += renderExecutionChecklist(call.discovery_wins);
+      emailBody += renderNotableQuotes(call.notable_quotes as any[]);
       emailBody += renderCoachingRecommendations(call.coaching_recommendations as string[]);
     }
 
