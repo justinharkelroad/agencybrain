@@ -5,10 +5,13 @@ interface GoalProgressRingProps {
   current: number;
   target: number;
   label?: string;
+  sublabel?: string;
+  footer?: string;
   size?: "xs" | "sm" | "md" | "lg";
   showPercentage?: boolean;
   animated?: boolean;
   formatValue?: (value: number) => string;
+  showCelebration?: boolean;
 }
 
 const sizeConfig = {
@@ -34,10 +37,13 @@ export function GoalProgressRing({
   current,
   target,
   label = "GOAL",
+  sublabel,
+  footer,
   size = "lg",
   showPercentage = true,
   animated = true,
   formatValue = (v) => v.toLocaleString(),
+  showCelebration = false,
 }: GoalProgressRingProps) {
   const [animatedPercent, setAnimatedPercent] = useState(0);
   const config = sizeConfig[size];
@@ -140,10 +146,19 @@ export function GoalProgressRing({
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         {showPercentage && (
           <span
-            className="font-bold text-foreground leading-none"
+            className="font-bold text-foreground leading-none flex items-center gap-1"
             style={{ fontSize: config.fontSize.percent }}
           >
             {Math.round(animatedPercent)}%
+            {showCelebration && <span>🏆</span>}
+          </span>
+        )}
+        {sublabel && (
+          <span
+            className="text-muted-foreground"
+            style={{ fontSize: config.fontSize.label }}
+          >
+            {sublabel}
           </span>
         )}
         <span
@@ -158,6 +173,13 @@ export function GoalProgressRing({
         >
           of {formatValue(target)} {label}
         </span>
+        {footer && (
+          <span
+            className="text-xs text-primary font-medium mt-1"
+          >
+            {footer}
+          </span>
+        )}
       </div>
     </div>
   );
