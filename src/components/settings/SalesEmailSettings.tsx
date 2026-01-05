@@ -24,6 +24,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
   const [saving, setSaving] = useState(false);
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
   const [dailySummaryEnabled, setDailySummaryEnabled] = useState(false);
+  const [callScoringEnabled, setCallScoringEnabled] = useState(true);
   const [timezone, setTimezone] = useState('America/New_York');
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
       try {
         const { data, error } = await supabase
           .from('agencies')
-          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, timezone')
+          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, call_scoring_email_enabled, timezone')
           .eq('id', agencyId)
           .single();
 
@@ -39,6 +40,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
 
         setRealtimeEnabled(data?.sales_realtime_email_enabled ?? true);
         setDailySummaryEnabled(data?.sales_daily_summary_enabled ?? false);
+        setCallScoringEnabled(data?.call_scoring_email_enabled ?? true);
         setTimezone(data?.timezone || 'America/New_York');
       } catch (err) {
         console.error('Failed to load sales email settings:', err);
@@ -72,10 +74,17 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
         setRealtimeEnabled(!value);
       } else if (field === 'sales_daily_summary_enabled') {
         setDailySummaryEnabled(!value);
+      } else if (field === 'call_scoring_email_enabled') {
+        setCallScoringEnabled(!value);
       }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCallScoringToggle = (checked: boolean) => {
+    setCallScoringEnabled(checked);
+    updateSetting('call_scoring_email_enabled', checked);
   };
 
   const handleRealtimeToggle = (checked: boolean) => {
@@ -139,6 +148,21 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
           <Switch
             checked={dailySummaryEnabled}
             onCheckedChange={handleDailySummaryToggle}
+            disabled={saving}
+          />
+        </div>
+
+        {/* Call Scoring Notifications */}
+        <div className="flex items-start justify-between gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="space-y-1">
+            <Label className="text-base font-medium">Call Score Alerts</Label>
+            <p className="text-sm text-muted-foreground">
+              Send scorecard results to the team member, agency owner, and managers when a call is analyzed.
+            </p>
+          </div>
+          <Switch
+            checked={callScoringEnabled}
+            onCheckedChange={handleCallScoringToggle}
             disabled={saving}
           />
         </div>
