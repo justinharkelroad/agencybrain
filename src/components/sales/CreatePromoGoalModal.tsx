@@ -52,6 +52,7 @@ export function CreatePromoGoalModal({
   const [productTypeId, setProductTypeId] = useState<string>("all");
   const [kpiSlug, setKpiSlug] = useState("outbound_calls");
   const [targetValue, setTargetValue] = useState("");
+  const [isAgencyWide, setIsAgencyWide] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   // Fetch team members
@@ -116,6 +117,9 @@ export function CreatePromoGoalModal({
         setProductTypeId(editGoal.product_type_id || "all");
         setKpiSlug(editGoal.kpi_slug || "outbound_calls");
         setTargetValue(editGoal.target_value.toString());
+        // Agency-wide if no assignments
+        const hasAssignments = editGoal.assignments && editGoal.assignments.length > 0;
+        setIsAgencyWide(!hasAssignments);
         setSelectedMembers(editGoal.assignments?.map(a => a.team_member_id) || []);
       } else {
         setGoalName("");
@@ -128,6 +132,7 @@ export function CreatePromoGoalModal({
         setProductTypeId("all");
         setKpiSlug("outbound_calls");
         setTargetValue("");
+        setIsAgencyWide(false);
         setSelectedMembers([]);
       }
     }
@@ -184,8 +189,8 @@ export function CreatePromoGoalModal({
         goalId = data.id;
       }
 
-      // Create new assignments
-      if (selectedMembers.length > 0) {
+      // Create new assignments (only if not agency-wide)
+      if (!isAgencyWide && selectedMembers.length > 0) {
         const assignments = selectedMembers.map(memberId => ({
           sales_goal_id: goalId,
           team_member_id: memberId,
@@ -226,8 +231,8 @@ export function CreatePromoGoalModal({
       return;
     }
 
-    if (selectedMembers.length === 0) {
-      toast.error("Please select at least one team member");
+    if (!isAgencyWide && selectedMembers.length === 0) {
+      toast.error("Please select at least one team member or choose 'Entire Agency'");
       return;
     }
 
@@ -441,39 +446,65 @@ export function CreatePromoGoalModal({
             />
           </div>
 
-          {/* Team Member Selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Assign To *</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={selectAll}
-              >
-                {selectedMembers.length === teamMembers.length ? "Deselect All" : "Select All"}
-              </Button>
-            </div>
-            <div className="border border-border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
-              {teamMembers.map(member => (
-                <label
-                  key={member.id}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
-                >
-                  <Checkbox
-                    checked={selectedMembers.includes(member.id)}
-                    onCheckedChange={() => toggleMember(member.id)}
-                  />
-                  <span className="text-sm">{member.name}</span>
-                </label>
-              ))}
-              {teamMembers.length === 0 && (
-                <p className="text-sm text-muted-foreground">No active team members found</p>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {selectedMembers.length} of {teamMembers.length} selected
-            </p>
+          {/* Assignment Type */}
+          <div className="space-y-3">
+            <Label>Assign To *</Label>
+            
+            {/* Agency-Wide Toggle */}
+            <label className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+              <Checkbox
+                checked={isAgencyWide}
+                onCheckedChange={(checked) => {
+                  setIsAgencyWide(!!checked);
+                  if (checked) {
+                    setSelectedMembers([]);
+                  }
+                }}
+              />
+              <div>
+                <span className="text-sm font-medium">Entire Agency</span>
+                <p className="text-xs text-muted-foreground">
+                  All team member sales count toward this goal
+                </p>
+              </div>
+            </label>
+            
+            {/* Individual Team Member Selection */}
+            {!isAgencyWide && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Or select specific team members:</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={selectAll}
+                  >
+                    {selectedMembers.length === teamMembers.length ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
+                <div className="border border-border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                  {teamMembers.map(member => (
+                    <label
+                      key={member.id}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded"
+                    >
+                      <Checkbox
+                        checked={selectedMembers.includes(member.id)}
+                        onCheckedChange={() => toggleMember(member.id)}
+                      />
+                      <span className="text-sm">{member.name}</span>
+                    </label>
+                  ))}
+                  {teamMembers.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No active team members found</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {selectedMembers.length} of {teamMembers.length} selected
+                </p>
+              </>
+            )}
           </div>
 
           {/* Actions */}

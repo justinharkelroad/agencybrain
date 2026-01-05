@@ -192,6 +192,21 @@ export async function calculatePromoProgress(
   }
 }
 
+// Calculate progress for an agency-wide promo goal (all team members combined)
+export async function calculateAgencyWidePromoProgress(
+  goal: PromoGoal,
+  agencyId: string
+): Promise<number> {
+  const startDate = goal.start_date;
+  const endDate = goal.end_date;
+  
+  if (goal.promo_source === 'sales') {
+    return calculateAgencyWideSalesProgress(goal, agencyId, startDate, endDate);
+  } else {
+    return calculateAgencyWideMetricsProgress(goal, agencyId, startDate, endDate);
+  }
+}
+
 async function calculateSalesProgress(
   goal: PromoGoal,
   teamMemberId: string,
@@ -346,6 +361,154 @@ async function calculateMetricsProgress(
     .from("metrics_daily")
     .select(column)
     .eq("team_member_id", teamMemberId)
+    .eq("agency_id", agencyId)
+    .gte("date", startDate)
+    .lte("date", endDate);
+  
+  if (error) throw error;
+  
+  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+}
+
+// Agency-wide sales progress calculation (no team_member filter)
+async function calculateAgencyWideSalesProgress(
+  goal: PromoGoal,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  const measurement = goal.measurement;
+  const productTypeId = goal.product_type_id;
+  
+  if (measurement === 'premium') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_premium")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+    
+    if (error) throw error;
+    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
+  }
+  
+  if (measurement === 'items') {
+    let query = supabase
+      .from("sale_items")
+      .select(`
+        item_count,
+        sale_policy:sale_policies!inner(
+          sale:sales!inner(
+            agency_id,
+            sale_date
+          )
+        )
+      `)
+      .eq("sale_policy.sale.agency_id", agencyId)
+      .gte("sale_policy.sale.sale_date", startDate)
+      .lte("sale_policy.sale.sale_date", endDate);
+    
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data?.reduce((sum, item) => sum + (item.item_count || 0), 0) || 0;
+  }
+  
+  if (measurement === 'points') {
+    let query = supabase
+      .from("sale_items")
+      .select(`
+        points,
+        sale_policy:sale_policies!inner(
+          sale:sales!inner(
+            agency_id,
+            sale_date
+          )
+        )
+      `)
+      .eq("sale_policy.sale.agency_id", agencyId)
+      .gte("sale_policy.sale.sale_date", startDate)
+      .lte("sale_policy.sale.sale_date", endDate);
+    
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
+  }
+  
+  if (measurement === 'policies') {
+    let query = supabase
+      .from("sale_policies")
+      .select(`
+        id,
+        sale:sales!inner(
+          agency_id,
+          sale_date
+        )
+      `)
+      .eq("sale.agency_id", agencyId)
+      .gte("sale.sale_date", startDate)
+      .lte("sale.sale_date", endDate);
+    
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data?.length || 0;
+  }
+  
+  if (measurement === 'households') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("customer_name")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+    
+    if (error) throw error;
+    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
+    return uniqueHouseholds.size;
+  }
+  
+  return 0;
+}
+
+// Agency-wide metrics progress calculation (sum across all team members)
+async function calculateAgencyWideMetricsProgress(
+  goal: PromoGoal,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  const kpiSlug = goal.kpi_slug;
+  if (!kpiSlug) return 0;
+  
+  const columnMap: Record<string, string> = {
+    'outbound_calls': 'outbound_calls',
+    'talk_minutes': 'talk_minutes',
+    'quoted_count': 'quoted_count',
+    'quoted_households': 'quoted_count',
+    'sold_items': 'sold_items',
+    'items_sold': 'sold_items',
+    'sold_policies': 'sold_policies',
+    'cross_sells_uncovered': 'cross_sells_uncovered',
+    'mini_reviews': 'mini_reviews',
+  };
+  
+  const column = columnMap[kpiSlug];
+  if (!column) return 0;
+  
+  const { data, error } = await supabase
+    .from("metrics_daily")
+    .select(column)
     .eq("agency_id", agencyId)
     .gte("date", startDate)
     .lte("date", endDate);
