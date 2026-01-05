@@ -27,14 +27,6 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function getChargebackRuleLabel(rule: string): string {
-  switch (rule) {
-    case 'none': return 'No Chargebacks';
-    case 'three_month': return '3-Month Rule';
-    case 'full': return 'Full Chargeback';
-    default: return 'Full Chargeback';
-  }
-}
 
 export function CommissionStatementExport({ 
   payout, 
@@ -163,14 +155,6 @@ export function CommissionStatementExport({
                   <td>Statement Period:</td>
                   <td className="font-bold">{periodLabel}</td>
                 </tr>
-                <tr>
-                  <td>Comp Plan:</td>
-                  <td>{payout.compPlanName}</td>
-                </tr>
-                <tr>
-                  <td>Chargeback Rule:</td>
-                  <td>{getChargebackRuleLabel(payout.chargebackRule)}</td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -184,7 +168,7 @@ export function CommissionStatementExport({
             <table className="w-full">
               <tbody>
                 <tr>
-                  <td className="py-1">Written Premium:</td>
+                  <td className="py-1">Issued Premium Credits:</td>
                   <td className="text-right font-mono">{formatCurrency(payout.issuedPremium)}</td>
                 </tr>
                 <tr>
@@ -201,6 +185,10 @@ export function CommissionStatementExport({
                 <tr>
                   <td className="py-3"></td>
                   <td></td>
+                </tr>
+                <tr>
+                  <td className="py-1">Written Premium Submitted:</td>
+                  <td className="text-right font-mono">{formatCurrency(payout.writtenPremium)}</td>
                 </tr>
                 <tr>
                   <td className="py-1">Tier Achieved:</td>
@@ -234,7 +222,7 @@ export function CommissionStatementExport({
           {/* Credits Section */}
           <div className="mb-6">
             <div className="border-t-2 border-b border-black py-1 mb-3">
-              <h2 className="font-bold text-center">CREDITS ({credits.length} {credits.length === 1 ? 'policy' : 'policies'})</h2>
+              <h2 className="font-bold text-center">ISSUED PREMIUM CREDITS ({credits.length} {credits.length === 1 ? 'policy' : 'policies'})</h2>
             </div>
             
             {credits.length > 0 ? (
