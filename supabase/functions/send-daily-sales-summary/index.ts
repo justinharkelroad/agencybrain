@@ -49,6 +49,20 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    // Parse request body for test mode
+    let forceTest = false;
+    let testAgencyId: string | null = null;
+    try {
+      const body = await req.json();
+      forceTest = body?.forceTest === true;
+      testAgencyId = body?.agencyId || null;
+      if (forceTest) {
+        console.log('[send-daily-sales-summary] FORCE TEST MODE enabled', testAgencyId ? `for agency ${testAgencyId}` : '');
+      }
+    } catch {
+      // No body or invalid JSON, continue normally
+    }
+    
     console.log('[send-daily-sales-summary] Starting daily summary check');
 
     // Get current UTC time
@@ -57,11 +71,18 @@ serve(async (req) => {
     
     console.log('[send-daily-sales-summary] Current UTC hour:', currentUtcHour);
 
-    // Fetch all agencies with daily summary enabled
-    const { data: agencies, error: agenciesError } = await supabase
+    // Fetch agencies with daily summary enabled (or specific agency if testing)
+    let agencyQuery = supabase
       .from('agencies')
-      .select('id, name, sales_daily_summary_enabled, timezone')
-      .eq('sales_daily_summary_enabled', true);
+      .select('id, name, sales_daily_summary_enabled, timezone');
+    
+    if (forceTest && testAgencyId) {
+      agencyQuery = agencyQuery.eq('id', testAgencyId);
+    } else {
+      agencyQuery = agencyQuery.eq('sales_daily_summary_enabled', true);
+    }
+    
+    const { data: agencies, error: agenciesError } = await agencyQuery;
 
     if (agenciesError) {
       console.error('[send-daily-sales-summary] Agencies lookup failed:', agenciesError);
@@ -85,8 +106,8 @@ serve(async (req) => {
 
         console.log(`[send-daily-sales-summary] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 
-        // Only send at 7 PM local time (19:00)
-        if (localHour !== 19) {
+        // Only send at 7 PM local time (19:00) - unless force test mode
+        if (!forceTest && localHour !== 19) {
           console.log(`[send-daily-sales-summary] Skipping ${agency.name} - not 7 PM local time`);
           results.push({ agency: agency.name, status: 'skipped - not 7PM' });
           continue;
