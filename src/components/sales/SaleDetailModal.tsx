@@ -197,12 +197,12 @@ export function SaleDetailModal({
                 <h3 className="text-xl font-semibold">{sale.customer_name}</h3>
                 <div className="flex items-center gap-2">
                   {sale.is_bundle && (
-                    <Badge variant="default" className="bg-blue-600">
+                    <Badge variant="default" className="bg-blue-600 text-slate-900">
                       {sale.bundle_type || "Bundle"}
                     </Badge>
                   )}
                   {sale.is_vc_qualifying && (
-                    <Badge variant="default" className="bg-green-600">
+                    <Badge variant="default" className="bg-green-600 text-slate-900">
                       VC Qualifying
                     </Badge>
                   )}
@@ -260,7 +260,7 @@ export function SaleDetailModal({
                         <FileText className="h-4 w-4" />
                         <span>{policy.policy_type_name}</span>
                         {policy.is_vc_qualifying && (
-                          <Badge variant="default" className="bg-green-600 text-xs">
+                          <Badge variant="default" className="bg-green-600 text-slate-900 text-xs">
                             VC
                           </Badge>
                         )}
@@ -301,7 +301,7 @@ export function SaleDetailModal({
                               </TableCell>
                               <TableCell className="text-center">
                                 {item.is_vc_qualifying ? (
-                                  <Badge variant="default" className="bg-green-600 text-xs">
+                                  <Badge variant="default" className="bg-green-600 text-slate-900 text-xs">
                                     Yes
                                   </Badge>
                                 ) : (

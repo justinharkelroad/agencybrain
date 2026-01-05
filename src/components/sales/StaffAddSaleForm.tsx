@@ -885,7 +885,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
               <CardTitle className="flex items-center gap-3">
                 Sale Summary
                 {bundleInfo.isBundle && bundleInfo.bundleType === 'Preferred' && (
-                  <Badge variant="default" className="bg-blue-600">
+                  <Badge variant="default" className="bg-blue-600 text-slate-900">
                     Preferred Bundle
                   </Badge>
                 )}
