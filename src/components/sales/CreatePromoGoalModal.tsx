@@ -71,8 +71,8 @@ export function CreatePromoGoalModal({
     enabled: open && !!agencyId,
   });
 
-  // Fetch product types
-  const { data: productTypes = [] } = useQuery({
+  // Fetch product types - always fetch when open so they're available for edit mode
+  const { data: productTypes = [], isLoading: productTypesLoading } = useQuery({
     queryKey: ["product-types-for-promo", agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -84,7 +84,7 @@ export function CreatePromoGoalModal({
       if (error) throw error;
       return data;
     },
-    enabled: open && !!agencyId && promoSource === "sales",
+    enabled: open && !!agencyId,
   });
 
   // Fetch KPIs for metrics source
@@ -107,6 +107,11 @@ export function CreatePromoGoalModal({
   useEffect(() => {
     if (open) {
       if (editGoal) {
+        console.log("[CreatePromoGoalModal] Loading editGoal:", {
+          id: editGoal.id,
+          product_type_id: editGoal.product_type_id,
+          promo_source: editGoal.promo_source,
+        });
         setGoalName(editGoal.goal_name);
         setDescription(editGoal.description || "");
         setBonusAmount(editGoal.bonus_amount_cents ? (editGoal.bonus_amount_cents / 100).toString() : "");
@@ -145,6 +150,12 @@ export function CreatePromoGoalModal({
       if (promoSource === "sales" && productTypeId && productTypeId !== "all" && productTypeId !== "") {
         normalizedProductTypeId = productTypeId;
       }
+
+      console.log("[CreatePromoGoalModal] Saving promo with product_type_id:", {
+        rawProductTypeId: productTypeId,
+        normalizedProductTypeId,
+        promoSource,
+      });
 
       const goalData = {
         agency_id: agencyId,
@@ -396,9 +407,21 @@ export function CreatePromoGoalModal({
               </div>
               <div className="space-y-2">
                 <Label>Product Filter</Label>
-                <Select value={productTypeId} onValueChange={setProductTypeId}>
+                <Select 
+                  value={productTypeId} 
+                  onValueChange={(val) => {
+                    console.log("[CreatePromoGoalModal] Product Filter changed to:", val);
+                    setProductTypeId(val);
+                  }}
+                  disabled={productTypesLoading}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder={productTypesLoading ? "Loading..." : "Select product"}>
+                      {productTypeId === "all" 
+                        ? "All Products" 
+                        : productTypes.find(pt => pt.id === productTypeId)?.name || 
+                          (productTypeId && productTypeId !== "all" ? "Loading..." : "Select product")}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Products</SelectItem>

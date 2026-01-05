@@ -247,7 +247,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   });
 
   // Fetch lead sources
-  const { leadSources } = useLeadSources();
+  const { leadSources, loading: leadSourcesLoading } = useLeadSources();
 
   // Calculate policy totals
   const calculatePolicyTotals = (policy: Policy) => {
@@ -697,9 +697,17 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               <Label htmlFor="leadSource">
                 Lead Source <span className="text-destructive">*</span>
               </Label>
-              <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+              <Select 
+                value={leadSourceId} 
+                onValueChange={setLeadSourceId}
+                disabled={leadSourcesLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select lead source..." />
+                  <SelectValue placeholder={leadSourcesLoading ? "Loading..." : "Select lead source..."}>
+                    {leadSourceId 
+                      ? leadSources.find(ls => ls.id === leadSourceId)?.name || "Loading..."
+                      : (leadSourcesLoading ? "Loading..." : "Select lead source...")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {leadSources.map((source) => (
