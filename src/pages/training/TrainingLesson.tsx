@@ -175,6 +175,12 @@ export default function TrainingLesson() {
       return `https://www.youtube.com/embed/${ytMatch[1]}`;
     }
 
+    // Vimeo
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
     // Loom
     const loomMatch = url.match(/loom\.com\/share\/([^?\s]+)/);
     if (loomMatch) {

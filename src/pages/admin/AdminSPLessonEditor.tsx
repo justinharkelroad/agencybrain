@@ -489,14 +489,14 @@ export default function AdminSPLessonEditor() {
               Video
             </CardTitle>
             <CardDescription>
-              Paste a YouTube or Loom video URL
+              Paste a YouTube, Vimeo, or Loom video URL
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Input
               value={videoUrl}
               onChange={e => setVideoUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=... or https://www.loom.com/share/..."
+              placeholder="https://youtube.com/... or https://vimeo.com/... or https://loom.com/share/..."
             />
             {videoUrl && (
               <p className="text-xs text-muted-foreground mt-2">
