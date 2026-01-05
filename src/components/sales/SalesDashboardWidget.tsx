@@ -225,10 +225,10 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         </div>
       ) : (
         <>
-          {/* Main Content: Ring + Orbs */}
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
-            {/* Left Orbs */}
-            <div className="flex flex-row lg:flex-col gap-4">
+          {/* Main Content: Ring + Orbs - 3 column layout on desktop */}
+          <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-6 lg:gap-4">
+            {/* Left Orbs - Stack vertically on desktop, align toward center */}
+            <div className="flex flex-row flex-wrap lg:flex-col lg:items-end justify-center gap-3 w-full lg:w-auto order-2 lg:order-1">
               <StatOrb
                 value={`$${Math.round(stats.totalPremium / 1000)}k`}
                 label="Premium"
@@ -255,8 +255,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               />
             </div>
 
-            {/* Center Ring */}
-            <div className="flex-shrink-0">
+            {/* Center Ring - Larger and prominent */}
+            <div className="flex-shrink-0 order-1 lg:order-2">
               {hasGoal ? (
                 <GoalProgressRing
                   current={stats.totalPremium}
@@ -265,13 +265,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                   animated={true}
                 />
               ) : (
-                <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
+                <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
                   {/* No goal state */}
-                  <svg width={240} height={240} className="transform -rotate-90 opacity-30">
+                  <svg width={200} height={200} className="transform -rotate-90 opacity-30">
                     <circle
-                      cx={120}
-                      cy={120}
-                      r={108}
+                      cx={100}
+                      cy={100}
+                      r={88}
                       fill="none"
                       stroke="rgba(255, 255, 255, 0.1)"
                       strokeWidth={12}
@@ -291,8 +291,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               )}
             </div>
 
-            {/* Right Orbs */}
-            <div className="flex flex-row lg:flex-col gap-4">
+            {/* Right Orbs - Stack vertically on desktop, align toward center */}
+            <div className="flex flex-row flex-wrap lg:flex-col lg:items-start justify-center gap-3 w-full lg:w-auto order-3">
               <StatOrb
                 value={stats.totalItems}
                 label="Items"

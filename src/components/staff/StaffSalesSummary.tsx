@@ -225,44 +225,10 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col items-center gap-6">
-        {/* Center Ring - Smaller on mobile */}
-        <div className="flex-shrink-0">
-          {goal > 0 ? (
-            <GoalProgressRing
-              current={premium}
-              target={goal}
-              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
-              size="md"
-              showPercentage
-              animated
-            />
-          ) : (
-            <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
-              <svg width={160} height={160} className="transform -rotate-90 opacity-30">
-                <circle
-                  cx={80}
-                  cy={80}
-                  r={72}
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.1)"
-                  strokeWidth={8}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-muted-foreground text-xs">No Goal Set</span>
-                <span className="text-2xl font-bold text-foreground mt-1">
-                  ${premium.toLocaleString()}
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">This Month</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Grid - All orbs in responsive grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 w-full">
+      {/* Main Content: Ring + Orbs - 3 column layout on desktop */}
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-items-center gap-6 lg:gap-4">
+        {/* Left Orbs - Stack vertically on desktop, align toward center */}
+        <div className="flex flex-row flex-wrap lg:flex-col lg:items-end justify-center gap-3 w-full lg:w-auto order-2 lg:order-1">
           <StatOrb
             value={`$${premium.toLocaleString()}`}
             label="Premium"
@@ -276,7 +242,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             label="Points"
             icon={Trophy}
             color="orange"
-            animationDelay={200}
+            animationDelay={100}
             projection={pointsProj}
           />
           <StatOrb
@@ -284,15 +250,53 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             label="Households"
             icon={Users}
             color="cyan"
-            animationDelay={250}
+            animationDelay={150}
             projection={householdsProj}
           />
+        </div>
+
+        {/* Center Ring - Larger and prominent */}
+        <div className="flex-shrink-0 order-1 lg:order-2">
+          {goal > 0 ? (
+            <GoalProgressRing
+              current={premium}
+              target={goal}
+              label={goalData?.type === "personal" ? "Personal Goal" : "Agency Goal"}
+              size="lg"
+              showPercentage
+              animated
+            />
+          ) : (
+            <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
+              <svg width={200} height={200} className="transform -rotate-90 opacity-30">
+                <circle
+                  cx={100}
+                  cy={100}
+                  r={88}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth={12}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-muted-foreground text-xs">No Goal Set</span>
+                <span className="text-xl sm:text-2xl font-bold text-foreground mt-1">
+                  ${premium.toLocaleString()}
+                </span>
+                <span className="text-xs text-muted-foreground mt-1">This Month</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Orbs - Stack vertically on desktop, align toward center */}
+        <div className="flex flex-row flex-wrap lg:flex-col lg:items-start justify-center gap-3 w-full lg:w-auto order-3">
           <StatOrb
             value={items}
             label="Items"
             icon={Package}
             color="blue"
-            animationDelay={100}
+            animationDelay={200}
             projection={itemsProj}
           />
           <StatOrb
