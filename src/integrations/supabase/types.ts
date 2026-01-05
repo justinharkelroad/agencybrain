@@ -8016,7 +8016,7 @@ export type Database = {
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
-      app_member_role: "Sales" | "Service" | "Hybrid" | "Manager"
+      app_member_role: "Sales" | "Service" | "Hybrid" | "Manager" | "Owner"
       app_member_status: "active" | "inactive"
       app_role: "admin" | "user"
       call_type_enum: "sales" | "service"
@@ -8156,7 +8156,7 @@ export const Constants = {
   public: {
     Enums: {
       app_employment_type: ["Full-time", "Part-time"],
-      app_member_role: ["Sales", "Service", "Hybrid", "Manager"],
+      app_member_role: ["Sales", "Service", "Hybrid", "Manager", "Owner"],
       app_member_status: ["active", "inactive"],
       app_role: ["admin", "user"],
       call_type_enum: ["sales", "service"],
