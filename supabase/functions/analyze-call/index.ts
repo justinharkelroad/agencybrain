@@ -477,8 +477,64 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
       ? templatePrompt
       : (callType === 'service' ? defaultServicePrompt : defaultSalesPrompt);
 
-    // Enforce JSON-only output
-    const enforcedSystemPrompt = `${systemPrompt}\n\nCRITICAL OUTPUT FORMAT: Respond with ONLY valid JSON. Do NOT use markdown. Do NOT use HTML. Do NOT add commentary.`;
+    // Schema override to ensure required fields are always included regardless of template
+    const schemaOverride = callType === 'sales' ? `
+
+ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
+
+1. "notable_quotes": Array of 3-5 significant call moments with verbatim quotes:
+   [
+     {
+       "text": "<exact verbatim quote, 10-30 words>",
+       "speaker": "agent" | "customer",
+       "timestamp_seconds": <integer - convert [M:SS] to total seconds, e.g., [2:35] = 155>,
+       "context": "<why this quote matters for coaching>"
+     }
+   ]
+
+2. "execution_checklist": MUST be an ARRAY (not object) with evidence quotes for each item:
+   [
+     {
+       "label": "<checklist item name>",
+       "checked": true | false,
+       "evidence": {
+         "text": "<verbatim quote proving this, or null if not observed>",
+         "timestamp_seconds": <integer timestamp>
+       }
+     }
+   ]
+
+3. "crm_notes": MUST be an object with these exact keys:
+   {
+     "personal_rapport": "<family, work, hobbies mentioned or 'None discussed'>",
+     "motivation_to_switch": "<reasons stated or 'Not mentioned'>",
+     "coverage_gaps_discussed": "<limits, deductibles, concerns or 'None identified'>",
+     "premium_insights": "<current carrier, budget, price expectations or 'Not discussed'>",
+     "decision_process": "<who decides, timing, stakeholders or 'Unknown'>",
+     "quote_summary": "<what was quoted or 'No quote provided'>",
+     "follow_up_details": "<date/time/purpose if set, otherwise 'None scheduled'>"
+   }
+
+4. For each section in "section_scores", include evidence in wins/failures:
+   {
+     "rapport": {
+       "score": 65,
+       "wins": [{"claim": "<what was done well>", "evidence": {"text": "<verbatim quote>", "timestamp_seconds": 45}}],
+       "failures": [{"claim": "<what was missed>", "evidence": {"text": "<quote showing issue>", "timestamp_seconds": 120}}],
+       "coaching": "<coaching advice>"
+     }
+   }
+
+TIMESTAMP RULE: Use transcript timestamps [M:SS] - convert to total seconds (e.g., [2:35] = 155).
+` : `
+
+ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
+
+1. "notable_quotes": Array of 3-5 significant call moments with verbatim quotes.
+`;
+
+    // Enforce JSON-only output with schema override
+    const enforcedSystemPrompt = `${systemPrompt}${schemaOverride}\n\nCRITICAL OUTPUT FORMAT: Respond with ONLY valid JSON. Do NOT use markdown. Do NOT use HTML. Do NOT add commentary.`;
 
     console.log('Using prompt source:', templatePrompt && templatePrompt.trim().length > 0 ? 'TEMPLATE' : 'HARDCODED DEFAULT');
     console.log('Has custom scored sections:', skillCategories?.scoredSections?.length > 0 ? 'YES' : 'NO');
@@ -548,6 +604,11 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
     }
 
     console.log("Raw AI response:", analysisText.substring(0, 500));
+    
+    // Log key fields for debugging
+    console.log("[analyze-call] notable_quotes:", JSON.stringify(analysis?.notable_quotes)?.substring(0, 300) || 'undefined');
+    console.log("[analyze-call] execution_checklist type:", Array.isArray(analysis?.execution_checklist) ? 'array' : typeof analysis?.execution_checklist);
+    console.log("[analyze-call] crm_notes type:", typeof analysis?.crm_notes);
 
     // Parse the JSON response
     let analysis;
@@ -653,6 +714,32 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         console.log('[analyze-call] Converted skill_scores to array:', JSON.stringify(skillScoresForStorage));
       }
       
+      // Normalize execution_checklist to array format with evidence
+      let checklistData = analysis.execution_checklist || analysis.checklist || [];
+      if (!Array.isArray(checklistData)) {
+        // Convert object format {key: true/false} to array format with evidence
+        checklistData = Object.entries(checklistData).map(([key, value]) => ({
+          label: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          checked: Boolean(value),
+          evidence: null
+        }));
+        console.log('[analyze-call] Converted checklist from object to array format');
+      }
+      
+      // Normalize crm_notes to object format
+      let crmNotesData = analysis.crm_notes || analysis.closing_attempts || {};
+      if (typeof crmNotesData === 'string') {
+        crmNotesData = { raw: crmNotesData };
+        console.log('[analyze-call] Wrapped string crm_notes in object');
+      } else if (Array.isArray(crmNotesData)) {
+        crmNotesData = { raw: crmNotesData.join('\n') };
+        console.log('[analyze-call] Converted array crm_notes to object');
+      }
+      
+      console.log('[analyze-call] Final checklist items:', checklistData.length);
+      console.log('[analyze-call] Final notable_quotes:', (analysis.notable_quotes || []).length);
+      console.log('[analyze-call] CRM notes keys:', Object.keys(crmNotesData));
+      
       updatePayload = {
         ...updatePayload,
         potential_rank: analysis.potential_rank,
@@ -660,7 +747,7 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
         section_scores: analysis.section_scores, // Keep original for detailed view
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
-        discovery_wins: analysis.execution_checklist || analysis.checklist,
+        discovery_wins: checklistData, // Store normalized checklist array
         notable_quotes: analysis.notable_quotes || [],
         critical_gaps: {
           assessment: analysis.critical_assessment || analysis.summary,
@@ -679,7 +766,7 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
                 }
           )
         },
-        closing_attempts: analysis.crm_notes || analysis.closing_attempts,
+        closing_attempts: crmNotesData, // Store normalized CRM notes object
       };
     }
 
