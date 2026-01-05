@@ -281,13 +281,12 @@ export function PayoutPreview({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Team Member</TableHead>
-                    <TableHead>Plan</TableHead>
                     <TableHead className="text-right">Written</TableHead>
+                    <TableHead className="text-right">Issued</TableHead>
                     <TableHead className="text-right">Net</TableHead>
                     <TableHead className="text-right">Tier</TableHead>
                     <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="text-right">Payout</TableHead>
-                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -296,7 +295,6 @@ export function PayoutPreview({
                       key={idx}
                       payout={payout}
                       formatCurrency={formatCurrency}
-                      getStatusBadge={getStatusBadge}
                       onClick={() => setSelectedPayout(payout)}
                     />
                   ))}
