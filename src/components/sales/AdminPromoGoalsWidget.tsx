@@ -31,6 +31,7 @@ interface PromoWithProgress {
   status: 'active' | 'upcoming' | 'ended';
   daysRemaining: number;
   staffProgress: StaffProgress[];
+  isAgencyWide?: boolean;
 }
 
 export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) {
@@ -66,7 +67,7 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
 
       const today = todayLocal();
 
-      // Process each goal and calculate progress per staff member
+      // Process each goal and calculate progress per staff member OR agency-wide
       const promosWithProgress: PromoWithProgress[] = [];
 
       for (const goal of goals || []) {
@@ -88,43 +89,75 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
             ? Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1)
             : Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-        // Calculate progress for each assigned staff member
+        const isAgencyWide = !goal.sales_goal_assignments || goal.sales_goal_assignments.length === 0;
+        
+        // Calculate progress for each assigned staff member OR agency-wide
         const staffProgress: StaffProgress[] = [];
 
-        for (const assignment of goal.sales_goal_assignments || []) {
-          const teamMemberId = assignment.team_member_id;
-          const teamMemberName = (assignment.team_member as any)?.name || 'Unknown';
-
+        if (isAgencyWide) {
+          // Agency-wide promo: calculate aggregate progress
           let progress = 0;
-
           if (status === 'active') {
-            // Calculate actual progress
             if (goal.promo_source === 'sales') {
-              progress = await calculateSalesProgress(
+              progress = await calculateAgencyWideSalesProgress(
                 goal.measurement,
                 goal.product_type_id,
-                teamMemberId,
                 agencyId,
                 goal.start_date,
                 goal.end_date
               );
             } else if (goal.promo_source === 'metrics') {
-              progress = await calculateMetricsProgress(
+              progress = await calculateAgencyWideMetricsProgress(
                 goal.kpi_slug,
-                teamMemberId,
                 agencyId,
                 goal.start_date,
                 goal.end_date
               );
             }
           }
-
           staffProgress.push({
-            teamMemberId,
-            teamMemberName,
+            teamMemberId: 'agency-wide',
+            teamMemberName: 'Entire Agency',
             progress,
             isAchieved: progress >= goal.target_value,
           });
+        } else {
+          // Individual assignments
+          for (const assignment of goal.sales_goal_assignments || []) {
+            const teamMemberId = assignment.team_member_id;
+            const teamMemberName = (assignment.team_member as any)?.name || 'Unknown';
+
+            let progress = 0;
+
+            if (status === 'active') {
+              // Calculate actual progress
+              if (goal.promo_source === 'sales') {
+                progress = await calculateSalesProgress(
+                  goal.measurement,
+                  goal.product_type_id,
+                  teamMemberId,
+                  agencyId,
+                  goal.start_date,
+                  goal.end_date
+                );
+              } else if (goal.promo_source === 'metrics') {
+                progress = await calculateMetricsProgress(
+                  goal.kpi_slug,
+                  teamMemberId,
+                  agencyId,
+                  goal.start_date,
+                  goal.end_date
+                );
+              }
+            }
+
+            staffProgress.push({
+              teamMemberId,
+              teamMemberName,
+              progress,
+              isAchieved: progress >= goal.target_value,
+            });
+          }
         }
 
         promosWithProgress.push({
@@ -141,6 +174,7 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
           status,
           daysRemaining,
           staffProgress,
+          isAgencyWide,
         });
       }
 
@@ -215,7 +249,7 @@ function PromoCard({ promo }: { promo: PromoWithProgress }) {
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {totalAssigned} assigned
+              {promo.isAgencyWide ? "Entire Agency" : `${totalAssigned} assigned`}
             </span>
             {promo.status === 'active' && (
               <span className="flex items-center gap-1 text-amber-500">
@@ -283,8 +317,8 @@ function PromoCard({ promo }: { promo: PromoWithProgress }) {
         </div>
       )}
 
-      {/* Summary */}
-      {promo.status === 'active' && totalAssigned > 0 && (
+      {/* Summary - only show for individual assignments, not agency-wide */}
+      {promo.status === 'active' && totalAssigned > 0 && !promo.isAgencyWide && (
         <div className="text-xs text-muted-foreground pt-1 border-t border-border/50">
           {achievedCount} of {totalAssigned} achieved
         </div>
@@ -405,6 +439,118 @@ async function calculateMetricsProgress(
     .from("metrics_daily")
     .select(column)
     .eq("team_member_id", teamMemberId)
+    .eq("agency_id", agencyId)
+    .gte("date", startDate)
+    .lte("date", endDate);
+
+  if (error) throw error;
+
+  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+}
+
+// Agency-wide calculation functions (no team_member filter)
+async function calculateAgencyWideSalesProgress(
+  measurement: string,
+  productTypeId: string | null,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  if (measurement === 'premium') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_premium")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
+  }
+
+  if (measurement === 'items') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_items")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum, s) => sum + (s.total_items || 0), 0) || 0;
+  }
+
+  if (measurement === 'points') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_points")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
+  }
+
+  if (measurement === 'policies') {
+    let query = supabase
+      .from("sale_policies")
+      .select("id, sale:sales!inner(agency_id, sale_date)")
+      .eq("sale.agency_id", agencyId)
+      .gte("sale.sale_date", startDate)
+      .lte("sale.sale_date", endDate);
+
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data?.length || 0;
+  }
+
+  if (measurement === 'households') {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("customer_name")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
+    return uniqueHouseholds.size;
+  }
+
+  return 0;
+}
+
+async function calculateAgencyWideMetricsProgress(
+  kpiSlug: string | null,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  if (!kpiSlug) return 0;
+
+  const columnMap: Record<string, string> = {
+    'outbound_calls': 'outbound_calls',
+    'talk_minutes': 'talk_minutes',
+    'quoted_count': 'quoted_count',
+    'quoted_households': 'quoted_count',
+    'sold_items': 'sold_items',
+    'items_sold': 'sold_items',
+    'sold_policies': 'sold_policies',
+    'cross_sells_uncovered': 'cross_sells_uncovered',
+    'mini_reviews': 'mini_reviews',
+  };
+
+  const column = columnMap[kpiSlug];
+  if (!column) return 0;
+
+  const { data, error } = await supabase
+    .from("metrics_daily")
+    .select(column)
     .eq("agency_id", agencyId)
     .gte("date", startDate)
     .lte("date", endDate);

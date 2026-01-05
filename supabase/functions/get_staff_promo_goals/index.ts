@@ -70,17 +70,10 @@ serve(async (req) => {
 
     if (assignError) throw assignError;
 
-    const goalIds = assignments?.map(a => a.sales_goal_id) || [];
+    const assignedGoalIds = assignments?.map(a => a.sales_goal_id) || [];
 
-    if (goalIds.length === 0) {
-      return new Response(
-        JSON.stringify({ promos: [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Fetch the promo goals
-    const { data: goals, error: goalsError } = await supabase
+    // Fetch agency-wide promo goals (no assignments = agency-wide)
+    const { data: allPromoGoals, error: allPromoError } = await supabase
       .from("sales_goals")
       .select(`
         id,
@@ -95,13 +88,21 @@ serve(async (req) => {
         product_type_id,
         kpi_slug,
         goal_focus,
-        product_type:product_types(name)
+        product_type:product_types(name),
+        sales_goal_assignments(id)
       `)
-      .in("id", goalIds)
+      .eq("agency_id", agency_id)
       .eq("goal_type", "promo")
       .eq("is_active", true);
 
-    if (goalsError) throw goalsError;
+    if (allPromoError) throw allPromoError;
+
+    // Filter to include: assigned goals OR agency-wide goals (no assignments)
+    const goals = (allPromoGoals || []).filter(goal => {
+      const isAgencyWide = !goal.sales_goal_assignments || goal.sales_goal_assignments.length === 0;
+      const isAssignedToMember = assignedGoalIds.includes(goal.id);
+      return isAgencyWide || isAssignedToMember;
+    });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -111,6 +112,7 @@ serve(async (req) => {
       (goals || []).map(async (goal) => {
         const startDate = new Date(goal.start_date);
         const endDate = new Date(goal.end_date);
+        const isAgencyWide = !goal.sales_goal_assignments || goal.sales_goal_assignments.length === 0;
 
         let status: "upcoming" | "active" | "ended" = "active";
         if (today < startDate) {
@@ -126,27 +128,49 @@ serve(async (req) => {
             ? Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
             : 0;
 
-        // Calculate progress based on source
+        // Calculate progress based on source and scope
         let progress = 0;
 
         if (goal.promo_source === "sales") {
-          progress = await calculateSalesProgress(
-            supabase,
-            goal,
-            team_member_id,
-            agency_id,
-            goal.start_date,
-            goal.end_date
-          );
+          if (isAgencyWide) {
+            // Agency-wide: sum across all team members
+            progress = await calculateAgencyWideSalesProgress(
+              supabase,
+              goal,
+              agency_id,
+              goal.start_date,
+              goal.end_date
+            );
+          } else {
+            // Individual: only this team member's progress
+            progress = await calculateSalesProgress(
+              supabase,
+              goal,
+              team_member_id,
+              agency_id,
+              goal.start_date,
+              goal.end_date
+            );
+          }
         } else if (goal.promo_source === "metrics") {
-          progress = await calculateMetricsProgress(
-            supabase,
-            goal,
-            team_member_id,
-            agency_id,
-            goal.start_date,
-            goal.end_date
-          );
+          if (isAgencyWide) {
+            progress = await calculateAgencyWideMetricsProgress(
+              supabase,
+              goal,
+              agency_id,
+              goal.start_date,
+              goal.end_date
+            );
+          } else {
+            progress = await calculateMetricsProgress(
+              supabase,
+              goal,
+              team_member_id,
+              agency_id,
+              goal.start_date,
+              goal.end_date
+            );
+          }
         }
 
         return {
@@ -155,6 +179,7 @@ serve(async (req) => {
           status,
           daysRemaining,
           isAchieved: progress >= goal.target_value,
+          isAgencyWide,
         };
       })
     );
@@ -310,6 +335,123 @@ async function calculateMetricsProgress(
     .from("metrics_daily")
     .select(column)
     .eq("team_member_id", teamMemberId)
+    .eq("agency_id", agencyId)
+    .gte("date", startDate)
+    .lte("date", endDate);
+
+  if (error) throw error;
+
+  return data?.reduce((sum: number, row: any) => sum + (row[column] || 0), 0) || 0;
+}
+
+// Agency-wide calculation functions (no team_member filter)
+async function calculateAgencyWideSalesProgress(
+  supabase: any,
+  goal: any,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  const measurement = goal.measurement;
+  const productTypeId = goal.product_type_id;
+
+  if (measurement === "premium") {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_premium")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum: number, s: any) => sum + (s.total_premium || 0), 0) || 0;
+  }
+
+  if (measurement === "items") {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_items")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum: number, s: any) => sum + (s.total_items || 0), 0) || 0;
+  }
+
+  if (measurement === "points") {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("total_points")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    return data?.reduce((sum: number, s: any) => sum + (s.total_points || 0), 0) || 0;
+  }
+
+  if (measurement === "policies") {
+    let query = supabase
+      .from("sale_policies")
+      .select("id, sale:sales!inner(agency_id, sale_date)")
+      .eq("sale.agency_id", agencyId)
+      .gte("sale.sale_date", startDate)
+      .lte("sale.sale_date", endDate);
+
+    if (productTypeId) {
+      query = query.eq("product_type_id", productTypeId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data?.length || 0;
+  }
+
+  if (measurement === "households") {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("customer_name")
+      .eq("agency_id", agencyId)
+      .gte("sale_date", startDate)
+      .lte("sale_date", endDate);
+
+    if (error) throw error;
+    const uniqueHouseholds = new Set(data?.map((s: any) => s.customer_name) || []);
+    return uniqueHouseholds.size;
+  }
+
+  return 0;
+}
+
+async function calculateAgencyWideMetricsProgress(
+  supabase: any,
+  goal: any,
+  agencyId: string,
+  startDate: string,
+  endDate: string
+): Promise<number> {
+  const kpiSlug = goal.kpi_slug;
+  if (!kpiSlug) return 0;
+
+  const columnMap: Record<string, string> = {
+    outbound_calls: "outbound_calls",
+    talk_minutes: "talk_minutes",
+    quoted_count: "quoted_count",
+    quoted_households: "quoted_count",
+    sold_items: "sold_items",
+    items_sold: "sold_items",
+    sold_policies: "sold_policies",
+    cross_sells_uncovered: "cross_sells_uncovered",
+    mini_reviews: "mini_reviews",
+  };
+
+  const column = columnMap[kpiSlug];
+  if (!column) return 0;
+
+  const { data, error } = await supabase
+    .from("metrics_daily")
+    .select(column)
     .eq("agency_id", agencyId)
     .gte("date", startDate)
     .lte("date", endDate);
