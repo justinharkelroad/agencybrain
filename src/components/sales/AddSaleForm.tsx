@@ -67,6 +67,7 @@ type SaleForEdit = {
   customer_email: string | null;
   customer_phone: string | null;
   customer_zip: string | null;
+  lead_source_id: string | null;
   team_member_id: string | null;
   sale_date: string | null;
   is_bundle: boolean | null;
@@ -168,7 +169,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerEmail(editSale.customer_email || "");
       setCustomerPhone(editSale.customer_phone || "");
       setCustomerZip(editSale.customer_zip || "");
-      setLeadSourceId((editSale as any).lead_source_id || "");
+      setLeadSourceId(editSale.lead_source_id || "");
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? toLocalDate(new Date(editSale.sale_date + 'T12:00:00')) : todayLocal());
       // Bundle type is now auto-calculated, no need to restore
@@ -579,6 +580,18 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           .insert(saleItems);
 
         if (itemsError) throw itemsError;
+      }
+
+      // Trigger sale notification email for new sales (fire and forget)
+      if (!isEditMode && profile?.agency_id) {
+        supabase.functions.invoke('send-sale-notification', {
+          body: { 
+            sale_id: saleId, 
+            agency_id: profile.agency_id 
+          }
+        }).catch(err => {
+          console.error('[AddSaleForm] Failed to trigger sale notification:', err);
+        });
       }
 
       return { saleId };
