@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath } from "@/utils/tierAccess";
+import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
 import {
   LogOut,
   Sun,
@@ -133,15 +134,26 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   // Helper to check if agency is on Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(user?.agency_membership_tier);
 
+  // Check if agency has sales beta access
+  const salesEnabled = hasSalesBetaAccess(user?.agency_id ?? null);
+
   // Filter navigation items based on role, callScoringEnabled setting, and tier
   const filteredNavigation = useMemo(() => {
     // Call Scoring tier users ONLY see call-scoring - nothing else
     const callScoringAllowedIds = ['call-scoring'];
     
+    // IDs that require sales beta access
+    const salesBetaRequiredIds = ['sales', 'sales-dashboard'];
+    
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
         // For Call Scoring tier, only allow specific items
         if (isCallScoringTier && !callScoringAllowedIds.includes(item.id)) {
+          return false;
+        }
+        
+        // Check sales beta access
+        if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
           return false;
         }
         
@@ -180,7 +192,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         return entry;
       })
       .filter((entry): entry is NavEntry => entry !== null);
-  }, [callScoringEnabled, canAccessItem, isCallScoringTier]);
+  }, [callScoringEnabled, canAccessItem, isCallScoringTier, salesEnabled]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
