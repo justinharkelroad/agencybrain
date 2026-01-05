@@ -187,6 +187,8 @@ export function PdfUploadForm({
 
   // Shared customer info state
   const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [customerZip, setCustomerZip] = useState('');
   const [producerId, setProducerId] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
@@ -331,6 +333,9 @@ export function PdfUploadForm({
     mutationFn: async () => {
       if (stagedPolicies.length === 0) throw new Error('At least one policy is required');
       if (!customerName.trim()) throw new Error('Customer name is required');
+      if (!customerEmail.trim()) throw new Error('Email is required');
+      if (!customerPhone.trim()) throw new Error('Phone number is required');
+      if (!customerZip.trim()) throw new Error('Zip code is required');
       if (!leadSourceId) throw new Error('Lead source is required');
 
       // Validate each policy has required fields
@@ -412,7 +417,9 @@ export function PdfUploadForm({
       const salePayload = {
         lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
-        customer_zip: customerZip || null,
+        customer_email: customerEmail.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_zip: customerZip.trim(),
         sale_date: format(todayLocal(), 'yyyy-MM-dd'),
         effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
         source: 'pdf_upload',
@@ -454,7 +461,9 @@ export function PdfUploadForm({
             team_member_id: producerId || null,
             lead_source_id: leadSourceId,
             customer_name: customerName.trim(),
-            customer_zip: customerZip || null,
+            customer_email: customerEmail.trim(),
+            customer_phone: customerPhone.trim(),
+            customer_zip: customerZip.trim(),
             sale_date: format(todayLocal(), 'yyyy-MM-dd'),
             effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
             total_policies: stagedPolicies.length,
@@ -753,13 +762,42 @@ export function PdfUploadForm({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="customerZip">Zip Code</Label>
+            <Label htmlFor="customerEmail">
+              Email <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="customerEmail"
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="john@example.com"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customerPhone">
+              Phone <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="customerPhone"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              placeholder="(555) 123-4567"
+              maxLength={14}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="customerZip">
+              Zip Code <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="customerZip"
               value={customerZip}
               onChange={(e) => setCustomerZip(e.target.value)}
               placeholder="12345"
               maxLength={10}
+              required
             />
           </div>
           <div className="space-y-2">
