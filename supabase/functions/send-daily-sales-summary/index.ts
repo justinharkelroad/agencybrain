@@ -52,12 +52,24 @@ serve(async (req) => {
     // Parse request body for test mode
     let forceTest = false;
     let testAgencyId: string | null = null;
+    let testEmail: string | null = null;
     try {
       const body = await req.json();
       forceTest = body?.forceTest === true;
       testAgencyId = body?.agencyId || null;
+      testEmail = body?.testEmail || null;
+      
+      // CRITICAL: forceTest mode REQUIRES a testEmail to prevent accidental sends
+      if (forceTest && !testEmail) {
+        console.error('[send-daily-sales-summary] FORCE TEST MODE requires testEmail parameter');
+        return new Response(
+          JSON.stringify({ error: 'forceTest mode requires testEmail parameter to prevent accidental sends' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       if (forceTest) {
-        console.log('[send-daily-sales-summary] FORCE TEST MODE enabled', testAgencyId ? `for agency ${testAgencyId}` : '');
+        console.log(`[send-daily-sales-summary] FORCE TEST MODE: sending ONLY to ${testEmail}`, testAgencyId ? `for agency ${testAgencyId}` : '');
       }
     } catch {
       // No body or invalid JSON, continue normally
@@ -230,17 +242,26 @@ serve(async (req) => {
           { premium: 0, items: 0, policies: 0, points: 0, households: 0 }
         );
 
-        // Get recipients
-        const { data: staffUsers } = await supabase
-          .from('staff_users')
-          .select('email')
-          .eq('agency_id', agency.id)
-          .eq('is_active', true)
-          .not('email', 'is', null);
+        // Get recipients - in forceTest mode, ONLY send to the specified testEmail
+        let recipients: string[] = [];
+        
+        if (forceTest && testEmail) {
+          // CRITICAL: In test mode, ONLY send to the explicitly specified email
+          recipients = [testEmail];
+          console.log(`[send-daily-sales-summary] TEST MODE: Sending ONLY to ${testEmail} (not to staff users)`);
+        } else {
+          // Normal production mode: get all active staff users
+          const { data: staffUsers } = await supabase
+            .from('staff_users')
+            .select('email')
+            .eq('agency_id', agency.id)
+            .eq('is_active', true)
+            .not('email', 'is', null);
 
-        const recipients = (staffUsers || [])
-          .filter(u => u.email)
-          .map(u => u.email as string);
+          recipients = (staffUsers || [])
+            .filter(u => u.email)
+            .map(u => u.email as string);
+        }
 
         if (recipients.length === 0) {
           console.log(`[send-daily-sales-summary] No recipients for ${agency.name}`);
