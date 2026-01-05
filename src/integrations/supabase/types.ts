@@ -24,6 +24,7 @@ export type Database = {
           agency_email: string | null
           agent_cell: string | null
           agent_name: string | null
+          call_scoring_email_enabled: boolean | null
           cc_owner_on_reminders: boolean | null
           contest_board_enabled: boolean
           created_at: string
@@ -54,6 +55,7 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
           created_at?: string
@@ -84,6 +86,7 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
           created_at?: string

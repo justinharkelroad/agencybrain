@@ -279,3 +279,6 @@ verify_jwt = false
 [functions.send-daily-sales-summary]
 verify_jwt = false
 
+[functions.send-call-score-notification]
+verify_jwt = false
+

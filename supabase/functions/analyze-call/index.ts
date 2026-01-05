@@ -573,6 +573,36 @@ You must respond with ONLY valid JSON - no markdown, no explanation.`;
 
     console.log("Analysis complete and saved for call:", call_id);
 
+    // Trigger call score notification email (fire and forget - never block the response)
+    try {
+      const notificationUrl = `${supabaseUrl}/functions/v1/send-call-score-notification`;
+      console.log('Triggering call score notification for call:', call_id);
+      
+      fetch(notificationUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ 
+          call_id: call_id,
+          agency_id: call.agency_id
+        }),
+      }).then(async (response) => {
+        if (response.ok) {
+          console.log('Call score notification triggered successfully');
+        } else {
+          const text = await response.text();
+          console.error('Failed to trigger call score notification:', text);
+        }
+      }).catch(err => {
+        console.error('Error triggering call score notification:', err);
+      });
+    } catch (notificationError) {
+      console.error('Notification trigger setup failed:', notificationError);
+      // Never block the main response
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
