@@ -860,27 +860,48 @@ export function CallScorecard({
             <CardContent className="pt-4">
               <h3 className="font-bold text-sm mb-4">EXECUTION CLEAN SHEET</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Support new checklist array format - check executionChecklist (from discovery_wins) */}
+                {/* Support new checklist array format with evidence objects */}
                 {Array.isArray(executionChecklist) && executionChecklist.length > 0 && typeof executionChecklist[0] === 'object' && 'label' in executionChecklist[0] ? (
-                  executionChecklist.map((item: { label: string; checked: boolean; evidence?: string | null }, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        item.checked ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
-                      }`}>
-                        {item.checked && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                  executionChecklist.map((item: { label: string; checked: boolean; evidence?: string | { text: string; timestamp_seconds?: number } | null }, idx: number) => {
+                    const evidenceObj = typeof item.evidence === 'object' && item.evidence !== null ? item.evidence : null;
+                    const evidenceStr = typeof item.evidence === 'string' ? item.evidence : null;
+                    
+                    return (
+                      <div key={idx} className="flex items-start gap-2">
+                        <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                          item.checked ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
+                        }`}>
+                          {item.checked && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs text-muted-foreground uppercase block">
+                            {item.label}
+                          </span>
+                          {evidenceObj && evidenceObj.text && (
+                            <div className="flex items-start gap-2 mt-1">
+                              {evidenceObj.timestamp_seconds !== undefined && (
+                                <button
+                                  onClick={() => handleTimestampClick(evidenceObj.timestamp_seconds!)}
+                                  className="flex-shrink-0 px-1.5 py-0.5 text-xs font-mono bg-background/80 rounded border border-border hover:bg-muted"
+                                  title="Click to copy timestamp"
+                                >
+                                  {formatTimestamp(evidenceObj.timestamp_seconds)}
+                                </button>
+                              )}
+                              <p className="text-xs text-muted-foreground/70 italic line-clamp-2">
+                                "{evidenceObj.text}"
+                              </p>
+                            </div>
+                          )}
+                          {evidenceStr && (
+                            <p className="text-xs text-muted-foreground/70 italic mt-1 line-clamp-2">
+                              "{evidenceStr}"
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs text-muted-foreground uppercase block">
-                          {item.label}
-                        </span>
-                        {item.evidence && (
-                          <p className="text-xs text-muted-foreground/70 italic mt-1 line-clamp-2">
-                            "{item.evidence}"
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   /* Legacy format: discovery_wins as object */
                   Object.entries(executionChecklist).map(([key, value]) => (
@@ -913,6 +934,7 @@ export function CallScorecard({
               
               {showCrmNotes && (
                 <div className="mt-4 space-y-3 text-sm">
+                  {/* Structured CRM notes fields */}
                   {crmNotes.personal_rapport && (
                     <div>
                       <p className="text-xs text-muted-foreground">Personal Rapport</p>
@@ -937,6 +959,12 @@ export function CallScorecard({
                       <p>{crmNotes.premium_insights}</p>
                     </div>
                   )}
+                  {crmNotes.decision_process && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Decision Process</p>
+                      <p>{crmNotes.decision_process}</p>
+                    </div>
+                  )}
                   {crmNotes.quote_summary && (
                     <div>
                       <p className="text-xs text-muted-foreground">Quote Summary</p>
@@ -948,6 +976,28 @@ export function CallScorecard({
                       <p className="text-xs text-muted-foreground">Follow-Up</p>
                       <p>{crmNotes.follow_up_details}</p>
                     </div>
+                  )}
+                  
+                  {/* Fallback: if no known keys exist, show raw content */}
+                  {!crmNotes.personal_rapport && !crmNotes.motivation_to_switch && !crmNotes.coverage_gaps_discussed && (
+                    <>
+                      {crmNotes.raw && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Notes</p>
+                          <p className="whitespace-pre-wrap">{crmNotes.raw}</p>
+                        </div>
+                      )}
+                      {/* Show any other keys that might exist */}
+                      {Object.entries(crmNotes)
+                        .filter(([key]) => !['raw', 'personal_rapport', 'motivation_to_switch', 'coverage_gaps_discussed', 'premium_insights', 'decision_process', 'quote_summary', 'follow_up_details'].includes(key))
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            <p className="text-xs text-muted-foreground">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                            <p>{typeof value === 'string' ? value : JSON.stringify(value)}</p>
+                          </div>
+                        ))
+                      }
+                    </>
                   )}
                 </div>
               )}
