@@ -39,16 +39,22 @@ export default function Sales() {
     }
   }, [editParam]);
 
+  const [agencyIdLoading, setAgencyIdLoading] = useState(true);
+
   // Fetch agency ID
   useEffect(() => {
     async function fetchAgencyId() {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setAgencyIdLoading(false);
+        return;
+      }
       const { data } = await supabase
         .from("profiles")
         .select("agency_id")
         .eq("id", user.id)
         .maybeSingle();
       setAgencyId(data?.agency_id || null);
+      setAgencyIdLoading(false);
     }
     fetchAgencyId();
   }, [user?.id]);
@@ -129,6 +135,15 @@ export default function Sales() {
     },
     enabled: !!editingSaleId,
   });
+
+  // Wait for agencyId to load before checking access
+  if (agencyIdLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   // Admin or beta agency access
   if (!isAdmin && !hasSalesBetaAccess(agencyId)) {
