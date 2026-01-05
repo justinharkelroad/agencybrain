@@ -6,11 +6,10 @@ import { PayoutCalculation } from '@/lib/payout-calculator/types';
 interface Props {
   payout: PayoutCalculation;
   formatCurrency: (value: number) => string;
-  getStatusBadge: (status: string) => React.ReactNode;
   onClick: () => void;
 }
 
-export function PayoutDetailRow({ payout, formatCurrency, getStatusBadge, onClick }: Props) {
+export function PayoutDetailRow({ payout, formatCurrency, onClick }: Props) {
   return (
     <TableRow 
       className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -22,8 +21,8 @@ export function PayoutDetailRow({ payout, formatCurrency, getStatusBadge, onClic
           {payout.teamMemberName}
         </div>
       </TableCell>
-      <TableCell>{payout.compPlanName}</TableCell>
       <TableCell className="text-right">{formatCurrency(payout.writtenPremium)}</TableCell>
+      <TableCell className="text-right">{formatCurrency(payout.issuedPremium)}</TableCell>
       <TableCell className="text-right">{formatCurrency(payout.netPremium)}</TableCell>
       <TableCell className="text-right">
         {payout.tierMatch 
@@ -38,7 +37,6 @@ export function PayoutDetailRow({ payout, formatCurrency, getStatusBadge, onClic
       <TableCell className="text-right font-bold text-primary">
         {formatCurrency(payout.totalPayout)}
       </TableCell>
-      <TableCell>{getStatusBadge(payout.status)}</TableCell>
     </TableRow>
   );
 }
