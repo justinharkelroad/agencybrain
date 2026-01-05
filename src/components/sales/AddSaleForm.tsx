@@ -496,10 +496,24 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         if (deletePoliciesError) throw deletePoliciesError;
       }
 
+      // Auto-assign to Owner if no producer selected
+      let finalTeamMemberId = producerId || null;
+      if (!finalTeamMemberId && profile?.agency_id) {
+        const { data: ownerMember } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("agency_id", profile.agency_id)
+          .eq("role", "Owner")
+          .maybeSingle();
+        if (ownerMember) {
+          finalTeamMemberId = ownerMember.id;
+        }
+      }
+
       // Create or update the sale
       const saleData = {
         agency_id: profile.agency_id,
-        team_member_id: producerId || null,
+        team_member_id: finalTeamMemberId,
         lead_source_id: leadSourceId || null,
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim() || null,
