@@ -325,6 +325,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!agencyId) throw new Error("No agency found");
       if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
+      if (!customerEmail.trim()) throw new Error("Email is required");
+      if (!customerPhone.trim()) throw new Error("Phone number is required");
+      if (!customerZip.trim()) throw new Error("Zip code is required");
       if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
       if (!staffSessionToken) throw new Error("Staff session required");
@@ -465,33 +468,42 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerEmail">Email</Label>
+              <Label htmlFor="customerEmail">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customerEmail"
                 type="email"
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 placeholder="john@example.com"
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">Phone</Label>
+              <Label htmlFor="customerPhone">
+                Phone <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customerPhone"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
                 placeholder="(555) 123-4567"
                 maxLength={14}
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerZip">Zip Code</Label>
+              <Label htmlFor="customerZip">
+                Zip Code <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customerZip"
                 value={customerZip}
                 onChange={(e) => setCustomerZip(e.target.value)}
                 placeholder="12345"
                 maxLength={10}
+                required
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
