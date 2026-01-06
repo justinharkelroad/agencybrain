@@ -10,7 +10,7 @@ interface SpendFormData {
   notes: string | null;
 }
 
-export const useLeadSourceMonthlySpend = (leadSourceId: string | null) => {
+export const useLeadSourceMonthlySpend = (leadSourceId: string | null, agencyId: string | null) => {
   const [spendHistory, setSpendHistory] = useState<LeadSourceMonthlySpend[]>([]);
   const [currentSpend, setCurrentSpend] = useState<LeadSourceMonthlySpend | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,7 @@ export const useLeadSourceMonthlySpend = (leadSourceId: string | null) => {
   }, [leadSourceId]);
 
   const upsertSpend = async (month: Date, data: SpendFormData): Promise<boolean> => {
-    if (!leadSourceId) return false;
+    if (!leadSourceId || !agencyId) return false;
 
     try {
       setLoading(true);
@@ -121,6 +121,7 @@ export const useLeadSourceMonthlySpend = (leadSourceId: string | null) => {
           .from('lead_source_monthly_spend')
           .insert({
             lead_source_id: leadSourceId,
+            agency_id: agencyId,
             month: monthStr,
             cost_per_unit_cents: data.cost_per_unit_cents,
             units_count: data.units_count,
