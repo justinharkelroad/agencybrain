@@ -7,6 +7,7 @@ import { LqsMetrics } from '@/hooks/useLqsData';
 interface LqsMetricTilesProps {
   metrics: LqsMetrics | undefined;
   loading?: boolean;
+  onTileClick?: (tab: string) => void;
 }
 
 interface MetricTileProps {
@@ -16,9 +17,10 @@ interface MetricTileProps {
   variant?: 'default' | 'blue' | 'green' | 'orange';
   loading?: boolean;
   pulse?: boolean;
+  onClick?: () => void;
 }
 
-function MetricTile({ title, value, icon, variant = 'default', loading, pulse }: MetricTileProps) {
+function MetricTile({ title, value, icon, variant = 'default', loading, pulse, onClick }: MetricTileProps) {
   const variantStyles = {
     default: 'text-foreground',
     blue: 'text-blue-600 dark:text-blue-400',
@@ -34,7 +36,14 @@ function MetricTile({ title, value, icon, variant = 'default', loading, pulse }:
   };
 
   return (
-    <Card className={cn('transition-all hover:shadow-md', bgStyles[variant])}>
+    <Card 
+      className={cn(
+        'transition-all hover:shadow-md', 
+        bgStyles[variant],
+        onClick && 'cursor-pointer hover:ring-2 hover:ring-primary/50'
+      )}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -62,7 +71,7 @@ function MetricTile({ title, value, icon, variant = 'default', loading, pulse }:
   );
 }
 
-export function LqsMetricTiles({ metrics, loading }: LqsMetricTilesProps) {
+export function LqsMetricTiles({ metrics, loading, onTileClick }: LqsMetricTilesProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <MetricTile
@@ -70,6 +79,7 @@ export function LqsMetricTiles({ metrics, loading }: LqsMetricTilesProps) {
         value={metrics?.totalQuotes}
         icon={<FileText className="h-5 w-5" />}
         loading={loading}
+        onClick={() => onTileClick?.('all')}
       />
       <MetricTile
         title="Self-Generated"
@@ -77,6 +87,7 @@ export function LqsMetricTiles({ metrics, loading }: LqsMetricTilesProps) {
         icon={<UserCheck className="h-5 w-5" />}
         variant="blue"
         loading={loading}
+        onClick={() => onTileClick?.('self-generated')}
       />
       <MetricTile
         title="Sold"
@@ -84,6 +95,7 @@ export function LqsMetricTiles({ metrics, loading }: LqsMetricTilesProps) {
         icon={<CheckCircle className="h-5 w-5" />}
         variant="green"
         loading={loading}
+        onClick={() => onTileClick?.('sold')}
       />
       <MetricTile
         title="Needs Attention"
@@ -92,6 +104,7 @@ export function LqsMetricTiles({ metrics, loading }: LqsMetricTilesProps) {
         variant="orange"
         loading={loading}
         pulse={true}
+        onClick={() => onTileClick?.('needs-attention')}
       />
     </div>
   );

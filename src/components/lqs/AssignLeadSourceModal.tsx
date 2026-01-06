@@ -98,7 +98,7 @@ export function AssignLeadSourceModal({
               <SelectTrigger>
                 <SelectValue placeholder="Select a lead source..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent side="bottom" position="popper" className="max-h-[300px]">
                 {Object.entries(groupedSources).map(([bucketName, sources]) => (
                   <div key={bucketName}>
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
