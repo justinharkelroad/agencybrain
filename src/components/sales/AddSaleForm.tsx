@@ -449,6 +449,13 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       if (!profile?.agency_id) throw new Error("No agency found");
       if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
+      if (!customerPhone.trim()) throw new Error("Phone number is required");
+      if (!customerEmail.trim()) throw new Error("Email is required");
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail.trim())) {
+        throw new Error("Please enter a valid email address");
+      }
       if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
 
@@ -682,23 +689,29 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerEmail">Email</Label>
+              <Label htmlFor="customerEmail">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customerEmail"
                 type="email"
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 placeholder="john@example.com"
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">Phone</Label>
+              <Label htmlFor="customerPhone">
+                Phone <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customerPhone"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
                 placeholder="(555) 123-4567"
                 maxLength={14}
+                required
               />
             </div>
             <div className="space-y-2">
