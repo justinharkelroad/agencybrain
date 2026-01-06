@@ -274,6 +274,14 @@ export default function Renewals() {
             aVal = (a.current_status || '').toLowerCase();
             bVal = (b.current_status || '').toLowerCase();
             break;
+          case 'renewal_status':
+            aVal = (a.renewal_status || '').toLowerCase();
+            bVal = (b.renewal_status || '').toLowerCase();
+            break;
+          case 'amount_due':
+            aVal = a.amount_due ?? 0;
+            bVal = b.amount_due ?? 0;
+            break;
           default:
             break;
         }
@@ -442,6 +450,8 @@ export default function Renewals() {
                 <SortableHeader column="product_name" label="Product" />
                 <SortableHeader column="premium_new" label="Premium" />
                 <SortableHeader column="premium_change_percent" label="Change" />
+                <SortableHeader column="renewal_status" label="Renewal Status" />
+                <SortableHeader column="amount_due" label="Amount Due" />
                 <SortableHeader column="multi_line_indicator" label="Bundled" />
                 <TableHead>Status</TableHead>
                 <TableHead>Assigned</TableHead>
@@ -449,8 +459,8 @@ export default function Renewals() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recordsLoading ? <TableRow><TableCell colSpan={11} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-              : filteredAndSortedRecords.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
+              {recordsLoading ? <TableRow><TableCell colSpan={13} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+              : filteredAndSortedRecords.length === 0 ? <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
               : filteredAndSortedRecords.map((r) => (
                 <TableRow 
                   key={r.id} 
@@ -477,6 +487,23 @@ export default function Renewals() {
                     r.premium_change_percent !== null && r.premium_change_percent < -5 && "text-green-600"
                   )}>
                     {r.premium_change_percent != null ? `${r.premium_change_percent > 0 ? '+' : ''}${r.premium_change_percent.toFixed(1)}%` : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {r.renewal_status ? (
+                      <Badge 
+                        variant="outline"
+                        className={cn(
+                          r.renewal_status === 'Renewal Taken' && 'bg-green-100 text-green-700 border-green-200',
+                          r.renewal_status === 'Renewal Not Taken' && 'bg-red-100 text-red-700 border-red-200',
+                          r.renewal_status === 'Pending' && 'bg-amber-100 text-amber-700 border-amber-200'
+                        )}
+                      >
+                        {r.renewal_status}
+                      </Badge>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {r.amount_due != null ? `$${r.amount_due.toLocaleString()}` : '-'}
                   </TableCell>
                   <TableCell><Badge variant={r.multi_line_indicator ? 'default' : 'secondary'}>{r.multi_line_indicator ? 'Yes' : 'No'}</Badge></TableCell>
                   <TableCell><Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge></TableCell>
