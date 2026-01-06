@@ -163,7 +163,7 @@ export function LqsHouseholdDetailModal({
                   <Input
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="Phone (optional)"
+                    placeholder="Phone"
                     className="h-8"
                   />
                 ) : (
@@ -178,7 +178,7 @@ export function LqsHouseholdDetailModal({
                   <Input
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="Email (optional)"
+                    placeholder="Email"
                     className="h-8"
                   />
                 ) : (
