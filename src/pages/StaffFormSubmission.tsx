@@ -952,7 +952,8 @@ export default function StaffFormSubmission() {
                             required={field.required}
                             value={values[field.key] || ''}
                             onChange={(e) => handleInputChange(field.key, e.target.value)}
-                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                            className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-foreground cursor-pointer relative z-10"
+                            style={{ appearance: 'auto', WebkitAppearance: 'menulist', pointerEvents: 'auto' }}
                           >
                             <option value="">Select option...</option>
                             {field.options?.map((opt: string) => (
