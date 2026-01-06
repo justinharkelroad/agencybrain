@@ -1,29 +1,38 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, ArrowUp, ArrowDown, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
-
-interface LeadSource {
-  id: string;
-  name: string;
-  is_active: boolean;
-  order_index: number;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMarketingBuckets } from "@/hooks/useMarketingBuckets";
+import { MarketingBucketList } from "@/components/lqs/MarketingBucketList";
+import { EnhancedLeadSourceRow } from "@/components/lqs/EnhancedLeadSourceRow";
+import { UnassignedLeadSourcesSection } from "@/components/lqs/UnassignedLeadSourcesSection";
+import { LeadSourceSpendModal } from "@/components/lqs/LeadSourceSpendModal";
+import { LeadSourceExtended, CostType } from "@/types/lqs";
 
 interface LeadSourceManagerProps {
   agencyId: string;
 }
 
 export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
-  const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
+  const [leadSources, setLeadSources] = useState<LeadSourceExtended[]>([]);
   const [newSourceName, setNewSourceName] = useState("");
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'all' | 'by-bucket'>('all');
+  const [spendModalSource, setSpendModalSource] = useState<LeadSourceExtended | null>(null);
+
+  const {
+    buckets,
+    loading: bucketsLoading,
+    createBucket,
+    updateBucket,
+    deleteBucket,
+    reorderBuckets,
+    refetch: refetchBuckets,
+  } = useMarketingBuckets();
 
   // Fetch lead sources on mount
   useEffect(() => {
@@ -34,12 +43,28 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
       try {
         const { data, error } = await supabase
           .from('lead_sources')
-          .select('id, name, is_active, order_index')
+          .select('*')
           .eq('agency_id', agencyId)
           .order('order_index', { ascending: true });
 
         if (error) throw error;
-        setLeadSources(data || []);
+        
+        // Map to LeadSourceExtended with defaults for new fields
+        const mapped: LeadSourceExtended[] = (data || []).map(source => ({
+          id: source.id,
+          agency_id: source.agency_id,
+          name: source.name,
+          is_active: source.is_active ?? true,
+          order_index: source.order_index ?? 0,
+          cost_per_lead_cents: source.cost_per_lead_cents ?? null,
+          bucket_id: source.bucket_id ?? null,
+          is_self_generated: source.is_self_generated ?? false,
+          cost_type: (source.cost_type as CostType) ?? 'per_lead',
+          created_at: source.created_at,
+          updated_at: source.updated_at,
+        }));
+        
+        setLeadSources(mapped);
       } catch (error: any) {
         console.error('Error fetching lead sources:', error);
         toast.error('Failed to load lead sources');
@@ -66,14 +91,30 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
           agency_id: agencyId,
           name: newSourceName.trim(),
           is_active: true,
-          order_index: maxOrder + 1
+          order_index: maxOrder + 1,
+          cost_type: 'per_lead',
+          is_self_generated: false,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      setLeadSources([...leadSources, data]);
+      const newSource: LeadSourceExtended = {
+        id: data.id,
+        agency_id: data.agency_id,
+        name: data.name,
+        is_active: data.is_active ?? true,
+        order_index: data.order_index ?? 0,
+        cost_per_lead_cents: data.cost_per_lead_cents ?? null,
+        bucket_id: data.bucket_id ?? null,
+        is_self_generated: data.is_self_generated ?? false,
+        cost_type: (data.cost_type as CostType) ?? 'per_lead',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      setLeadSources([...leadSources, newSource]);
       setNewSourceName("");
       toast.success("Lead source added");
     } catch (error: any) {
@@ -104,7 +145,7 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
     }
   };
 
-  const updateLeadSource = async (id: string, updates: Partial<LeadSource>) => {
+  const updateLeadSource = async (id: string, updates: Partial<LeadSourceExtended>) => {
     setLoading(true);
     try {
       const { error } = await supabase
@@ -163,16 +204,83 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
       // Refetch on error
       const { data } = await supabase
         .from('lead_sources')
-        .select('id, name, is_active, order_index')
+        .select('*')
         .eq('agency_id', agencyId)
         .order('order_index', { ascending: true });
-      if (data) setLeadSources(data);
+      if (data) {
+        const mapped: LeadSourceExtended[] = data.map(source => ({
+          id: source.id,
+          agency_id: source.agency_id,
+          name: source.name,
+          is_active: source.is_active ?? true,
+          order_index: source.order_index ?? 0,
+          cost_per_lead_cents: source.cost_per_lead_cents ?? null,
+          bucket_id: source.bucket_id ?? null,
+          is_self_generated: source.is_self_generated ?? false,
+          cost_type: (source.cost_type as CostType) ?? 'per_lead',
+          created_at: source.created_at,
+          updated_at: source.updated_at,
+        }));
+        setLeadSources(mapped);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  if (initialLoading) {
+  // Bucket handlers
+  const handleCreateBucket = async (data: { name: string; commission_rate_percent: number }) => {
+    const result = await createBucket(data);
+    if (result) {
+      toast.success("Marketing bucket created");
+      return true;
+    }
+    toast.error("Failed to create bucket");
+    return false;
+  };
+
+  const handleUpdateBucket = async (id: string, data: { name: string; commission_rate_percent: number }) => {
+    const result = await updateBucket(id, data);
+    if (result) {
+      toast.success("Marketing bucket updated");
+      return true;
+    }
+    toast.error("Failed to update bucket");
+    return false;
+  };
+
+  const handleDeleteBucket = async (id: string) => {
+    const result = await deleteBucket(id);
+    if (result) {
+      toast.success("Marketing bucket deleted");
+      return true;
+    }
+    toast.error("Failed to delete bucket");
+    return false;
+  };
+
+  const handleReorderBucket = async (id: string, direction: 'up' | 'down') => {
+    const result = await reorderBuckets(id, direction);
+    return result;
+  };
+
+  const handleAssignBucket = async (sourceId: string, bucketId: string) => {
+    await updateLeadSource(sourceId, { bucket_id: bucketId });
+  };
+
+  // Get unassigned sources
+  const unassignedSources = leadSources.filter(s => !s.bucket_id);
+
+  // Group sources by bucket for "By Bucket" view
+  const getSourcesByBucket = () => {
+    const grouped: Record<string, LeadSourceExtended[]> = {};
+    buckets.forEach(bucket => {
+      grouped[bucket.id] = leadSources.filter(s => s.bucket_id === bucket.id);
+    });
+    return grouped;
+  };
+
+  if (initialLoading || bucketsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -181,91 +289,161 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Add new lead source */}
-      <div className="flex gap-2">
-        <Input
-          placeholder="Enter lead source name..."
-          value={newSourceName}
-          onChange={(e) => setNewSourceName(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && addLeadSource()}
-          disabled={loading}
-        />
-        <Button 
-          onClick={addLeadSource} 
-          disabled={!newSourceName.trim() || loading}
-          size="sm"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add
-        </Button>
-      </div>
+    <div className="space-y-6">
+      {/* Marketing Buckets Section */}
+      <MarketingBucketList
+        buckets={buckets}
+        leadSources={leadSources}
+        onCreateBucket={handleCreateBucket}
+        onUpdateBucket={handleUpdateBucket}
+        onDeleteBucket={handleDeleteBucket}
+        onReorderBucket={handleReorderBucket}
+        loading={loading}
+      />
 
-      {/* Lead sources list */}
-      <div className="space-y-2">
-        {leadSources.length > 0 ? (
-          leadSources
-            .sort((a, b) => a.order_index - b.order_index)
-            .map((source, index) => (
-              <div 
-                key={source.id} 
-                className="flex items-center gap-3 p-3 border border-border/10 rounded-lg bg-card/50"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{source.name}</span>
-                    {!source.is_active && (
-                      <Badge variant="secondary">Inactive</Badge>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={source.is_active}
-                    onCheckedChange={(checked) => 
-                      updateLeadSource(source.id, { is_active: checked })
-                    }
-                    disabled={loading}
+      {/* Separator */}
+      <div className="border-t pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Lead Sources</h3>
+          
+          {/* View Toggle - only show if buckets exist */}
+          {buckets.length > 0 && (
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'all' | 'by-bucket')}>
+              <TabsList className="h-8">
+                <TabsTrigger value="all" className="text-xs px-3">All Sources</TabsTrigger>
+                <TabsTrigger value="by-bucket" className="text-xs px-3">By Bucket</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
+
+        {/* Add new lead source */}
+        <div className="flex gap-2 mb-4">
+          <Input
+            placeholder="Enter lead source name..."
+            value={newSourceName}
+            onChange={(e) => setNewSourceName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addLeadSource()}
+            disabled={loading}
+          />
+          <Button 
+            onClick={addLeadSource} 
+            disabled={!newSourceName.trim() || loading}
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add
+          </Button>
+        </div>
+
+        {/* Lead sources list */}
+        <div className="space-y-2">
+          {leadSources.length > 0 ? (
+            viewMode === 'all' ? (
+              // Flat list view
+              leadSources
+                .sort((a, b) => a.order_index - b.order_index)
+                .map((source, index) => (
+                  <EnhancedLeadSourceRow
+                    key={source.id}
+                    source={source}
+                    buckets={buckets}
+                    index={index}
+                    totalCount={leadSources.length}
+                    onUpdate={updateLeadSource}
+                    onDelete={removeLeadSource}
+                    onMove={moveLeadSource}
+                    onManageSpend={(s) => setSpendModalSource(s)}
+                    loading={loading}
                   />
+                ))
+            ) : (
+              // Grouped by bucket view
+              <div className="space-y-4">
+                {buckets.map(bucket => {
+                  const sourcesInBucket = leadSources.filter(s => s.bucket_id === bucket.id);
+                  if (sourcesInBucket.length === 0) return null;
                   
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => moveLeadSource(source.id, 'up')}
-                    disabled={index === 0 || loading}
-                  >
-                    <ArrowUp className="h-3 w-3" />
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => moveLeadSource(source.id, 'down')}
-                    disabled={index === leadSources.length - 1 || loading}
-                  >
-                    <ArrowDown className="h-3 w-3" />
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeLeadSource(source.id)}
-                    disabled={loading}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
+                  return (
+                    <div key={bucket.id} className="space-y-2">
+                      <h4 className="text-sm font-medium text-muted-foreground">
+                        {bucket.name} ({sourcesInBucket.length})
+                      </h4>
+                      {sourcesInBucket
+                        .sort((a, b) => a.order_index - b.order_index)
+                        .map((source, index) => (
+                          <EnhancedLeadSourceRow
+                            key={source.id}
+                            source={source}
+                            buckets={buckets}
+                            index={index}
+                            totalCount={sourcesInBucket.length}
+                            onUpdate={updateLeadSource}
+                            onDelete={removeLeadSource}
+                            onMove={moveLeadSource}
+                            onManageSpend={(s) => setSpendModalSource(s)}
+                            loading={loading}
+                          />
+                        ))}
+                    </div>
+                  );
+                })}
+                
+                {/* Show unassigned in grouped view too */}
+                {unassignedSources.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Unassigned ({unassignedSources.length})
+                    </h4>
+                    {unassignedSources
+                      .sort((a, b) => a.order_index - b.order_index)
+                      .map((source, index) => (
+                        <EnhancedLeadSourceRow
+                          key={source.id}
+                          source={source}
+                          buckets={buckets}
+                          index={index}
+                          totalCount={unassignedSources.length}
+                          onUpdate={updateLeadSource}
+                          onDelete={removeLeadSource}
+                          onMove={moveLeadSource}
+                          onManageSpend={(s) => setSpendModalSource(s)}
+                          loading={loading}
+                        />
+                      ))}
+                  </div>
+                )}
               </div>
-            ))
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No lead sources configured yet.</p>
-            <p className="text-sm">Add your first lead source above.</p>
+            )
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No lead sources configured yet.</p>
+              <p className="text-sm">Add your first lead source above.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Unassigned Lead Sources Section - only show in "all" view */}
+        {viewMode === 'all' && (
+          <div className="mt-6">
+            <UnassignedLeadSourcesSection
+              sources={unassignedSources}
+              buckets={buckets}
+              onAssignBucket={handleAssignBucket}
+              loading={loading}
+            />
           </div>
         )}
       </div>
+
+      {/* Spend Modal */}
+      <LeadSourceSpendModal
+        open={!!spendModalSource}
+        onOpenChange={(open) => !open && setSpendModalSource(null)}
+        leadSourceId={spendModalSource?.id ?? null}
+        leadSourceName={spendModalSource?.name ?? ''}
+        costType={spendModalSource?.cost_type ?? 'per_lead'}
+      />
     </div>
   );
 }

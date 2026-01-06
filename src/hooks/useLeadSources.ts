@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
+import { CostType } from '@/types/lqs';
 
 interface LeadSource {
   id: string;
   name: string;
   is_active: boolean;
   order_index: number;
+  bucket_id: string | null;
+  is_self_generated: boolean;
+  cost_type: CostType;
+  cost_per_lead_cents: number | null; // Legacy field for backward compatibility
 }
 
 export const useLeadSources = () => {
