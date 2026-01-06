@@ -36,29 +36,52 @@ export function QuoteReportUploadModal({
 
   const { uploadQuotes, isUploading, progress } = useLqsQuoteUpload();
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      const file = acceptedFiles[0];
-      if (file.name.endsWith('.xlsx')) {
-        setSelectedFile(file);
-        setUploadState('idle');
-        setParseErrors([]);
-        setParseResult(null);
-        setUploadResult(null);
-      } else {
-        setParseErrors(['Please select an Excel file (.xlsx format only)']);
-      }
+  const handleFileSelect = useCallback((file: File) => {
+    if (file.name.endsWith('.xlsx') || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      setSelectedFile(file);
+      setUploadState('idle');
+      setParseErrors([]);
+      setParseResult(null);
+      setUploadResult(null);
+    } else {
+      setParseErrors(['Please select an Excel file (.xlsx format only)']);
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    console.log('Dropzone onDrop called with files:', acceptedFiles);
+    if (acceptedFiles.length > 0) {
+      handleFileSelect(acceptedFiles[0]);
+    }
+  }, [handleFileSelect]);
+
+  const { getRootProps, getInputProps, isDragActive, open: openFilePicker } = useDropzone({
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     },
     maxFiles: 1,
     multiple: false,
+    noClick: false,
+    noKeyboard: false,
+    noDrag: false,
   });
+
+  // Manual drop handler as fallback
+  const handleManualDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Manual drop event fired');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  }, [handleFileSelect]);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
 
   const handleUpload = async () => {
     if (!selectedFile) return;
@@ -281,7 +304,10 @@ export function QuoteReportUploadModal({
             <div className="space-y-4">
               {/* Dropzone */}
               <div
-                {...getRootProps()}
+                {...getRootProps({
+                  onDrop: handleManualDrop,
+                  onDragOver: handleDragOver,
+                })}
                 className={cn(
                   'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
                   isDragActive
