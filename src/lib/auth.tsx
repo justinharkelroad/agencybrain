@@ -165,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           agency_name: agencyName,
           full_name: fullName,
+          needs_agency: true,
           // No membership_tier - admin will set it after signup
         }
       }

@@ -1221,8 +1221,22 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
             </Card>
 
             {/* Call Scoring Settings */}
-            {clientAgencyId && (
+            {clientAgencyId ? (
               <AdminAgencyCallScoring agencyId={clientAgencyId} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Call Scoring Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    This client does not have an agency assigned. Call Scoring requires an agency to be configured.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </TabsContent>
