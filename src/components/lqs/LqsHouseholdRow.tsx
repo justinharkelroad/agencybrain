@@ -135,7 +135,7 @@ export function LqsHouseholdRow({
 
         {/* Producer */}
         <TableCell className="text-muted-foreground">
-          {household.team_member?.full_name || '—'}
+          {household.team_member?.name || '—'}
         </TableCell>
 
         {/* Status */}
