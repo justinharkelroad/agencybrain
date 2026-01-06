@@ -18,6 +18,8 @@ interface LqsHouseholdTableProps {
   onAssignLeadSource: (householdId: string) => void;
   onBulkAssign?: (householdIds: string[]) => void;
   showBulkSelect?: boolean;
+  onViewHouseholdDetail?: (household: HouseholdWithRelations) => void;
+  onViewSaleDetail?: (saleId: string) => void;
 }
 
 export function LqsHouseholdTable({
@@ -26,6 +28,8 @@ export function LqsHouseholdTable({
   onAssignLeadSource,
   onBulkAssign,
   showBulkSelect = false,
+  onViewHouseholdDetail,
+  onViewSaleDetail,
 }: LqsHouseholdTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -124,6 +128,7 @@ export function LqsHouseholdTable({
               <TableHead>Producer</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -135,6 +140,8 @@ export function LqsHouseholdTable({
                 isSelected={selectedIds.has(household.id)}
                 onSelectChange={(checked) => handleSelectOne(household.id, checked)}
                 showCheckbox={showBulkSelect && household.needs_attention}
+                onViewDetail={onViewHouseholdDetail}
+                onViewSaleDetail={onViewSaleDetail}
               />
             ))}
           </TableBody>
