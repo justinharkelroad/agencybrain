@@ -41,13 +41,13 @@ export default function LqsRoadmapPage() {
 
   // Data fetching
   const { data, isLoading, refetch } = useLqsData({
-    agencyId: agency?.id ?? null,
+    agencyId: agencyProfile?.agencyId ?? null,
     dateRange,
     statusFilter,
     searchTerm,
   });
 
-  const { data: leadSources = [] } = useLqsLeadSources(agency?.id ?? null);
+  const { data: leadSources = [] } = useLqsLeadSources(agencyProfile?.agencyId ?? null);
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
@@ -197,7 +197,7 @@ export default function LqsRoadmapPage() {
     );
   }
 
-  if (!agency) {
+  if (!agencyProfile) {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Unable to load agency information.</p>
@@ -324,7 +324,7 @@ export default function LqsRoadmapPage() {
       <QuoteReportUploadModal
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
-        agencyId={agency.id}
+        agencyId={agencyProfile.agencyId}
         userId={user?.id ?? null}
         displayName={user?.email ?? 'Unknown'}
         onUploadComplete={handleUploadComplete}
