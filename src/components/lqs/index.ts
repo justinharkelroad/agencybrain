@@ -4,6 +4,7 @@ export * from './LeadSourceSpendModal';
 export * from './MarketingBucketList';
 export * from './EnhancedLeadSourceRow';
 export * from './UnassignedLeadSourcesSection';
+export * from './QuoteReportUploadModal';
 
 // Cost type label mapping for UI display
 export const COST_TYPE_LABELS: Record<string, string> = {

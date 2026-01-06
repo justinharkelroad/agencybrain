@@ -123,3 +123,48 @@ export type LqsQuoteUpdate = Partial<Omit<LqsQuote, 'id' | 'household_id' | 'age
 
 export type LqsSaleInsert = Omit<LqsSale, 'id' | 'created_at'>;
 export type LqsSaleUpdate = Partial<Omit<LqsSale, 'id' | 'household_id' | 'agency_id' | 'created_at'>>;
+
+// ==================== Quote Report Upload Types ====================
+
+export interface ParsedQuoteRow {
+  subProducerRaw: string;
+  subProducerCode: string | null;
+  subProducerName: string | null;
+  firstName: string;
+  lastName: string;
+  zipCode: string;
+  quoteDate: string; // YYYY-MM-DD
+  productType: string;
+  itemsQuoted: number;
+  premiumCents: number;
+  issuedPolicyNumber: string | null;
+  householdKey: string;
+  rowNumber: number;
+}
+
+export interface QuoteParseResult {
+  success: boolean;
+  records: ParsedQuoteRow[];
+  errors: string[];
+  duplicatesRemoved: number;
+  dateRange: { start: string; end: string } | null;
+}
+
+export interface QuoteUploadContext {
+  agencyId: string;
+  userId: string | null;
+  displayName: string;
+}
+
+export interface QuoteUploadResult {
+  success: boolean;
+  recordsProcessed: number;
+  householdsCreated: number;
+  householdsUpdated: number;
+  quotesCreated: number;
+  quotesUpdated: number;
+  teamMembersMatched: number;
+  unmatchedProducers: string[];
+  householdsNeedingAttention: number;
+  errors: string[];
+}
