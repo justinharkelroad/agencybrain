@@ -225,7 +225,7 @@ export default function LqsRoadmapPage() {
       </div>
 
       {/* Metric Tiles */}
-      <LqsMetricTiles metrics={data?.metrics} loading={isLoading} />
+      <LqsMetricTiles metrics={data?.metrics} loading={isLoading} onTileClick={(tab) => setActiveTab(tab as TabValue)} />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
