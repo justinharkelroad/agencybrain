@@ -13,6 +13,7 @@ import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
 import { StaffCore4Card } from './StaffCore4Card';
 import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
+import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 interface KPIData {
   key: string;
   slug: string;
@@ -190,8 +191,8 @@ export function StaffDashboard() {
         <p className="text-muted-foreground">{currentDate}</p>
       </div>
 
-      {/* Sales Summary Widget - At Top */}
-      {user?.agency_id && user?.team_member_id && (
+      {/* Sales Summary Widget - At Top (only for whitelisted agencies) */}
+      {user?.agency_id && user?.team_member_id && hasSalesBetaAccess(user.agency_id) && (
         <StaffSalesSummary 
           agencyId={user.agency_id} 
           teamMemberId={user.team_member_id} 
