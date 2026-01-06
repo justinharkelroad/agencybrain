@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, AlertCircle, CheckCircle, Eye } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ interface LqsHouseholdRowProps {
   isSelected: boolean;
   onSelectChange: (checked: boolean) => void;
   showCheckbox?: boolean;
+  onViewDetail?: (household: HouseholdWithRelations) => void;
+  onViewSaleDetail?: (saleId: string) => void;
 }
 
 function formatProductType(type: string): string {
@@ -49,6 +51,8 @@ export function LqsHouseholdRow({
   isSelected,
   onSelectChange,
   showCheckbox = false,
+  onViewDetail,
+  onViewSaleDetail,
 }: LqsHouseholdRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -150,6 +154,29 @@ export function LqsHouseholdRow({
           {household.needs_attention && (
             <AlertCircle className="h-4 w-4 text-orange-500" />
           )}
+        </TableCell>
+
+        {/* View Details Button */}
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => {
+              // For SOLD households with source_reference_id, open the sale detail modal
+              if (
+                household.status === 'sold' &&
+                household.sales?.[0]?.source_reference_id &&
+                onViewSaleDetail
+              ) {
+                onViewSaleDetail(household.sales[0].source_reference_id);
+              } else if (onViewDetail) {
+                onViewDetail(household);
+              }
+            }}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
         </TableCell>
       </TableRow>
 

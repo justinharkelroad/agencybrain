@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileSpreadsheet, Target, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,8 @@ import {
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
+import { LqsHouseholdDetailModal } from '@/components/lqs/LqsHouseholdDetailModal';
+import { SaleDetailModal } from '@/components/sales/SaleDetailModal';
 import { AssignLeadSourceModal } from '@/components/lqs/AssignLeadSourceModal';
 import { QuoteReportUploadModal } from '@/components/lqs/QuoteReportUploadModal';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +30,7 @@ type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' |
 
 export default function LqsRoadmapPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
 
   // Filters
@@ -40,6 +44,10 @@ export default function LqsRoadmapPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedHousehold, setSelectedHousehold] = useState<HouseholdWithRelations | null>(null);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
+  
+  // Detail modals
+  const [detailHousehold, setDetailHousehold] = useState<HouseholdWithRelations | null>(null);
+  const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
 
   // Data fetching
   const { data, isLoading, refetch } = useLqsData({
@@ -155,6 +163,14 @@ export default function LqsRoadmapPage() {
     setBulkAssignIds(householdIds);
     setSelectedHousehold(null);
     setAssignModalOpen(true);
+  }, []);
+
+  const handleViewHouseholdDetail = useCallback((household: HouseholdWithRelations) => {
+    setDetailHousehold(household);
+  }, []);
+
+  const handleViewSaleDetail = useCallback((saleId: string) => {
+    setDetailSaleId(saleId);
   }, []);
 
   const handleAssign = async (householdId: string, leadSourceId: string) => {
@@ -324,6 +340,8 @@ export default function LqsRoadmapPage() {
             households={filteredHouseholds}
             loading={isLoading}
             onAssignLeadSource={handleAssignLeadSource}
+            onViewHouseholdDetail={handleViewHouseholdDetail}
+            onViewSaleDetail={handleViewSaleDetail}
           />
         </TabsContent>
 
@@ -333,6 +351,8 @@ export default function LqsRoadmapPage() {
             households={filteredHouseholds}
             loading={isLoading}
             onAssignLeadSource={handleAssignLeadSource}
+            onViewHouseholdDetail={handleViewHouseholdDetail}
+            onViewSaleDetail={handleViewSaleDetail}
           />
         </TabsContent>
 
@@ -342,6 +362,8 @@ export default function LqsRoadmapPage() {
             households={filteredHouseholds}
             loading={isLoading}
             onAssignLeadSource={handleAssignLeadSource}
+            onViewHouseholdDetail={handleViewHouseholdDetail}
+            onViewSaleDetail={handleViewSaleDetail}
           />
         </TabsContent>
 
@@ -353,6 +375,8 @@ export default function LqsRoadmapPage() {
             onAssignLeadSource={handleAssignLeadSource}
             onBulkAssign={handleBulkAssign}
             showBulkSelect={true}
+            onViewHouseholdDetail={handleViewHouseholdDetail}
+            onViewSaleDetail={handleViewSaleDetail}
           />
         </TabsContent>
 
@@ -373,6 +397,8 @@ export default function LqsRoadmapPage() {
                   households={households}
                   loading={isLoading}
                   onAssignLeadSource={handleAssignLeadSource}
+                  onViewHouseholdDetail={handleViewHouseholdDetail}
+                  onViewSaleDetail={handleViewSaleDetail}
                 />
               </div>
             ))}
@@ -406,6 +432,26 @@ export default function LqsRoadmapPage() {
         bulkMode={bulkAssignIds.length > 0}
         bulkCount={bulkAssignIds.length}
         onBulkAssign={handleBulkAssignSubmit}
+      />
+
+      {/* Household Detail Modal */}
+      <LqsHouseholdDetailModal
+        household={detailHousehold}
+        open={!!detailHousehold}
+        onOpenChange={(open) => !open && setDetailHousehold(null)}
+        onAssignLeadSource={(id) => {
+          setDetailHousehold(null);
+          handleAssignLeadSource(id);
+        }}
+      />
+
+      {/* Sale Detail Modal (for sold households) */}
+      <SaleDetailModal
+        saleId={detailSaleId}
+        open={!!detailSaleId}
+        onOpenChange={(open) => !open && setDetailSaleId(null)}
+        canEditAllSales={true}
+        onEdit={(saleId) => navigate(`/sales/${saleId}/edit`)}
       />
     </div>
   );
