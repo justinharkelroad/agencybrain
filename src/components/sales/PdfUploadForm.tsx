@@ -583,30 +583,68 @@ export function PdfUploadForm({
     setEditModalOpen(true);
   };
 
+  // Add a blank policy for manual entry
+  const addManualPolicy = () => {
+    const blankPolicy: StagedPolicy = {
+      id: generateId(),
+      productTypeId: '',
+      productTypeName: '',
+      policyNumber: '',
+      effectiveDate: undefined,
+      expirationDate: undefined,
+      premium: 0,
+      itemCount: 1,
+      confidence: 'high', // Manual entry is assumed accurate
+      filename: 'Manual Entry',
+    };
+    
+    setEditingPolicy(blankPolicy);
+    setEditProductTypeId('');
+    setEditPolicyNumber('');
+    setEditEffectiveDate(undefined);
+    setEditExpirationDate(undefined);
+    setEditPremium('');
+    setEditItemCount(1);
+    setEditModalOpen(true);
+    setShowUploadDropzone(false);
+    
+    // If this is the first policy, set to review state
+    if (stagedPolicies.length === 0) {
+      setUploadState('review');
+    }
+  };
+
   const saveEditedPolicy = () => {
     if (!editingPolicy) return;
 
     const pt = productTypes.find(t => t.id === editProductTypeId);
+    const existingIndex = stagedPolicies.findIndex(p => p.id === editingPolicy.id);
     
-    setStagedPolicies(prev => prev.map(p => {
-      if (p.id === editingPolicy.id) {
-        return {
-          ...p,
-          productTypeId: editProductTypeId,
-          productTypeName: pt?.name || p.productTypeName,
-          policyNumber: editPolicyNumber,
-          effectiveDate: editEffectiveDate,
-          expirationDate: editExpirationDate,
-          premium: parseFloat(editPremium) || 0,
-          itemCount: editItemCount,
-        };
-      }
-      return p;
-    }));
+    const updatedPolicy: StagedPolicy = {
+      ...editingPolicy,
+      productTypeId: editProductTypeId,
+      productTypeName: pt?.name || '',
+      policyNumber: editPolicyNumber,
+      effectiveDate: editEffectiveDate,
+      expirationDate: editExpirationDate,
+      premium: parseFloat(editPremium) || 0,
+      itemCount: editItemCount,
+    };
+    
+    if (existingIndex >= 0) {
+      // Editing existing policy
+      setStagedPolicies(prev => prev.map(p => 
+        p.id === editingPolicy.id ? updatedPolicy : p
+      ));
+      toast.success('Policy updated');
+    } else {
+      // Adding new manual policy
+      setStagedPolicies(prev => [...prev, updatedPolicy]);
+      toast.success('Policy added manually');
+    }
 
     setEditModalOpen(false);
     setEditingPolicy(null);
-    toast.success('Policy updated');
   };
 
   const handleNameMismatchContinue = () => {
@@ -926,21 +964,45 @@ export function PdfUploadForm({
                   <p className="text-sm font-medium">Extracting from {currentFilename}...</p>
                 </div>
               ) : (
-                <div
-                  {...getRootProps()}
-                  className={cn(
-                    "text-center cursor-pointer transition-colors",
-                    isDragActive ? "opacity-70" : ""
-                  )}
-                >
-                  <input {...getInputProps()} />
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">
-                    {isDragActive ? "Drop the PDF here" : "Drop another PDF or click to select"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add another policy to this sale
-                  </p>
+                <div className="space-y-4">
+                  {/* PDF Upload Option */}
+                  <div
+                    {...getRootProps()}
+                    className={cn(
+                      "text-center cursor-pointer transition-colors p-4 rounded-lg border border-dashed hover:border-primary",
+                      isDragActive ? "opacity-70 border-primary" : "border-muted-foreground/30"
+                    )}
+                  >
+                    <input {...getInputProps()} />
+                    <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">
+                      {isDragActive ? "Drop the PDF here" : "Upload PDF"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Drop a PDF or click to select
+                    </p>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">or</span>
+                    </div>
+                  </div>
+                  
+                  {/* Manual Entry Option */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={addManualPolicy}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Enter Manually
+                  </Button>
                 </div>
               )}
               <div className="flex justify-center mt-4">
@@ -1031,11 +1093,15 @@ export function PdfUploadForm({
         </Button>
       </div>
 
-      {/* Edit Policy Modal */}
+      {/* Edit/Add Policy Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Policy</DialogTitle>
+            <DialogTitle>
+              {editingPolicy && stagedPolicies.find(p => p.id === editingPolicy.id)
+                ? 'Edit Policy'
+                : 'Add Policy Manually'}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
