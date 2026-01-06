@@ -197,13 +197,7 @@ export function LqsHouseholdRow({
             {quote.quote_date ? format(parseISO(quote.quote_date), 'MMM d, yyyy') : '—'}
           </TableCell>
           <TableCell />
-          <TableCell className="text-sm">
-            {quote.issued_policy_number && (
-              <span className="text-green-600 dark:text-green-400">
-                Policy: {quote.issued_policy_number}
-              </span>
-            )}
-          </TableCell>
+          <TableCell />
           <TableCell />
         </TableRow>
       ))}
@@ -228,11 +222,6 @@ export function LqsHouseholdRow({
                   <span className="text-muted-foreground">
                     {sale.sale_date ? format(parseISO(sale.sale_date), 'MMM d, yyyy') : '—'}
                   </span>
-                  {sale.policy_number && (
-                    <span className="text-muted-foreground">
-                      Policy: {sale.policy_number}
-                    </span>
-                  )}
                 </div>
               ))}
             </div>
