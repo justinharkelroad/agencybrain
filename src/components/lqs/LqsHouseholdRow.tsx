@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -180,6 +180,38 @@ export function LqsHouseholdRow({
           <TableCell />
         </TableRow>
       ))}
+
+      {/* Expanded Sale Details (for sold households) */}
+      {isExpanded && household.status === 'sold' && household.sales?.length > 0 && (
+        <TableRow className="bg-green-50/50 dark:bg-green-950/20">
+          {showCheckbox && <TableCell />}
+          <TableCell />
+          <TableCell colSpan={8} className="pl-8">
+            <div className="space-y-2 py-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                <CheckCircle className="h-4 w-4" />
+                Sold
+              </div>
+              {household.sales.map(sale => (
+                <div key={sale.id} className="flex items-center gap-4 text-sm pl-4">
+                  <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                    {sale.product_type}
+                  </Badge>
+                  <span>${(sale.premium_cents / 100).toLocaleString()}</span>
+                  <span className="text-muted-foreground">
+                    {sale.sale_date ? format(parseISO(sale.sale_date), 'MMM d, yyyy') : '—'}
+                  </span>
+                  {sale.policy_number && (
+                    <span className="text-muted-foreground">
+                      Policy: {sale.policy_number}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
     </>
   );
 }

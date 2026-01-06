@@ -7949,6 +7949,15 @@ export type Database = {
         }
         Returns: string
       }
+      backfill_lqs_sales_matching: {
+        Args: { p_agency_id: string }
+        Returns: {
+          match_confidence: string
+          matched_household_id: string
+          sale_id: string
+          status: string
+        }[]
+      }
       backfill_metrics_last_n_days: {
         Args: { p_agency: string; p_days: number }
         Returns: undefined
@@ -8241,6 +8250,10 @@ export type Database = {
         Args: { p_module_id: string; p_staff_user_id: string }
         Returns: boolean
       }
+      link_sale_to_lqs_household: {
+        Args: { p_household_id: string; p_sale_id: string }
+        Returns: undefined
+      }
       list_agencies_safe: {
         Args: never
         Returns: {
@@ -8268,6 +8281,14 @@ export type Database = {
           kpi_id: string
           label: string
           slug: string
+        }[]
+      }
+      match_sale_to_lqs_household: {
+        Args: { p_sale_id: string }
+        Returns: {
+          household_id: string
+          match_confidence: string
+          matched_key: string
         }[]
       }
       recompute_streaks_for_member: {

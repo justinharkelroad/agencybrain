@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
-import { FileSpreadsheet, Target } from 'lucide-react';
+import { FileSpreadsheet, Target, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   useLqsData, 
   useLqsLeadSources, 
@@ -183,6 +185,38 @@ export default function LqsRoadmapPage() {
     refetch();
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncSales = async () => {
+    if (!agencyProfile?.agencyId) return;
+    
+    setIsSyncing(true);
+    try {
+      const { data: results, error } = await supabase
+        .rpc('backfill_lqs_sales_matching', { p_agency_id: agencyProfile.agencyId });
+      
+      if (error) throw error;
+      
+      const linked = results?.filter((r: { status: string }) => r.status === 'linked').length || 0;
+      const noMatch = results?.filter((r: { status: string }) => r.status === 'no_match').length || 0;
+      
+      if (linked > 0) {
+        toast.success(`Matched ${linked} sales to households`);
+      } else if (noMatch > 0) {
+        toast.info(`Processed ${noMatch} sales - no matching households found`);
+      } else {
+        toast.info('No new sales to sync');
+      }
+      
+      refetch();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Sync failed: ' + message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   if (agencyLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -218,10 +252,20 @@ export default function LqsRoadmapPage() {
             Track leads from quote to sale
           </p>
         </div>
-        <Button onClick={() => setUploadModalOpen(true)}>
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Upload Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleSyncSales}
+            disabled={isSyncing}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
+            {isSyncing ? 'Syncing...' : 'Sync Sales'}
+          </Button>
+          <Button onClick={() => setUploadModalOpen(true)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Upload Report
+          </Button>
+        </div>
       </div>
 
       {/* Metric Tiles */}
