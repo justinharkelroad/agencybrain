@@ -76,7 +76,8 @@ interface SalesLogProps {
 }
 
 export function SalesLog({ onEditSale }: SalesLogProps) {
-  const { user } = useAuth();
+  const { user, isAdmin, isAgencyOwner } = useAuth();
+  const canEditAllSales = isAdmin || isAgencyOwner;
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfMonth(new Date()),
@@ -463,6 +464,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
           setSelectedSaleId(null);
           onEditSale?.(saleId);
         }}
+        canEditAllSales={canEditAllSales}
       />
 
       {/* Delete Confirmation Dialog */}

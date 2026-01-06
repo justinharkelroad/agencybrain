@@ -613,6 +613,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     onSuccess: () => {
       toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["sales"] });
+      // Invalidate sale-for-edit so next edit fetch is fresh
+      queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
@@ -697,17 +699,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               <Label htmlFor="leadSource">
                 Lead Source <span className="text-destructive">*</span>
               </Label>
-              <Select 
-                value={leadSourceId} 
-                onValueChange={setLeadSourceId}
-                disabled={leadSourcesLoading}
-              >
+              <Select value={leadSourceId} onValueChange={setLeadSourceId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={leadSourcesLoading ? "Loading..." : "Select lead source..."}>
-                    {leadSourceId 
-                      ? leadSources.find(ls => ls.id === leadSourceId)?.name || "Loading..."
-                      : (leadSourcesLoading ? "Loading..." : "Select lead source...")}
-                  </SelectValue>
+                  <SelectValue placeholder="Select lead source..." />
                 </SelectTrigger>
                 <SelectContent>
                   {leadSources.map((source) => (

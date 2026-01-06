@@ -59,7 +59,7 @@ export default function Sales() {
     fetchAgencyId();
   }, [user?.id]);
 
-  // Fetch sale data for editing
+  // Fetch sale data for editing - always fresh to avoid stale lead_source_id etc
   const { data: editSaleData, isLoading: isLoadingEditSale } = useQuery({
     queryKey: ["sale-for-edit", editingSaleId],
     queryFn: async () => {
@@ -135,6 +135,8 @@ export default function Sales() {
       };
     },
     enabled: !!editingSaleId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // Wait for agencyId to load before checking access
