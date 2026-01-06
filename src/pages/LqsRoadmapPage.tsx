@@ -451,7 +451,7 @@ export default function LqsRoadmapPage() {
         open={!!detailSaleId}
         onOpenChange={(open) => !open && setDetailSaleId(null)}
         canEditAllSales={true}
-        onEdit={(saleId) => navigate(`/sales/${saleId}/edit`)}
+        onEdit={(saleId) => navigate(`/sales?tab=add&edit=${saleId}`)}
       />
     </div>
   );
