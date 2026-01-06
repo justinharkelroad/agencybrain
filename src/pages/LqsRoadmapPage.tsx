@@ -23,7 +23,7 @@ import { QuoteReportUploadModal } from '@/components/lqs/QuoteReportUploadModal'
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 
-type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
+type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'sold' | 'needs-attention';
 
 export default function LqsRoadmapPage() {
   const { user } = useAuth();
@@ -60,6 +60,8 @@ export default function LqsRoadmapPage() {
     switch (activeTab) {
       case 'self-generated':
         return data.households.filter(h => h.lead_source?.is_self_generated === true);
+      case 'sold':
+        return data.households.filter(h => h.status === 'sold');
       case 'needs-attention':
         return data.households.filter(h => h.needs_attention);
       default:
@@ -281,6 +283,16 @@ export default function LqsRoadmapPage() {
           <TabsTrigger value="by-producer">By Producer</TabsTrigger>
           <TabsTrigger value="by-zip">By Zip</TabsTrigger>
           <TabsTrigger value="self-generated">Self-Generated</TabsTrigger>
+          <TabsTrigger value="sold" className="relative">
+            Sold
+            {(data?.metrics?.sold ?? 0) > 0 && (
+              <Badge 
+                className="ml-2 h-5 min-w-[20px] px-1.5 bg-green-600"
+              >
+                {data?.metrics?.sold}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="needs-attention" className="relative">
             Needs Attention
             {(data?.metrics?.needsAttention ?? 0) > 0 && (
@@ -317,6 +329,15 @@ export default function LqsRoadmapPage() {
 
         {/* Self-Generated Tab */}
         <TabsContent value="self-generated" className="mt-4">
+          <LqsHouseholdTable
+            households={filteredHouseholds}
+            loading={isLoading}
+            onAssignLeadSource={handleAssignLeadSource}
+          />
+        </TabsContent>
+
+        {/* Sold Tab */}
+        <TabsContent value="sold" className="mt-4">
           <LqsHouseholdTable
             households={filteredHouseholds}
             loading={isLoading}
