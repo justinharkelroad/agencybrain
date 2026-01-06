@@ -112,7 +112,7 @@ export default function LqsRoadmapPage() {
       case 'by-producer': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
         data.households.forEach(h => {
-          const producerName = h.team_member?.full_name || 'Unassigned';
+          const producerName = h.team_member?.name || 'Unassigned';
           if (!groups[producerName]) groups[producerName] = [];
           groups[producerName].push(h);
         });

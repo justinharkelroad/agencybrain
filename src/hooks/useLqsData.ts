@@ -12,7 +12,7 @@ export interface LqsLeadSource {
 
 export interface LqsTeamMember {
   id: string;
-  full_name: string;
+  name: string;
 }
 
 export interface HouseholdWithRelations extends LqsHousehold {
@@ -47,7 +47,7 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
           *,
           quotes:lqs_quotes(*),
           lead_source:lead_sources(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
-          team_member:team_members(id, full_name)
+          team_member:team_members(id, name)
         `)
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false });
