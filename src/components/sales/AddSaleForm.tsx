@@ -68,6 +68,7 @@ type SaleForEdit = {
   customer_phone: string | null;
   customer_zip: string | null;
   lead_source_id: string | null;
+  lead_source?: { name: string } | null;
   team_member_id: string | null;
   sale_date: string | null;
   is_bundle: boolean | null;
@@ -610,8 +611,23 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
       return { saleId };
     },
-    onSuccess: () => {
-      toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
+    onSuccess: async ({ saleId }) => {
+      // Fetch saved sale to confirm lead_source was persisted (proof)
+      const { data: savedSale } = await supabase
+        .from("sales")
+        .select("id, lead_source_id, lead_source:lead_sources(name)")
+        .eq("id", saleId)
+        .single();
+      
+      const savedLeadSourceName = savedSale?.lead_source?.name;
+      console.log(`[SaleSaveProof] saleId=${saleId} lead_source_id=${savedSale?.lead_source_id} lead_source_name=${savedLeadSourceName}`);
+      
+      if (isEditMode && savedLeadSourceName) {
+        toast.success(`Sale updated! Lead Source: ${savedLeadSourceName}`);
+      } else {
+        toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       // Invalidate sale-for-edit so next edit fetch is fresh
       queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
@@ -699,18 +715,26 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               <Label htmlFor="leadSource">
                 Lead Source <span className="text-destructive">*</span>
               </Label>
-              <Select value={leadSourceId} onValueChange={setLeadSourceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select lead source..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {leadSources.map((source) => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Show loading state if leadSources not ready but we have a saved value */}
+              {leadSourcesLoading && leadSourceId ? (
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editSale?.lead_source?.name || "Loading lead sources..."}
+                </div>
+              ) : (
+                <Select value={leadSourceId} onValueChange={setLeadSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select lead source..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadSources.map((source) => (
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardContent>
         </Card>
