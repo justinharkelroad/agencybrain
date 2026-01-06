@@ -35,6 +35,7 @@ interface LeadSourceSpendModalProps {
   leadSourceId: string | null;
   leadSourceName: string;
   costType: CostType;
+  agencyId: string;
 }
 
 const COST_TYPE_LABELS: Record<CostType, { unitLabel: string; pluralLabel: string }> = {
@@ -50,6 +51,7 @@ export const LeadSourceSpendModal = ({
   leadSourceId,
   leadSourceName,
   costType,
+  agencyId,
 }: LeadSourceSpendModalProps) => {
   const {
     spendHistory,
@@ -59,7 +61,7 @@ export const LeadSourceSpendModal = ({
     fetchSpendForMonth,
     upsertSpend,
     getMonthOptions,
-  } = useLeadSourceMonthlySpend(leadSourceId);
+  } = useLeadSourceMonthlySpend(leadSourceId, agencyId);
 
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [costPerUnit, setCostPerUnit] = useState<string>('');

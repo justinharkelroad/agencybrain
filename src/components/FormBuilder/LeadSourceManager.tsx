@@ -443,6 +443,7 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
         leadSourceId={spendModalSource?.id ?? null}
         leadSourceName={spendModalSource?.name ?? ''}
         costType={spendModalSource?.cost_type ?? 'per_lead'}
+        agencyId={agencyId}
       />
     </div>
   );
