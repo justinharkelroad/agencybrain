@@ -4847,6 +4847,7 @@ export type Database = {
           agency_id: string
           agent_number: string | null
           amount_due: number | null
+          amount_due_cents: number | null
           assigned_team_member_id: string | null
           created_at: string
           current_status: string
@@ -4887,6 +4888,7 @@ export type Database = {
           agency_id: string
           agent_number?: string | null
           amount_due?: number | null
+          amount_due_cents?: number | null
           assigned_team_member_id?: string | null
           created_at?: string
           current_status?: string
@@ -4927,6 +4929,7 @@ export type Database = {
           agency_id?: string
           agent_number?: string | null
           amount_due?: number | null
+          amount_due_cents?: number | null
           assigned_team_member_id?: string | null
           created_at?: string
           current_status?: string
