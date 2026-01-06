@@ -63,6 +63,7 @@ import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
+import LqsRoadmapPage from "./pages/LqsRoadmapPage";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -263,6 +264,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <Sales />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* LQS Roadmap - Beta */}
+            <Route path="/lqs-roadmap" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <LqsRoadmapPage />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

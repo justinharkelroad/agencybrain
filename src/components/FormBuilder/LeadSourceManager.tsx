@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, FileSpreadsheet } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +10,6 @@ import { MarketingBucketList } from "@/components/lqs/MarketingBucketList";
 import { EnhancedLeadSourceRow } from "@/components/lqs/EnhancedLeadSourceRow";
 import { UnassignedLeadSourcesSection } from "@/components/lqs/UnassignedLeadSourcesSection";
 import { LeadSourceSpendModal } from "@/components/lqs/LeadSourceSpendModal";
-import { QuoteReportUploadModal } from "@/components/lqs/QuoteReportUploadModal";
 import { LeadSourceExtended, CostType } from "@/types/lqs";
 import { useAuth } from "@/lib/auth";
 
@@ -26,7 +25,6 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
   const [initialLoading, setInitialLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'all' | 'by-bucket'>('all');
   const [spendModalSource, setSpendModalSource] = useState<LeadSourceExtended | null>(null);
-  const [quoteUploadOpen, setQuoteUploadOpen] = useState(false);
 
   const {
     buckets,
@@ -440,21 +438,6 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
         )}
       </div>
 
-      {/* Quote Report Upload Section (Temporary - will move to LQS Dashboard in Phase 4) */}
-      <div className="border-t pt-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-medium">Quote Report Upload</h3>
-          <span className="text-xs text-muted-foreground">(Temporary location for testing)</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Upload Allstate "Quotes Detail and Conversion Rate Report" files to import quote data.
-        </p>
-        <Button onClick={() => setQuoteUploadOpen(true)} variant="outline">
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Upload Allstate Quote Report
-        </Button>
-      </div>
-
       {/* Spend Modal */}
       <LeadSourceSpendModal
         open={!!spendModalSource}
@@ -463,16 +446,6 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
         leadSourceName={spendModalSource?.name ?? ''}
         costType={spendModalSource?.cost_type ?? 'per_lead'}
         agencyId={agencyId}
-      />
-
-      {/* Quote Upload Modal */}
-      <QuoteReportUploadModal
-        open={quoteUploadOpen}
-        onOpenChange={setQuoteUploadOpen}
-        agencyId={agencyId}
-        userId={user?.id ?? null}
-        displayName={user?.email ?? 'Unknown'}
-        onUploadComplete={() => toast.success('Quote report uploaded successfully')}
       />
     </div>
   );

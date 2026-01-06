@@ -96,6 +96,15 @@ export const navigationConfig: NavEntry[] = [
         adminOnly: true,  // Only system admins can see this for now
       },
       {
+        id: 'lqs-roadmap',
+        title: 'LQS Roadmap',
+        icon: Target,
+        type: 'link',
+        url: '/lqs-roadmap',
+        access: { staff: false, manager: true, owner: true },
+        adminOnly: true,  // Beta testing - remove later
+      },
+      {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',
         icon: Bot,
