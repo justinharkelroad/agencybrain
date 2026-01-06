@@ -16,22 +16,71 @@ export function useRenewalBackgroundUpload() {
     context: RenewalUploadContext
   ) => {
     const { agencyId, userId, displayName } = context;
+    const staffToken = getStaffSessionToken();
     
-    if (getStaffSessionToken()) {
-      throw new Error('Staff portal upload requires edge function (Phase 3)');
-    }
-
     // Show immediate feedback
     toast({
       title: `Processing ${records.length} renewal records...`,
       description: "You can navigate away. We'll notify you when complete.",
     });
 
-    // Fire and forget - don't await
-    processInBackground(records, filename, agencyId, userId, displayName, queryClient);
+    if (staffToken) {
+      // Staff users use edge function
+      processStaffUpload(records, filename, staffToken, queryClient);
+    } else {
+      // Regular users use direct database access
+      processInBackground(records, filename, agencyId, userId!, displayName, queryClient);
+    }
   };
 
   return { startBackgroundUpload };
+}
+
+async function processStaffUpload(
+  records: ParsedRenewalRecord[],
+  filename: string,
+  staffToken: string,
+  queryClient: ReturnType<typeof useQueryClient>
+) {
+  try {
+    const { data, error } = await supabase.functions.invoke('upload_staff_renewals', {
+      headers: { 'x-staff-session': staffToken },
+      body: { records, filename },
+    });
+
+    if (error) throw error;
+
+    if (!data.success) {
+      throw new Error(data.error || 'Upload failed');
+    }
+
+    // Invalidate queries so data refreshes
+    queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-activities'] });
+
+    const totalProcessed = data.newCount + data.updatedCount;
+    if (data.errorCount === 0) {
+      toast({
+        title: 'Renewal Upload Complete!',
+        description: `${totalProcessed} records processed (${data.newCount} new, ${data.updatedCount} updated) from ${filename}`,
+      });
+    } else {
+      toast({
+        title: 'Upload completed with issues',
+        description: `${totalProcessed} succeeded, ${data.errorCount} failed from ${filename}`,
+        variant: 'destructive',
+      });
+    }
+  } catch (error: any) {
+    console.error('Staff upload error:', error);
+    toast({
+      title: 'Renewal Upload Failed',
+      description: error.message || 'An error occurred during processing',
+      variant: 'destructive',
+    });
+  }
 }
 
 async function processInBackground(
