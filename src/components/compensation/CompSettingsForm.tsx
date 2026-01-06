@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -104,6 +105,7 @@ interface CompSettingsFormProps {
 
 export function CompSettingsForm({ onSettingsSaved }: CompSettingsFormProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [agencyId, setAgencyId] = useState<string | null>(null);
@@ -182,6 +184,9 @@ export function CompSettingsForm({ onSettingsSaved }: CompSettingsFormProps) {
         .upsert(upsertData, { onConflict: "agency_id" });
 
       if (error) throw error;
+
+      // Invalidate the cache so StatementUploader fetches fresh data
+      await queryClient.invalidateQueries({ queryKey: ['comp-settings', agencyId] });
 
       toast.success("Settings saved successfully");
       onSettingsSaved?.();
