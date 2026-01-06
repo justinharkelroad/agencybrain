@@ -175,6 +175,22 @@ export function StaffEditSaleModal({
     e.preventDefault();
     if (!sale) return;
 
+    // Validate required fields
+    if (!formData.customer_phone?.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+    if (!formData.customer_email?.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.customer_email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const policyUpdates = policies
@@ -257,7 +273,9 @@ export function StaffEditSaleModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="customer_email">Email</Label>
+              <Label htmlFor="customer_email">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customer_email"
                 type="email"
@@ -267,10 +285,13 @@ export function StaffEditSaleModal({
                 }
                 placeholder="email@example.com"
                 disabled={isLoadingDetails}
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customer_phone">Phone</Label>
+              <Label htmlFor="customer_phone">
+                Phone <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="customer_phone"
                 value={formData.customer_phone}
@@ -279,6 +300,7 @@ export function StaffEditSaleModal({
                 }
                 placeholder="(555) 555-5555"
                 disabled={isLoadingDetails}
+                required
               />
             </div>
           </div>

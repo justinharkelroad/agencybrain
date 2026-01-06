@@ -326,6 +326,11 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!saleDate) throw new Error("Sale date is required");
       if (!customerName.trim()) throw new Error("Customer name is required");
       if (!customerEmail.trim()) throw new Error("Email is required");
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail.trim())) {
+        throw new Error("Please enter a valid email address");
+      }
       if (!customerPhone.trim()) throw new Error("Phone number is required");
       if (!customerZip.trim()) throw new Error("Zip code is required");
       if (!leadSourceId) throw new Error("Lead source is required");
