@@ -3208,38 +3208,109 @@ export type Database = {
           },
         ]
       }
+      lead_source_monthly_spend: {
+        Row: {
+          agency_id: string
+          cost_per_unit_cents: number
+          created_at: string
+          id: string
+          lead_source_id: string
+          month: string
+          notes: string | null
+          total_spend_cents: number
+          units_count: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          cost_per_unit_cents?: number
+          created_at?: string
+          id?: string
+          lead_source_id: string
+          month: string
+          notes?: string | null
+          total_spend_cents?: number
+          units_count?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          cost_per_unit_cents?: number
+          created_at?: string
+          id?: string
+          lead_source_id?: string
+          month?: string
+          notes?: string | null
+          total_spend_cents?: number
+          units_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_source_monthly_spend_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_source_monthly_spend_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_sources: {
         Row: {
           agency_id: string
+          bucket_id: string | null
           cost_per_lead_cents: number
+          cost_type: string
           created_at: string
           id: string
           is_active: boolean
+          is_self_generated: boolean
           name: string
           order_index: number
           updated_at: string
         }
         Insert: {
           agency_id: string
+          bucket_id?: string | null
           cost_per_lead_cents?: number
+          cost_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_self_generated?: boolean
           name: string
           order_index?: number
           updated_at?: string
         }
         Update: {
           agency_id?: string
+          bucket_id?: string | null
           cost_per_lead_cents?: number
+          cost_type?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_self_generated?: boolean
           name?: string
           order_index?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lead_sources_bucket_id_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_buckets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       life_targets_brainstorm: {
         Row: {
@@ -3408,6 +3479,276 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      lqs_households: {
+        Row: {
+          agency_id: string
+          created_at: string
+          email: string | null
+          first_name: string
+          first_quote_date: string | null
+          household_key: string
+          id: string
+          last_name: string
+          lead_received_date: string | null
+          lead_source_id: string | null
+          needs_attention: boolean
+          phone: string | null
+          sold_date: string | null
+          status: string
+          team_member_id: string | null
+          updated_at: string
+          zip_code: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          email?: string | null
+          first_name: string
+          first_quote_date?: string | null
+          household_key: string
+          id?: string
+          last_name: string
+          lead_received_date?: string | null
+          lead_source_id?: string | null
+          needs_attention?: boolean
+          phone?: string | null
+          sold_date?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          zip_code: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          first_quote_date?: string | null
+          household_key?: string
+          id?: string
+          last_name?: string
+          lead_received_date?: string | null
+          lead_source_id?: string | null
+          needs_attention?: boolean
+          phone?: string | null
+          sold_date?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          zip_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lqs_households_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_households_lead_source_id_fkey"
+            columns: ["lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_households_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lqs_quotes: {
+        Row: {
+          agency_id: string
+          created_at: string
+          household_id: string
+          id: string
+          issued_policy_number: string | null
+          items_quoted: number
+          premium_cents: number
+          product_type: string
+          quote_date: string
+          source: string
+          source_reference_id: string | null
+          team_member_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          issued_policy_number?: string | null
+          items_quoted?: number
+          premium_cents?: number
+          product_type: string
+          quote_date: string
+          source?: string
+          source_reference_id?: string | null
+          team_member_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          issued_policy_number?: string | null
+          items_quoted?: number
+          premium_cents?: number
+          product_type?: string
+          quote_date?: string
+          source?: string
+          source_reference_id?: string | null
+          team_member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lqs_quotes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_quotes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_quotes_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lqs_sales: {
+        Row: {
+          agency_id: string
+          created_at: string
+          household_id: string
+          id: string
+          items_sold: number
+          linked_quote_id: string | null
+          policies_sold: number
+          policy_number: string | null
+          premium_cents: number
+          product_type: string
+          sale_date: string
+          source: string
+          source_reference_id: string | null
+          team_member_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          items_sold?: number
+          linked_quote_id?: string | null
+          policies_sold?: number
+          policy_number?: string | null
+          premium_cents?: number
+          product_type: string
+          sale_date: string
+          source?: string
+          source_reference_id?: string | null
+          team_member_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          items_sold?: number
+          linked_quote_id?: string | null
+          policies_sold?: number
+          policy_number?: string | null
+          premium_cents?: number
+          product_type?: string
+          sale_date?: string
+          source?: string
+          source_reference_id?: string | null
+          team_member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lqs_sales_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_sales_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_sales_linked_quote_id_fkey"
+            columns: ["linked_quote_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_sales_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_buckets: {
+        Row: {
+          agency_id: string
+          commission_rate_percent: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          commission_rate_percent?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          commission_rate_percent?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_buckets_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_frames: {
         Row: {
@@ -7685,6 +8026,10 @@ export type Database = {
       flatten_sold_household_details_enhanced: {
         Args: { p_submission_id: string }
         Returns: undefined
+      }
+      generate_household_key: {
+        Args: { p_first_name: string; p_last_name: string; p_zip_code: string }
+        Returns: string
       }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
       get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
