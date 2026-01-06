@@ -125,6 +125,7 @@ export default function ScorecardFormEditor() {
   const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
   const [agencyId, setAgencyId] = useState<string>("");
   const [showKpiUpdateDialog, setShowKpiUpdateDialog] = useState(false);
+  const [dialogDismissed, setDialogDismissed] = useState(false);
   const [outdatedKpiInfo, setOutdatedKpiInfo] = useState<{
     kpi_id: string;
     current_label: string;
@@ -146,9 +147,9 @@ export default function ScorecardFormEditor() {
     }
   }, [formId, user?.id]);
 
-  // Check for outdated KPI versions after form loads
+  // Check for outdated KPI versions after form loads - only show once per session
   useEffect(() => {
-    if (outdatedBinding && currentKpiVersion && !showKpiUpdateDialog) {
+    if (outdatedBinding && currentKpiVersion && !showKpiUpdateDialog && !dialogDismissed) {
       setOutdatedKpiInfo({
         kpi_id: outdatedBinding.kpi_versions.kpi_id,
         current_label: currentKpiVersion.label,
@@ -157,7 +158,7 @@ export default function ScorecardFormEditor() {
       });
       setShowKpiUpdateDialog(true);
     }
-  }, [outdatedBinding, currentKpiVersion, showKpiUpdateDialog]);
+  }, [outdatedBinding, currentKpiVersion, showKpiUpdateDialog, dialogDismissed]);
 
   const loadForm = async () => {
     try {
@@ -571,6 +572,7 @@ export default function ScorecardFormEditor() {
           onOpenChange={(open) => {
             setShowKpiUpdateDialog(open);
             if (!open) {
+              setDialogDismissed(true);
               setOutdatedKpiInfo(null);
             }
           }}
