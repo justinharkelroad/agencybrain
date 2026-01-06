@@ -282,3 +282,6 @@ verify_jwt = false
 [functions.send-call-score-notification]
 verify_jwt = false
 
+[functions.upload_staff_renewals]
+verify_jwt = false
+
