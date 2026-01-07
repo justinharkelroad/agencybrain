@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { format, parseISO } from 'date-fns';
+import { filterCountableQuotes } from '@/lib/lqs-constants';
 
 interface LqsHouseholdRowProps {
   household: HouseholdWithRelations;
@@ -56,8 +57,10 @@ export function LqsHouseholdRow({
 }: LqsHouseholdRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const uniqueProducts = [...new Set(household.quotes?.map(q => q.product_type) || [])];
-  const totalPremium = household.quotes?.reduce((sum, q) => sum + (q.premium_cents || 0), 0) || 0;
+  // Exclude Motor Club from product badges and premium total
+  const countableQuotes = filterCountableQuotes(household.quotes || []);
+  const uniqueProducts = [...new Set(countableQuotes.map(q => q.product_type))];
+  const totalPremium = countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
 
   return (
     <>

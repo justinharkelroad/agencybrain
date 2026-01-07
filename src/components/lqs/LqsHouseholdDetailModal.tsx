@@ -28,6 +28,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
+import { filterCountableQuotes } from '@/lib/lqs-constants';
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -93,8 +94,10 @@ export function LqsHouseholdDetailModal({
 
   if (!household) return null;
 
-  const totalPremium = household.quotes?.reduce((sum, q) => sum + (q.premium_cents || 0), 0) || 0;
-  const uniqueProducts = [...new Set(household.quotes?.map(q => q.product_type) || [])];
+  // Countable quotes exclude Motor Club for metrics
+  const countableQuotes = filterCountableQuotes(household.quotes || []);
+  const totalPremium = countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+  const uniqueProducts = [...new Set(countableQuotes.map(q => q.product_type))];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -294,7 +297,7 @@ export function LqsHouseholdDetailModal({
           {/* Totals Section */}
           <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold">{household.quotes?.length || 0}</div>
+              <div className="text-2xl font-bold">{countableQuotes.length}</div>
               <div className="text-sm text-muted-foreground">Quotes</div>
             </div>
             <div className="text-center">
