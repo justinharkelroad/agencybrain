@@ -8255,7 +8255,7 @@ export type Database = {
       }
       link_sale_to_lqs_household: {
         Args: { p_household_id: string; p_sale_id: string }
-        Returns: undefined
+        Returns: Json
       }
       list_agencies_safe: {
         Args: never
