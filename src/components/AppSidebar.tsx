@@ -258,8 +258,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
 
   // Filter navigation based on user access
   const filteredNavigation = useMemo(() => {
-    return filterNavigation(navigationConfig, callScoringEnabled);
-  }, [filterNavigation, callScoringEnabled]);
+    return filterNavigation(navigationConfig, callScoringEnabled, user?.email);
+  }, [filterNavigation, callScoringEnabled, user?.email]);
 
   // For Call Scoring tier, we need special handling - they only see Call Scoring + Exchange
   const visibleNavigation = useMemo<NavEntry[]>(() => {

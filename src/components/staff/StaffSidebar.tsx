@@ -147,6 +147,14 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     
     const filterItems = (items: NavItem[]): NavItem[] => {
       return items.filter(item => {
+        // Check email restriction first - most restrictive
+        if (item.emailRestriction) {
+          const staffEmail = user?.email?.toLowerCase();
+          if (!staffEmail || staffEmail !== item.emailRestriction.toLowerCase()) {
+            return false;
+          }
+        }
+
         // For Call Scoring tier, only allow specific items
         if (isCallScoringTier && !callScoringAllowedIds.includes(item.id)) {
           return false;
