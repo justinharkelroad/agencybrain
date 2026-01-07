@@ -3494,6 +3494,7 @@ export type Database = {
           lead_source_id: string | null
           needs_attention: boolean
           phone: string | null
+          products_interested: string[] | null
           sold_date: string | null
           status: string
           team_member_id: string | null
@@ -3513,6 +3514,7 @@ export type Database = {
           lead_source_id?: string | null
           needs_attention?: boolean
           phone?: string | null
+          products_interested?: string[] | null
           sold_date?: string | null
           status?: string
           team_member_id?: string | null
@@ -3532,6 +3534,7 @@ export type Database = {
           lead_source_id?: string | null
           needs_attention?: boolean
           phone?: string | null
+          products_interested?: string[] | null
           sold_date?: string | null
           status?: string
           team_member_id?: string | null
