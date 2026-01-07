@@ -8294,6 +8294,10 @@ export type Database = {
           matched_key: string
         }[]
       }
+      normalize_product_type: {
+        Args: { p_product_type: string }
+        Returns: string
+      }
       recompute_streaks_for_member: {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined

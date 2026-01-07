@@ -89,6 +89,58 @@ function parseZipCode(value: any): string {
 }
 
 /**
+ * Normalize product type to canonical form for consistent matching.
+ * Mirrors the database normalize_product_type() function.
+ */
+export function normalizeProductType(productType: string): string {
+  if (!productType || !productType.trim()) return 'Unknown';
+  
+  const upper = productType.toUpperCase().trim();
+  
+  const mapping: Record<string, string> = {
+    // Auto variations
+    'AUTO': 'Standard Auto',
+    'STANDARD AUTO': 'Standard Auto',
+    'PERSONAL AUTO': 'Standard Auto',
+    'SA': 'Standard Auto',
+    // Home variations
+    'HOME': 'Homeowners',
+    'HOMEOWNERS': 'Homeowners',
+    'HOMEOWNER': 'Homeowners',
+    'HO': 'Homeowners',
+    // Renters variations
+    'RENTER': 'Renters',
+    'RENTERS': 'Renters',
+    // Landlords variations
+    'LANDLORD': 'Landlords',
+    'LANDLORDS': 'Landlords',
+    'LL': 'Landlords',
+    // Umbrella variations
+    'UMBRELLA': 'Personal Umbrella',
+    'PERSONAL UMBRELLA': 'Personal Umbrella',
+    'PUP': 'Personal Umbrella',
+    // Motor Club variations
+    'MOTOR CLUB': 'Motor Club',
+    'MOTORCLUB': 'Motor Club',
+    'MC': 'Motor Club',
+    // Condo variations
+    'CONDO': 'Condo',
+    'CONDOMINIUM': 'Condo',
+    // Mobilehome variations
+    'MOBILEHOME': 'Mobilehome',
+    'MOBILE HOME': 'Mobilehome',
+    'MH': 'Mobilehome',
+    // Auto Special variations
+    'AUTO - SPECIAL': 'Auto - Special',
+    'AUTO-SPECIAL': 'Auto - Special',
+    'SPECIAL AUTO': 'Auto - Special',
+    'NON-STANDARD AUTO': 'Auto - Special',
+  };
+  
+  return mapping[upper] || productType; // Return original if no mapping found
+}
+
+/**
  * Parse Allstate Quote Report Excel file
  * 
  * Expected structure:
@@ -194,7 +246,7 @@ export function parseLqsQuoteExcel(file: ArrayBuffer): QuoteParseResult {
       const { code: subProducerCode, name: subProducerName } = parseSubProducer(subProducerRaw);
       
       const zipCode = parseZipCode(getValue('Customer ZIP Code'));
-      const productType = String(getValue('Product') || 'Unknown').trim();
+      const productType = normalizeProductType(String(getValue('Product') || 'Unknown').trim());
       const itemsQuoted = parseInt(String(getValue('Quoted Item Count') || '1')) || 1;
       const premiumCents = parseCurrencyToCents(getValue('Quoted Premium($)'));
       const issuedPolicyNumber = getValue('Issued Policy #') ? String(getValue('Issued Policy #')).trim() : null;
