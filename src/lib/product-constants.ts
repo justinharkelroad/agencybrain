@@ -31,18 +31,30 @@ export function filterCountableSales<T extends { product_type: string }>(sales: 
 
 /**
  * Filter an array of sale policies to only include countable ones
- * Works with sale_policies from Supabase which have policy_type field
+ * Works with sale_policies (policy_type_name) and other tables (policy_type)
  */
-export function filterCountablePolicies<T extends { policy_type?: string | null }>(policies: T[]): T[] {
-  return policies.filter(p => !isExcludedProduct(p.policy_type));
+export function filterCountablePolicies<T extends { 
+  policy_type?: string | null;
+  policy_type_name?: string | null;
+}>(policies: T[]): T[] {
+  return policies.filter(p => {
+    const policyType = p.policy_type_name || p.policy_type;
+    return !isExcludedProduct(policyType);
+  });
 }
 
 /**
  * Check if a sale has any excluded policies
  * Useful for determining if metrics need recalculation
  */
-export function hasExcludedPolicy<T extends { policy_type?: string | null }>(policies: T[]): boolean {
-  return policies.some(p => isExcludedProduct(p.policy_type));
+export function hasExcludedPolicy<T extends { 
+  policy_type?: string | null;
+  policy_type_name?: string | null;
+}>(policies: T[]): boolean {
+  return policies.some(p => {
+    const policyType = p.policy_type_name || p.policy_type;
+    return isExcludedProduct(policyType);
+  });
 }
 
 /**
@@ -51,6 +63,7 @@ export function hasExcludedPolicy<T extends { policy_type?: string | null }>(pol
  */
 export function calculateCountableTotals<T extends { 
   policy_type?: string | null;
+  policy_type_name?: string | null;
   total_premium?: number | null;
   total_items?: number | null;
   total_points?: number | null;

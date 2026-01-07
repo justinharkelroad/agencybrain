@@ -181,7 +181,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .select(`
           team_member_id,
           customer_name,
-          sale_policies(id, policy_type, total_premium, total_items, total_points)
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", start)
