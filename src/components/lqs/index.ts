@@ -10,6 +10,11 @@ export * from './LqsFilters';
 export * from './LqsHouseholdTable';
 export * from './LqsHouseholdRow';
 export * from './AssignLeadSourceModal';
+export * from './LqsOverviewDashboard';
+export * from './LqsBucketSelector';
+export * from './LqsActionDropdowns';
+export * from './AddLeadModal';
+export * from './AddQuoteModal';
 
 // Cost type label mapping for UI display
 export const COST_TYPE_LABELS: Record<string, string> = {
