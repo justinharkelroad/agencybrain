@@ -50,6 +50,7 @@ export type NavItem = {
   settingCheck?: 'callScoringEnabled';
   requiresTier?: '1:1';  // Requires 1:1 Coaching tier - Boardroom users see gate modal
   adminOnly?: boolean;   // Only visible to system admins (not regular agency owners)
+  emailRestriction?: string;  // Only visible to this specific email address
 };
 
 export type NavFolder = {
@@ -102,7 +103,8 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roadmap',
         access: { staff: false, manager: true, owner: true },
-        adminOnly: true,  // Beta testing - remove later
+        adminOnly: true,
+        emailRestriction: 'justin@hfiagencies.com',
       },
       {
         id: 'ai-sales-bot',
@@ -411,6 +413,7 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/lqs-roadmap',
         access: { staff: true, manager: true, owner: true },
+        emailRestriction: 'justin@hfiagencies.com',
       },
       {
         id: 'ai-sales-bot',

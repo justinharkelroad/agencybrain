@@ -51,6 +51,22 @@ interface LqsRoadmapPageProps {
 export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberId = null }: LqsRoadmapPageProps) {
   const { user, isAgencyOwner, isKeyEmployee } = useAuth();
   const navigate = useNavigate();
+
+  // Restrict access to justin@hfiagencies.com only
+  const ALLOWED_EMAIL = 'justin@hfiagencies.com';
+  const userEmail = user?.email?.toLowerCase();
+
+  useEffect(() => {
+    if (user && userEmail && userEmail !== ALLOWED_EMAIL.toLowerCase()) {
+      toast.error('Access restricted');
+      navigate(isStaffPortal ? '/staff/dashboard' : '/dashboard', { replace: true });
+    }
+  }, [user, userEmail, isStaffPortal, navigate]);
+
+  // Show nothing while checking access or if not allowed
+  if (!user || (userEmail && userEmail !== ALLOWED_EMAIL.toLowerCase())) {
+    return null;
+  }
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
 
   // View state

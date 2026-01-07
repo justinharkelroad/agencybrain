@@ -44,7 +44,14 @@ export function useSidebarAccess() {
   }, [userAccess]);
 
   const checkItemAccess = useMemo(() => {
-    return (item: NavItem, callScoringEnabled: boolean): boolean => {
+    return (item: NavItem, callScoringEnabled: boolean, userEmail?: string): boolean => {
+      // Check email restriction first - most restrictive
+      if (item.emailRestriction) {
+        if (!userEmail || userEmail.toLowerCase() !== item.emailRestriction.toLowerCase()) {
+          return false;
+        }
+      }
+
       // Check adminOnly flag - system admins and beta agencies can see these items
       if (item.adminOnly && !userAccess.isAdmin && !hasSalesBetaAccess(agencyId)) {
         return false;
@@ -68,7 +75,7 @@ export function useSidebarAccess() {
   }, [canAccess, hasTierAccess, userAccess.isAdmin, agencyId]);
 
   const filterNavigation = useMemo(() => {
-    return (config: NavEntry[], callScoringEnabled: boolean): NavEntry[] => {
+    return (config: NavEntry[], callScoringEnabled: boolean, userEmail?: string): NavEntry[] => {
       return config
         .filter((entry) => {
           if (isNavFolder(entry)) {
@@ -76,13 +83,13 @@ export function useSidebarAccess() {
             return canAccess(entry.access);
           }
           // Check individual item access
-          return checkItemAccess(entry, callScoringEnabled);
+          return checkItemAccess(entry, callScoringEnabled, userEmail);
         })
         .map((entry) => {
           if (isNavFolder(entry)) {
             // Filter items within the folder
             const filteredItems = entry.items.filter((item) =>
-              checkItemAccess(item, callScoringEnabled)
+              checkItemAccess(item, callScoringEnabled, userEmail)
             );
             // Return folder with filtered items (or exclude if empty)
             return { ...entry, items: filteredItems };
