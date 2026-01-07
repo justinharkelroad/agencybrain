@@ -192,32 +192,64 @@ export default function PublicFormSubmission() {
       setFieldErrors(prev => ({ ...prev, [key]: '' }));
     }
     
-    // Generate household details when quoted_count changes
+    // Generate household details when quoted_count changes - PRESERVE existing entries
     if (key === "quoted_count") {
       const cap = form?.settings?.spawnCap ?? 25;
-      const rows = Math.max(0, Math.min(Number(val) || 0, cap));
-      setValues(v => ({ ...v, quoted_details: Array.from({length: rows}).map((_,i)=>v.quoted_details?.[i] || {}) }));
+      const newCount = Math.max(0, Math.min(Number(val) || 0, cap));
+      setValues(v => {
+        const prev = v.quoted_details || [];
+        const currentCount = prev.length;
+        if (newCount === currentCount) return v;
+        if (newCount > currentCount) {
+          // Add new empty entries to the end, preserving existing data
+          const newEntries = Array(newCount - currentCount).fill(null).map(() => ({}));
+          return { ...v, quoted_details: [...prev, ...newEntries] };
+        } else {
+          // Remove entries from the end only
+          return { ...v, quoted_details: prev.slice(0, newCount) };
+        }
+      });
     }
     
-    // Handle repeater section triggers
+    // Handle repeater section triggers - PRESERVE existing entries
     if (form?.schema?.repeaterSections) {
       Object.entries(form.schema.repeaterSections).forEach(([sectionKey, section]: [string, any]) => {
         // Skip customCollections array - handled separately below
         if (sectionKey === 'customCollections') return;
         if (section.enabled && section.triggerKPI === key) {
           const cap = form?.settings?.spawnCap ?? 25;
-          const rows = Math.max(0, Math.min(Number(val) || 0, cap));
-          setValues(v => ({ ...v, [sectionKey]: Array.from({length: rows}).map((_,i)=>v[sectionKey]?.[i] || {}) }));
+          const newCount = Math.max(0, Math.min(Number(val) || 0, cap));
+          setValues(v => {
+            const prev = v[sectionKey] || [];
+            const currentCount = prev.length;
+            if (newCount === currentCount) return v;
+            if (newCount > currentCount) {
+              const newEntries = Array(newCount - currentCount).fill(null).map(() => ({}));
+              return { ...v, [sectionKey]: [...prev, ...newEntries] };
+            } else {
+              return { ...v, [sectionKey]: prev.slice(0, newCount) };
+            }
+          });
         }
       });
       
-      // Handle custom collections - they use controllingKpiKey, not triggerKPI
+      // Handle custom collections - they use controllingKpiKey, not triggerKPI - PRESERVE existing entries
       const customCollections = form.schema.repeaterSections?.customCollections || [];
       customCollections.forEach((collection: any) => {
         if (collection.enabled && collection.controllingKpiKey === key) {
           const cap = form?.settings?.spawnCap ?? 25;
-          const rows = Math.max(0, Math.min(Number(val) || 0, cap));
-          setValues(v => ({ ...v, [collection.id]: Array.from({length: rows}).map((_,i)=>v[collection.id]?.[i] || {}) }));
+          const newCount = Math.max(0, Math.min(Number(val) || 0, cap));
+          setValues(v => {
+            const prev = v[collection.id] || [];
+            const currentCount = prev.length;
+            if (newCount === currentCount) return v;
+            if (newCount > currentCount) {
+              const newEntries = Array(newCount - currentCount).fill(null).map(() => ({}));
+              return { ...v, [collection.id]: [...prev, ...newEntries] };
+            } else {
+              return { ...v, [collection.id]: prev.slice(0, newCount) };
+            }
+          });
         }
       });
     }
