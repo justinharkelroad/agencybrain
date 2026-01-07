@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
+import { calculateCountableTotals } from "@/lib/product-constants";
 import {
   BarChart,
   Bar,
@@ -45,6 +46,14 @@ interface SourceRow {
   premium: number;
   policies: number;
   households: number;
+}
+
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
 }
 
 const RankBadge = (props: any) => {
@@ -98,15 +107,14 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
         return (result?.data || []) as SourceRow[];
       }
 
-      // Admin path - direct query
+      // Admin path - direct query with sale_policies for Motor Club filtering
       const { data: sales, error } = await supabase
         .from("sales")
         .select(`
           id,
-          total_items,
-          total_premium,
           customer_name,
-          lead_source_id
+          lead_source_id,
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
@@ -114,13 +122,13 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
 
       if (error) throw error;
 
-      const { data: leadSources } = await supabase
+      const { data: leadSourcesData } = await supabase
         .from("lead_sources")
         .select("id, name")
         .eq("agency_id", agencyId);
 
       const sourceMap = new Map<string, string>();
-      for (const ls of leadSources || []) {
+      for (const ls of leadSourcesData || []) {
         sourceMap.set(ls.id, ls.name);
       }
 
@@ -141,9 +149,14 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
             households: new Set<string>(),
           };
         }
-        grouped[sourceName].items += sale.total_items || 0;
-        grouped[sourceName].premium += sale.total_premium || 0;
-        grouped[sourceName].policies += 1;
+        
+        // Calculate countable totals (excluding Motor Club)
+        const policies = (sale.sale_policies || []) as SalePolicy[];
+        const countable = calculateCountableTotals(policies);
+        
+        grouped[sourceName].items += countable.items;
+        grouped[sourceName].premium += countable.premium;
+        grouped[sourceName].policies += countable.policyCount;
         if (sale.customer_name) {
           grouped[sourceName].households.add(sale.customer_name.toLowerCase().trim());
         }

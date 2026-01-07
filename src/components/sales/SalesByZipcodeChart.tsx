@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
+import { calculateCountableTotals } from "@/lib/product-constants";
 import {
   BarChart,
   Bar,
@@ -44,6 +45,14 @@ interface ZipcodeRow {
   items: number;
   premium: number;
   households: number;
+}
+
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
 }
 
 const RankBadge = (props: any) => {
@@ -97,10 +106,10 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
         return (result?.data || []) as ZipcodeRow[];
       }
 
-      // Admin path - direct query
+      // Admin path - direct query with sale_policies for Motor Club filtering
       const { data: sales, error } = await supabase
         .from("sales")
-        .select("customer_zip, total_items, total_premium, customer_name")
+        .select("customer_zip, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate)
@@ -122,8 +131,13 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
             households: new Set<string>(),
           };
         }
-        grouped[zip].items += sale.total_items || 0;
-        grouped[zip].premium += sale.total_premium || 0;
+        
+        // Calculate countable totals (excluding Motor Club)
+        const policies = (sale.sale_policies || []) as SalePolicy[];
+        const countable = calculateCountableTotals(policies);
+        
+        grouped[zip].items += countable.items;
+        grouped[zip].premium += countable.premium;
         if (sale.customer_name) {
           grouped[zip].households.add(sale.customer_name.toLowerCase().trim());
         }
