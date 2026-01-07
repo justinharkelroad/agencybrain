@@ -1,14 +1,22 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileSpreadsheet, Target, RefreshCw } from 'lucide-react';
+import { Target, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { 
   useLqsData, 
   useLqsLeadSources, 
@@ -23,15 +31,32 @@ import { LqsHouseholdDetailModal } from '@/components/lqs/LqsHouseholdDetailModa
 import { SaleDetailModal } from '@/components/sales/SaleDetailModal';
 import { AssignLeadSourceModal } from '@/components/lqs/AssignLeadSourceModal';
 import { QuoteReportUploadModal } from '@/components/lqs/QuoteReportUploadModal';
+import { LqsOverviewDashboard } from '@/components/lqs/LqsOverviewDashboard';
+import { LqsBucketSelector, BucketType } from '@/components/lqs/LqsBucketSelector';
+import { LqsActionDropdowns } from '@/components/lqs/LqsActionDropdowns';
+import { AddLeadModal } from '@/components/lqs/AddLeadModal';
+import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 
-type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'sold' | 'needs-attention';
+type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
+type ViewMode = 'overview' | 'detail';
+type DataViewMode = 'agency' | 'personal';
 
-export default function LqsRoadmapPage() {
-  const { user } = useAuth();
+interface LqsRoadmapPageProps {
+  isStaffPortal?: boolean;
+  staffTeamMemberId?: string | null;
+}
+
+export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberId = null }: LqsRoadmapPageProps) {
+  const { user, isAgencyOwner, isKeyEmployee } = useAuth();
   const navigate = useNavigate();
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
+
+  // View state
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
+  const [activeBucket, setActiveBucket] = useState<BucketType>('quoted');
+  const [dataViewMode, setDataViewMode] = useState<DataViewMode>('agency');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,12 +69,46 @@ export default function LqsRoadmapPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedHousehold, setSelectedHousehold] = useState<HouseholdWithRelations | null>(null);
   const [bulkAssignIds, setBulkAssignIds] = useState<string[]>([]);
+  const [addLeadModalOpen, setAddLeadModalOpen] = useState(false);
+  const [addQuoteModalOpen, setAddQuoteModalOpen] = useState(false);
   
   // Detail modals
   const [detailHousehold, setDetailHousehold] = useState<HouseholdWithRelations | null>(null);
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
 
-  // Data fetching
+  // Permission check - staff portal users don't see revenue metrics
+  const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
+
+  // Fetch team members for the forms
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['team-members', agencyProfile?.agencyId],
+    enabled: !!agencyProfile?.agencyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .eq('agency_id', agencyProfile!.agencyId)
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Determine team member ID for "My Numbers" filter
+  const currentTeamMemberId = useMemo(() => {
+    if (isStaffPortal && staffTeamMemberId) {
+      return staffTeamMemberId;
+    }
+    // For brain portal, try to find matching team member by user email
+    const currentUserMember = teamMembers.find(m => 
+      m.name.toLowerCase().includes(user?.email?.split('@')[0]?.toLowerCase() || '')
+    );
+    return currentUserMember?.id || null;
+  }, [isStaffPortal, staffTeamMemberId, teamMembers, user?.email]);
+
+  // Data fetching - apply personal filter if needed
   const { data, isLoading, refetch } = useLqsData({
     agencyId: agencyProfile?.agencyId ?? null,
     dateRange,
@@ -61,47 +120,70 @@ export default function LqsRoadmapPage() {
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
-  // Filter households based on active tab
-  const filteredHouseholds = useMemo(() => {
+  // Filter by bucket and personal view mode
+  const bucketFilteredHouseholds = useMemo(() => {
     if (!data?.households) return [];
     
+    let filtered = data.households;
+
+    // Filter by bucket (status)
+    if (viewMode === 'detail') {
+      switch (activeBucket) {
+        case 'leads':
+          filtered = filtered.filter(h => h.status === 'lead');
+          break;
+        case 'quoted':
+          filtered = filtered.filter(h => h.status === 'quoted');
+          break;
+        case 'sold':
+          filtered = filtered.filter(h => h.status === 'sold');
+          break;
+      }
+    }
+
+    // Filter by personal data if "My Numbers" selected
+    if (dataViewMode === 'personal' && currentTeamMemberId) {
+      filtered = filtered.filter(h => h.team_member_id === currentTeamMemberId);
+    }
+
+    return filtered;
+  }, [data?.households, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
+
+  // Filter households based on active tab
+  const filteredHouseholds = useMemo(() => {
     switch (activeTab) {
       case 'self-generated':
-        return data.households.filter(h => h.lead_source?.is_self_generated === true);
-      case 'sold':
-        return data.households.filter(h => h.status === 'sold');
+        return bucketFilteredHouseholds.filter(h => h.lead_source?.is_self_generated === true);
       case 'needs-attention':
-        return data.households.filter(h => h.needs_attention);
+        return bucketFilteredHouseholds.filter(h => h.needs_attention);
       default:
-        return data.households;
+        return bucketFilteredHouseholds;
     }
-  }, [data?.households, activeTab]);
+  }, [bucketFilteredHouseholds, activeTab]);
 
   // Group households for grouped views
   const groupedData = useMemo(() => {
-    if (!data?.households) return {};
+    if (!bucketFilteredHouseholds) return {};
 
     switch (activeTab) {
       case 'by-date': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        data.households.forEach(h => {
+        bucketFilteredHouseholds.forEach(h => {
           h.quotes?.forEach(q => {
             const date = q.quote_date || 'Unknown';
             if (!groups[date]) groups[date] = [];
-            // Avoid duplicates
             if (!groups[date].find(existing => existing.id === h.id)) {
               groups[date].push(h);
             }
           });
         });
-        // Sort by date descending
         return Object.fromEntries(
           Object.entries(groups).sort(([a], [b]) => b.localeCompare(a))
         );
       }
       case 'by-product': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        data.households.forEach(h => {
+        bucketFilteredHouseholds.forEach(h => {
           const products = [...new Set(h.quotes?.map(q => q.product_type) || [])];
           products.forEach(product => {
             if (!groups[product]) groups[product] = [];
@@ -114,7 +196,7 @@ export default function LqsRoadmapPage() {
       }
       case 'by-source': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        data.households.forEach(h => {
+        bucketFilteredHouseholds.forEach(h => {
           const sourceName = h.lead_source?.name || 'Unassigned';
           if (!groups[sourceName]) groups[sourceName] = [];
           groups[sourceName].push(h);
@@ -123,7 +205,7 @@ export default function LqsRoadmapPage() {
       }
       case 'by-producer': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        data.households.forEach(h => {
+        bucketFilteredHouseholds.forEach(h => {
           const producerName = h.team_member?.name || 'Unassigned';
           if (!groups[producerName]) groups[producerName] = [];
           groups[producerName].push(h);
@@ -132,12 +214,11 @@ export default function LqsRoadmapPage() {
       }
       case 'by-zip': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        data.households.forEach(h => {
+        bucketFilteredHouseholds.forEach(h => {
           const zip = h.zip_code || 'Unknown';
           if (!groups[zip]) groups[zip] = [];
           groups[zip].push(h);
         });
-        // Sort by count descending
         return Object.fromEntries(
           Object.entries(groups).sort(([, a], [, b]) => b.length - a.length)
         );
@@ -145,11 +226,21 @@ export default function LqsRoadmapPage() {
       default:
         return {};
     }
-  }, [data?.households, activeTab]);
+  }, [bucketFilteredHouseholds, activeTab]);
 
   const isGroupedView = ['by-date', 'by-product', 'by-source', 'by-producer', 'by-zip'].includes(activeTab);
 
   // Handlers
+  const handleBucketClick = useCallback((bucket: BucketType) => {
+    setActiveBucket(bucket);
+    setViewMode('detail');
+    setActiveTab('all');
+  }, []);
+
+  const handleBackToOverview = useCallback(() => {
+    setViewMode('overview');
+  }, []);
+
   const handleAssignLeadSource = useCallback((householdId: string) => {
     const household = data?.households.find(h => h.id === householdId);
     if (household) {
@@ -235,16 +326,36 @@ export default function LqsRoadmapPage() {
     }
   };
 
+  // Bucket counts for selector
+  const bucketCounts = useMemo(() => {
+    let households = data?.households || [];
+    
+    // Apply personal filter if needed
+    if (dataViewMode === 'personal' && currentTeamMemberId) {
+      households = households.filter(h => h.team_member_id === currentTeamMemberId);
+    }
+
+    return {
+      leads: households.filter(h => h.status === 'lead').length,
+      quoted: households.filter(h => h.status === 'quoted').length,
+      sold: households.filter(h => h.status === 'sold').length,
+    };
+  }, [data?.households, dataViewMode, currentTeamMemberId]);
+
+  // Needs attention count for current bucket (for tab badge)
+  const needsAttentionCount = useMemo(() => {
+    return bucketFilteredHouseholds.filter(h => h.needs_attention).length;
+  }, [bucketFilteredHouseholds]);
+
   if (agencyLoading) {
     return (
       <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
+        <div className="grid grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-48" />
           ))}
         </div>
-        <Skeleton className="h-96" />
       </div>
     );
   }
@@ -271,6 +382,11 @@ export default function LqsRoadmapPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <LqsActionDropdowns
+            onAddLead={() => setAddLeadModalOpen(true)}
+            onAddQuote={() => setAddQuoteModalOpen(true)}
+            onUploadQuotes={() => setUploadModalOpen(true)}
+          />
           <Button 
             variant="outline" 
             onClick={handleSyncSales}
@@ -279,137 +395,160 @@ export default function LqsRoadmapPage() {
             <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
             {isSyncing ? 'Syncing...' : 'Sync Sales'}
           </Button>
-          <Button onClick={() => setUploadModalOpen(true)}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Upload Report
-          </Button>
         </div>
       </div>
 
-      {/* Metric Tiles */}
-      <LqsMetricTiles metrics={data?.metrics} loading={isLoading} onTileClick={(tab) => setActiveTab(tab as TabValue)} />
+      {/* View Toggle */}
+      <div className="flex items-center justify-between">
+        <Select value={dataViewMode} onValueChange={(v) => setDataViewMode(v as DataViewMode)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-background z-50">
+            <SelectItem value="agency">Agency Wide</SelectItem>
+            <SelectItem value="personal">My Numbers</SelectItem>
+          </SelectContent>
+        </Select>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="by-date">By Date</TabsTrigger>
-          <TabsTrigger value="by-product">By Product</TabsTrigger>
-          <TabsTrigger value="by-source">By Source</TabsTrigger>
-          <TabsTrigger value="by-producer">By Producer</TabsTrigger>
-          <TabsTrigger value="by-zip">By Zip</TabsTrigger>
-          <TabsTrigger value="self-generated">Self-Generated</TabsTrigger>
-          <TabsTrigger value="sold" className="relative">
-            Sold
-            {(data?.metrics?.sold ?? 0) > 0 && (
-              <Badge 
-                className="ml-2 h-5 min-w-[20px] px-1.5 bg-green-600"
-              >
-                {data?.metrics?.sold}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="needs-attention" className="relative">
-            Needs Attention
-            {(data?.metrics?.needsAttention ?? 0) > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="ml-2 h-5 min-w-[20px] px-1.5"
-              >
-                {data?.metrics?.needsAttention}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Filters */}
-        <div className="mt-4">
-          <LqsFilters
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-          />
-        </div>
-
-        {/* All Tab */}
-        <TabsContent value="all" className="mt-4">
-          <LqsHouseholdTable
-            households={filteredHouseholds}
-            loading={isLoading}
-            onAssignLeadSource={handleAssignLeadSource}
-            onViewHouseholdDetail={handleViewHouseholdDetail}
-            onViewSaleDetail={handleViewSaleDetail}
-          />
-        </TabsContent>
-
-        {/* Self-Generated Tab */}
-        <TabsContent value="self-generated" className="mt-4">
-          <LqsHouseholdTable
-            households={filteredHouseholds}
-            loading={isLoading}
-            onAssignLeadSource={handleAssignLeadSource}
-            onViewHouseholdDetail={handleViewHouseholdDetail}
-            onViewSaleDetail={handleViewSaleDetail}
-          />
-        </TabsContent>
-
-        {/* Sold Tab */}
-        <TabsContent value="sold" className="mt-4">
-          <LqsHouseholdTable
-            households={filteredHouseholds}
-            loading={isLoading}
-            onAssignLeadSource={handleAssignLeadSource}
-            onViewHouseholdDetail={handleViewHouseholdDetail}
-            onViewSaleDetail={handleViewSaleDetail}
-          />
-        </TabsContent>
-
-        {/* Needs Attention Tab - with bulk select */}
-        <TabsContent value="needs-attention" className="mt-4">
-          <LqsHouseholdTable
-            households={filteredHouseholds}
-            loading={isLoading}
-            onAssignLeadSource={handleAssignLeadSource}
-            onBulkAssign={handleBulkAssign}
-            showBulkSelect={true}
-            onViewHouseholdDetail={handleViewHouseholdDetail}
-            onViewSaleDetail={handleViewSaleDetail}
-          />
-        </TabsContent>
-
-        {/* Grouped Views */}
-        {isGroupedView && (
-          <TabsContent value={activeTab} className="mt-4 space-y-6">
-            {Object.entries(groupedData).map(([groupName, households]) => (
-              <div key={groupName}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="font-semibold">
-                    {activeTab === 'by-date' && groupName !== 'Unknown'
-                      ? format(parseISO(groupName), 'MMMM d, yyyy')
-                      : groupName}
-                  </h3>
-                  <Badge variant="secondary">{households.length}</Badge>
-                </div>
-                <LqsHouseholdTable
-                  households={households}
-                  loading={isLoading}
-                  onAssignLeadSource={handleAssignLeadSource}
-                  onViewHouseholdDetail={handleViewHouseholdDetail}
-                  onViewSaleDetail={handleViewSaleDetail}
-                />
-              </div>
-            ))}
-            {Object.keys(groupedData).length === 0 && !isLoading && (
-              <p className="text-center text-muted-foreground py-8">
-                No data to display for this view.
-              </p>
-            )}
-          </TabsContent>
+        {viewMode === 'detail' && (
+          <Button variant="ghost" onClick={handleBackToOverview}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Overview
+          </Button>
         )}
-      </Tabs>
+      </div>
+
+      {/* Overview Dashboard */}
+      {viewMode === 'overview' && (
+        <LqsOverviewDashboard
+          metrics={data?.metrics}
+          loading={isLoading}
+          onBucketClick={handleBucketClick}
+          showRevenue={showRevenueMetrics}
+        />
+      )}
+
+      {/* Detail View */}
+      {viewMode === 'detail' && (
+        <>
+          {/* Bucket Selector */}
+          <LqsBucketSelector
+            activeBucket={activeBucket}
+            onBucketChange={setActiveBucket}
+            counts={bucketCounts}
+          />
+
+          {/* Metric Tiles for current bucket */}
+          <LqsMetricTiles 
+            metrics={data?.metrics} 
+            loading={isLoading} 
+            onTileClick={(tab) => setActiveTab(tab as TabValue)} 
+          />
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
+            <TabsList className="flex-wrap h-auto gap-1">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="by-date">By Date</TabsTrigger>
+              <TabsTrigger value="by-product">By Product</TabsTrigger>
+              <TabsTrigger value="by-source">By Source</TabsTrigger>
+              <TabsTrigger value="by-producer">By Producer</TabsTrigger>
+              <TabsTrigger value="by-zip">By Zip</TabsTrigger>
+              <TabsTrigger value="self-generated">Self-Generated</TabsTrigger>
+              {(activeBucket === 'quoted' || activeBucket === 'sold') && (
+                <TabsTrigger value="needs-attention" className="relative">
+                  Needs Attention
+                  {needsAttentionCount > 0 && (
+                    <Badge 
+                      variant="destructive" 
+                      className="ml-2 h-5 min-w-[20px] px-1.5"
+                    >
+                      {needsAttentionCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            {/* Filters */}
+            <div className="mt-4">
+              <LqsFilters
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+              />
+            </div>
+
+            {/* All Tab */}
+            <TabsContent value="all" className="mt-4">
+              <LqsHouseholdTable
+                households={filteredHouseholds}
+                loading={isLoading}
+                onAssignLeadSource={handleAssignLeadSource}
+                onViewHouseholdDetail={handleViewHouseholdDetail}
+                onViewSaleDetail={handleViewSaleDetail}
+              />
+            </TabsContent>
+
+            {/* Self-Generated Tab */}
+            <TabsContent value="self-generated" className="mt-4">
+              <LqsHouseholdTable
+                households={filteredHouseholds}
+                loading={isLoading}
+                onAssignLeadSource={handleAssignLeadSource}
+                onViewHouseholdDetail={handleViewHouseholdDetail}
+                onViewSaleDetail={handleViewSaleDetail}
+              />
+            </TabsContent>
+
+            {/* Needs Attention Tab */}
+            <TabsContent value="needs-attention" className="mt-4">
+              <LqsHouseholdTable
+                households={filteredHouseholds}
+                loading={isLoading}
+                onAssignLeadSource={handleAssignLeadSource}
+                onBulkAssign={handleBulkAssign}
+                showBulkSelect={true}
+                onViewHouseholdDetail={handleViewHouseholdDetail}
+                onViewSaleDetail={handleViewSaleDetail}
+              />
+            </TabsContent>
+
+            {/* Grouped Views */}
+            {isGroupedView && (
+              <TabsContent value={activeTab} className="mt-4 space-y-6">
+                {Object.entries(groupedData).map(([groupName, households]) => (
+                  <div key={groupName}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-semibold">
+                        {activeTab === 'by-date' && groupName !== 'Unknown'
+                          ? format(parseISO(groupName), 'MMMM d, yyyy')
+                          : groupName}
+                      </h3>
+                      <Badge variant="secondary">{households.length}</Badge>
+                    </div>
+                    <LqsHouseholdTable
+                      households={households}
+                      loading={isLoading}
+                      onAssignLeadSource={handleAssignLeadSource}
+                      onViewHouseholdDetail={handleViewHouseholdDetail}
+                      onViewSaleDetail={handleViewSaleDetail}
+                    />
+                  </div>
+                ))}
+                {Object.keys(groupedData).length === 0 && !isLoading && (
+                  <p className="text-center text-muted-foreground py-8">
+                    No data to display for this view.
+                  </p>
+                )}
+              </TabsContent>
+            )}
+          </Tabs>
+        </>
+      )}
 
       {/* Upload Modal */}
       <QuoteReportUploadModal
@@ -432,6 +571,28 @@ export default function LqsRoadmapPage() {
         bulkMode={bulkAssignIds.length > 0}
         bulkCount={bulkAssignIds.length}
         onBulkAssign={handleBulkAssignSubmit}
+      />
+
+      {/* Add Lead Modal */}
+      <AddLeadModal
+        open={addLeadModalOpen}
+        onOpenChange={setAddLeadModalOpen}
+        agencyId={agencyProfile.agencyId}
+        leadSources={leadSources}
+        teamMembers={teamMembers}
+        currentTeamMemberId={currentTeamMemberId}
+        onSuccess={refetch}
+      />
+
+      {/* Add Quote Modal */}
+      <AddQuoteModal
+        open={addQuoteModalOpen}
+        onOpenChange={setAddQuoteModalOpen}
+        agencyId={agencyProfile.agencyId}
+        leadSources={leadSources}
+        teamMembers={teamMembers}
+        currentTeamMemberId={currentTeamMemberId}
+        onSuccess={refetch}
       />
 
       {/* Household Detail Modal */}

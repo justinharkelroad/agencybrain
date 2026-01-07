@@ -891,6 +891,8 @@ const App = () => {
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
               {/* Staff Sales */}
               <Route path="sales" element={<StaffSales />} />
+              {/* LQS Roadmap */}
+              <Route path="lqs-roadmap" element={<LqsRoadmapPage isStaffPortal={true} />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
