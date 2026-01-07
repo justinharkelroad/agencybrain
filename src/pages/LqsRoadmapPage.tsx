@@ -79,14 +79,14 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
 
-  // Fetch team members for the forms
+  // Fetch team members for the forms (include email for matching)
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', agencyProfile?.agencyId],
     enabled: !!agencyProfile?.agencyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('team_members')
-        .select('id, name')
+        .select('id, name, email')
         .eq('agency_id', agencyProfile!.agencyId)
         .eq('status', 'active')
         .order('name');
@@ -96,16 +96,19 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     },
   });
 
-  // Determine team member ID for "My Numbers" filter
+  // Determine team member ID for "My Numbers" filter - match by email
   const currentTeamMemberId = useMemo(() => {
     if (isStaffPortal && staffTeamMemberId) {
       return staffTeamMemberId;
     }
-    // For brain portal, try to find matching team member by user email
-    const currentUserMember = teamMembers.find(m => 
-      m.name.toLowerCase().includes(user?.email?.split('@')[0]?.toLowerCase() || '')
-    );
-    return currentUserMember?.id || null;
+    // For brain portal, find matching team member by email (exact match)
+    if (user?.email && teamMembers.length > 0) {
+      const currentUserMember = teamMembers.find(m => 
+        m.email?.toLowerCase() === user.email?.toLowerCase()
+      );
+      return currentUserMember?.id || null;
+    }
+    return null;
   }, [isStaffPortal, staffTeamMemberId, teamMembers, user?.email]);
 
   // Data fetching - apply personal filter if needed
@@ -418,10 +421,22 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         )}
       </div>
 
-      {/* Overview Dashboard */}
+      {/* Overview Dashboard - use filtered metrics based on view mode */}
       {viewMode === 'overview' && (
         <LqsOverviewDashboard
-          metrics={data?.metrics}
+          metrics={{
+            ...data?.metrics,
+            leadsCount: bucketCounts.leads,
+            quotedCount: bucketCounts.quoted,
+            soldCount: bucketCounts.sold,
+            // Recalculate rates based on filtered data
+            leadsToQuotedRate: bucketCounts.leads + bucketCounts.quoted > 0 
+              ? ((bucketCounts.quoted + bucketCounts.sold) / (bucketCounts.leads + bucketCounts.quoted + bucketCounts.sold)) * 100 
+              : 0,
+            quotedToSoldRate: bucketCounts.quoted + bucketCounts.sold > 0 
+              ? (bucketCounts.sold / (bucketCounts.quoted + bucketCounts.sold)) * 100 
+              : 0,
+          } as typeof data.metrics}
           loading={isLoading}
           onBucketClick={handleBucketClick}
           showRevenue={showRevenueMetrics}
@@ -438,9 +453,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             counts={bucketCounts}
           />
 
-          {/* Metric Tiles for current bucket */}
+          {/* Metric Tiles for current bucket - filtered by view mode */}
           <LqsMetricTiles 
-            metrics={data?.metrics} 
+            metrics={{
+              ...data?.metrics,
+              totalQuotes: bucketFilteredHouseholds.reduce((sum, h) => sum + (h.quotes?.length || 0), 0),
+              selfGenerated: bucketFilteredHouseholds.filter(h => h.lead_source?.is_self_generated === true).length,
+              sold: bucketCounts.sold,
+              needsAttention: bucketFilteredHouseholds.filter(h => h.needs_attention).length,
+            } as typeof data.metrics} 
             loading={isLoading} 
             onTileClick={(tab) => setActiveTab(tab as TabValue)} 
           />

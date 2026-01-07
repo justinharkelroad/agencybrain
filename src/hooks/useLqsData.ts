@@ -95,14 +95,26 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
       // Cast to proper type
       const households = (data || []) as unknown as HouseholdWithRelations[];
 
-      // Filter by date range if provided (on quotes.quote_date)
+      // Filter by date range if provided - check lead_received_date, quote_date, or sold_date
       let filteredHouseholds = households;
       if (dateRange?.start && dateRange?.end) {
         const startDate = dateRange.start.toISOString().split('T')[0];
         const endDate = dateRange.end.toISOString().split('T')[0];
-        filteredHouseholds = households.filter(h => 
-          h.quotes?.some(q => q.quote_date >= startDate && q.quote_date <= endDate)
-        );
+        filteredHouseholds = households.filter(h => {
+          // Check lead_received_date
+          if (h.lead_received_date && h.lead_received_date >= startDate && h.lead_received_date <= endDate) {
+            return true;
+          }
+          // Check sold_date
+          if (h.sold_date && h.sold_date >= startDate && h.sold_date <= endDate) {
+            return true;
+          }
+          // Check any quote_date
+          if (h.quotes?.some(q => q.quote_date && q.quote_date >= startDate && q.quote_date <= endDate)) {
+            return true;
+          }
+          return false;
+        });
       }
 
       // Calculate bucket counts
