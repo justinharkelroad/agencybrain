@@ -88,7 +88,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         .from('team_members')
         .select('id, name')
         .eq('agency_id', agencyProfile!.agencyId)
-        .eq('is_active', true)
+        .eq('status', 'active')
         .order('name');
       
       if (error) throw error;
