@@ -70,15 +70,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch the agency's membership tier from the agency owner's profile
+    // Fetch the agency's membership tier from the profile that has it set (the owner)
     let agency_membership_tier: string | null = null;
     if (userData.agency_id) {
-      // Get the agency owner's profile to find their membership tier
       const { data: ownerProfile } = await supabase
         .from('profiles')
         .select('membership_tier')
         .eq('agency_id', userData.agency_id)
-        .maybeSingle();
+        .not('membership_tier', 'is', null)
+        .limit(1)
+        .single();
       
       if (ownerProfile) {
         agency_membership_tier = ownerProfile.membership_tier;
