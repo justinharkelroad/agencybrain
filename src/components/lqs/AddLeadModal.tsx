@@ -17,7 +17,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,7 +68,6 @@ export function AddLeadModal({
   const [productInterested, setProductInterested] = useState('');
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadDate, setLeadDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [notes, setNotes] = useState('');
 
   const resetForm = () => {
     setFirstName('');
@@ -81,7 +79,6 @@ export function AddLeadModal({
     setProductInterested('');
     setTeamMemberId(currentTeamMemberId || '');
     setLeadDate(format(new Date(), 'yyyy-MM-dd'));
-    setNotes('');
   };
 
   const handleSubmit = async () => {
@@ -126,7 +123,6 @@ export function AddLeadModal({
             email: email || null,
             lead_source_id: leadSourceId,
             team_member_id: teamMemberId || null,
-            notes: notes || null,
             needs_attention: false,
           })
           .eq('id', existingHousehold.id);
@@ -149,7 +145,7 @@ export function AddLeadModal({
             lead_source_id: leadSourceId,
             team_member_id: teamMemberId || null,
             needs_attention: false,
-            notes: notes || null,
+            lead_received_date: leadDate,
           });
 
         if (insertError) throw insertError;
@@ -303,11 +299,17 @@ export function AddLeadModal({
                   <SelectValue placeholder="Select producer..." />
                 </SelectTrigger>
                 <SelectContent className="bg-background z-50">
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
+                  {teamMembers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No team members found
+                    </div>
+                  ) : (
+                    teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -320,18 +322,6 @@ export function AddLeadModal({
                 onChange={(e) => setLeadDate(e.target.value)}
               />
             </div>
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes..."
-              rows={3}
-            />
           </div>
         </div>
 
