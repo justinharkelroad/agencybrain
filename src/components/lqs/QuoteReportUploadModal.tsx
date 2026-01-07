@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, AlertTriangle, Users } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, AlertTriangle, Users, DollarSign } from 'lucide-react';
 import { parseLqsQuoteExcel } from '@/lib/lqs-quote-parser';
 import { useLqsQuoteUpload } from '@/hooks/useLqsQuoteUpload';
 import type { QuoteParseResult, QuoteUploadResult } from '@/types/lqs';
@@ -221,6 +221,20 @@ export function QuoteReportUploadModal({
                       <span className="font-medium text-foreground">{uploadResult.teamMembersMatched}</span>
                     </div>
                   </div>
+                  {uploadResult.salesLinked > 0 && (
+                    <div className="border-t pt-2 mt-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          Sales Auto-Linked:
+                        </span>
+                        <span className="font-medium text-green-500">{uploadResult.salesLinked}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Existing sales were matched to uploaded households
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
