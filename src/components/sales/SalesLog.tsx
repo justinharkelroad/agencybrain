@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
+import { calculateCountableTotals } from "@/lib/product-constants";
 import {
   Table,
   TableBody,
@@ -42,6 +43,14 @@ import { CalendarIcon, Loader2, Pencil, Trash2, Eye } from "lucide-react";
 import { cn, formatDateLocal } from "@/lib/utils";
 import { SaleDetailModal } from "./SaleDetailModal";
 
+type SalePolicy = {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+};
+
 type Sale = {
   id: string;
   sale_date: string | null;
@@ -64,6 +73,12 @@ type Sale = {
   team_member?: {
     name: string;
   } | null;
+  sale_policies?: SalePolicy[];
+  // Computed filtered totals
+  filtered_policies?: number;
+  filtered_items?: number;
+  filtered_premium?: number;
+  filtered_points?: number;
 };
 
 type TeamMember = {
@@ -152,7 +167,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
           bundle_type,
           lead_source_id,
           lead_source:lead_sources(name),
-          team_member:team_members!sales_team_member_id_fkey(name)
+          team_member:team_members!sales_team_member_id_fkey(name),
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `
         )
         .eq("agency_id", profile.agency_id)
@@ -166,7 +182,19 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as Sale[];
+      
+      // Calculate filtered totals for each sale (excluding Motor Club)
+      return (data || []).map((sale: any) => {
+        const policies = sale.sale_policies || [];
+        const countable = calculateCountableTotals(policies);
+        return {
+          ...sale,
+          filtered_policies: countable.policyCount,
+          filtered_items: countable.items,
+          filtered_premium: countable.premium,
+          filtered_points: countable.points,
+        } as Sale;
+      });
     },
     enabled: !!profile?.agency_id,
     staleTime: 0,
@@ -229,13 +257,13 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
     },
   });
 
-  // Calculate totals
+  // Calculate totals from filtered (Motor Club excluded) values
   const totals = useMemo(() => {
     return sales.reduce(
       (acc, sale) => ({
-        items: acc.items + (sale.total_items || 0),
-        premium: acc.premium + (sale.total_premium || 0),
-        points: acc.points + (sale.total_points || 0),
+        items: acc.items + (sale.filtered_items ?? sale.total_items ?? 0),
+        premium: acc.premium + (sale.filtered_premium ?? sale.total_premium ?? 0),
+        points: acc.points + (sale.filtered_points ?? sale.total_points ?? 0),
       }),
       { items: 0, premium: 0, points: 0 }
     );
@@ -394,16 +422,16 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                           {sale.team_member?.name || "—"}
                         </TableCell>
                         <TableCell className="text-center">
-                          {sale.total_policies || 0}
+                          {sale.filtered_policies ?? sale.total_policies ?? 0}
                         </TableCell>
                         <TableCell className="text-right">
-                          {sale.total_items || 0}
+                          {sale.filtered_items ?? sale.total_items ?? 0}
                         </TableCell>
                         <TableCell className="text-right">
-                          ${(sale.total_premium || 0).toLocaleString()}
+                          ${(sale.filtered_premium ?? sale.total_premium ?? 0).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          {sale.total_points || 0}
+                          {sale.filtered_points ?? sale.total_points ?? 0}
                         </TableCell>
                         <TableCell className="text-center">
                           {sale.is_vc_qualifying ? (

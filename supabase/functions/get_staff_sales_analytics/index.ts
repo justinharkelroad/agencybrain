@@ -7,6 +7,33 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Motor Club exclusion logic - must match frontend product-constants.ts
+const EXCLUDED_PRODUCTS = ['Motor Club'];
+function isExcludedProduct(productType: string | null | undefined): boolean {
+  if (!productType) return false;
+  return EXCLUDED_PRODUCTS.some(
+    excluded => excluded.toLowerCase() === productType.toLowerCase()
+  );
+}
+
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+function calculateCountableTotals(policies: SalePolicy[]): { premium: number; items: number; points: number; policyCount: number } {
+  const countable = policies.filter(p => !isExcludedProduct(p.policy_type_name));
+  return {
+    premium: countable.reduce((sum, p) => sum + (p.total_premium || 0), 0),
+    items: countable.reduce((sum, p) => sum + (p.total_items || 0), 0),
+    points: countable.reduce((sum, p) => sum + (p.total_points || 0), 0),
+    policyCount: countable.length,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -106,10 +133,10 @@ serve(async (req) => {
           saleIds = [...new Set(salePolicies.map((p: any) => p.sale_id))];
         }
 
-        // Build query
+        // Build query - now includes sale_policies for Motor Club filtering
         let query = supabaseAdmin
           .from("sales")
-          .select("id, sale_date, customer_name, total_items, total_premium, total_points, team_member_id, lead_source_id", { count: 'exact' })
+          .select("id, sale_date, customer_name, team_member_id, lead_source_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)", { count: 'exact' })
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date)
@@ -181,25 +208,30 @@ serve(async (req) => {
           }
         }
 
-        const records = (sales || []).map((sale: any) => ({
-          id: sale.id,
-          sale_date: sale.sale_date,
-          customer_name: sale.customer_name || "Unknown",
-          lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
-          producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
-          total_items: sale.total_items || 0,
-          total_premium: sale.total_premium || 0,
-          total_points: sale.total_points || 0,
-        }));
+        // Calculate filtered totals for each sale (excluding Motor Club)
+        const records = (sales || []).map((sale: any) => {
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          return {
+            id: sale.id,
+            sale_date: sale.sale_date,
+            customer_name: sale.customer_name || "Unknown",
+            lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
+            producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
+            total_items: countable.items,
+            total_premium: countable.premium,
+            total_points: countable.points,
+          };
+        });
 
         result = { data: records, total_count: count || 0, page, page_size };
         break;
       }
 
       case "by-date": {
+        // Fetch with sale_policies for Motor Club filtering
         const { data: sales, error } = await supabaseAdmin
           .from("sales")
-          .select("sale_date, total_items, total_premium, total_points, customer_name")
+          .select("sale_date, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date)
@@ -207,7 +239,7 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        // Group by date
+        // Group by date with Motor Club excluded
         const grouped: Record<string, { sale_date: string; items: number; premium: number; points: number; policies: number; households: Set<string> }> = {};
         
         for (const sale of sales || []) {
@@ -215,10 +247,12 @@ serve(async (req) => {
           if (!grouped[date]) {
             grouped[date] = { sale_date: date, items: 0, premium: 0, points: 0, policies: 0, households: new Set() };
           }
-          grouped[date].items += sale.total_items || 0;
-          grouped[date].premium += sale.total_premium || 0;
-          grouped[date].points += sale.total_points || 0;
-          grouped[date].policies += 1;
+          
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          grouped[date].items += countable.items;
+          grouped[date].premium += countable.premium;
+          grouped[date].points += countable.points;
+          grouped[date].policies += countable.policyCount;
           if (sale.customer_name) {
             grouped[date].households.add(sale.customer_name.toLowerCase().trim());
           }
@@ -282,13 +316,16 @@ serve(async (req) => {
 
         const ptMap = new Map((productTypes || []).map((pt) => [pt.id, pt.name]));
 
-        // Group by product type
+        // Group by product type, excluding Motor Club
         const grouped: Record<string, { policy_type: string; items: number; premium: number; points: number }> = {};
         
         for (const item of items || []) {
           const typeName = item.product_type_id 
             ? (ptMap.get(item.product_type_id) || item.product_type_name || "Unknown")
             : (item.product_type_name || "Unknown");
+          
+          // Skip excluded products (Motor Club)
+          if (isExcludedProduct(typeName)) continue;
           
           if (!grouped[typeName]) {
             grouped[typeName] = { policy_type: typeName, items: 0, premium: 0, points: 0 };
@@ -303,9 +340,10 @@ serve(async (req) => {
       }
 
       case "by-source": {
+        // Fetch with sale_policies for Motor Club filtering
         const { data: sales, error } = await supabaseAdmin
           .from("sales")
-          .select("id, total_items, total_premium, customer_name, lead_source_id")
+          .select("id, customer_name, lead_source_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -319,7 +357,7 @@ serve(async (req) => {
 
         const sourceMap = new Map((leadSources || []).map((ls) => [ls.id, ls.name]));
 
-        // Group by lead source
+        // Group by lead source with Motor Club excluded
         const grouped: Record<string, { lead_source: string; items: number; premium: number; policies: number; households: Set<string> }> = {};
         
         for (const sale of sales || []) {
@@ -329,9 +367,11 @@ serve(async (req) => {
           if (!grouped[sourceName]) {
             grouped[sourceName] = { lead_source: sourceName, items: 0, premium: 0, policies: 0, households: new Set() };
           }
-          grouped[sourceName].items += sale.total_items || 0;
-          grouped[sourceName].premium += sale.total_premium || 0;
-          grouped[sourceName].policies += 1;
+          
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          grouped[sourceName].items += countable.items;
+          grouped[sourceName].premium += countable.premium;
+          grouped[sourceName].policies += countable.policyCount;
           if (sale.customer_name) {
             grouped[sourceName].households.add(sale.customer_name.toLowerCase().trim());
           }
@@ -350,9 +390,10 @@ serve(async (req) => {
       }
 
       case "by-bundle": {
+        // Fetch with sale_policies for Motor Club filtering
         const { data: sales, error } = await supabaseAdmin
           .from("sales")
-          .select("bundle_type, total_items, total_premium, customer_name")
+          .select("bundle_type, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -367,8 +408,10 @@ serve(async (req) => {
           if (!grouped[bundleType]) {
             grouped[bundleType] = { bundle_type: bundleType, items: 0, premium: 0, households: new Set() };
           }
-          grouped[bundleType].items += sale.total_items || 0;
-          grouped[bundleType].premium += sale.total_premium || 0;
+          
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          grouped[bundleType].items += countable.items;
+          grouped[bundleType].premium += countable.premium;
           if (sale.customer_name) {
             grouped[bundleType].households.add(sale.customer_name.toLowerCase().trim());
           }
@@ -387,9 +430,10 @@ serve(async (req) => {
       }
 
       case "by-zipcode": {
+        // Fetch with sale_policies for Motor Club filtering
         const { data: sales, error } = await supabaseAdmin
           .from("sales")
-          .select("customer_zip, total_items, total_premium, customer_name")
+          .select("customer_zip, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date)
@@ -406,8 +450,10 @@ serve(async (req) => {
           if (!grouped[zip]) {
             grouped[zip] = { zipcode: zip, items: 0, premium: 0, households: new Set() };
           }
-          grouped[zip].items += sale.total_items || 0;
-          grouped[zip].premium += sale.total_premium || 0;
+          
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          grouped[zip].items += countable.items;
+          grouped[zip].premium += countable.premium;
           if (sale.customer_name) {
             grouped[zip].households.add(sale.customer_name.toLowerCase().trim());
           }

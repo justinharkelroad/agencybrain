@@ -7,6 +7,7 @@ import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { formatDateLocal } from "@/lib/utils";
+import { calculateCountableTotals } from "@/lib/product-constants";
 import {
   BarChart,
   Bar,
@@ -35,6 +36,14 @@ interface SalesByDateRow {
   points: number;
   policies: number;
   households: number;
+}
+
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
 }
 
 const CHART_COLORS = [
@@ -71,10 +80,10 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
         return (result?.data || []) as SalesByDateRow[];
       }
 
-      // Admin path - direct query
+      // Admin path - direct query with sale_policies for Motor Club filtering
       const { data, error } = await supabase
         .from("sales")
-        .select("sale_date, total_items, total_premium, total_points, customer_name")
+        .select("sale_date, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate)
@@ -82,7 +91,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
 
       if (error) throw error;
 
-      // Group by date
+      // Group by date with Motor Club excluded
       const grouped: Record<string, { sale_date: string; items: number; premium: number; points: number; policies: number; households: Set<string> }> = {};
       
       for (const sale of data || []) {
@@ -97,10 +106,15 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
             households: new Set<string>(),
           };
         }
-        grouped[date].items += sale.total_items || 0;
-        grouped[date].premium += sale.total_premium || 0;
-        grouped[date].points += sale.total_points || 0;
-        grouped[date].policies += 1;
+        
+        // Calculate countable totals (excluding Motor Club)
+        const policies = (sale.sale_policies || []) as SalePolicy[];
+        const countable = calculateCountableTotals(policies);
+        
+        grouped[date].items += countable.items;
+        grouped[date].premium += countable.premium;
+        grouped[date].points += countable.points;
+        grouped[date].policies += countable.policyCount;
         if (sale.customer_name) {
           grouped[date].households.add(sale.customer_name.toLowerCase().trim());
         }

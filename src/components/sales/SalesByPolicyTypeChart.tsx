@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
+import { isExcludedProduct } from "@/lib/product-constants";
 import {
   BarChart,
   Bar,
@@ -144,6 +145,9 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSess
         const typeName = item.product_type_id 
           ? (ptMap.get(item.product_type_id) || item.product_type_name || "Unknown")
           : (item.product_type_name || "Unknown");
+        
+        // Skip excluded products (e.g., Motor Club)
+        if (isExcludedProduct(typeName)) continue;
         
         if (!grouped[typeName]) {
           grouped[typeName] = { policy_type: typeName, items: 0, premium: 0, points: 0 };

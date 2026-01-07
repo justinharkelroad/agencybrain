@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateCountableTotals } from "@/lib/product-constants";
 import {
   Table,
   TableBody,
@@ -109,13 +110,14 @@ export function DrillDownTable({
         return result as DrillDownResponse;
       }
 
-      // Admin path - direct query
+      // Admin path - direct query with sale_policies for Motor Club filtering
       let query = supabase
         .from("sales")
         .select(`
-          id, sale_date, customer_name, total_items, total_premium, total_points,
+          id, sale_date, customer_name,
           lead_source:lead_sources(name),
-          team_member:team_members(name)
+          team_member:team_members(name),
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `, { count: 'exact' })
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
@@ -130,15 +132,15 @@ export function DrillDownTable({
           query = query.is('lead_source_id', null);
         } else {
           // Need to get lead_source_id from name first
-          const { data: leadSources } = await supabase
+          const { data: leadSourcesData } = await supabase
             .from("lead_sources")
             .select("id")
             .eq("agency_id", agencyId)
             .eq("name", filter.value)
             .limit(1);
           
-          if (leadSources && leadSources.length > 0) {
-            query = query.eq('lead_source_id', leadSources[0].id);
+          if (leadSourcesData && leadSourcesData.length > 0) {
+            query = query.eq('lead_source_id', leadSourcesData[0].id);
           } else {
             return { data: [], total_count: 0 };
           }
@@ -165,16 +167,16 @@ export function DrillDownTable({
 
         const salePolicyIds = [...new Set(saleItems.map(i => i.sale_policy_id))];
 
-        const { data: salePolicies } = await supabase
+        const { data: salePoliciesData } = await supabase
           .from("sale_policies")
           .select("sale_id")
           .in("id", salePolicyIds);
 
-        if (!salePolicies || salePolicies.length === 0) {
+        if (!salePoliciesData || salePoliciesData.length === 0) {
           return { data: [], total_count: 0 };
         }
 
-        const saleIds = [...new Set(salePolicies.map(p => p.sale_id))];
+        const saleIds = [...new Set(salePoliciesData.map(p => p.sale_id))];
         query = query.in('id', saleIds);
       }
 
@@ -184,16 +186,22 @@ export function DrillDownTable({
 
       if (queryError) throw queryError;
 
-      const records: SaleRecord[] = (sales || []).map((sale: any) => ({
-        id: sale.id,
-        sale_date: sale.sale_date,
-        customer_name: sale.customer_name || "Unknown",
-        lead_source_name: sale.lead_source?.name || null,
-        producer_name: sale.team_member?.name || null,
-        total_items: sale.total_items || 0,
-        total_premium: sale.total_premium || 0,
-        total_points: sale.total_points || 0,
-      }));
+      const records: SaleRecord[] = (sales || []).map((sale: any) => {
+        // Calculate countable totals (excluding Motor Club)
+        const policies = sale.sale_policies || [];
+        const countable = calculateCountableTotals(policies);
+        
+        return {
+          id: sale.id,
+          sale_date: sale.sale_date,
+          customer_name: sale.customer_name || "Unknown",
+          lead_source_name: sale.lead_source?.name || null,
+          producer_name: sale.team_member?.name || null,
+          total_items: countable.items,
+          total_premium: countable.premium,
+          total_points: countable.points,
+        };
+      });
 
       return { data: records, total_count: count || 0 };
     },
