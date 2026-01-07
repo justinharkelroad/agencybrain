@@ -7955,8 +7955,8 @@ export type Database = {
       backfill_lqs_sales_matching: {
         Args: { p_agency_id: string }
         Returns: {
+          household_id: string
           match_confidence: string
-          matched_household_id: string
           sale_id: string
           status: string
         }[]
