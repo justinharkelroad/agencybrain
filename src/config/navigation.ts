@@ -405,6 +405,14 @@ export const staffNavigationConfig: NavEntry[] = [
         access: { staff: true, manager: true, owner: true },
       },
       {
+        id: 'lqs-roadmap',
+        title: 'LQS Roadmap',
+        icon: Target,
+        type: 'link',
+        url: '/staff/lqs-roadmap',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',
         icon: Bot,

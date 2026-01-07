@@ -40,6 +40,20 @@ export interface LqsMetrics {
   selfGenerated: number;
   sold: number;
   needsAttention: number;
+  // Bucket-level metrics
+  leadsCount: number;
+  quotedCount: number;
+  soldCount: number;
+  // Conversion rates
+  leadsToQuotedRate: number;
+  quotedToSoldRate: number;
+  // Premium totals (cents)
+  totalPremiumQuotedCents: number;
+  totalPremiumSoldCents: number;
+  avgPremiumSoldCents: number;
+  // Needs attention by bucket
+  quotedNeedsAttention: number;
+  soldNeedsAttention: number;
 }
 
 interface UseLqsDataParams {
@@ -91,12 +105,55 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
         );
       }
 
+      // Calculate bucket counts
+      const leadsCount = filteredHouseholds.filter(h => h.status === 'lead').length;
+      const quotedCount = filteredHouseholds.filter(h => h.status === 'quoted').length;
+      const soldCount = filteredHouseholds.filter(h => h.status === 'sold').length;
+
+      // Calculate premium totals
+      const quotedHouseholds = filteredHouseholds.filter(h => h.status === 'quoted' || h.status === 'sold');
+      const soldHouseholds = filteredHouseholds.filter(h => h.status === 'sold');
+      
+      const totalPremiumQuotedCents = quotedHouseholds.reduce((sum, h) => 
+        sum + (h.quotes?.reduce((qSum, q) => qSum + (q.premium_cents || 0), 0) || 0), 0
+      );
+      const totalPremiumSoldCents = soldHouseholds.reduce((sum, h) => 
+        sum + (h.sales?.reduce((sSum, s) => sSum + (s.premium_cents || 0), 0) || 0), 0
+      );
+      const avgPremiumSoldCents = soldCount > 0 ? Math.round(totalPremiumSoldCents / soldCount) : 0;
+
+      // Conversion rates
+      const leadsToQuotedRate = leadsCount + quotedCount > 0 
+        ? ((quotedCount + soldCount) / (leadsCount + quotedCount + soldCount)) * 100 
+        : 0;
+      const quotedToSoldRate = quotedCount + soldCount > 0 
+        ? (soldCount / (quotedCount + soldCount)) * 100 
+        : 0;
+
+      // Needs attention counts by bucket
+      const quotedNeedsAttention = filteredHouseholds.filter(h => h.status === 'quoted' && h.needs_attention).length;
+      const soldNeedsAttention = filteredHouseholds.filter(h => h.status === 'sold' && h.needs_attention).length;
+
       // Calculate metrics
       const metrics: LqsMetrics = {
         totalQuotes: filteredHouseholds.reduce((sum, h) => sum + (h.quotes?.length || 0), 0),
         selfGenerated: filteredHouseholds.filter(h => h.lead_source?.is_self_generated === true).length,
-        sold: filteredHouseholds.filter(h => h.status === 'sold').length,
+        sold: soldCount,
         needsAttention: filteredHouseholds.filter(h => h.needs_attention).length,
+        // Bucket counts
+        leadsCount,
+        quotedCount,
+        soldCount,
+        // Conversion rates
+        leadsToQuotedRate,
+        quotedToSoldRate,
+        // Premium totals
+        totalPremiumQuotedCents,
+        totalPremiumSoldCents,
+        avgPremiumSoldCents,
+        // Needs attention by bucket
+        quotedNeedsAttention,
+        soldNeedsAttention,
       };
 
       return { households: filteredHouseholds, metrics };
