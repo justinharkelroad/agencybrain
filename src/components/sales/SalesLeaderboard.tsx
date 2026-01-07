@@ -16,6 +16,7 @@ import { LeaderboardPodium } from "./LeaderboardPodium";
 import { LeaderboardList, LeaderboardListMobile } from "./LeaderboardList";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { MetricToggle, MetricType } from "./MetricToggle";
+import { calculateCountableTotals } from "@/lib/product-constants";
 
 type RankMetric = MetricType;
 type Period = "this_month" | "last_month" | "this_quarter" | "ytd";
@@ -180,10 +181,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .select(`
           team_member_id,
           customer_name,
-          total_premium,
-          total_items,
-          total_points,
-          sale_policies(id)
+          sale_policies(id, policy_type, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", start)
@@ -208,15 +206,21 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       for (const sale of sales || []) {
         if (sale.team_member_id && aggregated[sale.team_member_id]) {
-          aggregated[sale.team_member_id].premium += sale.total_premium || 0;
-          aggregated[sale.team_member_id].items += sale.total_items || 0;
-          aggregated[sale.team_member_id].points += sale.total_points || 0;
-          aggregated[sale.team_member_id].policies += (sale.sale_policies as any[])?.length || 0;
+          // Calculate totals excluding Motor Club and other excluded products
+          const policies = (sale.sale_policies as any[]) || [];
+          const countable = calculateCountableTotals(policies);
           
-          // Track unique households
-          const customerName = sale.customer_name?.toLowerCase().trim();
-          if (customerName) {
-            aggregated[sale.team_member_id].customerNames.add(customerName);
+          aggregated[sale.team_member_id].premium += countable.premium;
+          aggregated[sale.team_member_id].items += countable.items;
+          aggregated[sale.team_member_id].points += countable.points;
+          aggregated[sale.team_member_id].policies += countable.policyCount;
+          
+          // Track unique households (only if sale has countable policies)
+          if (countable.policyCount > 0) {
+            const customerName = sale.customer_name?.toLowerCase().trim();
+            if (customerName) {
+              aggregated[sale.team_member_id].customerNames.add(customerName);
+            }
           }
         }
       }
