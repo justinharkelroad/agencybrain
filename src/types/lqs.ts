@@ -55,6 +55,7 @@ export interface LqsHousehold {
   sold_date: string | null;
   team_member_id: string | null;
   needs_attention: boolean;
+  products_interested: string[] | null;
   created_at: string;
   updated_at: string;
 }

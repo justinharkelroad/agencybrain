@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,7 +66,7 @@ export function AddLeadModal({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
-  const [productInterested, setProductInterested] = useState('');
+  const [productsInterested, setProductsInterested] = useState<string[]>([]);
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadDate, setLeadDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -76,7 +77,7 @@ export function AddLeadModal({
     setPhone('');
     setEmail('');
     setLeadSourceId('');
-    setProductInterested('');
+    setProductsInterested([]);
     setTeamMemberId(currentTeamMemberId || '');
     setLeadDate(format(new Date(), 'yyyy-MM-dd'));
   };
@@ -124,6 +125,7 @@ export function AddLeadModal({
             lead_source_id: leadSourceId,
             team_member_id: teamMemberId || null,
             needs_attention: false,
+            products_interested: productsInterested.length > 0 ? productsInterested : null,
           })
           .eq('id', existingHousehold.id);
 
@@ -146,6 +148,7 @@ export function AddLeadModal({
             team_member_id: teamMemberId || null,
             needs_attention: false,
             lead_received_date: leadDate,
+            products_interested: productsInterested.length > 0 ? productsInterested : null,
           });
 
         if (insertError) throw insertError;
@@ -273,21 +276,29 @@ export function AddLeadModal({
             </Select>
           </div>
 
-          {/* Product Interested */}
-          <div className="space-y-2">
-            <Label htmlFor="product">Product Interested</Label>
-            <Select value={productInterested} onValueChange={setProductInterested}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select product..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                {PRODUCT_OPTIONS.map((product) => (
-                  <SelectItem key={product} value={product}>
+          {/* Products Interested */}
+          <div className="space-y-3">
+            <Label>Products Interested</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {PRODUCT_OPTIONS.map((product) => (
+                <div key={product} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`product-${product}`}
+                    checked={productsInterested.includes(product)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setProductsInterested([...productsInterested, product]);
+                      } else {
+                        setProductsInterested(productsInterested.filter(p => p !== product));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`product-${product}`} className="text-sm font-normal cursor-pointer">
                     {product}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Sub-Producer & Lead Date */}
