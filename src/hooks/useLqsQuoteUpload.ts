@@ -80,6 +80,8 @@ export function useLqsQuoteUpload() {
       unmatchedProducers: [],
       householdsNeedingAttention: 0,
       errors: [],
+      salesLinked: 0,
+      salesNoMatch: 0,
     };
 
     const unmatchedProducerSet = new Set<string>();
@@ -259,6 +261,25 @@ export function useLqsQuoteUpload() {
       }
 
       result.unmatchedProducers = Array.from(unmatchedProducerSet);
+
+      // Step 5: Auto-sync sales to newly created/updated households
+      try {
+        const { data: syncResults, error: syncError } = await supabase
+          .rpc('backfill_lqs_sales_matching', { p_agency_id: context.agencyId });
+        
+        if (!syncError && syncResults && Array.isArray(syncResults)) {
+          result.salesLinked = syncResults.filter(
+            (r: { status: string }) => r.status === 'linked'
+          ).length;
+          result.salesNoMatch = syncResults.filter(
+            (r: { status: string }) => r.status === 'no_match'
+          ).length;
+        }
+      } catch (syncErr) {
+        // Don't fail the whole upload if sync fails - just log it
+        console.error('Sales sync failed:', syncErr);
+      }
+
       result.success = result.errors.length === 0 || result.recordsProcessed > 0;
       
     } catch (err: any) {

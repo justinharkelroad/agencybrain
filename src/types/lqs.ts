@@ -167,4 +167,6 @@ export interface QuoteUploadResult {
   unmatchedProducers: string[];
   householdsNeedingAttention: number;
   errors: string[];
+  salesLinked: number;
+  salesNoMatch: number;
 }
