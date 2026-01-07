@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsHousehold, LqsQuote } from '@/types/lqs';
+import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
 // Extended types with relations
 export interface LqsLeadSource {
@@ -127,10 +128,10 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
       const soldHouseholds = filteredHouseholds.filter(h => h.status === 'sold');
       
       const totalPremiumQuotedCents = quotedHouseholds.reduce((sum, h) => 
-        sum + (h.quotes?.reduce((qSum, q) => qSum + (q.premium_cents || 0), 0) || 0), 0
+        sum + filterCountableQuotes(h.quotes || []).reduce((qSum, q) => qSum + (q.premium_cents || 0), 0), 0
       );
       const totalPremiumSoldCents = soldHouseholds.reduce((sum, h) => 
-        sum + (h.sales?.reduce((sSum, s) => sSum + (s.premium_cents || 0), 0) || 0), 0
+        sum + filterCountableSales(h.sales || []).reduce((sSum, s) => sSum + (s.premium_cents || 0), 0), 0
       );
       const avgPremiumSoldCents = soldCount > 0 ? Math.round(totalPremiumSoldCents / soldCount) : 0;
 
@@ -148,7 +149,7 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
 
       // Calculate metrics
       const metrics: LqsMetrics = {
-        totalQuotes: filteredHouseholds.reduce((sum, h) => sum + (h.quotes?.length || 0), 0),
+        totalQuotes: filteredHouseholds.reduce((sum, h) => sum + filterCountableQuotes(h.quotes || []).length, 0),
         selfGenerated: filteredHouseholds.filter(h => h.lead_source?.is_self_generated === true).length,
         sold: soldCount,
         needsAttention: filteredHouseholds.filter(h => h.needs_attention).length,
