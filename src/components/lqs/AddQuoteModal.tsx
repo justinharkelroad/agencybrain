@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
@@ -47,6 +47,11 @@ const PRODUCT_OPTIONS = [
   'Other',
 ];
 
+interface ProductEntry {
+  productType: string;
+  premium: string;
+}
+
 export function AddQuoteModal({
   open,
   onOpenChange,
@@ -62,8 +67,7 @@ export function AddQuoteModal({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [productType, setProductType] = useState('');
-  const [premium, setPremium] = useState('');
+  const [products, setProducts] = useState<ProductEntry[]>([{ productType: '', premium: '' }]);
   const [quoteDate, setQuoteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadSourceId, setLeadSourceId] = useState('');
@@ -74,13 +78,28 @@ export function AddQuoteModal({
     setFirstName('');
     setLastName('');
     setZipCode('');
-    setProductType('');
-    setPremium('');
+    setProducts([{ productType: '', premium: '' }]);
     setQuoteDate(format(new Date(), 'yyyy-MM-dd'));
     setTeamMemberId(currentTeamMemberId || '');
     setLeadSourceId('');
     setPhone('');
     setEmail('');
+  };
+
+  const addProduct = () => {
+    setProducts([...products, { productType: '', premium: '' }]);
+  };
+
+  const removeProduct = (index: number) => {
+    if (products.length > 1) {
+      setProducts(products.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateProduct = (index: number, field: keyof ProductEntry, value: string) => {
+    const updated = [...products];
+    updated[index][field] = value;
+    setProducts(updated);
   };
 
   const handleSubmit = async () => {
@@ -97,14 +116,20 @@ export function AddQuoteModal({
       toast.error('Valid 5-digit ZIP code is required');
       return;
     }
-    if (!productType) {
-      toast.error('Product type is required');
-      return;
+    
+    // Validate all products
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (!p.productType) {
+        toast.error(`Product type is required for product ${i + 1}`);
+        return;
+      }
+      if (!p.premium || isNaN(parseFloat(p.premium)) || parseFloat(p.premium) <= 0) {
+        toast.error(`Valid premium is required for ${p.productType || `product ${i + 1}`}`);
+        return;
+      }
     }
-    if (!premium || isNaN(parseFloat(premium)) || parseFloat(premium) <= 0) {
-      toast.error('Valid premium amount is required');
-      return;
-    }
+    
     if (!quoteDate) {
       toast.error('Quote date is required');
       return;
@@ -115,7 +140,6 @@ export function AddQuoteModal({
     try {
       // Generate household key
       const householdKey = `${lastName.trim().toUpperCase()}_${firstName.trim().toUpperCase()}_${zipCode.trim()}`;
-      const premiumCents = Math.round(parseFloat(premium) * 100);
 
       // Find or create household
       const { data: existingHousehold } = await supabase
@@ -134,6 +158,7 @@ export function AddQuoteModal({
         const updates: Record<string, unknown> = {};
         if (existingHousehold.status === 'lead') {
           updates.status = 'quoted';
+          updates.first_quote_date = quoteDate;
         }
         if (phone) updates.phone = phone;
         if (email) updates.email = email;
@@ -164,6 +189,7 @@ export function AddQuoteModal({
             phone: phone || null,
             email: email || null,
             status: 'quoted',
+            first_quote_date: quoteDate,
             lead_source_id: leadSourceId || null,
             team_member_id: teamMemberId || null,
             needs_attention: !leadSourceId,
@@ -175,20 +201,26 @@ export function AddQuoteModal({
         householdId = newHousehold.id;
       }
 
-      // Create quote record
+      // Create quote records for each product
+      const quoteInserts = products.map((p) => ({
+        household_id: householdId,
+        agency_id: agencyId,
+        product_type: p.productType,
+        premium_cents: Math.round(parseFloat(p.premium) * 100),
+        quote_date: quoteDate,
+        team_member_id: teamMemberId || null,
+        items_quoted: 1,
+        source: 'manual' as const,
+      }));
+
       const { error: quoteError } = await supabase
         .from('lqs_quotes')
-        .insert({
-          household_id: householdId,
-          product_type: productType,
-          premium_cents: premiumCents,
-          quote_date: quoteDate,
-          source: 'manual',
-        });
+        .insert(quoteInserts);
 
       if (quoteError) throw quoteError;
 
-      toast.success('Quote added successfully');
+      const productCount = products.length;
+      toast.success(`${productCount} quote${productCount > 1 ? 's' : ''} added successfully`);
       resetForm();
       onSuccess();
       onOpenChange(false);
@@ -216,7 +248,7 @@ export function AddQuoteModal({
         <DialogHeader>
           <DialogTitle>Add Quote</DialogTitle>
           <DialogDescription>
-            Enter quote information. Name, ZIP, product, premium, and date are required.
+            Enter quote information. You can add multiple products for the same household.
           </DialogDescription>
         </DialogHeader>
 
@@ -261,43 +293,69 @@ export function AddQuoteModal({
             />
           </div>
 
-          {/* Product & Premium Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="productType">
-                Product Type <span className="text-destructive">*</span>
-              </Label>
-              <Select value={productType} onValueChange={setProductType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select product..." />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {PRODUCT_OPTIONS.map((product) => (
-                    <SelectItem key={product} value={product}>
-                      {product}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="premium">
-                Premium <span className="text-destructive">*</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="premium"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={premium}
-                  onChange={(e) => setPremium(e.target.value)}
-                  placeholder="0.00"
-                  className="pl-7"
-                />
+          {/* Products Section */}
+          <div className="space-y-3">
+            <Label>
+              Products <span className="text-destructive">*</span>
+            </Label>
+            
+            {products.map((product, index) => (
+              <div key={index} className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <Select 
+                    value={product.productType} 
+                    onValueChange={(value) => updateProduct(index, 'productType', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select product..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {PRODUCT_OPTIONS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-32">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={product.premium}
+                      onChange={(e) => updateProduct(index, 'premium', e.target.value)}
+                      placeholder="0.00"
+                      className="pl-7"
+                    />
+                  </div>
+                </div>
+                {products.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeProduct(index)}
+                    className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-            </div>
+            ))}
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addProduct}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Another Product
+            </Button>
           </div>
 
           {/* Quote Date */}
@@ -321,11 +379,17 @@ export function AddQuoteModal({
                 <SelectValue placeholder="Select producer..." />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name}
-                  </SelectItem>
-                ))}
+                {teamMembers.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                    No team members found
+                  </div>
+                ) : (
+                  teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -389,7 +453,7 @@ export function AddQuoteModal({
                 Adding...
               </>
             ) : (
-              'Add Quote'
+              `Add ${products.length} Quote${products.length > 1 ? 's' : ''}`
             )}
           </Button>
         </DialogFooter>
