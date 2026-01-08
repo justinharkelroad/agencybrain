@@ -79,6 +79,11 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('all');
+  const [selectedLeadSourceId, setSelectedLeadSourceId] = useState<string>('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // Modals
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -168,17 +173,41 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     return filtered;
   }, [data?.households, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
 
-  // Filter households based on active tab
+  // Filter households based on active tab and lead source
   const filteredHouseholds = useMemo(() => {
+    let result = bucketFilteredHouseholds;
+    
+    // Apply lead source filter
+    if (selectedLeadSourceId && selectedLeadSourceId !== 'all') {
+      result = result.filter(h => h.lead_source_id === selectedLeadSourceId);
+    }
+    
+    // Apply tab filters
     switch (activeTab) {
       case 'self-generated':
-        return bucketFilteredHouseholds.filter(h => h.lead_source?.is_self_generated === true);
+        return result.filter(h => h.lead_source?.is_self_generated === true);
       case 'needs-attention':
-        return bucketFilteredHouseholds.filter(h => h.needs_attention);
+        return result.filter(h => h.needs_attention);
       default:
-        return bucketFilteredHouseholds;
+        return result;
     }
-  }, [bucketFilteredHouseholds, activeTab]);
+  }, [bucketFilteredHouseholds, activeTab, selectedLeadSourceId]);
+
+  // Paginated households
+  const paginatedHouseholds = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredHouseholds.slice(startIndex, startIndex + pageSize);
+  }, [filteredHouseholds, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredHouseholds.length / pageSize);
+  const totalRecords = filteredHouseholds.length;
+  const startRecord = totalRecords > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endRecord = Math.min(currentPage * pageSize, totalRecords);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeBucket, searchTerm, dateRange, statusFilter, selectedLeadSourceId, activeTab, dataViewMode]);
 
   // Group households for grouped views
   const groupedData = useMemo(() => {
@@ -519,41 +548,68 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 onStatusChange={setStatusFilter}
                 dateRange={dateRange}
                 onDateRangeChange={setDateRange}
+                leadSources={leadSources}
+                selectedLeadSourceId={selectedLeadSourceId}
+                onLeadSourceChange={setSelectedLeadSourceId}
               />
             </div>
 
             {/* All Tab */}
             <TabsContent value="all" className="mt-4">
               <LqsHouseholdTable
-                households={filteredHouseholds}
+                households={paginatedHouseholds}
                 loading={isLoading}
                 onAssignLeadSource={handleAssignLeadSource}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                totalRecords={totalRecords}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                startRecord={startRecord}
+                endRecord={endRecord}
               />
             </TabsContent>
 
             {/* Self-Generated Tab */}
             <TabsContent value="self-generated" className="mt-4">
               <LqsHouseholdTable
-                households={filteredHouseholds}
+                households={paginatedHouseholds}
                 loading={isLoading}
                 onAssignLeadSource={handleAssignLeadSource}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                totalRecords={totalRecords}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                startRecord={startRecord}
+                endRecord={endRecord}
               />
             </TabsContent>
 
             {/* Needs Attention Tab */}
             <TabsContent value="needs-attention" className="mt-4">
               <LqsHouseholdTable
-                households={filteredHouseholds}
+                households={paginatedHouseholds}
                 loading={isLoading}
                 onAssignLeadSource={handleAssignLeadSource}
                 onBulkAssign={handleBulkAssign}
                 showBulkSelect={true}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                totalRecords={totalRecords}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                startRecord={startRecord}
+                endRecord={endRecord}
               />
             </TabsContent>
 
