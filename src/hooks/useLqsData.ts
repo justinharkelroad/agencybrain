@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsHousehold, LqsQuote } from '@/types/lqs';
 import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
+import { toast } from 'sonner';
 
 // Extended types with relations
 export interface LqsLeadSource {
@@ -64,38 +65,55 @@ interface UseLqsDataParams {
   searchTerm?: string;
 }
 
+const PAGE_SIZE = 1000;
+const MAX_FETCH = 20000;
+
 export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: UseLqsDataParams) {
   return useQuery({
     queryKey: ['lqs-data', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString(), statusFilter, searchTerm],
     enabled: !!agencyId,
     queryFn: async () => {
-      // Fetch households with quotes
-      let query = supabase
-        .from('lqs_households')
-        .select(`
-          *,
-          quotes:lqs_quotes(*),
-          sales:lqs_sales(*),
-          lead_source:lead_sources(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
-          team_member:team_members(id, name)
-        `)
-        .eq('agency_id', agencyId)
-        .order('created_at', { ascending: false })
-        .limit(10000);
+      // Fetch all households using paged range loop to bypass API row limit
+      const allRows: HouseholdWithRelations[] = [];
+      
+      for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
+        let query = supabase
+          .from('lqs_households')
+          .select(`
+            *,
+            quotes:lqs_quotes(*),
+            sales:lqs_sales(*),
+            lead_source:lead_sources(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
+            team_member:team_members(id, name)
+          `)
+          .eq('agency_id', agencyId!)
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
 
-      if (statusFilter && statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter && statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        if (searchTerm) {
+          query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`);
+        }
+
+        const { data: page, error } = await query;
+        if (error) throw error;
+        if (!page || page.length === 0) break;
+        
+        allRows.push(...(page as unknown as HouseholdWithRelations[]));
+        
+        // If we got less than PAGE_SIZE, we've reached the end
+        if (page.length < PAGE_SIZE) break;
+      }
+      
+      // Warn if we hit the cap
+      if (allRows.length >= MAX_FETCH) {
+        toast.warning('Results capped at 20,000 records. Consider using filters to narrow results.');
       }
 
-      if (searchTerm) {
-        query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Cast to proper type
-      const households = (data || []) as unknown as HouseholdWithRelations[];
+      const households = allRows;
 
       // Filter by date range if provided - check lead_received_date, quote_date, or sold_date
       let filteredHouseholds = households;
