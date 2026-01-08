@@ -108,37 +108,59 @@ async function processInBackground(
       }
     }
 
-    const totalRecords = records.length;
+    // In-memory deduplication: group records by household_key
+    // This prevents duplicate key errors when same household appears multiple times
+    const householdRecordsMap = new Map<string, ParsedQuoteRow[]>();
+    
+    for (const record of records) {
+      const householdKey = generateHouseholdKey(record.firstName, record.lastName, record.zipCode);
+      const existing = householdRecordsMap.get(householdKey) || [];
+      existing.push(record);
+      householdRecordsMap.set(householdKey, existing);
+    }
+    
+    console.log(`[Quote Upload] Deduplicated ${records.length} records into ${householdRecordsMap.size} unique households`);
 
-    for (let batchStart = 0; batchStart < totalRecords; batchStart += BATCH_SIZE) {
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, totalRecords);
-      const batch = records.slice(batchStart, batchEnd);
+    // Convert to array of { householdKey, records }
+    const householdGroups = Array.from(householdRecordsMap.entries()).map(([key, recs]) => ({
+      householdKey: key,
+      records: recs,
+      // Use first record for household data
+      primaryRecord: recs[0],
+    }));
+
+    const totalGroups = householdGroups.length;
+
+    for (let batchStart = 0; batchStart < totalGroups; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, totalGroups);
+      const batch = householdGroups.slice(batchStart, batchEnd);
 
       // Progress toast for large uploads (every 100 records after the first 100)
-      if (totalRecords > 100 && batchStart > 0 && batchStart % 100 === 0) {
+      if (totalGroups > 100 && batchStart > 0 && batchStart % 100 === 0) {
         toast({
           title: 'Processing quotes...',
-          description: `${batchStart} of ${totalRecords} processed`,
+          description: `${batchStart} of ${totalGroups} households processed`,
         });
       }
 
       const batchResults = await Promise.allSettled(
-        batch.map(async (record) => {
-          // Match sub-producer to team member
+        batch.map(async (group) => {
+          const { householdKey, records: groupRecords, primaryRecord } = group;
+          
+          // Match sub-producer to team member (use first record's producer)
           let teamMemberId: string | null = null;
           
           // Try code match first
-          if (record.subProducerCode) {
-            const matched = codeToMember.get(record.subProducerCode.toLowerCase());
+          if (primaryRecord.subProducerCode) {
+            const matched = codeToMember.get(primaryRecord.subProducerCode.toLowerCase());
             if (matched) {
               teamMemberId = matched.id;
-              // Continue to household/quote processing - do NOT return early
             }
           }
           
           // Try fuzzy name match
-          if (!teamMemberId && record.subProducerName) {
-            const nameParts = normalizeNameForMatch(record.subProducerName);
+          if (!teamMemberId && primaryRecord.subProducerName) {
+            const nameParts = normalizeNameForMatch(primaryRecord.subProducerName);
             const matched = fuzzyMatchTeamMember(nameParts, teamMembersList);
             if (matched) {
               teamMemberId = matched.id;
@@ -146,119 +168,97 @@ async function processInBackground(
           }
           
           // Track unmatched
-          if (!teamMemberId && record.subProducerRaw) {
-            unmatchedProducerSet.add(record.subProducerRaw);
+          if (!teamMemberId && primaryRecord.subProducerRaw) {
+            unmatchedProducerSet.add(primaryRecord.subProducerRaw);
           }
 
-          // Upsert household
-          const householdKey = generateHouseholdKey(record.firstName, record.lastName, record.zipCode);
-          
-          const { data: existingHousehold } = await supabase
+          // ATOMIC UPSERT for household - prevents race conditions
+          const { data: household, error: hhError } = await supabase
             .from('lqs_households')
-            .select('id, lead_source_id, needs_attention')
-            .eq('agency_id', context.agencyId)
-            .eq('household_key', householdKey)
-            .maybeSingle();
-
-          let householdId: string;
-          let householdResult: 'created' | 'updated';
-          let needsAttention = false;
-          
-          if (existingHousehold) {
-            householdId = existingHousehold.id;
-            needsAttention = existingHousehold.needs_attention || false;
-            
-            const updates: Record<string, any> = {};
-            if (teamMemberId) {
-              updates.team_member_id = teamMemberId;
-            }
-            
-            if (Object.keys(updates).length > 0) {
-              await supabase
-                .from('lqs_households')
-                .update(updates)
-                .eq('id', householdId);
-            }
-            
-            householdResult = 'updated';
-          } else {
-            needsAttention = true;
-            const { data: newHousehold, error: hhError } = await supabase
-              .from('lqs_households')
-              .insert({
+            .upsert(
+              {
                 agency_id: context.agencyId,
                 household_key: householdKey,
-                first_name: record.firstName,
-                last_name: record.lastName,
-                zip_code: record.zipCode,
-                lead_source_id: null,
+                first_name: primaryRecord.firstName,
+                last_name: primaryRecord.lastName,
+                zip_code: primaryRecord.zipCode,
                 status: 'lead',
-                lead_received_date: record.quoteDate,
+                lead_received_date: primaryRecord.quoteDate,
                 team_member_id: teamMemberId,
                 needs_attention: true,
-              })
-              .select('id')
+              },
+              {
+                onConflict: 'agency_id,household_key',
+                ignoreDuplicates: false,
+              }
+            )
+            .select('id, needs_attention, created_at, updated_at')
+            .single();
+
+          if (hhError) {
+            throw new Error(`Failed to upsert household: ${hhError.message}`);
+          }
+          
+          const householdId = household.id;
+          // Determine if created or updated based on timestamps
+          const householdResult: 'created' | 'updated' = 
+            household.created_at === household.updated_at ? 'created' : 'updated';
+          const needsAttention = household.needs_attention || false;
+
+          // Process all quotes for this household
+          let quotesCreatedInGroup = 0;
+          let quotesUpdatedInGroup = 0;
+          
+          for (const record of groupRecords) {
+            // Determine team member for this specific quote (may differ from primary)
+            let quoteTeamMemberId = teamMemberId;
+            if (record.subProducerCode && record.subProducerCode !== primaryRecord.subProducerCode) {
+              const matched = codeToMember.get(record.subProducerCode.toLowerCase());
+              if (matched) {
+                quoteTeamMemberId = matched.id;
+              }
+            }
+            
+            // ATOMIC UPSERT for quote
+            const { data: quote, error: quoteError } = await supabase
+              .from('lqs_quotes')
+              .upsert(
+                {
+                  household_id: householdId,
+                  agency_id: context.agencyId,
+                  team_member_id: quoteTeamMemberId,
+                  quote_date: record.quoteDate,
+                  product_type: record.productType,
+                  items_quoted: record.itemsQuoted,
+                  premium_cents: record.premiumCents,
+                  issued_policy_number: record.issuedPolicyNumber,
+                  source: 'allstate_report',
+                },
+                {
+                  onConflict: 'agency_id,household_id,quote_date,product_type',
+                  ignoreDuplicates: false,
+                }
+              )
+              .select('id, created_at, updated_at')
               .single();
 
-            if (hhError) {
-              throw new Error(`Failed to create household: ${hhError.message}`);
-            }
-            
-            householdId = newHousehold.id;
-            householdResult = 'created';
-          }
-
-          // Upsert quote
-          const { data: existingQuote } = await supabase
-            .from('lqs_quotes')
-            .select('id')
-            .eq('agency_id', context.agencyId)
-            .eq('household_id', householdId)
-            .eq('quote_date', record.quoteDate)
-            .eq('product_type', record.productType)
-            .maybeSingle();
-
-          let quoteResult: 'created' | 'updated';
-
-          if (existingQuote) {
-            await supabase
-              .from('lqs_quotes')
-              .update({
-                items_quoted: record.itemsQuoted,
-                premium_cents: record.premiumCents,
-                issued_policy_number: record.issuedPolicyNumber,
-                team_member_id: teamMemberId,
-              })
-              .eq('id', existingQuote.id);
-            
-            quoteResult = 'updated';
-          } else {
-            const { error: quoteError } = await supabase
-              .from('lqs_quotes')
-              .insert({
-                household_id: householdId,
-                agency_id: context.agencyId,
-                team_member_id: teamMemberId,
-                quote_date: record.quoteDate,
-                product_type: record.productType,
-                items_quoted: record.itemsQuoted,
-                premium_cents: record.premiumCents,
-                issued_policy_number: record.issuedPolicyNumber,
-                source: 'allstate_report',
-                source_reference_id: null,
-              });
-
             if (quoteError) {
-              throw new Error(`Failed to create quote: ${quoteError.message}`);
+              throw new Error(`Failed to upsert quote: ${quoteError.message}`);
             }
             
-            quoteResult = 'created';
+            // Determine if created or updated
+            if (quote.created_at === quote.updated_at) {
+              quotesCreatedInGroup++;
+            } else {
+              quotesUpdatedInGroup++;
+            }
           }
 
           return {
             teamMatched: teamMemberId !== null,
             householdResult,
-            quoteResult,
+            quotesCreatedInGroup,
+            quotesUpdatedInGroup,
             needsAttention,
           };
         })
@@ -271,8 +271,8 @@ async function processInBackground(
           if (value.teamMatched) teamMembersMatched++;
           if (value.householdResult === 'created') householdsCreated++;
           else if (value.householdResult === 'updated') householdsUpdated++;
-          if (value.quoteResult === 'created') quotesCreated++;
-          else if (value.quoteResult === 'updated') quotesUpdated++;
+          quotesCreated += value.quotesCreatedInGroup;
+          quotesUpdated += value.quotesUpdatedInGroup;
           if (value.needsAttention) householdsNeedingAttention++;
         } else {
           errorCount++;
@@ -315,9 +315,9 @@ async function processInBackground(
       salesNoMatch,
     };
 
+    console.log(`[Quote Upload] Complete: ${householdsCreated} created, ${householdsUpdated} updated, ${quotesCreated} quotes created, ${quotesUpdated} quotes updated, ${errorCount} errors`);
+
     // Show completion toast
-    const hasWarnings = unmatchedProducerSet.size > 0 || householdsNeedingAttention > 0;
-    
     if (errorCount === 0) {
       toast({
         title: 'Quote Upload Complete!',
