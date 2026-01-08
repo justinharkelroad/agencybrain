@@ -31,6 +31,7 @@ import { LqsHouseholdDetailModal } from '@/components/lqs/LqsHouseholdDetailModa
 import { SaleDetailModal } from '@/components/sales/SaleDetailModal';
 import { AssignLeadSourceModal } from '@/components/lqs/AssignLeadSourceModal';
 import { QuoteReportUploadModal } from '@/components/lqs/QuoteReportUploadModal';
+import { QuoteUploadResultsModal } from '@/components/lqs/QuoteUploadResultsModal';
 import { LqsOverviewDashboard } from '@/components/lqs/LqsOverviewDashboard';
 import { LqsBucketSelector, BucketType } from '@/components/lqs/LqsBucketSelector';
 import { LqsActionDropdowns } from '@/components/lqs/LqsActionDropdowns';
@@ -38,6 +39,7 @@ import { AddLeadModal } from '@/components/lqs/AddLeadModal';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
+import type { QuoteUploadResult } from '@/types/lqs';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
 type ViewMode = 'overview' | 'detail';
@@ -96,6 +98,10 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // Detail modals
   const [detailHousehold, setDetailHousehold] = useState<HouseholdWithRelations | null>(null);
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
+  
+  // Quote upload results modal
+  const [quoteUploadResults, setQuoteUploadResults] = useState<QuoteUploadResult | null>(null);
+  const [showQuoteResultsModal, setShowQuoteResultsModal] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
@@ -338,8 +344,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   };
 
   const handleUploadComplete = () => {
-    toast.success('Quote report uploaded successfully');
     refetch();
+  };
+
+  const handleUploadResults = (result: QuoteUploadResult) => {
+    setQuoteUploadResults(result);
+    // Auto-show modal if there are warnings
+    if (result.unmatchedProducers.length > 0 || result.householdsNeedingAttention > 0) {
+      setShowQuoteResultsModal(true);
+    }
   };
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -654,7 +667,17 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         userId={user?.id ?? null}
         displayName={user?.email ?? 'Unknown'}
         onUploadComplete={handleUploadComplete}
+        onUploadResults={handleUploadResults}
       />
+
+      {/* Quote Upload Results Modal */}
+      {quoteUploadResults && (
+        <QuoteUploadResultsModal
+          open={showQuoteResultsModal}
+          onOpenChange={setShowQuoteResultsModal}
+          results={quoteUploadResults}
+        />
+      )}
 
       {/* Assign Lead Source Modal */}
       <AssignLeadSourceModal
