@@ -37,6 +37,7 @@ import { LqsBucketSelector, BucketType } from '@/components/lqs/LqsBucketSelecto
 import { LqsActionDropdowns } from '@/components/lqs/LqsActionDropdowns';
 import { AddLeadModal } from '@/components/lqs/AddLeadModal';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { LqsGroupedSection } from '@/components/lqs/LqsGroupedSection';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult } from '@/types/lqs';
@@ -630,23 +631,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             {isGroupedView && (
               <TabsContent value={activeTab} className="mt-4 space-y-6">
                 {Object.entries(groupedData).map(([groupName, households]) => (
-                  <div key={groupName}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold">
-                        {activeTab === 'by-date' && groupName !== 'Unknown'
-                          ? format(parseISO(groupName), 'MMMM d, yyyy')
-                          : groupName}
-                      </h3>
-                      <Badge variant="secondary">{households.length}</Badge>
-                    </div>
-                    <LqsHouseholdTable
-                      households={households}
-                      loading={isLoading}
-                      onAssignLeadSource={handleAssignLeadSource}
-                      onViewHouseholdDetail={handleViewHouseholdDetail}
-                      onViewSaleDetail={handleViewSaleDetail}
-                    />
-                  </div>
+                  <LqsGroupedSection
+                    key={groupName}
+                    groupName={groupName}
+                    households={households}
+                    activeTab={activeTab}
+                    onAssignLeadSource={handleAssignLeadSource}
+                    onViewHouseholdDetail={handleViewHouseholdDetail}
+                    onViewSaleDetail={handleViewSaleDetail}
+                    isLoading={isLoading}
+                  />
                 ))}
                 {Object.keys(groupedData).length === 0 && !isLoading && (
                   <p className="text-center text-muted-foreground py-8">
