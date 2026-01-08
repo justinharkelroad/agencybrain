@@ -219,31 +219,25 @@ async function processInBackground(
               }
             }
             
-            // ATOMIC UPSERT for quote
+            // INSERT quote (no unique constraint exists for upsert)
             const { data: quote, error: quoteError } = await supabase
               .from('lqs_quotes')
-              .upsert(
-                {
-                  household_id: householdId,
-                  agency_id: context.agencyId,
-                  team_member_id: quoteTeamMemberId,
-                  quote_date: record.quoteDate,
-                  product_type: record.productType,
-                  items_quoted: record.itemsQuoted,
-                  premium_cents: record.premiumCents,
-                  issued_policy_number: record.issuedPolicyNumber,
-                  source: 'allstate_report',
-                },
-                {
-                  onConflict: 'agency_id,household_id,quote_date,product_type',
-                  ignoreDuplicates: false,
-                }
-              )
-              .select('id, created_at')
+              .insert({
+                household_id: householdId,
+                agency_id: context.agencyId,
+                team_member_id: quoteTeamMemberId,
+                quote_date: record.quoteDate,
+                product_type: record.productType,
+                items_quoted: record.itemsQuoted,
+                premium_cents: record.premiumCents,
+                issued_policy_number: record.issuedPolicyNumber,
+                source: 'allstate_report',
+              })
+              .select('id')
               .single();
 
             if (quoteError) {
-              throw new Error(`Failed to upsert quote: ${quoteError.message}`);
+              throw new Error(`Failed to insert quote: ${quoteError.message}`);
             }
             
             // Count as created - can't distinguish without updated_at column
