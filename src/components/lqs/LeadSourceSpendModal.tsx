@@ -276,7 +276,7 @@ export const LeadSourceSpendModal = ({
                   <TableBody>
                     {spendHistory.map((spend) => (
                       <TableRow key={spend.id}>
-                        <TableCell>{format(new Date(spend.month), 'MMM yyyy')}</TableCell>
+                        <TableCell>{format(new Date(spend.month + 'T12:00:00'), 'MMM yyyy')}</TableCell>
                         {!isFixedCost && (
                           <TableCell>
                             {spend.cost_per_unit_cents
