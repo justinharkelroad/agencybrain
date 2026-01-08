@@ -92,6 +92,15 @@ export function Core4Card() {
         <div className="grid grid-cols-2 gap-3">
           {domains.map(({ key, label, icon: Icon }) => {
             const completed = isDomainCompleted(key);
+            
+            // Domain-specific colors matching the Core4 page
+            const domainColors: Record<Core4Domain, string> = {
+              body: "bg-emerald-500 shadow-emerald-500/25",
+              being: "bg-purple-500 shadow-purple-500/25",
+              balance: "bg-rose-500 shadow-rose-500/25",
+              business: "bg-blue-500 shadow-blue-500/25",
+            };
+            
             return (
               <button
                 key={key}
@@ -100,7 +109,7 @@ export function Core4Card() {
                   "flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-lg transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   completed
-                    ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25"
+                    ? `${domainColors[key]} text-white shadow-lg`
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}
               >
