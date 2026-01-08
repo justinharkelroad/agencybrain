@@ -405,6 +405,9 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             onAddLead={() => setAddLeadModalOpen(true)}
             onAddQuote={() => setAddQuoteModalOpen(true)}
             onUploadQuotes={() => setUploadModalOpen(true)}
+            agencyId={agencyProfile?.agencyId ?? ''}
+            leadSources={leadSources}
+            onUploadComplete={() => refetch()}
           />
           <Button 
             variant="outline" 
