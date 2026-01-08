@@ -9,6 +9,8 @@ import { useQuoteBackgroundUpload } from '@/hooks/useQuoteBackgroundUpload';
 import type { QuoteParseResult } from '@/types/lqs';
 import { cn } from '@/lib/utils';
 
+import type { QuoteUploadResult } from '@/types/lqs';
+
 interface QuoteReportUploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,6 +18,7 @@ interface QuoteReportUploadModalProps {
   userId: string | null;
   displayName: string;
   onUploadComplete?: () => void;
+  onUploadResults?: (result: QuoteUploadResult) => void;
 }
 
 type UploadState = 'idle' | 'parsing' | 'error';
@@ -27,6 +30,7 @@ export function QuoteReportUploadModal({
   userId,
   displayName,
   onUploadComplete,
+  onUploadResults,
 }: QuoteReportUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>('idle');
@@ -115,7 +119,7 @@ export function QuoteReportUploadModal({
         agencyId,
         userId,
         displayName,
-      });
+      }, onUploadResults);
 
       // Close modal immediately and trigger callback
       if (onUploadComplete) {

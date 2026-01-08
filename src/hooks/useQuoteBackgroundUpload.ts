@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import type { ParsedQuoteRow, QuoteUploadContext } from '@/types/lqs';
+import type { ParsedQuoteRow, QuoteUploadContext, QuoteUploadResult } from '@/types/lqs';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 
 interface TeamMember {
@@ -55,7 +55,8 @@ export function useQuoteBackgroundUpload() {
 
   const startBackgroundUpload = (
     records: ParsedQuoteRow[],
-    context: QuoteUploadContext
+    context: QuoteUploadContext,
+    onComplete?: (result: QuoteUploadResult) => void
   ) => {
     // Show immediate feedback
     toast({
@@ -64,7 +65,7 @@ export function useQuoteBackgroundUpload() {
     });
 
     // Fire and forget - process in background
-    processInBackground(records, context, queryClient);
+    processInBackground(records, context, queryClient, onComplete);
   };
 
   return { startBackgroundUpload };
@@ -73,7 +74,8 @@ export function useQuoteBackgroundUpload() {
 async function processInBackground(
   records: ParsedQuoteRow[],
   context: QuoteUploadContext,
-  queryClient: ReturnType<typeof useQueryClient>
+  queryClient: ReturnType<typeof useQueryClient>,
+  onComplete?: (result: QuoteUploadResult) => void
 ) {
   let householdsCreated = 0;
   let householdsUpdated = 0;
@@ -81,7 +83,9 @@ async function processInBackground(
   let quotesUpdated = 0;
   let teamMembersMatched = 0;
   let errorCount = 0;
+  let householdsNeedingAttention = 0;
   const unmatchedProducerSet = new Set<string>();
+  const errors: string[] = [];
 
   try {
     // Fetch team members for this agency
@@ -151,16 +155,18 @@ async function processInBackground(
           
           const { data: existingHousehold } = await supabase
             .from('lqs_households')
-            .select('id, lead_source_id')
+            .select('id, lead_source_id, needs_attention')
             .eq('agency_id', context.agencyId)
             .eq('household_key', householdKey)
             .maybeSingle();
 
           let householdId: string;
           let householdResult: 'created' | 'updated';
+          let needsAttention = false;
           
           if (existingHousehold) {
             householdId = existingHousehold.id;
+            needsAttention = existingHousehold.needs_attention || false;
             
             const updates: Record<string, any> = {};
             if (teamMemberId) {
@@ -176,6 +182,7 @@ async function processInBackground(
             
             householdResult = 'updated';
           } else {
+            needsAttention = true;
             const { data: newHousehold, error: hhError } = await supabase
               .from('lqs_households')
               .insert({
@@ -252,6 +259,7 @@ async function processInBackground(
             teamMatched: teamMemberId !== null,
             householdResult,
             quoteResult,
+            needsAttention,
           };
         })
       );
@@ -265,15 +273,23 @@ async function processInBackground(
           else if (value.householdResult === 'updated') householdsUpdated++;
           if (value.quoteResult === 'created') quotesCreated++;
           else if (value.quoteResult === 'updated') quotesUpdated++;
+          if (value.needsAttention) householdsNeedingAttention++;
         } else {
           errorCount++;
+          errors.push(result.reason?.message || 'Unknown error');
         }
       }
     }
 
     // Auto-sync sales
+    let salesLinked = 0;
+    let salesNoMatch = 0;
     try {
-      await supabase.rpc('backfill_lqs_sales_matching', { p_agency_id: context.agencyId });
+      const { data: syncResults } = await supabase.rpc('backfill_lqs_sales_matching', { p_agency_id: context.agencyId });
+      if (syncResults) {
+        salesLinked = syncResults.filter((r: { status: string }) => r.status === 'linked').length;
+        salesNoMatch = syncResults.filter((r: { status: string }) => r.status === 'no_match').length;
+      }
     } catch (syncErr) {
       console.error('Sales sync failed:', syncErr);
     }
@@ -283,29 +299,41 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
     queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
 
+    // Build final result
+    const result: QuoteUploadResult = {
+      success: errorCount === 0,
+      recordsProcessed: householdsCreated + householdsUpdated,
+      householdsCreated,
+      householdsUpdated,
+      quotesCreated,
+      quotesUpdated,
+      teamMembersMatched,
+      unmatchedProducers: Array.from(unmatchedProducerSet),
+      householdsNeedingAttention,
+      errors,
+      salesLinked,
+      salesNoMatch,
+    };
+
     // Show completion toast
-    const totalProcessed = householdsCreated + householdsUpdated;
+    const hasWarnings = unmatchedProducerSet.size > 0 || householdsNeedingAttention > 0;
     
     if (errorCount === 0) {
       toast({
         title: 'Quote Upload Complete!',
-        description: `${quotesCreated + quotesUpdated} quotes processed (${quotesCreated} new, ${quotesUpdated} updated)`,
+        description: `${quotesCreated + quotesUpdated} quotes (${householdsCreated} new, ${householdsUpdated} updated households)`,
       });
     } else {
       toast({
         title: 'Upload completed with issues',
-        description: `${totalProcessed} succeeded, ${errorCount} failed`,
+        description: `${householdsCreated + householdsUpdated} succeeded, ${errorCount} failed`,
         variant: 'destructive',
       });
     }
 
-    // Show unmatched producers warning if any
-    if (unmatchedProducerSet.size > 0) {
-      toast({
-        title: `${unmatchedProducerSet.size} sub-producer(s) not matched`,
-        description: 'Add sub-producer codes to team member profiles for automatic matching.',
-        variant: 'default',
-      });
+    // Callback with results - page will auto-show modal if warnings
+    if (onComplete) {
+      onComplete(result);
     }
 
   } catch (error: any) {
@@ -314,5 +342,23 @@ async function processInBackground(
       description: error.message || 'An error occurred during processing',
       variant: 'destructive',
     });
+    
+    // Send error result to callback
+    if (onComplete) {
+      onComplete({
+        success: false,
+        recordsProcessed: 0,
+        householdsCreated: 0,
+        householdsUpdated: 0,
+        quotesCreated: 0,
+        quotesUpdated: 0,
+        teamMembersMatched: 0,
+        unmatchedProducers: [],
+        householdsNeedingAttention: 0,
+        errors: [error.message || 'Unknown error'],
+        salesLinked: 0,
+        salesNoMatch: 0,
+      });
+    }
   }
 }
