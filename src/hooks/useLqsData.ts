@@ -80,7 +80,8 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
           team_member:team_members(id, name)
         `)
         .eq('agency_id', agencyId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10000);
 
       if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
