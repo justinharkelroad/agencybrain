@@ -32,6 +32,7 @@ import { SaleDetailModal } from '@/components/sales/SaleDetailModal';
 import { AssignLeadSourceModal } from '@/components/lqs/AssignLeadSourceModal';
 import { QuoteReportUploadModal } from '@/components/lqs/QuoteReportUploadModal';
 import { QuoteUploadResultsModal } from '@/components/lqs/QuoteUploadResultsModal';
+import { SalesUploadResultsModal } from '@/components/lqs/SalesUploadResultsModal';
 import { LqsOverviewDashboard } from '@/components/lqs/LqsOverviewDashboard';
 import { LqsBucketSelector, BucketType } from '@/components/lqs/LqsBucketSelector';
 import { LqsActionDropdowns } from '@/components/lqs/LqsActionDropdowns';
@@ -739,6 +740,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         canEditAllSales={true}
         onEdit={(saleId) => navigate(`/sales?tab=add&edit=${saleId}`)}
       />
+
+      {/* Sales Upload Results Modal */}
+      {salesUploadResults && (
+        <SalesUploadResultsModal
+          open={showSalesResultsModal}
+          onOpenChange={setShowSalesResultsModal}
+          results={salesUploadResults}
+        />
+      )}
     </div>
   );
 }
