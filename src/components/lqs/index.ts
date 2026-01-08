@@ -15,6 +15,7 @@ export * from './LqsBucketSelector';
 export * from './LqsActionDropdowns';
 export * from './AddLeadModal';
 export * from './AddQuoteModal';
+export * from './LeadUploadModal';
 
 // Cost type label mapping for UI display
 export const COST_TYPE_LABELS: Record<string, string> = {

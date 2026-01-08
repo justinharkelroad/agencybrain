@@ -171,3 +171,51 @@ export interface QuoteUploadResult {
   salesLinked: number;
   salesNoMatch: number;
 }
+
+// ==================== Lead Upload Types ====================
+
+export interface ParsedLeadRow {
+  firstName: string;
+  lastName: string;
+  zipCode: string;
+  phone: string | null;
+  email: string | null;
+  productsInterested: string[] | null;
+  leadDate: string | null;
+  rowNumber: number;
+  householdKey: string;
+}
+
+export interface LeadUploadContext {
+  agencyId: string;
+  leadSourceId: string;
+}
+
+export interface LeadUploadResult {
+  success: boolean;
+  recordsProcessed: number;
+  leadsCreated: number;
+  leadsUpdated: number;
+  skipped: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+export interface LeadColumnMapping {
+  first_name: string | null;
+  last_name: string | null;
+  zip_code: string | null;
+  phone: string | null;
+  email: string | null;
+  products_interested: string | null;
+  lead_date: string | null;
+}
+
+export interface ParsedLeadFileResult {
+  success: boolean;
+  headers: string[];
+  sampleRows: Record<string, string>[];
+  allRows: any[][];
+  totalRows: number;
+  suggestedMapping: LeadColumnMapping;
+  errors: string[];
+}
