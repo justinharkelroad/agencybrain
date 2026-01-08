@@ -2,15 +2,14 @@ import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { parseLeadFile, applyLeadColumnMapping } from '@/lib/lead-csv-parser';
-import { useLeadUpload } from '@/hooks/useLeadUpload';
+import { useLeadBackgroundUpload } from '@/hooks/useLeadBackgroundUpload';
 import { LqsLeadSource } from '@/hooks/useLqsData';
-import type { LeadColumnMapping, ParsedLeadFileResult, LeadUploadResult } from '@/types/lqs';
+import type { LeadColumnMapping, ParsedLeadFileResult } from '@/types/lqs';
 import { cn } from '@/lib/utils';
 
 interface LeadUploadModalProps {
@@ -21,7 +20,7 @@ interface LeadUploadModalProps {
   onUploadComplete?: () => void;
 }
 
-type Step = 'source' | 'upload' | 'mapping' | 'processing' | 'results';
+type Step = 'source' | 'upload' | 'mapping';
 
 const TARGET_FIELDS: { key: keyof LeadColumnMapping; label: string; required: boolean }[] = [
   { key: 'first_name', label: 'First Name', required: true },
@@ -61,10 +60,10 @@ export function LeadUploadModal({
     lead_date: null,
   });
   
-  // Step 4/5: Processing & Results
-  const [uploadResult, setUploadResult] = useState<LeadUploadResult | null>(null);
+  // Starting state for button
+  const [isStarting, setIsStarting] = useState(false);
   
-  const { uploadLeads, isUploading, progress } = useLeadUpload();
+  const { startBackgroundUpload } = useLeadBackgroundUpload();
 
   // Group lead sources by bucket
   const groupedSources = leadSources.reduce((acc, source) => {
@@ -124,34 +123,36 @@ export function LeadUploadModal({
     .filter(f => f.required)
     .every(f => columnMapping[f.key] !== null);
 
-  const handleStartUpload = async () => {
+  const handleStartUpload = () => {
     if (!parseResult || !selectedLeadSourceId) return;
     
-    setCurrentStep('processing');
+    setIsStarting(true);
     
-    const { records, errors: parseErrors } = applyLeadColumnMapping(
+    const { records } = applyLeadColumnMapping(
       parseResult.allRows,
       parseResult.headers,
       columnMapping
     );
     
-    const result = await uploadLeads(records, {
-      agencyId,
-      leadSourceId: selectedLeadSourceId,
-    });
+    const selectedSource = leadSources.find(s => s.id === selectedLeadSourceId);
     
-    // Add parse errors to result
-    result.errors = [...parseErrors, ...result.errors];
-    result.skipped = parseErrors.length;
+    // Start background upload - fire and forget
+    startBackgroundUpload(
+      records,
+      { agencyId, leadSourceId: selectedLeadSourceId },
+      selectedSource?.name || 'Unknown Source'
+    );
     
-    setUploadResult(result);
-    setCurrentStep('results');
+    // Close modal immediately
+    handleClose();
+    
+    // Trigger callback
+    if (onUploadComplete) {
+      onUploadComplete();
+    }
   };
 
   const handleClose = () => {
-    if (currentStep === 'results' && onUploadComplete) {
-      onUploadComplete();
-    }
     // Reset all state
     setCurrentStep('source');
     setSelectedLeadSourceId('');
@@ -166,7 +167,7 @@ export function LeadUploadModal({
       products_interested: null,
       lead_date: null,
     });
-    setUploadResult(null);
+    setIsStarting(false);
     onOpenChange(false);
   };
 
@@ -179,7 +180,7 @@ export function LeadUploadModal({
         {currentStep === 'source' && (
           <>
             <DialogHeader>
-              <DialogTitle>Upload Leads - Step 1 of 4</DialogTitle>
+              <DialogTitle>Upload Leads - Step 1 of 3</DialogTitle>
               <DialogDescription>
                 Select the lead source for this upload. All leads will be assigned to this source.
               </DialogDescription>
@@ -232,7 +233,7 @@ export function LeadUploadModal({
         {currentStep === 'upload' && (
           <>
             <DialogHeader>
-              <DialogTitle>Upload Leads - Step 2 of 4</DialogTitle>
+              <DialogTitle>Upload Leads - Step 2 of 3</DialogTitle>
               <DialogDescription>
                 Upload a CSV or Excel file containing your leads.
                 <br />
@@ -291,7 +292,7 @@ export function LeadUploadModal({
         {currentStep === 'mapping' && parseResult && (
           <>
             <DialogHeader>
-              <DialogTitle>Upload Leads - Step 3 of 4</DialogTitle>
+              <DialogTitle>Upload Leads - Step 3 of 3</DialogTitle>
               <DialogDescription>
                 Map your file columns to lead fields. Required fields are marked with *.
               </DialogDescription>
@@ -387,104 +388,21 @@ export function LeadUploadModal({
                   <Button variant="outline" onClick={handleClose}>Cancel</Button>
                   <Button 
                     onClick={handleStartUpload} 
-                    disabled={!requiredFieldsMapped || isUploading}
+                    disabled={!requiredFieldsMapped || isStarting}
                   >
-                    Upload Leads
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    {isStarting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        Upload Leads
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Step 4: Processing */}
-        {currentStep === 'processing' && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Uploading Leads...</DialogTitle>
-              <DialogDescription className="sr-only">
-                Processing lead upload
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-8">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Processing records...</span>
-                <span className="text-muted-foreground">{progress}%</span>
-              </div>
-              <Progress value={progress} />
-            </div>
-          </>
-        )}
-
-        {/* Step 5: Results */}
-        {currentStep === 'results' && uploadResult && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-500">
-                <CheckCircle2 className="h-5 w-5" />
-                Upload Complete
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Lead upload results
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              {/* File info */}
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                <FileSpreadsheet className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-foreground flex-1 truncate">
-                  {selectedFile?.name}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  → {selectedSource?.name}
-                </span>
-              </div>
-
-              {/* Results summary */}
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
-                <h4 className="font-medium text-foreground mb-3">Results</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Rows Processed:</span>
-                    <span className="font-medium text-foreground">{uploadResult.recordsProcessed}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Leads Created:</span>
-                    <span className="font-medium text-green-500">{uploadResult.leadsCreated}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Leads Updated:</span>
-                    <span className="font-medium text-blue-500">{uploadResult.leadsUpdated}</span>
-                  </div>
-                  {uploadResult.skipped > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Skipped (Errors):</span>
-                      <span className="font-medium text-destructive">{uploadResult.skipped}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Errors if any */}
-              {uploadResult.errors.length > 0 && (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
-                  <p className="text-sm font-medium text-destructive mb-1">Errors:</p>
-                  <ul className="text-xs text-destructive/80 list-disc list-inside max-h-32 overflow-y-auto">
-                    {uploadResult.errors.slice(0, 10).map((error, idx) => (
-                      <li key={idx}>Row {error.row}: {error.message}</li>
-                    ))}
-                    {uploadResult.errors.length > 10 && (
-                      <li>...and {uploadResult.errors.length - 10} more</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button onClick={handleClose}>Done</Button>
               </div>
             </div>
           </>
