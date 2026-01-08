@@ -103,7 +103,6 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roadmap',
         access: { staff: false, manager: true, owner: true },
-        adminOnly: true,
         emailRestriction: 'justin@hfiagencies.com',
       },
       {
