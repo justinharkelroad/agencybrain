@@ -17,6 +17,8 @@ export * from './LqsActionDropdowns';
 export * from './AddLeadModal';
 export * from './AddQuoteModal';
 export * from './LeadUploadModal';
+export * from './SalesUploadModal';
+export * from './SalesUploadResultsModal';
 
 // Cost type label mapping for UI display
 export const COST_TYPE_LABELS: Record<string, string> = {

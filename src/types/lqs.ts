@@ -219,3 +219,48 @@ export interface ParsedLeadFileResult {
   suggestedMapping: LeadColumnMapping;
   errors: string[];
 }
+
+// ==================== Sales Upload Types ====================
+
+export interface ParsedSaleRow {
+  subProducerRaw: string;
+  subProducerCode: string | null;
+  subProducerName: string | null;
+  firstName: string;
+  lastName: string;
+  zipCode: string;
+  saleDate: string; // YYYY-MM-DD
+  productType: string;
+  itemsSold: number;
+  premiumCents: number;
+  policyNumber: string | null;
+  householdKey: string;
+  rowNumber: number;
+}
+
+export interface SalesParseResult {
+  success: boolean;
+  records: ParsedSaleRow[];
+  errors: string[];
+  duplicatesRemoved: number;
+  dateRange: { start: string; end: string } | null;
+}
+
+export interface SalesUploadContext {
+  agencyId: string;
+  userId: string | null;
+  displayName: string;
+}
+
+export interface SalesUploadResult {
+  success: boolean;
+  recordsProcessed: number;
+  salesCreated: number;
+  householdsMatched: number;
+  householdsCreated: number;
+  quotesLinked: number;
+  teamMembersMatched: number;
+  unmatchedProducers: string[];
+  householdsNeedingAttention: number;
+  errors: string[];
+}
