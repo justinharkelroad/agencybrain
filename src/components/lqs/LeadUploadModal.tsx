@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, FileSpreadsheet, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { parseLeadFile, applyLeadColumnMapping } from '@/lib/lead-csv-parser';
 import { useLeadBackgroundUpload } from '@/hooks/useLeadBackgroundUpload';
@@ -22,11 +23,11 @@ interface LeadUploadModalProps {
 
 type Step = 'source' | 'upload' | 'mapping';
 
-const TARGET_FIELDS: { key: keyof LeadColumnMapping; label: string; required: boolean }[] = [
+// Target fields - phones is handled separately with multi-select
+const SINGLE_TARGET_FIELDS: { key: keyof Omit<LeadColumnMapping, 'phones'>; label: string; required: boolean }[] = [
   { key: 'first_name', label: 'First Name', required: true },
   { key: 'last_name', label: 'Last Name', required: true },
   { key: 'zip_code', label: 'ZIP Code', required: true },
-  { key: 'phone', label: 'Phone', required: false },
   { key: 'email', label: 'Email', required: false },
   { key: 'products_interested', label: 'Products Interested', required: false },
   { key: 'lead_date', label: 'Lead Date', required: false },
@@ -54,7 +55,7 @@ export function LeadUploadModal({
     first_name: null,
     last_name: null,
     zip_code: null,
-    phone: null,
+    phones: null,
     email: null,
     products_interested: null,
     lead_date: null,
@@ -72,6 +73,12 @@ export function LeadUploadModal({
     acc[bucketName].push(source);
     return acc;
   }, {} as Record<string, LqsLeadSource[]>);
+
+  // Detect phone columns from headers
+  const phoneColumnCandidates = parseResult?.headers.filter(h => {
+    const lower = h.toLowerCase();
+    return lower.includes('phone') || lower.includes('tel') || lower.includes('mobile') || lower.includes('cell');
+  }) || [];
 
   const handleFileSelect = useCallback(async (file: File) => {
     const isValidType = file.name.endsWith('.csv') || 
@@ -112,16 +119,38 @@ export function LeadUploadModal({
     multiple: false,
   });
 
-  const handleMappingChange = (field: keyof LeadColumnMapping, value: string) => {
+  const handleMappingChange = (field: keyof Omit<LeadColumnMapping, 'phones'>, value: string) => {
     setColumnMapping(prev => ({
       ...prev,
       [field]: value === '__ignore__' ? null : value,
     }));
   };
 
-  const requiredFieldsMapped = TARGET_FIELDS
+  const handlePhoneColumnToggle = (columnName: string, checked: boolean) => {
+    setColumnMapping(prev => {
+      const currentPhones = prev.phones || [];
+      if (checked) {
+        return { ...prev, phones: [...currentPhones, columnName] };
+      } else {
+        return { ...prev, phones: currentPhones.filter(c => c !== columnName) };
+      }
+    });
+  };
+
+  const requiredFieldsMapped = SINGLE_TARGET_FIELDS
     .filter(f => f.required)
     .every(f => columnMapping[f.key] !== null);
+
+  // Get preview of phone values
+  const getPhonePreview = (): string => {
+    if (!parseResult || !columnMapping.phones || columnMapping.phones.length === 0) return '';
+    const phones: string[] = [];
+    for (const colName of columnMapping.phones) {
+      const sampleValue = parseResult.sampleRows[0]?.[colName];
+      if (sampleValue) phones.push(sampleValue);
+    }
+    return phones.join(', ');
+  };
 
   const handleStartUpload = () => {
     if (!parseResult || !selectedLeadSourceId) return;
@@ -162,7 +191,7 @@ export function LeadUploadModal({
       first_name: null,
       last_name: null,
       zip_code: null,
-      phone: null,
+      phones: null,
       email: null,
       products_interested: null,
       lead_date: null,
@@ -310,7 +339,7 @@ export function LeadUploadModal({
                 </span>
               </div>
 
-              {/* Mapping table */}
+              {/* Single-select mapping table */}
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
@@ -321,7 +350,7 @@ export function LeadUploadModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {TARGET_FIELDS.map(field => {
+                    {SINGLE_TARGET_FIELDS.map(field => {
                       const mappedColumn = columnMapping[field.key];
                       const sampleValues = mappedColumn 
                         ? parseResult.sampleRows.map(r => r[mappedColumn]).filter(Boolean).slice(0, 2)
@@ -369,6 +398,67 @@ export function LeadUploadModal({
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Phone columns - multi-select with checkboxes */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Phone Columns</Label>
+                  <span className="text-xs text-muted-foreground">Select all that apply</span>
+                </div>
+                
+                {phoneColumnCandidates.length > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      {phoneColumnCandidates.map(col => (
+                        <div key={col} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`phone-col-${col}`}
+                            checked={columnMapping.phones?.includes(col) || false}
+                            onCheckedChange={(checked) => handlePhoneColumnToggle(col, checked as boolean)}
+                          />
+                          <Label htmlFor={`phone-col-${col}`} className="text-sm font-normal cursor-pointer">
+                            {col}
+                            {parseResult.sampleRows[0]?.[col] && (
+                              <span className="text-muted-foreground ml-2">
+                                ({parseResult.sampleRows[0][col]})
+                              </span>
+                            )}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Phone preview */}
+                    {columnMapping.phones && columnMapping.phones.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground">
+                          Preview: <span className="font-medium text-foreground">{getPhonePreview()}</span>
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      No phone columns detected. Select any column to use as phone:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {parseResult.headers.slice(0, 8).map(col => (
+                        <div key={col} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`phone-col-${col}`}
+                            checked={columnMapping.phones?.includes(col) || false}
+                            onCheckedChange={(checked) => handlePhoneColumnToggle(col, checked as boolean)}
+                          />
+                          <Label htmlFor={`phone-col-${col}`} className="text-xs font-normal cursor-pointer truncate">
+                            {col}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {!requiredFieldsMapped && (

@@ -46,7 +46,7 @@ export interface LqsHousehold {
   first_name: string;
   last_name: string;
   zip_code: string;
-  phone: string | null;
+  phone: string[] | null;
   email: string | null;
   lead_source_id: string | null;
   status: LeadStatus;
@@ -178,7 +178,7 @@ export interface ParsedLeadRow {
   firstName: string;
   lastName: string;
   zipCode: string;
-  phone: string | null;
+  phones: string[] | null;
   email: string | null;
   productsInterested: string[] | null;
   leadDate: string | null;
@@ -204,7 +204,7 @@ export interface LeadColumnMapping {
   first_name: string | null;
   last_name: string | null;
   zip_code: string | null;
-  phone: string | null;
+  phones: string[] | null;  // Array of column names to merge into phones array
   email: string | null;
   products_interested: string | null;
   lead_date: string | null;

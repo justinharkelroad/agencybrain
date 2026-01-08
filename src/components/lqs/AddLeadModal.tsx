@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
@@ -63,7 +63,7 @@ export function AddLeadModal({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phones, setPhones] = useState<string[]>(['']);
   const [email, setEmail] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
   const [productsInterested, setProductsInterested] = useState<string[]>([]);
@@ -74,12 +74,28 @@ export function AddLeadModal({
     setFirstName('');
     setLastName('');
     setZipCode('');
-    setPhone('');
+    setPhones(['']);
     setEmail('');
     setLeadSourceId('');
     setProductsInterested([]);
     setTeamMemberId(currentTeamMemberId || '');
     setLeadDate(format(new Date(), 'yyyy-MM-dd'));
+  };
+
+  const handleAddPhone = () => {
+    setPhones([...phones, '']);
+  };
+
+  const handleRemovePhone = (index: number) => {
+    if (phones.length > 1) {
+      setPhones(phones.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePhoneChange = (index: number, value: string) => {
+    const newPhones = [...phones];
+    newPhones[index] = value;
+    setPhones(newPhones);
   };
 
   const handleSubmit = async () => {
@@ -107,6 +123,9 @@ export function AddLeadModal({
       // Generate household key
       const householdKey = `${lastName.trim().toUpperCase()}_${firstName.trim().toUpperCase()}_${zipCode.trim()}`;
 
+      // Clean phone array (remove empty values)
+      const cleanedPhones = phones.filter(p => p.trim() !== '');
+
       // Check if household exists
       const { data: existingHousehold } = await supabase
         .from('lqs_households')
@@ -120,7 +139,7 @@ export function AddLeadModal({
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
-            phone: phone || null,
+            phone: cleanedPhones.length > 0 ? cleanedPhones : null,
             email: email || null,
             lead_source_id: leadSourceId,
             team_member_id: teamMemberId || null,
@@ -141,7 +160,7 @@ export function AddLeadModal({
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             zip_code: zipCode.trim(),
-            phone: phone || null,
+            phone: cleanedPhones.length > 0 ? cleanedPhones : null,
             email: email || null,
             status: 'lead',
             lead_source_id: leadSourceId,
@@ -227,27 +246,53 @@ export function AddLeadModal({
             />
           </div>
 
-          {/* Contact Info Row */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Phone Numbers */}
+          <div className="space-y-2">
+            <Label>Phone Numbers</Label>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(555) 123-4567"
-              />
+              {phones.map((phone, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(index, e.target.value)}
+                    placeholder={index === 0 ? "(555) 123-4567" : `Phone ${index + 1}`}
+                  />
+                  {phones.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 w-9 p-0"
+                      onClick={() => handleRemovePhone(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={handleAddPhone}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Another Phone
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
-              />
-            </div>
+          </div>
+
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="john@example.com"
+            />
           </div>
 
           {/* Lead Source */}

@@ -5,6 +5,35 @@ import type { ParsedLeadRow, LeadUploadContext } from '@/types/lqs';
 
 const BATCH_SIZE = 50;
 
+/**
+ * Normalize phone number for deduplication (remove non-digits)
+ */
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, '');
+}
+
+/**
+ * Merge phone arrays, deduplicating by normalized value
+ */
+function mergePhones(existing: string[] | null, incoming: string[] | null): string[] {
+  const existingPhones = existing || [];
+  const newPhones = incoming || [];
+  
+  // Track seen normalized values
+  const seen = new Set(existingPhones.map(normalizePhone));
+  const merged = [...existingPhones];
+  
+  for (const phone of newPhones) {
+    const normalized = normalizePhone(phone);
+    if (normalized && !seen.has(normalized)) {
+      merged.push(phone);
+      seen.add(normalized);
+    }
+  }
+  
+  return merged;
+}
+
 export function useLeadBackgroundUpload() {
   const queryClient = useQueryClient();
 
@@ -69,10 +98,16 @@ async function processInBackground(
             // UPDATE existing - merge data, KEEP existing lead_source if already set
             const updates: Record<string, any> = {};
 
-            // Only update if new value exists and existing is null
-            if (record.phone && !existing.phone) {
-              updates.phone = record.phone;
+            // Merge phone arrays with deduplication
+            if (record.phones && record.phones.length > 0) {
+              const existingPhones = existing.phone as string[] | null;
+              const mergedPhones = mergePhones(existingPhones, record.phones);
+              if (mergedPhones.length > (existingPhones?.length || 0)) {
+                updates.phone = mergedPhones;
+              }
             }
+            
+            // Only update email if new value exists and existing is null
             if (record.email && !existing.email) {
               updates.email = record.email;
             }
@@ -99,7 +134,7 @@ async function processInBackground(
 
             return 'updated';
           } else {
-            // INSERT new household
+            // INSERT new household with phone as array
             const { error: insertError } = await supabase
               .from('lqs_households')
               .insert({
@@ -108,7 +143,7 @@ async function processInBackground(
                 first_name: record.firstName,
                 last_name: record.lastName,
                 zip_code: record.zipCode,
-                phone: record.phone,
+                phone: record.phones,  // Already an array
                 email: record.email,
                 products_interested: record.productsInterested,
                 lead_source_id: context.leadSourceId,

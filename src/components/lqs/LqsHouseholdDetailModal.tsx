@@ -26,6 +26,8 @@ import {
   Calendar,
   FileText,
   Tag,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
@@ -46,27 +48,50 @@ export function LqsHouseholdDetailModal({
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editPhone, setEditPhone] = useState('');
+  const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
 
   // Reset edit state when household changes
   useEffect(() => {
     if (household) {
-      setEditPhone(household.phone || '');
+      // Handle both array and string formats for backwards compatibility
+      const phones = Array.isArray(household.phone) 
+        ? household.phone 
+        : household.phone ? [household.phone] : [];
+      setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
       setIsEditing(false);
     }
   }, [household]);
+
+  const handleAddPhone = () => {
+    setEditPhones([...editPhones, '']);
+  };
+
+  const handleRemovePhone = (index: number) => {
+    if (editPhones.length > 1) {
+      setEditPhones(editPhones.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePhoneChange = (index: number, value: string) => {
+    const newPhones = [...editPhones];
+    newPhones[index] = value;
+    setEditPhones(newPhones);
+  };
 
   const handleSave = async () => {
     if (!household) return;
 
     setIsSaving(true);
     try {
+      // Filter out empty phone values
+      const cleanedPhones = editPhones.filter(p => p.trim() !== '');
+      
       const { error } = await supabase
         .from('lqs_households')
         .update({
-          phone: editPhone || null,
+          phone: cleanedPhones.length > 0 ? cleanedPhones : null,
           email: editEmail || null,
           updated_at: new Date().toISOString(),
         })
@@ -87,12 +112,22 @@ export function LqsHouseholdDetailModal({
   };
 
   const handleCancel = () => {
-    setEditPhone(household?.phone || '');
-    setEditEmail(household?.email || '');
+    if (household) {
+      const phones = Array.isArray(household.phone) 
+        ? household.phone 
+        : household.phone ? [household.phone] : [];
+      setEditPhones(phones.length > 0 ? phones : ['']);
+      setEditEmail(household.email || '');
+    }
     setIsEditing(false);
   };
 
   if (!household) return null;
+
+  // Get phone numbers as array for display
+  const phoneNumbers = Array.isArray(household.phone) 
+    ? household.phone 
+    : household.phone ? [household.phone] : [];
 
   // Countable quotes exclude Motor Club for metrics
   const countableQuotes = filterCountableQuotes(household.quotes || []);
@@ -158,19 +193,58 @@ export function LqsHouseholdDetailModal({
             </div>
 
             {/* Contact Info Grid */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {/* Phone */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-4 w-4 flex-shrink-0" />
+            <div className="grid grid-cols-1 gap-3 text-sm">
+              {/* Phone(s) */}
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <Phone className="h-4 w-4 flex-shrink-0 mt-1" />
                 {isEditing ? (
-                  <Input
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="Phone"
-                    className="h-8"
-                  />
+                  <div className="flex-1 space-y-2">
+                    {editPhones.map((phone, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={phone}
+                          onChange={(e) => handlePhoneChange(index, e.target.value)}
+                          placeholder={`Phone ${index + 1}`}
+                          className="h-8 flex-1"
+                        />
+                        {editPhones.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleRemovePhone(index)}
+                          >
+                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={handleAddPhone}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Phone
+                    </Button>
+                  </div>
                 ) : (
-                  <span>{household.phone || '—'}</span>
+                  <div className="flex flex-col gap-1">
+                    {phoneNumbers.length > 0 ? (
+                      phoneNumbers.map((phone, index) => (
+                        <a
+                          key={index}
+                          href={`tel:${phone}`}
+                          className="hover:underline text-foreground"
+                        >
+                          {phone}
+                        </a>
+                      ))
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -189,16 +263,17 @@ export function LqsHouseholdDetailModal({
                 )}
               </div>
 
-              {/* ZIP */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span>{household.zip_code || '—'}</span>
-              </div>
+              {/* ZIP & Producer row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                  <span>{household.zip_code || '—'}</span>
+                </div>
 
-              {/* Producer */}
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="h-4 w-4 flex-shrink-0" />
-                <span>{household.team_member?.name || '—'}</span>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span>{household.team_member?.name || '—'}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -274,11 +349,6 @@ export function LqsHouseholdDetailModal({
                         </div>
                         {quote.issued_policy_number && (
                           <div className="text-green-600 dark:text-green-400 font-medium">
-                            Policy: {quote.issued_policy_number}
-                          </div>
-                        )}
-                        {quote.issued_policy_number && (
-                          <div className="col-span-2 text-green-600 dark:text-green-400 font-medium">
                             Policy: {quote.issued_policy_number}
                           </div>
                         )}
