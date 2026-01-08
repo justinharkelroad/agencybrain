@@ -1,5 +1,6 @@
 // LQS (Lead → Quote → Sale) Components
 export * from './MarketingBucketModal';
+export { LqsGroupedSection } from './LqsGroupedSection';
 export * from './LeadSourceSpendModal';
 export * from './MarketingBucketList';
 export * from './EnhancedLeadSourceRow';
