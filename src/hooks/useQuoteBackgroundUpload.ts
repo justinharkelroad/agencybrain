@@ -132,7 +132,7 @@ async function processInBackground(
             const matched = codeToMember.get(record.subProducerCode.toLowerCase());
             if (matched) {
               teamMemberId = matched.id;
-              return { type: 'teamMatched' as const };
+              // Continue to household/quote processing - do NOT return early
             }
           }
           
