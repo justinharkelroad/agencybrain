@@ -217,12 +217,12 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Group households for grouped views
   const groupedData = useMemo(() => {
-    if (!bucketFilteredHouseholds) return {};
+    if (!filteredHouseholds) return {};
 
     switch (activeTab) {
       case 'by-date': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        bucketFilteredHouseholds.forEach(h => {
+        filteredHouseholds.forEach(h => {
           h.quotes?.forEach(q => {
             const date = q.quote_date || 'Unknown';
             if (!groups[date]) groups[date] = [];
@@ -237,7 +237,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       }
       case 'by-product': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        bucketFilteredHouseholds.forEach(h => {
+        filteredHouseholds.forEach(h => {
           const products = [...new Set(h.quotes?.map(q => q.product_type) || [])];
           products.forEach(product => {
             if (!groups[product]) groups[product] = [];
@@ -250,7 +250,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       }
       case 'by-source': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        bucketFilteredHouseholds.forEach(h => {
+        filteredHouseholds.forEach(h => {
           const sourceName = h.lead_source?.name || 'Unassigned';
           if (!groups[sourceName]) groups[sourceName] = [];
           groups[sourceName].push(h);
@@ -259,7 +259,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       }
       case 'by-producer': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        bucketFilteredHouseholds.forEach(h => {
+        filteredHouseholds.forEach(h => {
           const producerName = h.team_member?.name || 'Unassigned';
           if (!groups[producerName]) groups[producerName] = [];
           groups[producerName].push(h);
@@ -268,7 +268,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       }
       case 'by-zip': {
         const groups: Record<string, HouseholdWithRelations[]> = {};
-        bucketFilteredHouseholds.forEach(h => {
+        filteredHouseholds.forEach(h => {
           const zip = h.zip_code || 'Unknown';
           if (!groups[zip]) groups[zip] = [];
           groups[zip].push(h);
@@ -280,7 +280,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       default:
         return {};
     }
-  }, [bucketFilteredHouseholds, activeTab]);
+  }, [filteredHouseholds, activeTab]);
 
   const isGroupedView = ['by-date', 'by-product', 'by-source', 'by-producer', 'by-zip'].includes(activeTab);
 
