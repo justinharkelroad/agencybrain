@@ -9,6 +9,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { LqsHouseholdRow } from './LqsHouseholdRow';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 
@@ -20,6 +28,15 @@ interface LqsHouseholdTableProps {
   showBulkSelect?: boolean;
   onViewHouseholdDetail?: (household: HouseholdWithRelations) => void;
   onViewSaleDetail?: (saleId: string) => void;
+  // Pagination props
+  totalRecords?: number;
+  currentPage?: number;
+  totalPages?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  startRecord?: number;
+  endRecord?: number;
 }
 
 export function LqsHouseholdTable({
@@ -30,6 +47,14 @@ export function LqsHouseholdTable({
   showBulkSelect = false,
   onViewHouseholdDetail,
   onViewSaleDetail,
+  totalRecords,
+  currentPage,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  startRecord,
+  endRecord,
 }: LqsHouseholdTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -84,6 +109,8 @@ export function LqsHouseholdTable({
       </div>
     );
   }
+
+  const showPagination = totalRecords !== undefined && totalRecords > 0 && totalPages !== undefined;
 
   return (
     <div className="space-y-2">
@@ -146,6 +173,63 @@ export function LqsHouseholdTable({
             ))}
           </TableBody>
         </Table>
+
+        {/* Pagination Controls */}
+        {showPagination && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            {/* Record count */}
+            <div className="text-sm text-muted-foreground">
+              Showing {startRecord}-{endRecord} of {totalRecords} records
+            </div>
+            
+            {/* Page size selector and navigation */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Per page:</span>
+                <Select 
+                  value={String(pageSize)} 
+                  onValueChange={(v) => onPageSizeChange?.(Number(v))}
+                >
+                  <SelectTrigger className="w-[70px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Page navigation - only show if more than 1 page */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1}
+                    onClick={() => onPageChange?.(currentPage! - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm px-2">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === totalPages}
+                    onClick={() => onPageChange?.(currentPage! + 1)}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -18,6 +20,7 @@ import {
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { LqsLeadSource } from '@/hooks/useLqsData';
 
 interface LqsFiltersProps {
   searchTerm: string;
@@ -26,6 +29,10 @@ interface LqsFiltersProps {
   onStatusChange: (value: string) => void;
   dateRange: { start: Date; end: Date } | null;
   onDateRangeChange: (range: { start: Date; end: Date } | null) => void;
+  // Lead source filter props
+  leadSources?: LqsLeadSource[];
+  selectedLeadSourceId?: string;
+  onLeadSourceChange?: (value: string) => void;
 }
 
 export function LqsFilters({
@@ -35,6 +42,9 @@ export function LqsFilters({
   onStatusChange,
   dateRange,
   onDateRangeChange,
+  leadSources,
+  selectedLeadSourceId,
+  onLeadSourceChange,
 }: LqsFiltersProps) {
   const [localSearch, setLocalSearch] = useState(searchTerm);
 
@@ -51,9 +61,19 @@ export function LqsFilters({
     onSearchChange('');
     onStatusChange('all');
     onDateRangeChange(null);
+    onLeadSourceChange?.('all');
   };
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || dateRange;
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || dateRange || 
+    (selectedLeadSourceId && selectedLeadSourceId !== 'all');
+
+  // Group lead sources by bucket
+  const groupedLeadSources = leadSources?.reduce((groups, source) => {
+    const bucketName = source.bucket?.name || 'Uncategorized';
+    if (!groups[bucketName]) groups[bucketName] = [];
+    groups[bucketName].push(source);
+    return groups;
+  }, {} as Record<string, LqsLeadSource[]>) || {};
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -119,6 +139,28 @@ export function LqsFilters({
           <SelectItem value="sold">Sold</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Lead Source Filter */}
+      {leadSources && onLeadSourceChange && (
+        <Select value={selectedLeadSourceId || 'all'} onValueChange={onLeadSourceChange}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="All Lead Sources" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Lead Sources</SelectItem>
+            {Object.entries(groupedLeadSources).map(([bucketName, sources]) => (
+              <SelectGroup key={bucketName}>
+                <SelectLabel>{bucketName}</SelectLabel>
+                {sources.map(source => (
+                  <SelectItem key={source.id} value={source.id}>
+                    {source.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Clear Filters */}
       {hasActiveFilters && (
