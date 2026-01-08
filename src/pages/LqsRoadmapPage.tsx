@@ -40,7 +40,7 @@ import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { LqsGroupedSection } from '@/components/lqs/LqsGroupedSection';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
-import type { QuoteUploadResult } from '@/types/lqs';
+import type { QuoteUploadResult, SalesUploadResult } from '@/types/lqs';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
 type ViewMode = 'overview' | 'detail';
@@ -103,6 +103,10 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // Quote upload results modal
   const [quoteUploadResults, setQuoteUploadResults] = useState<QuoteUploadResult | null>(null);
   const [showQuoteResultsModal, setShowQuoteResultsModal] = useState(false);
+  
+  // Sales upload results modal
+  const [salesUploadResults, setSalesUploadResults] = useState<SalesUploadResult | null>(null);
+  const [showSalesResultsModal, setShowSalesResultsModal] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
@@ -449,8 +453,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             onAddQuote={() => setAddQuoteModalOpen(true)}
             onUploadQuotes={() => setUploadModalOpen(true)}
             agencyId={agencyProfile?.agencyId ?? ''}
+            userId={user?.id ?? null}
+            displayName={user?.email ?? 'User'}
             leadSources={leadSources}
             onUploadComplete={() => refetch()}
+            onSalesUploadResults={(result) => {
+              setSalesUploadResults(result);
+              if (result.unmatchedProducers.length > 0 || result.householdsNeedingAttention > 0) {
+                setShowSalesResultsModal(true);
+              }
+            }}
           />
           <Button 
             variant="outline" 

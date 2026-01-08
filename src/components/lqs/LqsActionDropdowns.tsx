@@ -7,17 +7,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
 import { LeadUploadModal } from './LeadUploadModal';
+import { SalesUploadModal } from './SalesUploadModal';
 import { LqsLeadSource } from '@/hooks/useLqsData';
+import type { SalesUploadResult } from '@/types/lqs';
 
 interface LqsActionDropdownsProps {
   onAddLead: () => void;
   onAddQuote: () => void;
   onUploadQuotes: () => void;
   agencyId: string;
+  userId?: string | null;
+  displayName?: string;
   leadSources: LqsLeadSource[];
   onUploadComplete?: () => void;
+  onSalesUploadResults?: (result: SalesUploadResult) => void;
 }
 
 export function LqsActionDropdowns({ 
@@ -25,16 +29,14 @@ export function LqsActionDropdowns({
   onAddQuote, 
   onUploadQuotes,
   agencyId,
+  userId = null,
+  displayName = 'User',
   leadSources,
   onUploadComplete,
+  onSalesUploadResults,
 }: LqsActionDropdownsProps) {
   const [showLeadUpload, setShowLeadUpload] = useState(false);
-
-  const handleUploadSales = () => {
-    toast.info('Upload Sales coming soon!', {
-      description: 'This feature is under development.',
-    });
-  };
+  const [showSalesUpload, setShowSalesUpload] = useState(false);
 
   return (
     <>
@@ -74,7 +76,7 @@ export function LqsActionDropdowns({
             <DropdownMenuItem onClick={onUploadQuotes}>
               Upload Quotes
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleUploadSales}>
+            <DropdownMenuItem onClick={() => setShowSalesUpload(true)}>
               Upload Sales
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -87,6 +89,16 @@ export function LqsActionDropdowns({
         agencyId={agencyId}
         leadSources={leadSources}
         onUploadComplete={onUploadComplete}
+      />
+
+      <SalesUploadModal
+        open={showSalesUpload}
+        onOpenChange={setShowSalesUpload}
+        agencyId={agencyId}
+        userId={userId}
+        displayName={displayName}
+        onUploadComplete={onUploadComplete}
+        onUploadResults={onSalesUploadResults}
       />
     </>
   );
