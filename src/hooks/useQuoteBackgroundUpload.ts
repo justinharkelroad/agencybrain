@@ -239,19 +239,15 @@ async function processInBackground(
                   ignoreDuplicates: false,
                 }
               )
-              .select('id, created_at, updated_at')
+              .select('id, created_at')
               .single();
 
             if (quoteError) {
               throw new Error(`Failed to upsert quote: ${quoteError.message}`);
             }
             
-            // Determine if created or updated
-            if (quote.created_at === quote.updated_at) {
-              quotesCreatedInGroup++;
-            } else {
-              quotesUpdatedInGroup++;
-            }
+            // Count as created - can't distinguish without updated_at column
+            quotesCreatedInGroup++;
           }
 
           return {
