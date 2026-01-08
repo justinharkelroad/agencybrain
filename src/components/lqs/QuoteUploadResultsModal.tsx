@@ -47,7 +47,7 @@ export function QuoteUploadResultsModal({ open, onOpenChange, results }: QuoteUp
               icon={Users}
               label="Team Matched"
               value={results.teamMembersMatched}
-              subtext="producers linked"
+              subtext="unique producers"
               iconColor="text-purple-500"
             />
             <StatCard

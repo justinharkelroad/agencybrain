@@ -81,7 +81,7 @@ async function processInBackground(
   let householdsUpdated = 0;
   let quotesCreated = 0;
   let quotesUpdated = 0;
-  let teamMembersMatched = 0;
+  const matchedTeamMemberIds = new Set<string>();
   let errorCount = 0;
   let householdsNeedingAttention = 0;
   const unmatchedProducerSet = new Set<string>();
@@ -245,7 +245,7 @@ async function processInBackground(
           }
 
           return {
-            teamMatched: teamMemberId !== null,
+            matchedTeamMemberId: teamMemberId,
             householdResult,
             quotesCreatedInGroup,
             quotesUpdatedInGroup,
@@ -254,11 +254,11 @@ async function processInBackground(
         })
       );
 
-      // Count results
+      // Count results and track unique team members
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           const value = result.value;
-          if (value.teamMatched) teamMembersMatched++;
+          if (value.matchedTeamMemberId) matchedTeamMemberIds.add(value.matchedTeamMemberId);
           if (value.householdResult === 'created') householdsCreated++;
           else if (value.householdResult === 'updated') householdsUpdated++;
           quotesCreated += value.quotesCreatedInGroup;
@@ -290,6 +290,7 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
 
     // Build final result
+    const teamMembersMatched = matchedTeamMemberIds.size;
     const result: QuoteUploadResult = {
       success: errorCount === 0,
       recordsProcessed: householdsCreated + householdsUpdated,
