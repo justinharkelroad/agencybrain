@@ -141,6 +141,47 @@ export function normalizeProductType(productType: string): string {
 }
 
 /**
+ * Find the target sheet containing quote data.
+ * Looks for sheets with "detail" or "conversion" in name,
+ * falls back to sheet with most rows.
+ */
+function findTargetSheet(workbook: XLSX.WorkBook): string {
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    throw new Error('No sheets found in workbook');
+  }
+
+  // Look for sheet with "Detail" or "Conversion" in the name
+  for (const sheetName of workbook.SheetNames) {
+    const lowerName = sheetName.toLowerCase();
+    if (lowerName.includes('detail') || lowerName.includes('conversion')) {
+      console.log('[Quote Parser] Found target sheet by name:', sheetName);
+      return sheetName;
+    }
+  }
+  
+  // If multiple sheets, find the one with the most rows
+  if (workbook.SheetNames.length > 1) {
+    let maxRows = 0;
+    let targetSheet = workbook.SheetNames[0];
+    
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+      if (data.length > maxRows) {
+        maxRows = data.length;
+        targetSheet = sheetName;
+      }
+    }
+    console.log('[Quote Parser] Using sheet with most rows:', targetSheet, 'rows:', maxRows);
+    return targetSheet;
+  }
+  
+  // Default to first sheet
+  console.log('[Quote Parser] Using default first sheet:', workbook.SheetNames[0]);
+  return workbook.SheetNames[0];
+}
+
+/**
  * Parse Allstate Quote Report Excel file
  * 
  * Expected structure:
@@ -158,7 +199,9 @@ export function parseLqsQuoteExcel(file: ArrayBuffer): QuoteParseResult {
 
   try {
     const workbook = XLSX.read(file, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
+    console.log('[Quote Parser] Total sheets in workbook:', workbook.SheetNames.length, 'Names:', workbook.SheetNames);
+    
+    const sheetName = findTargetSheet(workbook);
     const sheet = workbook.Sheets[sheetName];
     
     // Convert to JSON array of arrays
@@ -192,6 +235,9 @@ export function parseLqsQuoteExcel(file: ArrayBuffer): QuoteParseResult {
 
     const headers = rawData[headerRowIndex].map(h => String(h || '').trim());
     const dataRows = rawData.slice(headerRowIndex + 1);
+    
+    console.log('[Quote Parser] Header row found at index:', headerRowIndex);
+    console.log('[Quote Parser] Total data rows to process:', dataRows.length);
 
     // Build column index map
     const colIndex: Record<string, number> = {};
@@ -291,6 +337,8 @@ export function parseLqsQuoteExcel(file: ArrayBuffer): QuoteParseResult {
         dateRange: null
       };
     }
+
+    console.log('[Quote Parser] Records parsed:', records.length, 'Errors:', errors.length, 'Duplicates removed:', duplicatesRemoved);
 
     return { 
       success: true, 
