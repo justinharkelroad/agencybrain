@@ -93,7 +93,14 @@ export function LqsHouseholdRow({
 
         {/* Name */}
         <TableCell className="font-medium">
-          {household.last_name.toUpperCase()}, {household.first_name}
+          <div>{household.last_name.toUpperCase()}, {household.first_name}</div>
+          {/* Show phone count indicator */}
+          {Array.isArray(household.phone) && household.phone.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              {household.phone[0]}
+              {household.phone.length > 1 && ` (+${household.phone.length - 1})`}
+            </div>
+          )}
         </TableCell>
 
         {/* ZIP */}

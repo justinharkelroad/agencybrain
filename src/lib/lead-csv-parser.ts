@@ -4,41 +4,42 @@ import type { ParsedLeadRow, LeadColumnMapping, ParsedLeadFileResult } from '@/t
 
 /**
  * Smart column name detection for auto-mapping
+ * Returns the field key and whether it's a phone column
  */
-function suggestColumnMapping(columnName: string): keyof LeadColumnMapping | null {
+function suggestColumnMapping(columnName: string): { key: keyof LeadColumnMapping; isPhone: boolean } | null {
   const lower = columnName.toLowerCase().trim();
   
   // First name patterns
-  if (lower.includes('first') && lower.includes('name')) return 'first_name';
-  if (lower === 'first' || lower === 'firstname') return 'first_name';
-  if (lower === 'fname') return 'first_name';
+  if (lower.includes('first') && lower.includes('name')) return { key: 'first_name', isPhone: false };
+  if (lower === 'first' || lower === 'firstname') return { key: 'first_name', isPhone: false };
+  if (lower === 'fname') return { key: 'first_name', isPhone: false };
   
   // Last name patterns
-  if (lower.includes('last') && lower.includes('name')) return 'last_name';
-  if (lower === 'last' || lower === 'lastname') return 'last_name';
-  if (lower === 'lname') return 'last_name';
-  if (lower === 'surname') return 'last_name';
+  if (lower.includes('last') && lower.includes('name')) return { key: 'last_name', isPhone: false };
+  if (lower === 'last' || lower === 'lastname') return { key: 'last_name', isPhone: false };
+  if (lower === 'lname') return { key: 'last_name', isPhone: false };
+  if (lower === 'surname') return { key: 'last_name', isPhone: false };
   
   // ZIP patterns
-  if (lower.includes('zip') || lower.includes('postal')) return 'zip_code';
-  if (lower === 'postcode' || lower === 'zipcode') return 'zip_code';
+  if (lower.includes('zip') || lower.includes('postal')) return { key: 'zip_code', isPhone: false };
+  if (lower === 'postcode' || lower === 'zipcode') return { key: 'zip_code', isPhone: false };
   
-  // Phone patterns
+  // Phone patterns - mark as phone for multi-column collection
   if (lower.includes('phone') || lower.includes('tel') || lower.includes('mobile') || lower.includes('cell')) {
-    return 'phone';
+    return { key: 'phones', isPhone: true };
   }
   
   // Email patterns
-  if (lower.includes('email') || lower.includes('e-mail')) return 'email';
+  if (lower.includes('email') || lower.includes('e-mail')) return { key: 'email', isPhone: false };
   
   // Products patterns
   if (lower.includes('product') || lower.includes('interest') || lower.includes('line')) {
-    return 'products_interested';
+    return { key: 'products_interested', isPhone: false };
   }
   
   // Date patterns
   if (lower.includes('date') || lower.includes('received') || lower.includes('created')) {
-    return 'lead_date';
+    return { key: 'lead_date', isPhone: false };
   }
   
   return null;
@@ -100,17 +101,27 @@ export function parseLeadFile(file: ArrayBuffer, fileName: string): ParsedLeadFi
       sampleRows.push(sampleRow);
     }
 
-    // Auto-suggest column mappings
+    // Auto-suggest column mappings - collect ALL phone columns
     const suggestedMapping = createEmptyMapping();
     const usedColumns = new Set<string>();
+    const phoneColumns: string[] = [];
     
     for (const header of headers) {
       const suggested = suggestColumnMapping(header);
-      if (suggested && !usedColumns.has(suggested)) {
-        suggestedMapping[suggested] = header;
-        usedColumns.add(suggested);
+      if (suggested) {
+        if (suggested.isPhone) {
+          // Collect all phone columns
+          phoneColumns.push(header);
+        } else if (!usedColumns.has(suggested.key)) {
+          // For non-phone fields, use first match
+          (suggestedMapping as any)[suggested.key] = header;
+          usedColumns.add(suggested.key);
+        }
       }
     }
+    
+    // Set all detected phone columns
+    suggestedMapping.phones = phoneColumns.length > 0 ? phoneColumns : null;
 
     return {
       success: true,
@@ -139,7 +150,7 @@ function createEmptyMapping(): LeadColumnMapping {
     first_name: null,
     last_name: null,
     zip_code: null,
-    phone: null,
+    phones: null,  // Array of column names
     email: null,
     products_interested: null,
     lead_date: null,
@@ -201,7 +212,7 @@ function parseProductsInterested(value: any): string[] | null {
 }
 
 /**
- * Clean phone number
+ * Clean phone number - returns cleaned string or null
  */
 function cleanPhone(value: any): string | null {
   if (!value) return null;
@@ -267,7 +278,15 @@ export function applyLeadColumnMapping(
       }
       seenHouseholdKeys.add(householdKey);
 
-      const phone = cleanPhone(getValue(row, mapping.phone));
+      // Collect ALL phone values from mapped columns
+      const phones: string[] = [];
+      if (mapping.phones && Array.isArray(mapping.phones)) {
+        for (const colName of mapping.phones) {
+          const val = cleanPhone(getValue(row, colName));
+          if (val) phones.push(val);
+        }
+      }
+      
       const email = getValue(row, mapping.email) ? String(getValue(row, mapping.email)).trim() || null : null;
       const productsInterested = parseProductsInterested(getValue(row, mapping.products_interested));
       const leadDate = parseDate(getValue(row, mapping.lead_date));
@@ -276,7 +295,7 @@ export function applyLeadColumnMapping(
         firstName,
         lastName,
         zipCode,
-        phone,
+        phones: phones.length > 0 ? phones : null,
         email,
         productsInterested,
         leadDate,
