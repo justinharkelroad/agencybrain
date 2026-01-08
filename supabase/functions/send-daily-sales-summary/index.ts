@@ -128,13 +128,12 @@ serve(async (req) => {
         // Get today's date in agency timezone
         const todayStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
 
-        // Get all sales team members
-        const { data: salesTeamMembers, error: teamError } = await supabase
+        // Get ALL active team members (not just Sales/Hybrid)
+        const { data: allTeamMembers, error: teamError } = await supabase
           .from('team_members')
           .select('id, name, role, hybrid_team_assignments')
           .eq('agency_id', agency.id)
-          .eq('status', 'active')
-          .or('role.eq.Sales,role.eq.Hybrid');
+          .eq('status', 'active');
 
         if (teamError) {
           console.error(`[send-daily-sales-summary] Team lookup failed for ${agency.name}:`, teamError);
@@ -142,8 +141,9 @@ serve(async (req) => {
           continue;
         }
 
-        // Filter to only include Sales role or Hybrid with Sales
-        const eligibleTeamMembers = (salesTeamMembers || []).filter(tm => {
+        // Initialize scoreboard with Sales/Hybrid team members (so they show even with $0)
+        // Anyone else who sells will be added dynamically when processing sales
+        const eligibleTeamMembers = (allTeamMembers || []).filter(tm => {
           if (tm.role === 'Sales') return true;
           if (tm.role === 'Hybrid' && Array.isArray(tm.hybrid_team_assignments)) {
             return tm.hybrid_team_assignments.includes('Sales');
@@ -204,16 +204,28 @@ serve(async (req) => {
           };
         }
 
-        // Add sales data
+        // Add sales data - include ANYONE who sold, regardless of role
         for (const s of todaysSales || []) {
-          if (scoreboard[s.team_member_id]) {
-            scoreboard[s.team_member_id].premium += s.total_premium || 0;
-            scoreboard[s.team_member_id].items += s.total_items || 0;
-            scoreboard[s.team_member_id].policies += s.total_policies || 0;
-            scoreboard[s.team_member_id].points += s.total_points || 0;
-            if (s.customer_name) {
-              scoreboard[s.team_member_id].households.add(s.customer_name.toLowerCase().trim());
-            }
+          // If this seller isn't in scoreboard yet, add them dynamically
+          if (!scoreboard[s.team_member_id]) {
+            const sellerName = s.team_member?.name || 'Unknown';
+            scoreboard[s.team_member_id] = {
+              name: sellerName,
+              premium: 0,
+              items: 0,
+              policies: 0,
+              points: 0,
+              households: new Set(),
+            };
+            console.log(`[send-daily-sales-summary] Added non-Sales team member to scoreboard: ${sellerName}`);
+          }
+          // Now accumulate their sales
+          scoreboard[s.team_member_id].premium += s.total_premium || 0;
+          scoreboard[s.team_member_id].items += s.total_items || 0;
+          scoreboard[s.team_member_id].policies += s.total_policies || 0;
+          scoreboard[s.team_member_id].points += s.total_points || 0;
+          if (s.customer_name) {
+            scoreboard[s.team_member_id].households.add(s.customer_name.toLowerCase().trim());
           }
         }
 
