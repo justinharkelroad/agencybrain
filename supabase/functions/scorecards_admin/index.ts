@@ -274,13 +274,18 @@ serve(async (req) => {
       case 'kpis_list': {
         const { role } = params;
 
-        const { data, error } = await supabase
+        let query = supabase
           .from('kpis')
           .select('*')
           .eq('agency_id', agencyId)
-          .eq('is_active', true)
-          .or(`role.eq.${role},role.is.null`)
-          .order('label');
+          .eq('is_active', true);
+        
+        // If role is provided, filter by role or null
+        if (role) {
+          query = query.or(`role.eq.${role},role.is.null`);
+        }
+        
+        const { data, error } = await query.order('label');
 
         if (error) throw error;
         result = { kpis: data };

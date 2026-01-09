@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -17,17 +18,28 @@ interface KPIOption {
 }
 
 interface ScorecardSettingsProps {
-  role: "Sales" | "Service";
+  role?: "Sales" | "Service";
 }
 
-export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsProps) {
+export default function ScorecardSettings({ role: propRole = "Sales" }: ScorecardSettingsProps) {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  
+  // Detect staff mode
+  const staffToken = localStorage.getItem('staff_session_token');
+  const staffAgencyId = localStorage.getItem('staff_agency_id');
+  const isStaffMode = !!staffToken && !!staffAgencyId;
+  
+  // Get role from URL param or prop (URL takes priority for staff mode)
+  const urlRole = searchParams.get('role');
+  const initialRole = urlRole === 'service' ? 'Service' : urlRole === 'sales' ? 'Sales' : propRole;
+  
   const [agencyId, setAgencyId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [availableMetrics, setAvailableMetrics] = useState<KPIOption[]>([]);
   
-  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(role);
+  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(initialRole);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
     "outbound_calls", "talk_minutes", "quoted_count", "sold_items"
   ]);
@@ -54,60 +66,103 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
   ]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id || isStaffMode) {
       loadData();
     }
-  }, [user?.id, selectedRole]);
+  }, [user?.id, selectedRole, isStaffMode]);
 
   const loadData = async () => {
     try {
-      // Get user's agency
-      const { data: profile } = await supa
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
+      let currentAgencyId: string;
+      
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        currentAgencyId = staffAgencyId!;
+        setAgencyId(currentAgencyId);
+        
+        // Load KPIs via edge function
+        const { data: kpisData, error: kpisError } = await supabase.functions.invoke('scorecards_admin', {
+          headers: { 'x-staff-session': staffToken! },
+          body: { action: 'kpis_list' },
+        });
+        
+        if (kpisError) throw kpisError;
+        if (kpisData?.error) throw new Error(kpisData.error);
+        
+        const metrics: KPIOption[] = (kpisData?.kpis || []).map((kpi: any) => ({
+          key: kpi.key,
+          label: kpi.label
+        }));
+        setAvailableMetrics(metrics);
+        
+        // Load scorecard rules via edge function
+        const { data: rulesData, error: rulesError } = await supabase.functions.invoke('scorecards_admin', {
+          headers: { 'x-staff-session': staffToken! },
+          body: { action: 'scorecard_rules_get', params: { role: selectedRole } },
+        });
+        
+        if (rulesError) throw rulesError;
+        
+        const rules = rulesData?.rules;
+        if (rules) {
+          setSelectedMetrics(rules.selected_metrics || selectedMetrics);
+          setNRequired(rules.n_required || 2);
+          setWeights(typeof rules.weights === 'object' && rules.weights ? rules.weights as Record<string, number> : weights);
+          setCountedDays(typeof rules.counted_days === 'object' && rules.counted_days ? rules.counted_days as { monday: boolean; tuesday: boolean; wednesday: boolean; thursday: boolean; friday: boolean; saturday: boolean; sunday: boolean; } : countedDays);
+          setBackfillDays(rules.backfill_days || 7);
+          setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
+          setRingMetrics(rules.ring_metrics || rules.selected_metrics || ringMetrics);
+        }
+      } else {
+        // Owner mode: direct Supabase queries
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user?.id)
+          .single();
 
-      if (!profile?.agency_id) {
-        toast.error('No agency found for user');
-        return;
-      }
+        if (!profile?.agency_id) {
+          toast.error('No agency found for user');
+          return;
+        }
 
-      setAgencyId(profile.agency_id);
+        currentAgencyId = profile.agency_id;
+        setAgencyId(currentAgencyId);
 
-      // Load available KPIs for this agency
-      const { data: kpis, error: kpisError } = await supa
-        .from('kpis')
-        .select('key, label')
-        .eq('agency_id', profile.agency_id)
-        .eq('is_active', true)
-        .order('key');
+        // Load available KPIs for this agency
+        const { data: kpis, error: kpisError } = await supabase
+          .from('kpis')
+          .select('key, label')
+          .eq('agency_id', currentAgencyId)
+          .eq('is_active', true)
+          .order('key');
 
-      if (kpisError) throw kpisError;
+        if (kpisError) throw kpisError;
 
-      const metrics: KPIOption[] = (kpis || []).map(kpi => ({
-        key: kpi.key,
-        label: kpi.label
-      }));
+        const metrics: KPIOption[] = (kpis || []).map(kpi => ({
+          key: kpi.key,
+          label: kpi.label
+        }));
 
-      setAvailableMetrics(metrics);
+        setAvailableMetrics(metrics);
 
-      // Load scorecard rules for this agency and role
-      const { data: rules } = await supa
-        .from("scorecard_rules")
-        .select("*")
-        .eq("agency_id", profile.agency_id)
-        .eq("role", selectedRole)
-        .single();
+        // Load scorecard rules for this agency and role
+        const { data: rules } = await supabase
+          .from("scorecard_rules")
+          .select("*")
+          .eq("agency_id", currentAgencyId)
+          .eq("role", selectedRole)
+          .maybeSingle();
 
-      if (rules) {
-        setSelectedMetrics(rules.selected_metrics || selectedMetrics);
-        setNRequired(rules.n_required || 2);
-        setWeights(typeof rules.weights === 'object' && rules.weights ? rules.weights as Record<string, number> : weights);
-        setCountedDays(typeof rules.counted_days === 'object' && rules.counted_days ? rules.counted_days as { monday: boolean; tuesday: boolean; wednesday: boolean; thursday: boolean; friday: boolean; saturday: boolean; sunday: boolean; } : countedDays);
-        setBackfillDays(rules.backfill_days || 7);
-        setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
-        setRingMetrics(rules.ring_metrics || rules.selected_metrics || ringMetrics);
+        if (rules) {
+          setSelectedMetrics(rules.selected_metrics || selectedMetrics);
+          setNRequired(rules.n_required || 2);
+          setWeights(typeof rules.weights === 'object' && rules.weights ? rules.weights as Record<string, number> : weights);
+          setCountedDays(typeof rules.counted_days === 'object' && rules.counted_days ? rules.counted_days as { monday: boolean; tuesday: boolean; wednesday: boolean; thursday: boolean; friday: boolean; saturday: boolean; sunday: boolean; } : countedDays);
+          setBackfillDays(rules.backfill_days || 7);
+          setCountWeekendIfSubmitted(rules.count_weekend_if_submitted ?? true);
+          setRingMetrics(rules.ring_metrics || rules.selected_metrics || ringMetrics);
+        }
       }
     } catch (error: any) {
       console.error('Error loading data:', error);
@@ -160,23 +215,45 @@ export default function ScorecardSettings({ role = "Sales" }: ScorecardSettingsP
 
     setSaving(true);
     try {
-      const { error } = await supa
-        .from("scorecard_rules")
-        .upsert({
-          agency_id: agencyId,
-          role: selectedRole,
-          selected_metrics: selectedMetrics,
-          n_required: nRequired,
-          weights,
-          counted_days: countedDays,
-          backfill_days: backfillDays,
-          count_weekend_if_submitted: countWeekendIfSubmitted,
-          ring_metrics: ringMetrics
-        }, { 
-          onConflict: "agency_id,role" 
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          headers: { 'x-staff-session': staffToken! },
+          body: { 
+            action: 'scorecard_rules_upsert',
+            role: selectedRole,
+            selected_metrics: selectedMetrics,
+            n_required: nRequired,
+            weights,
+            counted_days: countedDays,
+            backfill_days: backfillDays,
+            count_weekend_if_submitted: countWeekendIfSubmitted,
+            ring_metrics: ringMetrics
+          },
         });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } else {
+        // Owner mode: direct Supabase
+        const { error } = await supabase
+          .from("scorecard_rules")
+          .upsert({
+            agency_id: agencyId,
+            role: selectedRole,
+            selected_metrics: selectedMetrics,
+            n_required: nRequired,
+            weights,
+            counted_days: countedDays,
+            backfill_days: backfillDays,
+            count_weekend_if_submitted: countWeekendIfSubmitted,
+            ring_metrics: ringMetrics
+          }, { 
+            onConflict: "agency_id,role" 
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast.success("Scorecard settings saved successfully!");
     } catch (error: any) {
