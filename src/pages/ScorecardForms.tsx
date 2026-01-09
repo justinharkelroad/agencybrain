@@ -17,11 +17,24 @@ import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
+// Interface for form templates loaded via edge function
+interface StaffFormTemplate {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  schema_json: any;
+  settings_json: any;
+}
+
 export default function ScorecardForms() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("metrics");
   const [formFilter, setFormFilter] = useState<'all' | 'active' | 'inactive'>('active');
-  const { forms, loading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
+  const { forms: ownerForms, loading: ownerLoading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
   const { isAdmin } = useAuth();
   
   // Staff user detection - prevents session recovery from signing out staff users
@@ -33,6 +46,10 @@ export default function ScorecardForms() {
     agencyName: string;
   } | null>(null);
   const [staffDataLoaded, setStaffDataLoaded] = useState(false);
+  
+  // Staff-specific forms state (loaded via edge function)
+  const [staffForms, setStaffForms] = useState<StaffFormTemplate[]>([]);
+  const [staffFormsLoading, setStaffFormsLoading] = useState(false);
 
   // Detect staff user by verifying session token
   useEffect(() => {
@@ -79,6 +96,53 @@ export default function ScorecardForms() {
     
     detectStaffUser();
   }, []);
+
+  // Load forms via edge function for staff users
+  useEffect(() => {
+    const loadStaffForms = async () => {
+      if (!isStaffUser || !staffDataLoaded) return;
+      
+      const token = localStorage.getItem('staff_session_token');
+      if (!token) return;
+      
+      setStaffFormsLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          body: {
+            action: 'forms_list',
+            session_token: token,
+          },
+        });
+        
+        if (error) {
+          console.error('Edge function error loading forms:', error);
+          return;
+        }
+        
+        if (data?.error) {
+          console.error('scorecards_admin forms error:', data.error);
+          return;
+        }
+        // Map forms with default values for schema_json and settings_json
+        const formsData = (data?.forms || []).map((f: any) => ({
+          ...f,
+          schema_json: f.schema_json || {},
+          settings_json: f.settings_json || {},
+        }));
+        setStaffForms(formsData);
+      } catch (err) {
+        console.error('Error loading staff forms:', err);
+      } finally {
+        setStaffFormsLoading(false);
+      }
+    };
+    
+    loadStaffForms();
+  }, [isStaffUser, staffDataLoaded]);
+
+  // Use staff forms when staff user, otherwise owner forms
+  const forms = isStaffUser ? staffForms : ownerForms;
+  const loading = isStaffUser ? staffFormsLoading : ownerLoading;
   
   // Check if diagnostics should be shown (only for Supabase-authenticated admins, not staff)
   const showDiagnostics = !isStaffUser && isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true';

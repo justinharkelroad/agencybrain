@@ -46,10 +46,58 @@ export function useSubmissions(staffAgencyId?: string) {
 
   const fetchSubmissions = async () => {
     try {
-      let agencyId = staffAgencyId;
+      // If staffAgencyId is provided, use edge function (staff user)
+      if (staffAgencyId) {
+        const staffToken = localStorage.getItem('staff_session_token');
+        if (!staffToken) {
+          console.error('No staff token found for staff submissions fetch');
+          setSubmissions([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          body: {
+            action: 'submissions_list',
+            session_token: staffToken,
+          },
+        });
+
+        if (error) {
+          console.error('Edge function error:', error);
+          throw error;
+        }
+
+        if (data?.error) {
+          console.error('scorecards_admin error:', data.error);
+          throw new Error(data.error);
+        }
+
+        const submissionsData = data?.submissions || [];
+        setSubmissions(submissionsData);
+
+        // Build metrics map from submission data (edge function includes metrics in payload_json)
+        const metricsMap: Record<string, SubmissionMetrics> = {};
+        submissionsData.forEach((s: Submission) => {
+          if (s.payload_json) {
+            metricsMap[s.id] = {
+              submission_id: s.id,
+              outbound_calls: s.payload_json.outbound_calls || null,
+              talk_minutes: s.payload_json.talk_minutes || null,
+              quoted_count: s.payload_json.quoted_households || s.payload_json.quoted_count || null,
+              sold_items: s.payload_json.items_sold || s.payload_json.sold_items || null,
+            };
+          }
+        });
+        setSubmissionMetrics(metricsMap);
+        setLoading(false);
+        return;
+      }
+
+      // Standard Supabase RLS path for authenticated owners
+      let agencyId: string | undefined;
       
-      // Only query profiles if we don't have staffAgencyId
-      if (!agencyId && user?.id) {
+      if (user?.id) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('agency_id')

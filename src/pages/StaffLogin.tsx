@@ -55,8 +55,15 @@ export default function StaffLogin() {
   }, [searchParams, setImpersonationSession, navigate]);
 
   // Redirect if already authenticated - tier-aware home path
+  // MUST be in useEffect to avoid "Cannot update component while rendering" React error
+  useEffect(() => {
+    if (isAuthenticated && !impersonationLoading) {
+      navigate(getStaffHomePath(user?.agency_membership_tier), { replace: true });
+    }
+  }, [isAuthenticated, impersonationLoading, user?.agency_membership_tier, navigate]);
+
+  // Show nothing while redirecting (prevents flash of login form)
   if (isAuthenticated && !impersonationLoading) {
-    navigate(getStaffHomePath(user?.agency_membership_tier));
     return null;
   }
 
