@@ -575,9 +575,10 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
           setIsEditModalOpen(false);
           setSelectedHousehold(null);
         }}
-        household={selectedHousehold}
-        agencyId={agencyIdForModal}
-        onUpdate={() => {
+        prospect={selectedHousehold}
+        teamMembers={teamMembers}
+        leadSources={leadSources}
+        onDeleted={() => {
           search(1);
         }}
       />
