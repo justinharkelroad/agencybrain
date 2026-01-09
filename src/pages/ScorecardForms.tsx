@@ -243,20 +243,20 @@ export default function ScorecardForms() {
           </div>
         </div>
 
-        {/* Meeting Frame CTA - Hidden for staff users (owner-only feature) */}
-        {!isStaffUser && (
-          <div className="mb-6">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => navigate("/agency?tab=meeting-frame")}
-            >
-              <UserCheck className="h-4 w-4 mr-2" />
-              Create a 1-on-1 Meeting Frame with your team
-            </Button>
-          </div>
-        )}
+        {/* Meeting Frame CTA - Visible for all, disabled for staff until Phase B */}
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => navigate(isStaffUser ? "/staff/meeting-frame" : "/agency?tab=meeting-frame")}
+            disabled={isStaffUser}
+            title={isStaffUser ? "Coming soon for staff users" : undefined}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
+            Create a 1-on-1 Meeting Frame with your team
+          </Button>
+        </div>
 
         {/* GO-LIVE STATUS - Only show in dev mode or for admins with diagnostics enabled */}
         {showDiagnostics && (
