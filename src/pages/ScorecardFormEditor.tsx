@@ -133,6 +133,11 @@ export default function ScorecardFormEditor() {
     bound_version_id: string;
   } | null>(null);
 
+  // Detect staff mode
+  const staffToken = localStorage.getItem('staff_session_token');
+  const staffAgencyId = localStorage.getItem('staff_agency_id');
+  const isStaffMode = !!staffToken && !!staffAgencyId;
+
   // Get form KPI bindings to check for outdated versions
   const { data: formBindings } = useFormKpiBindings(formId);
   const outdatedBinding = formBindings?.find(binding => binding.kpi_versions.valid_to !== null);
@@ -142,10 +147,10 @@ export default function ScorecardFormEditor() {
   const { data: agencyKpis = [] } = useAgencyKpis(agencyId, formSchema?.role);
 
   useEffect(() => {
-    if (formId && user?.id) {
+    if (formId && (user?.id || isStaffMode)) {
       loadForm();
     }
-  }, [formId, user?.id]);
+  }, [formId, user?.id, isStaffMode]);
 
   // Check for outdated KPI versions after form loads - only show once per session
   useEffect(() => {
@@ -162,30 +167,50 @@ export default function ScorecardFormEditor() {
 
   const loadForm = async () => {
     try {
-      // Get user's agency first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        setAgencyId(staffAgencyId!);
+        
+        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          headers: {
+            'x-staff-session': staffToken!,
+          },
+          body: {
+            action: 'form_get',
+            params: { form_id: formId },
+          },
+        });
 
-      if (profile?.agency_id) {
-        setAgencyId(profile.agency_id);
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        
+        setFormSchema(data.schema_json as unknown as FormSchema);
+      } else {
+        // Owner mode: direct Supabase queries
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user?.id)
+          .single();
+
+        if (profile?.agency_id) {
+          setAgencyId(profile.agency_id);
+        }
+
+        const { data: template, error } = await supabase
+          .from('form_templates')
+          .select('*')
+          .eq('id', formId)
+          .single();
+
+        if (error) throw error;
+
+        setFormSchema(template.schema_json as unknown as FormSchema);
       }
-
-      const { data: template, error } = await supabase
-        .from('form_templates')
-        .select('*')
-        .eq('id', formId)
-        .single();
-
-      if (error) throw error;
-
-      setFormSchema(template.schema_json as unknown as FormSchema);
     } catch (error: any) {
       console.error('Error loading form:', error);
       toast.error('Failed to load form');
-      navigate('/scorecard-forms');
+      navigate(isStaffMode ? '/staff/metrics' : '/scorecard-forms');
     } finally {
       setLoading(false);
     }
@@ -351,7 +376,7 @@ export default function ScorecardFormEditor() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" onClick={() => navigate('/scorecard-forms')}>
+          <Button variant="ghost" onClick={() => navigate(isStaffMode ? '/staff/metrics' : '/scorecard-forms')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Forms
           </Button>

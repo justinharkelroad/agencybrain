@@ -447,7 +447,7 @@ export default function ScorecardForms() {
                       <Button 
                         variant="outline" 
                         className="w-full justify-start"
-                        onClick={() => navigate("/settings?tab=scorecards&role=sales")}
+                        onClick={() => navigate(isStaffUser ? "/staff/metrics/settings?role=sales" : "/settings?tab=scorecards&role=sales")}
                       >
                         <Award className="h-4 w-4 mr-2" />
                         Sales Scoring Rules
@@ -468,7 +468,7 @@ export default function ScorecardForms() {
                       <Button 
                         variant="outline" 
                         className="w-full justify-start"
-                        onClick={() => navigate("/settings?tab=scorecards&role=service")}
+                        onClick={() => navigate(isStaffUser ? "/staff/metrics/settings?role=service" : "/settings?tab=scorecards&role=service")}
                       >
                         <Award className="h-4 w-4 mr-2" />
                         Service Scoring Rules
