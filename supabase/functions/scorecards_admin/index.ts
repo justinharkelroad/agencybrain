@@ -413,11 +413,12 @@ serve(async (req) => {
             id,
             work_date,
             submission_date,
-            is_final,
-            is_late,
+            submitted_at,
+            final,
+            late,
             payload_json,
-            form_templates!inner(id, name, slug, role),
-            team_members!inner(id, first_name, last_name, email)
+            form_templates!inner(id, name, slug, role, agency_id),
+            team_members!inner(id, name, email)
           `)
           .eq('form_templates.agency_id', agencyId)
           .order('submission_date', { ascending: false })
