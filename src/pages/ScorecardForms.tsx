@@ -62,15 +62,6 @@ export default function ScorecardForms() {
   // Check if diagnostics should be shown (only for Supabase-authenticated admins, not staff)
   const showDiagnostics = !isStaffUser && isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true';
 
-  // Wait for staff detection to complete before rendering
-  if (!staffDataLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
   // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test (only run in dev/admin diagnostic mode)
   useEffect(() => {
     if (!showDiagnostics) return; // Don't run smoke test in production for non-admins
@@ -141,6 +132,16 @@ export default function ScorecardForms() {
     if (formFilter === 'inactive') return !form.is_active;
     return true; // 'all'
   });
+
+  // Wait for staff detection to complete before rendering
+  if (!staffDataLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-background">
