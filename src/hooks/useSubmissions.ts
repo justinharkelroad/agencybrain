@@ -57,9 +57,11 @@ export function useSubmissions(staffAgencyId?: string) {
         }
 
         const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          headers: {
+            'x-staff-session': staffToken,
+          },
           body: {
             action: 'submissions_list',
-            session_token: staffToken,
           },
         });
 
