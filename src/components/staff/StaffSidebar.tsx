@@ -146,13 +146,19 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const salesEnabled = hasSalesBetaAccess(user?.agency_id ?? null);
 
   // Filter navigation items based on role, callScoringEnabled setting
-  // For Call Scoring tier: we now SHOW all items but gate them at click time
+  // For Call Scoring tier: we show all items but gate them at click time
   const filteredNavigation = useMemo(() => {
     // IDs that require sales beta access
     const salesBetaRequiredIds = ['sales', 'sales-dashboard'];
     
-    const filterItems = (items: NavItem[]): NavItem[] => {
+    const filterItems = (items: NavItem[], folderId?: string): NavItem[] => {
       return items.filter(item => {
+        // For Call Scoring tier: remove call-scoring from inside Accountability folder
+        // (we show it as top-level call-scoring-top instead)
+        if (isCallScoringTier && folderId === 'accountability' && item.id === 'call-scoring') {
+          return false;
+        }
+        
         // Check email restriction first - most restrictive
         if (item.emailRestriction) {
           const staffEmail = user?.email?.toLowerCase();
@@ -178,7 +184,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       });
     };
 
-    return staffNavigationConfig
+    const filtered = staffNavigationConfig
       .filter((entry) => {
         // Check folder/item level access based on role
         if (isNavFolder(entry)) {
@@ -202,7 +208,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       })
       .map((entry): NavEntry | null => {
         if (isNavFolder(entry)) {
-          const filteredItems = filterItems(entry.items);
+          const filteredItems = filterItems(entry.items, entry.id);
           // Hide folder if no items remain
           if (filteredItems.length === 0) return null;
           return { ...entry, items: filteredItems };
@@ -210,7 +216,21 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         return entry;
       })
       .filter((entry): entry is NavEntry => entry !== null);
-  }, [callScoringEnabled, canAccessItem, salesEnabled, user?.email]);
+
+    // For Call Scoring tier: reorder so call-scoring-top is FIRST
+    if (isCallScoringTier) {
+      const callScoringTopIndex = filtered.findIndex(
+        entry => !isNavFolder(entry) && entry.id === 'call-scoring-top'
+      );
+      
+      if (callScoringTopIndex > 0) {
+        const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
+        filtered.unshift(callScoringTop);
+      }
+    }
+
+    return filtered;
+  }, [callScoringEnabled, canAccessItem, isCallScoringTier, salesEnabled, user?.email]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {

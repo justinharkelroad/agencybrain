@@ -8,9 +8,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavItem } from "@/config/navigation";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Lock } from "lucide-react";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { isStrictlyOneOnOne } from "@/utils/tierAccess";
+import { getFeatureGateConfig } from "@/config/featureGates";
+import { cn } from "@/lib/utils";
 
 interface SidebarNavItemProps {
   item: NavItem;
@@ -18,6 +20,8 @@ interface SidebarNavItemProps {
   onOpenModal?: (modalKey: string) => void;
   badge?: React.ReactNode;
   membershipTier?: string | null;
+  isCallScoringTier?: boolean;
+  callScoringAccessibleIds?: string[];
 }
 
 export function SidebarNavItem({ 
@@ -25,12 +29,18 @@ export function SidebarNavItem({
   isNested = false, 
   onOpenModal,
   badge,
-  membershipTier
+  membershipTier,
+  isCallScoringTier = false,
+  callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange']
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, setOpenMobile } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
+  const [showCallScoringGate, setShowCallScoringGate] = useState(false);
+  
+  // Check if this item should be gated for Call Scoring tier users
+  const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
   
   // Helper to close mobile sidebar and dispatch navigation event
   const dispatchNavigation = () => {
@@ -61,6 +71,12 @@ export function SidebarNavItem({
   })();
 
   const handleClick = () => {
+    // Check Call Scoring tier gating FIRST (highest priority)
+    if (isGatedForCallScoring) {
+      setShowCallScoringGate(true);
+      return;
+    }
+    
     // Check tier requirement - show gate modal for Boardroom users
     if (item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier)) {
       setShowGateModal(true);
@@ -87,11 +103,14 @@ export function SidebarNavItem({
   const content = (
     <>
       <item.icon className="h-4 w-4" />
-      <span>{item.title}</span>
+      <span className="flex-1">{item.title}</span>
       {item.type === 'external' && (
         <ExternalLink className="ml-auto h-3 w-3 opacity-50" />
       )}
-      {badge}
+      {isGatedForCallScoring && (
+        <Lock className="h-3 w-3 text-amber-500/70" />
+      )}
+      {!isGatedForCallScoring && badge}
     </>
   );
 
@@ -100,19 +119,29 @@ export function SidebarNavItem({
     if (item.type === 'link' && item.url) {
       // Check tier requirement before rendering link
       const needsGate = item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier);
+      const needsCallScoringGate = isGatedForCallScoring;
       
       return (
         <>
           <SidebarMenuSubItem>
-            {needsGate ? (
+            {(needsGate || needsCallScoringGate) ? (
               <SidebarMenuSubButton
                 asChild
                 isActive={isActive}
               >
                 <button
                   type="button"
-                  onClick={() => setShowGateModal(true)}
-                  className="cursor-pointer w-full flex items-center gap-2 text-left"
+                  onClick={() => {
+                    if (needsCallScoringGate) {
+                      setShowCallScoringGate(true);
+                    } else {
+                      setShowGateModal(true);
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer w-full flex items-center gap-2 text-left",
+                    isGatedForCallScoring && "opacity-70"
+                  )}
                 >
                   {content}
                 </button>
@@ -137,6 +166,16 @@ export function SidebarNavItem({
             onOpenChange={setShowGateModal}
             featureName={item.title}
           />
+          {/* Call Scoring Tier Gate Modal */}
+          <MembershipGateModal
+            open={showCallScoringGate}
+            onOpenChange={setShowCallScoringGate}
+            featureName={getFeatureGateConfig(item.id).featureName}
+            featureDescription={getFeatureGateConfig(item.id).featureDescription}
+            videoKey={getFeatureGateConfig(item.id).videoKey}
+            gateType="call_scoring_upsell"
+            returnPath="/call-scoring"
+          />
         </>
       );
     }
@@ -152,7 +191,10 @@ export function SidebarNavItem({
             <button
               type="button"
               onClick={handleClick}
-              className="cursor-pointer w-full flex items-center gap-2 text-left"
+              className={cn(
+                "cursor-pointer w-full flex items-center gap-2 text-left",
+                isGatedForCallScoring && "opacity-70"
+              )}
             >
               {content}
             </button>
@@ -162,6 +204,16 @@ export function SidebarNavItem({
           open={showGateModal}
           onOpenChange={setShowGateModal}
           featureName={item.title}
+        />
+        {/* Call Scoring Tier Gate Modal */}
+        <MembershipGateModal
+          open={showCallScoringGate}
+          onOpenChange={setShowCallScoringGate}
+          featureName={getFeatureGateConfig(item.id).featureName}
+          featureDescription={getFeatureGateConfig(item.id).featureDescription}
+          videoKey={getFeatureGateConfig(item.id).videoKey}
+          gateType="call_scoring_upsell"
+          returnPath="/call-scoring"
         />
       </>
     );
@@ -174,7 +226,7 @@ export function SidebarNavItem({
           onClick={handleClick}
           isActive={isActive}
           tooltip={item.title}
-          className="cursor-pointer"
+          className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
         >
           {content}
         </SidebarMenuButton>
@@ -183,6 +235,16 @@ export function SidebarNavItem({
         open={showGateModal}
         onOpenChange={setShowGateModal}
         featureName={item.title}
+      />
+      {/* Call Scoring Tier Gate Modal */}
+      <MembershipGateModal
+        open={showCallScoringGate}
+        onOpenChange={setShowCallScoringGate}
+        featureName={getFeatureGateConfig(item.id).featureName}
+        featureDescription={getFeatureGateConfig(item.id).featureDescription}
+        videoKey={getFeatureGateConfig(item.id).videoKey}
+        gateType="call_scoring_upsell"
+        returnPath="/call-scoring"
       />
     </>
   );
