@@ -95,3 +95,20 @@ export function formatProjection(value: number | null, prefix: string = ''): str
   
   return `${prefix}${value.toLocaleString()}`;
 }
+
+/**
+ * Get the previous business day from today
+ * Used for staff portal to default to yesterday's data
+ */
+export function getPreviousBusinessDay(): Date {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  
+  let daysToSubtract = 1;
+  if (dayOfWeek === 0) daysToSubtract = 2; // Sunday → Friday
+  else if (dayOfWeek === 1) daysToSubtract = 3; // Monday → Friday
+  
+  const result = new Date(today);
+  result.setDate(today.getDate() - daysToSubtract);
+  return result;
+}

@@ -16,6 +16,7 @@ import { DailyAgencyGoalsConfig } from "@/components/settings/DailyAgencyGoalsCo
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { getPreviousBusinessDay } from "@/utils/businessDays";
 
 // Interface for form templates loaded via edge function
 interface StaffFormTemplate {
@@ -242,18 +243,20 @@ export default function ScorecardForms() {
           </div>
         </div>
 
-        {/* Meeting Frame CTA */}
-        <div className="mb-6">
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => navigate("/agency?tab=meeting-frame")}
-          >
-            <UserCheck className="h-4 w-4 mr-2" />
-            Create a 1-on-1 Meeting Frame with your team
-          </Button>
-        </div>
+        {/* Meeting Frame CTA - Hidden for staff users (owner-only feature) */}
+        {!isStaffUser && (
+          <div className="mb-6">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate("/agency?tab=meeting-frame")}
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              Create a 1-on-1 Meeting Frame with your team
+            </Button>
+          </div>
+        )}
 
         {/* GO-LIVE STATUS - Only show in dev mode or for admins with diagnostics enabled */}
         {showDiagnostics && (
@@ -311,7 +314,10 @@ export default function ScorecardForms() {
           </TabsList>
 
           <TabsContent value="metrics" className="space-y-6">
-            <MetricsDashboard staffAgencyProfile={isStaffUser ? staffAgencyProfile : undefined} />
+            <MetricsDashboard 
+              staffAgencyProfile={isStaffUser ? staffAgencyProfile : undefined}
+              defaultDate={isStaffUser ? getPreviousBusinessDay() : undefined}
+            />
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">
