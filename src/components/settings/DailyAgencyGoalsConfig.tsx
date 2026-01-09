@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getAgencyGoals, updateAgencyGoals } from "@/lib/scorecardsApi";
 
 interface DailyAgencyGoalsConfigProps {
   agencyId: string;
@@ -16,6 +16,7 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
   const [initialQuoted, setInitialQuoted] = useState(15);
   const [initialSold, setInitialSold] = useState(8);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const hasChanges = dailyQuotedTarget !== initialQuoted || dailySoldTarget !== initialSold;
 
@@ -23,19 +24,23 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
     if (!agencyId) return;
     
     const fetchTargets = async () => {
-      const { data } = await supabase
-        .from("agencies")
-        .select("daily_quoted_households_target, daily_sold_items_target")
-        .eq("id", agencyId)
-        .single();
-      
-      if (data) {
-        const quoted = data.daily_quoted_households_target ?? 15;
-        const sold = data.daily_sold_items_target ?? 8;
-        setDailyQuotedTarget(quoted);
-        setDailySoldTarget(sold);
-        setInitialQuoted(quoted);
-        setInitialSold(sold);
+      try {
+        setLoading(true);
+        const data = await getAgencyGoals(agencyId);
+        
+        if (data) {
+          const quoted = data.daily_quoted_households_target ?? 15;
+          const sold = data.daily_sold_items_target ?? 8;
+          setDailyQuotedTarget(quoted);
+          setDailySoldTarget(sold);
+          setInitialQuoted(quoted);
+          setInitialSold(sold);
+        }
+      } catch (error) {
+        console.error("Failed to fetch targets:", error);
+        toast.error("Failed to load agency goals");
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -44,23 +49,20 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
 
   const saveTargets = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("agencies")
-      .update({
+    try {
+      await updateAgencyGoals({
         daily_quoted_households_target: dailyQuotedTarget,
         daily_sold_items_target: dailySoldTarget,
-      })
-      .eq("id", agencyId);
-    
-    setSaving(false);
-    
-    if (error) {
-      console.error("Failed to update targets:", error);
-      toast.error("Failed to save targets");
-    } else {
+      }, agencyId);
+      
       setInitialQuoted(dailyQuotedTarget);
       setInitialSold(dailySoldTarget);
       toast.success("Targets saved");
+    } catch (error) {
+      console.error("Failed to update targets:", error);
+      toast.error("Failed to save targets");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -75,41 +77,49 @@ export function DailyAgencyGoalsConfig({ agencyId }: DailyAgencyGoalsConfigProps
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="quoted-target">Quoted Households Target</Label>
-            <Input
-              id="quoted-target"
-              type="number"
-              min={1}
-              max={100}
-              value={dailyQuotedTarget === 0 ? "" : dailyQuotedTarget}
-              onChange={(e) => setDailyQuotedTarget(parseInt(e.target.value) || 0)}
-            />
-            <p className="text-xs text-muted-foreground">
-              How many households should be quoted per day
-            </p>
+        {loading ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="sold-target">Sold Items Target</Label>
-            <Input
-              id="sold-target"
-              type="number"
-              min={1}
-              max={100}
-              value={dailySoldTarget === 0 ? "" : dailySoldTarget}
-              onChange={(e) => setDailySoldTarget(parseInt(e.target.value) || 0)}
-            />
-            <p className="text-xs text-muted-foreground">
-              How many items should be sold per day
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={saveTargets} disabled={!hasChanges || saving}>
-            {saving ? "Saving..." : "Save Targets"}
-          </Button>
-        </div>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="quoted-target">Quoted Households Target</Label>
+                <Input
+                  id="quoted-target"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={dailyQuotedTarget === 0 ? "" : dailyQuotedTarget}
+                  onChange={(e) => setDailyQuotedTarget(parseInt(e.target.value) || 0)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How many households should be quoted per day
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sold-target">Sold Items Target</Label>
+                <Input
+                  id="sold-target"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={dailySoldTarget === 0 ? "" : dailySoldTarget}
+                  onChange={(e) => setDailySoldTarget(parseInt(e.target.value) || 0)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How many items should be sold per day
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={saveTargets} disabled={!hasChanges || saving}>
+                {saving ? "Saving..." : "Save Targets"}
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
