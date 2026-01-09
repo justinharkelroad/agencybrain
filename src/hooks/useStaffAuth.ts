@@ -55,6 +55,7 @@ export function useStaffAuth() {
           return;
         }
 
+        localStorage.setItem('staff_agency_id', data.user.agency_id);
         setState({
           user: data.user,
           sessionToken: token,
@@ -88,6 +89,7 @@ export function useStaffAuth() {
       }
 
       localStorage.setItem('staff_session_token', data.session_token);
+      localStorage.setItem('staff_agency_id', data.user.agency_id);
       localStorage.removeItem('staff_is_impersonation');
       
       // Clear sidebar folder state on login so folders start closed
@@ -115,6 +117,7 @@ export function useStaffAuth() {
 
   const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser) => {
     localStorage.setItem('staff_session_token', sessionToken);
+    localStorage.setItem('staff_agency_id', user.agency_id);
     localStorage.setItem('staff_is_impersonation', 'true');
     
     setState({
@@ -131,6 +134,7 @@ export function useStaffAuth() {
     
     setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
     localStorage.removeItem('staff_session_token');
+    localStorage.removeItem('staff_agency_id');
     localStorage.removeItem('staff_is_impersonation');
     localStorage.removeItem('sidebarOpenFolder');
 
