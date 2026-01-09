@@ -66,6 +66,28 @@ serve(async (req) => {
         break;
       }
 
+      case 'form_get': {
+        const { form_id } = params.params || params;
+        
+        if (!form_id) {
+          return new Response(
+            JSON.stringify({ error: 'form_id is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data, error } = await supabase
+          .from('form_templates')
+          .select('*')
+          .eq('id', form_id)
+          .eq('agency_id', agencyId)
+          .single();
+
+        if (error) throw error;
+        result = data; // Return the form directly
+        break;
+      }
+
       case 'form_create': {
         const { name, slug, role, schema_json, settings_json } = params;
         
