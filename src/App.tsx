@@ -125,6 +125,7 @@ import StaffFlows from "./pages/staff/StaffFlows";
 import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 import StaffSales from "./pages/staff/StaffSales";
+import StaffTeamRings from "./pages/staff/StaffTeamRings";
 
 // Training pages
 import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
@@ -896,6 +897,8 @@ const App = () => {
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
               {/* Staff Sales */}
               <Route path="sales" element={<StaffSales />} />
+              {/* Team Rings - Full Team Performance */}
+              <Route path="team-rings" element={<StaffTeamRings />} />
               {/* LQS Roadmap */}
               <Route path="lqs-roadmap" element={<LqsRoadmapPage isStaffPortal={true} />} />
             </Route>

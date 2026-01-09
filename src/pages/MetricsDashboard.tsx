@@ -303,15 +303,12 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Team Performance Overview</h2>
-              {/* Hidden for staff users - navigates to owner-only route */}
-              {!isStaffMode && (
-                <Link to="/team-rings">
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Full Team Performance
-                  </Button>
-                </Link>
-              )}
+              <Link to={isStaffMode ? "/staff/team-rings" : "/team-rings"}>
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Full Team Performance
+                </Button>
+              </Link>
             </div>
             <TeamPerformanceRings 
               agencyId={agencyId}
