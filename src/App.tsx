@@ -882,6 +882,7 @@ const App = () => {
               <Route path="call-scoring" element={<CallScoring />} />
               {/* Scorecards / Metrics */}
               <Route path="metrics" element={<ScorecardForms />} />
+              <Route path="metrics/settings" element={<ScorecardSettings role="Sales" />} />
               <Route path="metrics/builder" element={<ScorecardFormBuilder />} />
               <Route path="metrics/edit/:formId" element={<ScorecardFormEditor />} />
               {/* Cancel Audit */}
