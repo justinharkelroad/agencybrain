@@ -7,8 +7,12 @@ import { useSubmissions } from "@/hooks/useSubmissions";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export function SubmissionsList() {
-  const { submissions, loading, getSubmissionMetrics } = useSubmissions();
+interface SubmissionsListProps {
+  staffAgencyId?: string | null;
+}
+
+export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
+  const { submissions, loading, getSubmissionMetrics } = useSubmissions(staffAgencyId || undefined);
   const navigate = useNavigate();
 
   if (loading) {

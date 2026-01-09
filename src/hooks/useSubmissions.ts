@@ -31,28 +31,34 @@ interface SubmissionMetrics {
   sold_items: number | null;
 }
 
-export function useSubmissions() {
+export function useSubmissions(staffAgencyId?: string) {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [submissionMetrics, setSubmissionMetrics] = useState<Record<string, SubmissionMetrics>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id) {
+    // Fetch if we have either a user ID or staffAgencyId
+    if (user?.id || staffAgencyId) {
       fetchSubmissions();
     }
-  }, [user?.id]);
+  }, [user?.id, staffAgencyId]);
 
   const fetchSubmissions = async () => {
     try {
-      // Get user's agency first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', user?.id)
-        .single();
+      let agencyId = staffAgencyId;
+      
+      // Only query profiles if we don't have staffAgencyId
+      if (!agencyId && user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user.id)
+          .single();
+        agencyId = profile?.agency_id;
+      }
 
-      if (!profile?.agency_id) {
+      if (!agencyId) {
         setSubmissions([]);
         setLoading(false);
         return;
@@ -73,7 +79,7 @@ export function useSubmissions() {
             email
           )
         `)
-        .eq('form_templates.agency_id', profile.agency_id)
+        .eq('form_templates.agency_id', agencyId)
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;

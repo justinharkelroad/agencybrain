@@ -32,6 +32,13 @@ export function useSessionRecovery() {
   }, [navigate]);
 
   useEffect(() => {
+    // Helper to check if current session is a staff session
+    const isStaffSession = () => {
+      const hasStaffToken = !!localStorage.getItem('staff_session_token');
+      const onStaffRoute = window.location.pathname.startsWith('/staff');
+      return hasStaffToken && onStaffRoute;
+    };
+
     // Set up global error handler for fetch to catch 401s
     const originalFetch = window.fetch;
     
@@ -51,6 +58,12 @@ export function useSessionRecovery() {
         const isSupabaseRequest = url.includes('supabase.co') || url.includes('supabase.in');
         
         if (isSupabaseRequest && (response.status === 401 || response.status === 403)) {
+          // CRITICAL: Don't trigger recovery for staff sessions
+          // Staff users authenticate via session tokens, not Supabase Auth
+          if (isStaffSession()) {
+            return response;
+          }
+          
           // Clone the response to read the body
           const clonedResponse = response.clone();
           try {
@@ -76,11 +89,21 @@ export function useSessionRecovery() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Handle token refresh failures
       if (event === 'TOKEN_REFRESHED' && !session) {
+        // Don't trigger recovery for staff sessions
+        if (isStaffSession()) {
+          return;
+        }
         handleRecovery('Unable to refresh your session. Please sign in again.');
       }
       
       // Handle explicit sign out events from other tabs
       if (event === 'SIGNED_OUT') {
+        // Don't redirect staff users when Supabase fires SIGNED_OUT
+        // Staff sessions are managed separately via staff_session_token
+        if (isStaffSession()) {
+          return;
+        }
+        
         localStorage.removeItem('sidebarOpenFolder');
         // Only redirect if we're not already on the auth page
         if (!window.location.pathname.includes('/auth')) {
