@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react';
-
+import { VideoEmbed } from '@/components/training/VideoEmbed';
 interface SPCategory {
   id: string;
   name: string;
@@ -190,6 +190,17 @@ export default function TrainingHub() {
         <p className="text-muted-foreground/70 mt-1">
           Your training library for insurance mastery
         </p>
+      </div>
+
+      {/* Intro Video */}
+      <div className="mb-8">
+        <VideoEmbed 
+          url="https://vimeo.com/1152848197"
+          autoplay
+          muted
+          controls
+          className="rounded-xl shadow-lg"
+        />
       </div>
 
       {/* Stats Card */}
