@@ -108,9 +108,11 @@ export default function ScorecardForms() {
       setStaffFormsLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          headers: {
+            'x-staff-session': token,
+          },
           body: {
             action: 'forms_list',
-            session_token: token,
           },
         });
         
