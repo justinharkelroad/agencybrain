@@ -184,7 +184,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       });
     };
 
-    const filtered = staffNavigationConfig
+    let filtered = staffNavigationConfig
       .filter((entry) => {
         // Check folder/item level access based on role
         if (isNavFolder(entry)) {
@@ -217,8 +217,8 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       })
       .filter((entry): entry is NavEntry => entry !== null);
 
-    // For Call Scoring tier: reorder so call-scoring-top is FIRST
     if (isCallScoringTier) {
+      // For Call Scoring tier: reorder so call-scoring-top is FIRST
       const callScoringTopIndex = filtered.findIndex(
         entry => !isNavFolder(entry) && entry.id === 'call-scoring-top'
       );
@@ -227,6 +227,15 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
         filtered.unshift(callScoringTop);
       }
+    } else {
+      // For NON-Call-Scoring tier users:
+      // Remove call-scoring-top from navigation (they should only see it in Accountability folder)
+      filtered = filtered.filter(entry => {
+        if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
+          return false;
+        }
+        return true;
+      });
     }
 
     return filtered;
