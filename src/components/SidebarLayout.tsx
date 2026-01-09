@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ROIForecastersModal, type CalcKey } from "@/components/ROIForecastersModal";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { cleanupRadixLocks, isPageLocked } from "@/lib/radixCleanup";
+import { isCallScoringTier } from "@/utils/tierAccess";
+import { useAuth } from "@/lib/auth";
 
 type SidebarLayoutProps = {
   children: React.ReactNode;
@@ -14,6 +16,27 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   const [roiOpen, setRoiOpen] = useState(false);
   const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { membershipTier } = useAuth();
+
+  // Routes that Call Scoring tier users ARE allowed to access in Brain Portal
+  const callScoringAllowedPaths = [
+    '/call-scoring',
+    '/agency',
+    '/exchange',
+  ];
+
+  // Check if current path starts with any allowed path
+  const isAllowedPath = callScoringAllowedPaths.some(
+    allowedPath => location.pathname.startsWith(allowedPath)
+  );
+
+  // Redirect Call Scoring tier users away from restricted pages
+  useEffect(() => {
+    if (isCallScoringTier(membershipTier) && !isAllowedPath) {
+      navigate('/call-scoring', { replace: true });
+    }
+  }, [location.pathname, membershipTier, isAllowedPath, navigate]);
 
   // Cleanup any stuck Radix locks on route change
   useEffect(() => {
