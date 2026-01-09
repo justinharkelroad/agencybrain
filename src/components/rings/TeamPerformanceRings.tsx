@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { RING_COLORS, RING_LABELS } from "./colors";
@@ -7,6 +6,9 @@ import { Check, X } from "lucide-react";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { getMetricValue } from "@/lib/kpiKeyMapping";
+import { getTeamRingsData } from "@/lib/scorecardsApi";
+import { hasStaffToken } from "@/lib/staffRequest";
+import { supabase } from '@/integrations/supabase/client';
 
 type RingMetric = {
   key: string;
@@ -122,15 +124,19 @@ function CompactRing({
   );
 }
 
+interface TeamPerformanceRingsProps {
+  agencyId: string;
+  agencySlug?: string;
+  role: string;
+  date: string;
+}
+
 export default function TeamPerformanceRings({ 
   agencyId, 
+  agencySlug,
   role, 
   date 
-}: { 
-  agencyId: string; 
-  role: string; 
-  date: string; 
-}) {
+}: TeamPerformanceRingsProps) {
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamMemberRings[]>([]);
   const [ringMetrics, setRingMetrics] = useState<string[]>([]);
@@ -152,25 +158,55 @@ export default function TeamPerformanceRings({
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Get ring metrics and n_required from scorecard rules
-        const { data: rules } = await supabase
-          .from('scorecard_rules')
-          .select('ring_metrics, n_required')
-          .eq('agency_id', agencyId)
-          .eq('role', role as 'Sales' | 'Service') // Type assertion for role
-          .single();
+        // Use the staff-safe API
+        const isStaff = hasStaffToken();
+        let rules: any = null;
+        let teamMetrics: any[] = [];
+        let targets: any[] = [];
+        let slug = agencySlug;
 
-        // Get agency slug for the RPC call
-        const { data: agencyData } = await supabase
-          .from('agencies')
-          .select('slug')
-          .eq('id', agencyId)
-          .single();
+        if (isStaff) {
+          // Staff mode - use edge function
+          const data = await getTeamRingsData(role, date, agencyId, agencySlug);
+          rules = data.rules;
+          teamMetrics = data.teamMetrics || [];
+          targets = data.targets || [];
+        } else {
+          // Owner mode - direct queries
+          const { data: rulesData } = await supabase
+            .from('scorecard_rules')
+            .select('ring_metrics, n_required')
+            .eq('agency_id', agencyId)
+            .eq('role', role as 'Sales' | 'Service')
+            .single();
+          rules = rulesData;
 
-        const agencySlug = agencyData?.slug;
-        
-        if (!agencySlug) {
-          throw new Error('Agency slug not found');
+          // Get agency slug if not provided
+          if (!slug) {
+            const { data: agencyData } = await supabase
+              .from('agencies')
+              .select('slug')
+              .eq('id', agencyId)
+              .single();
+            slug = agencyData?.slug;
+          }
+
+          if (slug) {
+            const { data: metricsData } = await supabase
+              .rpc('get_dashboard_daily', {
+                p_agency_slug: slug,
+                p_role: role,
+                p_start: date,
+                p_end: date
+              });
+            teamMetrics = metricsData || [];
+          }
+
+          const { data: targetsData } = await supabase
+            .from('targets')
+            .select('team_member_id, metric_key, value_number')
+            .eq('agency_id', agencyId);
+          targets = targetsData || [];
         }
 
         // FIXED: Use standardized keys in fallback
@@ -180,21 +216,6 @@ export default function TeamPerformanceRings({
         setRingMetrics(metrics);
         setNRequired(rules?.n_required || 2);
 
-        // Get team metrics for the date using get_dashboard_daily
-        const { data: teamMetrics } = await supabase
-          .rpc('get_dashboard_daily', {
-            p_agency_slug: agencySlug,
-            p_role: role,
-            p_start: date,
-            p_end: date
-          });
-
-        // Get targets for each member and metric
-        const { data: targets } = await supabase
-          .from('targets')
-          .select('team_member_id, metric_key, value_number')
-          .eq('agency_id', agencyId);
-
         // Role-based default targets and metrics
         const getDefaultTarget = (metricKey: string) => {
           const defaults = role === 'Sales' 
@@ -203,9 +224,6 @@ export default function TeamPerformanceRings({
           return (defaults as any)[metricKey] || 0;
         };
 
-        // Use ring_metrics directly from database - no hardcoded filtering
-        // If agency configures 2 ring_metrics, only 2 rings will show
-
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
           const memberMetrics: RingMetric[] = metrics.map((metricKey: string) => {
@@ -213,11 +231,11 @@ export default function TeamPerformanceRings({
             const actual = getMetricValue(member, metricKey);
             
             // Get target: member-specific first, then agency default, then role default
-            const memberTarget = targets?.find(t => 
+            const memberTarget = targets?.find((t: any) => 
               t.team_member_id === member.team_member_id && t.metric_key === metricKey
             )?.value_number;
             
-            const agencyTarget = targets?.find(t => 
+            const agencyTarget = targets?.find((t: any) => 
               t.team_member_id === null && t.metric_key === metricKey
             )?.value_number;
             
@@ -263,7 +281,7 @@ export default function TeamPerformanceRings({
     if (agencyId && role && date) {
       fetchData();
     }
-  }, [agencyId, role, date, kpiLabels]);
+  }, [agencyId, agencySlug, role, date, kpiLabels]);
 
   if (loading) {
     return (

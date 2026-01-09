@@ -263,7 +263,7 @@ export default function ScorecardForms() {
                     <SelectItem value="all">All Forms</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={() => navigate("/metrics/builder")}>
+                <Button onClick={() => navigate(isStaffUser ? "/staff/metrics/builder" : "/metrics/builder")}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Form
                 </Button>
@@ -286,7 +286,7 @@ export default function ScorecardForms() {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => navigate("/metrics/builder?role=sales")}
+                    onClick={() => navigate(isStaffUser ? "/staff/metrics/builder?role=sales" : "/metrics/builder?role=sales")}
                   >
                     Create Sales Form
                   </Button>
@@ -307,7 +307,7 @@ export default function ScorecardForms() {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => navigate("/metrics/builder?role=service")}
+                    onClick={() => navigate(isStaffUser ? "/staff/metrics/builder?role=service" : "/metrics/builder?role=service")}
                   >
                     Create Service Form
                   </Button>
@@ -355,8 +355,8 @@ export default function ScorecardForms() {
           </TabsContent>
 
           <TabsContent value="targets" className="space-y-6">
-            {/* Daily Agency Goals */}
-            {agencyId && <DailyAgencyGoalsConfig agencyId={agencyId} />}
+            {/* Daily Agency Goals - Use effectiveAgencyId for staff support */}
+            {(isStaffUser ? staffAgencyId : agencyId) && <DailyAgencyGoalsConfig agencyId={(isStaffUser ? staffAgencyId : agencyId)!} />}
             
             <Card>
               <CardHeader>
@@ -372,7 +372,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Sales Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales" agencyId={agencyId}>
+                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales" agencyId={isStaffUser ? staffAgencyId! : agencyId}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Sales KPIs
@@ -393,7 +393,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Service Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service" agencyId={agencyId}>
+                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service" agencyId={isStaffUser ? staffAgencyId! : agencyId}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Service KPIs
