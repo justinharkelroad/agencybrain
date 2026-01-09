@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseClient";
-import { computeWeightedScore, buildTargetsMap, DEFAULT_WEIGHTS } from "@/utils/scoring";
 import { format } from "date-fns";
+import { fetchWithAuth, hasStaffToken } from "@/lib/staffRequest";
 
 interface DailyMetric {
   team_member_id: string;
@@ -35,6 +35,10 @@ interface DashboardDailyResult {
   table: Array<DailyMetric & { name: string }>;
 }
 
+/**
+ * Hook to fetch daily dashboard metrics for a given agency and role.
+ * Supports both Supabase JWT and staff session token authentication.
+ */
 export function useDashboardDaily(
   agencySlug: string,
   role: "Sales" | "Service", 
@@ -50,27 +54,29 @@ export function useDashboardDaily(
       
       console.log("Fetching daily data for date:", workDate);
 
-      // Get current session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error("No authentication session found");
+      const isStaff = hasStaffToken();
+
+      // For Supabase users, verify session exists
+      if (!isStaff) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("No authentication session found");
+        }
       }
 
-      // Call the daily dashboard API with role filter
-      const response = await fetch(
-        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_dashboard_daily?agencySlug=${agencySlug}&workDate=${workDate}&role=${role}`,
-        {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`,
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNiQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
-          },
-        }
-      );
+      // Use dual-mode auth via fetchWithAuth
+      const response = await fetchWithAuth("get_dashboard_daily", {
+        method: "GET",
+        queryParams: {
+          agencySlug,
+          workDate,
+          role,
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Dashboard API error ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Dashboard API error ${response.status}`);
       }
 
       const { rows } = await response.json();

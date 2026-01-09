@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { fetchExplorerData, ExplorerQuery } from "@/lib/explorer";
+import { fetchWithAuth, hasStaffToken } from "@/lib/staffRequest";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,7 +51,7 @@ interface ExplorerProps {
 
 export default function Explorer({ staffAgencyId }: ExplorerProps) {
   const { user } = useAuth();
-  const isStaffMode = !!staffAgencyId;
+  const isStaffMode = !!staffAgencyId || hasStaffToken();
 
   // Default to current month (1st to today)
   const getCurrentMonthRange = () => {
@@ -237,8 +238,9 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
       try {
         let agencyId = staffAgencyId;
         
-        // Only query profiles if we don't have staffAgencyId
-        if (!agencyId && user?.id) {
+        // For staff mode without explicit staffAgencyId, we can still proceed
+        // The edge function will use the authenticated agency
+        if (!agencyId && !isStaffMode && user?.id) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('agency_id')
@@ -268,6 +270,27 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
             .eq('is_active', true);
 
           setLeadSources(sources || []);
+        } else if (isStaffMode) {
+          // For staff mode, fetch filters via edge function
+          try {
+            const res = await fetchWithAuth("get_staff_team_data", {
+              method: "POST",
+              body: {},
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setTeamMembers(data.team_members || []);
+              // get_staff_team_data might not include lead sources, handle gracefully
+              if (data.lead_sources) {
+                setLeadSources(data.lead_sources);
+              }
+              if (data.agency_id) {
+                setAgencyIdForModal(data.agency_id);
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching staff team data:', err);
+          }
         }
       } catch (error) {
         console.error('Error fetching agency data:', error);
@@ -497,67 +520,37 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr 
-                      key={row.id} 
-                      className={`border-b hover:bg-muted/50 ${
-                        row.record_type === "customer" ? "bg-green-500/5" : ""
-                      }`}
-                    >
+                    <tr key={row.id} className="border-b hover:bg-muted/50">
                       <td className="p-3">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => {
                             setSelectedHousehold(convertToModalFormat(row));
                             setIsEditModalOpen(true);
                           }}
-                          className="h-8 w-8 p-0"
                         >
                           <EditIcon className="h-4 w-4" />
                         </Button>
                       </td>
                       <td className="p-3">
-                        {row.record_type === "customer" ? (
-                          <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30">
-                            Sold
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30">
-                            Quoted
-                          </Badge>
-                        )}
+                        <Badge 
+                          variant="secondary" 
+                          className={row.record_type === "customer" 
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          }
+                        >
+                          {row.record_type === "customer" ? "Sold" : "Quoted"}
+                        </Badge>
                       </td>
-                      <td className="p-3">{row.created_at?.split('T')[0] || "—"}</td>
-                      <td className="p-3">
-                        {row.staff_member_name || "Unknown"}
-                      </td>
+                      <td className="p-3">{row.work_date || row.created_at?.split('T')[0]}</td>
+                      <td className="p-3">{row.staff_member_name || "Unknown"}</td>
                       <td className="p-3 font-medium">{row.prospect_name}</td>
-                      <td className="p-3">
-                        {(() => {
-                          const label = row.lead_source_label;
-                          // Check if it's a UUID pattern and resolve to name
-                          if (label && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(label)) {
-                            const resolved = leadSources.find(ls => ls.id === label)?.name;
-                            return resolved || label;
-                          }
-                          if (label === "Undefined") {
-                            return (
-                              <Badge variant="outline" className="text-xs">
-                                Undefined
-                              </Badge>
-                            );
-                          }
-                          return label || "—";
-                        })()}
-                      </td>
+                      <td className="p-3">{row.lead_source_label || "Undefined"}</td>
                       <td className="p-3">{row.items_quoted ?? "—"}</td>
                       <td className="p-3">{row.policies_quoted ?? "—"}</td>
-                      <td className="p-3">
-                        {row.premium_potential_cents 
-                          ? `$${(row.premium_potential_cents / 100).toLocaleString()}`
-                          : "—"
-                        }
-                      </td>
+                      <td className="p-3">${(row.premium_potential_cents / 100).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -565,23 +558,28 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
             </div>
           )}
 
-          {loading && rows.length > 0 && (
-            <div className="text-center py-4">
-              <p className="text-muted-foreground text-sm">Loading more...</p>
+          {hasMore && (
+            <div className="flex justify-center mt-4">
+              <Button onClick={handleLoadMore} disabled={loading}>
+                {loading ? "Loading..." : "Load More"}
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Edit Modal */}
       <ProspectViewModal
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedHousehold(null);
         }}
-        prospect={selectedHousehold}
-        teamMembers={teamMembers}
-        leadSources={leadSources}
+        household={selectedHousehold}
+        agencyId={agencyIdForModal}
+        onUpdate={() => {
+          search(1);
+        }}
       />
     </div>
   );

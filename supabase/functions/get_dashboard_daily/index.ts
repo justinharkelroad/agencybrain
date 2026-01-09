@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
@@ -33,14 +34,23 @@ serve(async (req) => {
   }
 
   try {
+    // Verify request using dual-mode auth (Supabase JWT or Staff session)
+    const authResult = await verifyRequest(req);
+    
+    if (isVerifyError(authResult)) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { 
+          status: authResult.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Create service role client for database queries
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization') ?? '' }
-        }
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const url = new URL(req.url);
@@ -48,9 +58,9 @@ serve(async (req) => {
     const workDate = url.searchParams.get('workDate'); // YYYY-MM-DD format
     const role = url.searchParams.get('role'); // "Sales" or "Service"
 
-    if (!agencySlug || !workDate) {
+    if (!workDate) {
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters: agencySlug and workDate' }),
+        JSON.stringify({ error: 'Missing required parameter: workDate' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -81,22 +91,40 @@ serve(async (req) => {
       );
     }
 
-    // Get agency ID from slug
-    const { data: agency, error: agencyError } = await supabase
-      .from('agencies')
-      .select('id')
-      .eq('slug', agencySlug)
-      .single();
+    // Get agency ID - use verified auth context, fallback to slug lookup
+    let agencyId = authResult.agencyId;
+    
+    // If agencySlug provided, verify it matches the authenticated user's agency
+    if (agencySlug) {
+      const { data: agency, error: agencyError } = await supabase
+        .from('agencies')
+        .select('id')
+        .eq('slug', agencySlug)
+        .single();
 
-    if (agencyError || !agency) {
-      console.error('Agency lookup error:', agencyError);
-      return new Response(
-        JSON.stringify({ error: 'Agency not found' }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      if (agencyError || !agency) {
+        console.error('Agency lookup error:', agencyError);
+        return new Response(
+          JSON.stringify({ error: 'Agency not found' }),
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      // For security, ensure requested agency matches authenticated user's agency
+      if (agency.id !== authResult.agencyId) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied to this agency' }),
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      agencyId = agency.id;
     }
 
     // Query vw_metrics_with_team view directly, filtering by role
@@ -104,7 +132,7 @@ serve(async (req) => {
     const { data, error } = await supabase
       .from('vw_metrics_with_team')
       .select('*')
-      .eq('agency_id', agency.id)
+      .eq('agency_id', agencyId)
       .eq('date', workDate)
       .or(`role.eq.${role},role.eq.Hybrid`)
       .order('rep_name', { ascending: true, nullsFirst: false });
@@ -140,7 +168,7 @@ serve(async (req) => {
       status: row.status || 'final'
     }));
 
-    console.log(`Dashboard daily: Found ${rows.length} rows for agency ${agencySlug} on ${workDate} with role ${role}`);
+    console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
     return new Response(
       JSON.stringify({ rows }),

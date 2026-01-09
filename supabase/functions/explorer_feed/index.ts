@@ -1,28 +1,36 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { 
-      headers: { 
-        "access-control-allow-origin": "*", 
-        "access-control-allow-headers": "authorization, apikey, content-type" 
-      }
-    });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!, 
-      Deno.env.get("SUPABASE_ANON_KEY")!, 
-      { 
-        auth: { persistSession: false },
-        global: { 
-          headers: { 
-            Authorization: req.headers.get('Authorization') ?? '' 
-          } 
+    // Verify request using dual-mode auth (Supabase JWT or Staff session)
+    const authResult = await verifyRequest(req);
+    
+    if (isVerifyError(authResult)) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { 
+          status: authResult.status, 
+          headers: { ...corsHeaders, "content-type": "application/json" }
         }
-      }
+      );
+    }
+
+    // Create service role client for database queries
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     const body = await req.json().catch(() => ({}));
@@ -34,28 +42,21 @@ serve(async (req) => {
       recordType = "all" // "all" | "prospect" | "customer"
     } = body;
 
-    // Get agency by slug or user's agency
-    let agencyId = null;
+    // Use authenticated user's agency ID
+    const agencyId = authResult.agencyId;
+
+    // If agency_slug provided, verify it matches
     if (agency_slug) {
       const { data: ag } = await sb.from("agencies").select("id").eq("slug", agency_slug).single();
-      agencyId = ag?.id;
-    } else {
-      // Get current user's agency
-      const { data: { user } } = await sb.auth.getUser();
-      if (user) {
-        const { data: profile } = await sb.from("profiles").select("agency_id").eq("id", user.id).single();
-        agencyId = profile?.agency_id;
+      if (ag && ag.id !== agencyId) {
+        return new Response(
+          JSON.stringify({ error: "Access denied to this agency" }), 
+          { 
+            status: 403, 
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          }
+        );
       }
-    }
-
-    if (!agencyId) {
-      return new Response(
-        JSON.stringify({ error: "Agency not found" }), 
-        { 
-          status: 400, 
-          headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
-        }
-      );
     }
 
     // Valid sort fields for each record type
@@ -71,7 +72,7 @@ serve(async (req) => {
     const sortField = VALID_SORT_FIELDS.includes(sortBy) ? sortBy : "created_at";
     const ascending = sortOrder === "asc";
     
-    console.log(`Explorer: recordType=${recordType}, sort=${sortField}/${sortOrder}`);
+    console.log(`Explorer [${authResult.mode}]: recordType=${recordType}, sort=${sortField}/${sortOrder}`);
 
     let prospects: any[] = [];
     let customers: any[] = [];
@@ -268,7 +269,7 @@ serve(async (req) => {
       }), 
       { 
         status: 200, 
-        headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
+        headers: { ...corsHeaders, "content-type": "application/json" }
       }
     );
 
@@ -278,7 +279,7 @@ serve(async (req) => {
       JSON.stringify({ error: "Internal server error" }), 
       { 
         status: 500, 
-        headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
+        headers: { ...corsHeaders, "content-type": "application/json" }
       }
     );
   }

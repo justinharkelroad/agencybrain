@@ -1,3 +1,4 @@
+import { fetchWithAuth, hasStaffToken } from "@/lib/staffRequest";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface ExplorerQuery {
@@ -25,32 +26,31 @@ export interface ExplorerResponse {
   customerCount?: number;
 }
 
+/**
+ * Fetch explorer data using dual-mode auth (Supabase JWT or staff session token).
+ */
 export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerResponse> {
-  // Get current session with explicit token
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error("No authentication session found");
+  const isStaff = hasStaffToken();
+
+  // For Supabase users, verify session exists
+  if (!isStaff) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error("No authentication session found");
+    }
   }
 
   // Log payload to demonstrate sortBy/sortOrder inclusion
   console.log("Explorer API payload:", JSON.stringify(q, null, 2));
 
-  const res = await fetch(
-    "https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/explorer_feed",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
-        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
-      },
-      body: JSON.stringify(q)
-    }
-  );
+  const res = await fetchWithAuth("explorer_feed", {
+    method: "POST",
+    body: q,
+  });
 
   if (!res.ok) {
-    throw new Error(`Explorer API error ${res.status}`);
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `Explorer API error ${res.status}`);
   }
   
   const response = await res.json();
