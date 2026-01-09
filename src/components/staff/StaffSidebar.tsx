@@ -6,6 +6,7 @@ import {
   LogOut,
   Sun,
   Settings,
+  Lock,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -29,6 +30,8 @@ import { cn } from "@/lib/utils";
 import { staffNavigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
 import { StaffSidebarFolder } from "./StaffSidebarFolder";
 import { CalcKey } from "@/components/ROIForecastersModal";
+import { MembershipGateModal } from "@/components/MembershipGateModal";
+import { getFeatureGateConfig } from "@/config/featureGates";
 
 const STAFF_SIDEBAR_OPEN_FOLDER_KEY = 'staff-sidebar-open-folder';
 
@@ -42,6 +45,8 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const navigate = useNavigate();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
+  const [showCallScoringGate, setShowCallScoringGate] = useState(false);
+  const [gatedItemId, setGatedItemId] = useState<string | null>(null);
   
   // Accordion state - only one folder open at a time
   const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
@@ -134,14 +139,15 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   // Helper to check if agency is on Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(user?.agency_membership_tier);
 
+  // Items that Call Scoring tier users can actually access (not just see)
+  const callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'];
+
   // Check if agency has sales beta access
   const salesEnabled = hasSalesBetaAccess(user?.agency_id ?? null);
 
-  // Filter navigation items based on role, callScoringEnabled setting, and tier
+  // Filter navigation items based on role, callScoringEnabled setting
+  // For Call Scoring tier: we now SHOW all items but gate them at click time
   const filteredNavigation = useMemo(() => {
-    // Call Scoring tier users ONLY see call-scoring - nothing else
-    const callScoringAllowedIds = ['call-scoring'];
-    
     // IDs that require sales beta access
     const salesBetaRequiredIds = ['sales', 'sales-dashboard'];
     
@@ -154,23 +160,13 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
             return false;
           }
         }
-
-        // For Call Scoring tier, only allow specific items
-        if (isCallScoringTier && !callScoringAllowedIds.includes(item.id)) {
-          return false;
-        }
         
         // Check sales beta access
         if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
           return false;
         }
         
-        // Check tier requirements (e.g., requiresTier: '1:1')
-        if (item.requiresTier === '1:1' && !hasOneOnOneAccess(user?.agency_membership_tier)) {
-          return false;
-        }
-        
-        // Check role-based access first
+        // Check role-based access
         if (!canAccessItem(item.access)) return false;
         
         // Check settingCheck for callScoringEnabled
@@ -184,15 +180,24 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
     return staffNavigationConfig
       .filter((entry) => {
-        // For Call Scoring tier, filter top-level items too
-        if (isCallScoringTier && !isNavFolder(entry) && !callScoringAllowedIds.includes(entry.id)) {
-          return false;
-        }
-        
-        // Check folder/item level access
+        // Check folder/item level access based on role
         if (isNavFolder(entry)) {
           return canAccessItem(entry.access);
         }
+        
+        // For individual items at root level
+        if (entry.emailRestriction) {
+          const staffEmail = user?.email?.toLowerCase();
+          if (!staffEmail || staffEmail !== entry.emailRestriction.toLowerCase()) {
+            return false;
+          }
+        }
+        
+        // Check settingCheck for root-level items
+        if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
+          return false;
+        }
+        
         return canAccessItem(entry.access);
       })
       .map((entry): NavEntry | null => {
@@ -205,7 +210,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         return entry;
       })
       .filter((entry): entry is NavEntry => entry !== null);
-  }, [callScoringEnabled, canAccessItem, isCallScoringTier, salesEnabled]);
+  }, [callScoringEnabled, canAccessItem, salesEnabled, user?.email]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -343,22 +348,40 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           membershipTier={user?.agency_membership_tier}
                           openFolderId={openFolderId}
                           onFolderToggle={handleFolderToggle}
+                          isCallScoringTier={isCallScoringTier}
+                          callScoringAccessibleIds={callScoringAccessibleIds}
                         />
                       );
                     }
 
-                    // Direct nav item (Dashboard, Submit Form)
+                    // Direct nav item (Dashboard, Submit Form, Call Scoring)
                     const active = entry.url ? isActive(entry.url) : false;
+                    const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(entry.id);
+
                     return (
                       <SidebarMenuItem key={entry.id}>
                         <SidebarMenuButton 
                           isActive={active}
-                          onClick={() => handleItemClick(entry)}
+                          onClick={() => {
+                            if (isGatedForCallScoring) {
+                              setGatedItemId(entry.id);
+                              setShowCallScoringGate(true);
+                            } else {
+                              handleItemClick(entry);
+                            }
+                          }}
                           tooltip={entry.title}
-                          className="cursor-pointer"
+                          className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
                         >
                           <entry.icon className="h-4 w-4" strokeWidth={1.5} />
-                          {sidebarOpen && <span>{entry.title}</span>}
+                          {sidebarOpen && (
+                            <>
+                              <span className="flex-1">{entry.title}</span>
+                              {isGatedForCallScoring && (
+                                <Lock className="h-3 w-3 text-amber-500/70" />
+                              )}
+                            </>
+                          )}
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     );
@@ -427,6 +450,22 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
           </Link>
         </div>
       </div>
+
+      {/* Call Scoring Tier Gate Modal */}
+      {gatedItemId && (
+        <MembershipGateModal
+          open={showCallScoringGate}
+          onOpenChange={(open) => {
+            setShowCallScoringGate(open);
+            if (!open) setGatedItemId(null);
+          }}
+          featureName={getFeatureGateConfig(gatedItemId).featureName}
+          featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
+          videoKey={getFeatureGateConfig(gatedItemId).videoKey}
+          gateType="call_scoring_upsell"
+          returnPath="/staff/call-scoring"
+        />
+      )}
     </Sidebar>
   );
 }
