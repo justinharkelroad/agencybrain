@@ -44,8 +44,13 @@ interface SearchFilters {
   recordType: "all" | "prospect" | "customer";
 }
 
-export default function Explorer() {
+interface ExplorerProps {
+  staffAgencyId?: string | null;
+}
+
+export default function Explorer({ staffAgencyId }: ExplorerProps) {
   const { user } = useAuth();
+  const isStaffMode = !!staffAgencyId;
 
   // Default to current month (1st to today)
   const getCurrentMonthRange = () => {
@@ -85,7 +90,7 @@ export default function Explorer() {
   const [customerCount, setCustomerCount] = useState(0);
 
   const search = async (page: number = 1) => {
-    if (!user) return;
+    if (!user && !isStaffMode) return;
     
     setLoading(true);
     setError(null);
@@ -226,25 +231,31 @@ export default function Explorer() {
   // Fetch agency slug and related data
   useEffect(() => {
     const fetchAgencyData = async () => {
-      if (!user) return;
+      // Skip if we don't have user or staffAgencyId
+      if (!user && !isStaffMode) return;
 
       try {
-        // Get user's agency
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('id', user.id)
-          .single();
+        let agencyId = staffAgencyId;
+        
+        // Only query profiles if we don't have staffAgencyId
+        if (!agencyId && user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('agency_id')
+            .eq('id', user.id)
+            .single();
+          agencyId = profile?.agency_id;
+        }
 
-        if (profile?.agency_id) {
+        if (agencyId) {
           // Set agency ID for modal
-          setAgencyIdForModal(profile.agency_id);
+          setAgencyIdForModal(agencyId);
 
           // Get team members
           const { data: members } = await supabase
             .from('team_members')
             .select('id, name')
-            .eq('agency_id', profile.agency_id)
+            .eq('agency_id', agencyId)
             .eq('status', 'active');
 
           setTeamMembers(members || []);
@@ -253,7 +264,7 @@ export default function Explorer() {
           const { data: sources } = await supabase
             .from('lead_sources')
             .select('id, name')
-            .eq('agency_id', profile.agency_id)
+            .eq('agency_id', agencyId)
             .eq('is_active', true);
 
           setLeadSources(sources || []);
@@ -264,19 +275,19 @@ export default function Explorer() {
     };
 
     fetchAgencyData();
-  }, [user]);
+  }, [user, staffAgencyId, isStaffMode]);
 
-  // Initial search when user is available
+  // Initial search when user is available or staff mode
   useEffect(() => {
-    if (user) {
+    if (user || isStaffMode) {
       search(1);
       setCurrentPage(1);
     }
-  }, [user]);
+  }, [user, isStaffMode]);
 
   // Refetch when sort changes
   useEffect(() => {
-    if (user && (sortBy !== "created_at" || sortOrder !== "desc")) {
+    if ((user || isStaffMode) && (sortBy !== "created_at" || sortOrder !== "desc")) {
       search(1);
       setCurrentPage(1);
     }
@@ -284,13 +295,14 @@ export default function Explorer() {
 
   // Refetch when record type filter changes
   useEffect(() => {
-    if (user) {
+    if (user || isStaffMode) {
       search(1);
       setCurrentPage(1);
     }
   }, [filters.recordType]);
 
-  if (!user) {
+  // For staff users, skip the "please log in" message - they authenticate differently
+  if (!user && !isStaffMode) {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="text-center">

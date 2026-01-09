@@ -63,10 +63,16 @@ type DailySeries = {
   pass_count: number;
 };
 
-export default function MetricsDashboard() {
+interface MetricsDashboardProps {
+  staffAgencyId?: string | null;
+}
+
+export default function MetricsDashboard({ staffAgencyId }: MetricsDashboardProps) {
   const { user } = useAuth();
+  const isStaffMode = !!staffAgencyId;
   
-  if (!user) {
+  // For staff users, skip the redirect - they authenticate differently
+  if (!user && !isStaffMode) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -76,12 +82,12 @@ export default function MetricsDashboard() {
   const quotedLabel = "households";
   const soldMetric = "items";
 
-  // Load agency profile data
+  // Load agency profile data - use staffAgencyId for staff users
   const {
     data: agencyProfile,
     isLoading: agencyLoading,
     error: agencyError,
-  } = useAgencyProfile(user?.id, role);
+  } = useAgencyProfile(isStaffMode ? undefined : user?.id, role, staffAgencyId || undefined);
 
   // Load dashboard data for the selected date only
   const {

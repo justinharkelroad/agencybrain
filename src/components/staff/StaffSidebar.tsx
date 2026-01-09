@@ -152,18 +152,10 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     const salesBetaRequiredIds = ['sales', 'sales-dashboard'];
     
     const filterItems = (items: NavItem[], folderId?: string): NavItem[] => {
-      console.log('[StaffSidebar] filterItems called for folder:', folderId);
-      console.log('[StaffSidebar] userAccess:', userAccess);
-      console.log('[StaffSidebar] callScoringEnabled:', callScoringEnabled);
-      console.log('[StaffSidebar] isCallScoringTier:', isCallScoringTier);
-      
       return items.filter(item => {
-        console.log(`[StaffSidebar] Checking item: ${item.id}, access config:`, item.access);
-        
         // For Call Scoring tier: remove call-scoring from inside Accountability folder
         // (we show it as top-level call-scoring-top instead)
         if (isCallScoringTier && folderId === 'accountability' && item.id === 'call-scoring') {
-          console.log(`[StaffSidebar] ${item.id}: FILTERED OUT - Call Scoring tier duplicate removal`);
           return false;
         }
         
@@ -171,36 +163,26 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         if (item.emailRestriction) {
           const staffEmail = user?.email?.toLowerCase();
           if (!staffEmail || staffEmail !== item.emailRestriction.toLowerCase()) {
-            console.log(`[StaffSidebar] ${item.id}: FILTERED OUT - email restriction`);
             return false;
           }
         }
         
         // Check sales beta access
         if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
-          console.log(`[StaffSidebar] ${item.id}: FILTERED OUT - sales beta not enabled`);
           return false;
         }
         
         // Check role-based access
         const canAccess = canAccessItem(item.access);
-        console.log(`[StaffSidebar] ${item.id}: canAccessItem result = ${canAccess}`);
         if (!canAccess) {
-          console.log(`[StaffSidebar] ${item.id}: FILTERED OUT - role-based access denied`);
           return false;
         }
         
         // Check settingCheck for callScoringEnabled
         if (item.settingCheck === 'callScoringEnabled') {
-          const result = callScoringEnabled === true;
-          console.log(`[StaffSidebar] ${item.id}: settingCheck callScoringEnabled = ${result}`);
-          if (!result) {
-            console.log(`[StaffSidebar] ${item.id}: FILTERED OUT - callScoringEnabled is false`);
-          }
-          return result;
+          return callScoringEnabled === true;
         }
         
-        console.log(`[StaffSidebar] ${item.id}: PASSED all checks`);
         return true;
       });
     };

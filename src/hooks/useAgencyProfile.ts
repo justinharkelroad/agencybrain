@@ -10,25 +10,35 @@ interface AgencyProfile {
 
 type MemberRole = "Sales" | "Service" | "Hybrid" | "Manager";
 
-export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
+export function useAgencyProfile(userId: string | undefined, role: MemberRole, staffAgencyId?: string) {
   return useQuery({
-    queryKey: ["agency-profile", userId, role],
-    enabled: !!userId,
+    queryKey: ["agency-profile", userId || staffAgencyId, role],
+    enabled: !!(userId || staffAgencyId),
     queryFn: async (): Promise<AgencyProfile> => {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('id', userId!)
-        .single();
-        
-      if (profileError || !profile?.agency_id) {
-        throw new Error('Failed to load user profile');
+      let agencyId = staffAgencyId;
+      
+      // Only query profiles if we don't have staffAgencyId
+      if (!agencyId && userId) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', userId)
+          .single();
+          
+        if (profileError || !profile?.agency_id) {
+          throw new Error('Failed to load user profile');
+        }
+        agencyId = profile.agency_id;
+      }
+      
+      if (!agencyId) {
+        throw new Error('No agency ID available');
       }
 
       const { data: agency, error: agencyError } = await supabase
         .from('agencies')
         .select('slug, name')
-        .eq('id', profile.agency_id)
+        .eq('id', agencyId)
         .single();
         
       if (agencyError || !agency) {
@@ -44,7 +54,7 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
       const { data: rules, error: rulesError } = await supabase
         .from('scorecard_rules')
         .select('*')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .eq('role', role)
         .single();
 
@@ -55,7 +65,7 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole) {
       return {
         agencySlug,
         agencyName: agency.name || "",
-        agencyId: profile.agency_id,
+        agencyId: agencyId,
         scorecardRules: rules,
       };
     },
