@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { BarChart3, Plus, Trash2, AlertTriangle, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from '@/integrations/supabase/client';
+import { scorecardsApi } from "@/lib/scorecardsApi";
 
 interface KPIData {
   id: string;
@@ -18,8 +19,8 @@ interface KPIData {
   type: 'number' | 'currency' | 'percentage' | 'integer';
   color?: string;
   is_active: boolean;
-  enabled: boolean; // Whether this KPI is in selected_metrics
-  value?: number; // Current target value
+  enabled: boolean;
+  value?: number;
 }
 
 interface EnhancedKPIConfigDialogProps {
@@ -27,9 +28,10 @@ interface EnhancedKPIConfigDialogProps {
   type: "sales" | "service";
   children: React.ReactNode;
   agencyId?: string;
+  isStaffMode?: boolean;
 }
 
-export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: EnhancedKPIConfigDialogProps) {
+export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isStaffMode = false }: EnhancedKPIConfigDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [kpis, setKpis] = useState<KPIData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,10 +46,8 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     };
   } | null>(null);
 
-  // Normalize role for database queries
   const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() as 'Sales' | 'Service';
 
-  // Load KPIs and targets when dialog opens
   useEffect(() => {
     if (isOpen && agencyId) {
       loadKPIsAndTargets();
@@ -60,51 +60,71 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     try {
       setLoading(true);
 
-      // Load scorecard rules to get selected_metrics
-      const { data: scorecardRules, error: rulesError } = await supabase
-        .from('scorecard_rules')
-        .select('selected_metrics')
-        .eq('agency_id', agencyId)
-        .eq('role', normalizedRole)
-        .single();
+      if (isStaffMode) {
+        // Use edge function for staff mode
+        const [rulesResult, kpisResult] = await Promise.all([
+          scorecardsApi.scorecardRulesGet(normalizedRole),
+          scorecardsApi.kpisListForRole(normalizedRole)
+        ]);
 
-      if (rulesError && rulesError.code !== 'PGRST116') {
-        console.error('Error loading scorecard rules:', rulesError);
+        if (rulesResult.error) throw new Error(rulesResult.error);
+        if (kpisResult.error) throw new Error(kpisResult.error);
+
+        const selectedMetrics = new Set(rulesResult.data?.selected_metrics || []);
+        const targets = rulesResult.data?.targets || [];
+
+        const kpisWithState: KPIData[] = (kpisResult.data || []).map((kpi: any) => ({
+          ...kpi,
+          type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number',
+          enabled: selectedMetrics.has(kpi.key),
+          value: targets.find((t: any) => t.metric_key === kpi.key)?.value_number || 0
+        }));
+
+        setKpis(kpisWithState);
+      } else {
+        // Owner mode - direct Supabase queries
+        const { data: scorecardRules, error: rulesError } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', agencyId)
+          .eq('role', normalizedRole)
+          .single();
+
+        if (rulesError && rulesError.code !== 'PGRST116') {
+          console.error('Error loading scorecard rules:', rulesError);
+        }
+
+        const selectedMetrics = new Set(scorecardRules?.selected_metrics || []);
+
+        const { data: kpisData, error: kpisError } = await supabase
+          .from('kpis')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .or(`role.eq.${normalizedRole},role.is.null`)
+          .order('label');
+
+        if (kpisError) throw kpisError;
+
+        const kpiKeys = (kpisData || []).map(k => k.key);
+        const { data: targets, error: targetsError } = await supabase
+          .from('targets')
+          .select('metric_key, value_number')
+          .eq('agency_id', agencyId)
+          .in('metric_key', kpiKeys)
+          .is('team_member_id', null);
+
+        if (targetsError) throw targetsError;
+
+        const kpisWithState: KPIData[] = (kpisData || []).map(kpi => ({
+          ...kpi,
+          type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number',
+          enabled: selectedMetrics.has(kpi.key),
+          value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
+        }));
+
+        setKpis(kpisWithState);
       }
-
-      const selectedMetrics = new Set(scorecardRules?.selected_metrics || []);
-
-      // Load ALL active KPIs for this agency (role-specific + null role)
-      const { data: kpisData, error: kpisError } = await supabase
-        .from('kpis')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true)
-        .or(`role.eq.${normalizedRole},role.is.null`)
-        .order('label');
-
-      if (kpisError) throw kpisError;
-
-      // Load existing targets
-      const kpiKeys = (kpisData || []).map(k => k.key);
-      const { data: targets, error: targetsError } = await supabase
-        .from('targets')
-        .select('metric_key, value_number')
-        .eq('agency_id', agencyId)
-        .in('metric_key', kpiKeys)
-        .is('team_member_id', null);
-
-      if (targetsError) throw targetsError;
-
-      // Combine KPI data with enabled state and target values
-      const kpisWithState: KPIData[] = (kpisData || []).map(kpi => ({
-        ...kpi,
-        type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number',
-        enabled: selectedMetrics.has(kpi.key),
-        value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
-      }));
-
-      setKpis(kpisWithState);
     } catch (error) {
       console.error('Error loading KPIs and targets:', error);
       toast.error('Failed to load KPI data');
@@ -153,14 +173,20 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     try {
       setLoading(true);
 
-      const response = await supabase.functions.invoke('delete_kpi', {
-        body: {
-          agency_id: agencyId,
-          kpi_key: deleteConfirm.kpi.key
-        }
-      });
-
-      if (response.error) throw response.error;
+      if (isStaffMode) {
+        // Staff mode uses edge function
+        const result = await scorecardsApi.deleteKpi(deleteConfirm.kpi.key);
+        if (result.error) throw new Error(result.error);
+      } else {
+        // Owner mode uses direct edge function call
+        const response = await supabase.functions.invoke('delete_kpi', {
+          body: {
+            agency_id: agencyId,
+            kpi_key: deleteConfirm.kpi.key
+          }
+        });
+        if (response.error) throw response.error;
+      }
 
       toast.success(`KPI "${deleteConfirm.kpi.label}" has been deleted successfully`);
       setDeleteConfirm(null);
@@ -190,38 +216,51 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
         return;
       }
 
-      // Update scorecard_rules.selected_metrics
-      const { error: rulesError } = await supabase
-        .from('scorecard_rules')
-        .update({ selected_metrics: enabledKeys })
-        .eq('agency_id', agencyId)
-        .eq('role', normalizedRole);
+      if (isStaffMode) {
+        // Staff mode - use edge functions
+        const rulesResult = await scorecardsApi.scorecardRulesUpsert(normalizedRole, {
+          selected_metrics: enabledKeys
+        });
+        if (rulesResult.error) throw new Error(rulesResult.error);
 
-      if (rulesError) throw rulesError;
+        const targets = enabledKpis.map(kpi => ({
+          metric_key: kpi.key,
+          value_number: kpi.value || 0
+        }));
+        const targetsResult = await scorecardsApi.targetsReplaceForRole(normalizedRole, targets);
+        if (targetsResult.error) throw new Error(targetsResult.error);
+      } else {
+        // Owner mode - direct Supabase
+        const { error: rulesError } = await supabase
+          .from('scorecard_rules')
+          .update({ selected_metrics: enabledKeys })
+          .eq('agency_id', agencyId)
+          .eq('role', normalizedRole);
 
-      // Delete existing targets for this role's KPIs
-      const allKpiKeys = kpis.map(k => k.key);
-      await supabase
-        .from('targets')
-        .delete()
-        .eq('agency_id', agencyId)
-        .is('team_member_id', null)
-        .in('metric_key', allKpiKeys);
+        if (rulesError) throw rulesError;
 
-      // Insert new targets for enabled KPIs only
-      const targetsToInsert = enabledKpis.map(kpi => ({
-        agency_id: agencyId,
-        metric_key: kpi.key,
-        value_number: kpi.value || 0,
-        team_member_id: null
-      }));
-
-      if (targetsToInsert.length > 0) {
-        const { error: insertError } = await supabase
+        const allKpiKeys = kpis.map(k => k.key);
+        await supabase
           .from('targets')
-          .insert(targetsToInsert);
+          .delete()
+          .eq('agency_id', agencyId)
+          .is('team_member_id', null)
+          .in('metric_key', allKpiKeys);
 
-        if (insertError) throw insertError;
+        const targetsToInsert = enabledKpis.map(kpi => ({
+          agency_id: agencyId,
+          metric_key: kpi.key,
+          value_number: kpi.value || 0,
+          team_member_id: null
+        }));
+
+        if (targetsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('targets')
+            .insert(targetsToInsert);
+
+          if (insertError) throw insertError;
+        }
       }
 
       toast.success(`${normalizedRole} KPI configuration saved!`);
@@ -248,40 +287,43 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
       setLoading(true);
       const newKpiKey = `custom_${Date.now()}`;
       
-      // Insert new KPI into database
-      const { error: kpiError } = await supabase
-        .from('kpis')
-        .insert({
-          agency_id: agencyId,
-          key: newKpiKey,
-          label: "New Custom KPI",
-          type: "number",
-          is_active: true,
-          role: normalizedRole
-        });
+      if (isStaffMode) {
+        // Staff mode - use edge function
+        const result = await scorecardsApi.kpisCreateCustom(normalizedRole, "New Custom KPI", "number");
+        if (result.error) throw new Error(result.error);
+      } else {
+        // Owner mode - direct Supabase
+        const { error: kpiError } = await supabase
+          .from('kpis')
+          .insert({
+            agency_id: agencyId,
+            key: newKpiKey,
+            label: "New Custom KPI",
+            type: "number",
+            is_active: true,
+            role: normalizedRole
+          });
 
-      if (kpiError) throw kpiError;
+        if (kpiError) throw kpiError;
 
-      // Get current selected_metrics and add new key
-      const { data: currentRules } = await supabase
-        .from('scorecard_rules')
-        .select('selected_metrics')
-        .eq('agency_id', agencyId)
-        .eq('role', normalizedRole)
-        .single();
+        const { data: currentRules } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', agencyId)
+          .eq('role', normalizedRole)
+          .single();
 
-      const currentMetrics = currentRules?.selected_metrics || [];
-      
-      // Update scorecard_rules to include new KPI
-      const { error: updateError } = await supabase
-        .from('scorecard_rules')
-        .update({ selected_metrics: [...currentMetrics, newKpiKey] })
-        .eq('agency_id', agencyId)
-        .eq('role', normalizedRole);
+        const currentMetrics = currentRules?.selected_metrics || [];
+        
+        const { error: updateError } = await supabase
+          .from('scorecard_rules')
+          .update({ selected_metrics: [...currentMetrics, newKpiKey] })
+          .eq('agency_id', agencyId)
+          .eq('role', normalizedRole);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+      }
 
-      // Reload KPIs
       await loadKPIsAndTargets();
       toast.success("Custom KPI added and enabled");
     } catch (error) {
@@ -300,12 +342,17 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
 
   const saveKPILabelToDatabase = async (kpiId: string, label: string) => {
     try {
-      const { error } = await supabase
-        .from('kpis')
-        .update({ label })
-        .eq('id', kpiId);
+      if (isStaffMode) {
+        const result = await scorecardsApi.kpisUpdateLabel(kpiId, label);
+        if (result.error) throw new Error(result.error);
+      } else {
+        const { error } = await supabase
+          .from('kpis')
+          .update({ label })
+          .eq('id', kpiId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('Error updating KPI label:', error);
       toast.error("Failed to save KPI label");
@@ -316,7 +363,6 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
     e.target.select();
   };
 
-  // Split KPIs into enabled and available
   const enabledKpis = kpis.filter(k => k.enabled);
   const availableKpis = kpis.filter(k => !k.enabled);
 
@@ -494,13 +540,9 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
                   <div className="bg-muted p-3 rounded-md space-y-2">
                     <h4 className="font-medium text-sm">Impact Analysis:</h4>
                     <ul className="text-sm space-y-1">
-                      <li>• Forms affected: {deleteConfirm.impact.forms_affected}</li>
-                      <li>• Scorecard rules: {deleteConfirm.impact.rules_touched ? 'Will be updated' : 'No changes needed'}</li>
                       <li>• Remaining enabled KPIs: {deleteConfirm.impact.remaining_kpis}</li>
+                      <li>• Scorecard rules will be updated</li>
                     </ul>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Historical data will be preserved. Only future calculations will be affected.
-                    </p>
                   </div>
                 )}
               </div>
@@ -508,10 +550,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId }: Enh
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteKpi}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={confirmDeleteKpi} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete KPI
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -457,3 +457,75 @@ export async function getAgencyProfile(agencyId?: string): Promise<{ id: string;
   if (error) throw error;
   return data;
 }
+
+// ==================== NAMESPACED EXPORTS ====================
+
+export const scorecardsApi = {
+  // Convenience wrappers for dialog compatibility (with error handling)
+  async scorecardRulesGet(role: string) {
+    try {
+      const rules = await getScorecardRules(role);
+      // Also fetch targets for the role's metrics
+      const selectedMetrics = rules?.selected_metrics || [];
+      const targets = selectedMetrics.length > 0 ? await getTargets(selectedMetrics) : [];
+      return { data: { ...rules, targets }, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async scorecardRulesUpsert(role: string, updates: Partial<ScorecardRules>) {
+    try {
+      const result = await upsertScorecardRules({ role, ...updates });
+      return { data: result, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async kpisListForRole(role: string) {
+    try {
+      const kpis = await listKpis(role);
+      return { data: kpis, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async kpisCreateCustom(role: string, label: string, type: string) {
+    try {
+      const kpi = await createKpi({ role, label, type });
+      return { data: kpi, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async kpisUpdateLabel(kpiId: string, label: string) {
+    try {
+      const kpi = await updateKpiLabel(kpiId, label);
+      return { data: kpi, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async targetsReplaceForRole(role: string, targets: { metric_key: string; value_number: number }[]) {
+    try {
+      await upsertTargets(targets);
+      return { data: true, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+  
+  async deleteKpi(kpiKey: string) {
+    try {
+      // Staff mode doesn't need agencyId - edge function gets it from session
+      await callScorecardsApi('kpi_delete', { kpi_key: kpiKey });
+      return { data: true, error: null };
+    } catch (e: any) {
+      return { data: null, error: e.message };
+    }
+  },
+};
