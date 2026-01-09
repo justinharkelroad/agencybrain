@@ -63,13 +63,19 @@ type DailySeries = {
   pass_count: number;
 };
 
-interface MetricsDashboardProps {
-  staffAgencyId?: string | null;
+interface StaffAgencyProfile {
+  agencyId: string;
+  agencySlug: string;
+  agencyName: string;
 }
 
-export default function MetricsDashboard({ staffAgencyId }: MetricsDashboardProps) {
+interface MetricsDashboardProps {
+  staffAgencyProfile?: StaffAgencyProfile | null;
+}
+
+export default function MetricsDashboard({ staffAgencyProfile }: MetricsDashboardProps) {
   const { user } = useAuth();
-  const isStaffMode = !!staffAgencyId;
+  const isStaffMode = !!staffAgencyProfile;
   
   // For staff users, skip the redirect - they authenticate differently
   if (!user && !isStaffMode) {
@@ -82,12 +88,12 @@ export default function MetricsDashboard({ staffAgencyId }: MetricsDashboardProp
   const quotedLabel = "households";
   const soldMetric = "items";
 
-  // Load agency profile data - use staffAgencyId for staff users
+  // Load agency profile data - use staffAgencyProfile for staff users
   const {
     data: agencyProfile,
     isLoading: agencyLoading,
     error: agencyError,
-  } = useAgencyProfile(isStaffMode ? undefined : user?.id, role, staffAgencyId || undefined);
+  } = useAgencyProfile(isStaffMode ? undefined : user?.id, role, staffAgencyProfile || undefined);
 
   // Load dashboard data for the selected date only
   const {
