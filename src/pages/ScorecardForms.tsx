@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter, UserCheck } from "lucide-react";
+import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter, UserCheck, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
@@ -24,8 +24,52 @@ export default function ScorecardForms() {
   const { forms, loading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
   const { isAdmin } = useAuth();
   
-  // Check if diagnostics should be shown
-  const showDiagnostics = isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true';
+  // Staff user detection - prevents session recovery from signing out staff users
+  const [isStaffUser, setIsStaffUser] = useState(false);
+  const [staffDataLoaded, setStaffDataLoaded] = useState(false);
+
+  // Detect staff user by verifying session token
+  useEffect(() => {
+    const detectStaffUser = async () => {
+      const token = localStorage.getItem('staff_session_token');
+      
+      if (!token) {
+        setStaffDataLoaded(true);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('staff_verify_session', {
+          body: { session_token: token }
+        });
+        
+        if (error || !data?.valid) {
+          setStaffDataLoaded(true);
+          return;
+        }
+        
+        setIsStaffUser(true);
+        setStaffDataLoaded(true);
+      } catch (err) {
+        console.error('Error detecting staff user:', err);
+        setStaffDataLoaded(true);
+      }
+    };
+    
+    detectStaffUser();
+  }, []);
+  
+  // Check if diagnostics should be shown (only for Supabase-authenticated admins, not staff)
+  const showDiagnostics = !isStaffUser && isAdmin && import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true';
+
+  // Wait for staff detection to complete before rendering
+  if (!staffDataLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   // TEMP: Phase 3 Batch 5 CI Gate - KPI smoke test (only run in dev/admin diagnostic mode)
   useEffect(() => {
