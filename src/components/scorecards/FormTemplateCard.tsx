@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Link2, Settings, Trash2, ExternalLink, Copy, Eye, EyeOff, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
+import { Link2, Trash2, ExternalLink, Copy, Eye, EyeOff, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface FormTemplate {
@@ -28,10 +28,12 @@ interface FormTemplateCardProps {
   form: FormTemplate;
   onDelete?: (formId: string) => Promise<void>;
   onToggleActive?: (formId: string, isActive: boolean) => Promise<boolean>;
+  isStaffMode?: boolean;
 }
 
-export default function FormTemplateCard({ form, onDelete, onToggleActive }: FormTemplateCardProps) {
+export default function FormTemplateCard({ form, onDelete, onToggleActive, isStaffMode = false }: FormTemplateCardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { 
     createFormLink, 
     getFormLink, 
@@ -44,25 +46,32 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive }: For
   const [formLink, setFormLink] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
+  // Determine base path for navigation based on staff mode
+  const getEditPath = () => {
+    if (isStaffMode || location.pathname.startsWith('/staff')) {
+      return `/staff/metrics/edit/${form.id}`;
+    }
+    return `/metrics/edit/${form.id}`;
+  };
+
   const handleGenerateLink = async () => {
     setLoading(true);
     try {
-      // Check if a link already exists
       let link = await getFormLink(form.id);
       
       if (!link) {
-        // Create new link
         link = await createFormLink(form.id);
       }
       
       if (link) {
         const publicUrl = await generatePublicUrl(form, link.token);
-        setFormLink(publicUrl);
+        setFormLink(publicUrl || "");
         setLinkEnabled(link.enabled);
         
-        // Copy to clipboard
-        await navigator.clipboard.writeText(publicUrl);
-        toast.success("Form link copied to clipboard!");
+        if (publicUrl) {
+          await navigator.clipboard.writeText(publicUrl);
+          toast.success("Form link copied to clipboard!");
+        }
       }
     } catch (error) {
       console.error('Error with form link:', error);
@@ -138,7 +147,7 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive }: For
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-popover border-border">
-              <DropdownMenuItem onClick={() => navigate(`/scorecard-forms/edit/${form.id}`)} className="text-foreground">
+              <DropdownMenuItem onClick={() => navigate(getEditPath())} className="text-foreground">
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Form
               </DropdownMenuItem>
@@ -233,7 +242,7 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive }: For
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => navigate(`/scorecard-forms/edit/${form.id}`)}
+            onClick={() => navigate(getEditPath())}
             className="flex-1"
           >
             <Edit3 className="h-4 w-4 mr-1" />

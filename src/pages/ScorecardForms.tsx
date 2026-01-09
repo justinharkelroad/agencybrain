@@ -372,7 +372,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Sales Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales" agencyId={isStaffUser ? staffAgencyId! : agencyId}>
+                      <EnhancedKPIConfigDialog title="Configure Sales KPIs" type="sales" agencyId={isStaffUser ? staffAgencyId! : agencyId} isStaffMode={isStaffUser}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Sales KPIs
@@ -393,7 +393,7 @@ export default function ScorecardForms() {
                       <CardTitle className="text-lg">Service Targets & Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service" agencyId={isStaffUser ? staffAgencyId! : agencyId}>
+                      <EnhancedKPIConfigDialog title="Configure Service KPIs" type="service" agencyId={isStaffUser ? staffAgencyId! : agencyId} isStaffMode={isStaffUser}>
                         <Button variant="outline" className="w-full">
                           <Target className="h-4 w-4 mr-2" />
                           Configure Service KPIs
