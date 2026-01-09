@@ -217,7 +217,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: 'video-training-architect',
-        title: 'Video Training Architect',
+        title: 'Video Architect',
         icon: Video,
         type: 'modal',
         modalKey: 'video_training',
@@ -260,7 +260,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: 'data-lead-forecaster',
-        title: 'Data Lead Forecaster',
+        title: 'Data Forecaster',
         icon: BarChart3,
         type: 'modal',
         modalKey: 'data',
@@ -268,7 +268,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: 'live-transfer-forecaster',
-        title: 'Live Transfer Forecaster',
+        title: 'Transfer Forecaster',
         icon: PhoneIncoming,
         type: 'modal',
         modalKey: 'transfer',
@@ -335,7 +335,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: 'quarterly-targets',
-        title: 'Set Your Quarterly Targets',
+        title: 'Quarterly Targets',
         icon: Target,
         type: 'link',
         url: '/life-targets',
@@ -343,7 +343,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: '90-day-audio',
-        title: 'Create Your 90 Day Target Audio',
+        title: '90 Day Audio',
         icon: AudioLines,
         type: 'link',
         url: '/theta-talk-track',
@@ -457,6 +457,14 @@ export const staffNavigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
     items: [
       {
+        id: 'scorecards',
+        title: 'Scorecards',
+        icon: ClipboardList,
+        type: 'link',
+        url: '/staff/metrics',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
         id: 'call-scoring',
         title: 'Call Scoring',
         icon: Phone,
@@ -521,7 +529,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: 'video-training-architect',
-        title: 'Video Training Architect',
+        title: 'Video Architect',
         icon: Video,
         type: 'modal',
         modalKey: 'video_training',
@@ -556,7 +564,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: 'data-lead-forecaster',
-        title: 'Data Lead Forecaster',
+        title: 'Data Forecaster',
         icon: BarChart3,
         type: 'modal',
         modalKey: 'data',
@@ -564,7 +572,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: 'live-transfer-forecaster',
-        title: 'Live Transfer Forecaster',
+        title: 'Transfer Forecaster',
         icon: PhoneIncoming,
         type: 'modal',
         modalKey: 'transfer',
@@ -631,7 +639,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: 'quarterly-targets',
-        title: 'Set Your Quarterly Targets',
+        title: 'Quarterly Targets',
         icon: Target,
         type: 'link',
         url: '/staff/life-targets',
@@ -639,7 +647,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: '90-day-audio',
-        title: 'Create Your 90 Day Target Audio',
+        title: '90 Day Audio',
         icon: AudioLines,
         type: 'link',
         url: '/staff/theta-talk-track',

@@ -190,10 +190,10 @@ export function StaffSidebarFolder({
                     isActive={isActive}
                     className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
                   >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.title}</span>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 truncate">{item.title}</span>
                     {isGatedForCallScoring && (
-                      <Lock className="h-3 w-3 text-amber-500/70" />
+                      <Lock className="h-3 w-3 shrink-0 text-red-500" />
                     )}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

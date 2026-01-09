@@ -393,12 +393,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           tooltip={entry.title}
                           className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
                         >
-                          <entry.icon className="h-4 w-4" strokeWidth={1.5} />
+                          <entry.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                           {sidebarOpen && (
                             <>
-                              <span className="flex-1">{entry.title}</span>
+                              <span className="flex-1 truncate">{entry.title}</span>
                               {isGatedForCallScoring && (
-                                <Lock className="h-3 w-3 text-amber-500/70" />
+                                <Lock className="h-3 w-3 shrink-0 text-red-500" />
                               )}
                             </>
                           )}
