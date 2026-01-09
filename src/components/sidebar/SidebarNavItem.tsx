@@ -102,13 +102,13 @@ export function SidebarNavItem({
 
   const content = (
     <>
-      <item.icon className="h-4 w-4" />
-      <span className="flex-1">{item.title}</span>
+      <item.icon className="h-4 w-4 shrink-0" />
+      <span className="flex-1 truncate">{item.title}</span>
       {item.type === 'external' && (
-        <ExternalLink className="ml-auto h-3 w-3 opacity-50" />
+        <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-50" />
       )}
       {isGatedForCallScoring && (
-        <Lock className="h-3 w-3 text-amber-500/70" />
+        <Lock className="h-3 w-3 shrink-0 text-red-500" />
       )}
       {!isGatedForCallScoring && badge}
     </>
