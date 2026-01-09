@@ -270,9 +270,11 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     // First apply the standard filtering from useSidebarAccess
     let filtered = filterNavigation(navigationConfig, callScoringEnabled, user?.email);
     
-    // For Call Scoring tier: remove call-scoring from inside Accountability folder
-    // (we show it as top-level call-scoring-top instead)
     if (isCallScoringTier) {
+      // For Call Scoring tier: 
+      // 1. Remove call-scoring from inside Accountability folder (avoid duplicate)
+      // 2. Keep call-scoring-top at top level
+      // 3. Reorder so call-scoring-top is FIRST
       filtered = filtered.map(entry => {
         if (isNavFolder(entry) && entry.id === 'accountability') {
           return {
@@ -298,6 +300,15 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
         const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
         filtered.unshift(callScoringTop);
       }
+    } else {
+      // For NON-Call-Scoring tier users:
+      // Remove call-scoring-top from navigation (they should only see it in Accountability folder)
+      filtered = filtered.filter(entry => {
+        if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
+          return false;
+        }
+        return true;
+      });
     }
     
     return filtered;
