@@ -57,7 +57,7 @@ export async function verifyRequest(
     // Step 3: Fetch staff user separately (avoids PostgREST join issues)
     const { data: staffUser, error: staffUserError } = await adminClient
       .from("staff_users")
-      .select("id, agency_id, is_active, username, role, is_manager, team_member_id")
+      .select("id, agency_id, is_active, username, team_member_id")
       .eq("id", session.staff_user_id)
       .single();
 
@@ -81,14 +81,29 @@ export async function verifyRequest(
       .eq("id", staffUser.agency_id)
       .single();
 
+    // Get role/manager status from linked team_member if exists
+    let role: string | undefined;
+    let isManager = false;
+    if (staffUser.team_member_id) {
+      const { data: teamMember } = await adminClient
+        .from("team_members")
+        .select("role")
+        .eq("id", staffUser.team_member_id)
+        .single();
+      if (teamMember?.role) {
+        role = teamMember.role;
+        isManager = teamMember.role === 'Manager' || teamMember.role === 'Owner';
+      }
+    }
+
     return {
       mode: "staff",
       agencyId: staffUser.agency_id,
       agencySlug: agency?.slug,
       staffUserId: staffUser.id,
       staffMemberId: staffUser.team_member_id,
-      role: staffUser.role,
-      isManager: staffUser.is_manager === true,
+      role,
+      isManager,
     };
   }
 
