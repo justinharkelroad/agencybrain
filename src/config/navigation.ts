@@ -79,6 +79,17 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
+  // Call Scoring - TOP LEVEL for prominent visibility
+  {
+    id: 'call-scoring-top',
+    title: 'Call Scoring',
+    icon: Phone,
+    type: 'link',
+    url: '/call-scoring',
+    access: { staff: true, manager: true, owner: true },
+    settingCheck: 'callScoringEnabled',
+  },
+
   // Sales folder - Sales Dashboard is admin-only for now
   {
     id: 'sales',
@@ -387,6 +398,17 @@ export const staffNavigationConfig: NavEntry[] = [
     type: 'link',
     url: '/staff/submit',
     access: { staff: true, manager: true, owner: true },
+  },
+
+  // Call Scoring - TOP LEVEL for Call Scoring tier visibility
+  {
+    id: 'call-scoring-top',
+    title: 'Call Scoring',
+    icon: Phone,
+    type: 'link',
+    url: '/staff/call-scoring',
+    access: { staff: true, manager: true, owner: true },
+    settingCheck: 'callScoringEnabled',
   },
 
   // Sales folder
