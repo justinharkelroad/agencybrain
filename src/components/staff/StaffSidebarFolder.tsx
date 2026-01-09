@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock } from "lucide-react";
 import {
   SidebarMenuItem,
   SidebarMenuSub,
@@ -12,6 +12,7 @@ import { NavFolder, NavItem } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
+import { getFeatureGateConfig } from "@/config/featureGates";
 
 interface StaffSidebarFolderProps {
   folder: NavFolder;
@@ -23,6 +24,9 @@ interface StaffSidebarFolderProps {
   // Accordion behavior props
   openFolderId?: string | null;
   onFolderToggle?: (folderId: string) => void;
+  // Call Scoring tier gating props
+  isCallScoringTier?: boolean;
+  callScoringAccessibleIds?: string[];
 }
 
 export function StaffSidebarFolder({
@@ -34,12 +38,16 @@ export function StaffSidebarFolder({
   membershipTier,
   openFolderId,
   onFolderToggle,
+  isCallScoringTier = false,
+  callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'],
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { open: sidebarOpen } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
   const [gatedFeatureName, setGatedFeatureName] = useState("");
+  const [showCallScoringGate, setShowCallScoringGate] = useState(false);
+  const [gatedItemId, setGatedItemId] = useState<string | null>(null);
 
   // Check if ANY hash-based item in this folder matches the current route
   const activeHashItem = visibleItems.find((item) => {
@@ -107,6 +115,13 @@ export function StaffSidebarFolder({
   };
 
   const handleItemClick = (item: NavItem) => {
+    // Check Call Scoring tier gating FIRST (highest priority)
+    if (isCallScoringTier && !callScoringAccessibleIds.includes(item.id)) {
+      setGatedItemId(item.id);
+      setShowCallScoringGate(true);
+      return;
+    }
+
     // Check tier requirement - show gate modal for non-1:1 users
     if (item.requiresTier === "1:1" && !hasOneOnOneAccess(membershipTier)) {
       setGatedFeatureName(item.title);
@@ -166,16 +181,20 @@ export function StaffSidebarFolder({
           <SidebarMenuSub>
             {visibleItems.map((item) => {
               const isActive = isItemActive(item);
+              const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
 
               return (
                 <SidebarMenuSubItem key={item.id}>
                   <SidebarMenuSubButton
                     onClick={() => handleItemClick(item)}
                     isActive={isActive}
-                    className="cursor-pointer"
+                    className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                    <span className="flex-1">{item.title}</span>
+                    {isGatedForCallScoring && (
+                      <Lock className="h-3 w-3 text-amber-500/70" />
+                    )}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
               );
@@ -189,6 +208,22 @@ export function StaffSidebarFolder({
         onOpenChange={setShowGateModal}
         featureName={gatedFeatureName}
       />
+
+      {/* Call Scoring Tier Gate Modal */}
+      {gatedItemId && (
+        <MembershipGateModal
+          open={showCallScoringGate}
+          onOpenChange={(open) => {
+            setShowCallScoringGate(open);
+            if (!open) setGatedItemId(null);
+          }}
+          featureName={getFeatureGateConfig(gatedItemId).featureName}
+          featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
+          videoKey={getFeatureGateConfig(gatedItemId).videoKey}
+          gateType="call_scoring_upsell"
+          returnPath="/staff/call-scoring"
+        />
+      )}
     </>
   );
 }
