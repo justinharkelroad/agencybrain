@@ -71,9 +71,10 @@ interface StaffAgencyProfile {
 
 interface MetricsDashboardProps {
   staffAgencyProfile?: StaffAgencyProfile | null;
+  defaultDate?: Date;
 }
 
-export default function MetricsDashboard({ staffAgencyProfile }: MetricsDashboardProps) {
+export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: MetricsDashboardProps) {
   const { user } = useAuth();
   const isStaffMode = !!staffAgencyProfile;
   
@@ -83,7 +84,7 @@ export default function MetricsDashboard({ staffAgencyProfile }: MetricsDashboar
   }
 
   const [role, setRole] = useState<Role>("Sales");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(defaultDate || new Date());
   // Fixed metrics based on default KPIs - no user selection needed
   const quotedLabel = "households";
   const soldMetric = "items";
@@ -302,12 +303,15 @@ export default function MetricsDashboard({ staffAgencyProfile }: MetricsDashboar
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Team Performance Overview</h2>
-              <Link to="/team-rings">
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Full Team Performance
-                </Button>
-              </Link>
+              {/* Hidden for staff users - navigates to owner-only route */}
+              {!isStaffMode && (
+                <Link to="/team-rings">
+                  <Button variant="outline" size="sm">
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Full Team Performance
+                  </Button>
+                </Link>
+              )}
             </div>
             <TeamPerformanceRings 
               agencyId={agencyId}
