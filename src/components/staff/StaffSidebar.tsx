@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath } from "@/utils/tierAccess";
+import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
 import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
 import {
   LogOut,
@@ -162,6 +162,11 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         
         // Check sales beta access
         if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
+          return false;
+        }
+        
+        // Check tier requirements (e.g., requiresTier: '1:1')
+        if (item.requiresTier === '1:1' && !hasOneOnOneAccess(user?.agency_membership_tier)) {
           return false;
         }
         
