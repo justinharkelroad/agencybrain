@@ -27,6 +27,11 @@ export default function ScorecardForms() {
   // Staff user detection - prevents session recovery from signing out staff users
   const [isStaffUser, setIsStaffUser] = useState(false);
   const [staffAgencyId, setStaffAgencyId] = useState<string | null>(null);
+  const [staffAgencyProfile, setStaffAgencyProfile] = useState<{
+    agencyId: string;
+    agencySlug: string;
+    agencyName: string;
+  } | null>(null);
   const [staffDataLoaded, setStaffDataLoaded] = useState(false);
 
   // Detect staff user by verifying session token
@@ -49,8 +54,22 @@ export default function ScorecardForms() {
           return;
         }
         
+        const agencyId = data.user?.agency_id;
+        const agencySlug = data.user?.agency_slug;
+        const agencyName = data.user?.agency_name;
+        
         setIsStaffUser(true);
-        setStaffAgencyId(data.user?.agency_id || null);
+        setStaffAgencyId(agencyId || null);
+        
+        // Set full agency profile from staff_verify_session response
+        if (agencyId && agencySlug) {
+          setStaffAgencyProfile({
+            agencyId: agencyId,
+            agencySlug: agencySlug,
+            agencyName: agencyName || '',
+          });
+        }
+        
         setStaffDataLoaded(true);
       } catch (err) {
         console.error('Error detecting staff user:', err);
@@ -226,7 +245,7 @@ export default function ScorecardForms() {
           </TabsList>
 
           <TabsContent value="metrics" className="space-y-6">
-            <MetricsDashboard staffAgencyId={isStaffUser ? staffAgencyId : undefined} />
+            <MetricsDashboard staffAgencyProfile={isStaffUser ? staffAgencyProfile : undefined} />
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">

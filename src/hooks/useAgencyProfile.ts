@@ -10,30 +10,52 @@ interface AgencyProfile {
 
 type MemberRole = "Sales" | "Service" | "Hybrid" | "Manager";
 
-export function useAgencyProfile(userId: string | undefined, role: MemberRole, staffAgencyId?: string) {
+interface StaffAgencyProfile {
+  agencyId: string;
+  agencySlug: string;
+  agencyName: string;
+}
+
+export function useAgencyProfile(userId: string | undefined, role: MemberRole, staffAgencyProfile?: StaffAgencyProfile) {
   return useQuery({
-    queryKey: ["agency-profile", userId || staffAgencyId, role],
-    enabled: !!(userId || staffAgencyId),
+    queryKey: ["agency-profile", userId || staffAgencyProfile?.agencyId, role],
+    enabled: !!(userId || staffAgencyProfile),
     queryFn: async (): Promise<AgencyProfile> => {
-      let agencyId = staffAgencyId;
-      
-      // Only query profiles if we don't have staffAgencyId
-      if (!agencyId && userId) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('agency_id')
-          .eq('id', userId)
+      // If we have a pre-fetched staff agency profile, use it directly
+      // This avoids RLS issues since staff users don't have Supabase auth sessions
+      if (staffAgencyProfile) {
+        // Just fetch the scorecard rules using agency ID
+        const { data: rules, error: rulesError } = await supabase
+          .from('scorecard_rules')
+          .select('*')
+          .eq('agency_id', staffAgencyProfile.agencyId)
+          .eq('role', role)
           .single();
-          
-        if (profileError || !profile?.agency_id) {
-          throw new Error('Failed to load user profile');
+
+        if (rulesError && rulesError.code !== 'PGRST116') {
+          console.warn('Failed to load scorecard rules:', rulesError);
         }
-        agencyId = profile.agency_id;
+
+        return {
+          agencySlug: staffAgencyProfile.agencySlug,
+          agencyName: staffAgencyProfile.agencyName,
+          agencyId: staffAgencyProfile.agencyId,
+          scorecardRules: rules,
+        };
       }
       
-      if (!agencyId) {
-        throw new Error('No agency ID available');
+      // Standard path for Supabase-authenticated users
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', userId!)
+        .single();
+        
+      if (profileError || !profile?.agency_id) {
+        throw new Error('Failed to load user profile');
       }
+      
+      const agencyId = profile.agency_id;
 
       const { data: agency, error: agencyError } = await supabase
         .from('agencies')
