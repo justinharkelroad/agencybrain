@@ -34,32 +34,39 @@ export async function verifyRequest(
   if (staffSession) {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Validate staff session
+    // Step 1: Fetch staff session by token (without expires_at filter in SQL)
     const { data: session, error: sessionError } = await adminClient
       .from("staff_sessions")
-      .select(`
-        id,
-        expires_at,
-        staff_users!inner(
-          id,
-          agency_id,
-          is_active,
-          username,
-          role,
-          is_manager,
-          team_member_id
-        )
-      `)
+      .select("id, staff_user_id, expires_at")
       .eq("session_token", staffSession)
-      .gt("expires_at", new Date().toISOString())
       .single();
 
     if (sessionError || !session) {
+      console.error("Staff session lookup failed:", sessionError?.code, sessionError?.message);
       return { error: "Invalid or expired staff session", status: 401 };
     }
 
-    const staffUser = session.staff_users as any;
-    if (!staffUser?.is_active) {
+    // Step 2: Validate expiration in code (avoids SQL timestamp comparison issues)
+    const expiresAt = new Date(session.expires_at);
+    const now = new Date();
+    if (expiresAt <= now) {
+      console.error("Staff session expired:", { expiresAt: session.expires_at, now: now.toISOString() });
+      return { error: "Invalid or expired staff session", status: 401 };
+    }
+
+    // Step 3: Fetch staff user separately (avoids PostgREST join issues)
+    const { data: staffUser, error: staffUserError } = await adminClient
+      .from("staff_users")
+      .select("id, agency_id, is_active, username, role, is_manager, team_member_id")
+      .eq("id", session.staff_user_id)
+      .single();
+
+    if (staffUserError || !staffUser) {
+      console.error("Staff user lookup failed:", staffUserError?.code, staffUserError?.message);
+      return { error: "Invalid or expired staff session", status: 401 };
+    }
+
+    if (!staffUser.is_active) {
       return { error: "Staff account is disabled", status: 401 };
     }
 
