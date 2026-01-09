@@ -880,6 +880,8 @@ const App = () => {
               <Route path="flows/library" element={<FlowLibrary />} />
               {/* Call Scoring */}
               <Route path="call-scoring" element={<CallScoring />} />
+              {/* Scorecards / Metrics */}
+              <Route path="metrics" element={<ScorecardForms />} />
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
               {/* Renewals */}
