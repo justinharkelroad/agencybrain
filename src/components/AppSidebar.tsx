@@ -17,6 +17,7 @@ import {
   Settings,
   BarChart3,
   DollarSign,
+  Lock,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -43,6 +44,9 @@ import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
 import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
 import { Badge } from "@/components/ui/badge";
+import { MembershipGateModal } from "@/components/MembershipGateModal";
+import { getFeatureGateConfig } from "@/config/featureGates";
+import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess";
 
 // New imports for navigation system
 import { navigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
@@ -79,7 +83,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const location = useLocation();
   
   // Check if user is on a Call Scoring tier
-  const isCallScoringTier = membershipTier?.startsWith('Call Scoring');
+  const isCallScoringTier = checkIsCallScoringTier(membershipTier);
+  
+  // Items that Call Scoring tier users can actually access (not just see)
+  const callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'];
   
   // Close sidebar on mobile when navigating
   const handleNavClick = () => {
@@ -92,6 +99,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [showCallScoringGate, setShowCallScoringGate] = useState(false);
+  const [gatedItemId, setGatedItemId] = useState<string | null>(null);
   const { counts: exchangeNotifications } = useExchangeNotifications();
   const { data: unreadMessageCount = 0 } = useUnreadMessageCount();
   
@@ -256,37 +265,43 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     handleNavClick();
   };
 
-  // Filter navigation based on user access
-  const filteredNavigation = useMemo(() => {
-    return filterNavigation(navigationConfig, callScoringEnabled, user?.email);
-  }, [filterNavigation, callScoringEnabled, user?.email]);
-
-  // For Call Scoring tier, we need special handling - they only see Call Scoring + Exchange
+  // Filter and reorder navigation based on user access and tier
   const visibleNavigation = useMemo<NavEntry[]>(() => {
+    // First apply the standard filtering from useSidebarAccess
+    let filtered = filterNavigation(navigationConfig, callScoringEnabled, user?.email);
+    
+    // For Call Scoring tier: remove call-scoring from inside Accountability folder
+    // (we show it as top-level call-scoring-top instead)
     if (isCallScoringTier) {
-      return filteredNavigation
-        .map(entry => {
-          if (isNavFolder(entry)) {
-            // Filter items within the folder to only allowed ones
-            const filteredItems = entry.items.filter(item => 
-              item.id === 'call-scoring' || item.id === 'the-exchange'
-            );
-            return { ...entry, items: filteredItems };
-          }
-          return entry;
-        })
-        .filter(entry => {
-          if (isNavFolder(entry)) {
-            // Remove folders with no remaining items
-            return entry.items.length > 0;
-          }
-          // Keep non-folder items only if they're allowed
-          return entry.id === 'call-scoring' || entry.id === 'the-exchange';
-        });
+      filtered = filtered.map(entry => {
+        if (isNavFolder(entry) && entry.id === 'accountability') {
+          return {
+            ...entry,
+            items: entry.items.filter(item => item.id !== 'call-scoring')
+          };
+        }
+        return entry;
+      }).filter(entry => {
+        // Remove empty folders
+        if (isNavFolder(entry)) {
+          return entry.items.length > 0;
+        }
+        return true;
+      });
+      
+      // Reorder so call-scoring-top is FIRST
+      const callScoringTopIndex = filtered.findIndex(
+        entry => !isNavFolder(entry) && entry.id === 'call-scoring-top'
+      );
+      
+      if (callScoringTopIndex > 0) {
+        const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
+        filtered.unshift(callScoringTop);
+      }
     }
-
-    return filteredNavigation;
-  }, [filteredNavigation, isCallScoringTier]);
+    
+    return filtered;
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier]);
 
   // Auto-expand folder containing active route
   useEffect(() => {
@@ -384,6 +399,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                             isNested
                             onOpenModal={handleOpenModal}
                             membershipTier={membershipTier}
+                            isCallScoringTier={isCallScoringTier}
+                            callScoringAccessibleIds={callScoringAccessibleIds}
                           />
                         ))}
                       </SidebarFolder>
@@ -408,6 +425,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       onOpenModal={handleOpenModal}
                       badge={badge}
                       membershipTier={membershipTier}
+                      isCallScoringTier={isCallScoringTier}
+                      callScoringAccessibleIds={callScoringAccessibleIds}
                     />
                   );
                 })}
@@ -551,6 +570,22 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           </Dialog>
         </div>
       </div>
+
+      {/* Call Scoring Tier Gate Modal */}
+      {gatedItemId && (
+        <MembershipGateModal
+          open={showCallScoringGate}
+          onOpenChange={(open) => {
+            setShowCallScoringGate(open);
+            if (!open) setGatedItemId(null);
+          }}
+          featureName={getFeatureGateConfig(gatedItemId).featureName}
+          featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
+          videoKey={getFeatureGateConfig(gatedItemId).videoKey}
+          gateType="call_scoring_upsell"
+          returnPath="/call-scoring"
+        />
+      )}
     </Sidebar>
   );
 }
