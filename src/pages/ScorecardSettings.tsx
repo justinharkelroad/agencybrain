@@ -98,7 +98,7 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
         // Load scorecard rules via edge function
         const { data: rulesData, error: rulesError } = await supabase.functions.invoke('scorecards_admin', {
           headers: { 'x-staff-session': staffToken! },
-          body: { action: 'scorecard_rules_get', params: { role: selectedRole } },
+          body: { action: 'scorecard_rules_get', role: selectedRole },
         });
         
         if (rulesError) throw rulesError;

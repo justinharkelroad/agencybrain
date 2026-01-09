@@ -177,7 +177,7 @@ export default function ScorecardFormEditor() {
           },
           body: {
             action: 'form_get',
-            params: { form_id: formId },
+            form_id: formId,
           },
         });
 
