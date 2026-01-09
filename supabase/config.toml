@@ -40,13 +40,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.explorer_feed]
-verify_jwt = true
+verify_jwt = false
 
 [functions.repair_explorer_data]
 verify_jwt = true
 
 [functions.list_agency_kpis]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete_kpi]
 verify_jwt = true
@@ -226,7 +226,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.get_dashboard_daily]
-verify_jwt = true
+verify_jwt = false
 
 [functions.admin-impersonate-staff]
 verify_jwt = true
