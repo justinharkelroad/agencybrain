@@ -103,7 +103,7 @@ export function SidebarNavItem({
   const content = (
     <>
       <item.icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate">{item.title}</span>
+      <span className="flex-1 line-clamp-2">{item.title}</span>
       {item.type === 'external' && (
         <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-50" />
       )}

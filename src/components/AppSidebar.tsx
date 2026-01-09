@@ -347,7 +347,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
       collapsible="icon"
       className={cn(
         "border-r border-border/30",
-        sidebarOpen ? "w-60" : "w-14"
+        sidebarOpen ? "w-72" : "w-14"
       )}
     >
       <div className="flex flex-col h-full">

@@ -318,7 +318,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       collapsible="icon"
       className={cn(
         "border-r border-border",
-        sidebarOpen ? "w-60" : "w-14"
+        sidebarOpen ? "w-72" : "w-14"
       )}
     >
       <div className="flex flex-col h-full">
@@ -396,7 +396,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           <entry.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                           {sidebarOpen && (
                             <>
-                              <span className="flex-1 truncate">{entry.title}</span>
+                              <span className="flex-1 line-clamp-2">{entry.title}</span>
                               {isGatedForCallScoring && (
                                 <Lock className="h-3 w-3 shrink-0 text-red-500" />
                               )}
