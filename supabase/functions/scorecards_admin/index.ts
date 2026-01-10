@@ -524,6 +524,112 @@ serve(async (req) => {
         break;
       }
 
+      // ==================== MEETING FRAME ====================
+      case 'meeting_frame_list': {
+        // Get team members
+        const { data: teamMembers } = await supabase
+          .from('team_members')
+          .select('id, name, role')
+          .eq('agency_id', agencyId)
+          .eq('status', 'active')
+          .order('name');
+
+        // Get KPIs
+        const { data: kpis } = await supabase
+          .from('kpis')
+          .select('id, key, label, type')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .order('label');
+
+        // Get meeting frame history
+        const { data: history } = await supabase
+          .from('meeting_frames')
+          .select(`*, team_members (name, role)`)
+          .eq('agency_id', agencyId)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        result = { teamMembers, kpis, history };
+        break;
+      }
+
+      case 'meeting_frame_generate': {
+        const { team_member_id, start_date, end_date } = params;
+
+        if (!team_member_id || !start_date || !end_date) {
+          return new Response(
+            JSON.stringify({ error: 'team_member_id, start_date, and end_date are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: metricsData, error: metricsError } = await supabase
+          .from('metrics_daily')
+          .select('*')
+          .eq('team_member_id', team_member_id)
+          .gte('date', start_date)
+          .lte('date', end_date);
+
+        if (metricsError) throw metricsError;
+        result = { metricsData };
+        break;
+      }
+
+      case 'meeting_frame_create': {
+        const { team_member_id, start_date, end_date, kpi_totals, call_log_data, quoted_data, sold_data, call_scoring_data, meeting_notes } = params;
+
+        if (!team_member_id || !start_date || !end_date) {
+          return new Response(
+            JSON.stringify({ error: 'team_member_id, start_date, and end_date are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data, error } = await supabase
+          .from('meeting_frames')
+          .insert({
+            agency_id: agencyId,
+            team_member_id,
+            created_by: staffUserId || userId,  // Use staffUserId for staff, userId for regular users
+            start_date,
+            end_date,
+            kpi_totals: kpi_totals || {},
+            call_log_data: call_log_data || {},
+            quoted_data: quoted_data || {},
+            sold_data: sold_data || {},
+            call_scoring_data: call_scoring_data || [],
+            meeting_notes: meeting_notes || null,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = { frame: data };
+        break;
+      }
+
+      case 'meeting_frame_delete': {
+        const { frame_id } = params;
+
+        if (!frame_id) {
+          return new Response(
+            JSON.stringify({ error: 'frame_id is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error } = await supabase
+          .from('meeting_frames')
+          .delete()
+          .eq('id', frame_id)
+          .eq('agency_id', agencyId);  // Security: ensure frame belongs to agency
+
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
       // ==================== GET AGENCY PROFILE ====================
       case 'agency_profile_get': {
         const { data, error } = await supabase
