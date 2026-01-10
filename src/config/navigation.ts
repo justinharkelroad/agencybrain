@@ -528,6 +528,14 @@ export const staffNavigationConfig: NavEntry[] = [
         access: { staff: true, manager: true, owner: true },
       },
       {
+        id: 'manage-training',
+        title: 'Manage Training',
+        icon: GraduationCap,
+        type: 'link',
+        url: '/staff/training/manage',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
         id: 'video-training-architect',
         title: 'Video Architect',
         icon: Video,

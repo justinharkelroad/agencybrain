@@ -81,6 +81,7 @@ import StaffForgotPassword from "./pages/staff/ForgotPassword";
 import StaffResetPassword from "./pages/staff/ResetPassword";
 import StaffAcceptInvite from "./pages/staff/AcceptInvite";
 import StaffTraining from "./pages/StaffTraining";
+import StaffTrainingManagement from "./pages/staff/StaffTrainingManagement";
 import StaffSPTrainingHub from "./pages/staff/StaffSPTrainingHub";
 import StaffSPCategory from "./pages/staff/StaffSPCategory";
 import StaffSPLesson from "./pages/staff/StaffSPLesson";
@@ -871,6 +872,8 @@ const App = () => {
               <Route path="training/standard/:categorySlug/:moduleSlug/:lessonSlug" element={<StaffSPLesson />} />
               {/* Agency Training */}
               <Route path="training/agency" element={<StaffTraining />} />
+              {/* Manager Training Management */}
+              <Route path="training/manage" element={<StaffTrainingManagement />} />
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />

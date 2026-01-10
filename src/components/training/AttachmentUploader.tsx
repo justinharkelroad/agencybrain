@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Upload, Link as LinkIcon, X, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { uploadAttachmentFile, createAttachment, hasStaffToken } from "@/lib/trainingAdminApi";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Attachment {
   id?: string;
@@ -61,35 +62,24 @@ export function AttachmentUploader({
     setIsUploading(true);
 
     try {
-      // Upload to Supabase storage - include agencyId for proper storage policy matching
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${agencyId}/${lessonId}/${Date.now()}.${fileExt}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("training-files")
-        .upload(fileName, file);
+      // Upload file (handles both staff signed-URL and owner direct upload)
+      const { path } = await uploadAttachmentFile(file, lessonId, agencyId);
 
-      if (uploadError) throw uploadError;
-
-      // Save attachment record
-      const { data: attachmentData, error: attachmentError } = await supabase
-        .from("training_attachments")
-        .insert({
-          agency_id: agencyId,
-          lesson_id: lessonId,
-          name: file.name,
-          file_url: uploadData.path,
-          file_size_bytes: file.size,
-          file_type: fileExt?.toLowerCase() || 'pdf',
-          is_external_link: false,
-        })
-        .select()
-        .single();
-
-      if (attachmentError) throw attachmentError;
+      // Create attachment record (handles both staff edge function and owner direct insert)
+      const fileExt = file.name.split(".").pop()?.toLowerCase() || 'unknown';
+      const attachment = await createAttachment({
+        agency_id: agencyId,
+        lesson_id: lessonId,
+        name: file.name,
+        file_type: fileExt,
+        file_url: path,
+        file_size_bytes: file.size,
+        is_external_link: false,
+      });
 
       toast.success("File uploaded successfully");
       queryClient.invalidateQueries({ queryKey: ["training-attachments", lessonId] });
-      onAttachmentAdded?.(attachmentData);
+      onAttachmentAdded?.(attachment);
       
       // Reset input
       event.target.value = "";
@@ -118,24 +108,19 @@ export function AttachmentUploader({
     setIsUploading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("training_attachments")
-        .insert({
-          agency_id: agencyId,
-          lesson_id: lessonId,
-          name: externalLink,
-          file_url: externalLink,
-          file_type: "link",
-          is_external_link: true,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      // Create attachment record (handles both staff edge function and owner direct insert)
+      const attachment = await createAttachment({
+        agency_id: agencyId,
+        lesson_id: lessonId,
+        name: externalLink,
+        file_type: "link",
+        file_url: externalLink,
+        is_external_link: true,
+      });
 
       toast.success("External link added successfully");
       queryClient.invalidateQueries({ queryKey: ["training-attachments", lessonId] });
-      onAttachmentAdded?.(data);
+      onAttachmentAdded?.(attachment);
       setExternalLink("");
       setShowLinkInput(false);
     } catch (error: any) {
