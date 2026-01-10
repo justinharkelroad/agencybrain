@@ -638,3 +638,221 @@ export async function deleteQuiz(id: string): Promise<void> {
 
   if (error) throw error;
 }
+
+// ============ STAFF USERS (for assignments) ============
+
+export interface StaffUserForAssignment {
+  id: string;
+  display_name: string | null;
+  username: string;
+  email: string | null;
+  is_active: boolean;
+  team_member_id: string | null;
+}
+
+export async function listStaffUsers(agencyId: string): Promise<StaffUserForAssignment[]> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('staff_users_list');
+    return data.staff_users || [];
+  }
+
+  const { data, error } = await supabase
+    .from('staff_users')
+    .select('id, display_name, username, email, is_active, team_member_id')
+    .eq('agency_id', agencyId)
+    .eq('is_active', true)
+    .order('display_name');
+
+  if (error) throw error;
+  return data || [];
+}
+
+// ============ TEAM MEMBERS WITH STAFF LOGINS ============
+
+export async function listTeamMembersWithLogins(agencyId: string): Promise<{
+  team_members: any[];
+  staff_users: any[];
+}> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('team_members_with_logins');
+    return { team_members: data.team_members || [], staff_users: data.staff_users || [] };
+  }
+
+  const [teamMembersRes, staffUsersRes] = await Promise.all([
+    supabase
+      .from('team_members')
+      .select('id, name, email, role, status')
+      .eq('agency_id', agencyId)
+      .order('name'),
+    supabase
+      .from('staff_users')
+      .select('id, username, display_name, email, is_active, last_login_at, created_at, team_member_id')
+      .eq('agency_id', agencyId)
+  ]);
+
+  if (teamMembersRes.error) throw teamMembersRes.error;
+  if (staffUsersRes.error) throw staffUsersRes.error;
+
+  return {
+    team_members: teamMembersRes.data || [],
+    staff_users: staffUsersRes.data || []
+  };
+}
+
+// ============ MODULES (all for agency) ============
+
+export async function listAllModules(agencyId: string): Promise<TrainingModule[]> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('modules_all');
+    return data.modules || [];
+  }
+
+  const { data, error } = await supabase
+    .from('training_modules')
+    .select('*')
+    .eq('agency_id', agencyId)
+    .eq('is_active', true)
+    .order('name');
+
+  if (error) throw error;
+  return data || [];
+}
+
+// ============ ASSIGNMENTS ============
+
+export interface TrainingAssignment {
+  id: string;
+  agency_id: string;
+  staff_user_id: string;
+  module_id: string;
+  assigned_at: string;
+  due_date: string | null;
+  assigned_by: string | null;
+  staff_users?: { display_name: string | null; username: string } | null;
+  training_modules?: { name: string } | null;
+}
+
+export async function listAssignments(agencyId: string): Promise<TrainingAssignment[]> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('assignments_list');
+    return data.assignments || [];
+  }
+
+  const { data, error } = await supabase
+    .from('training_assignments')
+    .select(`
+      *,
+      staff_users(display_name, username),
+      training_modules(name)
+    `)
+    .eq('agency_id', agencyId)
+    .order('assigned_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as TrainingAssignment[];
+}
+
+export async function bulkCreateAssignments(
+  agencyId: string,
+  staffUserIds: string[],
+  moduleIds: string[],
+  dueDate?: string | null,
+  assignedBy?: string
+): Promise<TrainingAssignment[]> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('assignment_bulk_create', {
+      staff_user_ids: staffUserIds,
+      module_ids: moduleIds,
+      due_date: dueDate,
+    });
+    return data.assignments || [];
+  }
+
+  const records: any[] = [];
+  for (const staffId of staffUserIds) {
+    for (const moduleId of moduleIds) {
+      records.push({
+        agency_id: agencyId,
+        staff_user_id: staffId,
+        module_id: moduleId,
+        assigned_by: assignedBy,
+        due_date: dueDate || null,
+      });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('training_assignments')
+    .insert(records)
+    .select();
+
+  if (error) throw error;
+  return (data || []) as TrainingAssignment[];
+}
+
+export async function updateAssignment(id: string, dueDate: string | null): Promise<TrainingAssignment> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('assignment_update', { id, due_date: dueDate });
+    return data.assignment;
+  }
+
+  const { data, error } = await supabase
+    .from('training_assignments')
+    .update({ due_date: dueDate })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as TrainingAssignment;
+}
+
+export async function deleteAssignment(id: string): Promise<void> {
+  if (hasStaffToken()) {
+    await callTrainingAdminApi('assignment_delete', { id });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('training_assignments')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// ============ LESSON PROGRESS (for status calculation) ============
+
+export async function getLessonProgressAll(agencyId: string): Promise<{
+  progress: any[];
+  lessons: any[];
+  allLessons: any[];
+  agencyStaff: any[];
+}> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('lesson_progress_all');
+    return {
+      progress: data.progress || [],
+      lessons: data.lessons || [],
+      allLessons: data.allLessons || [],
+      agencyStaff: data.agencyStaff || []
+    };
+  }
+
+  const [progressRes, lessonsRes, staffRes] = await Promise.all([
+    supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id, completed'),
+    supabase.from('training_lessons').select('id, module_id').eq('agency_id', agencyId),
+    supabase.from('staff_users').select('id').eq('agency_id', agencyId)
+  ]);
+
+  if (progressRes.error) throw progressRes.error;
+  if (lessonsRes.error) throw lessonsRes.error;
+  if (staffRes.error) throw staffRes.error;
+
+  return {
+    progress: progressRes.data || [],
+    lessons: lessonsRes.data || [],
+    allLessons: lessonsRes.data || [],
+    agencyStaff: staffRes.data || []
+  };
+}

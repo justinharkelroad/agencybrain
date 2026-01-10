@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,17 @@ import { Calendar as CalendarIcon, MoreVertical, Plus, Trash2, Edit, AlertCircle
 import { format, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useAgencyRosterWithStaffLogins } from '@/hooks/useAgencyRosterWithStaffLogins';
+import {
+  listStaffUsers,
+  listAllModules,
+  listAssignments,
+  bulkCreateAssignments,
+  updateAssignment,
+  deleteAssignment,
+  getLessonProgressAll,
+  listTeamMembersWithLogins,
+  type TrainingAssignment
+} from '@/lib/trainingAdminApi';
 
 interface TrainingAssignmentsTabProps {
   agencyId: string;
@@ -38,17 +47,42 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
   const [bulkDueDate, setBulkDueDate] = useState<Date | undefined>();
   
-  const [editingAssignment, setEditingAssignment] = useState<any>(null);
+  const [editingAssignment, setEditingAssignment] = useState<TrainingAssignment | null>(null);
   const [editDueDate, setEditDueDate] = useState<Date | undefined>();
   
-  const [deletingAssignment, setDeletingAssignment] = useState<any>(null);
+  const [deletingAssignment, setDeletingAssignment] = useState<TrainingAssignment | null>(null);
   
   const [filterStaffId, setFilterStaffId] = useState<string>('all');
   const [filterModuleId, setFilterModuleId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Fetch roster with staff login status
-  const { data: rosterData } = useAgencyRosterWithStaffLogins(agencyId);
+  // Fetch roster with staff login status via API
+  const { data: rosterData } = useQuery({
+    queryKey: ['team-members-with-logins', agencyId],
+    queryFn: async () => {
+      const data = await listTeamMembersWithLogins(agencyId);
+      const staffUserByTeamMemberId = new Map<string, any>();
+      for (const su of data.staff_users) {
+        if (su.team_member_id && !staffUserByTeamMemberId.has(su.team_member_id)) {
+          staffUserByTeamMemberId.set(su.team_member_id, su);
+        }
+      }
+      const roster = data.team_members.map(tm => {
+        const su = staffUserByTeamMemberId.get(tm.id);
+        return {
+          id: tm.id,
+          name: tm.name,
+          email: tm.email,
+          role: tm.role,
+          status: tm.status,
+          staffUser: su || null,
+          loginStatus: su ? (su.is_active ? 'active' : 'pending') : 'none'
+        };
+      });
+      return { roster };
+    },
+    enabled: !!agencyId,
+  });
   const roster = rosterData?.roster || [];
 
   // Get staff users with active logins for assignments
@@ -57,102 +91,41 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   // Fetch staff users (for assignment display - we still need this for existing assignments)
   const { data: staffUsers } = useQuery({
     queryKey: ['staff-users', agencyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('staff_users')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true)
-        .order('display_name');
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listStaffUsers(agencyId),
     enabled: !!agencyId,
   });
 
   // Fetch modules
   const { data: modules } = useQuery({
-    queryKey: ['training-modules', agencyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('training_modules')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true)
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
+    queryKey: ['training-modules-all', agencyId],
+    queryFn: () => listAllModules(agencyId),
     enabled: !!agencyId,
   });
 
   // Fetch assignments
   const { data: assignments, isLoading } = useQuery({
     queryKey: ['training-assignments', agencyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('training_assignments')
-        .select(`
-          *,
-          staff_users!inner(display_name, username),
-          training_modules!inner(name)
-        `)
-        .eq('agency_id', agencyId)
-        .order('assigned_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => listAssignments(agencyId),
     enabled: !!agencyId,
   });
 
   // Fetch lesson progress to calculate status
   const { data: lessonProgressData } = useQuery({
     queryKey: ['staff-lesson-progress-all', agencyId],
-    queryFn: async () => {
-      const [
-        { data: progress, error: progressError },
-        { data: lessons, error: lessonsError },
-        { data: agencyStaff, error: staffError },
-        { data: allLessons, error: allLessonsError }
-      ] = await Promise.all([
-        supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id, completed'),
-        supabase.from('training_lessons').select('id, module_id').eq('agency_id', agencyId),
-        supabase.from('staff_users').select('id').eq('agency_id', agencyId),
-        supabase.from('training_lessons').select('module_id').eq('agency_id', agencyId)
-      ]);
-
-      if (progressError) throw progressError;
-      if (lessonsError) throw lessonsError;
-      if (staffError) throw staffError;
-      if (allLessonsError) throw allLessonsError;
-
-      return { progress, lessons, allLessons, agencyStaff };
-    },
+    queryFn: () => getLessonProgressAll(agencyId),
     enabled: !!agencyId,
   });
 
   // Bulk assign mutation
   const bulkAssignMutation = useMutation({
     mutationFn: async () => {
-      const records = [];
-      for (const staffId of selectedStaffIds) {
-        for (const moduleId of selectedModuleIds) {
-          records.push({
-            agency_id: agencyId,
-            staff_user_id: staffId,
-            module_id: moduleId,
-            assigned_by: user?.id,
-            due_date: bulkDueDate?.toISOString().split('T')[0],
-          });
-        }
-      }
-      
-      const { error } = await supabase
-        .from('training_assignments')
-        .insert(records)
-        .select();
-      
-      if (error) throw error;
+      await bulkCreateAssignments(
+        agencyId,
+        selectedStaffIds,
+        selectedModuleIds,
+        bulkDueDate?.toISOString().split('T')[0],
+        user?.id
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
@@ -170,12 +143,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   // Update assignment mutation
   const updateAssignmentMutation = useMutation({
     mutationFn: async ({ id, due_date }: { id: string; due_date: string | null }) => {
-      const { error } = await supabase
-        .from('training_assignments')
-        .update({ due_date })
-        .eq('id', id);
-      
-      if (error) throw error;
+      await updateAssignment(id, due_date);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
@@ -192,12 +160,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   // Delete assignment mutation
   const deleteAssignmentMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('training_assignments')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      await deleteAssignment(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-assignments'] });
@@ -210,7 +173,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
     },
   });
 
-  const getStatus = (assignment: any) => {
+  const getStatus = (assignment: TrainingAssignment) => {
     if (!assignment.module_id || !assignment.staff_user_id) return 'Not Started';
     
     const { progress, lessons, allLessons } = lessonProgressData || {};

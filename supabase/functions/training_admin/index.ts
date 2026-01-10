@@ -524,6 +524,153 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ============ STAFF USERS (for assignments) ============
+      case 'staff_users_list': {
+        const { data, error } = await supabase
+          .from('staff_users')
+          .select('id, display_name, username, email, is_active, team_member_id')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .order('display_name');
+        if (error) throw error;
+        result = { staff_users: data };
+        break;
+      }
+
+      // ============ TEAM MEMBERS WITH STAFF LOGINS ============
+      case 'team_members_with_logins': {
+        const [teamMembersRes, staffUsersRes] = await Promise.all([
+          supabase
+            .from('team_members')
+            .select('id, name, email, role, status')
+            .eq('agency_id', agencyId)
+            .order('name'),
+          supabase
+            .from('staff_users')
+            .select('id, username, display_name, email, is_active, last_login_at, created_at, team_member_id')
+            .eq('agency_id', agencyId)
+        ]);
+        if (teamMembersRes.error) throw teamMembersRes.error;
+        if (staffUsersRes.error) throw staffUsersRes.error;
+        
+        result = { 
+          team_members: teamMembersRes.data,
+          staff_users: staffUsersRes.data
+        };
+        break;
+      }
+
+      // ============ MODULES (all for agency) ============
+      case 'modules_all': {
+        const { data, error } = await supabase
+          .from('training_modules')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .order('name');
+        if (error) throw error;
+        result = { modules: data };
+        break;
+      }
+
+      // ============ ASSIGNMENTS ============
+      case 'assignments_list': {
+        const { data, error } = await supabase
+          .from('training_assignments')
+          .select(`
+            *,
+            staff_users(display_name, username),
+            training_modules(name)
+          `)
+          .eq('agency_id', agencyId)
+          .order('assigned_at', { ascending: false });
+        if (error) throw error;
+        result = { assignments: data };
+        break;
+      }
+
+      case 'assignment_bulk_create': {
+        const { staff_user_ids, module_ids, due_date } = params;
+        const records: any[] = [];
+        for (const staffId of staff_user_ids) {
+          for (const moduleId of module_ids) {
+            records.push({
+              agency_id: agencyId,
+              staff_user_id: staffId,
+              module_id: moduleId,
+              due_date: due_date || null,
+            });
+          }
+        }
+        const { data, error } = await supabase
+          .from('training_assignments')
+          .insert(records)
+          .select();
+        if (error) throw error;
+        result = { assignments: data };
+        break;
+      }
+
+      case 'assignment_update': {
+        const { id, due_date } = params;
+        const { data: existing } = await supabase
+          .from('training_assignments')
+          .select('agency_id')
+          .eq('id', id)
+          .single();
+        if (existing?.agency_id !== agencyId) {
+          throw new Error('Assignment not found');
+        }
+        const { data, error } = await supabase
+          .from('training_assignments')
+          .update({ due_date })
+          .eq('id', id)
+          .select()
+          .single();
+        if (error) throw error;
+        result = { assignment: data };
+        break;
+      }
+
+      case 'assignment_delete': {
+        const { id } = params;
+        const { data: existing } = await supabase
+          .from('training_assignments')
+          .select('agency_id')
+          .eq('id', id)
+          .single();
+        if (existing?.agency_id !== agencyId) {
+          throw new Error('Assignment not found');
+        }
+        const { error } = await supabase
+          .from('training_assignments')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+        result = { success: true };
+        break;
+      }
+
+      // ============ LESSON PROGRESS (for status calculation) ============
+      case 'lesson_progress_all': {
+        const [progressRes, lessonsRes, staffRes] = await Promise.all([
+          supabase.from('staff_lesson_progress').select('staff_user_id, lesson_id, completed'),
+          supabase.from('training_lessons').select('id, module_id').eq('agency_id', agencyId),
+          supabase.from('staff_users').select('id').eq('agency_id', agencyId)
+        ]);
+        if (progressRes.error) throw progressRes.error;
+        if (lessonsRes.error) throw lessonsRes.error;
+        if (staffRes.error) throw staffRes.error;
+        
+        result = {
+          progress: progressRes.data,
+          lessons: lessonsRes.data,
+          allLessons: lessonsRes.data,
+          agencyStaff: staffRes.data
+        };
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
