@@ -8,11 +8,11 @@ import { useStaffCore4Stats, Core4Domain } from '@/hooks/useStaffCore4Stats';
 import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { cn } from '@/lib/utils';
 
-const domains: { key: Core4Domain; label: string; icon: React.ElementType }[] = [
-  { key: 'body', label: 'BODY', icon: Heart },
-  { key: 'being', label: 'BEING', icon: LatinCross },
-  { key: 'balance', label: 'BALANCE', icon: Scale },
-  { key: 'business', label: 'BUSINESS', icon: Briefcase },
+const domains: { key: Core4Domain; label: string; icon: React.ElementType; color: string }[] = [
+  { key: 'body', label: 'BODY', icon: Heart, color: 'from-green-500 to-emerald-600' },
+  { key: 'being', label: 'BEING', icon: LatinCross, color: 'from-purple-500 to-violet-600' },
+  { key: 'balance', label: 'BALANCE', icon: Scale, color: 'from-pink-500 to-rose-600' },
+  { key: 'business', label: 'BUSINESS', icon: Briefcase, color: 'from-blue-500 to-indigo-600' },
 ];
 
 export function StaffCore4Card() {
@@ -91,7 +91,7 @@ export function StaffCore4Card() {
       <CardContent className="pt-0 space-y-4">
         {/* 2x2 Grid of domain buttons */}
         <div className="grid grid-cols-2 gap-3">
-          {domains.map(({ key, label, icon: Icon }) => {
+          {domains.map(({ key, label, icon: Icon, color }) => {
             const completed = isDomainCompleted(key);
             return (
               <button
@@ -101,7 +101,7 @@ export function StaffCore4Card() {
                   "flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-lg transition-all duration-200",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50",
                   completed
-                    ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25"
+                    ? `bg-gradient-to-br ${color} text-white shadow-lg`
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 )}
               >
