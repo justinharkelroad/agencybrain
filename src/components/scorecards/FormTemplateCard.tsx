@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Link2, Trash2, ExternalLink, Copy, Eye, EyeOff, Edit3, MoreVertical, Clock, BarChart3 } from "lucide-react";
+import { Link2, Trash2, ExternalLink, Copy, Eye, EyeOff, Edit3, MoreVertical, Clock, BarChart3, CopyPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { duplicateForm } from "@/lib/scorecardsApi";
 
 interface FormTemplate {
   id: string;
@@ -28,10 +29,11 @@ interface FormTemplateCardProps {
   form: FormTemplate;
   onDelete?: (formId: string) => Promise<void>;
   onToggleActive?: (formId: string, isActive: boolean) => Promise<boolean>;
+  onDuplicate?: (newForm: any) => void;
   isStaffMode?: boolean;
 }
 
-export default function FormTemplateCard({ form, onDelete, onToggleActive, isStaffMode = false }: FormTemplateCardProps) {
+export default function FormTemplateCard({ form, onDelete, onToggleActive, onDuplicate, isStaffMode = false }: FormTemplateCardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { 
@@ -97,6 +99,22 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive, isSta
     }
   };
 
+  const handleDuplicateForm = async () => {
+    setLoading(true);
+    try {
+      const newForm = await duplicateForm(form.id);
+      toast.success(`Form duplicated as "${newForm.name}"`);
+      if (onDuplicate) {
+        onDuplicate(newForm);
+      }
+    } catch (error: any) {
+      console.error('Error duplicating form:', error);
+      toast.error(error.message || 'Failed to duplicate form');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCopyLink = async () => {
     if (formLink) {
       await navigator.clipboard.writeText(formLink);
@@ -150,6 +168,10 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive, isSta
               <DropdownMenuItem onClick={() => navigate(getEditPath())} className="text-foreground">
                 <Edit3 className="h-4 w-4 mr-2" />
                 Edit Form
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDuplicateForm} disabled={loading} className="text-foreground">
+                <CopyPlus className="h-4 w-4 mr-2" />
+                Duplicate Form
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleGenerateLink} disabled={loading} className="text-foreground">
                 <Link2 className="h-4 w-4 mr-2" />

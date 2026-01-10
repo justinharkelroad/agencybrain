@@ -214,6 +214,29 @@ export default function ScorecardForms() {
     return success;
   };
 
+  const handleDuplicateForm = async (newForm: any) => {
+    // Refresh the forms list to show the new duplicate
+    if (isStaffUser) {
+      // Reload staff forms via edge function
+      const token = localStorage.getItem('staff_session_token');
+      if (token) {
+        const { data } = await supabase.functions.invoke('scorecards_admin', {
+          headers: { 'x-staff-session': token },
+          body: { action: 'forms_list' },
+        });
+        if (data?.forms) {
+          setStaffForms(data.forms.map((f: any) => ({
+            ...f,
+            schema_json: f.schema_json || {},
+            settings_json: f.settings_json || {},
+          })));
+        }
+      }
+    } else {
+      await refetch();
+    }
+  };
+
   // Filter forms based on selection
   const filteredForms = forms.filter(form => {
     if (formFilter === 'active') return form.is_active;
@@ -403,6 +426,7 @@ export default function ScorecardForms() {
                       form={form} 
                       onDelete={handleDeleteForm}
                       onToggleActive={handleToggleActive}
+                      onDuplicate={handleDuplicateForm}
                     />
                   ))}
                 </div>
