@@ -34,7 +34,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.get_member_month_snapshot]
-verify_jwt = true
+verify_jwt = false
 
 [functions.explorer_search]
 verify_jwt = true
