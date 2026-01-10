@@ -67,10 +67,13 @@ Deno.serve(async (req) => {
       isAdmin = !!adminRole;
     }
 
-    // User is an agency owner if their profile owns this agency, or they're a system admin
-    const isAgencyOwnerOrAdmin = isAdmin || (ownerProfile?.agency_id === agency_id);
+    // Check if staff user is a Manager - they should see all content like admins
+    const isManager = session.staff_users.role === 'Manager';
+    
+    // User is an agency owner if their profile owns this agency, they're a system admin, or they're a Manager
+    const isAgencyOwnerOrAdmin = isAdmin || isManager || (ownerProfile?.agency_id === agency_id);
 
-    console.log(`Staff ${staffEmail}: isAgencyOwnerOrAdmin=${isAgencyOwnerOrAdmin}, isAdmin=${isAdmin}`);
+    console.log(`Staff ${staffEmail}: isAgencyOwnerOrAdmin=${isAgencyOwnerOrAdmin}, isAdmin=${isAdmin}, isManager=${isManager}`);
 
     let modulesWithDueDates: any[] = [];
     let noAssignments = false;
