@@ -5,6 +5,7 @@ import { ArrowLeft, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
@@ -13,7 +14,6 @@ import MemberRingsCard from "@/components/rings/MemberRingsCard";
 import RingLegend from "@/components/rings/RingLegend";
 import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
-
 type TeamMetricRow = {
   team_member_id: string;
   name: string;
@@ -93,7 +93,7 @@ export default function StaffTeamRings() {
       }
 
       // Extract data from response
-      const { rules, teamMetrics, targets: targetsData } = data;
+      const { rules, teamMetrics, targets: targetsData, kpiLabels: kpiLabelsData } = data;
 
       // Set ring metrics from rules
       if (rules) {
@@ -101,6 +101,11 @@ export default function StaffTeamRings() {
           ? rules.ring_metrics 
           : rules.selected_metrics) || ringMetrics;
         setRingMetrics(metrics);
+      }
+
+      // Set KPI labels from response
+      if (kpiLabelsData) {
+        setKpiLabels(kpiLabelsData);
       }
 
       // Set team metrics
@@ -276,6 +281,113 @@ export default function StaffTeamRings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Team Member Performance Table */}
+      {rows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Team Member Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="border-b border-border">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Rep</th>
+                    {ringMetrics.includes('outbound_calls') && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['outbound_calls'] || 'Outbound Calls'}</th>
+                    )}
+                    {ringMetrics.includes('talk_minutes') && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['talk_minutes'] || 'Talk Time Minutes'}</th>
+                    )}
+                    {(ringMetrics.includes('quoted_count') || ringMetrics.includes('quoted_households')) && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['quoted_count'] || kpiLabels['quoted_households'] || 'Quoted'}</th>
+                    )}
+                    {(ringMetrics.includes('sold_items') || ringMetrics.includes('items_sold')) && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['sold_items'] || kpiLabels['items_sold'] || 'Sold (Items)'}</th>
+                    )}
+                    {ringMetrics.includes('cross_sells_uncovered') && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['cross_sells_uncovered'] || 'Cross-Sells'}</th>
+                    )}
+                    {ringMetrics.includes('mini_reviews') && (
+                      <th className="text-left p-2 font-medium">{kpiLabels['mini_reviews'] || 'Mini Reviews'}</th>
+                    )}
+                    <th className="text-left p-2 font-medium">Pass Days</th>
+                    <th className="text-left p-2 font-medium">Score</th>
+                    <th className="text-left p-2 font-medium">Streak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => {
+                    // Calculate if day passed based on metrics meeting targets
+                    const memberTargets = targets[row.team_member_id] || {};
+                    const roleDefaults = selectedRole === "Sales" 
+                      ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2 }
+                      : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+                    
+                    let metricsMetCount = 0;
+                    ringMetrics.forEach((key) => {
+                      const actual = (() => {
+                        switch (key) {
+                          case "outbound_calls": return row.outbound_calls;
+                          case "talk_minutes": return row.talk_minutes;
+                          case "quoted_count":
+                          case "quoted_households": return row.quoted_count;
+                          case "sold_items":
+                          case "items_sold": return row.sold_items;
+                          case "cross_sells_uncovered": return row.cross_sells_uncovered;
+                          case "mini_reviews": return row.mini_reviews;
+                          default: return 0;
+                        }
+                      })();
+                      const targetValue = Number(memberTargets[key]);
+                      const target = targetValue > 0 ? targetValue : (roleDefaults as any)[key] || 0;
+                      if (target > 0 && actual >= target) metricsMetCount++;
+                    });
+                    const passed = metricsMetCount >= 3;
+                    const score = Math.round((metricsMetCount / ringMetrics.length) * 100);
+                    
+                    return (
+                      <tr 
+                        key={`${row.team_member_id}-${index}`} 
+                        className="border-b border-border/50 hover:bg-muted/50 cursor-pointer"
+                        onClick={() => handleMemberClick(row.team_member_id)}
+                      >
+                        <td className="p-2 font-medium">{row.name}</td>
+                        {ringMetrics.includes('outbound_calls') && (
+                          <td className="p-2">{row.outbound_calls}</td>
+                        )}
+                        {ringMetrics.includes('talk_minutes') && (
+                          <td className="p-2">{row.talk_minutes}</td>
+                        )}
+                        {(ringMetrics.includes('quoted_count') || ringMetrics.includes('quoted_households')) && (
+                          <td className="p-2">{row.quoted_count}</td>
+                        )}
+                        {(ringMetrics.includes('sold_items') || ringMetrics.includes('items_sold')) && (
+                          <td className="p-2">{row.sold_items}</td>
+                        )}
+                        {ringMetrics.includes('cross_sells_uncovered') && (
+                          <td className="p-2">{row.cross_sells_uncovered}</td>
+                        )}
+                        {ringMetrics.includes('mini_reviews') && (
+                          <td className="p-2">{row.mini_reviews}</td>
+                        )}
+                        <td className="p-2">
+                          <Badge variant={passed ? "default" : "secondary"}>{passed ? 1 : 0}</Badge>
+                        </td>
+                        <td className="p-2">{score}%</td>
+                        <td className="p-2">
+                          <Badge variant="secondary">—</Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <PersonSnapshotModal
         open={snapshotOpen}

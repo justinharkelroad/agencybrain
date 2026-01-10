@@ -480,10 +480,10 @@ serve(async (req) => {
           );
         }
 
-        // Get scorecard rules
+        // Get scorecard rules - include selected_metrics
         const { data: rules } = await supabase
           .from('scorecard_rules')
-          .select('ring_metrics, n_required')
+          .select('ring_metrics, selected_metrics, n_required')
           .eq('agency_id', agencyId)
           .eq('role', role)
           .single();
@@ -503,10 +503,23 @@ serve(async (req) => {
           .select('team_member_id, metric_key, value_number')
           .eq('agency_id', agencyId);
 
+        // Get KPI labels for display
+        const { data: kpiData } = await supabase
+          .from('kpis')
+          .select('key, label')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true);
+
+        const kpiLabels: Record<string, string> = {};
+        (kpiData || []).forEach((kpi: any) => {
+          kpiLabels[kpi.key] = kpi.label;
+        });
+
         result = {
           rules,
           teamMetrics,
           targets,
+          kpiLabels,
         };
         break;
       }
