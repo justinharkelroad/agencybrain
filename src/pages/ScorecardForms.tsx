@@ -243,15 +243,13 @@ export default function ScorecardForms() {
           </div>
         </div>
 
-        {/* Meeting Frame CTA - Visible for all, disabled for staff until Phase B */}
+        {/* Meeting Frame CTA - Works for both staff and regular users */}
         <div className="mb-6">
           <Button 
             variant="outline" 
             size="sm"
             className="text-muted-foreground hover:text-foreground"
             onClick={() => navigate(isStaffUser ? "/staff/meeting-frame" : "/agency?tab=meeting-frame")}
-            disabled={isStaffUser}
-            title={isStaffUser ? "Coming soon for staff users" : undefined}
           >
             <UserCheck className="h-4 w-4 mr-2" />
             Create a 1-on-1 Meeting Frame with your team
