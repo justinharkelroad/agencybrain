@@ -21,9 +21,11 @@ type TeamMetricRow = {
   date: string;
   outbound_calls: number;
   talk_minutes: number;
-  quoted_count: number;
+  quoted_count?: number;
+  quoted_households?: number;
   quoted_entity: string | null;
-  sold_items: number;
+  sold_items?: number;
+  items_sold?: number;
   sold_policies: number;
   sold_premium_cents: number;
   cross_sells_uncovered: number;
@@ -159,16 +161,18 @@ export default function StaffTeamRings() {
         // Get actual value for this metric
         const actual = (() => {
           switch (key) {
-            case "outbound_calls": return row.outbound_calls;
-            case "talk_minutes": return row.talk_minutes;
+            case "outbound_calls": return row.outbound_calls || 0;
+            case "talk_minutes": return row.talk_minutes || 0;
             case "quoted_count":
-            case "quoted_households": return row.quoted_count;
+            case "quoted_households": 
+              return row.quoted_households ?? row.quoted_count ?? 0;
             case "sold_items":
-            case "items_sold": return row.sold_items;
-            case "sold_policies": return row.sold_policies;
+            case "items_sold": 
+              return row.items_sold ?? row.sold_items ?? 0;
+            case "sold_policies": return row.sold_policies || 0;
             case "sold_premium": return Math.round((row.sold_premium_cents || 0) / 100);
-            case "cross_sells_uncovered": return row.cross_sells_uncovered;
-            case "mini_reviews": return row.mini_reviews;
+            case "cross_sells_uncovered": return row.cross_sells_uncovered || 0;
+            case "mini_reviews": return row.mini_reviews || 0;
             default: return 0;
           }
         })();
