@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { verifyRequest, isVerifyError } from '../_shared/verifyRequest.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,39 +15,25 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization') ?? '' }
+    // Verify request (supports both Supabase JWT and staff session)
+    const authResult = await verifyRequest(req);
+    if (isVerifyError(authResult)) {
+      return new Response(
+        JSON.stringify({ error: authResult.error }),
+        { 
+          status: authResult.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      }
-    );
-
-    // Check for staff session first
-    const staffSessionToken = req.headers.get('x-staff-session');
-    let agencyIdFromSession: string | null = null;
-
-    if (staffSessionToken) {
-      // Verify staff session
-      const { data: session, error: sessionError } = await supabase
-        .from('staff_sessions')
-        .select('staff_user_id, agency_id, expires_at')
-        .eq('session_token', staffSessionToken)
-        .single();
-
-      if (sessionError || !session || new Date(session.expires_at) < new Date()) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid or expired staff session' }),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-      agencyIdFromSession = session.agency_id;
+      );
     }
+
+    const { agencyId } = authResult;
+
+    // Create service role client for all DB operations
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
     const url = new URL(req.url);
     // Accept both parameter names for compatibility
@@ -85,8 +72,8 @@ serve(async (req) => {
       );
     }
 
-    // Security check: if staff session, ensure team member belongs to the staff's agency
-    if (staffSessionToken && agencyIdFromSession && member.agency_id !== agencyIdFromSession) {
+    // Security check: ensure team member belongs to the authenticated user's agency
+    if (member.agency_id !== agencyId) {
       return new Response(
         JSON.stringify({ error: 'Access denied: team member belongs to a different agency' }),
         { 
