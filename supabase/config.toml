@@ -288,3 +288,6 @@ verify_jwt = false
 [functions.upload_staff_renewals]
 verify_jwt = false
 
+[functions.training_admin]
+verify_jwt = false
+
