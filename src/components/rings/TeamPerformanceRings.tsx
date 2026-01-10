@@ -64,7 +64,12 @@ function CompactRing({
   const reduced = usePrefersReducedMotion();
   const circleRef = useRef<SVGCircleElement>(null);
 
+  // Debug: Log progress and target values
+  console.log('CompactRing render:', { progress, target, circumference, actual });
+
   useEffect(() => {
+    console.log('CompactRing useEffect:', { target, dashArray, reduced });
+    
     if (reduced) {
       setDashArray(target);
       return;
@@ -73,11 +78,13 @@ function CompactRing({
     // Prevent unnecessary animations by checking if target actually changed
     const currentDashArray = dashArray;
     if (Math.abs(currentDashArray - target) < 0.01) {
+      console.log('CompactRing: skipping animation, threshold not met');
       return; // No significant change, skip animation
     }
 
     // Start from current position and animate to target
     const id = requestAnimationFrame(() => {
+      console.log('CompactRing: setting dashArray to', target);
       if (circleRef.current) {
         circleRef.current.style.transition = `stroke-dasharray ${duration}ms ease-out`;
       }
