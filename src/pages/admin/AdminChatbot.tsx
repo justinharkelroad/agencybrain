@@ -82,6 +82,7 @@ const TIER_OPTIONS = [
   { value: 'all', label: 'All Tiers' },
   { value: '1:1 Coaching', label: '1:1 Coaching' },
   { value: 'Boardroom', label: 'Boardroom' },
+  { value: 'Call Scoring', label: 'Call Scoring' },
 ];
 
 interface FAQ {
