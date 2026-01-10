@@ -70,10 +70,13 @@ function CompactRing({
       return;
     }
 
-    // Only animate if target actually changed
-    if (dashArray === target) return;
+    // Prevent unnecessary animations by checking if target actually changed
+    const currentDashArray = dashArray;
+    if (Math.abs(currentDashArray - target) < 0.01) {
+      return; // No significant change, skip animation
+    }
 
-    setDashArray(0);
+    // Start from current position and animate to target
     const id = requestAnimationFrame(() => {
       if (circleRef.current) {
         circleRef.current.style.transition = `stroke-dasharray ${duration}ms ease-out`;
