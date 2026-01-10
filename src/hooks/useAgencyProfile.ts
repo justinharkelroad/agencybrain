@@ -24,16 +24,23 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole, s
       // If we have a pre-fetched staff agency profile, use it directly
       // This avoids RLS issues since staff users don't have Supabase auth sessions
       if (staffAgencyProfile) {
-        // Just fetch the scorecard rules using agency ID
-        const { data: rules, error: rulesError } = await supabase
-          .from('scorecard_rules')
-          .select('*')
-          .eq('agency_id', staffAgencyProfile.agencyId)
-          .eq('role', role)
-          .single();
+        // Staff mode: use edge function to bypass RLS
+        const { fetchWithAuth } = await import("@/lib/staffRequest");
+        const response = await fetchWithAuth("scorecards_admin", {
+          method: "POST",
+          body: {
+            action: "scorecard_rules_get",
+            agency_id: staffAgencyProfile.agencyId,
+            role: role
+          }
+        });
 
-        if (rulesError && rulesError.code !== 'PGRST116') {
-          console.warn('Failed to load scorecard rules:', rulesError);
+        let rules = null;
+        if (response.ok) {
+          const result = await response.json();
+          rules = result.rules;  // Extract rules from { rules: data } response
+        } else {
+          console.warn('Failed to load scorecard rules via edge function');
         }
 
         return {
