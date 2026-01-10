@@ -24,6 +24,30 @@ serve(async (req) => {
       }
     );
 
+    // Check for staff session first
+    const staffSessionToken = req.headers.get('x-staff-session');
+    let agencyIdFromSession: string | null = null;
+
+    if (staffSessionToken) {
+      // Verify staff session
+      const { data: session, error: sessionError } = await supabase
+        .from('staff_sessions')
+        .select('staff_user_id, agency_id, expires_at')
+        .eq('session_token', staffSessionToken)
+        .single();
+
+      if (sessionError || !session || new Date(session.expires_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired staff session' }),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      agencyIdFromSession = session.agency_id;
+    }
+
     const url = new URL(req.url);
     // Accept both parameter names for compatibility
     const teamMemberId = url.searchParams.get('teamMemberId') || url.searchParams.get('member_id');
@@ -56,6 +80,17 @@ serve(async (req) => {
         JSON.stringify({ error: 'Team member not found' }),
         { 
           status: 404, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Security check: if staff session, ensure team member belongs to the staff's agency
+    if (staffSessionToken && agencyIdFromSession && member.agency_id !== agencyIdFromSession) {
+      return new Response(
+        JSON.stringify({ error: 'Access denied: team member belongs to a different agency' }),
+        { 
+          status: 403, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );

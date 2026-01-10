@@ -40,28 +40,39 @@ export function MonthlyCalendarHeatmap({
   showLegend = true 
 }: MonthlyCalendarHeatmapProps) {
   const monthStart = firstOfMonth(month);
+  
+  // Detect staff mode
+  const staffToken = localStorage.getItem('staff_session_token');
+  const isStaffMode = !!staffToken;
 
   const { data, isLoading, isError, refetch } = useQuery<SnapshotResponse>({
     queryKey: ["member-month-snapshot", memberId, yyyymm(monthStart)],
     enabled: !!memberId,
     queryFn: async () => {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      // Build headers based on auth mode
+      const headers: Record<string, string> = {
+        "x-client-info": "supabase-js-web",
+        "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
+        "Content-Type": "application/json",
+      };
       
-      if (!token) {
-        throw new Error("No authentication token");
+      if (isStaffMode) {
+        // Staff mode: use x-staff-session header
+        headers['x-staff-session'] = staffToken!;
+      } else {
+        // Owner mode: use Supabase auth token
+        const session = await supabase.auth.getSession();
+        const token = session.data.session?.access_token;
+        
+        if (!token) {
+          throw new Error("No authentication token");
+        }
+        headers['Authorization'] = `Bearer ${token}`;
       }
       
       const response = await fetch(
         `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_member_month_snapshot?member_id=${memberId}&month=${yyyymm(monthStart)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-client-info": "supabase-js-web",
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
-            "Content-Type": "application/json",
-          },
-        }
+        { headers }
       );
       
       if (!response.ok) {
