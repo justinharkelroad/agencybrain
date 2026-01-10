@@ -131,6 +131,63 @@ export async function toggleFormActive(formId: string, is_active: boolean, agenc
   return true;
 }
 
+export async function duplicateForm(sourceFormId: string, agencyId?: string): Promise<FormTemplate> {
+  if (hasStaffToken()) {
+    const data = await callScorecardsApi('form_duplicate', { sourceFormId });
+    return data.form;
+  }
+  
+  // Owner mode - direct Supabase
+  const { data: sourceForm, error: fetchError } = await supabase
+    .from('form_templates')
+    .select('*')
+    .eq('id', sourceFormId)
+    .single();
+
+  if (fetchError || !sourceForm) {
+    throw new Error('Form not found');
+  }
+
+  // Generate unique slug
+  const baseSlug = sourceForm.slug + '-copy';
+  let slug = baseSlug;
+  
+  const { data: existingForms } = await supabase
+    .from('form_templates')
+    .select('slug')
+    .eq('agency_id', sourceForm.agency_id)
+    .like('slug', `${baseSlug}%`);
+
+  if (existingForms && existingForms.length > 0) {
+    const existingSlugs = new Set(existingForms.map(f => f.slug));
+    let counter = 2;
+    while (existingSlugs.has(slug)) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+  }
+
+  // Insert new form
+  const { data: newForm, error: insertError } = await supabase
+    .from('form_templates')
+    .insert({
+      agency_id: sourceForm.agency_id,
+      name: sourceForm.name + ' (Copy)',
+      slug: slug,
+      role: sourceForm.role,
+      schema_json: sourceForm.schema_json || {},
+      settings_json: sourceForm.settings_json || {},
+      field_mappings: sourceForm.field_mappings || {},
+      is_active: true,
+      status: 'draft',
+    })
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+  return newForm;
+}
+
 // ==================== FORM LINKS ====================
 
 export async function getFormLink(formTemplateId: string): Promise<FormLink | null> {

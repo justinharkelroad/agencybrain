@@ -156,6 +156,72 @@ serve(async (req) => {
         break;
       }
 
+      case 'form_duplicate': {
+        const { sourceFormId } = params;
+        
+        if (!sourceFormId) {
+          return new Response(
+            JSON.stringify({ error: 'sourceFormId is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch source form with agency validation
+        const { data: sourceForm, error: fetchError } = await supabase
+          .from('form_templates')
+          .select('*')
+          .eq('id', sourceFormId)
+          .eq('agency_id', agencyId)
+          .single();
+
+        if (fetchError || !sourceForm) {
+          return new Response(
+            JSON.stringify({ error: 'Form not found or access denied' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Generate unique slug
+        const baseSlug = sourceForm.slug + '-copy';
+        let slug = baseSlug;
+        
+        const { data: existingForms } = await supabase
+          .from('form_templates')
+          .select('slug')
+          .eq('agency_id', agencyId)
+          .like('slug', `${baseSlug}%`);
+
+        if (existingForms && existingForms.length > 0) {
+          const existingSlugs = new Set(existingForms.map((f: any) => f.slug));
+          let counter = 2;
+          while (existingSlugs.has(slug)) {
+            slug = `${baseSlug}-${counter}`;
+            counter++;
+          }
+        }
+
+        // Insert duplicated form
+        const { data: newForm, error: insertError } = await supabase
+          .from('form_templates')
+          .insert({
+            agency_id: agencyId,
+            name: sourceForm.name + ' (Copy)',
+            slug: slug,
+            role: sourceForm.role,
+            schema_json: sourceForm.schema_json || {},
+            settings_json: sourceForm.settings_json || {},
+            field_mappings: sourceForm.field_mappings || {},
+            is_active: true,
+            status: 'draft',
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        result = { form: newForm };
+        break;
+      }
+
       // ==================== FORM LINKS ====================
       case 'form_link_get': {
         const { formTemplateId } = params;
