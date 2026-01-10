@@ -46,6 +46,7 @@ import RoleplayReports from "./pages/admin/RoleplayReports";
 import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
+import AdminChatbot from "./pages/admin/AdminChatbot";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
 import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
@@ -591,6 +592,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminHelpVideos />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/chatbot" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminChatbot />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

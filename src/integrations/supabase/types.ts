@@ -1023,6 +1023,105 @@ export type Database = {
           },
         ]
       }
+      chatbot_conversations: {
+        Row: {
+          agency_id: string | null
+          created_at: string | null
+          current_page: string | null
+          id: string
+          messages: Json | null
+          portal: string
+          staff_user_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string | null
+          current_page?: string | null
+          id?: string
+          messages?: Json | null
+          portal?: string
+          staff_user_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string | null
+          current_page?: string | null
+          id?: string
+          messages?: Json | null
+          portal?: string
+          staff_user_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_conversations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_conversations_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_faqs: {
+        Row: {
+          answer: string
+          applies_to_portals: string[] | null
+          applies_to_roles: string[] | null
+          applies_to_tiers: string[] | null
+          category: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          page_context: string[] | null
+          priority: number | null
+          question: string
+          updated_at: string | null
+        }
+        Insert: {
+          answer: string
+          applies_to_portals?: string[] | null
+          applies_to_roles?: string[] | null
+          applies_to_tiers?: string[] | null
+          category: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          page_context?: string[] | null
+          priority?: number | null
+          question: string
+          updated_at?: string | null
+        }
+        Update: {
+          answer?: string
+          applies_to_portals?: string[] | null
+          applies_to_roles?: string[] | null
+          applies_to_tiers?: string[] | null
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          page_context?: string[] | null
+          priority?: number | null
+          question?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       checklist_template_items: {
         Row: {
           active: boolean

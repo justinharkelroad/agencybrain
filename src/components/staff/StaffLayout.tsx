@@ -8,6 +8,7 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { getStaffHomePath, isCallScoringTier } from "@/utils/tierAccess";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
+import { StanChatBot } from "@/components/chatbot/StanChatBot";
 
 export function StaffLayout() {
   const { user, isImpersonation, logout } = useStaffAuth();
@@ -102,6 +103,7 @@ export function StaffLayout() {
         onOpenChange={handleCloseROI}
         initialTool={roiInitialTool}
       />
+      <StanChatBot portal="staff" />
     </SidebarProvider>
   );
 }
