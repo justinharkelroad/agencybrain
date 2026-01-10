@@ -126,7 +126,7 @@ import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 import StaffSales from "./pages/staff/StaffSales";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
-import StaffMeetingFrame from "./pages/staff/StaffMeetingFrame";
+import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
 
 // Training pages
 import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
@@ -900,8 +900,8 @@ const App = () => {
               <Route path="sales" element={<StaffSales />} />
               {/* Team Rings - Full Team Performance */}
               <Route path="team-rings" element={<StaffTeamRings />} />
-              {/* Meeting Frame - 1-on-1 Performance Snapshots */}
-              <Route path="meeting-frame" element={<StaffMeetingFrame />} />
+              {/* Meeting Frame - 1-on-1 Performance Snapshots (Full Feature Parity) */}
+              <Route path="meeting-frame" element={<StaffMeetingFrameWrapper />} />
               {/* LQS Roadmap */}
               <Route path="lqs-roadmap" element={<LqsRoadmapPage isStaffPortal={true} />} />
             </Route>

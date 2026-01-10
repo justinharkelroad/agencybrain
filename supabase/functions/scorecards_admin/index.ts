@@ -630,6 +630,53 @@ serve(async (req) => {
         break;
       }
 
+      // ==================== MEETING FRAME CALL SCORING ====================
+      case 'meeting_frame_call_submissions': {
+        const { team_member_id, start_date, end_date } = params;
+
+        if (!team_member_id || !start_date || !end_date) {
+          return new Response(
+            JSON.stringify({ error: 'team_member_id, start_date, and end_date are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data, error } = await supabase
+          .from('agency_calls')
+          .select('id, original_filename, status, overall_score, potential_rank, created_at, call_duration_seconds, call_type')
+          .eq('team_member_id', team_member_id)
+          .eq('agency_id', agencyId)  // Security: ensure calls belong to agency
+          .gte('created_at', start_date)
+          .lte('created_at', end_date + 'T23:59:59')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        result = { submissions: data };
+        break;
+      }
+
+      case 'meeting_frame_call_details': {
+        const { call_id } = params;
+
+        if (!call_id) {
+          return new Response(
+            JSON.stringify({ error: 'call_id is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data, error } = await supabase
+          .from('agency_calls')
+          .select('*')
+          .eq('id', call_id)
+          .eq('agency_id', agencyId)  // Security: ensure call belongs to agency
+          .single();
+
+        if (error) throw error;
+        result = { call: data };
+        break;
+      }
+
       // ==================== GET AGENCY PROFILE ====================
       case 'agency_profile_get': {
         const { data, error } = await supabase

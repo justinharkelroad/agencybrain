@@ -66,6 +66,21 @@ interface MeetingFrame {
 }
 
 export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
+  // Detect staff mode
+  const staffToken = localStorage.getItem('staff_session_token');
+  const isStaffMode = !!staffToken;
+
+  // Helper function for staff edge function calls
+  const invokeWithStaff = async (action: string, params: Record<string, unknown> = {}) => {
+    const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+      headers: { 'x-staff-session': staffToken! },
+      body: { action, ...params },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMember, setSelectedMember] = useState('');
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -89,38 +104,67 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
-    const fetchTeamMembers = async () => {
-      const { data, error } = await supabase
-        .from('team_members')
-        .select('id, name, role')
-        .eq('agency_id', agencyId)
-        .eq('status', 'active')
-        .order('name');
+    const fetchInitialData = async () => {
+      if (isStaffMode) {
+        // Staff mode: use edge function to get all data at once
+        try {
+          const result = await invokeWithStaff('meeting_frame_list');
+          setTeamMembers(result.teamMembers || []);
+          setKpis(result.kpis || []);
+          setMeetingFrameHistory((result.history || []) as MeetingFrame[]);
+        } catch (err) {
+          console.error('Error fetching initial data via edge function:', err);
+        }
+      } else {
+        // Owner mode: use direct Supabase queries
+        const fetchTeamMembers = async () => {
+          const { data, error } = await supabase
+            .from('team_members')
+            .select('id, name, role')
+            .eq('agency_id', agencyId)
+            .eq('status', 'active')
+            .order('name');
 
-      if (!error && data) {
-        setTeamMembers(data);
+          if (!error && data) {
+            setTeamMembers(data);
+          }
+        };
+
+        const fetchKPIs = async () => {
+          const { data, error } = await supabase
+            .from('kpis')
+            .select('id, key, label, type')
+            .eq('agency_id', agencyId)
+            .eq('is_active', true)
+            .order('label');
+
+          if (!error && data) {
+            setKpis(data);
+          }
+        };
+
+        fetchTeamMembers();
+        fetchKPIs();
+        fetchMeetingFrameHistory();
       }
     };
 
-    const fetchKPIs = async () => {
-      const { data, error } = await supabase
-        .from('kpis')
-        .select('id, key, label, type')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true)
-        .order('label');
-
-      if (!error && data) {
-        setKpis(data);
-      }
-    };
-
-    fetchTeamMembers();
-    fetchKPIs();
-    fetchMeetingFrameHistory();
-  }, [agencyId]);
+    fetchInitialData();
+  }, [agencyId, isStaffMode]);
 
   const fetchMeetingFrameHistory = async () => {
+    if (isStaffMode) {
+      // Staff mode: refetch via edge function
+      try {
+        const result = await invokeWithStaff('meeting_frame_list');
+        setMeetingFrameHistory((result.history || []) as MeetingFrame[]);
+      } catch (err) {
+        console.error('Error fetching history via edge function:', err);
+      }
+      return;
+    }
+    
+    // Owner mode: direct query
     const { data, error } = await supabase
       .from('meeting_frames')
       .select(`
@@ -169,23 +213,36 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
       const startStr = format(startDate!, 'yyyy-MM-dd');
       const endStr = format(endDate!, 'yyyy-MM-dd');
 
-      // Fetch all metrics_daily rows for the team member in the date range
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('metrics_daily')
-        .select('*')
-        .eq('team_member_id', selectedMember)
-        .gte('date', startStr)
-        .lte('date', endStr);
+      let metricsData: Record<string, unknown>[];
+      
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        const result = await invokeWithStaff('meeting_frame_generate', {
+          team_member_id: selectedMember,
+          start_date: startStr,
+          end_date: endStr,
+        });
+        metricsData = result.metricsData || [];
+      } else {
+        // Owner mode: direct Supabase query
+        const { data, error: metricsError } = await supabase
+          .from('metrics_daily')
+          .select('*')
+          .eq('team_member_id', selectedMember)
+          .gte('date', startStr)
+          .lte('date', endStr);
 
-      if (metricsError) {
-        console.error('Error fetching metrics:', metricsError);
-        throw metricsError;
+        if (metricsError) {
+          console.error('Error fetching metrics:', metricsError);
+          throw metricsError;
+        }
+        metricsData = data || [];
       }
 
       // Aggregate KPI totals using getMetricValue for each KPI
       const totals: KPITotal[] = kpis.map((kpi) => {
         let total = 0;
-        (metricsData || []).forEach((row) => {
+        metricsData.forEach((row) => {
           total += getMetricValue(row, kpi.key);
         });
 
@@ -226,27 +283,43 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
 
     setSaving(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        await invokeWithStaff('meeting_frame_create', {
+          team_member_id: selectedMember,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          kpi_totals: kpiTotals,
+          call_log_data: callLogData || {},
+          quoted_data: quotedData || {},
+          sold_data: soldData || {},
+          call_scoring_data: callScoringData || [],
+          meeting_notes: meetingNotes || null,
+        });
+      } else {
+        // Owner mode: direct Supabase insert
+        const { data: userData } = await supabase.auth.getUser();
 
-      const meetingFrameData = {
-        agency_id: agencyId,
-        team_member_id: selectedMember,
-        created_by: userData.user?.id,
-        start_date: format(startDate, 'yyyy-MM-dd'),
-        end_date: format(endDate, 'yyyy-MM-dd'),
-        kpi_totals: kpiTotals as unknown as Json,
-        call_log_data: (callLogData || {}) as unknown as Json,
-        quoted_data: (quotedData || {}) as unknown as Json,
-        sold_data: (soldData || {}) as unknown as Json,
-        call_scoring_data: (callScoringData || []) as unknown as Json,
-        meeting_notes: meetingNotes || null,
-      };
+        const meetingFrameData = {
+          agency_id: agencyId,
+          team_member_id: selectedMember,
+          created_by: userData.user?.id,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          end_date: format(endDate, 'yyyy-MM-dd'),
+          kpi_totals: kpiTotals as unknown as Json,
+          call_log_data: (callLogData || {}) as unknown as Json,
+          quoted_data: (quotedData || {}) as unknown as Json,
+          sold_data: (soldData || {}) as unknown as Json,
+          call_scoring_data: (callScoringData || []) as unknown as Json,
+          meeting_notes: meetingNotes || null,
+        };
 
-      const { error } = await supabase
-        .from('meeting_frames')
-        .insert(meetingFrameData);
+        const { error } = await supabase
+          .from('meeting_frames')
+          .insert(meetingFrameData);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       toast.success('Meeting frame saved successfully!');
       fetchMeetingFrameHistory();
@@ -278,16 +351,25 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     const confirmed = window.confirm('Are you sure you want to delete this meeting frame?');
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from('meeting_frames')
-      .delete()
-      .eq('id', frameId);
+    try {
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        await invokeWithStaff('meeting_frame_delete', { frame_id: frameId });
+      } else {
+        // Owner mode: direct delete
+        const { error } = await supabase
+          .from('meeting_frames')
+          .delete()
+          .eq('id', frameId);
 
-    if (error) {
-      toast.error('Failed to delete meeting frame');
-    } else {
+        if (error) throw error;
+      }
+      
       toast.success('Meeting frame deleted');
       fetchMeetingFrameHistory();
+    } catch (err) {
+      console.error('Error deleting frame:', err);
+      toast.error('Failed to delete meeting frame');
     }
   };
 

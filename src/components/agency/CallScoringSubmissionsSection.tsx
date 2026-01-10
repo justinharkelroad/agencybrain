@@ -43,6 +43,10 @@ export function CallScoringSubmissionsSection({
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [loadingCallDetails, setLoadingCallDetails] = useState(false);
 
+  // Detect staff mode
+  const staffToken = localStorage.getItem('staff_session_token');
+  const isStaffMode = !!staffToken;
+
   useEffect(() => {
     const fetchSubmissions = async () => {
       if (!teamMemberId || !startDate || !endDate) {
@@ -56,21 +60,43 @@ export function CallScoringSubmissionsSection({
         const startStr = format(startDate, 'yyyy-MM-dd');
         const endStr = format(endDate, 'yyyy-MM-dd');
 
-        const { data, error } = await supabase
-          .from('agency_calls')
-          .select('id, original_filename, status, overall_score, potential_rank, created_at, call_duration_seconds, call_type')
-          .eq('team_member_id', teamMemberId)
-          .eq('agency_id', agencyId)
-          .gte('created_at', startStr)
-          .lte('created_at', endStr + 'T23:59:59')
-          .order('created_at', { ascending: false });
+        if (isStaffMode) {
+          // Staff mode: use edge function
+          const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+            headers: { 'x-staff-session': staffToken! },
+            body: { 
+              action: 'meeting_frame_call_submissions',
+              team_member_id: teamMemberId,
+              start_date: startStr,
+              end_date: endStr,
+            },
+          });
 
-        if (error) {
-          console.error('Error fetching call scoring submissions:', error);
-          setSubmissions([]);
+          if (error) {
+            console.error('Error fetching call scoring submissions via edge function:', error);
+            setSubmissions([]);
+          } else {
+            setSubmissions(data?.submissions || []);
+            onDataChange?.(data?.submissions || []);
+          }
         } else {
-          setSubmissions(data || []);
-          onDataChange?.(data || []);
+          // Owner mode: direct Supabase query
+          const { data, error } = await supabase
+            .from('agency_calls')
+            .select('id, original_filename, status, overall_score, potential_rank, created_at, call_duration_seconds, call_type')
+            .eq('team_member_id', teamMemberId)
+            .eq('agency_id', agencyId)
+            .gte('created_at', startStr)
+            .lte('created_at', endStr + 'T23:59:59')
+            .order('created_at', { ascending: false });
+
+          if (error) {
+            console.error('Error fetching call scoring submissions:', error);
+            setSubmissions([]);
+          } else {
+            setSubmissions(data || []);
+            onDataChange?.(data || []);
+          }
         }
       } catch (err) {
         console.error('Error fetching call scoring submissions:', err);
@@ -81,26 +107,46 @@ export function CallScoringSubmissionsSection({
     };
 
     fetchSubmissions();
-  }, [agencyId, teamMemberId, startDate, endDate, onDataChange]);
+  }, [agencyId, teamMemberId, startDate, endDate, onDataChange, isStaffMode]);
 
   const handleViewCallScore = async (submissionId: string) => {
     setLoadingCallDetails(true);
     try {
-      // Fetch full call details for the scorecard
-      const { data, error } = await supabase
-        .from('agency_calls')
-        .select('*')
-        .eq('id', submissionId)
-        .single();
+      if (isStaffMode) {
+        // Staff mode: use edge function
+        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
+          headers: { 'x-staff-session': staffToken! },
+          body: { 
+            action: 'meeting_frame_call_details',
+            call_id: submissionId,
+          },
+        });
 
-      if (error) {
-        console.error('Error fetching call details:', error);
-        toast.error('Failed to load call details');
-        return;
+        if (error) {
+          console.error('Error fetching call details via edge function:', error);
+          toast.error('Failed to load call details');
+          return;
+        }
+
+        setSelectedCall(data?.call);
+        setScorecardOpen(true);
+      } else {
+        // Owner mode: direct Supabase query
+        const { data, error } = await supabase
+          .from('agency_calls')
+          .select('*')
+          .eq('id', submissionId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching call details:', error);
+          toast.error('Failed to load call details');
+          return;
+        }
+
+        setSelectedCall(data);
+        setScorecardOpen(true);
       }
-
-      setSelectedCall(data);
-      setScorecardOpen(true);
     } catch (err) {
       console.error('Error fetching call details:', err);
       toast.error('Failed to load call details');
