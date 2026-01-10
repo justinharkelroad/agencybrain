@@ -5,6 +5,8 @@ import { StanAvatar } from "./StanAvatar";
 import { StanChatWindow } from "./StanChatWindow";
 import { ChatMessageData } from "./ChatMessage";
 import { cn } from "@/lib/utils";
+import { useStanContext } from "@/hooks/useStanContext";
+import { supabase } from "@/integrations/supabase/client";
 
 // Initial greeting message
 const INITIAL_MESSAGE: ChatMessageData = {
@@ -13,9 +15,6 @@ const INITIAL_MESSAGE: ChatMessageData = {
   content: "Hey there! 👋 I'm Stan, your Agency Brain assistant. I'm here to help you navigate the platform and answer any questions. What can I help you with today?",
   timestamp: new Date(),
 };
-
-// Placeholder response for Phase 1
-const PLACEHOLDER_RESPONSE = "Thanks for your question! I'm still learning and will be fully operational soon. In the meantime, feel free to email info@standardplaybook.com for help!";
 
 // Routes where Stan should NOT appear
 const EXCLUDED_ROUTES = [
@@ -33,6 +32,7 @@ interface StanChatBotProps {
 
 export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const location = useLocation();
+  const context = useStanContext();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessageData[]>([INITIAL_MESSAGE]);
   const [isTyping, setIsTyping] = useState(false);
@@ -41,12 +41,14 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const shouldHide = EXCLUDED_ROUTES.some(route => location.pathname.startsWith(route)) || 
                      location.pathname === '/';
 
-  const handleSendMessage = useCallback((content: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!content.trim()) return;
+
     // Add user message
     const userMessage: ChatMessageData = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content,
+      content: content.trim(),
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMessage]);
@@ -54,17 +56,53 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
     // Show typing indicator
     setIsTyping(true);
 
-    // Simulate Stan "thinking" for 1 second, then respond
-    setTimeout(() => {
+    try {
+      // Prepare conversation history (exclude greeting, last 6 messages)
+      const historyForApi = messages
+        .filter(m => m.id !== 'initial')
+        .slice(-6)
+        .map(m => ({
+          role: m.role,
+          content: m.content
+        }));
+
+      const { data, error } = await supabase.functions.invoke('stan_chat', {
+        body: {
+          message: content.trim(),
+          conversation_history: historyForApi,
+          context: {
+            ...context,
+            portal
+          }
+        }
+      });
+
+      if (error) throw error;
+
       const stanResponse: ChatMessageData = {
         id: `stan-${Date.now()}`,
         role: 'stan',
-        content: PLACEHOLDER_RESPONSE,
+        content: data?.response || "I'm having trouble responding right now. Please try again!",
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, stanResponse]);
+    } catch (error) {
+      console.error('Stan chat error:', error);
+      
+      const errorMessage: ChatMessageData = {
+        id: `stan-error-${Date.now()}`,
+        role: 'stan',
+        content: "I'm having a moment! Please try again, or reach out to info@standardplaybook.com if this keeps happening.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
+  }, [messages, context, portal]);
+
+  const handleClearChat = useCallback(() => {
+    setMessages([INITIAL_MESSAGE]);
   }, []);
 
   const handleOpen = () => setIsOpen(true);
@@ -113,6 +151,8 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
               isTyping={isTyping}
               onSendMessage={handleSendMessage}
               onClose={handleClose}
+              onClearChat={handleClearChat}
+              portal={portal}
             />
           </motion.div>
         )}
