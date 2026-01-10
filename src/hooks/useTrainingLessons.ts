@@ -1,35 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import * as trainingApi from '@/lib/trainingAdminApi';
+import type { TrainingLesson, TrainingLessonInsert } from '@/lib/trainingAdminApi';
 
-export interface TrainingLesson {
-  id: string;
-  agency_id: string;
-  module_id: string;
-  name: string;
-  description: string | null;
-  video_url: string | null;
-  video_platform: string | null;
-  content_html: string | null;
-  thumbnail_url: string | null;
-  sort_order: number | null;
-  is_active: boolean | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TrainingLessonInsert {
-  agency_id: string;
-  module_id: string;
-  name: string;
-  description?: string | null;
-  video_url?: string | null;
-  video_platform?: string | null;
-  content_html?: string | null;
-  thumbnail_url?: string | null;
-  sort_order?: number | null;
-  is_active?: boolean | null;
-}
+export type { TrainingLesson, TrainingLessonInsert };
 
 export interface TrainingLessonUpdate {
   name?: string;
@@ -45,35 +19,18 @@ export interface TrainingLessonUpdate {
 export function useTrainingLessons(moduleId?: string) {
   const queryClient = useQueryClient();
 
-  // Fetch all lessons for a module
   const { data: lessons = [], isLoading, error } = useQuery({
     queryKey: ['training-lessons', moduleId],
     queryFn: async () => {
       if (!moduleId) return [];
-      
-      const { data, error } = await supabase
-        .from('training_lessons')
-        .select('*')
-        .eq('module_id', moduleId)
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-      return data as TrainingLesson[];
+      return trainingApi.listLessons(moduleId);
     },
     enabled: !!moduleId,
   });
 
-  // Create lesson mutation
   const createLesson = useMutation({
     mutationFn: async (lesson: TrainingLessonInsert) => {
-      const { data, error } = await supabase
-        .from('training_lessons')
-        .insert(lesson)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as TrainingLesson;
+      return trainingApi.createLesson(lesson);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-lessons'] });
@@ -81,22 +38,13 @@ export function useTrainingLessons(moduleId?: string) {
     },
     onError: (error: Error) => {
       console.error('Error creating lesson:', error);
-      toast.error('Failed to create lesson');
+      toast.error(error.message || 'Failed to create lesson');
     },
   });
 
-  // Update lesson mutation
   const updateLesson = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: TrainingLessonUpdate }) => {
-      const { data, error } = await supabase
-        .from('training_lessons')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as TrainingLesson;
+      return trainingApi.updateLesson(id, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-lessons'] });
@@ -104,19 +52,13 @@ export function useTrainingLessons(moduleId?: string) {
     },
     onError: (error: Error) => {
       console.error('Error updating lesson:', error);
-      toast.error('Failed to update lesson');
+      toast.error(error.message || 'Failed to update lesson');
     },
   });
 
-  // Delete lesson mutation
   const deleteLesson = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('training_lessons')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      return trainingApi.deleteLesson(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-lessons'] });
@@ -124,7 +66,7 @@ export function useTrainingLessons(moduleId?: string) {
     },
     onError: (error: Error) => {
       console.error('Error deleting lesson:', error);
-      toast.error('Failed to delete lesson');
+      toast.error(error.message || 'Failed to delete lesson');
     },
   });
 
