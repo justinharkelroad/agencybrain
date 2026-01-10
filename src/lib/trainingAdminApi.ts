@@ -3,7 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 // ============ HELPERS ============
 
 export function hasStaffToken(): boolean {
-  return !!localStorage.getItem('staff_session_token');
+  // Only use staff path if:
+  // 1. Staff session token exists AND
+  // 2. User is on a staff route (prevents stale tokens from affecting owner mode)
+  const staffToken = localStorage.getItem('staff_session_token');
+  if (!staffToken) return false;
+  
+  // Check if current URL indicates staff mode
+  const isStaffRoute = window.location.pathname.startsWith('/staff');
+  
+  return isStaffRoute;
 }
 
 async function callTrainingAdminApi(action: string, params: Record<string, any> = {}): Promise<any> {
