@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StanAvatar } from "./StanAvatar";
@@ -7,15 +7,18 @@ import { ChatMessage, ChatMessageData } from "./ChatMessage";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 import { ChatInput } from "./ChatInput";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface StanChatWindowProps {
   messages: ChatMessageData[];
   isTyping: boolean;
   onSendMessage: (message: string) => void;
   onClose: () => void;
+  onClearChat: () => void;
+  portal: 'brain' | 'staff';
 }
 
-export function StanChatWindow({ messages, isTyping, onSendMessage, onClose }: StanChatWindowProps) {
+export function StanChatWindow({ messages, isTyping, onSendMessage, onClose, onClearChat, portal }: StanChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -43,6 +46,19 @@ export function StanChatWindow({ messages, isTyping, onSendMessage, onClose }: S
           <h3 className="font-semibold text-foreground">Stan</h3>
           <p className="text-xs text-muted-foreground">Your Agency Brain Assistant</p>
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onClearChat}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Clear chat</TooltipContent>
+        </Tooltip>
         <Button
           variant="ghost"
           size="icon"
@@ -79,7 +95,7 @@ export function StanChatWindow({ messages, isTyping, onSendMessage, onClose }: S
       {/* Suggested Questions - only show when few messages */}
       {messages.length <= 2 && !isTyping && (
         <div className="px-4 pb-2">
-          <SuggestedQuestions onSelect={onSendMessage} />
+          <SuggestedQuestions onSelect={onSendMessage} portal={portal} />
         </div>
       )}
 

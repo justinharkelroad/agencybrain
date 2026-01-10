@@ -291,3 +291,6 @@ verify_jwt = false
 [functions.training_admin]
 verify_jwt = false
 
+[functions.stan_chat]
+verify_jwt = false
+
