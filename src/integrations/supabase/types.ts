@@ -1122,6 +1122,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_knowledge_base: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          version?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       chatbot_page_contexts: {
         Row: {
           applies_to_portals: string[] | null
