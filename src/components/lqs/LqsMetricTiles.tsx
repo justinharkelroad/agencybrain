@@ -1,13 +1,17 @@
-import { FileText, UserCheck, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileText, UserCheck, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { LqsMetrics } from '@/hooks/useLqsData';
 
+type BucketType = 'leads' | 'quoted' | 'sold';
+
 interface LqsMetricTilesProps {
   metrics: LqsMetrics | undefined;
   loading?: boolean;
   onTileClick?: (tab: string) => void;
+  activeBucket?: BucketType;
+  bucketCount?: number;
 }
 
 interface MetricTileProps {
@@ -71,13 +75,40 @@ function MetricTile({ title, value, icon, variant = 'default', loading, pulse, o
   );
 }
 
-export function LqsMetricTiles({ metrics, loading, onTileClick }: LqsMetricTilesProps) {
+export function LqsMetricTiles({ metrics, loading, onTileClick, activeBucket = 'quoted', bucketCount }: LqsMetricTilesProps) {
+  // Get the appropriate "All" tile based on bucket
+  const getAllTile = () => {
+    switch (activeBucket) {
+      case 'leads':
+        return {
+          title: 'All Leads',
+          value: bucketCount ?? metrics?.totalQuotes ?? 0,
+          icon: <Users className="h-5 w-5" />,
+        };
+      case 'sold':
+        return {
+          title: 'All Sold',
+          value: bucketCount ?? metrics?.sold ?? 0,
+          icon: <CheckCircle className="h-5 w-5" />,
+        };
+      case 'quoted':
+      default:
+        return {
+          title: 'All Quotes',
+          value: bucketCount ?? metrics?.totalQuotes ?? 0,
+          icon: <FileText className="h-5 w-5" />,
+        };
+    }
+  };
+
+  const allTile = getAllTile();
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
       <MetricTile
-        title="All Quotes"
-        value={metrics?.totalQuotes}
-        icon={<FileText className="h-5 w-5" />}
+        title={allTile.title}
+        value={allTile.value}
+        icon={allTile.icon}
         loading={loading}
         onClick={() => onTileClick?.('all')}
       />
@@ -88,14 +119,6 @@ export function LqsMetricTiles({ metrics, loading, onTileClick }: LqsMetricTiles
         variant="blue"
         loading={loading}
         onClick={() => onTileClick?.('self-generated')}
-      />
-      <MetricTile
-        title="Sold"
-        value={metrics?.sold}
-        icon={<CheckCircle className="h-5 w-5" />}
-        variant="green"
-        loading={loading}
-        onClick={() => onTileClick?.('sold')}
       />
       <MetricTile
         title="Needs Attention"
