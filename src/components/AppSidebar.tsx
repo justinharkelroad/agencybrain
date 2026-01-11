@@ -18,6 +18,14 @@ import {
   BarChart3,
   DollarSign,
   Lock,
+  Bot,
+  Target,
+  ListChecks,
+  Settings2,
+  FileBarChart,
+  LayoutDashboard,
+  GraduationCap,
+  Users,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -60,19 +68,25 @@ type AppSidebarProps = {
   onOpenROI?: (toolKey?: CalcKey) => void;
 };
 
-// Admin-only items (system-wide admin access)
+// Admin-only items (system-wide admin access) - 18 items total
 const adminOnlyItems = [
-  { title: "Admin Portal", url: "/admin", icon: Shield },
+  { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
+  { title: "Stan Chatbot", url: "/admin/chatbot", icon: Bot },
+  { title: "Training Admin", url: "/admin/training", icon: GraduationCap },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
+  { title: "Focus Management", url: "/admin/focus-management", icon: Target },
+  { title: "Admin Team", url: "/admin/team", icon: Users },
+  { title: "Checklists", url: "/admin/checklists", icon: ListChecks },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
+  { title: "Field Mapping", url: "/admin/field-mapping-setup", icon: Settings2 },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
   { title: "Help Videos", url: "/admin/help-videos", icon: Video },
   { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
-  { title: "Exchange Reports", url: "/admin/exchange-reports", icon: MessageSquare },
+  { title: "Exchange Reports", url: "/admin/exchange-reports", icon: FileBarChart },
   { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
 ];
 
@@ -448,38 +462,44 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
           {/* Soft divider */}
           <div className="my-2" />
 
-          {/* Admin-Only Navigation */}
+          {/* Admin-Only Navigation - Collapsible Folder */}
           {isAdmin && (
             <SidebarGroup>
-              {sidebarOpen && (
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium px-3">
-                  Admin
-                </SidebarGroupLabel>
-              )}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {adminOnlyItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.url);
-                    
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                          asChild 
-                          isActive={active}
-                          className={cn(
-                            "hover:bg-muted/40 transition-colors",
-                            active && "bg-muted/50 text-foreground"
-                          )}
-                        >
-                          <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" strokeWidth={1.5} />
-                            {sidebarOpen && <span>{item.title}</span>}
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
+                  <SidebarFolder
+                    folder={{
+                      id: "admin",
+                      title: "Admin",
+                      icon: Shield,
+                      items: [],
+                    }}
+                    isOpen={openFolderId === "admin"}
+                    onToggle={() => handleFolderToggle("admin")}
+                  >
+                    {adminOnlyItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.url);
+                      
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={active}
+                            className={cn(
+                              "hover:bg-muted/40 transition-colors pl-4",
+                              active && "bg-muted/50 text-foreground"
+                            )}
+                          >
+                            <Link to={item.url} onClick={handleNavClick} className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" strokeWidth={1.5} />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarFolder>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
