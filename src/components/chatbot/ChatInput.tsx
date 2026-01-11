@@ -25,7 +25,11 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="flex gap-2">
+    <div 
+      className="flex gap-2"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <Input
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -33,9 +37,17 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         placeholder="Ask Stan anything..."
         disabled={disabled}
         className="flex-1"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onFocus={(e) => e.stopPropagation()}
       />
       <Button
-        onClick={handleSend}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSend();
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
         disabled={!value.trim() || disabled}
         size="icon"
         className="shrink-0"

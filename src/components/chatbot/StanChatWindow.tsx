@@ -39,6 +39,9 @@ export function StanChatWindow({ messages, isTyping, stanMood, onSendMessage, on
         // Mobile - bottom sheet style
         "max-sm:bottom-0 max-sm:right-0 max-sm:left-0 max-sm:w-full max-sm:h-[70vh] max-sm:rounded-b-none max-sm:rounded-t-2xl"
       )}
+      style={{ pointerEvents: 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/50">
