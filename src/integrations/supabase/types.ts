@@ -3700,7 +3700,7 @@ export type Database = {
           status: string
           team_member_id: string | null
           updated_at: string
-          zip_code: string
+          zip_code: string | null
         }
         Insert: {
           agency_id: string
@@ -3720,7 +3720,7 @@ export type Database = {
           status?: string
           team_member_id?: string | null
           updated_at?: string
-          zip_code: string
+          zip_code?: string | null
         }
         Update: {
           agency_id?: string
@@ -3740,7 +3740,7 @@ export type Database = {
           status?: string
           team_member_id?: string | null
           updated_at?: string
-          zip_code?: string
+          zip_code?: string | null
         }
         Relationships: [
           {

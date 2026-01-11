@@ -2,13 +2,13 @@ import * as XLSX from 'xlsx';
 import type { ParsedSaleRow, SalesParseResult } from '@/types/lqs';
 
 /**
- * Generate household key matching the database function:
- * LASTNAME_FIRSTNAME_ZIPCODE (first 5 chars)
+ * Generate household key: LASTNAME_FIRSTNAME_ZIPCODE (first 5 chars)
+ * When ZIP is missing, uses "NOZIP" to prevent incorrect merging
  */
-export function generateHouseholdKey(firstName: string, lastName: string, zipCode: string): string {
+export function generateHouseholdKey(firstName: string, lastName: string, zipCode: string | null): string {
   const normalizedLast = (lastName || 'UNKNOWN').toUpperCase().trim().replace(/[^A-Z]/g, '');
   const normalizedFirst = (firstName || 'UNKNOWN').toUpperCase().trim().replace(/[^A-Z]/g, '');
-  const normalizedZip = (zipCode || '00000').substring(0, 5);
+  const normalizedZip = zipCode ? zipCode.substring(0, 5) : 'NOZIP';
   return `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
 }
 

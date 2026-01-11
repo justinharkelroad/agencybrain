@@ -14,7 +14,7 @@ interface HouseholdWithQuotes {
   id: string;
   first_name: string;
   last_name: string;
-  zip_code: string;
+  zip_code: string | null;
   lead_source_id: string | null;
   team_member_id: string | null;
   quotes: Array<{
