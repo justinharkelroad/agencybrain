@@ -1122,6 +1122,39 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_suggested_questions: {
+        Row: {
+          applies_to_portals: string[] | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          page_route: string
+          question: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          applies_to_portals?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          page_route: string
+          question: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          applies_to_portals?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          page_route?: string
+          question?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       checklist_template_items: {
         Row: {
           active: boolean

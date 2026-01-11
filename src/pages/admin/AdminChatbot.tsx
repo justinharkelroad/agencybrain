@@ -54,6 +54,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Search, Pencil, Trash2, MessageSquare, FileText, Tag, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { StanAvatar } from "@/components/chatbot/StanAvatar";
+import { SuggestedQuestionsManager } from "@/components/chatbot/SuggestedQuestionsManager";
 import { format } from "date-fns";
 
 const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
@@ -386,6 +387,7 @@ export default function AdminChatbot() {
       <Tabs defaultValue="faqs" className="space-y-4">
         <TabsList>
           <TabsTrigger value="faqs">FAQs</TabsTrigger>
+          <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
@@ -536,6 +538,10 @@ export default function AdminChatbot() {
               </Table>
             </ScrollArea>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="suggestions" className="space-y-4">
+          <SuggestedQuestionsManager />
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4">
