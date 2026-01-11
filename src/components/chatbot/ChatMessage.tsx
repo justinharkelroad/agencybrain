@@ -10,9 +10,10 @@ export interface ChatMessageData {
 
 interface ChatMessageProps {
   message: ChatMessageData;
+  isLatest?: boolean;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, isLatest = false }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -23,7 +24,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
       )}
     >
       {!isUser && (
-        <StanAvatar variant="talking" size="sm" className="flex-shrink-0 mt-1" />
+        <StanAvatar 
+          variant={isLatest ? "talking" : "idle"} 
+          size="sm" 
+          animate={false}
+          className="flex-shrink-0 mt-1" 
+        />
       )}
       <div
         className={cn(
