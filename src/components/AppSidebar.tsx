@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Building2,
   Shield,
@@ -121,53 +121,52 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   // Combine post/comment notifications with unread messages
   const totalExchangeNotifications = exchangeNotifications.total + unreadMessageCount;
   
-  // State - single value for which folder is open
-  const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
-    // Initialize from localStorage or current route
+  // State - which folder(s) are open (kept as an array for compatibility, but enforced as single-open)
+  const [openFolders, setOpenFolders] = useState<string[]>(() => {
     const saved = localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
-    return saved || null;
+    return saved ? [saved] : [];
   });
+  const openFoldersRef = useRef<string[]>(openFolders);
+  useEffect(() => {
+    openFoldersRef.current = openFolders;
+  }, [openFolders]);
+
   const debugFolderState = localStorage.getItem('debugSidebarFolderState') === '1';
 
-  // Simple toggle function
-  const handleFolderToggle = useCallback((folderId: string) => {
+  // Accordion-style folder toggle: only one folder open at a time
+  const toggleFolder = useCallback((folderId: string) => {
     if (debugFolderState) {
       // eslint-disable-next-line no-console
-      console.log('handleFolderToggle called with:', folderId);
+      console.log('toggleFolder called with:', folderId);
       // eslint-disable-next-line no-console
-      console.log('Current openFolderId BEFORE:', openFolderId);
+      console.log('Current openFolders BEFORE:', openFolders);
     }
 
-    setOpenFolderId(prev => {
-      if (debugFolderState) {
-        // eslint-disable-next-line no-console
-        console.log('setOpenFolderId callback, prev:', prev);
-      }
-
-      const newValue = prev === folderId ? null : folderId;
+    setOpenFolders((prev) => {
+      const next = prev.includes(folderId) ? [] : [folderId];
 
       if (debugFolderState) {
         // eslint-disable-next-line no-console
-        console.log('setOpenFolderId newValue:', newValue);
+        console.log('setOpenFolders next:', next);
       }
 
       // Persist to localStorage
-      if (newValue) {
-        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, newValue);
+      if (next.length) {
+        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, next[0]);
       } else {
         localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
       }
 
-      return newValue;
+      return next;
     });
-  }, [debugFolderState, openFolderId]);
+  }, [debugFolderState, openFolders]);
 
   // Debug state changes
   useEffect(() => {
     if (!debugFolderState) return;
     // eslint-disable-next-line no-console
-    console.log('openFolderId STATE CHANGED TO:', openFolderId);
-  }, [debugFolderState, openFolderId]);
+    console.log('openFolders STATE CHANGED TO:', openFolders);
+  }, [debugFolderState, openFolders]);
 
   // Fetch user profile data for avatar
   useEffect(() => {
@@ -354,8 +353,11 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     };
     
     const activeFolderId = findFolderWithActiveChild();
-    if (activeFolderId && activeFolderId !== openFolderId) {
-      setOpenFolderId(activeFolderId);
+    const currentOpen = openFoldersRef.current[0];
+
+    // Only auto-open on route change; do not re-open immediately after a manual close
+    if (activeFolderId && activeFolderId !== currentOpen) {
+      setOpenFolders([activeFolderId]);
       localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
     }
   }, [location.pathname, location.hash, visibleNavigation]);
@@ -377,7 +379,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     >
       <div className="flex flex-col h-full">
         {/* Logo Section with Stan */}
-        <div className="p-4 flex items-center gap-3 border-b border-border/20">
+        <div className="py-3 pl-4 pr-2 flex items-center gap-3 border-b border-border/20">
           <img 
             src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/chatbot-assets/stan-waving.png"
             alt="Stan"
@@ -419,8 +421,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                           icon: entry.icon,
                           items: [],
                         }}
-                        isOpen={openFolderId === entry.id}
-                        onToggle={() => handleFolderToggle(entry.id)}
+                        isOpen={openFolders.includes(entry.id)}
+                        onToggle={() => toggleFolder(entry.id)}
                       >
                         {visibleItems.map((item) => (
                           <SidebarNavItem
@@ -479,8 +481,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
                       icon: Shield,
                       items: [],
                     }}
-                    isOpen={openFolderId === "admin"}
-                    onToggle={() => handleFolderToggle("admin")}
+                    isOpen={openFolders.includes("admin")}
+                    onToggle={() => toggleFolder("admin")}
                   >
                     {adminOnlyItems.map((item) => {
                       const Icon = item.icon;
