@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,11 +51,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, Pencil, Trash2, MessageSquare, FileText, Tag, BarChart3 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, MessageSquare, FileText, Tag, BarChart3, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { StanAvatar } from "@/components/chatbot/StanAvatar";
 import { SuggestedQuestionsManager } from "@/components/chatbot/SuggestedQuestionsManager";
 import { ProactiveTipsManager } from "@/components/chatbot/ProactiveTipsManager";
+import { PageContextsTable } from "@/components/admin/PageContextsTable";
 import { format } from "date-fns";
 
 const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
@@ -388,6 +389,7 @@ export default function AdminChatbot() {
       <Tabs defaultValue="faqs" className="space-y-4">
         <TabsList>
           <TabsTrigger value="faqs">FAQs</TabsTrigger>
+          <TabsTrigger value="contexts">Page Contexts</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
           <TabsTrigger value="proactive">Proactive Tips</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -539,6 +541,24 @@ export default function AdminChatbot() {
                 </TableBody>
               </Table>
             </ScrollArea>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="contexts" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Page Contexts
+              </CardTitle>
+              <CardDescription>
+                Rich page descriptions that Stan loads FIRST before searching FAQs. This prevents cross-contamination 
+                (like answering about Call Scoring when the user is on the Flows page).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PageContextsTable />
+            </CardContent>
           </Card>
         </TabsContent>
 
