@@ -323,12 +323,12 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
     };
 
     const colIndex = {
-      subProducer: findColumn(['sub producer', 'producer', 'agent']),
+      subProducer: findColumn(['sub producer', 'sub-producer', 'producer']),
       // Try separate first/last name columns first
       firstName: findColumn(['first name', 'firstname']),
       lastName: findColumn(['last name', 'lastname']),
-      // Fall back to combined customer name
-      customerName: findColumn(['customer name', 'customer', 'insured', 'name']),
+      // Fall back to combined customer name - use specific patterns to avoid matching "Sub-Producer Name"
+      customerName: findColumn(['customer name', 'insured name', 'insured', 'customer']),
       // ZIP is optional
       zipCode: findColumn(['zip', 'postal', 'zip code']),
       saleDate: findColumn(['sale date', 'sold date', 'issue date', 'issued date', 'issued', 'effective']),
@@ -343,11 +343,21 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
     const hasSeparateNames = colIndex.firstName >= 0 && colIndex.lastName >= 0;
     const hasCustomerName = colIndex.customerName >= 0;
 
-    // Log column detection
+    // Validate that customer name and sub-producer aren't the same column
+    if (colIndex.customerName >= 0 && colIndex.subProducer >= 0) {
+      if (colIndex.customerName === colIndex.subProducer) {
+        console.error('[Sales Parser] ERROR: Customer and Sub-Producer columns resolved to the same index!');
+        errors.push('Column detection error: Customer Name and Sub-Producer are the same column');
+      }
+    }
+
+    // Log column detection with header names
     if (hasSeparateNames) {
       console.log('[Sales Parser] Using separate First Name / Last Name columns');
     } else if (hasCustomerName) {
       console.log('[Sales Parser] Using Customer Name column (split)');
+      console.log('[Sales Parser] Customer Name column index:', colIndex.customerName, 
+                  '| Header:', headers[colIndex.customerName]);
     }
     
     if (colIndex.zipCode >= 0) {
@@ -357,6 +367,8 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
     }
     
     console.log('[Sales Parser] Disposition Code column index:', colIndex.dispositionCode);
+    console.log('[Sales Parser] Sub-Producer column index:', colIndex.subProducer,
+                '| Header:', colIndex.subProducer >= 0 ? headers[colIndex.subProducer] : 'N/A');
 
     if (!hasSeparateNames && !hasCustomerName) {
       return { 
