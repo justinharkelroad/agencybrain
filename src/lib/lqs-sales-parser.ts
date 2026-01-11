@@ -79,13 +79,46 @@ function parseDate(value: any): string | null {
 
 /**
  * Parse ZIP code: take first 5 characters, handle "18702-1234" format
+ * Returns null if no valid ZIP found
  */
-function parseZipCode(value: any): string {
-  if (!value) return '00000';
+function parseZipCode(value: any): string | null {
+  if (!value) return null;
   const str = String(value).trim();
+  if (!str) return null;
   // Take first 5 digits
   const match = str.match(/^(\d{5})/);
-  return match ? match[1] : '00000';
+  return match ? match[1] : null;
+}
+
+/**
+ * Parse customer name from combined format:
+ * - "JOHN SMITH" → { firstName: "JOHN", lastName: "SMITH" }
+ * - "SMITH" → { firstName: "", lastName: "SMITH" }
+ */
+function parseCustomerName(fullName: string): { firstName: string; lastName: string } {
+  if (!fullName) return { firstName: '', lastName: '' };
+  
+  const str = fullName.trim().toUpperCase();
+  
+  // Check for "LAST, FIRST" format
+  if (str.includes(',')) {
+    const parts = str.split(',').map(p => p.trim());
+    return {
+      lastName: parts[0] || '',
+      firstName: parts[1]?.split(' ')[0] || '', // Take first name only
+    };
+  }
+  
+  // Otherwise "FIRST LAST" format
+  const parts = str.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: '', lastName: parts[0] };
+  }
+  
+  // Last word is last name, everything else is first name
+  const lastName = parts[parts.length - 1];
+  const firstName = parts.slice(0, -1).join(' ');
+  return { firstName, lastName };
 }
 
 /**
@@ -291,10 +324,13 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
 
     const colIndex = {
       subProducer: findColumn(['sub producer', 'producer', 'agent']),
+      // Try separate first/last name columns first
       firstName: findColumn(['first name', 'firstname']),
       lastName: findColumn(['last name', 'lastname']),
-      customerName: findColumn(['customer', 'insured', 'name']),
-      zipCode: findColumn(['zip', 'postal']),
+      // Fall back to combined customer name
+      customerName: findColumn(['customer name', 'customer', 'insured', 'name']),
+      // ZIP is optional
+      zipCode: findColumn(['zip', 'postal', 'zip code']),
       saleDate: findColumn(['sale date', 'sold date', 'issue date', 'effective']),
       productType: findColumn(['product', 'line', 'type']),
       itemsSold: findColumn(['items', 'item count', 'policies']),
@@ -303,11 +339,24 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       dispositionCode: findColumn(['disposition', 'disposition code']),
     };
 
-    console.log('[Sales Parser] Disposition Code column index:', colIndex.dispositionCode);
-
     // Determine if we have separate first/last name or combined customer name
     const hasSeparateNames = colIndex.firstName >= 0 && colIndex.lastName >= 0;
     const hasCustomerName = colIndex.customerName >= 0;
+
+    // Log column detection
+    if (hasSeparateNames) {
+      console.log('[Sales Parser] Using separate First Name / Last Name columns');
+    } else if (hasCustomerName) {
+      console.log('[Sales Parser] Using Customer Name column (split)');
+    }
+    
+    if (colIndex.zipCode >= 0) {
+      console.log('[Sales Parser] ZIP column found at index:', colIndex.zipCode);
+    } else {
+      console.log('[Sales Parser] ZIP column not found - proceeding without ZIP');
+    }
+    
+    console.log('[Sales Parser] Disposition Code column index:', colIndex.dispositionCode);
 
     if (!hasSeparateNames && !hasCustomerName) {
       return { 
@@ -345,17 +394,20 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         }
       }
 
-      // Extract name
+      // Extract name - prefer separate columns, fall back to combined
       let firstName: string;
       let lastName: string;
       
       if (hasSeparateNames) {
-        firstName = String(getValue(colIndex.firstName) || '').trim();
-        lastName = String(getValue(colIndex.lastName) || '').trim();
-      } else {
-        const parsed = parseName(getValue(colIndex.customerName));
+        firstName = String(getValue(colIndex.firstName) || '').trim().toUpperCase();
+        lastName = String(getValue(colIndex.lastName) || '').trim().toUpperCase();
+      } else if (hasCustomerName) {
+        const parsed = parseCustomerName(String(getValue(colIndex.customerName) || ''));
         firstName = parsed.firstName;
         lastName = parsed.lastName;
+      } else {
+        errors.push(`Row ${absoluteRowNum}: No name columns found, skipped`);
+        continue;
       }
       
       if (!firstName && !lastName) {
@@ -376,7 +428,8 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         : '';
       const { code: subProducerCode, name: subProducerName } = parseSubProducer(subProducerRaw);
       
-      const zipCode = parseZipCode(getValue(colIndex.zipCode));
+      // ZIP is optional - may be null if column missing or value empty
+      const zipCode = colIndex.zipCode >= 0 ? parseZipCode(getValue(colIndex.zipCode)) : null;
       const productType = normalizeProductType(
         colIndex.productType >= 0 
           ? String(getValue(colIndex.productType) || 'Unknown').trim()
@@ -392,7 +445,8 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         ? String(getValue(colIndex.policyNumber)).trim()
         : null;
       
-      const householdKey = generateHouseholdKey(firstName, lastName, zipCode);
+      // Generate household key - use empty string for ZIP if null
+      const householdKey = generateHouseholdKey(firstName, lastName, zipCode || '');
       
       // Deduplication key: policy_number if available, otherwise household_key + date + product
       const dedupeKey = policyNumber 
@@ -440,7 +494,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       };
     }
 
-    console.log('[Sales Parser] Records parsed:', records.length, 'Endorsements skipped:', endorsementsSkipped, 'Errors:', errors.length, 'Duplicates removed:', duplicatesRemoved);
+    console.log('[Sales Parser] Processed:', records.length, ', Skipped:', endorsementsSkipped, ', Errors:', errors.length, ', Duplicates:', duplicatesRemoved);
 
     return { 
       success: true, 
