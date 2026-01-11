@@ -1122,6 +1122,48 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_proactive_tips: {
+        Row: {
+          applies_to_portals: string[] | null
+          applies_to_tiers: string[] | null
+          created_at: string | null
+          delay_seconds: number | null
+          id: string
+          is_active: boolean | null
+          page_route: string
+          sort_order: number | null
+          suggested_question: string | null
+          tip_message: string
+          updated_at: string | null
+        }
+        Insert: {
+          applies_to_portals?: string[] | null
+          applies_to_tiers?: string[] | null
+          created_at?: string | null
+          delay_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          page_route: string
+          sort_order?: number | null
+          suggested_question?: string | null
+          tip_message: string
+          updated_at?: string | null
+        }
+        Update: {
+          applies_to_portals?: string[] | null
+          applies_to_tiers?: string[] | null
+          created_at?: string | null
+          delay_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          page_route?: string
+          sort_order?: number | null
+          suggested_question?: string | null
+          tip_message?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       chatbot_suggested_questions: {
         Row: {
           applies_to_portals: string[] | null
