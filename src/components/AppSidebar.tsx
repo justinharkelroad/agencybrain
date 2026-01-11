@@ -389,10 +389,7 @@ useEffect(() => {
   return (
     <Sidebar
       collapsible="icon"
-      className={cn(
-        "border-r border-border/30",
-        sidebarOpen ? "w-72" : "w-14"
-      )}
+      className="border-r border-border/30"
     >
       <div className="flex flex-col h-full">
 {/* Logo Section with Stan */}
