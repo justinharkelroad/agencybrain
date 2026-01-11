@@ -7,6 +7,7 @@ import { LatinCross } from '@/components/icons/LatinCross';
 import { useStaffCore4Stats, Core4Domain } from '@/hooks/useStaffCore4Stats';
 import { useStaffFlowStats } from '@/hooks/useStaffFlowStats';
 import { cn } from '@/lib/utils';
+import { HelpVideoButton } from '@/components/HelpVideoButton';
 
 const domains: { key: Core4Domain; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'body', label: 'BODY', icon: Heart, color: 'from-green-500 to-emerald-600' },
@@ -57,6 +58,7 @@ export function StaffCore4Card() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold">Core 4 + Flow</CardTitle>
+            <HelpVideoButton videoKey="core4_page" />
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
                 <Flame className="h-4 w-4" />
