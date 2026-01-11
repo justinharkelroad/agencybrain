@@ -186,7 +186,14 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   if (shouldHide) return null;
 
   return createPortal(
-    <div className="fixed bottom-6 right-6 z-[99999]" style={{ pointerEvents: 'auto' }}>
+    <div 
+      className="fixed bottom-6 right-6 z-[99999]" 
+      style={{ pointerEvents: 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onFocus={(e) => e.stopPropagation()}
+    >
       {/* Proactive Tip Bubble */}
       <ProactiveTipBubble
         message={activeTip?.tip_message || ''}
@@ -203,7 +210,11 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            onClick={handleOpen}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpen();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
             className={cn(
               "w-[60px] h-[60px] rounded-full",
               "bg-transparent border-2 border-primary/60 shadow-lg shadow-primary/20",
@@ -226,6 +237,8 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <StanChatWindow
               messages={messages}
