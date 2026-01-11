@@ -381,7 +381,7 @@ async function processInBackground(
               })
               .eq('id', householdId);
           } else {
-            // No exact match - try smart matching with scoring
+            // No exact key match - try smart matching by NAME (ignore ZIP in matching)
             // CRITICAL: Filter by NAME FIRST, then score by product/premium/producer
             const candidateHouseholds = allHouseholds.filter(h => 
               namesMatch(
@@ -394,20 +394,23 @@ async function processInBackground(
             
             console.log(`[Sales Upload] Name filter: ${primaryRecord.firstName} ${primaryRecord.lastName} → ${candidateHouseholds.length} name-matched candidates`);
             
+            if (candidateHouseholds.length > 0) {
+              console.log(`[Sales Upload] Candidates:`, candidateHouseholds.map(h => `${h.first_name} ${h.last_name} (${h.zip_code || 'no zip'})`));
+            }
+            
             // Score each name-matched candidate
             const scoredCandidates = candidateHouseholds
               .map(h => scoreCandidate(primaryRecord, h, teamMemberId))
-              .filter(c => c.score > 0)
               .sort((a, b) => b.score - a.score)
               .slice(0, 5); // Top 5 candidates
             
-            // Check if we can auto-match
-            const autoMatchCandidate = shouldAutoMatch(scoredCandidates);
-            
-            if (autoMatchCandidate) {
-              // Auto-match to this household
-              householdId = autoMatchCandidate.householdId;
+            // NEW LOGIC: If exactly 1 name-matched household exists, auto-match to it
+            // (even if score is low - name match is the primary criterion)
+            if (candidateHouseholds.length === 1) {
+              // Single name match - always match to this household
+              householdId = candidateHouseholds[0].id;
               wasAutoMatched = true;
+              console.log(`[Sales Upload] Single name match found: ${candidateHouseholds[0].first_name} ${candidateHouseholds[0].last_name} - auto-matching`);
               
               // Update household to sold status
               await supabase
@@ -418,48 +421,71 @@ async function processInBackground(
                   team_member_id: teamMemberId || undefined,
                 })
                 .eq('id', householdId);
-            } else if (scoredCandidates.length > 0) {
-              // Has candidates but none qualify for auto-match - queue for review
-              needsManualReview = true;
-              reviewCandidates = scoredCandidates;
+            } else if (candidateHouseholds.length > 1) {
+              // Multiple name matches - check if we can auto-match based on score
+              const autoMatchCandidate = shouldAutoMatch(scoredCandidates);
               
-              // Still create the household for now (can be merged later)
-              const { data: newHousehold, error: createError } = await supabase
-                .from('lqs_households')
-                .insert({
-                  agency_id: context.agencyId,
-                  household_key: householdKey,
-                  first_name: primaryRecord.firstName,
-                  last_name: primaryRecord.lastName,
-                  zip_code: primaryRecord.zipCode,
-                  status: 'sold',
-                  sold_date: primaryRecord.saleDate,
-                  team_member_id: teamMemberId,
-                  needs_attention: true,
-                })
-                .select('id')
-                .single();
-
-              if (createError) {
-                const { data: retryHousehold } = await supabase
+              if (autoMatchCandidate) {
+                // Auto-match to top scored candidate
+                householdId = autoMatchCandidate.householdId;
+                wasAutoMatched = true;
+                console.log(`[Sales Upload] Auto-matched to: ${autoMatchCandidate.householdName} (score: ${autoMatchCandidate.score})`);
+                
+                // Update household to sold status
+                await supabase
                   .from('lqs_households')
-                  .select('id')
-                  .eq('agency_id', context.agencyId)
-                  .eq('household_key', householdKey)
-                  .maybeSingle();
-                  
-                if (retryHousehold) {
-                  householdId = retryHousehold.id;
-                } else {
-                  throw new Error(`Failed to create household: ${createError.message}`);
-                }
+                  .update({
+                    status: 'sold',
+                    sold_date: primaryRecord.saleDate,
+                    team_member_id: teamMemberId || undefined,
+                  })
+                  .eq('id', householdId);
               } else {
-                householdId = newHousehold.id;
+                // Multiple candidates, none qualify for auto-match - queue for review
+                needsManualReview = true;
+                reviewCandidates = scoredCandidates;
+                console.log(`[Sales Upload] Multiple candidates, needs review:`, scoredCandidates.map(c => `${c.householdName} (${c.score})`));
+                
+                // Create temporary household for now (can be merged later)
+                const { data: newHousehold, error: createError } = await supabase
+                  .from('lqs_households')
+                  .insert({
+                    agency_id: context.agencyId,
+                    household_key: householdKey,
+                    first_name: primaryRecord.firstName,
+                    last_name: primaryRecord.lastName,
+                    zip_code: primaryRecord.zipCode,
+                    status: 'sold',
+                    sold_date: primaryRecord.saleDate,
+                    team_member_id: teamMemberId,
+                    needs_attention: true,
+                  })
+                  .select('id')
+                  .single();
+
+                if (createError) {
+                  const { data: retryHousehold } = await supabase
+                    .from('lqs_households')
+                    .select('id')
+                    .eq('agency_id', context.agencyId)
+                    .eq('household_key', householdKey)
+                    .maybeSingle();
+                    
+                  if (retryHousehold) {
+                    householdId = retryHousehold.id;
+                  } else {
+                    throw new Error(`Failed to create household: ${createError.message}`);
+                  }
+                } else {
+                  householdId = newHousehold.id;
+                }
+                wasCreated = true;
+                needsAttentionFlag = true;
               }
-              wasCreated = true;
-              needsAttentionFlag = true;
             } else {
-              // No candidates - create new household
+              // No name matches found - create new household
+              console.log(`[Sales Upload] No name matches for ${primaryRecord.firstName} ${primaryRecord.lastName} - creating new household`);
+              
               const { data: newHousehold, error: createError } = await supabase
                 .from('lqs_households')
                 .insert({
