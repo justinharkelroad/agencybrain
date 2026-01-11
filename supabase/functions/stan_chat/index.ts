@@ -15,28 +15,42 @@ PERSONALITY:
 - Keep responses concise (2-4 sentences unless more detail is genuinely needed)
 - Use "you" and "your" to be personal
 - Be empathetic when users seem frustrated
-- Celebrate when users accomplish things or express gratitude
 
-CONTEXT AWARENESS:
-- You know what page the user is currently on
-- You know their role (owner, key_employee, manager, staff)
-- You know their membership tier (1:1 Coaching, Boardroom, Call Scoring)
-- You know which portal they're in (Brain Portal or Staff Portal)
+CRITICAL RULES - FOLLOW THESE EXACTLY:
+
+1. NEVER HALLUCINATE OR MAKE THINGS UP
+   - ONLY provide information that is in the FAQ knowledge base provided below
+   - If no FAQ matches the user's question, say: "I don't have specific information about that yet. You can email info@standardplaybook.com for help, or I can try to answer a different question!"
+   - Do NOT invent features, locations, or instructions
+
+2. TIER RESTRICTIONS ARE ABSOLUTE - THIS IS THE MOST IMPORTANT RULE
+   - The user's membership tier is shown in USER CONTEXT below
+   - 1:1 Coaching-only features: Bonus Grid, Snapshot Planner, Roleplay Bot/AI Sales Bot, Theta Talk Track, Qualitative sections
+   - If the user is "Boardroom" tier and asks about ANY of these features, tell them it's NOT available to them
+   - NEVER tell a Boardroom user they "have access" or "can use" 1:1-only features
+   - When you see an FAQ marked as "Tier Restriction: 1:1 Coaching" and the user is Boardroom, that feature is NOT available to them
+
+3. ROLE RESTRICTIONS
+   - Staff members cannot access: Bonus Grid, Snapshot Planner, Agency Management, full Analytics, The Exchange
+   - If a staff member asks about owner-only features, explain kindly that these are for agency owners
+
+4. USE FAQ DATA AS SOURCE OF TRUTH
+   - Base your answers on the FAQ entries provided
+   - Rephrase naturally but don't add information that isn't there
+   - If the FAQ says a feature is tier-restricted, enforce that restriction
+   - Pay close attention to the "Tier Restriction" field in each FAQ
 
 RESPONSE GUIDELINES:
-- If a feature isn't available to their role/tier, explain WHY kindly and suggest alternatives
 - Point users to the right page/tab when relevant (e.g., "Head over to Agency → Team tab")
-- If you're not sure about something, say so and suggest emailing info@standardplaybook.com
-- Never make up features that don't exist
-- Use the FAQ knowledge provided as your source of truth
-- Don't quote FAQs verbatim - rephrase naturally in conversation
-- Keep insurance industry context in mind - these are agency owners and their staff
-
-FORMATTING:
-- Use **bold** for important navigation items or feature names
+- Use **bold** for navigation items
 - Keep responses focused and actionable
-- Don't use bullet lists unless listing multiple distinct options
-- End with an offer to help more if the topic warrants it`;
+- When unsure, be honest and offer the support email`;
+
+// Common stop words to filter out of search
+const STOP_WORDS = ['the', 'and', 'for', 'that', 'this', 'with', 'how', 'what', 'where', 'why', 'can', 'does', 'have', 'are', 'was', 'were', 'been', 'being', 'has', 'had', 'did', 'doing', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'will', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'from', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'own', 'same', 'than', 'too', 'very', 'just', 'also', 'use'];
+
+// 1:1 Coaching only features that Boardroom users cannot access
+const COACHING_ONLY_FEATURES = ['roleplay', 'sales bot', 'ai sales', 'bonus grid', 'snapshot planner', 'theta talk', 'qualitative'];
 
 serve(async (req) => {
   // Handle CORS
@@ -68,94 +82,104 @@ serve(async (req) => {
     console.log('Stan chat request:', { message, portal, current_page, user_role, membership_tier });
 
     // ============ STEP 1: Search relevant FAQs ============
-    
-    // Extract keywords from the user's message (simple approach)
+
+    // Extract keywords from the user's message
     const messageWords = message.toLowerCase()
       .replace(/[^\w\s]/g, '')
       .split(/\s+/)
-      .filter((word: string) => word.length > 2);
+      .filter((word: string) => word.length > 2 && !STOP_WORDS.includes(word));
 
-    // Determine likely category from current page
-    const pageToCategory: Record<string, string> = {
-      '/dashboard': 'dashboard',
-      '/submit': 'submit',
-      '/metrics': 'metrics',
-      '/agency': 'agency',
-      '/training': 'training',
-      '/bonus-grid': 'bonus-grid',
-      '/snapshot-planner': 'snapshot-planner',
-      '/roleplaybot': 'roleplay',
-      '/call-scoring': 'call-scoring',
-      '/exchange': 'exchange',
-      '/settings': 'settings',
-      '/account': 'settings',
-      '/staff/dashboard': 'staff-portal',
-      '/staff/training': 'training',
-      '/staff/call-scoring': 'call-scoring',
-    };
+    console.log('Search keywords:', messageWords);
 
-    const currentCategory = Object.entries(pageToCategory)
-      .find(([route]) => current_page.startsWith(route))?.[1] || 'general';
+    // Check if user is asking about a 1:1-only feature while on Boardroom tier
+    const messageLower = message.toLowerCase();
+    const isAskingAboutCoachingFeature = COACHING_ONLY_FEATURES.some(f => messageLower.includes(f));
+    const isBoardroomUser = membership_tier === 'Boardroom';
 
-    // Build FAQ search query
-    // Search by keywords OR by category relevance
-    const { data: relevantFaqs, error: faqError } = await supabase
+    // Get ALL active FAQs and score them (more comprehensive search)
+    const { data: allFaqs, error: faqError } = await supabase
       .from('chatbot_faqs')
-      .select('question, answer, category, keywords, applies_to_roles, applies_to_tiers')
-      .eq('is_active', true)
-      .or(`category.eq.${currentCategory},category.eq.general,category.eq.troubleshooting`)
-      .limit(20);
+      .select('question, answer, category, keywords, applies_to_roles, applies_to_tiers, page_context')
+      .eq('is_active', true);
 
     if (faqError) {
       console.error('FAQ search error:', faqError);
     }
 
     // Score and rank FAQs by relevance
-    const scoredFaqs = (relevantFaqs || []).map(faq => {
+    const scoredFaqs = (allFaqs || []).map(faq => {
       let score = 0;
       
-      // Keyword matching
-      const faqKeywords = faq.keywords || [];
+      // Keyword matching in FAQ keywords array
+      const faqKeywords = (faq.keywords || []).map((k: string) => k.toLowerCase());
       const faqQuestion = faq.question.toLowerCase();
       const faqAnswer = faq.answer.toLowerCase();
       
       for (const word of messageWords) {
-        if (faqKeywords.some((k: string) => k.toLowerCase().includes(word))) score += 3;
+        // Exact keyword match (highest value)
+        if (faqKeywords.includes(word)) score += 5;
+        // Partial keyword match
+        if (faqKeywords.some((k: string) => k.includes(word) || word.includes(k))) score += 3;
+        // Question contains word
         if (faqQuestion.includes(word)) score += 2;
+        // Answer contains word
         if (faqAnswer.includes(word)) score += 1;
       }
       
-      // Category bonus
-      if (faq.category === currentCategory) score += 2;
+      // Page context bonus
+      const pageContexts = faq.page_context || [];
+      if (pageContexts.some((p: string) => current_page.startsWith(p))) score += 3;
       
-      // Role/tier relevance
-      const roles = faq.applies_to_roles || [];
+      // CRITICAL: Tier-specific FAQ boosting
       const tiers = faq.applies_to_tiers || [];
-      if (roles.includes(user_role) || roles.includes('admin')) score += 1;
-      if (tiers.includes(membership_tier) || tiers.includes('all')) score += 1;
+      
+      // If Boardroom user asking about 1:1 feature, HEAVILY boost Boardroom-specific FAQs
+      if (isBoardroomUser && isAskingAboutCoachingFeature) {
+        if (tiers.includes('Boardroom')) {
+          score += 20; // Massively boost Boardroom-specific FAQs about restricted features
+        }
+        // Deprioritize 1:1 Coaching FAQs for Boardroom users
+        if (tiers.includes('1:1 Coaching') && !tiers.includes('all') && !tiers.includes('Boardroom')) {
+          score -= 10;
+        }
+      } else {
+        // Normal tier matching
+        if (tiers.includes(membership_tier)) score += 2;
+        if (tiers.includes('all')) score += 1;
+      }
+      
+      // Check role relevance
+      const roles = faq.applies_to_roles || [];
+      if (roles.includes(user_role)) score += 1;
       
       return { ...faq, score };
     })
     .filter(faq => faq.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, 8); // Get top 8 matches for better context
 
-    console.log('Relevant FAQs found:', scoredFaqs.length);
+    console.log('FAQs found:', scoredFaqs.length, 'Top scores:', scoredFaqs.slice(0, 3).map(f => ({ q: f.question.slice(0, 40), score: f.score })));
 
     // ============ STEP 2: Build context for OpenAI ============
     
+    // Add tier enforcement reminder if user is Boardroom asking about 1:1 features
+    let tierWarning = '';
+    if (isBoardroomUser && isAskingAboutCoachingFeature) {
+      tierWarning = `\n\n⚠️ IMPORTANT: This user is a BOARDROOM member asking about a 1:1 Coaching-only feature. They do NOT have access. Tell them kindly that this feature is not available on their plan and suggest contacting info@standardplaybook.com to upgrade.`;
+    }
+
     const faqContext = scoredFaqs.length > 0
-      ? `\n\nRELEVANT KNOWLEDGE BASE ENTRIES:\n${scoredFaqs.map((faq, i) => 
-          `${i + 1}. Q: ${faq.question}\n   A: ${faq.answer}\n   Category: ${faq.category}`
+      ? `\n\nRELEVANT FAQ KNOWLEDGE (use ONLY this information):${tierWarning}\n${scoredFaqs.map((faq, i) => 
+          `${i + 1}. Q: ${faq.question}\n   A: ${faq.answer}\n   Tier Restriction: ${(faq.applies_to_tiers || []).join(', ')}`
         ).join('\n\n')}`
-      : '\n\nNo directly relevant FAQs found - use general knowledge about Agency Brain.';
+      : `\n\nNO MATCHING FAQs FOUND.${tierWarning} Tell the user you don\'t have specific information about their question and suggest emailing info@standardplaybook.com. Do NOT make up an answer.`;
 
     const userContext = `
 USER CONTEXT:
 - Portal: ${portal === 'staff' ? 'Staff Portal' : 'Brain Portal (Main App)'}
 - Current Page: ${current_page}
 - Role: ${user_role}
-- Membership Tier: ${membership_tier}`;
+- Membership Tier: ${membership_tier}${membership_tier === 'Boardroom' ? ' (DOES NOT have access to: Roleplay Bot, AI Sales Bot, Bonus Grid, Snapshot Planner, Theta Talk Track, Qualitative sections)' : ''}`;
 
     // Build messages array for OpenAI
     const messages: any[] = [
