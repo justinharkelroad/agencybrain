@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Brain, Users } from "lucide-react";
 
-const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png";
+const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 
 export default function Landing() {
   const { user, loading } = useAuth();
