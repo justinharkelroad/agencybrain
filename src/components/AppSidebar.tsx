@@ -126,40 +126,49 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     const saved = localStorage.getItem(SIDEBAR_OPEN_FOLDER_KEY);
     return saved ? [saved] : [];
   });
-  const openFoldersRef = useRef<string[]>(openFolders);
-  useEffect(() => {
-    openFoldersRef.current = openFolders;
-  }, [openFolders]);
+const openFoldersRef = useRef<string[]>(openFolders);
+useEffect(() => {
+  openFoldersRef.current = openFolders;
+}, [openFolders]);
+
+// Track when user manually closes a folder to prevent auto-reopen
+const [userManuallyClosed, setUserManuallyClosed] = useState(false);
+const lastPathRef = useRef(location.pathname);
 
   const debugFolderState = localStorage.getItem('debugSidebarFolderState') === '1';
 
-  // Accordion-style folder toggle: only one folder open at a time
-  const toggleFolder = useCallback((folderId: string) => {
+// Accordion-style folder toggle: only one folder open at a time
+const toggleFolder = useCallback((folderId: string) => {
+  if (debugFolderState) {
+    console.log('toggleFolder called with:', folderId);
+    console.log('Current openFolders BEFORE:', openFoldersRef.current);
+  }
+
+  setOpenFolders((prev) => {
+    const isClosing = prev.includes(folderId);
+    const next = isClosing ? [] : [folderId];
+
     if (debugFolderState) {
-      // eslint-disable-next-line no-console
-      console.log('toggleFolder called with:', folderId);
-      // eslint-disable-next-line no-console
-      console.log('Current openFolders BEFORE:', openFolders);
+      console.log('setOpenFolders next:', next);
     }
 
-    setOpenFolders((prev) => {
-      const next = prev.includes(folderId) ? [] : [folderId];
+    // Track if user manually closed a folder
+    if (isClosing) {
+      setUserManuallyClosed(true);
+    } else {
+      setUserManuallyClosed(false);
+    }
 
-      if (debugFolderState) {
-        // eslint-disable-next-line no-console
-        console.log('setOpenFolders next:', next);
-      }
+    // Persist to localStorage
+    if (next.length) {
+      localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, next[0]);
+    } else {
+      localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
+    }
 
-      // Persist to localStorage
-      if (next.length) {
-        localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, next[0]);
-      } else {
-        localStorage.removeItem(SIDEBAR_OPEN_FOLDER_KEY);
-      }
-
-      return next;
-    });
-  }, [debugFolderState, openFolders]);
+    return next;
+  });
+}, [debugFolderState]);
 
   // Debug state changes
   useEffect(() => {
@@ -327,40 +336,48 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
     return filtered;
   }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier]);
 
-  // Auto-expand folder containing active route
-  useEffect(() => {
-    const findFolderWithActiveChild = (): string | null => {
-      for (const entry of visibleNavigation) {
-        if (isNavFolder(entry)) {
-          for (const item of entry.items) {
-            if (!item.url) continue;
-            const itemHasHash = item.url.includes('#');
-            if (itemHasHash) {
-              const [itemPath, itemHash] = item.url.split('#');
-              if (location.pathname === itemPath && location.hash === `#${itemHash}`) {
-                return entry.id;
-              }
-            } else {
-              if (location.hash && location.pathname === item.url) continue;
-              if (location.pathname.startsWith(item.url)) {
-                return entry.id;
-              }
+// Auto-expand folder containing active route
+useEffect(() => {
+  // Reset the manually closed flag when route actually changes
+  if (location.pathname !== lastPathRef.current) {
+    setUserManuallyClosed(false);
+    lastPathRef.current = location.pathname;
+  }
+
+  // Don't auto-open if user manually closed a folder
+  if (userManuallyClosed) return;
+
+  const findFolderWithActiveChild = (): string | null => {
+    for (const entry of visibleNavigation) {
+      if (isNavFolder(entry)) {
+        for (const item of entry.items) {
+          if (!item.url) continue;
+          const itemHasHash = item.url.includes('#');
+          if (itemHasHash) {
+            const [itemPath, itemHash] = item.url.split('#');
+            if (location.pathname === itemPath && location.hash === `#${itemHash}`) {
+              return entry.id;
+            }
+          } else {
+            if (location.hash && location.pathname === item.url) continue;
+            if (location.pathname.startsWith(item.url)) {
+              return entry.id;
             }
           }
         }
       }
-      return null;
-    };
-    
-    const activeFolderId = findFolderWithActiveChild();
-    const currentOpen = openFoldersRef.current[0];
-
-    // Only auto-open on route change; do not re-open immediately after a manual close
-    if (activeFolderId && activeFolderId !== currentOpen) {
-      setOpenFolders([activeFolderId]);
-      localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
     }
-  }, [location.pathname, location.hash, visibleNavigation]);
+    return null;
+  };
+  
+  const activeFolderId = findFolderWithActiveChild();
+  const currentOpen = openFoldersRef.current[0];
+
+  if (activeFolderId && activeFolderId !== currentOpen) {
+    setOpenFolders([activeFolderId]);
+    localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
+  }
+}, [location.pathname, location.hash, visibleNavigation, userManuallyClosed]);
 
   const isActive = (path: string) => {
     if (path === '/training') {
@@ -378,19 +395,19 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
       )}
     >
       <div className="flex flex-col h-full">
-        {/* Logo Section with Stan */}
-        <div className="py-3 pl-4 pr-2 flex items-center gap-3 border-b border-border/20">
-          <img 
-            src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/chatbot-assets/stan-waving.png"
-            alt="Stan"
-            className="h-10 w-10 object-contain"
-          />
-          <AgencyBrainBadge 
-            asLink 
-            to="/dashboard"
-            size="sm"
-          />
-        </div>
+{/* Logo Section with Stan */}
+<div className="py-3 px-2 flex items-center gap-2 border-b border-border/20">
+  <img 
+    src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/chatbot-assets/stan-waving.png"
+    alt="Stan"
+    className="h-8 w-8 object-contain"
+  />
+  <AgencyBrainBadge 
+    asLink 
+    to="/dashboard"
+    size="sm"
+  />
+</div>
 
         {/* Trigger Button - Desktop only */}
         <div className="hidden md:block p-2 flex justify-end">
