@@ -228,7 +228,7 @@ export interface ParsedSaleRow {
   subProducerName: string | null;
   firstName: string;
   lastName: string;
-  zipCode: string;
+  zipCode: string | null;
   saleDate: string; // YYYY-MM-DD
   productType: string;
   itemsSold: number;
