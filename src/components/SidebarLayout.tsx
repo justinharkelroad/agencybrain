@@ -109,7 +109,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   };
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full">
         <AppSidebar onOpenROI={handleOpenROI} />
         

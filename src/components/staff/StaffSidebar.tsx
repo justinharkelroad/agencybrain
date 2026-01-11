@@ -328,10 +328,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   return (
     <Sidebar
       collapsible="icon"
-      className={cn(
-        "border-r border-border",
-        sidebarOpen ? "w-72" : "w-14"
-      )}
+      className="border-r border-border"
     >
       <div className="flex flex-col h-full">
         {/* Logo Section - Fixed at top */}

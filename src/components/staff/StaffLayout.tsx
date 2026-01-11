@@ -60,7 +60,7 @@ export function StaffLayout() {
   };
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex min-h-screen w-full">
         <StaffSidebar onOpenROI={handleOpenROI} />
         
