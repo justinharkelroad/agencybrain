@@ -331,7 +331,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       customerName: findColumn(['customer name', 'customer', 'insured', 'name']),
       // ZIP is optional
       zipCode: findColumn(['zip', 'postal', 'zip code']),
-      saleDate: findColumn(['sale date', 'sold date', 'issue date', 'effective']),
+      saleDate: findColumn(['sale date', 'sold date', 'issue date', 'issued date', 'issued', 'effective']),
       productType: findColumn(['product', 'line', 'type']),
       itemsSold: findColumn(['items', 'item count', 'policies']),
       premium: findColumn(['premium']),
