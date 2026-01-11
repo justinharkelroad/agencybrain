@@ -18,10 +18,20 @@ export async function callCancelAuditApi({ operation, params, sessionToken }: St
   return data;
 }
 
+// Check if we're on a staff portal route
+export function isStaffRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/staff');
+}
+
 // Get staff session token from localStorage
-// Returns the token if present - the edge function will handle session validation
+// ONLY returns token if we're actually on a staff route to prevent context conflicts
 export function getStaffSessionToken(): string | null {
   try {
+    // Only use staff token when actually on a staff route
+    if (!isStaffRoute()) {
+      return null;
+    }
     const token = localStorage.getItem("staff_session_token");
     return token || null;
   } catch {
@@ -31,5 +41,14 @@ export function getStaffSessionToken(): string | null {
 
 // Check if user is in staff portal context
 export function isStaffContext(): boolean {
-  return !!localStorage.getItem("staff_session_token");
+  return isStaffRoute() && !!localStorage.getItem("staff_session_token");
+}
+
+// Clear staff token when user navigates to non-staff routes
+// Call this on mount in pages that could have token conflicts
+export function clearStaffTokenIfNotStaffRoute(): void {
+  if (!isStaffRoute() && localStorage.getItem("staff_session_token")) {
+    console.log('[clearStaffTokenIfNotStaffRoute] Clearing stale staff token on non-staff route');
+    localStorage.removeItem("staff_session_token");
+  }
 }

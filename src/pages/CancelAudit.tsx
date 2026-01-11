@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { clearStaffTokenIfNotStaffRoute } from "@/lib/cancel-audit-api";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
 import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilterBar";
 import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditRecordCard";
@@ -65,6 +66,11 @@ const CancelAuditPage = () => {
   // Bulk delete mutation
   const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Clear stale staff tokens when on non-staff route
+  useEffect(() => {
+    clearStaffTokenIfNotStaffRoute();
+  }, []);
 
   // Debounce search input
   useEffect(() => {
