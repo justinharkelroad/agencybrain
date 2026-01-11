@@ -35,7 +35,7 @@ export function SidebarNavItem({
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
   const [showCallScoringGate, setShowCallScoringGate] = useState(false);
   
@@ -44,9 +44,11 @@ export function SidebarNavItem({
   
   // Helper to close mobile sidebar and dispatch navigation event
   const dispatchNavigation = () => {
-    // Close mobile sidebar FIRST before dispatching event
+    // Close sidebar on navigation (mobile and desktop)
     if (isMobile) {
       setOpenMobile(false);
+    } else {
+      setOpen(false);  // Collapse desktop sidebar to icon-only mode
     }
     window.dispatchEvent(new CustomEvent('sidebar-navigation'));
   };
@@ -83,9 +85,11 @@ export function SidebarNavItem({
       return;
     }
     
-    // Close mobile sidebar FIRST before any navigation
+    // Close sidebar on navigation (mobile and desktop)
     if (isMobile) {
       setOpenMobile(false);
+    } else {
+      setOpen(false);  // Collapse desktop sidebar to icon-only mode
     }
     
     // Dispatch navigation event
