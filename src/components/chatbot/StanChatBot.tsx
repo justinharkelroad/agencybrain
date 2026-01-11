@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { StanAvatar, StanVariant } from "./StanAvatar";
@@ -184,8 +185,8 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   // Don't render on excluded routes
   if (shouldHide) return null;
 
-  return (
-    <div className="fixed bottom-6 right-6 z-[99999]">
+  return createPortal(
+    <div className="fixed bottom-6 right-6 z-[99999]" style={{ pointerEvents: 'auto' }}>
       {/* Proactive Tip Bubble */}
       <ProactiveTipBubble
         message={activeTip?.tip_message || ''}
@@ -238,6 +239,7 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </div>,
+    document.body
   );
 }
