@@ -1149,45 +1149,6 @@ export type Database = {
         }
         Relationships: []
       }
-      chatbot_page_contexts: {
-        Row: {
-          applies_to_portals: string[] | null
-          applies_to_tiers: string[] | null
-          content: Json
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          page_route: string
-          page_title: string
-          related_faq_categories: string[] | null
-          updated_at: string | null
-        }
-        Insert: {
-          applies_to_portals?: string[] | null
-          applies_to_tiers?: string[] | null
-          content: Json
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          page_route: string
-          page_title: string
-          related_faq_categories?: string[] | null
-          updated_at?: string | null
-        }
-        Update: {
-          applies_to_portals?: string[] | null
-          applies_to_tiers?: string[] | null
-          content?: Json
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          page_route?: string
-          page_title?: string
-          related_faq_categories?: string[] | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       chatbot_proactive_tips: {
         Row: {
           applies_to_portals: string[] | null
