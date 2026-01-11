@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { StanAvatar } from "./StanAvatar";
+import { StanAvatar, StanVariant } from "./StanAvatar";
 import { StanChatWindow } from "./StanChatWindow";
 import { ChatMessageData } from "./ChatMessage";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,18 @@ const EXCLUDED_ROUTES = [
   '/f/', // public form pages
 ];
 
+// Keywords that trigger celebration
+const GRATITUDE_KEYWORDS = [
+  'thank', 'thanks', 'awesome', 'perfect', 'great', 'amazing', 
+  'helpful', 'appreciate', 'love it', 'exactly what i needed',
+  'you rock', 'fantastic', 'excellent', 'wonderful'
+];
+
+function detectGratitude(message: string): boolean {
+  const lower = message.toLowerCase();
+  return GRATITUDE_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
 interface StanChatBotProps {
   portal?: 'brain' | 'staff';
 }
@@ -36,10 +48,28 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessageData[]>([INITIAL_MESSAGE]);
   const [isTyping, setIsTyping] = useState(false);
+  const [stanMood, setStanMood] = useState<StanVariant>('idle');
 
   // Check if we should hide Stan on current route
   const shouldHide = EXCLUDED_ROUTES.some(route => location.pathname.startsWith(route)) || 
                      location.pathname === '/';
+
+  // Set waving mood when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      setStanMood('waving');
+      // Return to idle after greeting animation
+      const timeout = setTimeout(() => setStanMood('idle'), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isOpen]);
+
+  // Update mood when typing state changes
+  useEffect(() => {
+    if (isTyping) {
+      setStanMood('thinking');
+    }
+  }, [isTyping]);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
@@ -53,8 +83,9 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
     };
     setMessages(prev => [...prev, userMessage]);
 
-    // Show typing indicator
+    // Show typing indicator and thinking mood
     setIsTyping(true);
+    setStanMood('thinking');
 
     try {
       // Prepare conversation history (exclude greeting, last 6 messages)
@@ -86,6 +117,16 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, stanResponse]);
+
+      // Check if user expressed gratitude - celebrate!
+      if (detectGratitude(content)) {
+        setStanMood('celebrating');
+        setTimeout(() => setStanMood('idle'), 2500);
+      } else {
+        // Normal response - talking then idle
+        setStanMood('talking');
+        setTimeout(() => setStanMood('idle'), 2000);
+      }
     } catch (error) {
       console.error('Stan chat error:', error);
       
@@ -96,6 +137,7 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
+      setStanMood('idle');
     } finally {
       setIsTyping(false);
     }
@@ -103,6 +145,8 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
 
   const handleClearChat = useCallback(() => {
     setMessages([INITIAL_MESSAGE]);
+    setStanMood('waving');
+    setTimeout(() => setStanMood('idle'), 3000);
   }, []);
 
   const handleOpen = () => setIsOpen(true);
@@ -132,7 +176,7 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             )}
             title="Ask Stan"
           >
-            <StanAvatar variant="talking" size="lg" />
+            <StanAvatar variant="talking" size="lg" animate={false} />
           </motion.button>
         )}
       </AnimatePresence>
@@ -149,6 +193,7 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             <StanChatWindow
               messages={messages}
               isTyping={isTyping}
+              stanMood={stanMood}
               onSendMessage={handleSendMessage}
               onClose={handleClose}
               onClearChat={handleClearChat}

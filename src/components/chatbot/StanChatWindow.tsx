@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { StanAvatar } from "./StanAvatar";
+import { StanAvatar, StanVariant } from "./StanAvatar";
 import { ChatMessage, ChatMessageData } from "./ChatMessage";
 import { SuggestedQuestions } from "./SuggestedQuestions";
 import { ChatInput } from "./ChatInput";
@@ -12,13 +12,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface StanChatWindowProps {
   messages: ChatMessageData[];
   isTyping: boolean;
+  stanMood: StanVariant;
   onSendMessage: (message: string) => void;
   onClose: () => void;
   onClearChat: () => void;
   portal: 'brain' | 'staff';
 }
 
-export function StanChatWindow({ messages, isTyping, onSendMessage, onClose, onClearChat, portal }: StanChatWindowProps) {
+export function StanChatWindow({ messages, isTyping, stanMood, onSendMessage, onClose, onClearChat, portal }: StanChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -41,10 +42,15 @@ export function StanChatWindow({ messages, isTyping, onSendMessage, onClose, onC
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/50">
-        <StanAvatar variant="waving" size="md" />
+        <StanAvatar variant={stanMood} size="md" />
         <div className="flex-1">
           <h3 className="font-semibold text-foreground">Stan</h3>
-          <p className="text-xs text-muted-foreground">Your Agency Brain Assistant</p>
+          <p className="text-xs text-muted-foreground">
+            {stanMood === 'thinking' ? 'Thinking...' : 
+             stanMood === 'celebrating' ? 'Glad to help! 🎉' :
+             stanMood === 'waving' ? 'Hey there!' :
+             'Your Agency Brain Assistant'}
+          </p>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -72,19 +78,35 @@ export function StanChatWindow({ messages, isTyping, onSendMessage, onClose, onC
       {/* Messages Area */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="flex flex-col gap-3">
-          {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
+          {messages.map((msg, index) => (
+            <ChatMessage 
+              key={msg.id} 
+              message={msg} 
+              isLatest={index === messages.length - 1 && msg.role === 'stan'}
+            />
           ))}
           
           {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex gap-2 items-center mr-auto">
-              <StanAvatar variant="thinking" size="sm" className="animate-pulse" />
+            <div className="flex gap-2 items-start mr-auto">
+              <StanAvatar variant="thinking" size="sm" />
               <div className="bg-muted px-3 py-2 rounded-2xl rounded-bl-md">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Stan is thinking</span>
+                  <div className="flex gap-1">
+                    <span 
+                      className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" 
+                      style={{ animationDelay: '0ms' }} 
+                    />
+                    <span 
+                      className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" 
+                      style={{ animationDelay: '150ms' }} 
+                    />
+                    <span 
+                      className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" 
+                      style={{ animationDelay: '300ms' }} 
+                    />
+                  </div>
                 </div>
               </div>
             </div>
