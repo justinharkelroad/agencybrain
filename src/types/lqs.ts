@@ -266,4 +266,35 @@ export interface SalesUploadResult {
   householdsNeedingAttention: number;
   endorsementsSkipped: number;
   errors: string[];
+  // Smart matching fields
+  autoMatched: number;
+  needsReview: number;
+  pendingReviews: PendingSaleReview[];
+}
+
+// ==================== Smart Match Types ====================
+
+export interface MatchCandidate {
+  householdId: string;
+  householdName: string;
+  zipCode: string | null;
+  leadSourceName: string | null;
+  quote: {
+    id: string;
+    productType: string;
+    premium: number;
+    quoteDate: string;
+  } | null;
+  score: number;
+  matchFactors: {
+    productMatch: boolean;
+    subProducerMatch: boolean;
+    premiumWithin10Percent: boolean;
+    quoteDateBeforeSale: boolean;
+  };
+}
+
+export interface PendingSaleReview {
+  sale: ParsedSaleRow;
+  candidates: MatchCandidate[];
 }

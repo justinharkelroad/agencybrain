@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, FileX } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, FileX, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
 
@@ -8,10 +8,12 @@ interface SalesUploadResultsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   results: SalesUploadResult;
+  onReviewNow?: () => void;
 }
 
-export function SalesUploadResultsModal({ open, onOpenChange, results }: SalesUploadResultsModalProps) {
+export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow }: SalesUploadResultsModalProps) {
   const hasWarnings = results.unmatchedProducers.length > 0 || results.householdsNeedingAttention > 0;
+  const hasReviews = results.needsReview > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -22,9 +24,11 @@ export function SalesUploadResultsModal({ open, onOpenChange, results }: SalesUp
             Sales Upload Complete
           </DialogTitle>
           <DialogDescription>
-            {results.endorsementsSkipped > 0 
-              ? `${results.recordsProcessed} new sales processed (${results.endorsementsSkipped} endorsements skipped)`
-              : `Successfully processed ${results.recordsProcessed} records`
+            {results.autoMatched > 0 || results.needsReview > 0
+              ? `${results.autoMatched} auto-matched, ${results.needsReview} need review`
+              : results.endorsementsSkipped > 0 
+                ? `${results.recordsProcessed} new sales processed (${results.endorsementsSkipped} endorsements skipped)`
+                : `Successfully processed ${results.recordsProcessed} records`
             }
           </DialogDescription>
         </DialogHeader>
@@ -123,6 +127,14 @@ export function SalesUploadResultsModal({ open, onOpenChange, results }: SalesUp
                 ))}
               </ul>
             </div>
+          )}
+
+          {/* Review Button */}
+          {hasReviews && onReviewNow && (
+            <Button variant="outline" onClick={onReviewNow} className="gap-2">
+              <Eye className="h-4 w-4" />
+              Review Now ({results.needsReview})
+            </Button>
           )}
 
           {/* Close Button */}

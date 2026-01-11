@@ -41,7 +41,8 @@ import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { LqsGroupedSection } from '@/components/lqs/LqsGroupedSection';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
-import type { QuoteUploadResult, SalesUploadResult } from '@/types/lqs';
+import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
+import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
 type ViewMode = 'overview' | 'detail';
@@ -108,6 +109,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // Sales upload results modal
   const [salesUploadResults, setSalesUploadResults] = useState<SalesUploadResult | null>(null);
   const [showSalesResultsModal, setShowSalesResultsModal] = useState(false);
+  const [showSalesReviewModal, setShowSalesReviewModal] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
@@ -747,6 +749,23 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
           open={showSalesResultsModal}
           onOpenChange={setShowSalesResultsModal}
           results={salesUploadResults}
+          onReviewNow={() => {
+            setShowSalesResultsModal(false);
+            setShowSalesReviewModal(true);
+          }}
+        />
+      )}
+
+      {/* Sales Review Modal */}
+      {salesUploadResults && salesUploadResults.pendingReviews.length > 0 && (
+        <SalesReviewModal
+          open={showSalesReviewModal}
+          onOpenChange={setShowSalesReviewModal}
+          pendingReviews={salesUploadResults.pendingReviews}
+          onReviewComplete={(results) => {
+            console.log('[LQS] Review complete:', results);
+            refetch();
+          }}
         />
       )}
     </div>
