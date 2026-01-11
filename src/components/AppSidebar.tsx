@@ -376,12 +376,17 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
       )}
     >
       <div className="flex flex-col h-full">
-        {/* Logo Section */}
-        <div className="p-5 flex items-center justify-center border-b border-border/20">
+        {/* Logo Section with Stan */}
+        <div className="p-4 flex items-center gap-3 border-b border-border/20">
+          <img 
+            src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/chatbot-assets/stan-waving.png"
+            alt="Stan"
+            className="h-10 w-10 object-contain"
+          />
           <AgencyBrainBadge 
             asLink 
             to="/dashboard"
-            className="w-full px-2"
+            size="sm"
           />
         </div>
 

@@ -10,7 +10,7 @@ interface GeneratePDFParams {
   userName?: string;
 }
 
-const LOGO_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/AGENCYBRAIN%20LOGO.png';
+const LOGO_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png';
 
 async function getLogoBase64(): Promise<string | null> {
   try {
