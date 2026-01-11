@@ -57,10 +57,21 @@ export function LqsHouseholdRow({
 }: LqsHouseholdRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Exclude Motor Club from product badges and premium total
+  // For SOLD households, use sales data for products/premium
+  // For QUOTED/LEAD households, use quotes data
+  const isSold = household.status === 'sold';
+  const sales = household.sales || [];
   const countableQuotes = filterCountableQuotes(household.quotes || []);
-  const uniqueProducts = [...new Set(countableQuotes.map(q => q.product_type))];
-  const totalPremium = countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+  
+  // Products: from sales if sold, from quotes otherwise
+  const uniqueProducts = isSold && sales.length > 0
+    ? [...new Set(sales.map(s => s.product_type))]
+    : [...new Set(countableQuotes.map(q => q.product_type))];
+  
+  // Premium: from sales if sold, from quotes otherwise
+  const totalPremium = isSold && sales.length > 0
+    ? sales.reduce((sum, s) => sum + (s.premium_cents || 0), 0)
+    : countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
 
   return (
     <>

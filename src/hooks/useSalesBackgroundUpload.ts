@@ -46,6 +46,39 @@ function normalizeNameForMatch(name: string): string[] {
 }
 
 /**
+ * Check if two names are similar enough for matching
+ * Returns true if last names match AND first name starts with same letter
+ */
+function namesMatch(
+  saleFirstName: string, 
+  saleLastName: string, 
+  householdFirstName: string, 
+  householdLastName: string
+): boolean {
+  const normSaleFirst = saleFirstName.toUpperCase().replace(/[^A-Z]/g, '');
+  const normSaleLast = saleLastName.toUpperCase().replace(/[^A-Z]/g, '');
+  const normHhFirst = householdFirstName.toUpperCase().replace(/[^A-Z]/g, '');
+  const normHhLast = householdLastName.toUpperCase().replace(/[^A-Z]/g, '');
+  
+  // Last names must match exactly
+  if (normSaleLast !== normHhLast) return false;
+  
+  // First name must start with the same letter, or one contains the other
+  if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
+  
+  // Check if first letter matches
+  if (normSaleFirst[0] !== normHhFirst[0]) return false;
+  
+  // Additional check: at least one must contain the other (handles DAVID J vs DAVID)
+  if (normSaleFirst.includes(normHhFirst) || normHhFirst.includes(normSaleFirst)) {
+    return true;
+  }
+  
+  // Or just matching first letter is enough (DAVID J vs DJ would both start with D)
+  return true;
+}
+
+/**
  * Fuzzy match a name against team members
  */
 function fuzzyMatchTeamMember(nameParts: string[], teamMembers: TeamMember[]): TeamMember | null {
@@ -349,13 +382,19 @@ async function processInBackground(
               .eq('id', householdId);
           } else {
             // No exact match - try smart matching with scoring
-            // Find candidate households with similar ZIP code
+            // CRITICAL: Filter by NAME FIRST, then score by product/premium/producer
             const candidateHouseholds = allHouseholds.filter(h => 
-              h.zip_code === primaryRecord.zipCode || 
-              (h.quotes && h.quotes.length > 0)
+              namesMatch(
+                primaryRecord.firstName, 
+                primaryRecord.lastName, 
+                h.first_name, 
+                h.last_name
+              )
             );
             
-            // Score each candidate
+            console.log(`[Sales Upload] Name filter: ${primaryRecord.firstName} ${primaryRecord.lastName} → ${candidateHouseholds.length} name-matched candidates`);
+            
+            // Score each name-matched candidate
             const scoredCandidates = candidateHouseholds
               .map(h => scoreCandidate(primaryRecord, h, teamMemberId))
               .filter(c => c.score > 0)
