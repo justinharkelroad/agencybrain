@@ -125,9 +125,9 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             className={cn(
               "fixed z-50 bottom-6 right-6",
               "w-[60px] h-[60px] rounded-full",
-              "bg-primary shadow-lg shadow-primary/25",
+              "bg-transparent border-2 border-primary/60 shadow-lg shadow-primary/20",
               "flex items-center justify-center",
-              "hover:scale-105 transition-transform duration-200",
+              "hover:scale-105 hover:border-primary transition-all duration-200",
               "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"
             )}
             title="Ask Stan"
