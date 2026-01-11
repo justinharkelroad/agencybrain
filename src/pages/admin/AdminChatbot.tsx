@@ -56,7 +56,7 @@ import { toast } from "sonner";
 import { StanAvatar } from "@/components/chatbot/StanAvatar";
 import { SuggestedQuestionsManager } from "@/components/chatbot/SuggestedQuestionsManager";
 import { ProactiveTipsManager } from "@/components/chatbot/ProactiveTipsManager";
-import { PageContextsTable } from "@/components/admin/PageContextsTable";
+import { KnowledgeBaseEditor } from "@/components/chatbot/KnowledgeBaseEditor";
 import { format } from "date-fns";
 
 const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
@@ -389,7 +389,7 @@ export default function AdminChatbot() {
       <Tabs defaultValue="faqs" className="space-y-4">
         <TabsList>
           <TabsTrigger value="faqs">FAQs</TabsTrigger>
-          <TabsTrigger value="contexts">Page Contexts</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
           <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
           <TabsTrigger value="proactive">Proactive Tips</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -544,22 +544,8 @@ export default function AdminChatbot() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="contexts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Page Contexts
-              </CardTitle>
-              <CardDescription>
-                Rich page descriptions that Stan loads FIRST before searching FAQs. This prevents cross-contamination 
-                (like answering about Call Scoring when the user is on the Flows page).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PageContextsTable />
-            </CardContent>
-          </Card>
+        <TabsContent value="knowledge" className="space-y-4">
+          <KnowledgeBaseEditor />
         </TabsContent>
 
         <TabsContent value="suggestions" className="space-y-4">

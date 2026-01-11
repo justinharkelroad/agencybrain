@@ -185,7 +185,7 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   if (shouldHide) return null;
 
   return (
-    <>
+    <div className="fixed bottom-6 right-6 z-[99999]">
       {/* Proactive Tip Bubble */}
       <ProactiveTipBubble
         message={activeTip?.tip_message || ''}
@@ -204,7 +204,6 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
             onClick={handleOpen}
             className={cn(
-              "fixed z-50 bottom-6 right-6",
               "w-[60px] h-[60px] rounded-full",
               "bg-transparent border-2 border-primary/60 shadow-lg shadow-primary/20",
               "flex items-center justify-center",
@@ -239,6 +238,6 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

@@ -8,33 +8,45 @@ const corsHeaders = {
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-const STAN_SYSTEM_PROMPT = `You are Stan, the friendly AI assistant for Agency Brain.
+const STAN_SYSTEM_PROMPT = `You are Stan, the friendly AI assistant for Agency Brain - an insurance agency management platform.
 
-PERSONALITY: Warm, helpful, concise (2-4 sentences unless more detail needed).
+PERSONALITY:
+- Warm, helpful, and encouraging
+- Keep responses concise (2-4 sentences unless more detail is genuinely needed)
+- Use "you" and "your" to be personal
 
-=== CRITICAL RULES ===
+CRITICAL RULES:
 
-1. PAGE CONTEXT IS YOUR PRIMARY SOURCE
-   - You are given detailed info about the page the user is viewing
-   - This describes EXACTLY what they see and what things mean on THAT page
-   - ALWAYS use page context to answer questions about UI elements, scores, buttons
+1. YOUR KNOWLEDGE BASE IS YOUR ONLY SOURCE
+   - You have been given a comprehensive knowledge document about Agency Brain
+   - Find the section matching the user's current page FIRST
+   - Use ONLY information from this document
 
-2. DO NOT CONFUSE PAGES
-   - If user is on Flows and asks "what does the score mean", answer about FLOWS not Call Scoring
-   - The page context tells you what is NOT on this page - respect that
-   - If something is listed under "not_about", do not reference it
+2. ROUTE-BASED ANSWERS
+   - The user's current page route is provided (e.g., /flows, /cancel-audit)
+   - Find that exact section in the knowledge base
+   - Answer based on THAT page's documentation
 
-3. WHEN PAGE CONTEXT ANSWERS THE QUESTION
-   - Use it directly, rephrase naturally
-   - Do not search FAQs if page context already answers
+3. DISAMBIGUATION
+   - Words like "score" and "saved" mean DIFFERENT things on different pages
+   - On /flows: "score" = Flow engagement progress (participation)
+   - On /call-scoring: "score" = Call score (0-100 skill rating)
+   - On /core4: "score" = Daily habits completed (0-4)
+   - On /cancel-audit: "saved" = Premium dollars retained from at-risk policies
+   - ALWAYS use the current page to determine meaning
 
-4. WHEN PAGE CONTEXT DOES NOT ANSWER
-   - Check FAQ knowledge provided
-   - If neither has answer: "I don't have specific info about that. Email info@standardplaybook.com for help!"
+4. NEVER GUESS
+   - If something isn't in the knowledge base, say: "I don't have specific information about that yet. Can you describe what you're seeing, or email info@standardplaybook.com for help!"
+   - DO NOT invent features, metrics, or UI elements
 
 5. TIER RESTRICTIONS
-   - Boardroom CANNOT access: Bonus Grid, Snapshot Planner, Roleplay Bot, Theta Talk Track, Qualitative sections
-   - Tell them these are 1:1 Coaching features if they ask`;
+   - Boardroom users CANNOT access: Bonus Grid, Snapshot Planner, Roleplay Bot, Theta Talk Track, Qualitative sections
+   - If they ask about these, explain they are 1:1 Coaching exclusive features
+
+RESPONSE FORMAT:
+- Use **bold** for feature names and navigation paths
+- Keep answers focused on the current page context
+- Offer to help with related features when appropriate`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -48,125 +60,81 @@ serve(async (req) => {
 
     const { message, conversation_history = [], context } = await req.json();
     const {
-      portal = 'brain', current_page = '/dashboard', user_role = 'owner',
-      membership_tier = 'all', user_id = null, staff_user_id = null, agency_id = null
+      portal = 'brain',
+      current_page = '/dashboard',
+      user_role = 'owner',
+      membership_tier = 'all',
+      user_id = null,
+      staff_user_id = null,
+      agency_id = null
     } = context || {};
 
     console.log('Stan request:', { message, portal, current_page, membership_tier });
 
-    // ============ STEP 1: LOAD PAGE CONTEXT ============
-    let pageContext = null;
-    
-    // Try exact match first
-    const { data: exactMatch } = await supabase
-      .from('chatbot_page_contexts')
-      .select('*')
-      .eq('page_route', current_page)
+    // ============ LOAD KNOWLEDGE BASE ============
+    const { data: knowledgeBase, error: kbError } = await supabase
+      .from('chatbot_knowledge_base')
+      .select('content')
       .eq('is_active', true)
       .single();
-    
-    if (exactMatch) {
-      pageContext = exactMatch;
-    } else {
-      // Try prefix matching for nested routes
-      const { data: prefixMatches } = await supabase
-        .from('chatbot_page_contexts')
-        .select('*')
-        .eq('is_active', true);
-      
-      if (prefixMatches) {
-        const sorted = prefixMatches
-          .filter(p => current_page.startsWith(p.page_route))
-          .sort((a, b) => b.page_route.length - a.page_route.length);
-        if (sorted.length > 0) pageContext = sorted[0];
-      }
+
+    if (kbError || !knowledgeBase) {
+      console.error('Failed to load knowledge base:', kbError);
+      throw new Error('Knowledge base not available');
     }
 
-    let pageContextPrompt = '';
-    let relatedCategories: string[] = ['general', 'troubleshooting'];
-    
-    if (pageContext) {
-      const content = pageContext.content;
-      relatedCategories = pageContext.related_faq_categories || relatedCategories;
-      
-      pageContextPrompt = `
-=== CURRENT PAGE: ${pageContext.page_title} (${current_page}) ===
+    console.log('Knowledge base loaded, length:', knowledgeBase.content.length);
 
-OVERVIEW: ${content.overview}
+    // ============ BUILD CONTEXT ============
+    const userContext = `
+CURRENT CONTEXT:
+- User is on page: ${current_page}
+- Portal: ${portal === 'staff' ? 'Staff Portal' : 'Brain Portal'}
+- User role: ${user_role}
+- Membership tier: ${membership_tier}
 
-UI ELEMENTS ON THIS PAGE:
-${(content.ui_elements || []).map((el: any) => `- **${el.name}** (${el.location}): ${el.description}`).join('\n')}
+IMPORTANT: Find the section for "${current_page}" in the knowledge base and answer based on THAT page's documentation. If the user asks about "score" or "saved", the meaning depends on which page they're on!`;
 
-COMMON QUESTIONS FOR THIS PAGE:
-${(content.common_questions || []).map((q: any) => `Q: "${q.question}"\nA: ${q.answer}`).join('\n\n')}
-
-THIS PAGE IS NOT ABOUT (do not reference these):
-${(content.not_about || []).map((item: string) => `- ${item}`).join('\n')}
-`;
-    } else {
-      pageContextPrompt = `\n=== CURRENT PAGE: ${current_page} ===\nNo specific page context available. Use general knowledge and FAQs.\n`;
-    }
-
-    // ============ STEP 2: SEARCH FAQs (FILTERED BY RELATED CATEGORIES) ============
-    const messageWords = message.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/)
-      .filter((w: string) => w.length > 2 && !['the','and','for','that','this','with','how','what','where','why','can','does','have','mean','top','are','was','were'].includes(w));
-
-    // Fetch FAQs filtered by related categories from page context
-    const { data: filteredFaqs } = await supabase
-      .from('chatbot_faqs')
-      .select('question, answer, category, keywords, applies_to_tiers')
-      .eq('is_active', true)
-      .overlaps('category', relatedCategories);
-
-    // If overlaps doesn't work, fallback to in()
-    let faqsToScore = filteredFaqs;
-    if (!filteredFaqs || filteredFaqs.length === 0) {
-      const { data: fallbackFaqs } = await supabase
-        .from('chatbot_faqs')
-        .select('question, answer, category, keywords, applies_to_tiers')
-        .eq('is_active', true)
-        .in('category', relatedCategories);
-      faqsToScore = fallbackFaqs;
-    }
-
-    const scoredFaqs = (faqsToScore || []).map(faq => {
-      let score = 0;
-      const faqKeywords = (faq.keywords || []).map((k: string) => k.toLowerCase());
-      for (const word of messageWords) {
-        if (faqKeywords.includes(word)) score += 5;
-        if (faq.question.toLowerCase().includes(word)) score += 2;
-      }
-      const tiers = faq.applies_to_tiers || [];
-      if (tiers.includes(membership_tier) || tiers.includes('all')) score += 1;
-      return { ...faq, score };
-    }).filter(f => f.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
-
-    const faqContext = scoredFaqs.length > 0
-      ? `\n\nADDITIONAL FAQ KNOWLEDGE (use if page context doesn't answer):\n${scoredFaqs.map((f, i) => `${i+1}. Q: ${f.question}\nA: ${f.answer}`).join('\n\n')}`
+    // Tier warning for Boardroom users
+    const tierWarning = membership_tier === 'Boardroom' && 
+      ['bonus', 'grid', 'snapshot', 'roleplay', 'qualitative', 'theta'].some(k => message.toLowerCase().includes(k))
+      ? '\n\n⚠️ IMPORTANT: This user is on Boardroom tier. They CANNOT access Bonus Grid, Snapshot Planner, Roleplay Bot, Theta Talk Track, or Qualitative sections. These are 1:1 Coaching exclusive features.'
       : '';
 
-    console.log('Page context found:', !!pageContext, 'Page title:', pageContext?.page_title, 'FAQs:', scoredFaqs.length);
-
-    // ============ STEP 3: CALL OPENAI ============
-    const userContext = `\nUSER CONTEXT: Portal=${portal}, Role=${user_role}, Tier=${membership_tier}`;
-    const tierWarning = membership_tier === 'Boardroom' && 
-      ['bonus','grid','snapshot','roleplay','qualitative','theta'].some(k => message.toLowerCase().includes(k))
-      ? '\n⚠️ BOARDROOM USER asking about 1:1 Coaching features - tell them these are not available on their plan.' : '';
-
+    // ============ CALL OPENAI ============
     const messages: any[] = [
-      { role: 'system', content: STAN_SYSTEM_PROMPT + userContext + tierWarning + pageContextPrompt + faqContext }
+      { 
+        role: 'system', 
+        content: STAN_SYSTEM_PROMPT + userContext + tierWarning + '\n\n--- KNOWLEDGE BASE ---\n\n' + knowledgeBase.content
+      }
     ];
-    
+
     // Add conversation history (last 6 messages)
     for (const msg of conversation_history.slice(-6)) {
-      messages.push({ role: msg.role === 'stan' ? 'assistant' : 'user', content: msg.content });
+      messages.push({
+        role: msg.role === 'stan' ? 'assistant' : 'user',
+        content: msg.content
+      });
     }
+
     messages.push({ role: 'user', content: message });
+
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured');
+    }
 
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 500, temperature: 0.7 }),
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages,
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
     });
 
     if (!openaiResponse.ok) {
@@ -177,46 +145,72 @@ ${(content.not_about || []).map((item: string) => `- ${item}`).join('\n')}
 
     const openaiData = await openaiResponse.json();
     const stanResponse = openaiData.choices?.[0]?.message?.content || 
-      "I'm having trouble right now. Try again or email info@standardplaybook.com!";
+      "I'm having trouble right now. Please try again or email info@standardplaybook.com for help!";
 
-    // ============ STEP 4: SAVE CONVERSATION (OPTIONAL) ============
+    console.log('Stan response generated successfully');
+
+    // ============ SAVE CONVERSATION ============
     if (agency_id && (user_id || staff_user_id)) {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const { data: existing } = await supabase.from('chatbot_conversations')
-          .select('id').eq(user_id ? 'user_id' : 'staff_user_id', user_id || staff_user_id)
-          .gte('created_at', today).limit(1).single();
-        
-        const newMsgs = [...conversation_history, 
+        const { data: existingConvo } = await supabase
+          .from('chatbot_conversations')
+          .select('id, messages')
+          .eq(user_id ? 'user_id' : 'staff_user_id', user_id || staff_user_id)
+          .gte('created_at', today)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        const newMessages = [
+          ...conversation_history,
           { role: 'user', content: message, timestamp: new Date().toISOString() },
           { role: 'stan', content: stanResponse, timestamp: new Date().toISOString() }
         ];
-        
-        if (existing) {
-          await supabase.from('chatbot_conversations').update({ messages: newMsgs, current_page }).eq('id', existing.id);
+
+        if (existingConvo) {
+          await supabase
+            .from('chatbot_conversations')
+            .update({ 
+              messages: newMessages,
+              current_page,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingConvo.id);
         } else {
-          await supabase.from('chatbot_conversations').insert({
-            user_id: user_id || null, staff_user_id: staff_user_id || null,
-            agency_id, portal, messages: newMsgs, current_page
-          });
+          await supabase
+            .from('chatbot_conversations')
+            .insert({
+              user_id: user_id || null,
+              staff_user_id: staff_user_id || null,
+              agency_id,
+              portal,
+              messages: newMessages,
+              current_page
+            });
         }
       } catch (saveError) {
         console.error('Error saving conversation:', saveError);
+        // Don't fail the request if save fails
       }
     }
 
-    return new Response(JSON.stringify({ 
-      response: stanResponse, 
-      page_context_used: !!pageContext,
-      page_title: pageContext?.page_title || null,
-      faqs_used: scoredFaqs.length 
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(
+      JSON.stringify({ 
+        response: stanResponse,
+        knowledge_base_loaded: true
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
-    console.error('Stan error:', error);
-    return new Response(JSON.stringify({ 
-      response: "I'm having a moment! Try again or email info@standardplaybook.com.", 
-      error: error.message 
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    console.error('Stan chat error:', error);
+    return new Response(
+      JSON.stringify({ 
+        response: "I'm having a moment! Please try again, or reach out to info@standardplaybook.com if this keeps happening.",
+        error: error.message 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
   }
 });
