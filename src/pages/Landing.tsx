@@ -3,8 +3,9 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import agencyBrainLogo from "@/assets/agencybrain-logo-new.png";
 import { Brain, Users } from "lucide-react";
+
+const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png";
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -63,7 +64,7 @@ export default function Landing() {
 
             <div className="flex flex-col items-center justify-center gap-8">
               <img
-                src={agencyBrainLogo}
+                src={STAN_LOGO_URL}
                 alt="AgencyBrain logo"
                 className="h-24 w-auto sm:h-32"
                 height={128}

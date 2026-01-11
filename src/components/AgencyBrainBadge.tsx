@@ -1,7 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import agencyBrainLogo from "@/assets/agencybrain-logo-new.png";
+
+const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png";
 
 type Props = {
   size?: "sm" | "md" | "lg";
@@ -29,7 +30,7 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
       )}
     >
       <img
-        src={agencyBrainLogo}
+        src={STAN_LOGO_URL}
         alt="AgencyBrain logo"
         className={cn("w-auto object-contain", imageHeight)}
       />
