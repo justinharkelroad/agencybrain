@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #1e283a 0%, #020817 100%); padding: 30px; text-align: center;">
-                  <img src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png" alt="AgencyBrain" style="height: 50px;" />
+                  <img src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png" alt="AgencyBrain" style="height: 50px;" />
                 </div>
                 <div style="padding: 30px; background: #f9fafb;">
                   <h1 style="color: #1e283a; margin-bottom: 20px;">You've Been Invited!</h1>

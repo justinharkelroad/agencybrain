@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
-const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png";
+const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 
 type Props = {
   size?: "sm" | "md" | "lg";

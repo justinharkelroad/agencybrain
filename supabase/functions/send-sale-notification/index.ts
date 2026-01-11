@@ -15,7 +15,7 @@ const BRAND = {
     lightBg: '#f1f5f9',
     white: '#ffffff',
   },
-  logo: 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/file-uploads/Agency%20Brain%20Logo%20Stan.png',
+  logo: 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png',
   name: 'Agency Brain',
   fromEmail: 'Agency Brain <info@agencybrain.standardplaybook.com>',
 };
