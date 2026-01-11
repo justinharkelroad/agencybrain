@@ -4,8 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { StanAvatar, StanVariant } from "./StanAvatar";
 import { StanChatWindow } from "./StanChatWindow";
 import { ChatMessageData } from "./ChatMessage";
+import { ProactiveTipBubble } from "./ProactiveTipBubble";
 import { cn } from "@/lib/utils";
 import { useStanContext } from "@/hooks/useStanContext";
+import { useProactiveTip } from "@/hooks/useProactiveTip";
 import { supabase } from "@/integrations/supabase/client";
 
 // Initial greeting message
@@ -49,6 +51,15 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const [messages, setMessages] = useState<ChatMessageData[]>([INITIAL_MESSAGE]);
   const [isTyping, setIsTyping] = useState(false);
   const [stanMood, setStanMood] = useState<StanVariant>('idle');
+  const [hasInteractedWithStan, setHasInteractedWithStan] = useState(false);
+
+  // Proactive tips hook
+  const { activeTip, dismissTip, showTip } = useProactiveTip({
+    portal,
+    membershipTier: context.membership_tier,
+    isStanOpen: isOpen,
+    hasInteractedWithStan,
+  });
 
   // Check if we should hide Stan on current route
   const shouldHide = EXCLUDED_ROUTES.some(route => location.pathname.startsWith(route)) || 
@@ -73,6 +84,9 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
+
+    // Mark as interacted
+    setHasInteractedWithStan(true);
 
     // Add user message
     const userMessage: ChatMessageData = {
@@ -152,11 +166,34 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const handleOpen = () => setIsOpen(true);
   const handleClose = () => setIsOpen(false);
 
+  // Handle accepting a proactive tip
+  const handleAcceptTip = useCallback(() => {
+    setHasInteractedWithStan(true);
+    setIsOpen(true);
+    dismissTip();
+    
+    // If the tip has a suggested question, send it after chat opens
+    if (activeTip?.suggested_question) {
+      // Small delay to let chat open first
+      setTimeout(() => {
+        handleSendMessage(activeTip.suggested_question!);
+      }, 500);
+    }
+  }, [activeTip, dismissTip, handleSendMessage]);
+
   // Don't render on excluded routes
   if (shouldHide) return null;
 
   return (
     <>
+      {/* Proactive Tip Bubble */}
+      <ProactiveTipBubble
+        message={activeTip?.tip_message || ''}
+        isVisible={showTip && !isOpen}
+        onAccept={handleAcceptTip}
+        onDismiss={dismissTip}
+      />
+
       {/* Floating Button (when closed) */}
       <AnimatePresence>
         {!isOpen && (
