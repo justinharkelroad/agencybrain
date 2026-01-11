@@ -3,8 +3,8 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import { LandingMascot } from "@/components/landing/LandingMascot";
 import { Brain, Users } from "lucide-react";
+import agencyBrainLogo from "@/assets/agencybrain-landing-logo.png";
 
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -61,19 +61,16 @@ export default function Landing() {
           {/* SEO: keep a single H1 for the page intent */}
           <h1 className="sr-only">AgencyBrain – Unlock Clarity. Move Faster.</h1>
 
-          <div className="flex flex-col items-center justify-center gap-6">
-            {/* Brand name */}
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
-              AgencyBrain
-            </h2>
-            
-            {/* Animated Stan mascot */}
-            <LandingMascot className="relative flex items-center justify-center" />
-            
-            {/* Tagline */}
-            <p className="text-sm text-muted-foreground">
-              powered by Standard Playbook
-            </p>
+          <div className="flex flex-col items-center justify-center gap-8">
+            {/* Animated Logo */}
+            <div className="relative animate-float">
+              <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl animate-glow-pulse" />
+              <img 
+                src={agencyBrainLogo} 
+                alt="AgencyBrain - powered by Standard Playbook" 
+                className="relative w-64 sm:w-80 md:w-96 h-auto drop-shadow-2xl"
+              />
+            </div>
             
             <div className="flex flex-col gap-4 w-full max-w-sm mt-4">
               {/* Brain Portal - for Agency Owners/Admins */}
