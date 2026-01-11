@@ -333,6 +333,7 @@ async function processInBackground(
       teamMembersMatched: matchedTeamMemberIds.size,
       unmatchedProducers: Array.from(unmatchedProducerSet),
       householdsNeedingAttention,
+      endorsementsSkipped: 0, // Already filtered during parsing
       errors,
     };
 
@@ -375,6 +376,7 @@ async function processInBackground(
         teamMembersMatched: 0,
         unmatchedProducers: [],
         householdsNeedingAttention: 0,
+        endorsementsSkipped: 0,
         errors: [error.message || 'Unknown error'],
       });
     }

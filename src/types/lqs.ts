@@ -236,6 +236,7 @@ export interface ParsedSaleRow {
   policyNumber: string | null;
   householdKey: string;
   rowNumber: number;
+  dispositionCode: string | null;
 }
 
 export interface SalesParseResult {
@@ -243,6 +244,7 @@ export interface SalesParseResult {
   records: ParsedSaleRow[];
   errors: string[];
   duplicatesRemoved: number;
+  endorsementsSkipped: number;
   dateRange: { start: string; end: string } | null;
 }
 
@@ -262,5 +264,6 @@ export interface SalesUploadResult {
   teamMembersMatched: number;
   unmatchedProducers: string[];
   householdsNeedingAttention: number;
+  endorsementsSkipped: number;
   errors: string[];
 }

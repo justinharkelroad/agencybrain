@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, FileX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
 
@@ -22,7 +22,10 @@ export function SalesUploadResultsModal({ open, onOpenChange, results }: SalesUp
             Sales Upload Complete
           </DialogTitle>
           <DialogDescription>
-            Successfully processed {results.recordsProcessed} records
+            {results.endorsementsSkipped > 0 
+              ? `${results.recordsProcessed} new sales processed (${results.endorsementsSkipped} endorsements skipped)`
+              : `Successfully processed ${results.recordsProcessed} records`
+            }
           </DialogDescription>
         </DialogHeader>
 

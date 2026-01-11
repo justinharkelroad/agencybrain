@@ -222,6 +222,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
   const records: ParsedSaleRow[] = [];
   const seenKeys = new Set<string>(); // For deduplication
   let duplicatesRemoved = 0;
+  let endorsementsSkipped = 0;
   let minDate: string | null = null;
   let maxDate: string | null = null;
 
@@ -263,6 +264,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         records: [], 
         errors: ['Could not find header row. Expected columns like "First Name", "Last Name", "Sale Date", "Product", etc.'], 
         duplicatesRemoved: 0,
+        endorsementsSkipped: 0,
         dateRange: null
       };
     }
@@ -298,7 +300,10 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       itemsSold: findColumn(['items', 'item count', 'policies']),
       premium: findColumn(['premium']),
       policyNumber: findColumn(['policy', 'policy #', 'policy number']),
+      dispositionCode: findColumn(['disposition', 'disposition code']),
     };
+
+    console.log('[Sales Parser] Disposition Code column index:', colIndex.dispositionCode);
 
     // Determine if we have separate first/last name or combined customer name
     const hasSeparateNames = colIndex.firstName >= 0 && colIndex.lastName >= 0;
@@ -310,6 +315,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         records: [], 
         errors: ['Missing required name columns. Need either "First Name" + "Last Name" or "Customer Name"'], 
         duplicatesRemoved: 0,
+        endorsementsSkipped: 0,
         dateRange: null
       };
     }
@@ -322,6 +328,22 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       if (!row || row.every(cell => cell === null || cell === '')) continue;
 
       const getValue = (idx: number) => idx >= 0 ? row[idx] : null;
+
+      // Check disposition code - skip endorsements
+      let dispositionCode: string | null = null;
+      if (colIndex.dispositionCode >= 0) {
+        dispositionCode = String(getValue(colIndex.dispositionCode) || '').trim();
+        
+        // Skip if not "New Policy Issued" (case-insensitive)
+        if (dispositionCode) {
+          const upperDisposition = dispositionCode.toUpperCase();
+          // Only accept "New Policy Issued" - skip "Add Item", endorsements, etc.
+          if (!upperDisposition.includes('NEW POLICY') && !upperDisposition.includes('NEW BUSINESS')) {
+            endorsementsSkipped++;
+            continue;
+          }
+        }
+      }
 
       // Extract name
       let firstName: string;
@@ -401,6 +423,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
         policyNumber,
         householdKey,
         rowNumber: absoluteRowNum,
+        dispositionCode,
       });
     }
 
@@ -408,19 +431,23 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       return { 
         success: false, 
         records: [], 
-        errors: ['No valid records found in the file'], 
+        errors: endorsementsSkipped > 0 
+          ? [`No new policy records found. ${endorsementsSkipped} endorsements were skipped.`]
+          : ['No valid records found in the file'], 
         duplicatesRemoved,
+        endorsementsSkipped,
         dateRange: null
       };
     }
 
-    console.log('[Sales Parser] Records parsed:', records.length, 'Errors:', errors.length, 'Duplicates removed:', duplicatesRemoved);
+    console.log('[Sales Parser] Records parsed:', records.length, 'Endorsements skipped:', endorsementsSkipped, 'Errors:', errors.length, 'Duplicates removed:', duplicatesRemoved);
 
     return { 
       success: true, 
       records, 
       errors, 
       duplicatesRemoved,
+      endorsementsSkipped,
       dateRange: minDate && maxDate ? { start: minDate, end: maxDate } : null
     };
   } catch (err) {
@@ -429,6 +456,7 @@ export function parseLqsSalesExcel(file: ArrayBuffer): SalesParseResult {
       records: [], 
       errors: [`Failed to parse Excel file: ${err instanceof Error ? err.message : 'Unknown error'}`],
       duplicatesRemoved: 0,
+      endorsementsSkipped: 0,
       dateRange: null
     };
   }
