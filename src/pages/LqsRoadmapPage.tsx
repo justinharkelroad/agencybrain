@@ -540,7 +540,9 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
               needsAttention: bucketFilteredHouseholds.filter(h => h.needs_attention).length,
             } as typeof data.metrics} 
             loading={isLoading} 
-            onTileClick={(tab) => setActiveTab(tab as TabValue)} 
+            onTileClick={(tab) => setActiveTab(tab as TabValue)}
+            activeBucket={activeBucket}
+            bucketCount={bucketFilteredHouseholds.length}
           />
 
           {/* Tabs */}
