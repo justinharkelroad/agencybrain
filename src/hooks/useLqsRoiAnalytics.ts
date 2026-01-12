@@ -11,19 +11,26 @@ export interface LeadSourceRoiRow {
   totalQuotes: number;
   totalSales: number;
   premiumCents: number;
-  roi: number | null; // premium / spend (null if spend = 0)
+  commissionEarned: number; // Premium × commission rate
+  roi: number | null; // commission / spend (null if spend = 0)
   costPerSale: number | null; // spend / sales (null if 0 sales)
 }
 
 export interface LqsRoiSummary {
-  totalLeads: number;
-  totalQuoted: number;
-  totalSold: number;
+  openLeads: number; // status = 'lead' only
+  quotedHouseholds: number; // status = 'quoted' only
+  soldHouseholds: number; // status = 'sold'
   premiumSoldCents: number;
+  commissionEarned: number; // Premium × commission rate
   quoteRate: number; // (quoted / leads) * 100
   closeRate: number; // (sold / quoted) * 100
   totalSpendCents: number;
-  overallRoi: number | null; // premium / spend (null if spend = 0)
+  overallRoi: number | null; // commission / spend (null if spend = 0)
+  commissionRate: number; // The commission rate used for calculations
+  // Legacy fields for backward compatibility
+  totalLeads: number;
+  totalQuoted: number;
+  totalSold: number;
 }
 
 export interface LqsRoiAnalytics {
@@ -68,6 +75,22 @@ export function useLqsRoiAnalytics(
   agencyId: string | null,
   dateRange: { start: Date; end: Date } | null
 ) {
+  // Fetch agency settings for commission rate
+  const agencyQuery = useQuery({
+    queryKey: ['agency-commission-rate', agencyId],
+    enabled: !!agencyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agencies')
+        .select('default_commission_rate')
+        .eq('id', agencyId!)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch households with sales (paginated to avoid 1000 row limit)
   const householdsQuery = useQuery({
     queryKey: ['lqs-roi-households', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
@@ -155,6 +178,9 @@ export function useLqsRoiAnalytics(
     const households = householdsQuery.data;
     const leadSources = leadSourcesQuery.data;
     const spendData = spendQuery.data || [];
+    
+    // Get commission rate from agency settings, default to 22%
+    const commissionRate = agencyQuery.data?.default_commission_rate ?? 22;
 
     // Create lead source name map
     const leadSourceMap = new Map(leadSources.map(ls => [ls.id, ls.name]));
@@ -166,10 +192,16 @@ export function useLqsRoiAnalytics(
       spendBySource.set(s.lead_source_id, current + (s.total_spend_cents || 0));
     });
 
-    // Calculate summary metrics
+    // Calculate summary metrics - FIXED COUNTS
+    const openLeads = households.filter(h => h.status === 'lead').length;
+    const quotedHouseholds = households.filter(h => h.status === 'quoted').length;
+    const soldHouseholds = households.filter(h => h.status === 'sold').length;
+    
+    // Legacy total counts for funnel calculations
     const totalLeads = households.length;
     const totalQuoted = households.filter(h => h.status === 'quoted' || h.status === 'sold').length;
-    const totalSold = households.filter(h => h.status === 'sold').length;
+    const totalSold = soldHouseholds;
+    
     const premiumSoldCents = households.reduce((sum, h) => {
       const householdPremium = (h.sales || []).reduce((s, sale) => s + (sale.premium_cents || 0), 0);
       return sum + householdPremium;
@@ -177,19 +209,30 @@ export function useLqsRoiAnalytics(
 
     const totalSpendCents = Array.from(spendBySource.values()).reduce((sum, val) => sum + val, 0);
 
+    // Calculate commission earned using commission rate
+    const commissionEarned = premiumSoldCents * (commissionRate / 100);
+
     const quoteRate = totalLeads > 0 ? (totalQuoted / totalLeads) * 100 : 0;
     const closeRate = totalQuoted > 0 ? (totalSold / totalQuoted) * 100 : 0;
-    const overallRoi = totalSpendCents > 0 ? premiumSoldCents / totalSpendCents : null;
+    
+    // FIXED ROI: commission / spend (not premium / spend)
+    const overallRoi = totalSpendCents > 0 ? commissionEarned / totalSpendCents : null;
 
     const summary: LqsRoiSummary = {
-      totalLeads,
-      totalQuoted,
-      totalSold,
+      openLeads,
+      quotedHouseholds,
+      soldHouseholds,
       premiumSoldCents,
+      commissionEarned,
       quoteRate,
       closeRate,
       totalSpendCents,
       overallRoi,
+      commissionRate,
+      // Legacy fields
+      totalLeads,
+      totalQuoted,
+      totalSold,
     };
 
     // Group by lead source
@@ -220,7 +263,9 @@ export function useLqsRoiAnalytics(
     const entries = Array.from(bySourceMap.entries());
     for (const [sourceId, metrics] of entries) {
       const spendCents = spendBySource.get(sourceId) || 0;
-      const roi = spendCents > 0 ? metrics.premiumCents / spendCents : null;
+      const sourceCommissionEarned = metrics.premiumCents * (commissionRate / 100);
+      // FIXED ROI: commission / spend (not premium / spend)
+      const roi = spendCents > 0 ? sourceCommissionEarned / spendCents : null;
       const costPerSale = metrics.sales > 0 ? spendCents / metrics.sales : null;
       const sourceName = sourceId 
         ? (leadSourceMap.get(sourceId) || 'Unknown') 
@@ -234,6 +279,7 @@ export function useLqsRoiAnalytics(
         totalQuotes: metrics.quotes,
         totalSales: metrics.sales,
         premiumCents: metrics.premiumCents,
+        commissionEarned: sourceCommissionEarned,
         roi,
         costPerSale,
       });
@@ -243,16 +289,17 @@ export function useLqsRoiAnalytics(
     byLeadSource.sort((a, b) => b.premiumCents - a.premiumCents);
 
     return { summary, byLeadSource };
-  }, [householdsQuery.data, leadSourcesQuery.data, spendQuery.data]);
+  }, [householdsQuery.data, leadSourcesQuery.data, spendQuery.data, agencyQuery.data]);
 
   return {
     data: analytics,
-    isLoading: householdsQuery.isLoading || leadSourcesQuery.isLoading || spendQuery.isLoading,
-    error: householdsQuery.error || leadSourcesQuery.error || spendQuery.error,
+    isLoading: householdsQuery.isLoading || leadSourcesQuery.isLoading || spendQuery.isLoading || agencyQuery.isLoading,
+    error: householdsQuery.error || leadSourcesQuery.error || spendQuery.error || agencyQuery.error,
     refetch: () => {
       householdsQuery.refetch();
       leadSourcesQuery.refetch();
       spendQuery.refetch();
+      agencyQuery.refetch();
     },
   };
 }

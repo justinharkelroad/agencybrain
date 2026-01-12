@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -18,8 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { 
@@ -122,17 +132,19 @@ function ConversionFunnel({
   );
 }
 
-// Summary Card Component
+// Summary Card Component with optional tooltip
 function SummaryCard({
   title,
   value,
   icon: Icon,
   variant = 'default',
+  tooltip,
 }: {
   title: string;
   value: string;
   icon: React.ElementType;
   variant?: 'default' | 'success' | 'warning' | 'info';
+  tooltip?: string;
 }) {
   const variantStyles = {
     default: 'text-foreground',
@@ -146,7 +158,21 @@ function SummaryCard({
       <CardContent className="pt-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-muted-foreground">{title}</p>
+              {tooltip && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-[200px]">{tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             <p className={`text-2xl font-bold ${variantStyles[variant]}`}>{value}</p>
           </div>
           <Icon className={`h-8 w-8 ${variantStyles[variant]} opacity-50`} />
@@ -233,7 +259,7 @@ function LeadSourceTable({ data, isLoading }: { data: LeadSourceRoiRow[]; isLoad
                   className="text-right cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('totalQuotes')}
                 >
-                  Quotes {sortField === 'totalQuotes' && (sortDir === 'asc' ? '↑' : '↓')}
+                  Quoted HH {sortField === 'totalQuotes' && (sortDir === 'asc' ? '↑' : '↓')}
                 </TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover:bg-muted/50"
@@ -306,13 +332,16 @@ function LeadSourceTable({ data, isLoading }: { data: LeadSourceRoiRow[]; isLoad
 export default function LqsRoiPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [commissionRate, setCommissionRate] = useState<string>('22');
+  const [isSavingRate, setIsSavingRate] = useState(false);
   const dateRange = getDateRangeFromPreset(datePreset);
   
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
   
-  const { data: analytics, isLoading: analyticsLoading, error } = useLqsRoiAnalytics(
+  const { data: analytics, isLoading: analyticsLoading, error, refetch } = useLqsRoiAnalytics(
     agencyProfile?.agencyId ?? null,
     dateRange
   );
@@ -321,12 +350,51 @@ export default function LqsRoiPage() {
   const ADMIN_EMAIL = 'justin@hfiagencies.com';
   const hasAccess = user?.email === ADMIN_EMAIL;
   
+  // Load commission rate from agency when available
+  useEffect(() => {
+    if (analytics?.summary?.commissionRate) {
+      setCommissionRate(analytics.summary.commissionRate.toString());
+    }
+  }, [analytics?.summary?.commissionRate]);
+  
   useEffect(() => {
     if (!authLoading && user && !hasAccess) {
       toast.error('This feature is currently in development');
       navigate('/dashboard', { replace: true });
     }
   }, [authLoading, user, hasAccess, navigate]);
+
+  // Save commission rate handler
+  const handleSaveCommissionRate = async () => {
+    if (!agencyProfile?.agencyId) return;
+    
+    const rate = parseFloat(commissionRate);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      toast.error('Please enter a valid rate between 0 and 100');
+      return;
+    }
+    
+    setIsSavingRate(true);
+    try {
+      const { error } = await supabase
+        .from('agencies')
+        .update({ default_commission_rate: rate })
+        .eq('id', agencyProfile.agencyId);
+      
+      if (error) throw error;
+      
+      toast.success('Commission rate saved');
+      // Invalidate queries to refresh data with new rate
+      queryClient.invalidateQueries({ queryKey: ['agency-commission-rate'] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-roi-households'] });
+      refetch();
+    } catch (err) {
+      console.error('Failed to save commission rate:', err);
+      toast.error('Failed to save commission rate');
+    } finally {
+      setIsSavingRate(false);
+    }
+  };
 
   // Show loading during auth check
   if (authLoading || agencyLoading) {
@@ -383,21 +451,57 @@ export default function LqsRoiPage() {
           </p>
         </div>
         
-        {/* Date Range Selector */}
-        <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="last30">Last 30 Days</SelectItem>
-            <SelectItem value="last60">Last 60 Days</SelectItem>
-            <SelectItem value="last90">Last 90 Days</SelectItem>
-            <SelectItem value="quarter">This Quarter</SelectItem>
-            <SelectItem value="ytd">Year to Date</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-4">
+          {/* Commission Rate Input */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="commission-rate" className="text-sm text-muted-foreground whitespace-nowrap">
+              Commission Rate:
+            </Label>
+            <div className="flex items-center gap-1">
+              <Input
+                id="commission-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+                className="w-20 h-8"
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+            </div>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={handleSaveCommissionRate}
+              disabled={isSavingRate}
+              className="h-8"
+            >
+              {isSavingRate ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+          
+          {/* Date Range Selector */}
+          <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="last30">Last 30 Days</SelectItem>
+              <SelectItem value="last60">Last 60 Days</SelectItem>
+              <SelectItem value="last90">Last 90 Days</SelectItem>
+              <SelectItem value="quarter">This Quarter</SelectItem>
+              <SelectItem value="ytd">Year to Date</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      
+      {/* Commission rate helper text */}
+      <p className="text-xs text-muted-foreground -mt-4">
+        Used for ROI calculations (Commission Earned = Premium × Rate)
+      </p>
 
       {/* Summary Cards */}
       {analyticsLoading || !summary ? (
@@ -409,22 +513,25 @@ export default function LqsRoiPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SummaryCard
-            title="Total Leads"
-            value={summary.totalLeads.toLocaleString()}
+            title="Open Leads"
+            value={summary.openLeads.toLocaleString()}
             icon={Users}
             variant="info"
+            tooltip="Leads not yet quoted"
           />
           <SummaryCard
-            title="Total Quoted"
-            value={summary.totalQuoted.toLocaleString()}
+            title="Quoted Households"
+            value={summary.quotedHouseholds.toLocaleString()}
             icon={Target}
             variant="warning"
+            tooltip="Households with at least one quote"
           />
           <SummaryCard
-            title="Total Sold"
-            value={summary.totalSold.toLocaleString()}
+            title="Sold Households"
+            value={summary.soldHouseholds.toLocaleString()}
             icon={TrendingUp}
             variant="success"
+            tooltip="Households with at least one policy"
           />
           <SummaryCard
             title="Premium Sold"
@@ -452,6 +559,7 @@ export default function LqsRoiPage() {
             value={formatRoi(summary.overallRoi)}
             icon={BarChart3}
             variant={summary.overallRoi !== null && summary.overallRoi >= 1 ? 'success' : 'default'}
+            tooltip="Commission Earned ÷ Total Spend"
           />
         </div>
       )}
@@ -471,7 +579,7 @@ export default function LqsRoiPage() {
           />
         )}
 
-        {/* Quick Stats or placeholder */}
+        {/* Performance Insights */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -482,7 +590,7 @@ export default function LqsRoiPage() {
           <CardContent>
             {analyticsLoading || !summary ? (
               <div className="space-y-4">
-                {Array.from({ length: 4 }).map((_, i) => (
+                {Array.from({ length: 5 }).map((_, i) => (
                   <Skeleton key={i} className="h-6" />
                 ))}
               </div>
@@ -491,9 +599,15 @@ export default function LqsRoiPage() {
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Avg Premium per Sale</span>
                   <span className="font-semibold">
-                    {summary.totalSold > 0 
-                      ? formatCurrency(summary.premiumSoldCents / summary.totalSold) 
+                    {summary.soldHouseholds > 0 
+                      ? formatCurrency(summary.premiumSoldCents / summary.soldHouseholds) 
                       : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-muted-foreground">Commission Earned</span>
+                  <span className="font-semibold text-green-500">
+                    {formatCurrency(summary.commissionEarned)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border">
@@ -507,8 +621,8 @@ export default function LqsRoiPage() {
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-muted-foreground">Avg Cost per Sale</span>
                   <span className="font-semibold">
-                    {summary.totalSold > 0 
-                      ? formatCurrency(summary.totalSpendCents / summary.totalSold) 
+                    {summary.soldHouseholds > 0 
+                      ? formatCurrency(summary.totalSpendCents / summary.soldHouseholds) 
                       : '-'}
                   </span>
                 </div>
@@ -516,7 +630,7 @@ export default function LqsRoiPage() {
                   <span className="text-muted-foreground">Lead → Sale Rate</span>
                   <span className="font-semibold">
                     {summary.totalLeads > 0 
-                      ? formatPercent((summary.totalSold / summary.totalLeads) * 100) 
+                      ? formatPercent((summary.soldHouseholds / summary.totalLeads) * 100) 
                       : '-'}
                   </span>
                 </div>
