@@ -19,7 +19,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
   const priorWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
   const priorWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
 
-  // Fetch current week stats
+  // Fetch current week records (for working list / at risk week-over-week)
   const { data: currentWeekData, isLoading: loadingCurrent } = useQuery({
     queryKey: ['cancel-audit-hero-current', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -44,7 +44,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     staleTime: 60 * 1000,
   });
 
-  // Fetch prior week stats
+  // Fetch prior week records
   const { data: priorWeekData, isLoading: loadingPrior } = useQuery({
     queryKey: ['cancel-audit-hero-prior', agencyId, format(priorWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -69,7 +69,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     staleTime: 60 * 1000,
   });
 
-  // Fetch ALL records for total working list and saved
+  // Fetch ALL records for total working list and at risk
   const { data: allRecords, isLoading: loadingAll } = useQuery({
     queryKey: ['cancel-audit-hero-all', agencyId],
     queryFn: async () => {
@@ -92,7 +92,88 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     staleTime: 60 * 1000,
   });
 
-  // Calculate stats
+  // Fetch current week SAVED based on payment_made activities
+  const { data: currentWeekSaved, isLoading: loadingCurrentSaved } = useQuery({
+    queryKey: ['cancel-audit-hero-saved-current', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!agencyId) return 0;
+
+      // Get payment_made activities created this week, join to get premium
+      const { data: activities, error } = await supabase
+        .from('cancel_audit_activities')
+        .select('id, record_id, created_at')
+        .eq('agency_id', agencyId)
+        .eq('activity_type', 'payment_made')
+        .gte('created_at', currentWeekStart.toISOString())
+        .lte('created_at', currentWeekEnd.toISOString());
+
+      if (error) {
+        console.error('Error fetching current week saved activities:', error);
+        return 0;
+      }
+
+      if (!activities || activities.length === 0) return 0;
+
+      // Get the record IDs to fetch their premiums
+      const recordIds = [...new Set(activities.map(a => a.record_id))];
+      
+      const { data: records, error: recordsError } = await supabase
+        .from('cancel_audit_records')
+        .select('id, premium_cents')
+        .in('id', recordIds);
+
+      if (recordsError) {
+        console.error('Error fetching records for saved:', recordsError);
+        return 0;
+      }
+
+      // Sum up the premiums
+      return records?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
+    },
+    enabled: !!agencyId,
+    staleTime: 60 * 1000,
+  });
+
+  // Fetch prior week SAVED based on payment_made activities
+  const { data: priorWeekSaved, isLoading: loadingPriorSaved } = useQuery({
+    queryKey: ['cancel-audit-hero-saved-prior', agencyId, format(priorWeekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!agencyId) return 0;
+
+      const { data: activities, error } = await supabase
+        .from('cancel_audit_activities')
+        .select('id, record_id, created_at')
+        .eq('agency_id', agencyId)
+        .eq('activity_type', 'payment_made')
+        .gte('created_at', priorWeekStart.toISOString())
+        .lte('created_at', priorWeekEnd.toISOString());
+
+      if (error) {
+        console.error('Error fetching prior week saved activities:', error);
+        return 0;
+      }
+
+      if (!activities || activities.length === 0) return 0;
+
+      const recordIds = [...new Set(activities.map(a => a.record_id))];
+      
+      const { data: records, error: recordsError } = await supabase
+        .from('cancel_audit_records')
+        .select('id, premium_cents')
+        .in('id', recordIds);
+
+      if (recordsError) {
+        console.error('Error fetching records for prior saved:', recordsError);
+        return 0;
+      }
+
+      return records?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
+    },
+    enabled: !!agencyId,
+    staleTime: 60 * 1000,
+  });
+
+  // Calculate stats - Working list and At Risk are all-time, Saved is this week only
   const stats = useMemo(() => {
     if (!allRecords) {
       return {
@@ -103,14 +184,13 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     }
 
     const workingList = allRecords.filter(r => r.status !== 'resolved' && r.status !== 'lost');
-    const saved = allRecords.filter(r => r.status === 'resolved');
 
     return {
       workingListCount: workingList.length,
       atRiskPremium: workingList.reduce((sum, r) => sum + (r.premium_cents || 0), 0),
-      savedPremium: saved.reduce((sum, r) => sum + (r.premium_cents || 0), 0),
+      savedPremium: currentWeekSaved || 0, // This week's saved based on activities
     };
-  }, [allRecords]);
+  }, [allRecords, currentWeekSaved]);
 
   // Calculate week-over-week changes
   const weekOverWeek = useMemo(() => {
@@ -124,13 +204,6 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
       ?.filter(r => r.status !== 'resolved' && r.status !== 'lost')
       .reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
 
-    const currentSaved = currentWeekData
-      ?.filter(r => r.status === 'resolved')
-      .reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
-    const priorSaved = priorWeekData
-      ?.filter(r => r.status === 'resolved')
-      .reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
-
     const calcChange = (current: number, prior: number) => {
       if (prior === 0) return current > 0 ? 100 : 0;
       return Math.round(((current - prior) / prior) * 100);
@@ -139,11 +212,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     return {
       workingListChange: calcChange(currentCount, priorCount),
       atRiskChange: calcChange(currentAtRisk, priorAtRisk),
-      savedChange: calcChange(currentSaved, priorSaved),
+      savedChange: calcChange(currentWeekSaved || 0, priorWeekSaved || 0), // Activity-based comparison
     };
-  }, [currentWeekData, priorWeekData]);
+  }, [currentWeekData, priorWeekData, currentWeekSaved, priorWeekSaved]);
 
-  const isLoading = loadingCurrent || loadingPrior || loadingAll;
+  const isLoading = loadingCurrent || loadingPrior || loadingAll || loadingCurrentSaved || loadingPriorSaved;
 
   if (isLoading) {
     return (
@@ -217,12 +290,12 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
         </CardContent>
       </Card>
 
-      {/* Saved */}
+      {/* Saved This Week */}
       <Card className="border-border">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <CheckCircle2 className="h-4 w-4" />
-            <span className="text-sm font-medium">Saved</span>
+            <span className="text-sm font-medium">Saved This Week</span>
           </div>
           <div className="text-3xl font-bold text-emerald-600 mb-1">
             {formatCurrencyShort(stats.savedPremium)}
