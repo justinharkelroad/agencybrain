@@ -68,9 +68,11 @@ export function SalesUploadModal({
   });
 
   const handleClose = useCallback(() => {
+    console.log('[Sales Upload] Modal closing, resetting state');
     setSelectedFile(null);
     setUploadState('idle');
     setParseErrors([]);
+    setIsParsing(false); // FIX: Always reset parsing state on close
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -81,12 +83,30 @@ export function SalesUploadModal({
     setIsParsing(true);
     setParseErrors([]);
 
+    console.log('[Sales Upload] Starting file parse:', selectedFile.name);
+
+    // Timeout protection - 60 seconds
+    const timeoutId = setTimeout(() => {
+      console.error('[Sales Upload] Timeout after 60 seconds');
+      setParseErrors(['File processing timed out. The file may be too large or corrupted.']);
+      setUploadState('error');
+      setIsParsing(false);
+    }, 60000);
+
     try {
       // Parse Excel file
+      console.log('[Sales Upload] Loading ArrayBuffer...');
       const arrayBuffer = await selectedFile.arrayBuffer();
+      console.log('[Sales Upload] ArrayBuffer loaded, size:', arrayBuffer.byteLength);
+      
       const parsed = parseLqsSalesExcel(arrayBuffer);
+      console.log('[Sales Upload] Parse complete:', parsed.records.length, 'records, success:', parsed.success);
+
+      // Clear timeout since parsing completed
+      clearTimeout(timeoutId);
 
       if (!parsed.success) {
+        console.log('[Sales Upload] Parse failed with errors:', parsed.errors);
         setParseErrors(parsed.errors);
         setUploadState('error');
         setIsParsing(false);
@@ -94,6 +114,7 @@ export function SalesUploadModal({
       }
 
       if (parsed.records.length === 0) {
+        console.log('[Sales Upload] No valid records found');
         setParseErrors(['No valid records found in the file']);
         setUploadState('error');
         setIsParsing(false);
@@ -101,18 +122,27 @@ export function SalesUploadModal({
       }
 
       // Start background upload
+      console.log('[Sales Upload] Starting background upload with', parsed.records.length, 'records...');
       startBackgroundUpload(parsed.records, {
         agencyId,
         userId,
         displayName,
       }, onUploadResults);
 
-      // Close modal immediately
+      // FIX: Reset state BEFORE closing modal
+      console.log('[Sales Upload] Resetting state and closing modal...');
+      setIsParsing(false);
+      setUploadState('idle');
+
+      // Close modal
       if (onUploadComplete) {
         onUploadComplete();
       }
       handleClose();
     } catch (err) {
+      // Clear timeout on error too
+      clearTimeout(timeoutId);
+      console.error('[Sales Upload] Error:', err);
       setParseErrors([err instanceof Error ? err.message : 'Failed to process file']);
       setUploadState('error');
       setIsParsing(false);
@@ -209,7 +239,7 @@ export function SalesUploadModal({
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={handleClose} disabled={isParsing}>
+            <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button onClick={handleUpload} disabled={!canUpload || isParsing}>
