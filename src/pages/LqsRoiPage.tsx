@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Calendar } from '@/components/ui/calendar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -46,6 +52,7 @@ import {
   getDateRangeFromPreset,
   LeadSourceRoiRow 
 } from '@/hooks/useLqsRoiAnalytics';
+import { useLqsRoiExport } from '@/hooks/useLqsRoiExport';
 
 // Format currency from cents
 function formatCurrency(cents: number): string {
@@ -361,6 +368,12 @@ export default function LqsRoiPage() {
     dateRange
   );
 
+  // Export functionality
+  const { exportSummary, exportDetails } = useLqsRoiExport(
+    agencyProfile?.agencyId ?? null,
+    dateRange
+  );
+
   // Admin-only access (same as LQS Roadmap)
   const ADMIN_EMAIL = 'justin@hfiagencies.com';
   const hasAccess = user?.email === ADMIN_EMAIL;
@@ -558,6 +571,24 @@ export default function LqsRoiPage() {
               </Popover>
             )}
           </div>
+          
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportSummary(analytics?.byLeadSource || [])}>
+                Export Summary (Lead Source ROI)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportDetails()}>
+                Export Details (All Households)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
