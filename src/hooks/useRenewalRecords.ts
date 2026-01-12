@@ -211,21 +211,35 @@ export function useBulkDeleteRenewals() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      // First delete any associated activities
-      const { error: activitiesError } = await supabase
-        .from('renewal_activities')
-        .delete()
-        .in('renewal_record_id', ids);
+      // Batch size to avoid URL length limits (Supabase .in() encodes IDs in URL)
+      const BATCH_SIZE = 50;
       
-      if (activitiesError) throw activitiesError;
-      
-      // Then hard delete the records
-      const { error } = await supabase
-        .from('renewal_records')
-        .delete()
-        .in('id', ids);
-      
-      if (error) throw error;
+      // Process deletions in batches
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        
+        // First delete any associated activities for this batch
+        const { error: activitiesError } = await supabase
+          .from('renewal_activities')
+          .delete()
+          .in('renewal_record_id', batch);
+        
+        if (activitiesError) {
+          console.error(`[useBulkDeleteRenewals] Failed to delete activities batch ${i / BATCH_SIZE + 1}:`, activitiesError);
+          throw activitiesError;
+        }
+        
+        // Then hard delete the records for this batch
+        const { error } = await supabase
+          .from('renewal_records')
+          .delete()
+          .in('id', batch);
+        
+        if (error) {
+          console.error(`[useBulkDeleteRenewals] Failed to delete records batch ${i / BATCH_SIZE + 1}:`, error);
+          throw error;
+        }
+      }
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
@@ -233,7 +247,10 @@ export function useBulkDeleteRenewals() {
       queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
       toast.success(`${ids.length} records deleted`);
     },
-    onError: () => toast.error('Failed to delete records'),
+    onError: (error) => {
+      console.error('[useBulkDeleteRenewals] Bulk delete failed:', error);
+      toast.error('Failed to delete records');
+    },
   });
 }
 
@@ -269,7 +286,10 @@ export function useDeleteAllRenewalData() {
       queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
       toast.success('All renewal data deleted');
     },
-    onError: () => toast.error('Failed to delete renewal data'),
+    onError: (error) => {
+      console.error('[useDeleteAllRenewalData] Delete all failed:', error);
+      toast.error('Failed to delete renewal data');
+    },
   });
 }
 
