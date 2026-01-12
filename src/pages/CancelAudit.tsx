@@ -460,6 +460,23 @@ const CancelAuditPage = () => {
               <CancelAuditRecordSkeletonList count={5} />
             ) : hasFilteredRecords ? (
               <div className="space-y-3">
+                {/* Select All Header */}
+                <div className="flex items-center gap-2 px-1 py-2 border-b border-border">
+                  <Checkbox
+                    checked={selectedRecordIds.length === filteredRecords.length && filteredRecords.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedRecordIds(filteredRecords.map(r => r.id));
+                      } else {
+                        setSelectedRecordIds([]);
+                      }
+                    }}
+                    className="flex-shrink-0"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Select all ({filteredRecords.length})
+                  </span>
+                </div>
                 {filteredRecords.map((record) => (
                   <div key={record.id} className="flex items-start gap-2">
                     <Checkbox
