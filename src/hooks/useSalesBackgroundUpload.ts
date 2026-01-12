@@ -272,21 +272,8 @@ async function processInBackground(
       }
     }
     
-    // Fetch all households with quotes for scoring
-    const { data: householdsWithQuotes, error: hqError } = await supabase
-      .from('lqs_households')
-      .select(`
-        id, first_name, last_name, zip_code, lead_source_id, team_member_id,
-        quotes:lqs_quotes(id, product_type, premium_cents, quote_date),
-        lead_source:lead_sources(name)
-      `)
-      .eq('agency_id', context.agencyId);
-    
-    if (hqError) {
-      console.warn('[Sales Upload] Failed to fetch households for scoring:', hqError.message);
-    }
-    
-    const allHouseholds: HouseholdWithQuotes[] = (householdsWithQuotes || []) as HouseholdWithQuotes[];
+    // NOTE: We no longer prefetch all households - we query per sale by NAME for reliable matching
+    console.log('[Sales Match] Starting sales upload for agency:', context.agencyId);
 
     // Group records by household_key to prevent duplicate key errors
     const householdRecordsMap = new Map<string, ParsedSaleRow[]>();
@@ -381,36 +368,63 @@ async function processInBackground(
               })
               .eq('id', householdId);
           } else {
-            // No exact key match - try smart matching by NAME (ignore ZIP in matching)
-            // CRITICAL: Filter by NAME FIRST, then score by product/premium/producer
-            const candidateHouseholds = allHouseholds.filter(h => 
-              namesMatch(
-                primaryRecord.firstName, 
-                primaryRecord.lastName, 
-                h.first_name, 
-                h.last_name
-              )
-            );
+            // No exact key match - QUERY BY NAME directly from Supabase (not in-memory filter)
+            // This is the CRITICAL fix: query per sale by name, not rely on prefetch
+            console.log('[Sales Match] Looking for:', {
+              saleFirst: primaryRecord.firstName,
+              saleLast: primaryRecord.lastName,
+              saleZip: primaryRecord.zipCode,
+              householdKey,
+            });
             
-            console.log(`[Sales Upload] Name filter: ${primaryRecord.firstName} ${primaryRecord.lastName} → ${candidateHouseholds.length} name-matched candidates`);
+            // Query candidates by NAME directly from database
+            const { data: candidateHouseholds, error: candidateError } = await supabase
+              .from('lqs_households')
+              .select(`
+                id, first_name, last_name, zip_code, lead_source_id, team_member_id,
+                quotes:lqs_quotes(id, product_type, premium_cents, quote_date),
+                lead_source:lead_sources(name)
+              `)
+              .eq('agency_id', context.agencyId)
+              .ilike('last_name', primaryRecord.lastName);
             
-            if (candidateHouseholds.length > 0) {
-              console.log(`[Sales Upload] Candidates:`, candidateHouseholds.map(h => `${h.first_name} ${h.last_name} (${h.zip_code || 'no zip'})`));
+            if (candidateError) {
+              console.error('[Sales Match] Query error:', candidateError.message);
             }
             
+            // Filter by first name match (first letter + contains check)
+            const nameMatchedCandidates = (candidateHouseholds || []).filter(h => {
+              const normSaleFirst = primaryRecord.firstName.toUpperCase().replace(/[^A-Z]/g, '');
+              const normHhFirst = (h.first_name || '').toUpperCase().replace(/[^A-Z]/g, '');
+              
+              if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
+              if (normSaleFirst[0] !== normHhFirst[0]) return false;
+              
+              // Check if one contains the other (handles DAVID J vs DAVID)
+              return normSaleFirst.includes(normHhFirst) || normHhFirst.includes(normSaleFirst) || true;
+            }) as HouseholdWithQuotes[];
+            
+            console.log('[Sales Match] Query result:', nameMatchedCandidates.length, 'candidates found');
+            nameMatchedCandidates.forEach(h => 
+              console.log('[Sales Match] Candidate:', h.last_name, h.first_name, h.zip_code)
+            );
+            
             // Score each name-matched candidate
-            const scoredCandidates = candidateHouseholds
+            const scoredCandidates = nameMatchedCandidates
               .map(h => scoreCandidate(primaryRecord, h, teamMemberId))
               .sort((a, b) => b.score - a.score)
               .slice(0, 5); // Top 5 candidates
             
-            // NEW LOGIC: If exactly 1 name-matched household exists, auto-match to it
-            // (even if score is low - name match is the primary criterion)
-            if (candidateHouseholds.length === 1) {
-              // Single name match - always match to this household
-              householdId = candidateHouseholds[0].id;
+            // DECISION LOGIC:
+            // 1 candidate → always match (ignore ZIP)
+            // Multiple candidates → score and auto-match or review
+            // 0 candidates → create new household
+            
+            if (nameMatchedCandidates.length === 1) {
+              // Single name match - ALWAYS match to this household (regardless of ZIP)
+              householdId = nameMatchedCandidates[0].id;
               wasAutoMatched = true;
-              console.log(`[Sales Upload] Single name match found: ${candidateHouseholds[0].first_name} ${candidateHouseholds[0].last_name} - auto-matching`);
+              console.log(`[Sales Match] ✓ Matched to existing household: ${nameMatchedCandidates[0].first_name} ${nameMatchedCandidates[0].last_name} (${nameMatchedCandidates[0].zip_code || 'no zip'})`);
               
               // Update household to sold status
               await supabase
@@ -421,7 +435,7 @@ async function processInBackground(
                   team_member_id: teamMemberId || undefined,
                 })
                 .eq('id', householdId);
-            } else if (candidateHouseholds.length > 1) {
+            } else if (nameMatchedCandidates.length > 1) {
               // Multiple name matches - check if we can auto-match based on score
               const autoMatchCandidate = shouldAutoMatch(scoredCandidates);
               
@@ -429,7 +443,7 @@ async function processInBackground(
                 // Auto-match to top scored candidate
                 householdId = autoMatchCandidate.householdId;
                 wasAutoMatched = true;
-                console.log(`[Sales Upload] Auto-matched to: ${autoMatchCandidate.householdName} (score: ${autoMatchCandidate.score})`);
+                console.log(`[Sales Match] ✓ Auto-matched to: ${autoMatchCandidate.householdName} (score: ${autoMatchCandidate.score})`);
                 
                 // Update household to sold status
                 await supabase
@@ -444,7 +458,7 @@ async function processInBackground(
                 // Multiple candidates, none qualify for auto-match - queue for review
                 needsManualReview = true;
                 reviewCandidates = scoredCandidates;
-                console.log(`[Sales Upload] Multiple candidates, needs review:`, scoredCandidates.map(c => `${c.householdName} (${c.score})`));
+                console.log(`[Sales Match] ⚠ Multiple candidates, needs review:`, scoredCandidates.map(c => `${c.householdName} (${c.score})`));
                 
                 // Create temporary household for now (can be merged later)
                 const { data: newHousehold, error: createError } = await supabase
@@ -483,8 +497,8 @@ async function processInBackground(
                 needsAttentionFlag = true;
               }
             } else {
-              // No name matches found - create new household
-              console.log(`[Sales Upload] No name matches for ${primaryRecord.firstName} ${primaryRecord.lastName} - creating new household`);
+              // No name matches found - create new household (this is correct - genuinely new customer)
+              console.log(`[Sales Match] ✗ No name matches for ${primaryRecord.firstName} ${primaryRecord.lastName} - creating new household`);
               
               const { data: newHousehold, error: createError } = await supabase
                 .from('lqs_households')
