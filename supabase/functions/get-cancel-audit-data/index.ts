@@ -442,7 +442,33 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
 
 // Update record status
 async function updateStatus(supabase: any, agencyId: string, params: any) {
-  const { recordId, status } = params;
+  const { recordId, status, cleanupActivities } = params;
+
+  // If reverting from resolved, delete payment_made activities
+  if (status !== 'resolved') {
+    // Get current record status first
+    const { data: currentRecord } = await supabase
+      .from("cancel_audit_records")
+      .select("status")
+      .eq("id", recordId)
+      .eq("agency_id", agencyId)
+      .single();
+
+    if (currentRecord?.status === 'resolved') {
+      // Delete payment_made activities for this record
+      const { error: deleteError } = await supabase
+        .from("cancel_audit_activities")
+        .delete()
+        .eq("record_id", recordId)
+        .eq("activity_type", "payment_made");
+      
+      if (deleteError) {
+        console.error("[updateStatus] Failed to delete payment_made activities:", deleteError);
+      } else {
+        console.log("[updateStatus] Deleted payment_made activities for record:", recordId);
+      }
+    }
+  }
 
   const { data, error } = await supabase
     .from("cancel_audit_records")

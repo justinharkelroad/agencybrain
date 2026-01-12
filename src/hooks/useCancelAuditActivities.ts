@@ -202,7 +202,37 @@ export function useUpdateRecordStatus() {
     mutationFn: async ({ recordId, status, agencyId }: { recordId: string; status: string; agencyId?: string }) => {
       const staffSessionToken = getStaffSessionToken();
 
-      // Staff portal: use edge function
+      // First, check if we need to delete payment_made activities (reverting from resolved)
+      if (status !== 'resolved') {
+        // Get current record status first
+        if (staffSessionToken) {
+          // Staff portal: edge function handles this check
+          // We'll add the flag to let the edge function know to clean up activities
+          return callCancelAuditApi({
+            operation: "update_status",
+            params: { recordId, status, cleanupActivities: true },
+            sessionToken: staffSessionToken,
+          });
+        }
+
+        // Regular auth: check current status and delete activities if needed
+        const { data: currentRecord } = await supabase
+          .from('cancel_audit_records')
+          .select('status, household_key, agency_id')
+          .eq('id', recordId)
+          .single();
+
+        if (currentRecord?.status === 'resolved') {
+          // Delete payment_made activities for this record
+          await supabase
+            .from('cancel_audit_activities')
+            .delete()
+            .eq('record_id', recordId)
+            .eq('activity_type', 'payment_made');
+        }
+      }
+
+      // Staff portal: use edge function (for non-cleanup case)
       if (staffSessionToken) {
         return callCancelAuditApi({
           operation: "update_status",
@@ -225,6 +255,7 @@ export function useUpdateRecordStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
       // Invalidate Hero Stats queries (partial match for all cancel-audit-hero-* keys)
       queryClient.invalidateQueries({
         predicate: (query) =>

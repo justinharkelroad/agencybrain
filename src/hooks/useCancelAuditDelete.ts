@@ -31,6 +31,13 @@ export function useBulkDeleteCancelAuditRecords() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      // Invalidate Hero Stats queries
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === 'string' &&
+          query.queryKey[0].startsWith('cancel-audit-hero-')
+      });
       toast.success(`${count} record${count > 1 ? 's' : ''} deleted`);
     },
     onError: () => {
@@ -72,6 +79,13 @@ export function useDeleteAllCancelAuditData() {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      // Invalidate Hero Stats queries
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === 'string' &&
+          query.queryKey[0].startsWith('cancel-audit-hero-')
+      });
       toast.success('All cancel audit data deleted');
     },
     onError: () => {
