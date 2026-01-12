@@ -65,6 +65,7 @@ import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
 import LqsRoadmapPage from "./pages/LqsRoadmapPage";
+import LqsRoiPage from "./pages/LqsRoiPage";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -276,6 +277,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <LqsRoadmapPage />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* LQS ROI Analytics - Agency Owners and Key Employees Only */}
+            <Route path="/lqs-roi" element={
+              <ProtectedRoute requireAgencyOwner>
+                <SidebarLayout>
+                  <LqsRoiPage />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

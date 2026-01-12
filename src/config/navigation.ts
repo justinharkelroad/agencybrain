@@ -114,7 +114,15 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roadmap',
         access: { staff: false, manager: true, owner: true },
-        emailRestriction: 'justin@hfiagencies.com',
+        emailRestriction: 'justin@hfiagencies.com', // Beta restriction
+      },
+      {
+        id: 'lqs-roi',
+        title: 'ROI Analytics',
+        icon: BarChart3,
+        type: 'link',
+        url: '/lqs-roi',
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'ai-sales-bot',
