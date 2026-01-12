@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import * as XLSX from 'xlsx';
 import { Upload, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useRenewalBackgroundUpload } from '@/hooks/useRenewalBackgroundUpload';
 import { parseRenewalExcel, getRenewalDateRange } from '@/lib/renewalParser';
 import type { ParsedRenewalRecord, RenewalUploadContext } from '@/types/renewal';
@@ -18,7 +19,18 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
   const [parsedRecords, setParsedRecords] = useState<ParsedRenewalRecord[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [includeRenewalTaken, setIncludeRenewalTaken] = useState(false);
   const { startBackgroundUpload } = useRenewalBackgroundUpload();
+
+  // Filter out "Renewal Taken" by default
+  const recordsToUpload = useMemo(() => {
+    if (includeRenewalTaken) return parsedRecords;
+    return parsedRecords.filter(r => r.renewalStatus !== 'Renewal Taken');
+  }, [parsedRecords, includeRenewalTaken]);
+
+  const renewalTakenCount = useMemo(() => {
+    return parsedRecords.filter(r => r.renewalStatus === 'Renewal Taken').length;
+  }, [parsedRecords]);
 
   // Listen for sidebar navigation to force close dialog
   useEffect(() => {
@@ -33,7 +45,7 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const f = acceptedFiles[0]; if (!f) return;
-    setFile(f); setParseError(null); setParsedRecords([]);
+    setFile(f); setParseError(null); setParsedRecords([]); setIncludeRenewalTaken(false);
     try {
       const buffer = await f.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
@@ -47,12 +59,12 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
   });
 
   const handleUpload = async () => { 
-    if (!file || !parsedRecords.length) return;
+    if (!file || !recordsToUpload.length) return;
     
     setIsStarting(true);
     try { 
       // Fire and forget - starts background processing immediately
-      await startBackgroundUpload(parsedRecords, file.name, context);
+      await startBackgroundUpload(recordsToUpload, file.name, context);
       
       // Close modal immediately - processing continues in background
       handleClose();
@@ -67,10 +79,11 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
     setParsedRecords([]); 
     setParseError(null); 
     setIsStarting(false);
+    setIncludeRenewalTaken(false);
     onClose(); 
   };
   
-  const dateRange = parsedRecords.length ? getRenewalDateRange(parsedRecords) : null;
+  const dateRange = recordsToUpload.length ? getRenewalDateRange(recordsToUpload) : null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -93,16 +106,36 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
                 <FileSpreadsheet className="h-8 w-8 text-green-600" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{file.name}</p>
-                  <p className="text-sm text-muted-foreground">{parsedRecords.length} records{dateRange?.start && ` • ${dateRange.start} to ${dateRange.end}`}</p>
+                  <p className="text-sm text-muted-foreground">{recordsToUpload.length} records to upload{dateRange?.start && ` • ${dateRange.start} to ${dateRange.end}`}</p>
                 </div>
                 {!isStarting && <Button variant="ghost" size="icon" onClick={() => { setFile(null); setParsedRecords([]); }}><X className="h-4 w-4" /></Button>}
               </div>
+              
+              {/* Include Renewal Taken checkbox */}
               {parsedRecords.length > 0 && (
+                <div className="flex items-center gap-2 px-1">
+                  <Checkbox 
+                    id="include-renewal-taken"
+                    checked={includeRenewalTaken}
+                    onCheckedChange={(checked) => setIncludeRenewalTaken(!!checked)}
+                  />
+                  <label htmlFor="include-renewal-taken" className="text-sm cursor-pointer select-none">
+                    Include "Renewal Taken" records 
+                    {renewalTakenCount > 0 && (
+                      <span className="text-muted-foreground ml-1">
+                        ({renewalTakenCount} found - these are already retained customers)
+                      </span>
+                    )}
+                  </label>
+                </div>
+              )}
+              
+              {recordsToUpload.length > 0 && (
                 <ScrollArea className="h-[250px] border rounded-lg">
                   <Table>
                     <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Policy</TableHead><TableHead>Product</TableHead><TableHead className="text-right">Old</TableHead><TableHead className="text-right">New</TableHead><TableHead className="text-right">Change</TableHead><TableHead>Bundled</TableHead></TableRow></TableHeader>
                     <TableBody>
-                      {parsedRecords.slice(0, 8).map((r, i) => (
+                      {recordsToUpload.slice(0, 8).map((r, i) => (
                         <TableRow key={i}>
                           <TableCell>{r.firstName} {r.lastName}</TableCell>
                           <TableCell className="font-mono text-sm">{r.policyNumber}</TableCell>
@@ -123,8 +156,8 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isStarting}>Cancel</Button>
-          <Button onClick={handleUpload} disabled={!file || !parsedRecords.length || isStarting || !!parseError}>
-            {isStarting ? 'Starting...' : `Upload ${parsedRecords.length} Records`}
+          <Button onClick={handleUpload} disabled={!file || !recordsToUpload.length || isStarting || !!parseError}>
+            {isStarting ? 'Starting...' : `Upload ${recordsToUpload.length} Records`}
           </Button>
         </DialogFooter>
       </DialogContent>
