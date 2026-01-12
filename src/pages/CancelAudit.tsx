@@ -54,7 +54,7 @@ const CancelAuditPage = () => {
   const [statusFilter, setStatusFilter] = useState<RecordStatusType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added'>('urgency');
+  const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added' | 'cancel_status'>('urgency');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);

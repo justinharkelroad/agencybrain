@@ -18,6 +18,7 @@ export interface ParsedCancelAuditRecord {
   cancel_date: string | null;
   renewal_effective_date: string | null;
   pending_cancel_date: string | null;
+  cancel_status: string | null;
 }
 
 export interface ParseResult {
@@ -171,6 +172,18 @@ export function parseCancelAuditExcel(
       const lastName = getValue('Insured Last Name') ? String(getValue('Insured Last Name')).trim() : null;
 
       // Note: "Insured Preferred  Phone" has double space in original Allstate report
+      // Read the Status column from Excel: "Cancel" (pending/savable) vs "Cancelled" (already lost)
+      const excelStatus = getValue('Status') ? String(getValue('Status')).trim() : null;
+      
+      // Derive report_type from Excel Status column if present
+      // "Cancel" = pending cancellation (savable), "Cancelled" = already cancelled
+      const derivedReportType: 'cancellation' | 'pending_cancel' = 
+        excelStatus?.toLowerCase() === 'cancel' 
+          ? 'pending_cancel' 
+          : excelStatus?.toLowerCase() === 'cancelled'
+            ? 'cancellation'
+            : reportType; // fallback to parameter if Status column missing/unrecognized
+
       const record: ParsedCancelAuditRecord = {
         policy_number: policyNumber,
         household_key: generateHouseholdKey(firstName, lastName),
@@ -178,17 +191,18 @@ export function parseCancelAuditExcel(
         insured_last_name: lastName,
         insured_email: getValue('Insured Email') ? String(getValue('Insured Email')).trim().toLowerCase() : null,
         insured_phone: cleanPhone(getValue('Insured Phone')),
-        insured_phone_alt: reportType === 'cancellation' ? cleanPhone(getValue('Insured Preferred  Phone')) : null,
+        insured_phone_alt: derivedReportType === 'cancellation' ? cleanPhone(getValue('Insured Preferred  Phone')) : null,
         agent_number: getValue('Agent#') ? String(getValue('Agent#')).trim() : null,
         product_name: getValue('Product Name') ? String(getValue('Product Name')).trim() : null,
         premium_cents: parseCurrencyToCents(getValue('Premium New($)')),
         no_of_items: parseInt(String(getValue('No. of Items') || '1')) || 1,
         account_type: mapAccountType(getValue('Account Type')),
-        report_type: reportType,
-        amount_due_cents: reportType === 'cancellation' ? parseCurrencyToCents(getValue('Amount Due($)')) : null,
-        cancel_date: reportType === 'cancellation' ? parseDate(getValue('Cancel Date')) : null,
-        renewal_effective_date: reportType === 'pending_cancel' ? parseDate(getValue('Renewal Effective Date')) : null,
-        pending_cancel_date: reportType === 'pending_cancel' ? parseDate(getValue('Pending Cancel Date')) : null,
+        report_type: derivedReportType,
+        amount_due_cents: derivedReportType === 'cancellation' ? parseCurrencyToCents(getValue('Amount Due($)')) : null,
+        cancel_date: derivedReportType === 'cancellation' ? parseDate(getValue('Cancel Date')) : null,
+        renewal_effective_date: derivedReportType === 'pending_cancel' ? parseDate(getValue('Renewal Effective Date')) : null,
+        pending_cancel_date: derivedReportType === 'pending_cancel' ? parseDate(getValue('Pending Cancel Date')) : null,
+        cancel_status: excelStatus,
       };
 
       records.push(record);

@@ -10,18 +10,22 @@ interface StatusIndicatorProps {
 export function StatusIndicator({ record, showStatusBadge = false }: StatusIndicatorProps) {
   const urgency = getUrgencyLevel(record);
   const daysUntil = record.pending_cancel_date ? getDaysUntil(record.pending_cancel_date) : null;
+  
+  // Display the actual cancel_status from Excel (Cancel vs Cancelled)
+  const cancelStatusLabel = record.cancel_status || (record.report_type === 'pending_cancel' ? 'Cancel' : 'Cancelled');
+  const isSavable = cancelStatusLabel.toLowerCase() === 'cancel';
 
   const urgencyColors = {
     critical: 'bg-red-500',
     warning: 'bg-yellow-500',
-    cancelled: 'bg-red-400',
+    cancelled: isSavable ? 'bg-yellow-500' : 'bg-red-400',
     normal: 'bg-green-500',
   };
 
   const urgencyLabels = {
     critical: daysUntil === 0 ? 'Today!' : `${Math.abs(daysUntil || 0)}d overdue`,
     warning: `${daysUntil}d left`,
-    cancelled: 'Cancelled',
+    cancelled: cancelStatusLabel,
     normal: daysUntil ? `${daysUntil}d left` : '',
   };
 

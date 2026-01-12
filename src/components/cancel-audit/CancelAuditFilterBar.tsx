@@ -35,8 +35,8 @@ interface CancelAuditFilterBarProps {
   onReportTypeFilterChange: (filter: ReportType | 'all') => void;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
-  sortBy: 'urgency' | 'name' | 'date_added';
-  onSortByChange: (sort: 'urgency' | 'name' | 'date_added') => void;
+  sortBy: 'urgency' | 'name' | 'date_added' | 'cancel_status';
+  onSortByChange: (sort: 'urgency' | 'name' | 'date_added' | 'cancel_status') => void;
   counts: FilterCounts;
   isLoading?: boolean;
   statusFilter: RecordStatus | 'all';
@@ -236,13 +236,14 @@ export function CancelAuditFilterBar({
 
         {/* Sort dropdown */}
         <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="urgency">Urgency</SelectItem>
             <SelectItem value="name">Name</SelectItem>
             <SelectItem value="date_added">Date Added</SelectItem>
+            <SelectItem value="cancel_status">Cancel Status</SelectItem>
           </SelectContent>
         </Select>
 
