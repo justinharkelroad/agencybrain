@@ -60,16 +60,28 @@ export function getDateRangeFromPreset(preset: DateRangePreset): { start: Date; 
   }
 }
 
+// Extended household row with quotes and sales for date filtering
 interface HouseholdRow {
   id: string;
   status: string | null;
   lead_source_id: string | null;
   created_at: string;
-  sales: Array<{ premium_cents: number | null }> | null;
+  lead_received_date: string | null;
+  quotes: Array<{ quote_date: string | null; premium_cents: number | null }> | null;
+  sales: Array<{ sale_date: string | null; premium_cents: number | null }> | null;
 }
 
 const PAGE_SIZE = 1000;
 const MAX_FETCH = 20000;
+
+// Helper to check if a date string is within a range
+function isDateInRange(dateStr: string | null, range: { start: Date; end: Date } | null): boolean {
+  if (!range) return true; // No filter = include all
+  if (!dateStr) return false; // No date = exclude
+  
+  const date = new Date(dateStr);
+  return date >= range.start && date <= range.end;
+}
 
 export function useLqsRoiAnalytics(
   agencyId: string | null,
@@ -91,31 +103,30 @@ export function useLqsRoiAnalytics(
     },
   });
 
-  // Fetch households with sales (paginated to avoid 1000 row limit)
+  // Fetch ALL households with quotes and sales (no date filter at DB level)
+  // Date filtering happens in memory based on status-specific date fields
   const householdsQuery = useQuery({
-    queryKey: ['lqs-roi-households', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
+    queryKey: ['lqs-roi-households', agencyId],
     enabled: !!agencyId,
     queryFn: async (): Promise<HouseholdRow[]> => {
       const allRows: HouseholdRow[] = [];
       
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
-        let query = supabase
+        const query = supabase
           .from('lqs_households')
           .select(`
             id,
             status,
             lead_source_id,
             created_at,
-            sales:lqs_sales(premium_cents)
+            lead_received_date,
+            quotes:lqs_quotes(quote_date, premium_cents),
+            sales:lqs_sales(sale_date, premium_cents)
           `)
           .eq('agency_id', agencyId!)
           .range(from, from + PAGE_SIZE - 1);
         
-        if (dateRange) {
-          query = query
-            .gte('created_at', dateRange.start.toISOString())
-            .lte('created_at', dateRange.end.toISOString());
-        }
+        // No date filter at DB level - we filter in memory by status-specific dates
         
         const { data: page, error } = await query;
         if (error) throw error;
@@ -171,11 +182,11 @@ export function useLqsRoiAnalytics(
     },
   });
 
-  // Aggregate analytics
+  // Aggregate analytics with status-specific date filtering
   const analytics = useMemo<LqsRoiAnalytics | null>(() => {
     if (!householdsQuery.data || !leadSourcesQuery.data) return null;
 
-    const households = householdsQuery.data;
+    const allHouseholds = householdsQuery.data;
     const leadSources = leadSourcesQuery.data;
     const spendData = spendQuery.data || [];
     
@@ -192,17 +203,43 @@ export function useLqsRoiAnalytics(
       spendBySource.set(s.lead_source_id, current + (s.total_spend_cents || 0));
     });
 
+    // Filter households based on status-specific date fields
+    // Open Leads (status = 'lead'): filter by lead_received_date or created_at
+    // Quoted (status = 'quoted'): filter by quote_date from related quotes
+    // Sold (status = 'sold'): filter by sale_date from related sales
+    
+    const filteredHouseholds = allHouseholds.filter(h => {
+      if (!dateRange) return true; // No date filter = include all
+      
+      if (h.status === 'lead') {
+        // Filter by lead_received_date or created_at
+        const leadDate = h.lead_received_date || h.created_at;
+        return isDateInRange(leadDate, dateRange);
+      } else if (h.status === 'quoted') {
+        // Filter by quote_date from related quotes
+        if (!h.quotes || h.quotes.length === 0) return false;
+        return h.quotes.some(q => isDateInRange(q.quote_date, dateRange));
+      } else if (h.status === 'sold') {
+        // Filter by sale_date from related sales
+        if (!h.sales || h.sales.length === 0) return false;
+        return h.sales.some(s => isDateInRange(s.sale_date, dateRange));
+      }
+      
+      // For any other status, use created_at as fallback
+      return isDateInRange(h.created_at, dateRange);
+    });
+
     // Calculate summary metrics - FIXED COUNTS
-    const openLeads = households.filter(h => h.status === 'lead').length;
-    const quotedHouseholds = households.filter(h => h.status === 'quoted').length;
-    const soldHouseholds = households.filter(h => h.status === 'sold').length;
+    const openLeads = filteredHouseholds.filter(h => h.status === 'lead').length;
+    const quotedHouseholds = filteredHouseholds.filter(h => h.status === 'quoted').length;
+    const soldHouseholds = filteredHouseholds.filter(h => h.status === 'sold').length;
     
     // Legacy total counts for funnel calculations
-    const totalLeads = households.length;
-    const totalQuoted = households.filter(h => h.status === 'quoted' || h.status === 'sold').length;
+    const totalLeads = filteredHouseholds.length;
+    const totalQuoted = filteredHouseholds.filter(h => h.status === 'quoted' || h.status === 'sold').length;
     const totalSold = soldHouseholds;
     
-    const premiumSoldCents = households.reduce((sum, h) => {
+    const premiumSoldCents = filteredHouseholds.reduce((sum, h) => {
       const householdPremium = (h.sales || []).reduce((s, sale) => s + (sale.premium_cents || 0), 0);
       return sum + householdPremium;
     }, 0);
@@ -243,7 +280,7 @@ export function useLqsRoiAnalytics(
       premiumCents: number;
     }>();
 
-    households.forEach(h => {
+    filteredHouseholds.forEach(h => {
       const sourceId = h.lead_source_id;
       const current = bySourceMap.get(sourceId) || { leads: 0, quotes: 0, sales: 0, premiumCents: 0 };
       
@@ -289,7 +326,7 @@ export function useLqsRoiAnalytics(
     byLeadSource.sort((a, b) => b.premiumCents - a.premiumCents);
 
     return { summary, byLeadSource };
-  }, [householdsQuery.data, leadSourcesQuery.data, spendQuery.data, agencyQuery.data]);
+  }, [householdsQuery.data, leadSourcesQuery.data, spendQuery.data, agencyQuery.data, dateRange]);
 
   return {
     data: analytics,
