@@ -887,6 +887,7 @@ export type Database = {
           agent_number: string | null
           amount_due_cents: number | null
           cancel_date: string | null
+          cancel_status: string | null
           created_at: string
           household_key: string
           id: string
@@ -913,6 +914,7 @@ export type Database = {
           agent_number?: string | null
           amount_due_cents?: number | null
           cancel_date?: string | null
+          cancel_status?: string | null
           created_at?: string
           household_key: string
           id?: string
@@ -939,6 +941,7 @@ export type Database = {
           agent_number?: string | null
           amount_due_cents?: number | null
           cancel_date?: string | null
+          cancel_status?: string | null
           created_at?: string
           household_key?: string
           id?: string

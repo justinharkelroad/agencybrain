@@ -10,7 +10,7 @@ interface UseCancelAuditRecordsOptions {
   viewMode: ViewMode;
   reportTypeFilter: ReportType | 'all';
   searchQuery: string;
-  sortBy: 'urgency' | 'name' | 'date_added';
+  sortBy: 'urgency' | 'name' | 'date_added' | 'cancel_status';
   showCurrentOnly?: boolean;
 }
 
@@ -92,6 +92,11 @@ export function useCancelAuditRecords({
         query = query
           .order('insured_last_name', { ascending: true })
           .order('insured_first_name', { ascending: true });
+      } else if (sortBy === 'cancel_status') {
+        // Sort by cancel_status: 'Cancel' (savable) first, then 'Cancelled'
+        query = query
+          .order('cancel_status', { ascending: true })
+          .order('pending_cancel_date', { ascending: true, nullsFirst: false });
       } else {
         query = query.order('created_at', { ascending: false });
       }
