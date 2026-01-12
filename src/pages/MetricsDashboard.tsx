@@ -110,7 +110,8 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
   );
 
   // Load KPI labels from database (replaces hardcoded labels)
-  const { data: kpiLabels } = useKpiLabels(agencyProfile?.agencyId);
+  // Pass role to get role-specific labels (e.g., Service's "Life Referrals" vs Sales's "Outbound Calls")
+  const { data: kpiLabels } = useKpiLabels(agencyProfile?.agencyId, role);
 
   // Show loading skeleton on first load
   if (agencyLoading || (dashboardLoading && !dashboardData)) {

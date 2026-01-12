@@ -50,7 +50,8 @@ export default function TeamRingsGrid() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   // Fetch current KPI labels from database (not hardcoded)
-  const { data: kpiLabels } = useKpiLabels(agencyId);
+  // Pass selectedRole to get role-specific labels (e.g., Service's "Life Referrals" vs Sales's "Outbound Calls")
+  const { data: kpiLabels } = useKpiLabels(agencyId, selectedRole);
 
   // Load agency and ring metrics
   useEffect(() => {
