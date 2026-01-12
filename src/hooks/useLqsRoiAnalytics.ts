@@ -61,35 +61,50 @@ interface HouseholdRow {
   sales: Array<{ premium_cents: number | null }> | null;
 }
 
+const PAGE_SIZE = 1000;
+const MAX_FETCH = 20000;
+
 export function useLqsRoiAnalytics(
   agencyId: string | null,
   dateRange: { start: Date; end: Date } | null
 ) {
-  // Fetch households with sales
+  // Fetch households with sales (paginated to avoid 1000 row limit)
   const householdsQuery = useQuery({
     queryKey: ['lqs-roi-households', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     enabled: !!agencyId,
     queryFn: async (): Promise<HouseholdRow[]> => {
-      let query = supabase
-        .from('lqs_households')
-        .select(`
-          id,
-          status,
-          lead_source_id,
-          created_at,
-          sales:lqs_sales(premium_cents)
-        `)
-        .eq('agency_id', agencyId!);
+      const allRows: HouseholdRow[] = [];
       
-      if (dateRange) {
-        query = query
-          .gte('created_at', dateRange.start.toISOString())
-          .lte('created_at', dateRange.end.toISOString());
+      for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
+        let query = supabase
+          .from('lqs_households')
+          .select(`
+            id,
+            status,
+            lead_source_id,
+            created_at,
+            sales:lqs_sales(premium_cents)
+          `)
+          .eq('agency_id', agencyId!)
+          .range(from, from + PAGE_SIZE - 1);
+        
+        if (dateRange) {
+          query = query
+            .gte('created_at', dateRange.start.toISOString())
+            .lte('created_at', dateRange.end.toISOString());
+        }
+        
+        const { data: page, error } = await query;
+        if (error) throw error;
+        if (!page || page.length === 0) break;
+        
+        allRows.push(...(page as HouseholdRow[]));
+        
+        // If we got less than PAGE_SIZE, we've reached the end
+        if (page.length < PAGE_SIZE) break;
       }
       
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as HouseholdRow[];
+      return allRows;
     },
   });
 
