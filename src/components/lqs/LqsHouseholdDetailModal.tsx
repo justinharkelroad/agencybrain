@@ -50,6 +50,7 @@ export function LqsHouseholdDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
+  const [editZipCode, setEditZipCode] = useState('');
 
   // Reset edit state when household changes
   useEffect(() => {
@@ -60,6 +61,7 @@ export function LqsHouseholdDetailModal({
         : household.phone ? [household.phone] : [];
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
+      setEditZipCode(household.zip_code || '');
       setIsEditing(false);
     }
   }, [household]);
@@ -80,8 +82,20 @@ export function LqsHouseholdDetailModal({
     setEditPhones(newPhones);
   };
 
+  // Validate ZIP code format (5 digits or 5+4)
+  const isValidZip = (zip: string): boolean => {
+    if (!zip) return true; // Empty is valid
+    return /^\d{5}(-\d{4})?$/.test(zip);
+  };
+
   const handleSave = async () => {
     if (!household) return;
+
+    // Validate ZIP if provided
+    if (editZipCode && !isValidZip(editZipCode)) {
+      toast.error('Invalid ZIP code format. Use 5 digits (12345) or 5+4 (12345-6789)');
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -93,6 +107,7 @@ export function LqsHouseholdDetailModal({
         .update({
           phone: cleanedPhones.length > 0 ? cleanedPhones : null,
           email: editEmail || null,
+          zip_code: editZipCode || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', household.id);
@@ -118,6 +133,7 @@ export function LqsHouseholdDetailModal({
         : household.phone ? [household.phone] : [];
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
+      setEditZipCode(household.zip_code || '');
     }
     setIsEditing(false);
   };
@@ -267,7 +283,16 @@ export function LqsHouseholdDetailModal({
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span>{household.zip_code || '—'}</span>
+                  {isEditing ? (
+                    <Input
+                      value={editZipCode}
+                      onChange={(e) => setEditZipCode(e.target.value)}
+                      placeholder="ZIP Code"
+                      className="h-8"
+                    />
+                  ) : (
+                    <span>{household.zip_code || '—'}</span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 text-muted-foreground">

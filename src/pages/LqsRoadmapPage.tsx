@@ -44,7 +44,7 @@ import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
 
-type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention';
+type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention' | 'missing-zip';
 type ViewMode = 'overview' | 'detail';
 type DataViewMode = 'agency' | 'personal';
 
@@ -202,6 +202,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         return result.filter(h => h.lead_source?.is_self_generated === true);
       case 'needs-attention':
         return result.filter(h => h.needs_attention);
+      case 'missing-zip':
+        return result.filter(h => !h.zip_code || h.zip_code.trim() === '');
       default:
         return result;
     }
@@ -555,6 +557,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
               <TabsTrigger value="by-producer">By Producer</TabsTrigger>
               <TabsTrigger value="by-zip">By Zip</TabsTrigger>
               <TabsTrigger value="self-generated">Self-Generated</TabsTrigger>
+              <TabsTrigger value="missing-zip">Missing Zip</TabsTrigger>
               {(activeBucket === 'quoted' || activeBucket === 'sold') && (
                 <TabsTrigger value="needs-attention" className="relative">
                   Needs Attention
