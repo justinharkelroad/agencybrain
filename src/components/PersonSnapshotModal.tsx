@@ -2,7 +2,7 @@ import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { supabase } from "@/lib/supabaseClient";
+import { fetchWithAuth } from "@/lib/staffRequest";
 import type { SnapshotResponse, SnapshotDay } from "@/types/snapshot";
 
 type Props = { open: boolean; onOpenChange: (v: boolean) => void; memberId: string | null };
@@ -32,30 +32,19 @@ export default function PersonSnapshotModal({ open, onOpenChange, memberId }: Pr
     queryKey: ["member-month-snapshot", memberId, yyyymm(month)],
     enabled,
     queryFn: async () => {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      
-      if (!token) {
-        throw new Error("No authentication token");
-      }
-      
-      const response = await fetch(
-        `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_member_month_snapshot?member_id=${memberId}&month=${yyyymm(month)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-client-info": "supabase-js-web",
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw",
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      
+      const response = await fetchWithAuth("get_member_month_snapshot", {
+        method: "GET",
+        queryParams: {
+          member_id: memberId!,
+          month: yyyymm(month),
+        },
+      });
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
-      
+
       return response.json();
     },
   });
