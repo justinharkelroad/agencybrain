@@ -21,6 +21,7 @@ interface KPIData {
   is_active: boolean;
   enabled: boolean;
   value?: number;
+  role?: string | null;
 }
 
 interface EnhancedKPIConfigDialogProps {
@@ -120,10 +121,26 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
           ...kpi,
           type: (kpi.type as 'number' | 'currency' | 'percentage' | 'integer') || 'number',
           enabled: selectedMetrics.has(kpi.key),
-          value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0
+          value: targets?.find(t => t.metric_key === kpi.key)?.value_number || 0,
+          role: kpi.role
         }));
 
-        setKpis(kpisWithState);
+        // Deduplicate: prefer role-specific KPIs over NULL role KPIs
+        // This ensures editing updates the role-specific row, not the shared NULL row
+        const deduplicatedKpis = kpisWithState.reduce((acc, kpi) => {
+          const existingIndex = acc.findIndex(k => k.key === kpi.key);
+          if (existingIndex === -1) {
+            // No existing KPI with this key, add it
+            acc.push(kpi);
+          } else if (kpi.role === normalizedRole && acc[existingIndex].role === null) {
+            // Replace NULL role KPI with role-specific KPI
+            acc[existingIndex] = kpi;
+          }
+          // If existing is role-specific and new is NULL, keep the role-specific one
+          return acc;
+        }, [] as KPIData[]);
+
+        setKpis(deduplicatedKpis);
       }
     } catch (error) {
       console.error('Error loading KPIs and targets:', error);

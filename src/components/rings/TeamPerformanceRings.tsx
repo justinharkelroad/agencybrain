@@ -153,7 +153,8 @@ export default function TeamPerformanceRings({
   const [nRequired, setNRequired] = useState(2);
   
   // Fetch current KPI labels from database (not hardcoded)
-  const { data: kpiLabels } = useKpiLabels(agencyId);
+  // Pass role to get role-specific labels (e.g., Service's "Life Referrals" vs Sales's "Outbound Calls")
+  const { data: kpiLabels } = useKpiLabels(agencyId, role);
   
   // Modal state for PersonSnapshotModal
   const [snapshotOpen, setSnapshotOpen] = useState(false);
