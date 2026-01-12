@@ -43,8 +43,12 @@ export default function Renewals() {
   const [activeTab, setActiveTab] = useState('all');
   const [filters, setFilters] = useState<RenewalFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Multi-column sorting
+  interface SortCriteria {
+    column: string;
+    direction: 'asc' | 'desc';
+  }
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([]);
   
   // Phase 3: New state variables
   const [quickActivityRecord, setQuickActivityRecord] = useState<RenewalRecord | null>(null);
@@ -56,28 +60,62 @@ export default function Renewals() {
   const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
+  const handleSort = (column: string, event?: React.MouseEvent) => {
+    const isShiftClick = event?.shiftKey;
+    
+    setSortCriteria(prev => {
+      const existingIndex = prev.findIndex(s => s.column === column);
+      
+      if (existingIndex !== -1) {
+        // Column already in sort - toggle direction or remove
+        const existing = prev[existingIndex];
+        if (existing.direction === 'asc') {
+          // Toggle to desc
+          const updated = [...prev];
+          updated[existingIndex] = { column, direction: 'desc' };
+          return updated;
+        } else {
+          // Remove from sort
+          return prev.filter((_, i) => i !== existingIndex);
+        }
+      } else if (isShiftClick && prev.length > 0) {
+        // Add as secondary sort (shift+click)
+        return [...prev, { column, direction: 'asc' }];
+      } else {
+        // Replace all sorts with this column
+        return [{ column, direction: 'asc' }];
+      }
+    });
   };
 
-  const SortableHeader = ({ column, label }: { column: string; label: string }) => (
-    <TableHead 
-      className="cursor-pointer hover:bg-muted/50 select-none"
-      onClick={() => handleSort(column)}
-    >
-      <div className="flex items-center gap-1">
-        {label}
-        {sortColumn === column && (
-          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-        )}
-      </div>
-    </TableHead>
-  );
+  const SortableHeader = ({ column, label }: { column: string; label: string }) => {
+    const sortIndex = sortCriteria.findIndex(s => s.column === column);
+    const sortInfo = sortIndex !== -1 ? sortCriteria[sortIndex] : null;
+    
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 select-none"
+        onClick={(e) => handleSort(column, e)}
+      >
+        <div className="flex items-center gap-1">
+          {label}
+          {sortInfo && (
+            <div className="flex items-center">
+              {sortInfo.direction === 'asc' 
+                ? <ChevronUp className="h-4 w-4" /> 
+                : <ChevronDown className="h-4 w-4" />
+              }
+              {sortCriteria.length > 1 && (
+                <span className="text-xs text-muted-foreground ml-0.5">
+                  {sortIndex + 1}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </TableHead>
+    );
+  };
 
   // Clear any stale staff tokens when on non-staff route
   useEffect(() => {
@@ -250,12 +288,12 @@ export default function Renewals() {
         if (aP !== bP) return bP - aP;
       }
 
-      // Sort by selected column (if any)
-      if (sortColumn) {
+      // Multi-column sorting - iterate through each criteria
+      for (const { column, direction } of sortCriteria) {
         let aVal: any;
         let bVal: any;
 
-        switch (sortColumn) {
+        switch (column) {
           case 'renewal_effective_date':
             aVal = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
             bVal = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
@@ -288,32 +326,36 @@ export default function Renewals() {
             aVal = a.amount_due ?? 0;
             bVal = b.amount_due ?? 0;
             break;
-          default:
+          case 'multi_line_indicator':
+            aVal = a.multi_line_indicator ? 1 : 0;
+            bVal = b.multi_line_indicator ? 1 : 0;
             break;
+          default:
+            aVal = 0;
+            bVal = 0;
         }
 
-        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        // If equal, continue to next sort criteria
       }
 
-      // Default stable ordering when no sortColumn (or when values tie)
+      // Default stable ordering when no sortCriteria (or when values tie)
       const aDate = a.renewal_effective_date ? new Date(a.renewal_effective_date).getTime() : 0;
       const bDate = b.renewal_effective_date ? new Date(b.renewal_effective_date).getTime() : 0;
       if (aDate !== bDate) return aDate - bDate;
 
-      return sortDirection === 'desc'
-        ? b.id.localeCompare(a.id)
-        : a.id.localeCompare(b.id);
+      return a.id.localeCompare(b.id);
     };
 
     // If Priority Only is on, we still sort to group starred items first.
     if (showPriorityOnly) return [...result].sort(compare);
 
     // Otherwise only sort when the user selected a column.
-    if (!sortColumn) return result;
+    if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortColumn, sortDirection, showPriorityOnly, chartDateFilter, chartDayFilter]);
+  }, [records, sortCriteria, showPriorityOnly, chartDateFilter, chartDayFilter]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -436,6 +478,30 @@ export default function Renewals() {
           <span>Decrease (&lt;-5%)</span>
         </div>
       </div>
+      
+      {/* Multi-sort indicator */}
+      {sortCriteria.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs px-1">
+          <span className="text-muted-foreground">Sorted by:</span>
+          {sortCriteria.map((s, i) => (
+            <span key={s.column} className="flex items-center gap-1">
+              {i > 0 && <span className="text-muted-foreground">→</span>}
+              <Badge variant="secondary" className="font-normal">
+                {s.column.replace(/_/g, ' ')} ({s.direction})
+              </Badge>
+            </span>
+          ))}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-5 px-2 text-xs"
+            onClick={() => setSortCriteria([])}
+          >
+            Clear
+          </Button>
+          <span className="text-muted-foreground ml-2">(Shift+click to add secondary sort)</span>
+        </div>
+      )}
       
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
