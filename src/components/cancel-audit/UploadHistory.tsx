@@ -55,20 +55,40 @@ export function UploadHistory({ agencyId }: UploadHistoryProps) {
 
   const deleteUpload = useMutation({
     mutationFn: async (uploadId: string) => {
-      // First delete all records associated with this upload
+      // Get record ids for this upload
+      const { data: records, error: fetchError } = await supabase
+        .from('cancel_audit_records')
+        .select('id')
+        .eq('last_upload_id', uploadId);
+
+      if (fetchError) throw fetchError;
+
+      const recordIds = (records || []).map((r) => r.id);
+
+      // Delete activities first (avoids FK constraint issues + keeps stats consistent)
+      if (recordIds.length > 0) {
+        const { error: activitiesError } = await supabase
+          .from('cancel_audit_activities')
+          .delete()
+          .in('record_id', recordIds);
+
+        if (activitiesError) throw activitiesError;
+      }
+
+      // Then delete all records associated with this upload
       const { error: recordsError } = await supabase
         .from('cancel_audit_records')
         .delete()
         .eq('last_upload_id', uploadId);
-      
+
       if (recordsError) throw recordsError;
-      
+
       // Then delete the upload record itself
       const { error: uploadError } = await supabase
         .from('cancel_audit_uploads')
         .delete()
         .eq('id', uploadId);
-      
+
       if (uploadError) throw uploadError;
     },
     onSuccess: () => {
@@ -76,10 +96,20 @@ export function UploadHistory({ agencyId }: UploadHistoryProps) {
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      // Invalidate Hero Stats queries
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === 'string' &&
+          query.queryKey[0].startsWith('cancel-audit-hero-')
+      });
       toast.success('Upload and associated records deleted');
     },
-    onError: () => {
-      toast.error('Failed to delete upload');
+    onError: (err: any) => {
+      toast.error('Failed to delete upload', {
+        description: err?.message || 'Please try again',
+      });
     },
   });
 
