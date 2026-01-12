@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,11 +27,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { 
   useLqsRoiAnalytics, 
   DateRangePreset, 
@@ -60,23 +68,25 @@ function formatRoi(value: number | null): string {
   return `${value.toFixed(2)}x`;
 }
 
-// Conversion Funnel Component
+// Conversion Funnel Component - Uses openLeads (status='lead') not total households
 function ConversionFunnel({ 
-  leads, 
-  quoted, 
-  sold, 
+  openLeads, 
+  quotedHouseholds, 
+  soldHouseholds, 
   quoteRate, 
   closeRate 
 }: { 
-  leads: number; 
-  quoted: number; 
-  sold: number; 
+  openLeads: number; 
+  quotedHouseholds: number; 
+  soldHouseholds: number; 
   quoteRate: number; 
   closeRate: number;
 }) {
-  const maxWidth = 100;
-  const quotedWidth = leads > 0 ? Math.max(30, (quoted / leads) * 100) : 30;
-  const soldWidth = leads > 0 ? Math.max(20, (sold / leads) * 100) : 20;
+  // Calculate widths based on the largest value (open leads)
+  const maxCount = Math.max(openLeads, quotedHouseholds, soldHouseholds, 1);
+  const openLeadsWidth = 100; // Full width for top of funnel
+  const quotedWidth = Math.max(30, (quotedHouseholds / maxCount) * 100);
+  const soldWidth = Math.max(20, (soldHouseholds / maxCount) * 100);
 
   return (
     <Card>
@@ -88,13 +98,13 @@ function ConversionFunnel({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center space-y-3">
-          {/* Leads */}
+          {/* Open Leads */}
           <div 
             className="bg-blue-500/20 border border-blue-500/40 rounded-lg py-4 px-6 text-center transition-all"
-            style={{ width: `${maxWidth}%` }}
+            style={{ width: `${openLeadsWidth}%` }}
           >
-            <div className="text-2xl font-bold text-blue-400">{leads.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">LEADS</div>
+            <div className="text-2xl font-bold text-blue-400">{openLeads.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">OPEN LEADS</div>
           </div>
           
           {/* Arrow with quote rate */}
@@ -103,13 +113,13 @@ function ConversionFunnel({
             <span className="text-sm font-medium">{formatPercent(quoteRate)} quote rate</span>
           </div>
           
-          {/* Quoted */}
+          {/* Quoted Households */}
           <div 
             className="bg-amber-500/20 border border-amber-500/40 rounded-lg py-4 px-6 text-center transition-all"
             style={{ width: `${quotedWidth}%` }}
           >
-            <div className="text-2xl font-bold text-amber-400">{quoted.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">QUOTED</div>
+            <div className="text-2xl font-bold text-amber-400">{quotedHouseholds.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">QUOTED HH</div>
           </div>
           
           {/* Arrow with close rate */}
@@ -118,13 +128,13 @@ function ConversionFunnel({
             <span className="text-sm font-medium">{formatPercent(closeRate)} close rate</span>
           </div>
           
-          {/* Sold */}
+          {/* Sold Households */}
           <div 
             className="bg-green-500/20 border border-green-500/40 rounded-lg py-4 px-6 text-center transition-all"
             style={{ width: `${soldWidth}%` }}
           >
-            <div className="text-2xl font-bold text-green-400">{sold.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">SOLD</div>
+            <div className="text-2xl font-bold text-green-400">{soldHouseholds.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">SOLD HH</div>
           </div>
         </div>
       </CardContent>
@@ -334,10 +344,15 @@ export default function LqsRoiPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+  const [datePreset, setDatePreset] = useState<DateRangePreset | 'custom'>('all');
+  const [customDateRange, setCustomDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [commissionRate, setCommissionRate] = useState<string>('22');
   const [isSavingRate, setIsSavingRate] = useState(false);
-  const dateRange = getDateRangeFromPreset(datePreset);
+  
+  // Get date range from preset or use custom
+  const dateRange = datePreset === 'custom' 
+    ? customDateRange 
+    : getDateRangeFromPreset(datePreset as DateRangePreset);
   
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
   
@@ -482,19 +497,67 @@ export default function LqsRoiPage() {
           </div>
           
           {/* Date Range Selector */}
-          <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last30">Last 30 Days</SelectItem>
-              <SelectItem value="last60">Last 60 Days</SelectItem>
-              <SelectItem value="last90">Last 90 Days</SelectItem>
-              <SelectItem value="quarter">This Quarter</SelectItem>
-              <SelectItem value="ytd">Year to Date</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DateRangePreset | 'custom')}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select period">
+                  {datePreset === 'custom' && customDateRange
+                    ? `${format(customDateRange.start, 'MMM d')} - ${format(customDateRange.end, 'MMM d, yyyy')}`
+                    : undefined
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last30">Last 30 Days</SelectItem>
+                <SelectItem value="last60">Last 60 Days</SelectItem>
+                <SelectItem value="last90">Last 90 Days</SelectItem>
+                <SelectItem value="quarter">This Quarter</SelectItem>
+                <SelectItem value="ytd">Year to Date</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Custom Date Range Picker */}
+            {datePreset === 'custom' && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'justify-start text-left font-normal h-9',
+                      !customDateRange && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customDateRange?.start && customDateRange?.end ? (
+                      <>
+                        {format(customDateRange.start, 'MMM d')} - {format(customDateRange.end, 'MMM d, yyyy')}
+                      </>
+                    ) : (
+                      <span>Pick dates</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    selected={customDateRange ? { from: customDateRange.start, to: customDateRange.end } : undefined}
+                    onSelect={(range) => {
+                      if (range?.from && range?.to) {
+                        setCustomDateRange({ start: range.from, end: range.to });
+                      } else if (range?.from) {
+                        setCustomDateRange({ start: range.from, end: range.from });
+                      }
+                    }}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
         </div>
       </div>
       
@@ -571,9 +634,9 @@ export default function LqsRoiPage() {
           <Skeleton className="h-80" />
         ) : (
           <ConversionFunnel
-            leads={summary.totalLeads}
-            quoted={summary.totalQuoted}
-            sold={summary.totalSold}
+            openLeads={summary.openLeads}
+            quotedHouseholds={summary.quotedHouseholds}
+            soldHouseholds={summary.soldHouseholds}
             quoteRate={summary.quoteRate}
             closeRate={summary.closeRate}
           />
