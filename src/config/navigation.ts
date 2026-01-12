@@ -116,15 +116,15 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
         emailRestriction: 'justin@hfiagencies.com', // Beta restriction
       },
-        {
-          id: 'lqs-roi',
-          title: 'ROI Analytics',
-          icon: BarChart3,
-          type: 'link',
-          url: '/lqs-roi',
-          access: { staff: false, manager: true, owner: true },
-          emailRestriction: 'justin@hfiagencies.com',
-        },
+      {
+        id: 'lqs-roi',
+        title: 'ROI Analytics',
+        icon: BarChart3,
+        type: 'link',
+        url: '/lqs-roi',
+        access: { staff: false, manager: true, owner: true },
+        emailRestriction: 'justin@hfiagencies.com',
+      },
       {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',

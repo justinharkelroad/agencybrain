@@ -304,7 +304,7 @@ function LeadSourceTable({ data, isLoading }: { data: LeadSourceRoiRow[]; isLoad
 }
 
 export default function LqsRoiPage() {
-  const { user, isAgencyOwner, isKeyEmployee, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
   const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
@@ -317,12 +317,13 @@ export default function LqsRoiPage() {
     dateRange
   );
 
-  // Access control - redirect if not authorized
-  const hasAccess = isAgencyOwner || isKeyEmployee;
+  // Admin-only access (same as LQS Roadmap)
+  const ADMIN_EMAIL = 'justin@hfiagencies.com';
+  const hasAccess = user?.email === ADMIN_EMAIL;
   
   useEffect(() => {
     if (!authLoading && user && !hasAccess) {
-      toast.error('Access restricted to agency owners and key employees');
+      toast.error('This feature is currently in development');
       navigate('/dashboard', { replace: true });
     }
   }, [authLoading, user, hasAccess, navigate]);
