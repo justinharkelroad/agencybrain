@@ -5,6 +5,7 @@ import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api
 interface CancelAuditCounts {
   needsAttention: number;
   all: number;
+  superseded: number;
   activeByType: {
     pending_cancel: number;
     cancellation: number;
@@ -18,7 +19,7 @@ export function useCancelAuditCounts(agencyId: string | null) {
     queryKey: ['cancel-audit-counts', agencyId],
     queryFn: async (): Promise<CancelAuditCounts> => {
       if (!agencyId) {
-        return { needsAttention: 0, all: 0, activeByType: { pending_cancel: 0, cancellation: 0 } };
+        return { needsAttention: 0, all: 0, superseded: 0, activeByType: { pending_cancel: 0, cancellation: 0 } };
       }
 
       // Staff portal: use edge function
@@ -49,6 +50,15 @@ export function useCancelAuditCounts(agencyId: string | null) {
 
       if (allError) throw allError;
 
+      // Get superseded (not current) records count
+      const { count: superseded, error: supersededError } = await supabase
+        .from('cancel_audit_records')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', agencyId)
+        .eq('is_active', false);
+
+      if (supersededError) throw supersededError;
+
       // Get active pending cancel count
       const { count: pendingCancel, error: pendingError } = await supabase
         .from('cancel_audit_records')
@@ -74,6 +84,7 @@ export function useCancelAuditCounts(agencyId: string | null) {
       return {
         needsAttention: needsAttention || 0,
         all: all || 0,
+        superseded: superseded || 0,
         activeByType: {
           pending_cancel: pendingCancel || 0,
           cancellation: cancellation || 0,
