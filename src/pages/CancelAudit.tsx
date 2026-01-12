@@ -58,6 +58,7 @@ const CancelAuditPage = () => {
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);
+  const [showCurrentOnly, setShowCurrentOnly] = useState(true);
   const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
   
   // Selection state for bulk actions
@@ -87,6 +88,7 @@ const CancelAuditPage = () => {
     reportTypeFilter,
     searchQuery: debouncedSearch,
     sortBy,
+    showCurrentOnly,
   });
 
   // Fetch stats to get week range
@@ -160,7 +162,7 @@ const CancelAuditPage = () => {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedRecordIds([]);
-  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, debouncedSearch, urgencyFilter]);
+  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, showCurrentOnly, debouncedSearch, urgencyFilter]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -295,6 +297,7 @@ const CancelAuditPage = () => {
     setSearchQuery('');
     setDebouncedSearch('');
     setShowUntouchedOnly(false);
+    setShowCurrentOnly(true);
     setUrgencyFilter(null);
   }, []);
 
@@ -353,7 +356,7 @@ const CancelAuditPage = () => {
 
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || urgencyFilter !== null;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || !showCurrentOnly || urgencyFilter !== null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -447,6 +450,9 @@ const CancelAuditPage = () => {
               showUntouchedOnly={showUntouchedOnly}
               onShowUntouchedOnlyChange={setShowUntouchedOnly}
               untouchedCount={untouchedCount}
+              showCurrentOnly={showCurrentOnly}
+              onShowCurrentOnlyChange={setShowCurrentOnly}
+              supersededCount={viewCounts?.superseded || 0}
             />
 
             {/* Records List */}

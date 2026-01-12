@@ -1,4 +1,4 @@
-import { Search, X, CircleDot, Flame, Archive } from 'lucide-react';
+import { Search, X, CircleDot, Flame, Archive, FileCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ReportType, RecordStatus } from '@/types/cancel-audit';
 import type { ViewMode } from '@/hooks/useCancelAuditRecords';
@@ -38,6 +44,9 @@ interface CancelAuditFilterBarProps {
   showUntouchedOnly: boolean;
   onShowUntouchedOnlyChange: (show: boolean) => void;
   untouchedCount: number;
+  showCurrentOnly: boolean;
+  onShowCurrentOnlyChange: (show: boolean) => void;
+  supersededCount: number;
 }
 
 export function CancelAuditFilterBar({
@@ -58,6 +67,9 @@ export function CancelAuditFilterBar({
   showUntouchedOnly,
   onShowUntouchedOnlyChange,
   untouchedCount,
+  showCurrentOnly,
+  onShowCurrentOnlyChange,
+  supersededCount,
 }: CancelAuditFilterBarProps) {
   const filterTabs: { value: ReportType | 'all'; label: string; count: number }[] = [
     { value: 'all', label: 'All', count: counts.all },
@@ -146,6 +158,40 @@ export function CancelAuditFilterBar({
         </div>
 
         <div className="flex-1" />
+
+        {/* Current Records toggle */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Toggle
+                pressed={showCurrentOnly}
+                onPressedChange={onShowCurrentOnlyChange}
+                size="sm"
+                variant="outline"
+                className={cn(
+                  'gap-1.5',
+                  showCurrentOnly && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                )}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+                Current
+                {supersededCount > 0 && !showCurrentOnly && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-muted-foreground/10">
+                    +{supersededCount}
+                  </span>
+                )}
+              </Toggle>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              <p>
+                {showCurrentOnly 
+                  ? `Showing records from latest uploads only. ${supersededCount > 0 ? `${supersededCount} superseded records hidden.` : ''}`
+                  : 'Toggle to show only records from the latest uploads (hides superseded records from previous uploads)'
+                }
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Untouched toggle */}
         <Toggle

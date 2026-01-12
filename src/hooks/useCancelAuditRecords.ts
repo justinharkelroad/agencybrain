@@ -11,6 +11,7 @@ interface UseCancelAuditRecordsOptions {
   reportTypeFilter: ReportType | 'all';
   searchQuery: string;
   sortBy: 'urgency' | 'name' | 'date_added';
+  showCurrentOnly?: boolean;
 }
 
 export interface RecordWithActivityCount extends CancelAuditRecord {
@@ -25,12 +26,13 @@ export function useCancelAuditRecords({
   viewMode,
   reportTypeFilter,
   searchQuery,
-  sortBy
+  sortBy,
+  showCurrentOnly = true
 }: UseCancelAuditRecordsOptions) {
   const staffSessionToken = getStaffSessionToken();
 
   return useQuery({
-    queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy],
+    queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy, showCurrentOnly],
     queryFn: async (): Promise<RecordWithActivityCount[]> => {
       if (!agencyId) return [];
 
@@ -57,6 +59,11 @@ export function useCancelAuditRecords({
           cancel_audit_activities(id, created_at)
         `)
         .eq('agency_id', agencyId);
+
+      // Filter to current records only (from latest upload)
+      if (showCurrentOnly) {
+        query = query.eq('is_active', true);
+      }
 
       // View mode filtering
       if (viewMode === 'needs_attention') {
