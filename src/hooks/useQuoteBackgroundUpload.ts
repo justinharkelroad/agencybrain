@@ -219,29 +219,46 @@ async function processInBackground(
               }
             }
             
-            // INSERT quote (no unique constraint exists for upsert)
+            // UPSERT quote - use onConflict to skip duplicates
+            // Unique constraint on (household_id, quote_date, product_type, premium_cents)
             const { data: quote, error: quoteError } = await supabase
               .from('lqs_quotes')
-              .insert({
-                household_id: householdId,
-                agency_id: context.agencyId,
-                team_member_id: quoteTeamMemberId,
-                quote_date: record.quoteDate,
-                product_type: record.productType,
-                items_quoted: record.itemsQuoted,
-                premium_cents: record.premiumCents,
-                issued_policy_number: record.issuedPolicyNumber,
-                source: 'allstate_report',
-              })
-              .select('id')
-              .single();
+              .upsert(
+                {
+                  household_id: householdId,
+                  agency_id: context.agencyId,
+                  team_member_id: quoteTeamMemberId,
+                  quote_date: record.quoteDate,
+                  product_type: record.productType,
+                  items_quoted: record.itemsQuoted,
+                  premium_cents: record.premiumCents,
+                  issued_policy_number: record.issuedPolicyNumber,
+                  source: 'allstate_report',
+                },
+                {
+                  onConflict: 'household_id,quote_date,product_type,premium_cents',
+                  ignoreDuplicates: true,
+                }
+              )
+              .select('id, created_at, updated_at')
+              .maybeSingle();
 
             if (quoteError) {
-              throw new Error(`Failed to insert quote: ${quoteError.message}`);
+              throw new Error(`Failed to upsert quote: ${quoteError.message}`);
             }
             
-            // Count as created - can't distinguish without updated_at column
-            quotesCreatedInGroup++;
+            // If quote is null, it was a duplicate that was ignored
+            if (quote) {
+              // Check if created or updated based on timestamps
+              if (quote.created_at === quote.updated_at) {
+                quotesCreatedInGroup++;
+              } else {
+                quotesUpdatedInGroup++;
+              }
+            } else {
+              // Duplicate skipped - count as "updated" (already exists)
+              quotesUpdatedInGroup++;
+            }
           }
 
           return {
