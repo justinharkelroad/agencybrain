@@ -81,67 +81,99 @@ function ConversionFunnel({
   quotedHouseholds, 
   soldHouseholds, 
   quoteRate, 
-  closeRate 
+  closeRate,
+  isActivityView,
+  leadsReceived,
+  quotesCreated,
+  salesClosed,
 }: { 
   openLeads: number; 
   quotedHouseholds: number; 
   soldHouseholds: number; 
-  quoteRate: number; 
-  closeRate: number;
+  quoteRate: number | null; 
+  closeRate: number | null;
+  isActivityView: boolean;
+  leadsReceived: number;
+  quotesCreated: number;
+  salesClosed: number;
 }) {
-  // Calculate widths based on the largest value (open leads)
-  const maxCount = Math.max(openLeads, quotedHouseholds, soldHouseholds, 1);
-  const openLeadsWidth = 100; // Full width for top of funnel
-  const quotedWidth = Math.max(30, (quotedHouseholds / maxCount) * 100);
-  const soldWidth = Math.max(20, (soldHouseholds / maxCount) * 100);
+  // Use appropriate values based on view mode
+  const topValue = isActivityView ? leadsReceived : openLeads;
+  const midValue = isActivityView ? quotesCreated : quotedHouseholds;
+  const botValue = isActivityView ? salesClosed : soldHouseholds;
+  
+  // Labels based on view mode
+  const topLabel = isActivityView ? 'LEADS RECEIVED' : 'OPEN LEADS';
+  const midLabel = isActivityView ? 'QUOTES CREATED' : 'QUOTED HH';
+  const botLabel = isActivityView ? 'SALES CLOSED' : 'SOLD HH';
+
+  // Calculate widths based on the largest value
+  const maxCount = Math.max(topValue, midValue, botValue, 1);
+  const topWidth = 100;
+  const midWidth = Math.max(30, (midValue / maxCount) * 100);
+  const botWidth = Math.max(20, (botValue / maxCount) * 100);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Conversion Funnel
+          {isActivityView ? 'Activity Summary' : 'Conversion Funnel'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center space-y-3">
-          {/* Open Leads */}
+          {/* Top of funnel */}
           <div 
             className="bg-blue-500/20 border border-blue-500/40 rounded-lg py-4 px-6 text-center transition-all"
-            style={{ width: `${openLeadsWidth}%` }}
+            style={{ width: `${topWidth}%` }}
           >
-            <div className="text-2xl font-bold text-blue-400">{openLeads.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">OPEN LEADS</div>
+            <div className="text-2xl font-bold text-blue-400">{topValue.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">{topLabel}</div>
           </div>
           
-          {/* Arrow with quote rate */}
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-blue-500/50"></div>
-            <span className="text-sm font-medium">{formatPercent(quoteRate)} quote rate</span>
-          </div>
+          {/* Arrow with quote rate - hide in activity view */}
+          {!isActivityView && quoteRate !== null && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-blue-500/50"></div>
+              <span className="text-sm font-medium">{formatPercent(quoteRate)} quote rate</span>
+            </div>
+          )}
+          {isActivityView && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-blue-500/50"></div>
+            </div>
+          )}
           
-          {/* Quoted Households */}
+          {/* Middle of funnel */}
           <div 
             className="bg-amber-500/20 border border-amber-500/40 rounded-lg py-4 px-6 text-center transition-all"
-            style={{ width: `${quotedWidth}%` }}
+            style={{ width: `${midWidth}%` }}
           >
-            <div className="text-2xl font-bold text-amber-400">{quotedHouseholds.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">QUOTED HH</div>
+            <div className="text-2xl font-bold text-amber-400">{midValue.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">{midLabel}</div>
           </div>
           
-          {/* Arrow with close rate */}
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-amber-500/50"></div>
-            <span className="text-sm font-medium">{formatPercent(closeRate)} close rate</span>
-          </div>
+          {/* Arrow with close rate - hide in activity view */}
+          {!isActivityView && closeRate !== null && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-amber-500/50"></div>
+              <span className="text-sm font-medium">{formatPercent(closeRate)} close rate</span>
+            </div>
+          )}
+          {isActivityView && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-amber-500/50"></div>
+            </div>
+          )}
           
-          {/* Sold Households */}
+          {/* Bottom of funnel */}
           <div 
             className="bg-green-500/20 border border-green-500/40 rounded-lg py-4 px-6 text-center transition-all"
-            style={{ width: `${soldWidth}%` }}
+            style={{ width: `${botWidth}%` }}
           >
-            <div className="text-2xl font-bold text-green-400">{soldHouseholds.toLocaleString()}</div>
-            <div className="text-sm text-muted-foreground">SOLD HH</div>
+            <div className="text-2xl font-bold text-green-400">{botValue.toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground">{botLabel}</div>
           </div>
         </div>
       </CardContent>
@@ -607,25 +639,25 @@ export default function LqsRoiPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SummaryCard
-            title="Open Leads"
-            value={summary.openLeads.toLocaleString()}
+            title={summary.isActivityView ? "Leads Received" : "Open Leads"}
+            value={(summary.isActivityView ? summary.leadsReceived : summary.openLeads).toLocaleString()}
             icon={Users}
             variant="info"
-            tooltip="Leads not yet quoted"
+            tooltip={summary.isActivityView ? "Leads that entered during this period" : "Leads not yet quoted"}
           />
           <SummaryCard
-            title="Quoted Households"
-            value={summary.quotedHouseholds.toLocaleString()}
+            title={summary.isActivityView ? "Quotes Created" : "Quoted Households"}
+            value={(summary.isActivityView ? summary.quotesCreated : summary.quotedHouseholds).toLocaleString()}
             icon={Target}
             variant="warning"
-            tooltip="Households with at least one quote"
+            tooltip={summary.isActivityView ? "Unique households quoted during this period" : "Households with at least one quote"}
           />
           <SummaryCard
-            title="Sold Households"
-            value={summary.soldHouseholds.toLocaleString()}
+            title={summary.isActivityView ? "Sales Closed" : "Sold Households"}
+            value={(summary.isActivityView ? summary.salesClosed : summary.soldHouseholds).toLocaleString()}
             icon={TrendingUp}
             variant="success"
-            tooltip="Households with at least one policy"
+            tooltip={summary.isActivityView ? "Unique households sold during this period" : "Households with at least one policy"}
           />
           <SummaryCard
             title="Premium Sold"
@@ -635,13 +667,15 @@ export default function LqsRoiPage() {
           />
           <SummaryCard
             title="Quote Rate"
-            value={formatPercent(summary.quoteRate)}
+            value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
             icon={Percent}
+            tooltip={summary.isActivityView ? "Not applicable for activity view" : undefined}
           />
           <SummaryCard
             title="Close Rate"
-            value={formatPercent(summary.closeRate)}
+            value={summary.closeRate !== null ? formatPercent(summary.closeRate) : '—'}
             icon={Percent}
+            tooltip={summary.isActivityView ? "Not applicable for activity view" : undefined}
           />
           <SummaryCard
             title="Total Spend"
@@ -670,6 +704,10 @@ export default function LqsRoiPage() {
             soldHouseholds={summary.soldHouseholds}
             quoteRate={summary.quoteRate}
             closeRate={summary.closeRate}
+            isActivityView={summary.isActivityView}
+            leadsReceived={summary.leadsReceived}
+            quotesCreated={summary.quotesCreated}
+            salesClosed={summary.salesClosed}
           />
         )}
 
