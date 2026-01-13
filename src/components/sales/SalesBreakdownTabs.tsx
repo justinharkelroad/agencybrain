@@ -6,8 +6,10 @@ import { SalesBySourceChart } from "./SalesBySourceChart";
 import { SalesByBundleChart } from "./SalesByBundleChart";
 import { SalesByZipcodeChart } from "./SalesByZipcodeChart";
 import { SalesLeaderboard } from "./SalesLeaderboard";
+import { SalesMetricSummaryCards } from "./SalesMetricSummaryCards";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { startOfMonth, endOfMonth, subMonths, startOfYear, format } from "date-fns";
+import { useSalesMonthSummary } from "@/hooks/useSalesMonthSummary";
 
 interface SalesBreakdownTabsProps {
   agencyId: string | null;
@@ -64,6 +66,17 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
   
   const { start, end, label } = getPeriodDates(period);
 
+  // Fetch summary data for the metric cards
+  const { data: summary, isLoading: summaryLoading } = useSalesMonthSummary({
+    agencyId,
+    startDate: start,
+    endDate: end,
+    staffSessionToken,
+  });
+
+  // Only show projections for "This Month" since other periods are complete
+  const showProjections = period === "this_month";
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -80,6 +93,16 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
           </SelectContent>
         </Select>
       </div>
+
+      {/* Summary Cards with Projections */}
+      <SalesMetricSummaryCards
+        premium={summary?.premium ?? 0}
+        items={summary?.items ?? 0}
+        policies={summary?.policies ?? 0}
+        points={summary?.points ?? 0}
+        isLoading={summaryLoading}
+        showProjections={showProjections}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className={`grid w-full max-w-4xl ${showLeaderboard ? 'grid-cols-6' : 'grid-cols-5'}`}>
