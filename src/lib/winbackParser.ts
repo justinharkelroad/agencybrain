@@ -37,24 +37,17 @@ export interface ParseResult {
 
 // Column mapping - maps various header names to our standardized field names
 const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
+  // Allstate standard headers
   'Insured First Name': 'firstName',
-  'First Name': 'firstName',
   'Insured Last Name': 'lastName',
-  'Last Name': 'lastName',
   'Street Address': 'streetAddress',
-  'Address': 'streetAddress',
   'City': 'city',
   'State': 'state',
   'Zip Code': 'zipCode',
-  'Zip': 'zipCode',
   'Insured Email': 'email',
-  'Email': 'email',
   'Insured Phone': 'phone',
-  'Phone': 'phone',
   'Agent#': 'agentNumber',
-  'Agent Number': 'agentNumber',
   'Policy Number': 'policyNumber',
-  'Pol Nbr': 'policyNumber',
   'Original Year': 'originalYear',
   'Product Code': 'productCode',
   'Product Name': 'productName',
@@ -62,26 +55,46 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   'Anniversary Effective Date': 'anniversaryEffectiveDate',
   'Termination Effective Date': 'terminationEffectiveDate',
   'Termination Reason': 'terminationReason',
+  'Termination Type': 'terminationType',
   'Premium New($)': 'premiumNewCents',
-  'Premium New': 'premiumNewCents',
   'Premium Old($)': 'premiumOldCents',
-  'Premium Old': 'premiumOldCents',
   'Account Type': 'accountType',
   'Company Code': 'companyCode',
-  'Termination Type': 'terminationType',
+  
+  // Alternate headers (some agencies use these)
+  'Agent Number': 'agentNumber',
+  'Phone Number': 'phone',
+  'Email': 'email',
+  'Line Code': 'productName',  // ROIA format uses "Line Code" for product
+  'First Name': 'firstName',
+  'Last Name': 'lastName',
+  'Address': 'streetAddress',
+  'Zip': 'zipCode',
+  'Phone': 'phone',
+  'Pol Nbr': 'policyNumber',
+  'Premium New': 'premiumNewCents',
+  'Premium Old': 'premiumOldCents',
 };
 
 // Determine policy term based on product name
 function getPolicyTermMonths(productName: string): number {
+  if (!productName) return 12; // Default to 12 if no product name
+  
   const lowerName = productName.toLowerCase();
+  
+  // Auto products = 6 month term
   if (lowerName.includes('auto')) return 6;
+  
+  // Property products = 12 month term
   if (lowerName.includes('homeowner')) return 12;
   if (lowerName.includes('landlord')) return 12;
   if (lowerName.includes('renter')) return 12;
   if (lowerName.includes('umbrella')) return 12;
   if (lowerName.includes('condo')) return 12;
   if (lowerName.includes('dwelling')) return 12;
-  // Default to 12 for unknown property types
+  if (lowerName.includes('fire')) return 12;
+  
+  // Default to 12 for unknown types
   return 12;
 }
 
