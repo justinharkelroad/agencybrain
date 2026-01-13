@@ -64,6 +64,7 @@ import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
+import WinbackHQ from "./pages/WinbackHQ";
 import LqsRoadmapPage from "./pages/LqsRoadmapPage";
 import LqsRoiPage from "./pages/LqsRoiPage";
 import SubmissionDetail from "./pages/SubmissionDetail";
@@ -829,6 +830,13 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            <Route path="/winback" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <WinbackHQ />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/roleplay-staff" element={<RoleplayStaff />} />
             
             {/* Compensation Analyzer */}
@@ -924,6 +932,8 @@ const App = () => {
               <Route path="meeting-frame" element={<StaffMeetingFrameWrapper />} />
               {/* LQS Roadmap */}
               <Route path="lqs-roadmap" element={<LqsRoadmapPage isStaffPortal={true} />} />
+              {/* Win-Back HQ */}
+              <Route path="winback" element={<WinbackHQ />} />
             </Route>
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
