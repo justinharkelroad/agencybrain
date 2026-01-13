@@ -221,10 +221,17 @@ export default function TeamPerformanceRings({
         }
 
         // FIXED: Use standardized keys in fallback
-        const metrics = rules?.ring_metrics || (role === 'Sales' 
+        const rawMetrics = rules?.ring_metrics || (role === 'Sales' 
           ? ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
-        setRingMetrics(metrics);
+        // Defensive dedupe: preserve order, keep first occurrence
+        const seen = new Set<string>();
+        const dedupedMetrics = rawMetrics.filter((m: string) => {
+          if (seen.has(m)) return false;
+          seen.add(m);
+          return true;
+        });
+        setRingMetrics(dedupedMetrics);
         setNRequired(rules?.n_required || 2);
 
         // Role-based default targets and metrics
@@ -237,7 +244,7 @@ export default function TeamPerformanceRings({
 
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
-          const memberMetrics: RingMetric[] = metrics.map((metricKey: string) => {
+          const memberMetrics: RingMetric[] = dedupedMetrics.map((metricKey: string) => {
             // Use getMetricValue for graceful fallback between UI keys and column names
             const actual = getMetricValue(member, metricKey);
             

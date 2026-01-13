@@ -99,10 +99,17 @@ export default function TeamRingsGrid() {
         .maybeSingle();
 
       if (rules) {
-        const metrics = (rules.ring_metrics?.length > 0 
+        const rawMetrics = (rules.ring_metrics?.length > 0 
           ? rules.ring_metrics 
           : rules.selected_metrics) || ringMetrics;
-        setRingMetrics(metrics);
+        // Defensive dedupe: preserve order, keep first occurrence
+        const seen = new Set<string>();
+        const dedupedMetrics = rawMetrics.filter((m: string) => {
+          if (seen.has(m)) return false;
+          seen.add(m);
+          return true;
+        });
+        setRingMetrics(dedupedMetrics);
       }
     } catch (error: any) {
       console.error('Error loading agency and ring metrics:', error);
