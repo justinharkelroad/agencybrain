@@ -39,8 +39,8 @@ interface WinbackHouseholdModalProps {
   onUpdate: () => void;
 }
 
-function formatCurrency(cents: number | null): string {
-  if (cents === null) return '—';
+function formatCurrency(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined || isNaN(cents)) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
