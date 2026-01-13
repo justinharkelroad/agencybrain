@@ -5,3 +5,5 @@ export { WinbackStatusBadge } from './WinbackStatusBadge';
 export { WinbackHouseholdTable } from './WinbackHouseholdTable';
 export { WinbackHouseholdModal } from './WinbackHouseholdModal';
 export { WinbackPagination } from './WinbackPagination';
+export { WinbackActivityLog } from './WinbackActivityLog';
+export { WinbackActivityStats } from './WinbackActivityStats';
