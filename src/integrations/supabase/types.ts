@@ -7904,8 +7904,73 @@ export type Database = {
           },
         ]
       }
+      winback_activities: {
+        Row: {
+          activity_type: string
+          agency_id: string
+          created_at: string | null
+          created_by_name: string | null
+          created_by_team_member_id: string | null
+          created_by_user_id: string | null
+          household_id: string
+          id: string
+          new_status: string | null
+          notes: string | null
+          old_status: string | null
+        }
+        Insert: {
+          activity_type: string
+          agency_id: string
+          created_at?: string | null
+          created_by_name?: string | null
+          created_by_team_member_id?: string | null
+          created_by_user_id?: string | null
+          household_id: string
+          id?: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agency_id?: string
+          created_at?: string | null
+          created_by_name?: string | null
+          created_by_team_member_id?: string | null
+          created_by_user_id?: string | null
+          household_id?: string
+          id?: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winback_activities_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_activities_created_by_team_member_id_fkey"
+            columns: ["created_by_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_activities_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "winback_households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       winback_households: {
         Row: {
+          activity_count: number | null
           agency_id: string
           assigned_to: string | null
           city: string | null
@@ -7926,6 +7991,7 @@ export type Database = {
           zip_code: string
         }
         Insert: {
+          activity_count?: number | null
           agency_id: string
           assigned_to?: string | null
           city?: string | null
@@ -7946,6 +8012,7 @@ export type Database = {
           zip_code: string
         }
         Update: {
+          activity_count?: number | null
           agency_id?: string
           assigned_to?: string | null
           city?: string | null

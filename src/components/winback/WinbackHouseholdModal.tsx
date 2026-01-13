@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
+import { WinbackActivityLog } from './WinbackActivityLog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Save, Trash2, Clock } from 'lucide-react';
@@ -27,6 +27,16 @@ interface Policy {
   account_type: string | null;
 }
 
+interface Activity {
+  id: string;
+  activity_type: string;
+  notes: string | null;
+  created_by_name: string | null;
+  old_status: string | null;
+  new_status: string | null;
+  created_at: string;
+}
+
 interface TeamMember {
   id: string;
   name: string;
@@ -38,6 +48,7 @@ interface WinbackHouseholdModalProps {
   household: Household | null;
   teamMembers: TeamMember[];
   currentUserTeamMemberId: string | null;
+  agencyId: string | null;
   onUpdate: () => void;
 }
 
@@ -66,21 +77,23 @@ export function WinbackHouseholdModal({
   household,
   teamMembers,
   currentUserTeamMemberId,
+  agencyId,
   onUpdate,
 }: WinbackHouseholdModalProps) {
   const [policies, setPolicies] = useState<Policy[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notes, setNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
   const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
 
   useEffect(() => {
     if (open && household) {
-      setNotes(household.notes || '');
       setAssignedTo(household.assigned_to || 'unassigned');
       setLocalStatus(household.status);
       fetchPolicies(household.id);
+      fetchActivities(household.id);
     }
   }, [open, household]);
 
@@ -103,18 +116,68 @@ export function WinbackHouseholdModal({
     }
   };
 
-  const handleSave = async () => {
+  const fetchActivities = async (householdId: string) => {
+    setActivitiesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('winback_activities')
+        .select('*')
+        .eq('household_id', householdId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const logActivity = async (type: string, notes: string) => {
+    if (!household || !agencyId) return;
+
+    try {
+      // Get current user's name for attribution
+      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
+
+      const { error } = await supabase
+        .from('winback_activities')
+        .insert({
+          household_id: household.id,
+          agency_id: agencyId,
+          activity_type: type,
+          notes: notes || null,
+          created_by_user_id: null,
+          created_by_team_member_id: currentUserTeamMemberId || null,
+          created_by_name: userName,
+        });
+
+      if (error) throw error;
+      
+      // Refresh activities
+      fetchActivities(household.id);
+      toast.success(`${type.replace('_', ' ')} logged`);
+    } catch (err) {
+      console.error('Error logging activity:', err);
+      toast.error('Failed to log activity');
+    }
+  };
+
+  const handleAssignmentChange = async (newAssignedTo: string) => {
     if (!household) return;
+    setAssignedTo(newAssignedTo);
+    
     setSaving(true);
     try {
       const updateData: Record<string, any> = {
-        notes,
-        assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
+        assigned_to: newAssignedTo === 'unassigned' ? null : newAssignedTo,
         updated_at: new Date().toISOString(),
       };
 
-      if (assignedTo && assignedTo !== 'unassigned' && household.status === 'untouched') {
+      if (newAssignedTo && newAssignedTo !== 'unassigned' && household.status === 'untouched') {
         updateData.status = 'in_progress';
+        setLocalStatus('in_progress');
       }
 
       const { error } = await supabase
@@ -123,19 +186,22 @@ export function WinbackHouseholdModal({
         .eq('id', household.id);
 
       if (error) throw error;
-      toast.success('Household updated');
+      toast.success('Assignment updated');
       onUpdate();
     } catch (err) {
-      console.error('Error saving household:', err);
-      toast.error('Failed to save changes');
+      console.error('Error updating assignment:', err);
+      toast.error('Failed to update assignment');
     } finally {
       setSaving(false);
     }
   };
 
   const handleStatusChange = async (newStatus: Household['status']) => {
-    if (!household) return;
+    if (!household || !agencyId) return;
+
+    const oldStatus = localStatus;
     setSaving(true);
+    
     try {
       const updateData: Record<string, any> = {
         status: newStatus,
@@ -155,9 +221,23 @@ export function WinbackHouseholdModal({
         .eq('id', household.id);
 
       if (error) throw error;
+
+      // Log the status change as an activity
+      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
+      await supabase.from('winback_activities').insert({
+        household_id: household.id,
+        agency_id: agencyId,
+        activity_type: 'status_change',
+        old_status: oldStatus,
+        new_status: newStatus,
+        created_by_team_member_id: currentUserTeamMemberId || null,
+        created_by_name: userName,
+      });
+
       setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       onUpdate();
+      
       if (newStatus === 'dismissed') {
         onOpenChange(false);
       }
@@ -170,7 +250,7 @@ export function WinbackHouseholdModal({
   };
 
   const handleNotNow = async () => {
-    if (!household) return;
+    if (!household || !agencyId) return;
     setSaving(true);
 
     try {
@@ -189,25 +269,21 @@ export function WinbackHouseholdModal({
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const contactDaysBefore = 45; // TODO: could fetch from settings
+      const contactDaysBefore = 45;
 
       for (const policy of householdPolicies) {
         const terminationDate = new Date(policy.termination_effective_date);
         const policyTermMonths = policy.policy_term_months || 12;
         
-        // Calculate competitor renewal dates starting from termination
         let competitorRenewalDate = new Date(terminationDate);
         competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
         
-        // Keep adding policy terms until we find a renewal date AFTER today
         while (competitorRenewalDate <= today) {
           competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
         }
         
-        // Now add ONE more term (since they said "not now" for the upcoming one)
         competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
         
-        // Win-back date is 45 days before that future renewal
         const newWinbackDate = new Date(competitorRenewalDate);
         newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
 
@@ -217,7 +293,6 @@ export function WinbackHouseholdModal({
           .eq('id', policy.id);
       }
 
-      // Try RPC, fallback to manual update
       const { error: rpcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
         p_household_id: household.id,
       });
@@ -246,6 +321,19 @@ export function WinbackHouseholdModal({
           updated_at: new Date().toISOString()
         })
         .eq('id', household.id);
+
+      // Log the "not now" action
+      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
+      await supabase.from('winback_activities').insert({
+        household_id: household.id,
+        agency_id: agencyId,
+        activity_type: 'status_change',
+        old_status: localStatus,
+        new_status: 'untouched',
+        notes: 'Pushed to next renewal cycle',
+        created_by_team_member_id: currentUserTeamMemberId || null,
+        created_by_name: userName,
+      });
 
       toast.success('Pushed to next renewal cycle');
       onUpdate();
@@ -313,40 +401,33 @@ export function WinbackHouseholdModal({
             </CardContent>
           </Card>
 
-          {/* Assignment & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assigned To</label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team member" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about this household..."
-                rows={3}
-              />
-            </div>
+          {/* Assignment */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Assigned To</label>
+            <Select value={assignedTo} onValueChange={handleAssignmentChange}>
+              <SelectTrigger className="w-full md:w-64">
+                <SelectValue placeholder="Select team member" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {teamMembers.map((member) => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto">
-            <Save className="h-4 w-4 mr-2" />
-            Save Changes
-          </Button>
+          {/* Activity Log */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">Activity Log</h3>
+            <WinbackActivityLog
+              activities={activities}
+              loading={activitiesLoading}
+              onLogActivity={logActivity}
+            />
+          </div>
 
           {/* Policies Table */}
           <div className="space-y-2">
