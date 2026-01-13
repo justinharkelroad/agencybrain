@@ -17,6 +17,7 @@ import {
   WinbackHouseholdModal,
   WinbackPagination,
   WinbackActivityStats,
+  WinbackActivitySummary,
 } from '@/components/winback';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
@@ -426,6 +427,11 @@ export default function WinbackHQ() {
           agencyId={agencyId} 
           wonBackCount={stats.wonBack} 
         />
+      )}
+
+      {/* Daily Activity Summary by Team Member */}
+      {agencyId && (
+        <WinbackActivitySummary agencyId={agencyId} />
       )}
 
       {/* Settings (collapsible) */}

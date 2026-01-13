@@ -7,3 +7,4 @@ export { WinbackHouseholdModal } from './WinbackHouseholdModal';
 export { WinbackPagination } from './WinbackPagination';
 export { WinbackActivityLog } from './WinbackActivityLog';
 export { WinbackActivityStats } from './WinbackActivityStats';
+export { WinbackActivitySummary } from './WinbackActivitySummary';
