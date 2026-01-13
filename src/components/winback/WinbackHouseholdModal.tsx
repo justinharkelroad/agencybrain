@@ -22,7 +22,7 @@ interface Policy {
   termination_reason: string | null;
   premium_old_cents: number | null;
   premium_new_cents: number | null;
-  winback_date: string | null;
+  calculated_winback_date: string | null;
   account_type: string | null;
 }
 
@@ -72,24 +72,40 @@ export function WinbackHouseholdModal({
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
 
   useEffect(() => {
-    if (household && open) {
+    if (open && household) {
+      console.log('=== MODAL OPENED ===');
+      console.log('Household ID:', household.id);
+      console.log('Household Name:', household.first_name, household.last_name);
       setNotes(household.notes || '');
       setAssignedTo(household.assigned_to || 'unassigned');
-      fetchPolicies();
+      fetchPolicies(household.id);
     }
-  }, [household, open]);
+  }, [open, household]);
 
-  const fetchPolicies = async () => {
-    if (!household) return;
+  const fetchPolicies = async (householdId: string) => {
+    console.log('=== FETCHING POLICIES ===');
+    console.log('Querying for household_id:', householdId);
     setLoading(true);
+    
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('winback_policies')
-        .select('*')
-        .eq('household_id', household.id)
-        .order('winback_date', { ascending: true });
+        .select('*', { count: 'exact' })
+        .eq('household_id', householdId)
+        .order('calculated_winback_date', { ascending: true });
 
-      if (error) throw error;
+      console.log('Query result:', { 
+        error, 
+        rowCount: data?.length,
+        totalCount: count,
+        firstRow: data?.[0] 
+      });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
       setPolicies(data || []);
     } catch (err) {
       console.error('Error fetching policies:', err);
@@ -281,7 +297,7 @@ export function WinbackHouseholdModal({
                     </TableRow>
                   ) : (
                     policies.map((policy) => {
-                      const winbackDate = policy.winback_date ? new Date(policy.winback_date) : null;
+                      const winbackDate = policy.calculated_winback_date ? new Date(policy.calculated_winback_date) : null;
                       const isOverdue = winbackDate && isBefore(winbackDate, today);
                       const premiumChange =
                         policy.premium_old_cents && policy.premium_new_cents
