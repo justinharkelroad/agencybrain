@@ -139,9 +139,6 @@ export function WinbackUploadModal({
           const updateData: Record<string, string> = {};
           if (firstRecord.email) updateData.email = firstRecord.email;
           if (firstRecord.phone) updateData.phone = firstRecord.phone;
-          if (firstRecord.streetAddress) updateData.street_address = firstRecord.streetAddress;
-          if (firstRecord.city) updateData.city = firstRecord.city;
-          if (firstRecord.state) updateData.state = firstRecord.state;
 
           if (Object.keys(updateData).length > 0) {
             await supabase
@@ -157,9 +154,6 @@ export function WinbackUploadModal({
               agency_id: agencyId,
               first_name: firstRecord.firstName,
               last_name: firstRecord.lastName,
-              street_address: firstRecord.streetAddress,
-              city: firstRecord.city,
-              state: firstRecord.state,
               zip_code: firstRecord.zipCode,
               email: firstRecord.email,
               phone: firstRecord.phone,
