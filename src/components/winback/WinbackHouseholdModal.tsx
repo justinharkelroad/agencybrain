@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, XCircle, PhoneOff, RotateCcw, Save, Ban } from 'lucide-react';
+import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Save, Trash2, Clock } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
@@ -18,6 +18,7 @@ interface Policy {
   policy_number: string;
   product_name: string | null;
   product_code: string | null;
+  policy_term_months: number | null;
   termination_effective_date: string | null;
   termination_reason: string | null;
   premium_old_cents: number | null;
@@ -76,9 +77,6 @@ export function WinbackHouseholdModal({
 
   useEffect(() => {
     if (open && household) {
-      console.log('=== MODAL OPENED ===');
-      console.log('Household ID:', household.id);
-      console.log('Household Name:', household.first_name, household.last_name);
       setNotes(household.notes || '');
       setAssignedTo(household.assigned_to || 'unassigned');
       setLocalStatus(household.status);
@@ -87,29 +85,15 @@ export function WinbackHouseholdModal({
   }, [open, household]);
 
   const fetchPolicies = async (householdId: string) => {
-    console.log('=== FETCHING POLICIES ===');
-    console.log('Querying for household_id:', householdId);
     setLoading(true);
-    
     try {
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('winback_policies')
-        .select('*', { count: 'exact' })
+        .select('*')
         .eq('household_id', householdId)
         .order('calculated_winback_date', { ascending: true });
 
-      console.log('Query result:', { 
-        error, 
-        rowCount: data?.length,
-        totalCount: count,
-        firstRow: data?.[0] 
-      });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       setPolicies(data || []);
     } catch (err) {
       console.error('Error fetching policies:', err);
@@ -129,7 +113,6 @@ export function WinbackHouseholdModal({
         updated_at: new Date().toISOString(),
       };
 
-      // If assigning someone and status is still "untouched", change to "in_progress"
       if (assignedTo && assignedTo !== 'unassigned' && household.status === 'untouched') {
         updateData.status = 'in_progress';
       }
@@ -159,7 +142,6 @@ export function WinbackHouseholdModal({
         updated_at: new Date().toISOString(),
       };
 
-      // Auto-assign to current user when clicking "Start Working" if not already assigned
       if (newStatus === 'in_progress' && !household.assigned_to && assignedTo === 'unassigned') {
         if (currentUserTeamMemberId) {
           updateData.assigned_to = currentUserTeamMemberId;
@@ -173,7 +155,7 @@ export function WinbackHouseholdModal({
         .eq('id', household.id);
 
       if (error) throw error;
-      setLocalStatus(newStatus); // Update local state immediately
+      setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       onUpdate();
       if (newStatus === 'dismissed') {
@@ -182,6 +164,77 @@ export function WinbackHouseholdModal({
     } catch (err) {
       console.error('Error updating status:', err);
       toast.error('Failed to update status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleNotNow = async () => {
+    if (!household) return;
+    setSaving(true);
+
+    try {
+      const { data: householdPolicies, error: fetchError } = await supabase
+        .from('winback_policies')
+        .select('id, policy_term_months, calculated_winback_date')
+        .eq('household_id', household.id);
+
+      if (fetchError) throw fetchError;
+
+      if (!householdPolicies || householdPolicies.length === 0) {
+        toast.error('No policies found');
+        setSaving(false);
+        return;
+      }
+
+      for (const policy of householdPolicies) {
+        const currentWinbackDate = new Date(policy.calculated_winback_date);
+        const termMonths = policy.policy_term_months || 12;
+        const nextWinbackDate = new Date(currentWinbackDate);
+        nextWinbackDate.setMonth(nextWinbackDate.getMonth() + termMonths);
+
+        await supabase
+          .from('winback_policies')
+          .update({ calculated_winback_date: nextWinbackDate.toISOString().split('T')[0] })
+          .eq('id', policy.id);
+      }
+
+      // Try RPC, fallback to manual update
+      const { error: rpcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
+        p_household_id: household.id,
+      });
+
+      if (rpcError) {
+        const { data: updatedPolicies } = await supabase
+          .from('winback_policies')
+          .select('calculated_winback_date')
+          .eq('household_id', household.id)
+          .order('calculated_winback_date', { ascending: true })
+          .limit(1);
+
+        if (updatedPolicies && updatedPolicies.length > 0) {
+          await supabase
+            .from('winback_households')
+            .update({ earliest_winback_date: updatedPolicies[0].calculated_winback_date })
+            .eq('id', household.id);
+        }
+      }
+
+      await supabase
+        .from('winback_households')
+        .update({ 
+          status: 'untouched',
+          assigned_to: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', household.id);
+
+      toast.success('Pushed to next renewal cycle');
+      onUpdate();
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error pushing to next cycle:', err);
+      toast.error('Failed to update');
     } finally {
       setSaving(false);
     }
@@ -233,12 +286,7 @@ export function WinbackHouseholdModal({
                 {household.earliest_winback_date && (
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span
-                      className={cn(
-                        isBefore(new Date(household.earliest_winback_date), today) &&
-                          'text-red-500 font-medium'
-                      )}
-                    >
+                    <span className={cn(isBefore(new Date(household.earliest_winback_date), today) && 'text-red-500 font-medium')}>
                       Winback: {format(new Date(household.earliest_winback_date), 'MMM d, yyyy')}
                     </span>
                   </div>
@@ -294,32 +342,25 @@ export function WinbackHouseholdModal({
                     <TableHead>Terminated</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead className="text-right">Premium</TableHead>
-                    <TableHead>Win-Back Date</TableHead>
+                    <TableHead>Winback Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        Loading policies...
-                      </TableCell>
+                      <TableCell colSpan={6} className="text-center py-8">Loading policies...</TableCell>
                     </TableRow>
                   ) : policies.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No policies found
-                      </TableCell>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No policies found</TableCell>
                     </TableRow>
                   ) : (
                     policies.map((policy) => {
                       const winbackDate = policy.calculated_winback_date ? new Date(policy.calculated_winback_date) : null;
                       const isOverdue = winbackDate && isBefore(winbackDate, today);
-                      const premiumChange =
-                        policy.premium_old_cents && policy.premium_new_cents
-                          ? ((policy.premium_new_cents - policy.premium_old_cents) /
-                              policy.premium_old_cents) *
-                            100
-                          : null;
+                      const premiumChange = policy.premium_old_cents && policy.premium_new_cents
+                        ? ((policy.premium_new_cents - policy.premium_old_cents) / policy.premium_old_cents) * 100
+                        : null;
 
                       return (
                         <TableRow key={policy.id}>
@@ -328,22 +369,15 @@ export function WinbackHouseholdModal({
                             <div className="flex items-center gap-2">
                               {policy.product_name || policy.product_code || '—'}
                               {policy.account_type === 'C/R' && (
-                                <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">
-                                  C/R
-                                </span>
+                                <span className="text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">C/R</span>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>
-                            {policy.termination_effective_date
-                              ? format(new Date(policy.termination_effective_date), 'MMM d, yyyy')
-                              : '—'}
+                            {policy.termination_effective_date ? format(new Date(policy.termination_effective_date), 'MMM d, yyyy') : '—'}
                           </TableCell>
                           <TableCell>
-                            <span
-                              className="truncate max-w-[150px] inline-block"
-                              title={policy.termination_reason || ''}
-                            >
+                            <span className="truncate max-w-[150px] inline-block" title={policy.termination_reason || ''}>
                               {policy.termination_reason || '—'}
                             </span>
                           </TableCell>
@@ -351,14 +385,8 @@ export function WinbackHouseholdModal({
                             <div className="flex flex-col items-end">
                               <span>{formatCurrency(policy.premium_old_cents)}</span>
                               {premiumChange !== null && premiumChange !== 0 && (
-                                <span
-                                  className={cn(
-                                    'text-xs',
-                                    premiumChange > 0 ? 'text-red-400' : 'text-green-400'
-                                  )}
-                                >
-                                  {premiumChange > 0 ? '+' : ''}
-                                  {premiumChange.toFixed(0)}%
+                                <span className={cn('text-xs', premiumChange > 0 ? 'text-red-400' : 'text-green-400')}>
+                                  {premiumChange > 0 ? '+' : ''}{premiumChange.toFixed(0)}%
                                 </span>
                               )}
                             </div>
@@ -368,9 +396,7 @@ export function WinbackHouseholdModal({
                               <span className={cn(isOverdue && 'text-red-500 font-medium')}>
                                 {format(winbackDate, 'MMM d, yyyy')}
                               </span>
-                            ) : (
-                              '—'
-                            )}
+                            ) : '—'}
                           </TableCell>
                         </TableRow>
                       );
@@ -381,76 +407,48 @@ export function WinbackHouseholdModal({
             </div>
           </div>
 
-          {/* Status Action Buttons */}
-          <div className="flex flex-wrap gap-2 pt-4 border-t">
-            {localStatus === 'untouched' && (
-              <Button onClick={() => handleStatusChange('in_progress')} disabled={saving}>
-                <Play className="h-4 w-4 mr-2" />
-                Start Working
-              </Button>
-            )}
-
-            {localStatus === 'in_progress' && (
-              <>
-                <Button
-                  variant="default"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => handleStatusChange('won_back')}
-                  disabled={saving}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Won Back
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t">
+            <div className="flex flex-wrap gap-2">
+              {localStatus === 'untouched' && (
+                <Button onClick={() => handleStatusChange('in_progress')} disabled={saving}>
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Working
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleStatusChange('declined')}
-                  disabled={saving}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Declined
+              )}
+              
+              {localStatus === 'in_progress' && (
+                <>
+                  <Button onClick={() => handleStatusChange('won_back')} disabled={saving} className="bg-green-600 hover:bg-green-700">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Won Back
+                  </Button>
+                  <Button variant="outline" onClick={handleNotNow} disabled={saving}>
+                    <Clock className="h-4 w-4 mr-2" />
+                    Not Now
+                  </Button>
+                </>
+              )}
+              
+              {localStatus === 'won_back' && (
+                <Button variant="outline" onClick={() => handleStatusChange('in_progress')} disabled={saving}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reopen
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleStatusChange('no_contact')}
-                  disabled={saving}
-                >
-                  <PhoneOff className="h-4 w-4 mr-2" />
-                  No Contact
+              )}
+
+              {localStatus === 'dismissed' && (
+                <Button variant="outline" onClick={() => handleStatusChange('untouched')} disabled={saving}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Restore
                 </Button>
-              </>
-            )}
-
-            {['won_back', 'declined', 'no_contact'].includes(localStatus) && (
-              <Button
-                variant="outline"
-                onClick={() => handleStatusChange('in_progress')}
-                disabled={saving}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reopen
-              </Button>
-            )}
-
-            {localStatus === 'dismissed' && (
-              <Button
-                variant="outline"
-                onClick={() => handleStatusChange('untouched')}
-                disabled={saving}
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Restore
-              </Button>
-            )}
-
-            {localStatus !== 'dismissed' && (
-              <Button
-                variant="outline"
-                onClick={() => handleStatusChange('dismissed')}
-                disabled={saving}
-                className="ml-auto"
-              >
-                <Ban className="h-4 w-4 mr-2" />
-                Skip Lead
+              )}
+            </div>
+            
+            {localStatus !== 'dismissed' && localStatus !== 'won_back' && (
+              <Button variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => handleStatusChange('dismissed')} disabled={saving}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Dismiss
               </Button>
             )}
           </div>

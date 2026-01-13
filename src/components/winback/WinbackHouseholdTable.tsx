@@ -5,6 +5,8 @@ import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-reac
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+export type WinbackStatusType = 'untouched' | 'in_progress' | 'won_back' | 'dismissed';
+
 export interface Household {
   id: string;
   household_key: string;
@@ -16,7 +18,7 @@ export interface Household {
   city: string | null;
   state: string | null;
   zip_code: string | null;
-  status: 'untouched' | 'in_progress' | 'won_back' | 'declined' | 'no_contact' | 'dismissed';
+  status: WinbackStatusType;
   assigned_to: string | null;
   assigned_name?: string | null;
   notes: string | null;

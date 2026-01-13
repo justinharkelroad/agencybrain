@@ -307,19 +307,49 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
   }
 }
 
-// Calculate win-back date based on termination date, policy term, and contact days
+// Calculate win-back date based on the NEXT FUTURE competitor renewal
+// Keeps adding policy term until we find a renewal date AFTER today
 export function calculateWinbackDate(
   terminationDate: Date,
   policyTermMonths: number,
   contactDaysBefore: number
 ): Date {
-  const competitorRenewalDate = new Date(terminationDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Start with first competitor renewal (termination + policy term)
+  let competitorRenewalDate = new Date(terminationDate);
   competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
   
+  // Keep adding policy terms until we find a renewal date in the future
+  while (competitorRenewalDate <= today) {
+    competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
+  }
+  
+  // Win-back date is X days before that future renewal
   const winbackDate = new Date(competitorRenewalDate);
   winbackDate.setDate(winbackDate.getDate() - contactDaysBefore);
   
   return winbackDate;
+}
+
+// Calculate NEXT cycle win-back date (for "Not Now" button)
+// Takes current win-back date and pushes forward by one policy term
+export function calculateNextCycleWinbackDate(
+  currentWinbackDate: Date,
+  policyTermMonths: number,
+  contactDaysBefore: number
+): Date {
+  // Add the policy term to get to next competitor renewal
+  const nextRenewalDate = new Date(currentWinbackDate);
+  nextRenewalDate.setDate(nextRenewalDate.getDate() + contactDaysBefore); // Get back to renewal date
+  nextRenewalDate.setMonth(nextRenewalDate.getMonth() + policyTermMonths); // Add term
+  
+  // Subtract contact days to get new win-back date
+  const newWinbackDate = new Date(nextRenewalDate);
+  newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
+  
+  return newWinbackDate;
 }
 
 // Generate household key for deduplication
