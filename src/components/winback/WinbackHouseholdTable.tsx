@@ -23,13 +23,13 @@ export interface Household {
   assigned_name?: string | null;
   notes: string | null;
   policy_count: number;
-  total_premium_cents: number;
+  total_premium_potential_cents: number;
   earliest_winback_date: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type SortColumn = 'name' | 'policy_count' | 'total_premium_cents' | 'earliest_winback_date' | 'status' | 'assigned_name';
+export type SortColumn = 'name' | 'policy_count' | 'total_premium_potential_cents' | 'earliest_winback_date' | 'status' | 'assigned_name';
 export type SortDirection = 'asc' | 'desc';
 
 interface WinbackHouseholdTableProps {
@@ -151,7 +151,7 @@ export function WinbackHouseholdTable({
               Policies
             </SortHeader>
             <SortHeader
-              column="total_premium_cents"
+              column="total_premium_potential_cents"
               currentColumn={sortColumn}
               direction={sortDirection}
               onSort={onSort}
@@ -227,7 +227,7 @@ export function WinbackHouseholdTable({
                 </TableCell>
                 <TableCell className="text-right">{household.policy_count}</TableCell>
                 <TableCell className="text-right font-medium">
-                  {formatCurrency(household.total_premium_cents)}
+                  {formatCurrency(household.total_premium_potential_cents)}
                 </TableCell>
                 <TableCell>
                   {winbackDate ? (
