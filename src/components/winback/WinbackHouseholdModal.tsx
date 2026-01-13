@@ -169,14 +169,7 @@ export function WinbackHouseholdModal({
 
   const today = startOfDay(new Date());
   const fullName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
-  const fullAddress = [
-    household.street_address,
-    household.city,
-    household.state,
-    household.zip_code,
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const zipCode = household.zip_code?.substring(0, 5);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,10 +202,10 @@ export function WinbackHouseholdModal({
                     </a>
                   </div>
                 )}
-                {fullAddress && (
-                  <div className="flex items-center gap-2 col-span-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate">{fullAddress}</span>
+                {zipCode && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>ZIP: {zipCode}</span>
                   </div>
                 )}
                 {household.earliest_winback_date && (
