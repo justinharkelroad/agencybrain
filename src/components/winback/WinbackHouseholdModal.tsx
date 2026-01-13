@@ -36,6 +36,7 @@ interface WinbackHouseholdModalProps {
   onOpenChange: (open: boolean) => void;
   household: Household | null;
   teamMembers: TeamMember[];
+  currentUserTeamMemberId: string | null;
   onUpdate: () => void;
 }
 
@@ -63,6 +64,7 @@ export function WinbackHouseholdModal({
   onOpenChange,
   household,
   teamMembers,
+  currentUserTeamMemberId,
   onUpdate,
 }: WinbackHouseholdModalProps) {
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -119,13 +121,20 @@ export function WinbackHouseholdModal({
     if (!household) return;
     setSaving(true);
     try {
+      const updateData: Record<string, any> = {
+        notes,
+        assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If assigning someone and status is still "untouched", change to "in_progress"
+      if (assignedTo && assignedTo !== 'unassigned' && household.status === 'untouched') {
+        updateData.status = 'in_progress';
+      }
+
       const { error } = await supabase
         .from('winback_households')
-        .update({
-          notes,
-          assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', household.id);
 
       if (error) throw error;
@@ -143,12 +152,22 @@ export function WinbackHouseholdModal({
     if (!household) return;
     setSaving(true);
     try {
+      const updateData: Record<string, any> = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Auto-assign to current user when clicking "Start Working" if not already assigned
+      if (newStatus === 'in_progress' && !household.assigned_to && assignedTo === 'unassigned') {
+        if (currentUserTeamMemberId) {
+          updateData.assigned_to = currentUserTeamMemberId;
+          setAssignedTo(currentUserTeamMemberId);
+        }
+      }
+
       const { error } = await supabase
         .from('winback_households')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', household.id);
 
       if (error) throw error;
