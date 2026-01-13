@@ -647,6 +647,25 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
               />
             </TabsContent>
 
+            {/* Missing Zip Tab */}
+            <TabsContent value="missing-zip" className="mt-4">
+              <LqsHouseholdTable
+                households={paginatedHouseholds}
+                loading={isLoading}
+                onAssignLeadSource={handleAssignLeadSource}
+                onViewHouseholdDetail={handleViewHouseholdDetail}
+                onViewSaleDetail={handleViewSaleDetail}
+                totalRecords={totalRecords}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+                startRecord={startRecord}
+                endRecord={endRecord}
+              />
+            </TabsContent>
+
             {/* Grouped Views */}
             {isGroupedView && (
               <TabsContent value={activeTab} className="mt-4 space-y-6">
