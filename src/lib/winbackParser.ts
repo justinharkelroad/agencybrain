@@ -176,23 +176,35 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rawArray = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: null });
 
-    // Find header row (look for row containing 'Insured First Name' or 'Policy Number')
+    console.log('=== WINBACK PARSER DEBUG ===');
+    console.log('Total rows in file:', rawArray.length);
+    console.log('First 6 rows:');
+    rawArray.slice(0, 6).forEach((row, i) => {
+      console.log(`Row ${i}:`, Array.isArray(row) ? row.slice(0, 5) : row);
+    });
+
+    // Find header row - Allstate files have metadata rows before headers
+    // Look for row containing "Insured First Name" or "Policy Number"
     let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(10, rawArray.length); i++) {
+    for (let i = 0; i < Math.min(15, rawArray.length); i++) {
       const row = rawArray[i];
       if (Array.isArray(row)) {
-        const hasHeader = row.some(cell => 
-          cell && (
-            String(cell).includes('First Name') ||
-            String(cell).includes('Policy Number') ||
-            String(cell).includes('Termination')
-          )
-        );
-        if (hasHeader) {
+        const rowStr = row.map(cell => String(cell || '')).join('|');
+        // Check for Allstate-specific headers
+        if (
+          rowStr.includes('Insured First Name') ||
+          rowStr.includes('Policy Number') ||
+          (rowStr.includes('First Name') && rowStr.includes('Last Name') && rowStr.includes('Termination'))
+        ) {
           headerRowIndex = i;
           break;
         }
       }
+    }
+
+    console.log('Header row found at index:', headerRowIndex);
+    if (headerRowIndex >= 0) {
+      console.log('Header row content:', rawArray[headerRowIndex]);
     }
 
     if (headerRowIndex === -1) {
