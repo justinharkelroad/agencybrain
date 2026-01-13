@@ -8778,6 +8778,12 @@ export type Database = {
         Args: { p_product_type: string }
         Returns: string
       }
+      recalculate_all_winback_dates: {
+        Args: { p_agency_id: string; p_contact_days_before?: number }
+        Returns: {
+          updated_count: number
+        }[]
+      }
       recalculate_winback_household_aggregates: {
         Args: { p_household_id: string }
         Returns: undefined

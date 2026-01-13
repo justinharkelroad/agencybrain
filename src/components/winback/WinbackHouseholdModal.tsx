@@ -176,7 +176,7 @@ export function WinbackHouseholdModal({
     try {
       const { data: householdPolicies, error: fetchError } = await supabase
         .from('winback_policies')
-        .select('id, policy_term_months, calculated_winback_date')
+        .select('id, policy_term_months, termination_effective_date')
         .eq('household_id', household.id);
 
       if (fetchError) throw fetchError;
@@ -187,15 +187,33 @@ export function WinbackHouseholdModal({
         return;
       }
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const contactDaysBefore = 45; // TODO: could fetch from settings
+
       for (const policy of householdPolicies) {
-        const currentWinbackDate = new Date(policy.calculated_winback_date);
-        const termMonths = policy.policy_term_months || 12;
-        const nextWinbackDate = new Date(currentWinbackDate);
-        nextWinbackDate.setMonth(nextWinbackDate.getMonth() + termMonths);
+        const terminationDate = new Date(policy.termination_effective_date);
+        const policyTermMonths = policy.policy_term_months || 12;
+        
+        // Calculate competitor renewal dates starting from termination
+        let competitorRenewalDate = new Date(terminationDate);
+        competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
+        
+        // Keep adding policy terms until we find a renewal date AFTER today
+        while (competitorRenewalDate <= today) {
+          competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
+        }
+        
+        // Now add ONE more term (since they said "not now" for the upcoming one)
+        competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
+        
+        // Win-back date is 45 days before that future renewal
+        const newWinbackDate = new Date(competitorRenewalDate);
+        newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
 
         await supabase
           .from('winback_policies')
-          .update({ calculated_winback_date: nextWinbackDate.toISOString().split('T')[0] })
+          .update({ calculated_winback_date: newWinbackDate.toISOString().split('T')[0] })
           .eq('id', policy.id);
       }
 
