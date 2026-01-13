@@ -224,6 +224,8 @@ export default function WinbackHQ() {
         query = query.eq('status', 'dismissed');
       } else {
         query = query.neq('status', 'dismissed');
+        // Exclude households with no winback date (cancel/rewrite only policies)
+        query = query.not('earliest_winback_date', 'is', null);
       }
 
       // Status filter
