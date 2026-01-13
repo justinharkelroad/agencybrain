@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, XCircle, PhoneOff, Trash2, RotateCcw, Save } from 'lucide-react';
+import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, XCircle, PhoneOff, RotateCcw, Save, Ban } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
@@ -72,6 +72,7 @@ export function WinbackHouseholdModal({
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
+  const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
 
   useEffect(() => {
     if (open && household) {
@@ -80,6 +81,7 @@ export function WinbackHouseholdModal({
       console.log('Household Name:', household.first_name, household.last_name);
       setNotes(household.notes || '');
       setAssignedTo(household.assigned_to || 'unassigned');
+      setLocalStatus(household.status);
       fetchPolicies(household.id);
     }
   }, [open, household]);
@@ -171,6 +173,7 @@ export function WinbackHouseholdModal({
         .eq('id', household.id);
 
       if (error) throw error;
+      setLocalStatus(newStatus); // Update local state immediately
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       onUpdate();
       if (newStatus === 'dismissed') {
@@ -196,7 +199,7 @@ export function WinbackHouseholdModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span className="text-xl">{fullName || 'Unknown'}</span>
-            <WinbackStatusBadge status={household.status} />
+            <WinbackStatusBadge status={localStatus} />
           </DialogTitle>
         </DialogHeader>
 
@@ -380,14 +383,14 @@ export function WinbackHouseholdModal({
 
           {/* Status Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-4 border-t">
-            {household.status === 'untouched' && (
+            {localStatus === 'untouched' && (
               <Button onClick={() => handleStatusChange('in_progress')} disabled={saving}>
                 <Play className="h-4 w-4 mr-2" />
                 Start Working
               </Button>
             )}
 
-            {household.status === 'in_progress' && (
+            {localStatus === 'in_progress' && (
               <>
                 <Button
                   variant="default"
@@ -417,7 +420,7 @@ export function WinbackHouseholdModal({
               </>
             )}
 
-            {['won_back', 'declined', 'no_contact'].includes(household.status) && (
+            {['won_back', 'declined', 'no_contact'].includes(localStatus) && (
               <Button
                 variant="outline"
                 onClick={() => handleStatusChange('in_progress')}
@@ -428,7 +431,7 @@ export function WinbackHouseholdModal({
               </Button>
             )}
 
-            {household.status === 'dismissed' && (
+            {localStatus === 'dismissed' && (
               <Button
                 variant="outline"
                 onClick={() => handleStatusChange('untouched')}
@@ -439,15 +442,15 @@ export function WinbackHouseholdModal({
               </Button>
             )}
 
-            {household.status !== 'dismissed' && (
+            {localStatus !== 'dismissed' && (
               <Button
-                variant="destructive"
+                variant="outline"
                 onClick={() => handleStatusChange('dismissed')}
                 disabled={saving}
                 className="ml-auto"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Dismiss
+                <Ban className="h-4 w-4 mr-2" />
+                Skip Lead
               </Button>
             )}
           </div>
