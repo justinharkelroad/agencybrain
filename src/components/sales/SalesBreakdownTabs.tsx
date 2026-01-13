@@ -8,7 +8,12 @@ import { SalesByZipcodeChart } from "./SalesByZipcodeChart";
 import { SalesLeaderboard } from "./SalesLeaderboard";
 import { SalesMetricSummaryCards } from "./SalesMetricSummaryCards";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { startOfMonth, endOfMonth, subMonths, startOfYear, format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useSalesMonthSummary } from "@/hooks/useSalesMonthSummary";
 
 interface SalesBreakdownTabsProps {
@@ -20,9 +25,9 @@ interface SalesBreakdownTabsProps {
   leadSources?: { id: string; name: string }[];
 }
 
-type Period = "this_month" | "last_month" | "this_year" | "last_90_days";
+type Period = "this_month" | "last_month" | "this_year" | "last_90_days" | "custom";
 
-function getPeriodDates(period: Period): { start: string; end: string; label: string } {
+function getPeriodDates(period: Period, customStart?: Date, customEnd?: Date): { start: string; end: string; label: string } {
   const now = new Date();
   
   switch (period) {
@@ -51,6 +56,20 @@ function getPeriodDates(period: Period): { start: string; end: string; label: st
         end: format(now, "yyyy-MM-dd"),
         label: "Last 90 Days",
       };
+    case "custom":
+      if (customStart && customEnd) {
+        return {
+          start: format(customStart, "yyyy-MM-dd"),
+          end: format(customEnd, "yyyy-MM-dd"),
+          label: `${format(customStart, "MMM d")} - ${format(customEnd, "MMM d, yyyy")}`,
+        };
+      }
+      // Default to this month if custom dates not set
+      return {
+        start: format(startOfMonth(now), "yyyy-MM-dd"),
+        end: format(endOfMonth(now), "yyyy-MM-dd"),
+        label: format(now, "MMMM yyyy"),
+      };
     default:
       return {
         start: format(startOfMonth(now), "yyyy-MM-dd"),
@@ -63,8 +82,10 @@ function getPeriodDates(period: Period): { start: string; end: string; label: st
 export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken, canEditAllSales = false, currentTeamMemberId, leadSources = [] }: SalesBreakdownTabsProps) {
   const [activeTab, setActiveTab] = useState("by-date");
   const [period, setPeriod] = useState<Period>("this_month");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
   
-  const { start, end, label } = getPeriodDates(period);
+  const { start, end, label } = getPeriodDates(period, customStartDate, customEndDate);
 
   // Fetch summary data for the metric cards
   const { data: summary, isLoading: summaryLoading } = useSalesMonthSummary({
@@ -77,21 +98,85 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
   // Only show projections for "This Month" since other periods are complete
   const showProjections = period === "this_month";
 
+  const handlePeriodChange = (value: string) => {
+    setPeriod(value as Period);
+    if (value !== "custom") {
+      setCustomStartDate(undefined);
+      setCustomEndDate(undefined);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold">Sales Breakdown</h2>
-        <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="this_month">This Month</SelectItem>
-            <SelectItem value="last_month">Last Month</SelectItem>
-            <SelectItem value="last_90_days">Last 90 Days</SelectItem>
-            <SelectItem value="this_year">This Year</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={period} onValueChange={handlePeriodChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+              <SelectItem value="last_90_days">Last 90 Days</SelectItem>
+              <SelectItem value="this_year">This Year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {period === "custom" && (
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[130px] justify-start text-left font-normal",
+                      !customStartDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customStartDate}
+                    onSelect={setCustomStartDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">to</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[130px] justify-start text-left font-normal",
+                      !customEndDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customEndDate}
+                    onSelect={setCustomEndDate}
+                    disabled={(date) => customStartDate ? date < customStartDate : false}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards with Projections */}
