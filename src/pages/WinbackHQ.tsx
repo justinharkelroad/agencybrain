@@ -211,7 +211,8 @@ export default function WinbackHQ() {
     }
   };
 
-  const fetchHouseholds = async (agency: string) => {
+  const fetchHouseholds = async (agency: string, members?: typeof teamMembers) => {
+    const membersToUse = members || teamMembers;
     try {
       let query = supabase
         .from('winback_households')
@@ -269,7 +270,7 @@ export default function WinbackHQ() {
       // Map assigned_to to assigned_name
       const householdsWithNames = (data || []).map((h) => ({
         ...h,
-        assigned_name: teamMembers.find((m) => m.id === h.assigned_to)?.name || null,
+        assigned_name: membersToUse.find((m) => m.id === h.assigned_to)?.name || null,
       }));
 
       setHouseholds(householdsWithNames as Household[]);
@@ -303,17 +304,17 @@ export default function WinbackHQ() {
     setDetailModalOpen(true);
   };
 
-  const handleModalUpdate = () => {
+  const handleModalUpdate = async () => {
     if (agencyId) {
-      fetchStats(agencyId);
-      fetchHouseholds(agencyId);
+      await fetchStats(agencyId);
+      await fetchHouseholds(agencyId, teamMembers);
     }
   };
 
-  const handleUploadComplete = () => {
+  const handleUploadComplete = async () => {
     if (agencyId) {
-      fetchStats(agencyId);
-      fetchHouseholds(agencyId);
+      await fetchStats(agencyId);
+      await fetchHouseholds(agencyId, teamMembers);
     }
   };
 
