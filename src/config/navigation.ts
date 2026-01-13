@@ -137,7 +137,7 @@ export const navigationConfig: NavEntry[] = [
       },
       {
         id: 'winback-hq',
-        title: 'Win-Back HQ',
+        title: 'Winback HQ',
         icon: RotateCcw,
         type: 'link',
         url: '/winback',
@@ -465,7 +465,7 @@ export const staffNavigationConfig: NavEntry[] = [
       },
       {
         id: 'winback-hq',
-        title: 'Win-Back HQ',
+        title: 'Winback HQ',
         icon: RotateCcw,
         type: 'link',
         url: '/staff/winback',

@@ -339,7 +339,7 @@ export default function WinbackHQ() {
         <div className="flex items-center gap-3">
           <RefreshCw className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Win-Back HQ</h1>
+            <h1 className="text-2xl font-bold">Winback HQ <span className="text-destructive">(BETA)</span></h1>
             <p className="text-muted-foreground">Track and manage terminated policy opportunities</p>
           </div>
         </div>

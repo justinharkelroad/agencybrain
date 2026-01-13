@@ -163,7 +163,7 @@ export function WinbackHouseholdTable({
               direction={sortDirection}
               onSort={onSort}
             >
-              Win-Back Date
+              Winback Date
             </SortHeader>
             <SortHeader
               column="status"
