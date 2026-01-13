@@ -251,7 +251,7 @@ export default function WinbackHQ() {
       const sortColumnMap: Record<SortColumn, string> = {
         name: 'last_name',
         policy_count: 'policy_count',
-        total_premium_cents: 'total_premium_cents',
+        total_premium_potential_cents: 'total_premium_potential_cents',
         earliest_winback_date: 'earliest_winback_date',
         status: 'status',
         assigned_name: 'assigned_to',
