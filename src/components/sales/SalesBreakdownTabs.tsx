@@ -7,6 +7,7 @@ import { SalesByBundleChart } from "./SalesByBundleChart";
 import { SalesByZipcodeChart } from "./SalesByZipcodeChart";
 import { SalesLeaderboard } from "./SalesLeaderboard";
 import { SalesMetricSummaryCards } from "./SalesMetricSummaryCards";
+import { SalesPeriodSummaryTable } from "./SalesPeriodSummaryTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -227,6 +228,14 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Period Sales Summary Table */}
+      <SalesPeriodSummaryTable
+        agencyId={agencyId}
+        startDate={start}
+        endDate={end}
+        staffSessionToken={staffSessionToken}
+      />
     </div>
   );
 }
