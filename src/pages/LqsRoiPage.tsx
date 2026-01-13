@@ -729,48 +729,55 @@ export default function LqsRoiPage() {
                   <Skeleton key={i} className="h-6" />
                 ))}
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground">Avg Premium per Sale</span>
-                  <span className="font-semibold">
-                    {summary.soldHouseholds > 0 
-                      ? formatCurrency(summary.premiumSoldCents / summary.soldHouseholds) 
-                      : '-'}
-                  </span>
+            ) : (() => {
+              // Use correct counts based on view type
+              const salesCount = summary.isActivityView ? summary.salesClosed : summary.soldHouseholds;
+              const leadsCount = summary.isActivityView ? summary.leadsReceived : summary.totalLeads;
+              
+              const avgPremiumPerSale = salesCount > 0 
+                ? formatCurrency(summary.premiumSoldCents / salesCount) 
+                : '—';
+              const avgCostPerLead = leadsCount > 0 
+                ? formatCurrency(summary.totalSpendCents / leadsCount) 
+                : '—';
+              const avgCostPerSale = salesCount > 0 
+                ? formatCurrency(summary.totalSpendCents / salesCount) 
+                : '—';
+              
+              return (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-muted-foreground">Avg Premium per Sale</span>
+                    <span className="font-semibold">{avgPremiumPerSale}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-muted-foreground">Commission Earned</span>
+                    <span className="font-semibold text-green-500">
+                      {formatCurrency(summary.commissionEarned)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-muted-foreground">Avg Cost per Lead</span>
+                    <span className="font-semibold">{avgCostPerLead}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border">
+                    <span className="text-muted-foreground">Avg Cost per Sale</span>
+                    <span className="font-semibold">{avgCostPerSale}</span>
+                  </div>
+                  {/* Lead → Sale Rate - hide in activity view since it's not meaningful */}
+                  {!summary.isActivityView && (
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-muted-foreground">Lead → Sale Rate</span>
+                      <span className="font-semibold">
+                        {summary.totalLeads > 0 
+                          ? formatPercent((summary.soldHouseholds / summary.totalLeads) * 100) 
+                          : '—'}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground">Commission Earned</span>
-                  <span className="font-semibold text-green-500">
-                    {formatCurrency(summary.commissionEarned)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground">Avg Cost per Lead</span>
-                  <span className="font-semibold">
-                    {summary.totalLeads > 0 
-                      ? formatCurrency(summary.totalSpendCents / summary.totalLeads) 
-                      : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-muted-foreground">Avg Cost per Sale</span>
-                  <span className="font-semibold">
-                    {summary.soldHouseholds > 0 
-                      ? formatCurrency(summary.totalSpendCents / summary.soldHouseholds) 
-                      : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-muted-foreground">Lead → Sale Rate</span>
-                  <span className="font-semibold">
-                    {summary.totalLeads > 0 
-                      ? formatPercent((summary.soldHouseholds / summary.totalLeads) * 100) 
-                      : '-'}
-                  </span>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
