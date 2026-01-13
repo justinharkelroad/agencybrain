@@ -77,7 +77,8 @@ function SortHeader({
   );
 }
 
-function formatCurrency(cents: number): string {
+function formatCurrency(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined || isNaN(cents)) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
