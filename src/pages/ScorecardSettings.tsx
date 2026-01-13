@@ -129,21 +129,33 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
         currentAgencyId = profile.agency_id;
         setAgencyId(currentAgencyId);
 
-        // Load available KPIs for this agency
-        const { data: kpis, error: kpisError } = await supabase
+        // Load available KPIs for this agency with role filtering
+        let kpiQuery = supabase
           .from('kpis')
-          .select('key, label')
+          .select('key, label, role')
           .eq('agency_id', currentAgencyId)
-          .eq('is_active', true)
-          .order('key');
+          .eq('is_active', true);
+
+        // Filter: role-specific KPIs OR hybrid KPIs (role = NULL)
+        if (selectedRole) {
+          kpiQuery = kpiQuery.or(`role.eq.${selectedRole},role.is.null`);
+        }
+
+        const { data: kpis, error: kpisError } = await kpiQuery.order('key');
 
         if (kpisError) throw kpisError;
 
-        const metrics: KPIOption[] = (kpis || []).map(kpi => ({
-          key: kpi.key,
-          label: kpi.label
-        }));
+        // Dedupe: prefer role-specific KPI over hybrid (NULL role) for same key
+        const uniqueKpis = new Map<string, { key: string; label: string }>();
+        (kpis || []).forEach((kpi: { key: string; label: string; role: string | null }) => {
+          const existing = uniqueKpis.get(kpi.key);
+          // If no existing, or this one has a role (more specific), use this one
+          if (!existing || kpi.role !== null) {
+            uniqueKpis.set(kpi.key, { key: kpi.key, label: kpi.label });
+          }
+        });
 
+        const metrics: KPIOption[] = Array.from(uniqueKpis.values());
         setAvailableMetrics(metrics);
 
         // Load scorecard rules for this agency and role
