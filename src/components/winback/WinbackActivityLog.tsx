@@ -173,17 +173,22 @@ export function WinbackActivityLog({ activities, loading, onLogActivity }: Winba
                             {formatStatus(activity.old_status)} → {formatStatus(activity.new_status)}
                           </span>
                         )}
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-muted-foreground">
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                        <span className="font-medium text-foreground/80">
                           {activity.created_by_name || 'Unknown'}
+                        </span>
+                        <span>•</span>
+                        <span title={format(new Date(activity.created_at), 'PPpp')}>
+                          {format(new Date(activity.created_at), 'MMM d, yyyy h:mm a')}
+                        </span>
+                        <span className="text-muted-foreground/60">
+                          ({formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })})
                         </span>
                       </div>
                       {activity.notes && (
                         <p className="text-muted-foreground mt-1">{activity.notes}</p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1" title={format(new Date(activity.created_at), 'PPpp')}>
-                        {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
-                      </p>
                     </div>
                   </div>
                 );
