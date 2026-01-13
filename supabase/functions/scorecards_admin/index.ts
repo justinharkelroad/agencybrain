@@ -289,6 +289,20 @@ serve(async (req) => {
       case 'scorecard_rules_upsert': {
         const { role, selected_metrics, ring_metrics, n_required, weights, counted_days, count_weekend_if_submitted, backfill_days } = params;
 
+        // Dedupe arrays to prevent duplicate metrics (preserve order, keep first occurrence)
+        const dedupeArray = (arr: string[] | null | undefined): string[] | null => {
+          if (!arr) return null;
+          const seen = new Set<string>();
+          return arr.filter((item) => {
+            if (seen.has(item)) return false;
+            seen.add(item);
+            return true;
+          });
+        };
+        
+        const dedupedSelectedMetrics = dedupeArray(selected_metrics);
+        const dedupedRingMetrics = dedupeArray(ring_metrics);
+
         // Check if rules exist
         const { data: existing } = await supabase
           .from('scorecard_rules')
@@ -302,8 +316,8 @@ serve(async (req) => {
           ({ data, error } = await supabase
             .from('scorecard_rules')
             .update({
-              selected_metrics,
-              ring_metrics,
+              selected_metrics: dedupedSelectedMetrics,
+              ring_metrics: dedupedRingMetrics,
               n_required,
               weights,
               counted_days,
@@ -319,8 +333,8 @@ serve(async (req) => {
             .insert({
               agency_id: agencyId,
               role,
-              selected_metrics,
-              ring_metrics,
+              selected_metrics: dedupedSelectedMetrics,
+              ring_metrics: dedupedRingMetrics,
               n_required,
               weights,
               counted_days,
@@ -354,7 +368,18 @@ serve(async (req) => {
         const { data, error } = await query.order('label');
 
         if (error) throw error;
-        result = { kpis: data };
+        
+        // Dedupe: prefer role-specific KPI over NULL-role for the same key
+        const uniqueKpis = new Map<string, any>();
+        (data || []).forEach((kpi: any) => {
+          const existing = uniqueKpis.get(kpi.key);
+          // Keep role-specific over NULL role
+          if (!existing || (kpi.role !== null && existing.role === null)) {
+            uniqueKpis.set(kpi.key, kpi);
+          }
+        });
+        
+        result = { kpis: Array.from(uniqueKpis.values()) };
         break;
       }
 
