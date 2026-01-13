@@ -69,22 +69,32 @@ export default function Settings() {
 
       setAgencyId(profile.agency_id);
 
-      // Load available KPIs for this agency
-      const { data: kpis, error: kpisError } = await supabase
+      // Load available KPIs for this agency with role filtering
+      let kpiQuery = supabase
         .from('kpis')
-        .select('key, label')
+        .select('key, label, role')
         .eq('agency_id', profile.agency_id)
-        .eq('is_active', true)
-        .order('key');
+        .eq('is_active', true);
+
+      // Filter: role-specific KPIs OR hybrid KPIs (role = NULL)
+      if (selectedRole) {
+        kpiQuery = kpiQuery.or(`role.eq.${selectedRole},role.is.null`);
+      }
+
+      const { data: kpis, error: kpisError } = await kpiQuery.order('key');
 
       if (kpisError) throw kpisError;
 
-      const metrics = (kpis || []).map(kpi => ({
-        key: kpi.key,
-        label: kpi.label
-      }));
+      // Dedupe by key: prefer role-specific KPI over hybrid (NULL role)
+      const kpiMap = new Map<string, { key: string; label: string }>();
+      (kpis || []).forEach((kpi: { key: string; label: string; role: string | null }) => {
+        const existing = kpiMap.get(kpi.key);
+        if (!existing || kpi.role !== null) {
+          kpiMap.set(kpi.key, { key: kpi.key, label: kpi.label });
+        }
+      });
 
-      setAvailableMetrics(metrics);
+      setAvailableMetrics(Array.from(kpiMap.values()));
 
       // Load scorecard rules for this agency and role
       const { data: rules } = await supabase
