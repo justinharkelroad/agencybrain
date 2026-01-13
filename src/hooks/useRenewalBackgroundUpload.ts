@@ -48,10 +48,13 @@ async function processStaffUpload(
       body: { records, filename },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error(error.message || 'Edge function call failed');
+    }
 
-    if (!data.success) {
-      throw new Error(data.error || 'Upload failed');
+    if (!data?.success) {
+      throw new Error(data?.error || 'Upload failed');
     }
 
     // Invalidate queries so data refreshes
