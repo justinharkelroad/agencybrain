@@ -7904,6 +7904,276 @@ export type Database = {
           },
         ]
       }
+      winback_households: {
+        Row: {
+          agency_id: string
+          assigned_to: string | null
+          city: string | null
+          created_at: string
+          earliest_winback_date: string | null
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string | null
+          policy_count: number | null
+          state: string | null
+          status: string
+          street_address: string | null
+          total_premium_potential_cents: number | null
+          updated_at: string
+          zip_code: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_to?: string | null
+          city?: string | null
+          created_at?: string
+          earliest_winback_date?: string | null
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone?: string | null
+          policy_count?: number | null
+          state?: string | null
+          status?: string
+          street_address?: string | null
+          total_premium_potential_cents?: number | null
+          updated_at?: string
+          zip_code: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_to?: string | null
+          city?: string | null
+          created_at?: string
+          earliest_winback_date?: string | null
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string | null
+          policy_count?: number | null
+          state?: string | null
+          status?: string
+          street_address?: string | null
+          total_premium_potential_cents?: number | null
+          updated_at?: string
+          zip_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winback_households_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_households_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winback_policies: {
+        Row: {
+          account_type: string | null
+          agency_id: string
+          agent_number: string | null
+          anniversary_effective_date: string | null
+          calculated_winback_date: string
+          company_code: string | null
+          created_at: string
+          household_id: string
+          id: string
+          is_cancel_rewrite: boolean
+          original_year: number | null
+          policy_number: string
+          policy_term_months: number
+          premium_change_cents: number | null
+          premium_change_percent: number | null
+          premium_new_cents: number | null
+          premium_old_cents: number | null
+          product_code: string | null
+          product_name: string
+          renewal_effective_date: string | null
+          termination_effective_date: string
+          termination_reason: string | null
+          termination_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_type?: string | null
+          agency_id: string
+          agent_number?: string | null
+          anniversary_effective_date?: string | null
+          calculated_winback_date: string
+          company_code?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          is_cancel_rewrite?: boolean
+          original_year?: number | null
+          policy_number: string
+          policy_term_months?: number
+          premium_change_cents?: number | null
+          premium_change_percent?: number | null
+          premium_new_cents?: number | null
+          premium_old_cents?: number | null
+          product_code?: string | null
+          product_name: string
+          renewal_effective_date?: string | null
+          termination_effective_date: string
+          termination_reason?: string | null
+          termination_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string | null
+          agency_id?: string
+          agent_number?: string | null
+          anniversary_effective_date?: string | null
+          calculated_winback_date?: string
+          company_code?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          is_cancel_rewrite?: boolean
+          original_year?: number | null
+          policy_number?: string
+          policy_term_months?: number
+          premium_change_cents?: number | null
+          premium_change_percent?: number | null
+          premium_new_cents?: number | null
+          premium_old_cents?: number | null
+          product_code?: string | null
+          product_name?: string
+          renewal_effective_date?: string | null
+          termination_effective_date?: string
+          termination_reason?: string | null
+          termination_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winback_policies_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_policies_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "winback_households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winback_settings: {
+        Row: {
+          agency_id: string
+          contact_days_before: number
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          contact_days_before?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          contact_days_before?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winback_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      winback_uploads: {
+        Row: {
+          agency_id: string
+          created_at: string
+          filename: string
+          id: string
+          records_new_households: number
+          records_new_policies: number
+          records_processed: number
+          records_skipped: number
+          records_updated: number
+          uploaded_by_staff_id: string | null
+          uploaded_by_user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          filename: string
+          id?: string
+          records_new_households?: number
+          records_new_policies?: number
+          records_processed?: number
+          records_skipped?: number
+          records_updated?: number
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          filename?: string
+          id?: string
+          records_new_households?: number
+          records_new_policies?: number
+          records_processed?: number
+          records_skipped?: number
+          records_updated?: number
+          uploaded_by_staff_id?: string | null
+          uploaded_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "winback_uploads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_uploads_uploaded_by_staff_id_fkey"
+            columns: ["uploaded_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_uploads_uploaded_by_user_id_fkey"
+            columns: ["uploaded_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       vw_active_kpis: {
@@ -8507,6 +8777,10 @@ export type Database = {
       normalize_product_type: {
         Args: { p_product_type: string }
         Returns: string
+      }
+      recalculate_winback_household_aggregates: {
+        Args: { p_household_id: string }
+        Returns: undefined
       }
       recompute_streaks_for_member: {
         Args: { p_end: string; p_member: string; p_start: string }

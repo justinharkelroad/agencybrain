@@ -26,6 +26,7 @@ import {
   ClipboardEdit,
   FileSpreadsheet,
   Settings,
+  RotateCcw,
   type LucideIcon
 } from "lucide-react";
 
@@ -133,6 +134,14 @@ export const navigationConfig: NavEntry[] = [
         url: '/roleplaybot',
         access: { staff: true, manager: true, owner: true },
         requiresTier: '1:1',
+      },
+      {
+        id: 'winback-hq',
+        title: 'Win-Back HQ',
+        icon: RotateCcw,
+        type: 'link',
+        url: '/winback',
+        access: { staff: false, manager: true, owner: true },
       },
     ],
   },
@@ -453,6 +462,14 @@ export const staffNavigationConfig: NavEntry[] = [
         url: '/staff/roleplaybot',
         access: { staff: true, manager: true, owner: true },
         requiresTier: '1:1',
+      },
+      {
+        id: 'winback-hq',
+        title: 'Win-Back HQ',
+        icon: RotateCcw,
+        type: 'link',
+        url: '/staff/winback',
+        access: { staff: false, manager: true, owner: true },
       },
     ],
   },
