@@ -239,7 +239,7 @@ export function WinbackHouseholdModal({
                           'text-red-500 font-medium'
                       )}
                     >
-                      Win-back: {format(new Date(household.earliest_winback_date), 'MMM d, yyyy')}
+                      Winback: {format(new Date(household.earliest_winback_date), 'MMM d, yyyy')}
                     </span>
                   </div>
                 )}

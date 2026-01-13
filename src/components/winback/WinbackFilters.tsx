@@ -154,7 +154,7 @@ export function WinbackFilters({
                   format(dateRange.from, 'MMM d, yyyy')
                 )
               ) : (
-                'Win-back date range'
+                'Winback date range'
               )}
             </Button>
           </PopoverTrigger>

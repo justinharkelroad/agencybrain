@@ -54,7 +54,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Settings className="h-4 w-4" />
-          Win-Back Timing
+          Winback Timing
         </CardTitle>
         <CardDescription>
           Configure when win-back opportunities should surface
@@ -81,7 +81,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
         </div>
 
         <p className="text-xs text-muted-foreground mt-3">
-          Win-back opportunities will appear {days} days before their estimated competitor renewal date.
+          Winback opportunities will appear {days} days before their estimated competitor renewal date.
         </p>
       </CardContent>
     </Card>
