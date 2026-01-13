@@ -14,6 +14,8 @@ export const KPI_KEY_TO_COLUMN: Record<string, string> = {
   // Standard UI keys -> database columns
   items_sold: 'sold_items',
   quoted_households: 'quoted_count',
+  policies_quoted: 'quoted_count',   // Alias - some agencies use this key for quoted households
+  items_quoted: 'quoted_count',      // Alias - some agencies use this key for quoted households
   
   // Keys that map to themselves (no translation needed)
   outbound_calls: 'outbound_calls',
