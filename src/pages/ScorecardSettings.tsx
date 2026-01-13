@@ -80,20 +80,24 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
         currentAgencyId = staffAgencyId!;
         setAgencyId(currentAgencyId);
         
-        // Load KPIs via edge function
+        // Load KPIs via edge function - pass role to filter by selected role
         const { data: kpisData, error: kpisError } = await supabase.functions.invoke('scorecards_admin', {
           headers: { 'x-staff-session': staffToken! },
-          body: { action: 'kpis_list' },
+          body: { action: 'kpis_list', role: selectedRole },
         });
         
         if (kpisError) throw kpisError;
         if (kpisData?.error) throw new Error(kpisData.error);
         
-        const metrics: KPIOption[] = (kpisData?.kpis || []).map((kpi: any) => ({
-          key: kpi.key,
-          label: kpi.label
-        }));
-        setAvailableMetrics(metrics);
+        // Dedupe by key (prefer role-specific over NULL role) as defensive measure
+        const kpiMap = new Map<string, { key: string; label: string }>();
+        (kpisData?.kpis || []).forEach((kpi: any) => {
+          const existing = kpiMap.get(kpi.key);
+          if (!existing || kpi.role !== null) {
+            kpiMap.set(kpi.key, { key: kpi.key, label: kpi.label });
+          }
+        });
+        setAvailableMetrics(Array.from(kpiMap.values()));
         
         // Load scorecard rules via edge function
         const { data: rulesData, error: rulesError } = await supabase.functions.invoke('scorecards_admin', {
