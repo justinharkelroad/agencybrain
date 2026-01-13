@@ -9,7 +9,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, startOfDay, endOfDay, subDays
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 
-export type WinbackStatus = 'all' | 'untouched' | 'in_progress' | 'won_back' | 'declined' | 'no_contact';
+export type WinbackStatus = 'all' | 'untouched' | 'in_progress' | 'won_back';
 export type QuickDateFilter = 'all' | 'overdue' | 'this_week' | 'next_2_weeks' | 'next_month';
 
 interface WinbackFiltersProps {
@@ -37,8 +37,6 @@ const statusOptions: { value: WinbackStatus; label: string }[] = [
   { value: 'untouched', label: 'Untouched' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'won_back', label: 'Won Back' },
-  { value: 'declined', label: 'Declined' },
-  { value: 'no_contact', label: 'No Contact' },
 ];
 
 export function WinbackFilters({
