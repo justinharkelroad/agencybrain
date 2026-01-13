@@ -57,9 +57,9 @@ interface HouseholdDetailRow {
   lead_source_id: string | null;
   created_at: string;
   lead_received_date: string | null;
-  insured_last_name: string | null;
-  insured_first_name: string | null;
-  insured_zip: string | null;
+  last_name: string | null;
+  first_name: string | null;
+  zip_code: string | null;
   quotes: Array<{ quote_date: string | null; premium_cents: number | null }> | null;
   sales: Array<{ sale_date: string | null; premium_cents: number | null; team_member_id: string | null }> | null;
 }
@@ -165,9 +165,9 @@ export function useLqsRoiExport(
             lead_source_id,
             created_at,
             lead_received_date,
-            insured_last_name,
-            insured_first_name,
-            insured_zip,
+            last_name,
+            first_name,
+            zip_code,
             quotes:lqs_quotes(quote_date, premium_cents),
             sales:lqs_sales(sale_date, premium_cents, team_member_id)
           `)
@@ -252,11 +252,11 @@ export function useLqsRoiExport(
         const producerName = producerId ? teamMemberMap.get(producerId) : null;
 
         return [
-          escapeCSV(h.insured_last_name),
-          escapeCSV(h.insured_first_name),
+          escapeCSV(h.last_name),
+          escapeCSV(h.first_name),
           escapeCSV(h.status),
           escapeCSV(h.lead_source_id ? leadSourceMap.get(h.lead_source_id) || 'Unknown' : 'Unattributed'),
-          escapeCSV(h.insured_zip),
+          escapeCSV(h.zip_code),
           escapeCSV(h.lead_received_date ? format(new Date(h.lead_received_date), 'MM/dd/yyyy') : ''),
           escapeCSV(quoteDate ? format(new Date(quoteDate), 'MM/dd/yyyy') : ''),
           escapeCSV(saleDate ? format(new Date(saleDate), 'MM/dd/yyyy') : ''),
