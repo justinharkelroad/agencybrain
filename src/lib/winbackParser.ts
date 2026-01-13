@@ -4,9 +4,6 @@ import * as XLSX from 'xlsx';
 export interface ParsedWinbackRecord {
   firstName: string;
   lastName: string;
-  streetAddress: string | null;
-  city: string | null;
-  state: string | null;
   zipCode: string;
   email: string | null;
   phone: string | null;
@@ -40,9 +37,6 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   // Allstate standard headers
   'Insured First Name': 'firstName',
   'Insured Last Name': 'lastName',
-  'Street Address': 'streetAddress',
-  'City': 'city',
-  'State': 'state',
   'Zip Code': 'zipCode',
   'Insured Email': 'email',
   'Insured Phone': 'phone',
@@ -68,7 +62,6 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   'Line Code': 'productName',  // ROIA format uses "Line Code" for product
   'First Name': 'firstName',
   'Last Name': 'lastName',
-  'Address': 'streetAddress',
   'Zip': 'zipCode',
   'Phone': 'phone',
   'Pol Nbr': 'policyNumber',
@@ -278,9 +271,6 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
         const record: ParsedWinbackRecord = {
           firstName,
           lastName,
-          streetAddress: row[columnIndex['streetAddress']] ? String(row[columnIndex['streetAddress']]).trim() : null,
-          city: row[columnIndex['city']] ? String(row[columnIndex['city']]).trim() : null,
-          state: row[columnIndex['state']] ? String(row[columnIndex['state']]).trim() : null,
           zipCode,
           email: row[columnIndex['email']] ? String(row[columnIndex['email']]).trim().toLowerCase() : null,
           phone: cleanPhone(row[columnIndex['phone']]),
