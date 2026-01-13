@@ -36,19 +36,22 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     
     fetchStats();
     
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates with unique channel name
+    const channelName = `winback-activities-stats-${agencyId}-${Date.now()}`;
     const channel = supabase
-      .channel('winback-activities')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'winback_activities',
-          filter: `agency_id=eq.${agencyId}`,
         },
-        () => {
-          fetchStats();
+        (payload) => {
+          // Only refetch if this activity belongs to our agency
+          if (payload.new && (payload.new as any).agency_id === agencyId) {
+            fetchStats();
+          }
         }
       )
       .subscribe();
