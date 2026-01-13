@@ -72,6 +72,7 @@ export default function WinbackHQ() {
   // Modal
   const [selectedHousehold, setSelectedHousehold] = useState<Household | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [currentUserTeamMemberId, setCurrentUserTeamMemberId] = useState<string | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -120,12 +121,28 @@ export default function WinbackHQ() {
       // Get team members
       const { data: members } = await supabase
         .from('team_members')
-        .select('id, name')
+        .select('id, name, email')
         .eq('agency_id', profile.agency_id)
         .eq('status', 'active')
         .order('name');
 
       setTeamMembers(members || []);
+
+      // Find if current user has a matching team member record
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', user!.id)
+        .single();
+
+      if (userProfile?.email && members) {
+        const matchingMember = members.find(m => 
+          m.email?.toLowerCase() === userProfile.email.toLowerCase()
+        );
+        if (matchingMember) {
+          setCurrentUserTeamMemberId(matchingMember.id);
+        }
+      }
 
       // Fetch stats and households
       await fetchStats(profile.agency_id);
@@ -494,6 +511,7 @@ export default function WinbackHQ() {
         onOpenChange={setDetailModalOpen}
         household={selectedHousehold}
         teamMembers={teamMembers}
+        currentUserTeamMemberId={currentUserTeamMemberId}
         onUpdate={handleModalUpdate}
       />
     </div>
