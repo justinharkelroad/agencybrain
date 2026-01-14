@@ -151,6 +151,24 @@ export function useUpdateRenewalRecord() {
       invalidate?: boolean;
       invalidateStats?: boolean;
     }) => {
+      const staffSessionToken = getStaffSessionToken();
+      
+      // Staff portal: use edge function
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            operation: 'update_record',
+            params: { id, updates, displayName, userId }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return { id, updates, silent, invalidate, invalidateStats };
+      }
+      
+      // Regular auth: direct Supabase update
       const { error } = await supabase.from('renewal_records').update({
         ...updates,
         last_activity_at: new Date().toISOString(),
