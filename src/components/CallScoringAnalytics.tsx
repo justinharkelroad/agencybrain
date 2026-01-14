@@ -56,6 +56,31 @@ const RANK_COLORS: Record<string, string> = {
   'VERY LOW': '#ef4444',
 };
 
+// Canonicalize checklist labels for consistent aggregation
+function canonicalizeChecklistLabel(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    // Remove all quote variants (straight, curly, backticks)
+    .replace(/['"''"""`]/g, '')
+    // Remove common punctuation
+    .replace(/[.,;:!?()[\]{}]/g, '')
+    // Collapse multiple spaces to single space
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Title case a label for display
+function titleCaseLabel(label: string): string {
+  return label
+    .trim()
+    // Remove quotes for cleaner display
+    .replace(/['"''"""`]/g, '')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 8 }: CallScoringAnalyticsProps) {
   const [selectedMember, setSelectedMember] = useState<string>('all');
 
@@ -113,28 +138,61 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
       discovery: Math.round(skillTotals.discovery / skillCount),
     } : null;
 
-    // Execution checklist hit rates
-    const checklistTotals: Record<string, number> = {};
+    // Execution checklist hit rates with canonicalization to dedupe variants
+    const checklistTotals: Record<string, number> = {}; // canonical key -> hit count
+    const labelVariants: Record<string, Record<string, number>> = {}; // canonical key -> {original label -> frequency}
     let checklistCount = 0;
+    
     filteredCalls.forEach(c => {
       if (Array.isArray(c.discovery_wins) && c.discovery_wins.length > 0) {
+        // Dedupe per-call: one call contributes max +1 per canonical item
+        const perCallChecked: Record<string, boolean> = {};
+        
         c.discovery_wins.forEach(item => {
-          // Use label directly - it's already human-readable
-          checklistTotals[item.label] = (checklistTotals[item.label] || 0) + (item.checked ? 1 : 0);
+          const canonicalKey = canonicalizeChecklistLabel(item.label);
+          
+          // Track label variants for display
+          if (!labelVariants[canonicalKey]) {
+            labelVariants[canonicalKey] = {};
+          }
+          labelVariants[canonicalKey][item.label] = (labelVariants[canonicalKey][item.label] || 0) + 1;
+          
+          // OR the checked status for this call (dedupe within same call)
+          if (item.checked) {
+            perCallChecked[canonicalKey] = true;
+          }
         });
+        
+        // Add to totals (one hit per canonical item per call)
+        Object.entries(perCallChecked).forEach(([canonicalKey, checked]) => {
+          if (checked) {
+            checklistTotals[canonicalKey] = (checklistTotals[canonicalKey] || 0) + 1;
+          }
+        });
+        
         checklistCount++;
       }
     });
 
+    // Build checklist rates with best display label per canonical key
     const checklistRates = checklistCount > 0 
-      ? Object.entries(checklistTotals).map(([label, count]) => ({
-          key: label,
-          skill: label, // Label is already human-readable from DB
-          rate: Math.round((count / checklistCount) * 100),
-        })).sort((a, b) => b.rate - a.rate)
+      ? Object.entries(checklistTotals).map(([canonicalKey, count]) => {
+          // Pick the most frequent original label, or title-case the canonical key
+          const variants = labelVariants[canonicalKey] || {};
+          const sortedVariants = Object.entries(variants).sort((a, b) => b[1] - a[1]);
+          const bestLabel = sortedVariants.length > 0 
+            ? titleCaseLabel(sortedVariants[0][0])
+            : titleCaseLabel(canonicalKey);
+          
+          return {
+            key: canonicalKey,
+            skill: bestLabel,
+            rate: Math.round((count / checklistCount) * 100),
+          };
+        }).sort((a, b) => b.rate - a.rate)
       : [];
 
-    // Average checklist completion
+    // Average checklist completion (unique canonical items per call)
     const avgChecklistCompletion = checklistCount > 0 
       ? Object.values(checklistTotals).reduce((a, b) => a + b, 0) / checklistCount
       : 0;
@@ -158,8 +216,14 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
           scoreCalls++;
         }
         if (Array.isArray(c.discovery_wins)) {
-          const boolCount = c.discovery_wins.filter(item => item.checked).length;
-          checklistSum += boolCount;
+          // Count unique canonical checked items to avoid inflated counts from duplicates
+          const uniqueChecked = new Set<string>();
+          c.discovery_wins.forEach(item => {
+            if (item.checked) {
+              uniqueChecked.add(canonicalizeChecklistLabel(item.label));
+            }
+          });
+          checklistSum += uniqueChecked.size;
           checklistCalls++;
         }
       });
