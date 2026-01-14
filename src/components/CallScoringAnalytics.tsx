@@ -22,23 +22,18 @@ interface CallData {
   team_member_name: string;
   potential_rank: string | null;
   overall_score: number | null;
-  skill_scores: {
-    rapport?: number;
-    coverage?: number;
-    closing?: number;
-    objection_handling?: number;
-    discovery?: number;
-  } | null;
-  discovery_wins: {
-    hwf_framework?: boolean;
-    ask_about_work?: boolean;
-    explain_coverage?: boolean;
-    deductible_value?: boolean;
-    advisor_frame?: boolean;
-    assumptive_close?: boolean;
-    ask_for_sale?: boolean;
-    set_follow_up?: boolean;
-  } | null;
+  skill_scores: Array<{
+    skill_name: string;
+    score: number;
+    max_score: number;
+    feedback?: string;
+    tip?: string;
+  }> | null;
+  discovery_wins: Array<{
+    label: string;
+    checked: boolean;
+    evidence?: string | null;
+  }> | null;
   analyzed_at: string | null;
 }
 
@@ -59,17 +54,6 @@ const RANK_COLORS: Record<string, string> = {
   'MEDIUM': '#facc15',
   'LOW': '#f97316',
   'VERY LOW': '#ef4444',
-};
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  hwf_framework: 'HWF Framework',
-  ask_about_work: 'Ask About Work',
-  explain_coverage: 'Explain Coverage',
-  deductible_value: 'Deductible Value',
-  advisor_frame: 'Advisor Frame',
-  assumptive_close: 'Assumptive Close',
-  ask_for_sale: 'Ask for Sale',
-  set_follow_up: 'Set Follow-up',
 };
 
 export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 8 }: CallScoringAnalyticsProps) {
@@ -99,12 +83,24 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
     const skillTotals = { rapport: 0, coverage: 0, closing: 0, objection_handling: 0, discovery: 0 };
     let skillCount = 0;
     filteredCalls.forEach(c => {
-      if (c.skill_scores) {
-        skillTotals.rapport += c.skill_scores.rapport || 0;
-        skillTotals.coverage += c.skill_scores.coverage || 0;
-        skillTotals.closing += c.skill_scores.closing || 0;
-        skillTotals.objection_handling += c.skill_scores.objection_handling || 0;
-        skillTotals.discovery += c.skill_scores.discovery || 0;
+      if (Array.isArray(c.skill_scores) && c.skill_scores.length > 0) {
+        c.skill_scores.forEach(skill => {
+          // Scale score: if max_score is 10, multiply by 10 to get 0-100
+          const scaledScore = skill.max_score === 10 ? skill.score * 10 : skill.score;
+          const key = skill.skill_name.toLowerCase().replace(/[^a-z]/g, '');
+          
+          if (key.includes('rapport') || key.includes('opening') || key.includes('greeting')) {
+            skillTotals.rapport += scaledScore;
+          } else if (key.includes('discovery') || key.includes('question')) {
+            skillTotals.discovery += scaledScore;
+          } else if (key.includes('coverage') || key.includes('education') || key.includes('product')) {
+            skillTotals.coverage += scaledScore;
+          } else if (key.includes('closing') || key.includes('assumptive')) {
+            skillTotals.closing += scaledScore;
+          } else if (key.includes('objection')) {
+            skillTotals.objection_handling += scaledScore;
+          }
+        });
         skillCount++;
       }
     });
@@ -121,20 +117,19 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
     const checklistTotals: Record<string, number> = {};
     let checklistCount = 0;
     filteredCalls.forEach(c => {
-      if (c.discovery_wins && typeof c.discovery_wins === 'object') {
-        Object.entries(c.discovery_wins).forEach(([key, value]) => {
-          if (typeof value === 'boolean') {
-            checklistTotals[key] = (checklistTotals[key] || 0) + (value ? 1 : 0);
-          }
+      if (Array.isArray(c.discovery_wins) && c.discovery_wins.length > 0) {
+        c.discovery_wins.forEach(item => {
+          // Use label directly - it's already human-readable
+          checklistTotals[item.label] = (checklistTotals[item.label] || 0) + (item.checked ? 1 : 0);
         });
         checklistCount++;
       }
     });
 
     const checklistRates = checklistCount > 0 
-      ? Object.entries(checklistTotals).map(([key, count]) => ({
-          key,
-          skill: CHECKLIST_LABELS[key] || key,
+      ? Object.entries(checklistTotals).map(([label, count]) => ({
+          key: label,
+          skill: label, // Label is already human-readable from DB
           rate: Math.round((count / checklistCount) * 100),
         })).sort((a, b) => b.rate - a.rate)
       : [];
@@ -162,8 +157,8 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
           scoreSum += c.overall_score;
           scoreCalls++;
         }
-        if (c.discovery_wins && typeof c.discovery_wins === 'object') {
-          const boolCount = Object.values(c.discovery_wins).filter(v => v === true).length;
+        if (Array.isArray(c.discovery_wins)) {
+          const boolCount = c.discovery_wins.filter(item => item.checked).length;
           checklistSum += boolCount;
           checklistCalls++;
         }
