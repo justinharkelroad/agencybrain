@@ -262,6 +262,11 @@ export default function CallScoring() {
       setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
       setTotalCalls(data.total_calls || 0);
       
+      // Set analytics calls for managers
+      if (isStaffManager) {
+        setAnalyticsCalls(data.analytics_calls || []);
+      }
+      
       // Auto-select team member for staff
       if (data.team_members?.length === 1) {
         setSelectedTeamMember(data.team_members[0].id);
