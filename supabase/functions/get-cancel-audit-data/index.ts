@@ -705,13 +705,19 @@ async function getHeroStats(supabase: any, agencyId: string, params: any) {
     .filter((r: any) => r.status !== 'resolved' && r.status !== 'lost')
     .reduce((sum: number, r: any) => sum + (r.premium_cents || 0), 0);
 
+  // Return in nested format for Lovable's frontend compatibility
+  // Values are in cents (frontend will handle conversion)
   return {
-    workingListCount,
-    atRiskPremium,
-    savedPremium,
-    workingListChange: calcChange(currentCount, priorCount),
-    atRiskChange: calcChange(currentAtRisk, priorAtRisk),
-    savedChange: calcChange(savedPremium, priorSavedPremium),
+    stats: {
+      workingListCount,
+      atRiskPremium: atRiskPremium / 100, // Convert to dollars for Lovable's frontend
+      savedPremium: savedPremium / 100,
+    },
+    weekOverWeek: {
+      workingList: { change: calcChange(currentCount, priorCount) },
+      atRisk: { change: calcChange(currentAtRisk, priorAtRisk) },
+      saved: { change: calcChange(savedPremium, priorSavedPremium) },
+    },
   };
 }
 
