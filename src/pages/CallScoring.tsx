@@ -679,18 +679,67 @@ export default function CallScoring() {
   ) => {
     try {
       // STEP 1: Generate unique call ID and storage path
-      const callId = crypto.randomUUID();
-      const storagePath = `${agencyIdParam}/${callId}/${file.name}`;
+      let callId = crypto.randomUUID();
+      let storagePath = `${agencyIdParam}/${callId}/${file.name}`;
 
-      // STEP 2: Upload file directly to Supabase Storage (NOT to edge function)
-      const { error: storageError } = await supabase.storage
-        .from('call-recordings')
-        .upload(storagePath, file, {
-          contentType: file.type || 'audio/wav',
+      // Check if this is a staff user upload (staff users don't have Supabase Auth sessions)
+      const staffToken = localStorage.getItem('staff_session_token');
+
+      if (staffToken) {
+        // STAFF USER: Get signed upload URL from edge function (bypasses RLS)
+        console.log('Staff mode detected - using signed upload URL');
+        
+        const response = await fetch(
+          `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_staff_upload_url`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-staff-session': staffToken,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw',
+            },
+            body: JSON.stringify({
+              fileName: file.name,
+              contentType: file.type || 'audio/wav',
+              agencyId: agencyIdParam,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(`Failed to get upload URL: ${errData.error}`);
+        }
+
+        const signedUrlData = await response.json();
+        callId = signedUrlData.callId;
+        storagePath = signedUrlData.storagePath;
+
+        // Upload using signed URL
+        const uploadResponse = await fetch(signedUrlData.signedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'audio/wav',
+          },
+          body: file,
         });
 
-      if (storageError) {
-        throw new Error(`Storage upload failed: ${storageError.message}`);
+        if (!uploadResponse.ok) {
+          throw new Error(`Storage upload failed: ${uploadResponse.statusText}`);
+        }
+        
+        console.log('Staff upload successful via signed URL:', storagePath);
+      } else {
+        // AUTHENTICATED USER: Direct upload to Supabase Storage
+        const { error: storageError } = await supabase.storage
+          .from('call-recordings')
+          .upload(storagePath, file, {
+            contentType: file.type || 'audio/wav',
+          });
+
+        if (storageError) {
+          throw new Error(`Storage upload failed: ${storageError.message}`);
+        }
       }
 
       // STEP 3: Call edge function with JSON (NOT FormData) - only the path
