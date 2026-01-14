@@ -804,11 +804,28 @@ export default function CallScoring() {
       
       attempts++;
       
-      const { data } = await supabase
-        .from('agency_calls')
-        .select('status, overall_score, agency_id')
-        .eq('id', callId)
-        .single();
+      let data: { status?: string; overall_score?: number | null; agency_id?: string } | null = null;
+      
+      if (isStaffUser) {
+        // Staff users: use RPC to bypass RLS
+        const { data: rpcData, error } = await supabase.rpc('get_staff_call_status', {
+          p_call_id: callId,
+          p_agency_id: originalAgencyId
+        });
+        
+        if (!error && rpcData) {
+          data = rpcData;
+        }
+      } else {
+        // Authenticated users: direct query
+        const { data: directData } = await supabase
+          .from('agency_calls')
+          .select('status, overall_score, agency_id')
+          .eq('id', callId)
+          .single();
+        
+        data = directData;
+      }
 
       // SECURITY: Double-check agency_id matches before showing toast
       if (data?.status === 'analyzed' && data?.overall_score !== null) {
