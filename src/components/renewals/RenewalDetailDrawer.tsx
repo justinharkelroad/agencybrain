@@ -35,9 +35,16 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [noteText, setNoteText] = useState('');
+  // Local state for assignment to allow optimistic UI updates
+  const [localAssignment, setLocalAssignment] = useState<string | null>(record?.assigned_team_member_id || null);
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const createActivity = useCreateRenewalActivity();
+
+  // Sync local state when record changes (e.g., drawer reopened with different record)
+  useEffect(() => {
+    setLocalAssignment(record?.assigned_team_member_id || null);
+  }, [record?.id, record?.assigned_team_member_id]);
 
   // Listen for sidebar navigation to force close drawer
   useEffect(() => {
@@ -186,11 +193,14 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   </SelectContent>
                 </Select>
                 <Select 
-                  value={record.assigned_team_member_id || 'unassigned'} 
+                  value={localAssignment || 'unassigned'} 
                   onValueChange={(value) => {
+                    const newValue = value === 'unassigned' ? null : value;
+                    // Optimistically update local state immediately
+                    setLocalAssignment(newValue);
                     updateRecord.mutate({ 
                       id: record.id, 
-                      updates: { assigned_team_member_id: value === 'unassigned' ? null : value },
+                      updates: { assigned_team_member_id: newValue },
                       displayName: context.displayName,
                       userId: context.userId,
                       silent: true
