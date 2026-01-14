@@ -1,6 +1,7 @@
-import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users } from 'lucide-react';
+import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users, UserCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { RecordWithActivityCount } from '@/hooks/useCancelAuditRecords';
 import { RecordStatus } from '@/types/cancel-audit';
@@ -10,7 +11,7 @@ import { StatusDropdown } from './StatusDropdown';
 import { QuickActions } from './QuickActions';
 import { ActivityTimeline } from './ActivityTimeline';
 import { HouseholdPolicies } from './HouseholdPolicies';
-import { useHouseholdActivities } from '@/hooks/useCancelAuditActivities';
+import { useHouseholdActivities, useUpdateCancelAuditAssignment } from '@/hooks/useCancelAuditActivities';
 import { 
   formatCentsToCurrency, 
   formatDate, 
@@ -41,6 +42,7 @@ interface CancelAuditRecordCardProps {
   userId?: string;
   staffMemberId?: string;
   userDisplayName: string;
+  teamMembers: Array<{ id: string; name: string }>;
 }
 
 export function CancelAuditRecordCard({
@@ -51,10 +53,12 @@ export function CancelAuditRecordCard({
   userId,
   staffMemberId,
   userDisplayName,
+  teamMembers,
 }: CancelAuditRecordCardProps) {
   const displayName = getDisplayName(record.insured_first_name, record.insured_last_name);
   const primaryDate = record.pending_cancel_date || record.cancel_date;
   const primaryDateLabel = record.report_type === 'pending_cancel' ? 'Pending' : 'Cancelled';
+  const updateAssignment = useUpdateCancelAuditAssignment();
 
   // Fetch activities for this household when expanded
   const { data: activities = [], isLoading: activitiesLoading } = useHouseholdActivities(
@@ -308,13 +312,41 @@ export function CancelAuditRecordCard({
           </div>
 
           {/* Status Row */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+          <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-border">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">Status:</span>
               <StatusDropdown recordId={record.id} currentStatus={record.status} />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <UserCircle className="h-4 w-4" />
+                Assigned:
+              </span>
+              <Select
+                value={record.assigned_team_member_id || 'unassigned'}
+                onValueChange={(value) => {
+                  updateAssignment.mutate({
+                    recordId: record.id,
+                    assignedTeamMemberId: value === 'unassigned' ? null : value,
+                  });
+                }}
+              >
+                <SelectTrigger className="w-[160px] h-8 text-sm bg-background border-border">
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
               <ActivityBadge 
                 activityCount={record.activity_count} 
                 lastActivityAt={record.last_activity_at} 

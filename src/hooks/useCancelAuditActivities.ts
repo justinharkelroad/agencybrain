@@ -275,3 +275,39 @@ export function useUpdateRecordStatus() {
     },
   });
 }
+
+export function useUpdateCancelAuditAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ recordId, assignedTeamMemberId }: { recordId: string; assignedTeamMemberId: string | null }) => {
+      const staffSessionToken = getStaffSessionToken();
+
+      // Staff portal: use edge function
+      if (staffSessionToken) {
+        return callCancelAuditApi({
+          operation: "update_assignment",
+          params: { recordId, assignedTeamMemberId },
+          sessionToken: staffSessionToken,
+        });
+      }
+
+      // Regular auth: use direct Supabase query
+      const { data, error } = await supabase
+        .from('cancel_audit_records')
+        .update({ 
+          assigned_team_member_id: assignedTeamMemberId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+    },
+  });
+}

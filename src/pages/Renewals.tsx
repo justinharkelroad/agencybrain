@@ -601,7 +601,7 @@ export default function Renewals() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setQuickActivityRecord(r);
-                          setQuickActivityType('call');
+                          setQuickActivityType('phone_call');
                         }}
                         title="Log phone call"
                       >

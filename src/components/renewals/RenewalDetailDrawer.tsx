@@ -170,7 +170,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             {/* Actions / Notes / History */}
             <div className="p-4 space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
               {/* Action buttons */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
                 </Button>
@@ -183,6 +183,30 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="success">Success</SelectItem>
                     <SelectItem value="unsuccessful">Unsuccessful</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={record.assigned_team_member_id || 'unassigned'} 
+                  onValueChange={(value) => {
+                    updateRecord.mutate({ 
+                      id: record.id, 
+                      updates: { assigned_team_member_id: value === 'unassigned' ? null : value },
+                      displayName: context.displayName,
+                      userId: context.userId,
+                      silent: true
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-[160px] bg-[#0d1117] border-gray-700 text-white">
+                    <SelectValue placeholder="Assign LSP" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -886,6 +886,7 @@ export type Database = {
           agency_id: string
           agent_number: string | null
           amount_due_cents: number | null
+          assigned_team_member_id: string | null
           cancel_date: string | null
           cancel_status: string | null
           created_at: string
@@ -913,6 +914,7 @@ export type Database = {
           agency_id: string
           agent_number?: string | null
           amount_due_cents?: number | null
+          assigned_team_member_id?: string | null
           cancel_date?: string | null
           cancel_status?: string | null
           created_at?: string
@@ -940,6 +942,7 @@ export type Database = {
           agency_id?: string
           agent_number?: string | null
           amount_due_cents?: number | null
+          assigned_team_member_id?: string | null
           cancel_date?: string | null
           cancel_status?: string | null
           created_at?: string
@@ -968,6 +971,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancel_audit_records_assigned_team_member_id_fkey"
+            columns: ["assigned_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -5087,10 +5097,12 @@ export type Database = {
           product_name: string | null
           renewal_effective_date: string | null
           renewal_status: string
+          sent_to_winback_at: string | null
           updated_at: string
           upload_id: string | null
           uploaded_by: string | null
           uploaded_by_display_name: string | null
+          winback_household_id: string | null
           years_prior_insurance: number | null
         }
         Insert: {
@@ -5128,10 +5140,12 @@ export type Database = {
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
+          sent_to_winback_at?: string | null
           updated_at?: string
           upload_id?: string | null
           uploaded_by?: string | null
           uploaded_by_display_name?: string | null
+          winback_household_id?: string | null
           years_prior_insurance?: number | null
         }
         Update: {
@@ -5169,10 +5183,12 @@ export type Database = {
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
+          sent_to_winback_at?: string | null
           updated_at?: string
           upload_id?: string | null
           uploaded_by?: string | null
           uploaded_by_display_name?: string | null
+          winback_household_id?: string | null
           years_prior_insurance?: number | null
         }
         Relationships: [
@@ -5202,6 +5218,13 @@ export type Database = {
             columns: ["last_upload_id"]
             isOneToOne: false
             referencedRelation: "renewal_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_winback_household_id_fkey"
+            columns: ["winback_household_id"]
+            isOneToOne: false
+            referencedRelation: "winback_households"
             referencedColumns: ["id"]
           },
         ]
