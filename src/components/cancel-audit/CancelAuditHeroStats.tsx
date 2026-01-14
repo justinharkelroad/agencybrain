@@ -225,11 +225,13 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
     // Staff users: use edge function data
     if (staffSessionToken && staffHeroData) {
-      console.log('[CancelAuditHeroStats] Using staff hero data');
+      console.log('[CancelAuditHeroStats] Using staff hero data:', staffHeroData);
+      // Handle both flat format (my code) and nested format (Lovable's code)
+      const data = staffHeroData.stats || staffHeroData;
       return {
-        workingListCount: staffHeroData.workingListCount || 0,
-        atRiskPremium: staffHeroData.atRiskPremium || 0,
-        savedPremium: staffHeroData.savedPremium || 0,
+        workingListCount: data.workingListCount || 0,
+        atRiskPremium: data.atRiskPremium || 0,
+        savedPremium: data.savedPremium || 0,
       };
     }
 
@@ -256,6 +258,16 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
   const weekOverWeek = useMemo(() => {
     // Staff users: use edge function data
     if (staffSessionToken && staffHeroData) {
+      // Handle both flat format (my code) and nested format (Lovable's code)
+      if (staffHeroData.weekOverWeek) {
+        // Lovable's nested format
+        return {
+          workingListChange: staffHeroData.weekOverWeek.workingList?.change || 0,
+          atRiskChange: staffHeroData.weekOverWeek.atRisk?.change || 0,
+          savedChange: staffHeroData.weekOverWeek.saved?.change || 0,
+        };
+      }
+      // My flat format
       return {
         workingListChange: staffHeroData.workingListChange || 0,
         atRiskChange: staffHeroData.atRiskChange || 0,
