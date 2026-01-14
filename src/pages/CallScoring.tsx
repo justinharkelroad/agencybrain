@@ -770,7 +770,12 @@ export default function CallScoring() {
       
       // Refresh the calls list to show new entry (reset to page 1 to see it)
       setCurrentPage(1);
-      if (agencyId) {
+      
+      if (isStaffUser && hasAccess) {
+        // Staff users: use RPC-based data fetch
+        await fetchStaffData();
+      } else if (agencyId) {
+        // Authenticated users: use direct query
         fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
       }
       
