@@ -19,14 +19,14 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
   const [parsedRecords, setParsedRecords] = useState<ParsedRenewalRecord[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [includeRenewalTaken, setIncludeRenewalTaken] = useState(false);
+  const [excludeRenewalTaken, setExcludeRenewalTaken] = useState(false);
   const { startBackgroundUpload } = useRenewalBackgroundUpload();
 
-  // Filter out "Renewal Taken" by default
+  // Optionally filter out "Renewal Taken" if checkbox is checked
   const recordsToUpload = useMemo(() => {
-    if (includeRenewalTaken) return parsedRecords;
+    if (!excludeRenewalTaken) return parsedRecords;
     return parsedRecords.filter(r => r.renewalStatus !== 'Renewal Taken');
-  }, [parsedRecords, includeRenewalTaken]);
+  }, [parsedRecords, excludeRenewalTaken]);
 
   const renewalTakenCount = useMemo(() => {
     return parsedRecords.filter(r => r.renewalStatus === 'Renewal Taken').length;
@@ -45,7 +45,7 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const f = acceptedFiles[0]; if (!f) return;
-    setFile(f); setParseError(null); setParsedRecords([]); setIncludeRenewalTaken(false);
+    setFile(f); setParseError(null); setParsedRecords([]); setExcludeRenewalTaken(false);
     try {
       const buffer = await f.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
@@ -74,13 +74,13 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
     }
   };
   
-  const handleClose = () => { 
-    setFile(null); 
-    setParsedRecords([]); 
-    setParseError(null); 
+  const handleClose = () => {
+    setFile(null);
+    setParsedRecords([]);
+    setParseError(null);
     setIsStarting(false);
-    setIncludeRenewalTaken(false);
-    onClose(); 
+    setExcludeRenewalTaken(false);
+    onClose();
   };
   
   const dateRange = recordsToUpload.length ? getRenewalDateRange(recordsToUpload) : null;
@@ -111,21 +111,19 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
                 {!isStarting && <Button variant="ghost" size="icon" onClick={() => { setFile(null); setParsedRecords([]); }}><X className="h-4 w-4" /></Button>}
               </div>
               
-              {/* Include Renewal Taken checkbox */}
-              {parsedRecords.length > 0 && (
+              {/* Exclude Renewal Taken checkbox */}
+              {parsedRecords.length > 0 && renewalTakenCount > 0 && (
                 <div className="flex items-center gap-2 px-1">
-                  <Checkbox 
-                    id="include-renewal-taken"
-                    checked={includeRenewalTaken}
-                    onCheckedChange={(checked) => setIncludeRenewalTaken(!!checked)}
+                  <Checkbox
+                    id="exclude-renewal-taken"
+                    checked={excludeRenewalTaken}
+                    onCheckedChange={(checked) => setExcludeRenewalTaken(!!checked)}
                   />
-                  <label htmlFor="include-renewal-taken" className="text-sm cursor-pointer select-none">
-                    Include "Renewal Taken" records 
-                    {renewalTakenCount > 0 && (
-                      <span className="text-muted-foreground ml-1">
-                        ({renewalTakenCount} found - these are already retained customers)
-                      </span>
-                    )}
+                  <label htmlFor="exclude-renewal-taken" className="text-sm cursor-pointer select-none">
+                    Exclude "Renewal Taken" records
+                    <span className="text-muted-foreground ml-1">
+                      ({renewalTakenCount} found - already retained customers)
+                    </span>
                   </label>
                 </div>
               )}
