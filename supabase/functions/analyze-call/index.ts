@@ -723,6 +723,22 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         console.log('[analyze-call] Converted checklist from object to array format');
       }
       
+      // Normalize all checklist labels for consistency (remove quotes, title case)
+      checklistData = checklistData.map((item: any) => ({
+        ...item,
+        label: item.label
+          ? item.label
+              .trim()
+              // Remove all quote variants
+              .replace(/['"''"""`]/g, '')
+              // Title case each word
+              .split(' ')
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(' ')
+          : item.label
+      }));
+      console.log('[analyze-call] Normalized checklist labels for consistency');
+      
       // Normalize crm_notes to object format
       let crmNotesData = analysis.crm_notes || analysis.closing_attempts || {};
       if (typeof crmNotesData === 'string') {
