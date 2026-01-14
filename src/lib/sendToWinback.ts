@@ -24,8 +24,24 @@ interface SendToWinbackResult {
 
 function getPolicyTermMonths(productName: string | null): number {
   if (!productName) return 12;
-  const lower = productName.toLowerCase();
-  if (lower.includes('auto')) return 6;
+  
+  const upper = productName.toUpperCase();
+  
+  // Only these specific Standard Auto products are 6-month terms
+  const sixMonthAutoProducts = [
+    'AUTO PRIVATE PASS',
+    'AUTO-INDEM',
+    'AFCIC-AUTO PRIV PASS',
+    'STANDARD AUTO',
+  ];
+  
+  for (const product of sixMonthAutoProducts) {
+    if (upper.includes(product)) {
+      return 6;
+    }
+  }
+  
+  // All other products (including Auto - Special, Homeowners, etc.) are 12-month
   return 12;
 }
 
