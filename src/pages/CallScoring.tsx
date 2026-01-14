@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -213,69 +213,70 @@ export default function CallScoring() {
     }
   }, [staffDataLoaded, isStaffUser, staffAgencyId, navigate]);
 
+  // Staff data fetching function - extracted for reuse in polling
+  const fetchStaffData = useCallback(async () => {
+    console.log('=== fetchStaffData ===');
+    console.log('hasAccess:', hasAccess);
+    console.log('staffAgencyId:', staffAgencyId);
+    console.log('staffTeamMemberId:', staffTeamMemberId);
+    
+    if (!hasAccess) {
+      console.log('No access yet, aborting fetch');
+      return;
+    }
+    
+    if (!staffAgencyId) {
+      console.log('No agency ID, aborting fetch');
+      return;
+    }
+    
+    // Staff need their team member ID; managers can see all calls (pass null)
+    const isManager = userRole === 'manager';
+    if (!isManager && !staffTeamMemberId) {
+      console.log('No team member ID for staff, aborting fetch');
+      return;
+    }
+    
+    setLoading(true);
+    
+    // Managers pass null to see all agency calls; staff pass their team_member_id
+    const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
+      p_agency_id: staffAgencyId,
+      p_team_member_id: isManager ? null : staffTeamMemberId,
+      p_page: currentPage,
+      p_page_size: CALLS_PER_PAGE
+    });
+
+    console.log('RPC response data:', data);
+    console.log('RPC error:', error);
+    console.log('Recent calls returned:', data?.recent_calls);
+    console.log('Team members returned:', data?.team_members);
+    console.log('Templates returned:', data?.templates);
+    console.log('Usage returned:', data?.usage);
+    console.log('Total calls returned:', data?.total_calls);
+
+    if (data) {
+      setTemplates(data.templates || []);
+      setTeamMembers(data.team_members || []);
+      setRecentCalls(data.recent_calls || []);
+      setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
+      setTotalCalls(data.total_calls || 0);
+      
+      // Auto-select team member for staff
+      if (data.team_members?.length === 1) {
+        setSelectedTeamMember(data.team_members[0].id);
+      }
+    }
+    
+    setLoading(false);
+  }, [hasAccess, staffAgencyId, staffTeamMemberId, currentPage, userRole]);
+
   // Fetch data for staff users via RPC
   useEffect(() => {
-    const fetchStaffData = async () => {
-      console.log('=== fetchStaffData ===');
-      console.log('hasAccess:', hasAccess);
-      console.log('staffAgencyId:', staffAgencyId);
-      console.log('staffTeamMemberId:', staffTeamMemberId);
-      
-      if (!hasAccess) {
-        console.log('No access yet, aborting fetch');
-        return;
-      }
-      
-      if (!staffAgencyId) {
-        console.log('No agency ID, aborting fetch');
-        return;
-      }
-      
-      // Staff need their team member ID; managers can see all calls (pass null)
-      const isManager = userRole === 'manager';
-      if (!isManager && !staffTeamMemberId) {
-        console.log('No team member ID for staff, aborting fetch');
-        return;
-      }
-      
-      setLoading(true);
-      
-      // Managers pass null to see all agency calls; staff pass their team_member_id
-      const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
-        p_agency_id: staffAgencyId,
-        p_team_member_id: isManager ? null : staffTeamMemberId,
-        p_page: currentPage,
-        p_page_size: CALLS_PER_PAGE
-      });
-
-      console.log('RPC response data:', data);
-      console.log('RPC error:', error);
-      console.log('Recent calls returned:', data?.recent_calls);
-      console.log('Team members returned:', data?.team_members);
-      console.log('Templates returned:', data?.templates);
-      console.log('Usage returned:', data?.usage);
-      console.log('Total calls returned:', data?.total_calls);
-
-      if (data) {
-        setTemplates(data.templates || []);
-        setTeamMembers(data.team_members || []);
-        setRecentCalls(data.recent_calls || []);
-        setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
-        setTotalCalls(data.total_calls || 0);
-        
-        // Auto-select team member for staff
-        if (data.team_members?.length === 1) {
-          setSelectedTeamMember(data.team_members[0].id);
-        }
-      }
-      
-      setLoading(false);
-    };
-    
     if (isStaffUser && hasAccess) {
       fetchStaffData();
     }
-  }, [isStaffUser, hasAccess, staffAgencyId, staffTeamMemberId, currentPage, userRole]);
+  }, [isStaffUser, hasAccess, fetchStaffData]);
 
   // Check access for regular users on mount
   useEffect(() => {
@@ -833,8 +834,14 @@ export default function CallScoring() {
           toast.success(`"${fileName}" analysis complete: ${data.overall_score}`, {
             duration: 5000,
           });
-          if (agencyId) {
-            fetchUsageAndCalls(agencyId, userRole, userTeamMemberId); // Refresh to show score
+          
+          // Refresh calls list based on user type
+          if (isStaffUser && hasAccess) {
+            // Staff users: use RPC-based data fetch
+            await fetchStaffData();
+          } else if (agencyId) {
+            // Authenticated users: use direct query
+            fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
           }
         }
         return;
