@@ -83,6 +83,8 @@ export function QuickActions({
   const logActivity = useLogActivity();
 
   const handleLogActivity = async (activityType: ActivityType, notes?: string) => {
+    console.log('[QuickActions] handleLogActivity called:', { activityType, agencyId, recordId: record.id, userDisplayName });
+
     // Note button only toggles the input visibility
     if (activityType === 'note') {
       setShowNoteInput(!showNoteInput);
@@ -92,6 +94,7 @@ export function QuickActions({
     setLoadingAction(activityType);
 
     try {
+      console.log('[QuickActions] Calling logActivity.mutateAsync...');
       await logActivity.mutateAsync({
         agencyId,
         recordId: record.id,
@@ -102,6 +105,7 @@ export function QuickActions({
         staffMemberId,
         userDisplayName,
       });
+      console.log('[QuickActions] mutateAsync completed successfully');
 
       // Show appropriate toast
       if (activityType === 'payment_made') {
