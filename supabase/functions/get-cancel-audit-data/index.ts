@@ -105,6 +105,9 @@ serve(async (req) => {
       case "get_hero_stats":
         result = await getHeroStats(supabase, agencyId, params);
         break;
+      case "get_activity_summary":
+        result = await getActivitySummary(supabase, agencyId, params);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -709,5 +712,30 @@ async function getHeroStats(supabase: any, agencyId: string, params: any) {
     workingListChange: calcChange(currentCount, priorCount),
     atRiskChange: calcChange(currentAtRisk, priorAtRisk),
     savedChange: calcChange(savedPremium, priorSavedPremium),
+  };
+}
+
+// Get activity summary for daily stats display
+async function getActivitySummary(supabase: any, agencyId: string, params: any) {
+  const { startDate, endDate } = params;
+
+  console.log("[getActivitySummary] Fetching activities for agency:", agencyId, "from", startDate, "to", endDate);
+
+  const { data, error } = await supabase
+    .from("cancel_audit_activities")
+    .select("id, activity_type, user_id, user_display_name, created_at")
+    .eq("agency_id", agencyId)
+    .gte("created_at", startDate)
+    .lte("created_at", endDate);
+
+  if (error) {
+    console.error("[getActivitySummary] Error fetching activities:", error);
+    throw error;
+  }
+
+  console.log("[getActivitySummary] Found", data?.length || 0, "activities");
+
+  return {
+    activities: data || [],
   };
 }

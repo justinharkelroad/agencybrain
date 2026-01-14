@@ -226,12 +226,15 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     // Staff users: use edge function data
     if (staffSessionToken && staffHeroData) {
       console.log('[CancelAuditHeroStats] Using staff hero data:', staffHeroData);
-      // Handle both flat format (my code) and nested format (Lovable's code)
+      // Handle both flat format (my code returns cents) and nested format (Lovable's code returns dollars)
+      const isNestedFormat = !!staffHeroData.stats;
       const data = staffHeroData.stats || staffHeroData;
+      // Lovable's format returns dollars, need to convert back to cents for formatCurrencyShort
+      const multiplier = isNestedFormat ? 100 : 1;
       return {
         workingListCount: data.workingListCount || 0,
-        atRiskPremium: data.atRiskPremium || 0,
-        savedPremium: data.savedPremium || 0,
+        atRiskPremium: (data.atRiskPremium || 0) * multiplier,
+        savedPremium: (data.savedPremium || 0) * multiplier,
       };
     }
 
