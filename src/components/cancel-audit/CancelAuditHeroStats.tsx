@@ -6,10 +6,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { startOfWeek, subWeeks, endOfWeek, format } from 'date-fns';
 import { formatCurrencyShort } from '@/lib/cancel-audit-utils';
-import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { callCancelAuditApi, getStaffSessionToken, isStaffContext } from '@/lib/cancel-audit-api';
 
 interface CancelAuditHeroStatsProps {
   agencyId: string | null;
+}
+
+// Edge function returns nested structure
+interface HeroStatsResponse {
+  stats: {
+    workingListCount: number;
+    atRiskPremium: number;
+    savedPremium: number;
+  };
+  weekOverWeek: {
+    workingList: { current: number; prior: number; change: number };
+    atRisk: { current: number; prior: number; change: number };
+    saved: { current: number; prior: number; change: number };
+  };
 }
 
 export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
@@ -20,48 +34,31 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
   const priorWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
   const priorWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
 
-  const staffSessionToken = getStaffSessionToken();
+  // Check if we're in staff context
+  const staffToken = getStaffSessionToken();
+  const inStaffContext = isStaffContext();
 
-  console.log('[CancelAuditHeroStats] Render state:', {
-    agencyId,
-    hasStaffToken: !!staffSessionToken,
-    staffQueryEnabled: !!agencyId && !!staffSessionToken
-  });
-
-  // Staff users: fetch hero stats via edge function
-  const { data: staffHeroData, isLoading: loadingStaffHero } = useQuery({
-    queryKey: ['cancel-audit-hero-staff', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
-    queryFn: async () => {
-      console.log('[CancelAuditHeroStats] Staff query running...');
-      if (!agencyId || !staffSessionToken) {
-        console.log('[CancelAuditHeroStats] Skipping - missing agencyId or token');
-        return null;
+  // Unified query for staff users - uses edge function
+  const { data: staffHeroData, isLoading: loadingStaffData } = useQuery({
+    queryKey: ['cancel-audit-hero-stats-staff', agencyId],
+    queryFn: async (): Promise<HeroStatsResponse> => {
+      if (!agencyId || !staffToken) {
+        throw new Error('Missing agencyId or staff token');
       }
 
-      try {
-        console.log('[CancelAuditHeroStats] Calling get_hero_stats edge function');
-        const result = await callCancelAuditApi({
-          operation: 'get_hero_stats',
-          params: {
-            currentWeekStart: format(currentWeekStart, 'yyyy-MM-dd'),
-            currentWeekEnd: format(currentWeekEnd, 'yyyy-MM-dd'),
-            priorWeekStart: format(priorWeekStart, 'yyyy-MM-dd'),
-            priorWeekEnd: format(priorWeekEnd, 'yyyy-MM-dd'),
-          },
-          sessionToken: staffSessionToken,
-        });
-        console.log('[CancelAuditHeroStats] Edge function result:', result);
-        return result;
-      } catch (error) {
-        console.error('[CancelAuditHeroStats] Error fetching staff hero stats:', error);
-        return null;
-      }
+      const result = await callCancelAuditApi({
+        operation: 'get_hero_stats',
+        params: { agency_id: agencyId },
+        sessionToken: staffToken,
+      });
+
+      return result as HeroStatsResponse;
     },
-    enabled: !!agencyId && !!staffSessionToken,
+    enabled: !!agencyId && inStaffContext && !!staffToken,
     staleTime: 60 * 1000,
   });
 
-  // Fetch current week records (for working list / at risk week-over-week) - regular users only
+  // Fetch current week records (for working list / at risk week-over-week) - regular users
   const { data: currentWeekData, isLoading: loadingCurrent } = useQuery({
     queryKey: ['cancel-audit-hero-current', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -82,11 +79,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       return data || [];
     },
-    enabled: !!agencyId && !staffSessionToken, // Skip for staff users
+    enabled: !!agencyId && !inStaffContext,
     staleTime: 60 * 1000,
   });
 
-  // Fetch prior week records - regular users only
+  // Fetch prior week records - regular users
   const { data: priorWeekData, isLoading: loadingPrior } = useQuery({
     queryKey: ['cancel-audit-hero-prior', agencyId, format(priorWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -107,11 +104,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       return data || [];
     },
-    enabled: !!agencyId && !staffSessionToken, // Skip for staff users
+    enabled: !!agencyId && !inStaffContext,
     staleTime: 60 * 1000,
   });
 
-  // Fetch ALL records for total working list and at risk - regular users only
+  // Fetch ALL records for total working list and at risk - regular users
   const { data: allRecords, isLoading: loadingAll } = useQuery({
     queryKey: ['cancel-audit-hero-all', agencyId],
     queryFn: async () => {
@@ -130,11 +127,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       return data || [];
     },
-    enabled: !!agencyId && !staffSessionToken, // Skip for staff users
+    enabled: !!agencyId && !inStaffContext,
     staleTime: 60 * 1000,
   });
 
-  // Fetch current week SAVED based on payment_made activities - regular users only
+  // Fetch current week SAVED based on payment_made activities - regular users
   const { data: currentWeekSaved, isLoading: loadingCurrentSaved } = useQuery({
     queryKey: ['cancel-audit-hero-saved-current', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -172,11 +169,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
       // Sum up the premiums
       return records?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
     },
-    enabled: !!agencyId && !staffSessionToken, // Skip for staff users
+    enabled: !!agencyId && !inStaffContext,
     staleTime: 60 * 1000,
   });
 
-  // Fetch prior week SAVED based on payment_made activities - regular users only
+  // Fetch prior week SAVED based on payment_made activities - regular users
   const { data: priorWeekSaved, isLoading: loadingPriorSaved } = useQuery({
     queryKey: ['cancel-audit-hero-saved-prior', agencyId, format(priorWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -211,36 +208,23 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       return records?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
     },
-    enabled: !!agencyId && !staffSessionToken, // Skip for staff users
+    enabled: !!agencyId && !inStaffContext,
     staleTime: 60 * 1000,
   });
 
-  // Calculate stats - Working list and At Risk are all-time, Saved is this week only
+  // Calculate stats - use staff data if available, otherwise use regular data
   const stats = useMemo(() => {
-    console.log('[CancelAuditHeroStats] Calculating stats:', {
-      hasStaffToken: !!staffSessionToken,
-      staffHeroData,
-      allRecordsCount: allRecords?.length,
-    });
-
-    // Staff users: use edge function data
-    if (staffSessionToken && staffHeroData) {
-      console.log('[CancelAuditHeroStats] Using staff hero data:', staffHeroData);
-      // Handle both flat format (my code returns cents) and nested format (Lovable's code returns dollars)
-      const isNestedFormat = !!staffHeroData.stats;
-      const data = staffHeroData.stats || staffHeroData;
-      // Lovable's format returns dollars, need to convert back to cents for formatCurrencyShort
-      const multiplier = isNestedFormat ? 100 : 1;
+    // Staff context - use edge function data (nested structure)
+    if (inStaffContext && staffHeroData?.stats) {
       return {
-        workingListCount: data.workingListCount || 0,
-        atRiskPremium: (data.atRiskPremium || 0) * multiplier,
-        savedPremium: (data.savedPremium || 0) * multiplier,
+        workingListCount: staffHeroData.stats.workingListCount ?? 0,
+        atRiskPremium: staffHeroData.stats.atRiskPremium ?? 0,
+        savedPremium: staffHeroData.stats.savedPremium ?? 0,
       };
     }
 
-    // Regular users: use direct query data
+    // Regular user context
     if (!allRecords) {
-      console.log('[CancelAuditHeroStats] No data available, returning zeros');
       return {
         workingListCount: 0,
         atRiskPremium: 0,
@@ -253,32 +237,22 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     return {
       workingListCount: workingList.length,
       atRiskPremium: workingList.reduce((sum, r) => sum + (r.premium_cents || 0), 0),
-      savedPremium: currentWeekSaved || 0, // This week's saved based on activities
+      savedPremium: currentWeekSaved || 0,
     };
-  }, [staffSessionToken, staffHeroData, allRecords, currentWeekSaved]);
+  }, [inStaffContext, staffHeroData, allRecords, currentWeekSaved]);
 
   // Calculate week-over-week changes
   const weekOverWeek = useMemo(() => {
-    // Staff users: use edge function data
-    if (staffSessionToken && staffHeroData) {
-      // Handle both flat format (my code) and nested format (Lovable's code)
-      if (staffHeroData.weekOverWeek) {
-        // Lovable's nested format
-        return {
-          workingListChange: staffHeroData.weekOverWeek.workingList?.change || 0,
-          atRiskChange: staffHeroData.weekOverWeek.atRisk?.change || 0,
-          savedChange: staffHeroData.weekOverWeek.saved?.change || 0,
-        };
-      }
-      // My flat format
+    // Staff context - use edge function data (nested structure)
+    if (inStaffContext && staffHeroData?.weekOverWeek) {
       return {
-        workingListChange: staffHeroData.workingListChange || 0,
-        atRiskChange: staffHeroData.atRiskChange || 0,
-        savedChange: staffHeroData.savedChange || 0,
+        workingListChange: Math.round(staffHeroData.weekOverWeek.workingList?.change ?? 0),
+        atRiskChange: Math.round(staffHeroData.weekOverWeek.atRisk?.change ?? 0),
+        savedChange: Math.round(staffHeroData.weekOverWeek.saved?.change ?? 0),
       };
     }
 
-    // Regular users: calculate from direct query data
+    // Regular user context
     const currentCount = currentWeekData?.length || 0;
     const priorCount = priorWeekData?.length || 0;
 
@@ -297,13 +271,13 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     return {
       workingListChange: calcChange(currentCount, priorCount),
       atRiskChange: calcChange(currentAtRisk, priorAtRisk),
-      savedChange: calcChange(currentWeekSaved || 0, priorWeekSaved || 0), // Activity-based comparison
+      savedChange: calcChange(currentWeekSaved || 0, priorWeekSaved || 0),
     };
-  }, [staffSessionToken, staffHeroData, currentWeekData, priorWeekData, currentWeekSaved, priorWeekSaved]);
+  }, [inStaffContext, staffHeroData, currentWeekData, priorWeekData, currentWeekSaved, priorWeekSaved]);
 
-  // Loading state - staff users only wait for staff query, regular users wait for all queries
-  const isLoading = staffSessionToken
-    ? loadingStaffHero
+  // Determine loading state based on context
+  const isLoading = inStaffContext
+    ? loadingStaffData
     : (loadingCurrent || loadingPrior || loadingAll || loadingCurrentSaved || loadingPriorSaved);
 
   if (isLoading) {
