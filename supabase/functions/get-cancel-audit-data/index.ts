@@ -108,6 +108,12 @@ serve(async (req) => {
       case "get_activity_summary":
         result = await getActivitySummary(supabase, agencyId, params);
         break;
+      case "get_saved_payments":
+        result = await getSavedPayments(supabase, agencyId, params);
+        break;
+      case "undo_payment":
+        result = await undoPayment(supabase, agencyId, params);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -802,4 +808,146 @@ async function getActivitySummary(supabase: any, agencyId: string, params: any) 
   return {
     activities: data || [],
   };
+}
+
+// Get saved payments for a week (for Undo Payment modal)
+// Returns all payment_made activities with record details
+async function getSavedPayments(supabase: any, agencyId: string, params: any) {
+  const { weekStart, weekEnd } = params;
+
+  if (!weekStart || !weekEnd) {
+    throw new Error("weekStart and weekEnd are required");
+  }
+
+  const weekStartISO = `${weekStart}T00:00:00.000Z`;
+  const weekEndISO = `${weekEnd}T23:59:59.999Z`;
+
+  console.log(`[getSavedPayments] Fetching payments for agency ${agencyId} from ${weekStart} to ${weekEnd}`);
+
+  // Get all payment_made activities for this week
+  const { data: activities, error: activitiesError } = await supabase
+    .from("cancel_audit_activities")
+    .select("id, record_id, household_key, user_display_name, notes, created_at")
+    .eq("agency_id", agencyId)
+    .eq("activity_type", "payment_made")
+    .gte("created_at", weekStartISO)
+    .lte("created_at", weekEndISO)
+    .order("created_at", { ascending: false });
+
+  if (activitiesError) {
+    console.error("[getSavedPayments] Error fetching activities:", activitiesError);
+    throw activitiesError;
+  }
+
+  if (!activities || activities.length === 0) {
+    console.log("[getSavedPayments] No payment activities found");
+    return { payments: [] };
+  }
+
+  // Get the record IDs to fetch record details
+  const recordIds = [...new Set(activities.map((a: any) => a.record_id))];
+
+  const { data: records, error: recordsError } = await supabase
+    .from("cancel_audit_records")
+    .select("id, insured_first_name, insured_last_name, policy_number, premium_cents, product_name")
+    .in("id", recordIds);
+
+  if (recordsError) {
+    console.error("[getSavedPayments] Error fetching records:", recordsError);
+    throw recordsError;
+  }
+
+  // Create a map of record ID to record details
+  const recordMap = new Map(records?.map((r: any) => [r.id, r]) || []);
+
+  // Combine activity and record data
+  const payments = activities.map((activity: any) => {
+    const record = recordMap.get(activity.record_id) || {};
+    return {
+      activityId: activity.id,
+      recordId: activity.record_id,
+      householdKey: activity.household_key,
+      customerName: `${record.insured_first_name || ''} ${record.insured_last_name || ''}`.trim() || 'Unknown',
+      policyNumber: record.policy_number || 'N/A',
+      productName: record.product_name || 'N/A',
+      premiumCents: record.premium_cents || 0,  // Return CENTS
+      loggedBy: activity.user_display_name || 'Unknown',
+      notes: activity.notes,
+      createdAt: activity.created_at,
+    };
+  });
+
+  console.log(`[getSavedPayments] Found ${payments.length} payments`);
+
+  return { payments };
+}
+
+// Undo a payment (delete payment_made activity and revert record status)
+async function undoPayment(supabase: any, agencyId: string, params: any) {
+  const { activityId, recordId, householdKey } = params;
+
+  if (!activityId || !recordId) {
+    throw new Error("activityId and recordId are required");
+  }
+
+  console.log(`[undoPayment] Undoing payment activity ${activityId} for record ${recordId}`);
+
+  // First verify this activity belongs to this agency and is a payment_made
+  const { data: activity, error: activityError } = await supabase
+    .from("cancel_audit_activities")
+    .select("id, activity_type, agency_id")
+    .eq("id", activityId)
+    .eq("agency_id", agencyId)
+    .eq("activity_type", "payment_made")
+    .single();
+
+  if (activityError || !activity) {
+    console.error("[undoPayment] Activity not found or access denied:", activityError);
+    throw new Error("Payment activity not found or access denied");
+  }
+
+  // Delete the payment_made activity
+  const { error: deleteError } = await supabase
+    .from("cancel_audit_activities")
+    .delete()
+    .eq("id", activityId);
+
+  if (deleteError) {
+    console.error("[undoPayment] Failed to delete activity:", deleteError);
+    throw deleteError;
+  }
+
+  console.log(`[undoPayment] Deleted activity ${activityId}`);
+
+  // Check if there are any other payment_made activities for this household
+  const { data: otherPayments, error: checkError } = await supabase
+    .from("cancel_audit_activities")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .eq("household_key", householdKey)
+    .eq("activity_type", "payment_made");
+
+  if (checkError) {
+    console.error("[undoPayment] Failed to check other payments:", checkError);
+  }
+
+  // If no other payment_made activities exist for this household, revert status to in_progress
+  if (!otherPayments || otherPayments.length === 0) {
+    const { error: updateError } = await supabase
+      .from("cancel_audit_records")
+      .update({ status: "in_progress", updated_at: new Date().toISOString() })
+      .eq("agency_id", agencyId)
+      .eq("household_key", householdKey)
+      .eq("status", "resolved"); // Only update if currently resolved
+
+    if (updateError) {
+      console.error("[undoPayment] Failed to update record status:", updateError);
+    } else {
+      console.log(`[undoPayment] Reverted record status to in_progress for household ${householdKey}`);
+    }
+  } else {
+    console.log(`[undoPayment] Other payments exist for household ${householdKey}, keeping status as resolved`);
+  }
+
+  return { success: true, message: "Payment undone successfully" };
 }
