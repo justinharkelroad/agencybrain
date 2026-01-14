@@ -43,6 +43,8 @@ interface AnalyticsCall {
   id: string;
   team_member_id: string;
   team_member_name: string;
+  template_id: string;
+  template_name: string;
   potential_rank: string | null;
   overall_score: number | null;
   skill_scores: any;
@@ -426,10 +428,10 @@ export default function CallScoring() {
         .order('created_at', { ascending: false })
         .range(offset, offset + CALLS_PER_PAGE - 1);
 
-      // Build base query for analytics
+      // Build base query for analytics - include template_id and template name
       let analyticsQuery = supabase
         .from('agency_calls')
-        .select('id, team_member_id, potential_rank, overall_score, skill_scores, discovery_wins, analyzed_at')
+        .select('id, team_member_id, template_id, potential_rank, overall_score, skill_scores, discovery_wins, analyzed_at, call_scoring_templates(name)')
         .eq('agency_id', agency)
         .not('analyzed_at', 'is', null)
         .order('analyzed_at', { ascending: false });
@@ -482,12 +484,14 @@ export default function CallScoring() {
         setRecentCalls([]);
       }
 
-      // Enrich analytics calls with team member names
+      // Enrich analytics calls with team member names and template info
       if (analyticsData && analyticsData.length > 0) {
-        const enrichedAnalytics: AnalyticsCall[] = analyticsData.map(call => ({
+        const enrichedAnalytics: AnalyticsCall[] = analyticsData.map((call: any) => ({
           id: call.id,
           team_member_id: call.team_member_id,
           team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
+          template_id: call.template_id,
+          template_name: call.call_scoring_templates?.name || 'Unknown Template',
           potential_rank: call.potential_rank,
           overall_score: call.overall_score,
           skill_scores: call.skill_scores,
@@ -1362,11 +1366,6 @@ export default function CallScoring() {
             <CallScoringAnalytics 
               calls={analyticsCalls} 
               teamMembers={teamMembers} 
-              checklistItemCount={
-                templates.find(t => t.id === selectedTemplate)?.skill_categories?.checklistItems?.length || 
-                templates[0]?.skill_categories?.checklistItems?.length || 
-                8
-              }
             />
           </TabsContent>
         )}

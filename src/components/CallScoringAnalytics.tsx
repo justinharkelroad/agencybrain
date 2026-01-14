@@ -20,6 +20,8 @@ interface CallData {
   id: string;
   team_member_id: string;
   team_member_name: string;
+  template_id: string;
+  template_name: string;
   potential_rank: string | null;
   overall_score: number | null;
   skill_scores: Array<{
@@ -45,7 +47,6 @@ interface TeamMember {
 interface CallScoringAnalyticsProps {
   calls: CallData[];
   teamMembers: TeamMember[];
-  checklistItemCount?: number;
 }
 
 const RANK_COLORS: Record<string, string> = {
@@ -81,15 +82,75 @@ function titleCaseLabel(label: string): string {
     .join(' ');
 }
 
-export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 8 }: CallScoringAnalyticsProps) {
+export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalyticsProps) {
   const [selectedMember, setSelectedMember] = useState<string>('all');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
-  // Filter calls based on selected member
-  const filteredCalls = useMemo(() => {
+  // Get unique templates from calls with counts, sorted by count descending
+  const templateOptions = useMemo(() => {
     const analyzedCalls = calls.filter(c => c.analyzed_at);
-    if (selectedMember === 'all') return analyzedCalls;
-    return analyzedCalls.filter(c => c.team_member_id === selectedMember);
-  }, [calls, selectedMember]);
+    const templateMap = new Map<string, { id: string; name: string; count: number }>();
+    
+    analyzedCalls.forEach(call => {
+      if (call.template_id) {
+        const existing = templateMap.get(call.template_id);
+        if (existing) {
+          existing.count++;
+        } else {
+          templateMap.set(call.template_id, {
+            id: call.template_id,
+            name: call.template_name || 'Unknown Template',
+            count: 1
+          });
+        }
+      }
+    });
+    
+    return Array.from(templateMap.values()).sort((a, b) => b.count - a.count);
+  }, [calls]);
+
+  // Auto-select template with most calls on initial load
+  const effectiveTemplateId = useMemo(() => {
+    if (selectedTemplateId && templateOptions.some(t => t.id === selectedTemplateId)) {
+      return selectedTemplateId;
+    }
+    return templateOptions[0]?.id || '';
+  }, [selectedTemplateId, templateOptions]);
+
+  // Set initial template selection
+  useMemo(() => {
+    if (!selectedTemplateId && templateOptions.length > 0) {
+      setSelectedTemplateId(templateOptions[0].id);
+    }
+  }, [templateOptions, selectedTemplateId]);
+
+  // Filter calls based on selected template and member
+  const filteredCalls = useMemo(() => {
+    let result = calls.filter(c => c.analyzed_at);
+    
+    // Always filter by template (no "All" option)
+    if (effectiveTemplateId) {
+      result = result.filter(c => c.template_id === effectiveTemplateId);
+    }
+    
+    if (selectedMember !== 'all') {
+      result = result.filter(c => c.team_member_id === selectedMember);
+    }
+    
+    return result;
+  }, [calls, effectiveTemplateId, selectedMember]);
+
+  // Calculate dynamic checklist item count from actual data
+  const checklistItemCount = useMemo(() => {
+    if (filteredCalls.length === 0) return 0;
+    
+    // Find max checklist items across filtered calls
+    const maxItems = Math.max(...filteredCalls.map(c => 
+      Array.isArray(c.discovery_wins) ? c.discovery_wins.length : 0
+    ));
+    
+    return maxItems || 0;
+  }, [filteredCalls]);
 
   // Calculate summary stats
   const stats = useMemo(() => {
@@ -269,6 +330,9 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
     ];
   }, [stats]);
 
+  // Get selected template name for display
+  const selectedTemplateName = templateOptions.find(t => t.id === effectiveTemplateId)?.name || 'Select Template';
+
   if (calls.filter(c => c.analyzed_at).length === 0) {
     return (
       <Card>
@@ -281,25 +345,64 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
     );
   }
 
+  if (templateOptions.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p className="text-lg font-medium">No template data available</p>
+          <p className="text-sm">Calls must have a template assigned for analytics</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Filter */}
-      <div className="flex items-center justify-between">
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <BarChart3 className="h-5 w-5" />
           Analytics Dashboard
         </h2>
-        <Select value={selectedMember} onValueChange={setSelectedMember}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filter by team member" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Team Members</SelectItem>
-            {teamMembers.map(m => (
-              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Template Filter */}
+          <Select value={effectiveTemplateId} onValueChange={setSelectedTemplateId}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Select template" />
+            </SelectTrigger>
+            <SelectContent>
+              {templateOptions.map(t => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name} ({t.count} {t.count === 1 ? 'call' : 'calls'})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Team Member Filter */}
+          <Select value={selectedMember} onValueChange={setSelectedMember}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by team member" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Team Members</SelectItem>
+              {teamMembers.map(m => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Template Badge */}
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-xs">
+          Template: {selectedTemplateName}
+        </Badge>
+        <Badge variant="secondary" className="text-xs">
+          {filteredCalls.length} {filteredCalls.length === 1 ? 'call' : 'calls'}
+        </Badge>
       </div>
 
       {/* Summary Cards */}
@@ -343,7 +446,9 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
                 <Target className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats?.avgChecklistCompletion || 0} / {checklistItemCount}</p>
+                <p className="text-2xl font-bold">
+                  {checklistItemCount > 0 ? `${stats?.avgChecklistCompletion || 0} / ${checklistItemCount}` : 'N/A'}
+                </p>
                 <p className="text-sm text-muted-foreground">Avg Checklist Items</p>
               </div>
             </div>
@@ -505,7 +610,9 @@ export function CallScoringAnalytics({ calls, teamMembers, checklistItemCount = 
                           {member.highRankPct}%
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-center">{member.avgChecklist}/{checklistItemCount}</td>
+                      <td className="py-2 px-3 text-center">
+                        {checklistItemCount > 0 ? `${member.avgChecklist}/${checklistItemCount}` : member.avgChecklist}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
