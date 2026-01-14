@@ -103,7 +103,7 @@ serve(async (req) => {
         result = await uploadRecords(supabase, agencyId, teamMemberId, params);
         break;
       case "get_hero_stats":
-        result = await getHeroStats(supabase, agencyId);
+        result = await getHeroStats(supabase, agencyId, params);
         break;
       case "get_activity_summary":
         result = await getActivitySummary(supabase, agencyId, params);
@@ -611,26 +611,49 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
 }
 
 // Get hero stats for Cancel Audit dashboard
-async function getHeroStats(supabase: any, agencyId: string) {
-  const now = new Date();
-  const currentDay = now.getDay();
-  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+// IMPORTANT: All premium values are returned in CENTS (not dollars)
+// The frontend's formatCurrencyShort() handles cents-to-dollars conversion
+async function getHeroStats(supabase: any, agencyId: string, params?: any) {
+  // Use client-provided dates if available for consistency with frontend
+  let currentWeekStartISO: string;
+  let currentWeekEndISO: string;
+  let priorWeekStartISO: string;
+  let priorWeekEndISO: string;
 
-  const currentWeekStart = new Date(now);
-  currentWeekStart.setDate(now.getDate() + mondayOffset);
-  currentWeekStart.setHours(0, 0, 0, 0);
+  if (params?.currentWeekStart && params?.currentWeekEnd && params?.priorWeekStart && params?.priorWeekEnd) {
+    currentWeekStartISO = `${params.currentWeekStart}T00:00:00.000Z`;
+    currentWeekEndISO = `${params.currentWeekEnd}T23:59:59.999Z`;
+    priorWeekStartISO = `${params.priorWeekStart}T00:00:00.000Z`;
+    priorWeekEndISO = `${params.priorWeekEnd}T23:59:59.999Z`;
+    console.log(`[getHeroStats] Using client dates: ${params.currentWeekStart} to ${params.currentWeekEnd}`);
+  } else {
+    // Fallback to server-side calculation
+    const now = new Date();
+    const currentDay = now.getDay();
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
 
-  const currentWeekEnd = new Date(currentWeekStart);
-  currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
-  currentWeekEnd.setHours(23, 59, 59, 999);
+    const currentWeekStart = new Date(now);
+    currentWeekStart.setDate(now.getDate() + mondayOffset);
+    currentWeekStart.setHours(0, 0, 0, 0);
 
-  const priorWeekStart = new Date(currentWeekStart);
-  priorWeekStart.setDate(priorWeekStart.getDate() - 7);
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+    currentWeekEnd.setHours(23, 59, 59, 999);
 
-  const priorWeekEnd = new Date(currentWeekStart);
-  priorWeekEnd.setMilliseconds(-1);
+    const priorWeekStart = new Date(currentWeekStart);
+    priorWeekStart.setDate(priorWeekStart.getDate() - 7);
 
-  // Get all active records
+    const priorWeekEnd = new Date(currentWeekStart);
+    priorWeekEnd.setMilliseconds(-1);
+
+    currentWeekStartISO = currentWeekStart.toISOString();
+    currentWeekEndISO = currentWeekEnd.toISOString();
+    priorWeekStartISO = priorWeekStart.toISOString();
+    priorWeekEndISO = priorWeekEnd.toISOString();
+    console.log(`[getHeroStats] Using server dates (fallback)`);
+  }
+
+  // Get all active records (for working list and at risk)
   const { data: activeRecords, error: activeError } = await supabase
     .from("cancel_audit_records")
     .select("id, premium_cents, household_key")
@@ -647,8 +670,8 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .eq("agency_id", agencyId)
     .eq("is_active", true)
     .in("status", ["new", "in_progress"])
-    .gte("created_at", currentWeekStart.toISOString())
-    .lte("created_at", currentWeekEnd.toISOString());
+    .gte("created_at", currentWeekStartISO)
+    .lte("created_at", currentWeekEndISO);
 
   if (cwError) throw cwError;
 
@@ -659,8 +682,8 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .eq("agency_id", agencyId)
     .eq("is_active", true)
     .in("status", ["new", "in_progress"])
-    .gte("created_at", priorWeekStart.toISOString())
-    .lte("created_at", priorWeekEnd.toISOString());
+    .gte("created_at", priorWeekStartISO)
+    .lte("created_at", priorWeekEndISO);
 
   if (pwError) throw pwError;
 
@@ -670,8 +693,8 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .select("record_id")
     .eq("agency_id", agencyId)
     .eq("activity_type", "payment_made")
-    .gte("created_at", currentWeekStart.toISOString())
-    .lte("created_at", currentWeekEnd.toISOString());
+    .gte("created_at", currentWeekStartISO)
+    .lte("created_at", currentWeekEndISO);
 
   if (cwsError) throw cwsError;
 
@@ -681,14 +704,15 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .select("record_id")
     .eq("agency_id", agencyId)
     .eq("activity_type", "payment_made")
-    .gte("created_at", priorWeekStart.toISOString())
-    .lte("created_at", priorWeekEnd.toISOString());
+    .gte("created_at", priorWeekStartISO)
+    .lte("created_at", priorWeekEndISO);
 
   if (pwsError) throw pwsError;
 
+  // Calculate stats - ALL VALUES IN CENTS (no division by 100!)
   const workingListCount = activeRecords?.length || 0;
   const atRiskPremium = activeRecords?.reduce((sum: number, r: any) =>
-    sum + (r.premium_cents || 0), 0) / 100 || 0;
+    sum + (r.premium_cents || 0), 0) || 0;
 
   const currentSavedRecordIds = new Set(currentWeekSaved?.map((a: any) => a.record_id) || []);
   const priorSavedRecordIds = new Set(priorWeekSaved?.map((a: any) => a.record_id) || []);
@@ -702,7 +726,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
       .select("id, premium_cents")
       .in("id", Array.from(currentSavedRecordIds));
     currentSavedPremium = savedRecords?.reduce((sum: number, r: any) =>
-      sum + (r.premium_cents || 0), 0) / 100 || 0;
+      sum + (r.premium_cents || 0), 0) || 0;
   }
 
   if (priorSavedRecordIds.size > 0) {
@@ -711,21 +735,23 @@ async function getHeroStats(supabase: any, agencyId: string) {
       .select("id, premium_cents")
       .in("id", Array.from(priorSavedRecordIds));
     priorSavedPremium = savedRecords?.reduce((sum: number, r: any) =>
-      sum + (r.premium_cents || 0), 0) / 100 || 0;
+      sum + (r.premium_cents || 0), 0) || 0;
   }
 
   const currentWeekCount = currentWeekRecords?.length || 0;
   const priorWeekCount = priorWeekRecords?.length || 0;
   const currentWeekPremium = currentWeekRecords?.reduce((sum: number, r: any) =>
-    sum + (r.premium_cents || 0), 0) / 100 || 0;
+    sum + (r.premium_cents || 0), 0) || 0;
   const priorWeekPremium = priorWeekRecords?.reduce((sum: number, r: any) =>
-    sum + (r.premium_cents || 0), 0) / 100 || 0;
+    sum + (r.premium_cents || 0), 0) || 0;
+
+  console.log(`[getHeroStats] Results: workingList=${workingListCount}, atRiskCents=${atRiskPremium}, savedCents=${currentSavedPremium}`);
 
   return {
     stats: {
       workingListCount,
-      atRiskPremium,
-      savedPremium: currentSavedPremium,
+      atRiskPremium,  // CENTS
+      savedPremium: currentSavedPremium,  // CENTS
     },
     weekOverWeek: {
       workingList: {
@@ -736,15 +762,15 @@ async function getHeroStats(supabase: any, agencyId: string) {
           : 0,
       },
       atRisk: {
-        current: currentWeekPremium,
-        prior: priorWeekPremium,
+        current: currentWeekPremium,  // CENTS
+        prior: priorWeekPremium,  // CENTS
         change: priorWeekPremium > 0
           ? ((currentWeekPremium - priorWeekPremium) / priorWeekPremium) * 100
           : 0,
       },
       saved: {
-        current: currentSavedPremium,
-        prior: priorSavedPremium,
+        current: currentSavedPremium,  // CENTS
+        prior: priorSavedPremium,  // CENTS
         change: priorSavedPremium > 0
           ? ((currentSavedPremium - priorSavedPremium) / priorSavedPremium) * 100
           : 0,
