@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus, ClipboardList, DollarSign, CheckCircle2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { startOfWeek, subWeeks, endOfWeek, format } from 'date-fns';
 import { formatCurrencyShort } from '@/lib/cancel-audit-utils';
 import { callCancelAuditApi, getStaffSessionToken, isStaffContext } from '@/lib/cancel-audit-api';
+import { SavedPaymentsDialog } from './SavedPaymentsDialog';
 
 interface CancelAuditHeroStatsProps {
   agencyId: string | null;
@@ -27,6 +28,8 @@ interface HeroStatsResponse {
 }
 
 export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
+  const [savedPaymentsOpen, setSavedPaymentsOpen] = useState(false);
+
   // Get current week boundaries (Monday to Sunday)
   const today = new Date();
   const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -359,7 +362,10 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
       </Card>
 
       {/* Saved This Week */}
-      <Card className="border-border">
+      <Card
+        className="border-border cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setSavedPaymentsOpen(true)}
+      >
         <CardContent className="p-6">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <CheckCircle2 className="h-4 w-4" />
@@ -371,6 +377,15 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
           <TrendIndicator change={weekOverWeek.savedChange} invertColor />
         </CardContent>
       </Card>
+
+      {/* Saved Payments Dialog */}
+      <SavedPaymentsDialog
+        open={savedPaymentsOpen}
+        onOpenChange={setSavedPaymentsOpen}
+        agencyId={agencyId}
+        weekStart={format(currentWeekStart, 'yyyy-MM-dd')}
+        weekEnd={format(currentWeekEnd, 'yyyy-MM-dd')}
+      />
     </div>
   );
 }
