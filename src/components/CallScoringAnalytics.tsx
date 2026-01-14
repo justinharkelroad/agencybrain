@@ -49,13 +49,26 @@ interface CallScoringAnalyticsProps {
   teamMembers: TeamMember[];
 }
 
-const RANK_COLORS: Record<string, string> = {
-  'VERY HIGH': '#22c55e',
-  'HIGH': '#4ade80',
-  'MEDIUM': '#facc15',
-  'LOW': '#f97316',
-  'VERY LOW': '#ef4444',
-};
+// Score range configuration for consistent color-coding across the app
+const SCORE_RANGES = [
+  { label: 'Excellent', min: 80, max: 100, color: '#22c55e' },
+  { label: 'Good', min: 60, max: 79, color: '#facc15' },
+  { label: 'Needs Work', min: 40, max: 59, color: '#f97316' },
+  { label: 'Poor', min: 0, max: 39, color: '#ef4444' },
+];
+
+// Get score range info for a given score
+function getScoreRange(score: number): typeof SCORE_RANGES[0] {
+  return SCORE_RANGES.find(r => score >= r.min && score <= r.max) || SCORE_RANGES[3];
+}
+
+// Get color class for score display
+function getScoreColorClass(score: number): string {
+  if (score >= 80) return 'bg-green-500/20 text-green-400';
+  if (score >= 60) return 'bg-yellow-500/20 text-yellow-400';
+  if (score >= 40) return 'bg-orange-500/20 text-orange-400';
+  return 'bg-red-500/20 text-red-400';
+}
 
 // Canonicalize checklist labels for consistent aggregation
 function canonicalizeChecklistLabel(label: string): string {
@@ -157,13 +170,30 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
     const total = filteredCalls.length;
     if (total === 0) return null;
 
-    // Rank distribution
-    const rankCounts: Record<string, number> = {};
+    // Score range distribution (replaces rank distribution)
+    const scoreRangeCounts: Record<string, number> = {
+      'Excellent': 0,
+      'Good': 0,
+      'Needs Work': 0,
+      'Poor': 0,
+    };
+    
+    let callsWithScore = 0;
+    let totalScore = 0;
+    let score60PlusCount = 0;
+    
     filteredCalls.forEach(c => {
-      if (c.potential_rank) {
-        rankCounts[c.potential_rank] = (rankCounts[c.potential_rank] || 0) + 1;
+      if (c.overall_score != null && c.overall_score > 0) {
+        const range = getScoreRange(c.overall_score);
+        scoreRangeCounts[range.label]++;
+        callsWithScore++;
+        totalScore += c.overall_score;
+        if (c.overall_score >= 60) score60PlusCount++;
       }
     });
+    
+    const avgScore = callsWithScore > 0 ? Math.round(totalScore / callsWithScore) : 0;
+    const score60PlusPct = callsWithScore > 0 ? Math.round((score60PlusCount / callsWithScore) * 100) : 0;
 
     // Average skill scores
     const skillTotals = { rapport: 0, coverage: 0, closing: 0, objection_handling: 0, discovery: 0 };
@@ -267,15 +297,13 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
       const memberTotal = memberCalls.length;
       if (memberTotal === 0) return null;
 
-      let highRankCount = 0;
       let checklistSum = 0;
       let checklistCalls = 0;
       let scoreSum = 0;
       let scoreCalls = 0;
 
       memberCalls.forEach(c => {
-        if (c.potential_rank === 'HIGH' || c.potential_rank === 'VERY HIGH') highRankCount++;
-        if (c.overall_score) {
+        if (c.overall_score != null && c.overall_score > 0) {
           scoreSum += c.overall_score;
           scoreCalls++;
         }
@@ -292,19 +320,22 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
         }
       });
 
+      const memberAvgScore = scoreCalls > 0 ? Math.round(scoreSum / scoreCalls) : 0;
+
       return {
         id: member.id,
         name: member.name,
         totalCalls: memberTotal,
-        avgScore: scoreCalls > 0 ? Math.round(scoreSum / scoreCalls) : 0,
-        highRankPct: Math.round((highRankCount / memberTotal) * 100),
+        avgScore: memberAvgScore,
         avgChecklist: checklistCalls > 0 ? (checklistSum / checklistCalls).toFixed(1) : '0',
       };
     }).filter(Boolean);
 
     return {
       total,
-      rankCounts,
+      scoreRangeCounts,
+      avgScore,
+      score60PlusPct,
       avgSkills,
       checklistRates,
       avgChecklistCompletion: avgChecklistCompletion.toFixed(1),
@@ -312,14 +343,14 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
     };
   }, [filteredCalls, teamMembers]);
 
-  // Prepare chart data
-  const rankPieData = useMemo(() => {
-    if (!stats?.rankCounts) return [];
-    return Object.entries(stats.rankCounts).map(([rank, count]) => ({
-      name: rank,
-      value: count,
-      color: RANK_COLORS[rank] || '#888',
-    }));
+  // Prepare chart data - Score distribution pie chart
+  const scorePieData = useMemo(() => {
+    if (!stats?.scoreRangeCounts) return [];
+    return SCORE_RANGES.map(range => ({
+      name: range.label,
+      value: stats.scoreRangeCounts[range.label] || 0,
+      color: range.color,
+    })).filter(d => d.value > 0);
   }, [stats]);
 
   const radarData = useMemo(() => {
@@ -431,12 +462,8 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                 <TrendingUp className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {stats?.rankCounts ? 
-                    Math.round(((stats.rankCounts['HIGH'] || 0) + (stats.rankCounts['VERY HIGH'] || 0)) / stats.total * 100) 
-                    : 0}%
-                </p>
-                <p className="text-sm text-muted-foreground">High/Very High Rank</p>
+                <p className="text-2xl font-bold">{stats?.avgScore || 0}%</p>
+                <p className="text-sm text-muted-foreground">Avg Score</p>
               </div>
             </div>
           </CardContent>
@@ -461,17 +488,17 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Rank Distribution Pie Chart */}
+        {/* Score Distribution Pie Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Potential Rank Distribution</CardTitle>
+            <CardTitle className="text-base">Score Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            {rankPieData.length > 0 ? (
+            {scorePieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
-                    data={rankPieData}
+                    data={scorePieData}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -481,7 +508,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
-                    {rankPieData.map((entry, index) => (
+                    {scorePieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -490,7 +517,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
               </ResponsiveContainer>
             ) : (
               <div className="h-[220px] flex items-center justify-center text-muted-foreground">
-                No rank data available
+                No score data available
               </div>
             )}
           </CardContent>
@@ -594,30 +621,27 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                     <th className="text-left py-2 px-3 font-medium">Team Member</th>
                     <th className="text-center py-2 px-3 font-medium">Calls</th>
                     <th className="text-center py-2 px-3 font-medium">Avg Score</th>
-                    <th className="text-center py-2 px-3 font-medium">High Rank %</th>
                     <th className="text-center py-2 px-3 font-medium">Avg Checklist</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.memberStats.map((member: any) => (
-                    <tr key={member.id} className="border-b hover:bg-accent/50">
-                      <td className="py-2 px-3 font-medium">{member.name}</td>
-                      <td className="py-2 px-3 text-center">{member.totalCalls}</td>
-                      <td className="py-2 px-3 text-center">
-                        <Badge variant={member.avgScore >= 70 ? 'default' : 'secondary'}>
-                          {member.avgScore}%
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <span className={member.highRankPct >= 50 ? 'text-green-500' : 'text-muted-foreground'}>
-                          {member.highRankPct}%
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {checklistItemCount > 0 ? `${member.avgChecklist}/${checklistItemCount}` : member.avgChecklist}
-                      </td>
-                    </tr>
-                  ))}
+                  {stats.memberStats.map((member: any) => {
+                    const scoreRange = getScoreRange(member.avgScore);
+                    return (
+                      <tr key={member.id} className="border-b hover:bg-accent/50">
+                        <td className="py-2 px-3 font-medium">{member.name}</td>
+                        <td className="py-2 px-3 text-center">{member.totalCalls}</td>
+                        <td className="py-2 px-3 text-center">
+                          <Badge className={getScoreColorClass(member.avgScore)}>
+                            {member.avgScore}%
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {checklistItemCount > 0 ? `${member.avgChecklist}/${checklistItemCount}` : member.avgChecklist}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -633,27 +657,24 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {filteredCalls.slice(0, 5).map(call => (
-                <div key={call.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {call.analyzed_at ? new Date(call.analyzed_at).toLocaleDateString() : 'Pending'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Score: {call.overall_score || 'N/A'}
-                    </p>
+              {filteredCalls.slice(0, 5).map(call => {
+                const score = call.overall_score || 0;
+                return (
+                  <div key={call.id} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {call.analyzed_at ? new Date(call.analyzed_at).toLocaleDateString() : 'Pending'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getScoreRange(score).label}
+                      </p>
+                    </div>
+                    <Badge className={getScoreColorClass(score)}>
+                      {score}%
+                    </Badge>
                   </div>
-                  <Badge className={
-                    call.potential_rank === 'VERY HIGH' || call.potential_rank === 'HIGH'
-                      ? 'bg-green-500/20 text-green-400'
-                      : call.potential_rank === 'MEDIUM'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-red-500/20 text-red-400'
-                  }>
-                    {call.potential_rank || 'Pending'}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
