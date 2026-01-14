@@ -218,6 +218,11 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
           }
           labelVariants[canonicalKey][item.label] = (labelVariants[canonicalKey][item.label] || 0) + 1;
           
+          // ALWAYS initialize the key in totals (ensures 0% items appear)
+          if (checklistTotals[canonicalKey] === undefined) {
+            checklistTotals[canonicalKey] = 0;
+          }
+          
           // OR the checked status for this call (dedupe within same call)
           if (item.checked) {
             perCallChecked[canonicalKey] = true;
@@ -225,10 +230,8 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
         });
         
         // Add to totals (one hit per canonical item per call)
-        Object.entries(perCallChecked).forEach(([canonicalKey, checked]) => {
-          if (checked) {
-            checklistTotals[canonicalKey] = (checklistTotals[canonicalKey] || 0) + 1;
-          }
+        Object.keys(perCallChecked).forEach(canonicalKey => {
+          checklistTotals[canonicalKey]++;
         });
         
         checklistCount++;
