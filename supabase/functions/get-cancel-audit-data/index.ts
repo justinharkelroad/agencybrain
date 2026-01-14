@@ -102,6 +102,9 @@ serve(async (req) => {
       case "upload_records":
         result = await uploadRecords(supabase, agencyId, teamMemberId, params);
         break;
+      case "get_hero_stats":
+        result = await getHeroStats(supabase, agencyId);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -601,5 +604,148 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
     recordsUpdated,
     recordsDeactivated,
     errors,
+  };
+}
+
+// Get hero stats for Cancel Audit dashboard
+async function getHeroStats(supabase: any, agencyId: string) {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+  
+  const currentWeekStart = new Date(now);
+  currentWeekStart.setDate(now.getDate() + mondayOffset);
+  currentWeekStart.setHours(0, 0, 0, 0);
+  
+  const currentWeekEnd = new Date(currentWeekStart);
+  currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+  currentWeekEnd.setHours(23, 59, 59, 999);
+  
+  const priorWeekStart = new Date(currentWeekStart);
+  priorWeekStart.setDate(priorWeekStart.getDate() - 7);
+  
+  const priorWeekEnd = new Date(currentWeekStart);
+  priorWeekEnd.setMilliseconds(-1);
+
+  // Get all active records
+  const { data: activeRecords, error: activeError } = await supabase
+    .from("cancel_audit_records")
+    .select("id, premium_cents, household_key")
+    .eq("agency_id", agencyId)
+    .eq("is_active", true)
+    .in("status", ["new", "in_progress"]);
+  
+  if (activeError) throw activeError;
+
+  // Get current week records
+  const { data: currentWeekRecords, error: cwError } = await supabase
+    .from("cancel_audit_records")
+    .select("id, premium_cents")
+    .eq("agency_id", agencyId)
+    .eq("is_active", true)
+    .in("status", ["new", "in_progress"])
+    .gte("created_at", currentWeekStart.toISOString())
+    .lte("created_at", currentWeekEnd.toISOString());
+  
+  if (cwError) throw cwError;
+
+  // Get prior week records
+  const { data: priorWeekRecords, error: pwError } = await supabase
+    .from("cancel_audit_records")
+    .select("id, premium_cents")
+    .eq("agency_id", agencyId)
+    .eq("is_active", true)
+    .in("status", ["new", "in_progress"])
+    .gte("created_at", priorWeekStart.toISOString())
+    .lte("created_at", priorWeekEnd.toISOString());
+  
+  if (pwError) throw pwError;
+
+  // Get current week payment_made activities
+  const { data: currentWeekSaved, error: cwsError } = await supabase
+    .from("cancel_audit_activities")
+    .select("record_id")
+    .eq("agency_id", agencyId)
+    .eq("activity_type", "payment_made")
+    .gte("created_at", currentWeekStart.toISOString())
+    .lte("created_at", currentWeekEnd.toISOString());
+  
+  if (cwsError) throw cwsError;
+
+  // Get prior week payment_made activities
+  const { data: priorWeekSaved, error: pwsError } = await supabase
+    .from("cancel_audit_activities")
+    .select("record_id")
+    .eq("agency_id", agencyId)
+    .eq("activity_type", "payment_made")
+    .gte("created_at", priorWeekStart.toISOString())
+    .lte("created_at", priorWeekEnd.toISOString());
+  
+  if (pwsError) throw pwsError;
+
+  const workingListCount = activeRecords?.length || 0;
+  const atRiskPremium = activeRecords?.reduce((sum: number, r: any) => 
+    sum + (r.premium_cents || 0), 0) / 100 || 0;
+
+  const currentSavedRecordIds = new Set(currentWeekSaved?.map((a: any) => a.record_id) || []);
+  const priorSavedRecordIds = new Set(priorWeekSaved?.map((a: any) => a.record_id) || []);
+
+  let currentSavedPremium = 0;
+  let priorSavedPremium = 0;
+
+  if (currentSavedRecordIds.size > 0) {
+    const { data: savedRecords } = await supabase
+      .from("cancel_audit_records")
+      .select("id, premium_cents")
+      .in("id", Array.from(currentSavedRecordIds));
+    currentSavedPremium = savedRecords?.reduce((sum: number, r: any) => 
+      sum + (r.premium_cents || 0), 0) / 100 || 0;
+  }
+
+  if (priorSavedRecordIds.size > 0) {
+    const { data: savedRecords } = await supabase
+      .from("cancel_audit_records")
+      .select("id, premium_cents")
+      .in("id", Array.from(priorSavedRecordIds));
+    priorSavedPremium = savedRecords?.reduce((sum: number, r: any) => 
+      sum + (r.premium_cents || 0), 0) / 100 || 0;
+  }
+
+  const currentWeekCount = currentWeekRecords?.length || 0;
+  const priorWeekCount = priorWeekRecords?.length || 0;
+  const currentWeekPremium = currentWeekRecords?.reduce((sum: number, r: any) => 
+    sum + (r.premium_cents || 0), 0) / 100 || 0;
+  const priorWeekPremium = priorWeekRecords?.reduce((sum: number, r: any) => 
+    sum + (r.premium_cents || 0), 0) / 100 || 0;
+
+  return {
+    stats: {
+      workingListCount,
+      atRiskPremium,
+      savedPremium: currentSavedPremium,
+    },
+    weekOverWeek: {
+      workingList: {
+        current: currentWeekCount,
+        prior: priorWeekCount,
+        change: priorWeekCount > 0 
+          ? ((currentWeekCount - priorWeekCount) / priorWeekCount) * 100 
+          : 0,
+      },
+      atRisk: {
+        current: currentWeekPremium,
+        prior: priorWeekPremium,
+        change: priorWeekPremium > 0 
+          ? ((currentWeekPremium - priorWeekPremium) / priorWeekPremium) * 100 
+          : 0,
+      },
+      saved: {
+        current: currentSavedPremium,
+        prior: priorSavedPremium,
+        change: priorSavedPremium > 0 
+          ? ((currentSavedPremium - priorSavedPremium) / priorSavedPremium) * 100 
+          : 0,
+      },
+    },
   };
 }
