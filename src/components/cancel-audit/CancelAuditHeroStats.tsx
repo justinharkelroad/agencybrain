@@ -48,7 +48,13 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       const result = await callCancelAuditApi({
         operation: 'get_hero_stats',
-        params: { agency_id: agencyId },
+        params: {
+          agency_id: agencyId,
+          currentWeekStart: format(currentWeekStart, 'yyyy-MM-dd'),
+          currentWeekEnd: format(currentWeekEnd, 'yyyy-MM-dd'),
+          priorWeekStart: format(priorWeekStart, 'yyyy-MM-dd'),
+          priorWeekEnd: format(priorWeekEnd, 'yyyy-MM-dd'),
+        },
         sessionToken: staffToken,
       });
 
