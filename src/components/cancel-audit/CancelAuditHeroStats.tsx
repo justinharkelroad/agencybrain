@@ -12,15 +12,18 @@ interface CancelAuditHeroStatsProps {
   agencyId: string | null;
 }
 
-interface HeroStatsData {
-  workingListCount: number;
-  atRiskPremium: number;
-  currentWeekSaved: number;
-  priorWeekSaved: number;
-  currentWeekCount: number;
-  priorWeekCount: number;
-  currentWeekAtRisk: number;
-  priorWeekAtRisk: number;
+// Edge function returns nested structure
+interface HeroStatsResponse {
+  stats: {
+    workingListCount: number;
+    atRiskPremium: number;
+    savedPremium: number;
+  };
+  weekOverWeek: {
+    workingList: { current: number; prior: number; change: number };
+    atRisk: { current: number; prior: number; change: number };
+    saved: { current: number; prior: number; change: number };
+  };
 }
 
 export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
@@ -38,7 +41,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
   // Unified query for staff users - uses edge function
   const { data: staffHeroData, isLoading: loadingStaffData } = useQuery({
     queryKey: ['cancel-audit-hero-stats-staff', agencyId],
-    queryFn: async (): Promise<HeroStatsData> => {
+    queryFn: async (): Promise<HeroStatsResponse> => {
       if (!agencyId || !staffToken) {
         throw new Error('Missing agencyId or staff token');
       }
@@ -49,7 +52,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
         sessionToken: staffToken,
       });
 
-      return result as HeroStatsData;
+      return result as HeroStatsResponse;
     },
     enabled: !!agencyId && inStaffContext && !!staffToken,
     staleTime: 60 * 1000,
@@ -211,12 +214,12 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
   // Calculate stats - use staff data if available, otherwise use regular data
   const stats = useMemo(() => {
-    // Staff context - use edge function data
-    if (inStaffContext && staffHeroData) {
+    // Staff context - use edge function data (nested structure)
+    if (inStaffContext && staffHeroData?.stats) {
       return {
-        workingListCount: staffHeroData.workingListCount,
-        atRiskPremium: staffHeroData.atRiskPremium,
-        savedPremium: staffHeroData.currentWeekSaved,
+        workingListCount: staffHeroData.stats.workingListCount ?? 0,
+        atRiskPremium: staffHeroData.stats.atRiskPremium ?? 0,
+        savedPremium: staffHeroData.stats.savedPremium ?? 0,
       };
     }
 
@@ -240,17 +243,12 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
   // Calculate week-over-week changes
   const weekOverWeek = useMemo(() => {
-    // Staff context - use edge function data
-    if (inStaffContext && staffHeroData) {
-      const calcChange = (current: number, prior: number) => {
-        if (prior === 0) return current > 0 ? 100 : 0;
-        return Math.round(((current - prior) / prior) * 100);
-      };
-
+    // Staff context - use edge function data (nested structure)
+    if (inStaffContext && staffHeroData?.weekOverWeek) {
       return {
-        workingListChange: calcChange(staffHeroData.currentWeekCount, staffHeroData.priorWeekCount),
-        atRiskChange: calcChange(staffHeroData.currentWeekAtRisk, staffHeroData.priorWeekAtRisk),
-        savedChange: calcChange(staffHeroData.currentWeekSaved, staffHeroData.priorWeekSaved),
+        workingListChange: Math.round(staffHeroData.weekOverWeek.workingList?.change ?? 0),
+        atRiskChange: Math.round(staffHeroData.weekOverWeek.atRisk?.change ?? 0),
+        savedChange: Math.round(staffHeroData.weekOverWeek.saved?.change ?? 0),
       };
     }
 
