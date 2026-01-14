@@ -8679,20 +8679,15 @@ export type Database = {
         Args: { p_call_id: string; p_team_member_id: string }
         Returns: Json
       }
-      get_staff_call_scoring_data:
-        | {
-            Args: { p_agency_id: string; p_team_member_id?: string }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_agency_id: string
-              p_page?: number
-              p_page_size?: number
-              p_team_member_id?: string
-            }
-            Returns: Json
-          }
+      get_staff_call_scoring_data: {
+        Args: {
+          p_agency_id: string
+          p_page?: number
+          p_page_size?: number
+          p_team_member_id?: string
+        }
+        Returns: Json
+      }
       get_staff_call_status: {
         Args: { p_agency_id: string; p_call_id: string }
         Returns: Json
