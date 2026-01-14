@@ -99,47 +99,7 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
         </CardContent>
       </Card>
 
-      {/* Section 3: Potential Rank Criteria */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Potential Rank Criteria</CardTitle>
-          <CardDescription>Define what makes a prospect HIGH, MEDIUM, or LOW potential</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="text-green-500 font-medium">HIGH Potential Criteria</Label>
-            <Textarea
-              value={config.highCriteria}
-              onChange={(e) => updateField('highCriteria', e.target.value)}
-              placeholder="e.g., Multiple vehicles, expressed urgency, asked about bundling, gave specific timeline"
-              rows={2}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-yellow-500 font-medium">MEDIUM Potential Criteria</Label>
-            <Textarea
-              value={config.mediumCriteria}
-              onChange={(e) => updateField('mediumCriteria', e.target.value)}
-              placeholder="e.g., Interested but shopping around, no specific timeline, price-focused"
-              rows={2}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-red-500 font-medium">LOW Potential Criteria</Label>
-            <Textarea
-              value={config.lowCriteria}
-              onChange={(e) => updateField('lowCriteria', e.target.value)}
-              placeholder="e.g., Just looking for quote to compare, happy with current carrier, no buying signals"
-              rows={2}
-              className="mt-1"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Section 4: Discovery Wins */}
+      {/* Section 3: Discovery Wins */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Discovery Wins</CardTitle>
@@ -155,7 +115,7 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
         </CardContent>
       </Card>
 
-      {/* Section 5: Closing Attempts */}
+      {/* Section 4: Closing Attempts */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Closing Attempts</CardTitle>
@@ -171,7 +131,7 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
         </CardContent>
       </Card>
 
-      {/* Section 6: Coaching Focus */}
+      {/* Section 5: Coaching Focus */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Coaching Recommendations Focus</CardTitle>
@@ -187,7 +147,7 @@ export default function SalesPromptBuilder({ config, onChange }: SalesPromptBuil
         </CardContent>
       </Card>
 
-      {/* Section 7: Execution Clean Sheet (Checklist) */}
+      {/* Section 6: Execution Clean Sheet (Checklist) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Execution Clean Sheet</CardTitle>

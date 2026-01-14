@@ -267,8 +267,6 @@ Focus on quotes that demonstrate:
 
 {
   "salesperson_name": "<first name of the agent from transcript, or 'Agent' if unclear>",
-  "potential_rank": "<VERY LOW | LOW | MEDIUM | HIGH | VERY HIGH>",
-  "potential_rank_rationale": "<3-4 sentences explaining the ranking with specific quotes and observations>",
   
   "critical_assessment": "<3-4 detailed sentences about the main issues or successes, citing specific moments from the call>",
   
@@ -755,7 +753,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
       
       updatePayload = {
         ...updatePayload,
-        potential_rank: analysis.potential_rank,
+        potential_rank: null, // No longer generating ranks - using overall_score instead
         skill_scores: skillScoresForStorage, // Store as array for UI consistency
         section_scores: (() => {
           // Normalize section_scores keys for UI compatibility
@@ -780,7 +778,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         notable_quotes: analysis.notable_quotes || [],
         critical_gaps: {
           assessment: analysis.critical_assessment || analysis.summary,
-          rationale: analysis.potential_rank_rationale || `Ranked as ${analysis.potential_rank} based on overall performance.`,
+          rationale: analysis.critical_assessment || 'Performance assessment based on overall call analysis.',
           corrective_plan: analysis.corrective_action_plan || (
             Array.isArray(analysis.coaching_recommendations) && analysis.coaching_recommendations.length >= 3
               ? {

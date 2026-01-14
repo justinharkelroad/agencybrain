@@ -14,9 +14,7 @@ export interface SalesPromptConfig {
   templateName: string;
   summaryInstructions: string;
   scoredSections: ScoredSection[];
-  highCriteria: string;
-  mediumCriteria: string;
-  lowCriteria: string;
+  // Removed: highCriteria, mediumCriteria, lowCriteria - using overall_score instead
   discoveryWinsCriteria: string;
   closingAttemptsCriteria: string;
   coachingFocus: string;
@@ -42,9 +40,7 @@ export const DEFAULT_SALES_CONFIG: SalesPromptConfig = {
     { name: 'Coverage Education', criteria: 'Did the rep educate the prospect on coverage options and differentiate from competitors?' },
     { name: 'Closing', criteria: 'Did the rep ask for the sale with assumptive close language and make at least two closing attempts?' },
   ],
-  highCriteria: 'Multiple vehicles, expressed urgency, asked about bundling, gave specific timeline',
-  mediumCriteria: 'Interested but shopping around, no specific timeline, price-focused',
-  lowCriteria: 'Just looking for quote to compare, happy with current carrier, no buying signals',
+  // Removed rank criteria - using overall_score (0-100) instead
   discoveryWinsCriteria: 'Uncovering pain points with current carrier, learning about life changes (new home, new baby, teen driver), identifying cross-sell opportunities, getting budget information',
   closingAttemptsCriteria: 'Asking for the sale directly, offering to bind coverage today, suggesting a start date, overcoming objections, assumptive closes',
   coachingFocus: 'Focus on closing techniques, objection handling, building urgency, asking for referrals',
