@@ -1,20 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Phone, Voicemail, MessageSquare, Mail, CheckCircle, Calendar, Send, Loader2 } from 'lucide-react';
+import { Phone, Voicemail, MessageSquare, Mail, CheckCircle, Calendar, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateRenewalActivity } from '@/hooks/useRenewalActivities';
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
-import { sendRenewalToWinback } from '@/lib/sendToWinback';
-import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RenewalRecord, RenewalUploadContext, ActivityType, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 
 interface Props { open: boolean; onClose: () => void; record: RenewalRecord; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; initialActivityType?: string; }
 
-// Contact activities - auto-set status to pending
 const contactActions = [
   { type: 'call', label: 'Call', icon: Phone, color: 'border-blue-500 text-blue-400 hover:bg-blue-500/10' },
   { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'border-purple-500 text-purple-400 hover:bg-purple-500/10' },
@@ -23,10 +20,9 @@ const contactActions = [
   { type: 'appointment', label: 'Appointment', icon: Calendar, color: 'border-orange-500 text-orange-400 hover:bg-orange-500/10' },
 ];
 
-// Review actions - different outcomes
 const reviewActions = [
-  { type: 'review_done_success', label: 'Review Done - Successful', icon: CheckCircle, color: 'border-green-500 text-green-400 hover:bg-green-500/10', status: 'success' as WorkflowStatus },
-  { type: 'review_done_winback', label: 'Review Done - Push to WinBack', icon: Send, color: 'border-red-500 text-red-400 hover:bg-red-500/10', status: 'unsuccessful' as WorkflowStatus },
+  { type: 'review_successful', label: 'Review Done - Successful', icon: CheckCircle, color: 'border-green-500 text-green-400 hover:bg-green-500/10', targetStatus: 'success' as WorkflowStatus },
+  { type: 'review_winback', label: 'Review Done - Push to WinBack', icon: XCircle, color: 'border-red-500 text-red-400 hover:bg-red-500/10', targetStatus: 'unsuccessful' as WorkflowStatus },
 ];
 
 export function ScheduleActivityModal({ open, onClose, record, context, teamMembers, initialActivityType }: Props) {
@@ -36,11 +32,6 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
   const createActivity = useCreateRenewalActivity();
   const updateRecord = useUpdateRenewalRecord();
   const queryClient = useQueryClient();
-
-  // Find current user's team member ID for auto-assignment
-  const currentUserTeamMemberId = context.staffMemberId ||
-    teamMembers.find(m => m.name.toLowerCase().includes(context.displayName.toLowerCase()))?.id ||
-    null;
 
   // Sync with initialActivityType when it changes
   useEffect(() => {
@@ -62,96 +53,79 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
 
   const handleSave = async () => {
     if (!selectedType) return;
-
+    
+    // Determine activity type, status update, and label based on selection
     const isContactAction = contactActions.some(a => a.type === selectedType);
     const reviewAction = reviewActions.find(a => a.type === selectedType);
-
-    // Determine status based on action type
+    
+    let activityType: ActivityType;
     let updateRecordStatus: WorkflowStatus | undefined;
-    let activityTypeForDb: ActivityType;
-    let actionLabel: string;
-
+    let activityLabel: string;
+    
     if (isContactAction) {
-      // Contact activities → set to pending, assign to current user
+      // Contact actions: set status to pending and assign to current user
+      activityType = selectedType as ActivityType;
       updateRecordStatus = 'pending';
-      activityTypeForDb = selectedType as ActivityType;
-      actionLabel = contactActions.find(a => a.type === selectedType)?.label || selectedType;
+      activityLabel = contactActions.find(a => a.type === selectedType)?.label || selectedType;
     } else if (reviewAction) {
-      // Review actions
-      updateRecordStatus = reviewAction.status;
-      activityTypeForDb = 'review_done';
-      actionLabel = reviewAction.label;
-
-      // Handle WinBack push
-      if (selectedType === 'review_done_winback') {
-        setSendingToWinback(true);
-        try {
-          const result = await sendRenewalToWinback({
-            id: record.id,
-            agency_id: record.agency_id,
-            first_name: record.first_name,
-            last_name: record.last_name,
-            email: record.email,
-            phone: record.phone,
-            policy_number: record.policy_number,
-            product_name: record.product_name,
-            renewal_effective_date: record.renewal_effective_date,
-            premium_old: record.premium_old,
-            premium_new: record.premium_new,
-            agent_number: record.agent_number,
-            household_key: record.household_key,
-          });
-
-          if (!result.success) {
-            toast.error(result.error || 'Failed to send to Win-Back');
-            setSendingToWinback(false);
-            return;
-          }
-        } catch (error) {
-          toast.error('Failed to send to Win-Back');
-          setSendingToWinback(false);
-          return;
-        }
-        setSendingToWinback(false);
-      }
+      // Review actions: use the targetStatus from the action
+      activityType = 'review_done' as ActivityType;
+      updateRecordStatus = reviewAction.targetStatus;
+      activityLabel = reviewAction.label;
     } else {
-      activityTypeForDb = selectedType as ActivityType;
-      actionLabel = selectedType;
+      return;
     }
 
-    // Log the activity
+    // Handle WinBack flow
+    if (selectedType === 'review_winback') {
+      setSendingToWinback(true);
+      try {
+        // Update record status to unsuccessful
+        await updateRecord.mutateAsync({
+          id: record.id,
+          updates: { current_status: 'unsuccessful' },
+          displayName: context.displayName,
+          userId: context.userId,
+        });
+        
+        // Log the activity
+        createActivity.mutate({
+          renewalRecordId: record.id,
+          agencyId: context.agencyId,
+          activityType,
+          activityStatus: 'unsuccessful',
+          subject: `${activityLabel}: ${record.first_name} ${record.last_name}`,
+          comments: comments || undefined,
+          displayName: context.displayName,
+          userId: context.userId,
+          updateRecordStatus,
+        }, { 
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+            handleClose();
+          } 
+        });
+      } finally {
+        setSendingToWinback(false);
+      }
+      return;
+    }
+
+    // For contact actions, also assign to current user if not already assigned
+    const shouldAssign = isContactAction && !record.assigned_team_member_id && context.staffMemberId;
+
     createActivity.mutate({
       renewalRecordId: record.id,
       agencyId: context.agencyId,
-      activityType: activityTypeForDb,
-      subject: `${actionLabel}: ${record.first_name} ${record.last_name}`,
+      activityType,
+      activityStatus: updateRecordStatus,
+      subject: `${activityLabel}: ${record.first_name} ${record.last_name}`,
       comments: comments || undefined,
       displayName: context.displayName,
       userId: context.userId,
       updateRecordStatus,
-      assignedTeamMemberId: currentUserTeamMemberId || undefined,
-    }, {
-      onSuccess: () => {
-        // Also update assignment on the record if we have a team member ID
-        if (currentUserTeamMemberId && record.assigned_team_member_id !== currentUserTeamMemberId) {
-          updateRecord.mutate({
-            id: record.id,
-            updates: { assigned_team_member_id: currentUserTeamMemberId },
-            displayName: context.displayName,
-            userId: context.userId,
-            silent: true,
-          });
-        }
-
-        // Invalidate queries for WinBack if we pushed there
-        if (selectedType === 'review_done_winback') {
-          queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
-          toast.success('Sent to Win-Back HQ');
-        }
-
-        handleClose();
-      }
-    });
+      assignedTeamMemberId: shouldAssign ? context.staffMemberId : undefined,
+    }, { onSuccess: handleClose });
   };
 
   const handleClose = () => {
@@ -160,8 +134,6 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
     setSendingToWinback(false);
     onClose();
   };
-
-  const allActions = [...contactActions, ...reviewActions];
 
   const isSaving = createActivity.isPending || sendingToWinback;
 
@@ -174,11 +146,13 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
             Log a contact activity for this renewal record
           </DialogDescription>
         </DialogHeader>
-
-        {/* Contact Activities */}
+        
+        {/* Contact Activity Section */}
         <div className="space-y-3">
-          <Label>Contact Activity</Label>
-          <p className="text-xs text-muted-foreground -mt-1">Sets status to Pending & assigns to you</p>
+          <div>
+            <Label>Contact Activity</Label>
+            <p className="text-xs text-muted-foreground mt-1">Sets status to Pending & assigns to you</p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {contactActions.map((action) => (
               <Button
@@ -187,7 +161,6 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedType(action.type)}
-                disabled={isSaving}
                 className={cn(
                   "border-2 bg-transparent",
                   action.color,
@@ -201,7 +174,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
           </div>
         </div>
 
-        {/* Review Actions */}
+        {/* Review Outcome Section */}
         <div className="space-y-3">
           <Label>Review Outcome</Label>
           <div className="flex flex-wrap gap-2">
@@ -212,7 +185,6 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedType(action.type)}
-                disabled={isSaving}
                 className={cn(
                   "border-2 bg-transparent",
                   action.color,
@@ -233,23 +205,17 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
             placeholder="Add notes about this activity..."
             value={comments}
             onChange={(e) => setComments(e.target.value)}
-            disabled={isSaving}
             className="bg-[#0d1117] border-gray-700"
           />
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleClose()} disabled={isSaving}>Cancel</Button>
-          <Button
-            onClick={handleSave}
+          <Button variant="outline" onClick={() => handleClose()}>Cancel</Button>
+          <Button 
+            onClick={handleSave} 
             disabled={!selectedType || isSaving}
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {sendingToWinback ? 'Sending to WinBack...' : 'Saving...'}
-              </>
-            ) : 'Save'}
+            {isSaving ? (sendingToWinback ? 'Sending to WinBack...' : 'Saving...') : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
