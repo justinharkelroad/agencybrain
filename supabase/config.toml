@@ -294,3 +294,6 @@ verify_jwt = false
 [functions.stan_chat]
 verify_jwt = false
 
+[functions.get_staff_upload_url]
+verify_jwt = false
+
