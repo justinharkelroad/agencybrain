@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, type LucideIcon } from 'lucide-react';
+import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, ExternalLink, Send, Loader2, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,9 @@ import { useRenewalActivities, useCreateRenewalActivity } from '@/hooks/useRenew
 import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { ScheduleActivityModal } from './ScheduleActivityModal';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import type { RenewalRecord, WorkflowStatus, RenewalUploadContext } from '@/types/renewal';
 
 interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
@@ -35,12 +38,14 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [sendingToWinback, setSendingToWinback] = useState(false);
   // Local state for optimistic UI updates
   const [localAssignment, setLocalAssignment] = useState<string | null>(record?.assigned_team_member_id || null);
   const [localStatus, setLocalStatus] = useState<WorkflowStatus>(record?.current_status || 'uncontacted');
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const createActivity = useCreateRenewalActivity();
+  const queryClient = useQueryClient();
 
   // Sync local state when record changes (e.g., drawer reopened with different record)
   useEffect(() => {
@@ -68,7 +73,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
   const handleSaveNote = () => {
     if (!record?.id || !noteText.trim()) return;
-    
+
     createActivity.mutate({
       renewalRecordId: record.id,
       agencyId: context.agencyId,
@@ -81,6 +86,40 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
         setNoteText('');
       }
     });
+  };
+
+  const handleSendToWinback = async () => {
+    if (!record) return;
+
+    setSendingToWinback(true);
+    try {
+      const result = await sendRenewalToWinback({
+        id: record.id,
+        agency_id: record.agency_id,
+        first_name: record.first_name,
+        last_name: record.last_name,
+        email: record.email,
+        phone: record.phone,
+        policy_number: record.policy_number,
+        product_name: record.product_name,
+        renewal_effective_date: record.renewal_effective_date,
+        premium_old: record.premium_old,
+        premium_new: record.premium_new,
+        agent_number: record.agent_number,
+        household_key: record.household_key,
+      });
+
+      if (result.success) {
+        toast.success('Sent to Win-Back HQ');
+        queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      } else {
+        toast.error(result.error || 'Failed to send to Win-Back');
+      }
+    } catch (error) {
+      toast.error('Failed to send to Win-Back');
+    } finally {
+      setSendingToWinback(false);
+    }
   };
 
   return (
@@ -223,6 +262,41 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Win-Back Integration - Show only for unsuccessful renewals */}
+              {record.current_status === 'unsuccessful' && (
+                <div className="border-t border-gray-700 pt-4 mt-4">
+                  <p className="text-sm font-medium mb-2 text-gray-300">Win-Back HQ</p>
+                  {record.winback_household_id ? (
+                    <div className="flex items-center gap-2 text-sm text-green-400">
+                      <ExternalLink className="h-4 w-4" />
+                      <span>Already sent to Win-Back</span>
+                      <a href="/agency/winback" className="text-blue-400 hover:underline ml-2">
+                        View →
+                      </a>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleSendToWinback}
+                      disabled={sendingToWinback}
+                      variant="outline"
+                      className="w-full border-gray-600 text-white hover:bg-gray-700"
+                    >
+                      {sendingToWinback ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send to Win-Back HQ
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {/* Notes */}
               <div className="space-y-2">

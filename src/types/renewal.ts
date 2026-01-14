@@ -26,6 +26,8 @@ export interface RenewalRecord {
   last_activity_by_display_name: string | null; uploaded_by: string | null;
   uploaded_by_display_name: string | null; is_active: boolean;
   is_priority?: boolean;
+  winback_household_id?: string | null;
+  sent_to_winback_at?: string | null;
   created_at: string; updated_at: string;
   assigned_team_member?: { id: string; name: string } | null;
 }

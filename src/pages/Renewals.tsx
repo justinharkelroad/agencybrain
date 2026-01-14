@@ -578,7 +578,14 @@ export default function Renewals() {
                     {r.amount_due != null ? `$${r.amount_due.toLocaleString()}` : '-'}
                   </TableCell>
                   <TableCell><Badge variant={r.multi_line_indicator ? 'default' : 'secondary'}>{r.multi_line_indicator ? 'Yes' : 'No'}</Badge></TableCell>
-                  <TableCell><Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge>
+                      {r.winback_household_id && (
+                        <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200">WB</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{r.assigned_team_member?.name || '—'}</TableCell>
                   <TableCell className="sticky right-0 bg-background" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
