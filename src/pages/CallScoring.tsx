@@ -1030,14 +1030,14 @@ export default function CallScoring() {
         </Badge>
       </div>
 
-      {/* Tabs - hide Analytics for staff users */}
+      {/* Tabs - hide Analytics for staff users (except managers) */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full max-w-md ${userRole === 'staff' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full max-w-md ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             {userRole === 'staff' ? 'My Calls' : 'Upload & Calls'}
           </TabsTrigger>
-          {userRole !== 'staff' && (
+          {(userRole !== 'staff' || isStaffManager) && (
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
@@ -1352,7 +1352,7 @@ export default function CallScoring() {
           </div>
         </TabsContent>
 
-        {userRole !== 'staff' && (
+        {(userRole !== 'staff' || isStaffManager) && (
           <TabsContent value="analytics" className="mt-6">
             <CallScoringAnalytics 
               calls={analyticsCalls} 
