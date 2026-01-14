@@ -650,13 +650,16 @@ async function getHeroStats(supabase: any, agencyId: string, params: any) {
     .lte("created_at", `${priorWeekEnd}T23:59:59.999Z`);
 
   // Fetch current week payment_made activities for saved calculation
-  const { data: currentWeekActivities } = await supabase
+  console.log("[getHeroStats] Querying payment_made activities from", `${currentWeekStart}T00:00:00.000Z`, "to", `${currentWeekEnd}T23:59:59.999Z`);
+  const { data: currentWeekActivities, error: activitiesError } = await supabase
     .from("cancel_audit_activities")
     .select("id, record_id")
     .eq("agency_id", agencyId)
     .eq("activity_type", "payment_made")
     .gte("created_at", `${currentWeekStart}T00:00:00.000Z`)
     .lte("created_at", `${currentWeekEnd}T23:59:59.999Z`);
+
+  console.log("[getHeroStats] payment_made activities found:", currentWeekActivities?.length || 0, "error:", activitiesError);
 
   // Fetch prior week payment_made activities
   const { data: priorWeekActivities } = await supabase
@@ -671,11 +674,16 @@ async function getHeroStats(supabase: any, agencyId: string, params: any) {
   let savedPremium = 0;
   if (currentWeekActivities && currentWeekActivities.length > 0) {
     const recordIds = [...new Set(currentWeekActivities.map((a: any) => a.record_id))];
-    const { data: savedRecords } = await supabase
+    console.log("[getHeroStats] Record IDs with payment_made:", recordIds);
+    const { data: savedRecords, error: savedError } = await supabase
       .from("cancel_audit_records")
       .select("id, premium_cents")
       .in("id", recordIds);
+    console.log("[getHeroStats] Saved records:", savedRecords?.length || 0, "error:", savedError);
     savedPremium = (savedRecords || []).reduce((sum: number, r: any) => sum + (r.premium_cents || 0), 0);
+    console.log("[getHeroStats] Total savedPremium (cents):", savedPremium);
+  } else {
+    console.log("[getHeroStats] No payment_made activities found for current week");
   }
 
   // Calculate saved premium for prior week
