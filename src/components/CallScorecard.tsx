@@ -102,6 +102,19 @@ export function CallScorecard({
     );
   }
 
+  // Score ranges for the new scoring system
+  const SCORE_RANGES = [
+    { label: 'Excellent', min: 80, max: 100, color: '#22c55e', textClass: 'text-green-400', bgClass: 'bg-green-500/20' },
+    { label: 'Good', min: 60, max: 79, color: '#facc15', textClass: 'text-yellow-400', bgClass: 'bg-yellow-500/20' },
+    { label: 'Needs Work', min: 40, max: 59, color: '#f97316', textClass: 'text-orange-400', bgClass: 'bg-orange-500/20' },
+    { label: 'Poor', min: 0, max: 39, color: '#ef4444', textClass: 'text-red-400', bgClass: 'bg-red-500/20' },
+  ];
+
+  const getScoreRange = (score: number) => {
+    return SCORE_RANGES.find(r => score >= r.min && score <= r.max) || SCORE_RANGES[SCORE_RANGES.length - 1];
+  };
+
+  // Legacy function for historical calls with rank but no score
   const getRankColor = (rank: string) => {
     switch (rank?.toUpperCase()) {
       case 'VERY HIGH': return 'text-green-400 bg-green-500/20';
@@ -273,10 +286,26 @@ export function CallScorecard({
                 <div className="h-1 w-16 bg-blue-500 mt-2" />
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground mb-1">PERFORMANCE RANK</p>
-                <Badge className={`text-lg px-3 py-1 ${getRankColor(call.potential_rank)}`}>
-                  {call.potential_rank || 'PENDING'}
-                </Badge>
+                <p className="text-xs text-muted-foreground mb-1">PERFORMANCE SCORE</p>
+                {/* Show score-based display for new calls, fall back to rank for historical */}
+                {call.overall_score !== null && call.overall_score !== undefined ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge className={`text-lg px-3 py-1 ${getScoreRange(call.overall_score).textClass} ${getScoreRange(call.overall_score).bgClass}`}>
+                      {call.overall_score}%
+                    </Badge>
+                    <span className={`text-xs ${getScoreRange(call.overall_score).textClass}`}>
+                      {getScoreRange(call.overall_score).label}
+                    </span>
+                  </div>
+                ) : call.potential_rank ? (
+                  <Badge className={`text-lg px-3 py-1 ${getRankColor(call.potential_rank)}`}>
+                    {call.potential_rank}
+                  </Badge>
+                ) : (
+                  <Badge className="text-lg px-3 py-1 text-muted-foreground bg-muted">
+                    PENDING
+                  </Badge>
+                )}
               </div>
             </div>
           </div>

@@ -36,7 +36,19 @@ function renderProgressBar(score: number, max: number = 100): string {
   return `<span style="font-family: monospace; letter-spacing: 2px;">${'█'.repeat(filled)}${'░'.repeat(empty)}</span>`;
 }
 
-// Get star visualization for rank (sales) or score (service)
+// Score range configuration (matches frontend)
+const SCORE_RANGES = [
+  { label: 'Excellent', min: 80, max: 100, color: '#22c55e', emoji: '🌟' },
+  { label: 'Good', min: 60, max: 79, color: '#facc15', emoji: '⭐' },
+  { label: 'Needs Work', min: 40, max: 59, color: '#f97316', emoji: '📈' },
+  { label: 'Poor', min: 0, max: 39, color: '#ef4444', emoji: '⚠️' },
+];
+
+function getScoreRange(score: number) {
+  return SCORE_RANGES.find(r => score >= r.min && score <= r.max) || SCORE_RANGES[SCORE_RANGES.length - 1];
+}
+
+// Legacy: Get star visualization for rank (historical calls)
 function getStarsForRank(rank: string | null): string {
   const starMap: Record<string, number> = {
     'GREAT': 5,
@@ -675,14 +687,14 @@ serve(async (req) => {
       </div>
     `;
 
-    // Performance rank / score section
+    // Performance score section - now score-based for all call types
     if (callType === 'sales') {
-      const rank = call.potential_rank || 'SCORED';
+      const score = call.overall_score ?? 0;
+      const scoreRange = getScoreRange(score);
       emailBody += `
         <div style="text-align: center; margin-bottom: 24px; padding: 24px; background: linear-gradient(135deg, #1e283a, #020817); border-radius: 8px; color: white;">
-          <div style="font-size: 32px; margin-bottom: 8px;">${getStarsForRank(rank)}</div>
-          <div style="font-size: 24px; font-weight: 700; text-transform: uppercase;">${rank}</div>
-          <div style="margin-top: 8px; opacity: 0.9;">Overall Score: ${call.overall_score ?? 'N/A'}/100</div>
+          <div style="font-size: 48px; font-weight: 700; color: ${scoreRange.color};">${score}%</div>
+          <div style="margin-top: 8px; font-size: 18px; color: ${scoreRange.color}; font-weight: 600;">${scoreRange.emoji} ${scoreRange.label}</div>
         </div>
       `;
     } else {
@@ -721,9 +733,11 @@ serve(async (req) => {
     const scorecardUrl = `${SITE_URL}/call-scoring?call=${call.id}`;
     emailBody += EmailComponents.button('🔗 View Full Scorecard in Agency Brain', scorecardUrl);
 
-    // Build full email HTML
+    // Build full email HTML - score-based subjects for both types
+    const salesScore = call.overall_score ?? 0;
+    const salesScoreRange = getScoreRange(salesScore);
     const subject = callType === 'sales'
-      ? `📞 Call Score: ${call.potential_rank || 'Scored'} - ${teamMemberName} | ${filename}`
+      ? `📞 Call Score: ${salesScore}% (${salesScoreRange.label}) - ${teamMemberName} | ${filename}`
       : `📞 Service Call Score: ${call.overall_score ?? 'N/A'}/10 - ${teamMemberName} | ${filename}`;
 
     const emailHtml = buildEmailHtml({
