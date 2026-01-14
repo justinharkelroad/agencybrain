@@ -32,11 +32,6 @@ For EACH section, provide:
 - A concrete improvement tip if score < 8
 - Score: X/10
 
-POTENTIAL RANK CRITERIA:
-- HIGH: ${config.highCriteria}
-- MEDIUM: ${config.mediumCriteria}  
-- LOW: ${config.lowCriteria}
-
 DISCOVERY WINS: ${config.discoveryWinsCriteria}
 
 CLOSING ATTEMPTS: ${config.closingAttemptsCriteria}
@@ -47,7 +42,6 @@ OUTPUT FORMAT:
 Return valid JSON with this exact structure:
 {
   "overall_score": <0-100>,
-  "potential_rank": "HIGH" | "MEDIUM" | "LOW",
   "summary": "<2-3 sentences>",
   "client_profile": {
     "name": "<first name>",
@@ -152,16 +146,6 @@ export function parseExistingSalesPrompt(prompt: string): Partial<SalesPromptCon
   // Try to extract summary instructions
   const summaryMatch = prompt.match(/SUMMARY:\s*(.+?)(?=\n\n|\nSCORED)/s);
   if (summaryMatch) config.summaryInstructions = summaryMatch[1].trim();
-  
-  // Try to extract potential rank criteria
-  const highMatch = prompt.match(/HIGH:\s*(.+?)(?=\n-|\n\n)/s);
-  if (highMatch) config.highCriteria = highMatch[1].trim();
-  
-  const mediumMatch = prompt.match(/MEDIUM:\s*(.+?)(?=\n-|\n\n)/s);
-  if (mediumMatch) config.mediumCriteria = mediumMatch[1].trim();
-  
-  const lowMatch = prompt.match(/LOW:\s*(.+?)(?=\n\n|\nDISCOVERY)/s);
-  if (lowMatch) config.lowCriteria = lowMatch[1].trim();
   
   // Try to extract discovery wins
   const discoveryMatch = prompt.match(/DISCOVERY WINS:\s*(.+?)(?=\n\n|\nCLOSING)/s);
