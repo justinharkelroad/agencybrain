@@ -35,8 +35,9 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [noteText, setNoteText] = useState('');
-  // Local state for assignment to allow optimistic UI updates
+  // Local state for optimistic UI updates
   const [localAssignment, setLocalAssignment] = useState<string | null>(record?.assigned_team_member_id || null);
+  const [localStatus, setLocalStatus] = useState<WorkflowStatus>(record?.current_status || 'uncontacted');
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const createActivity = useCreateRenewalActivity();
@@ -44,7 +45,8 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   // Sync local state when record changes (e.g., drawer reopened with different record)
   useEffect(() => {
     setLocalAssignment(record?.assigned_team_member_id || null);
-  }, [record?.id, record?.assigned_team_member_id]);
+    setLocalStatus(record?.current_status || 'uncontacted');
+  }, [record?.id, record?.assigned_team_member_id, record?.current_status]);
 
   // Listen for sidebar navigation to force close drawer
   useEffect(() => {
@@ -60,6 +62,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   if (!record) return null;
 
   const handleStatusChange = (s: WorkflowStatus) => { 
+    setLocalStatus(s); // Optimistic UI update
     updateRecord.mutate({ id: record.id, updates: { current_status: s }, displayName: context.displayName, userId: context.userId }); 
   };
 
@@ -119,8 +122,8 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   <MessageSquare className="h-4 w-4" />
                   <span className="font-medium">{activities.length}</span>
                 </div>
-                <Badge className={STATUS_COLORS[record.current_status]}>
-                  {record.current_status}
+                <Badge className={STATUS_COLORS[localStatus]}>
+                  {localStatus}
                 </Badge>
               </div>
             </div>
@@ -181,7 +184,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
                 </Button>
-                <Select value={record.current_status} onValueChange={handleStatusChange}>
+                <Select value={localStatus} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-[140px] bg-[#0d1117] border-gray-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
