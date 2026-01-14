@@ -144,12 +144,19 @@ export function useCreateRenewalActivity() {
       const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
       await queryClient.cancelQueries({ queryKey: ['renewal-activity-summary'] });
 
+      // Get the current staff token state for accurate query key matching
+      const currentStaffToken = getStaffSessionToken();
+      const isStaff = !!currentStaffToken;
+
       // Snapshot the previous value for rollback
-      const previousSummary = queryClient.getQueryData(['renewal-activity-summary', params.agencyId, todayStr, !!staffSessionToken]);
+      const queryKey = ['renewal-activity-summary', params.agencyId, todayStr, isStaff];
+      const previousSummary = queryClient.getQueryData(queryKey);
+
+      console.log('[useCreateRenewalActivity] Optimistic update:', { queryKey, previousCount: (previousSummary as any[])?.length || 0 });
 
       // Optimistically add the new activity to today's summary
       queryClient.setQueryData(
-        ['renewal-activity-summary', params.agencyId, todayStr, !!staffSessionToken],
+        queryKey,
         (old: any[] | undefined) => {
           const optimisticActivity = {
             id: 'temp-' + Date.now(),
@@ -158,19 +165,18 @@ export function useCreateRenewalActivity() {
             created_by_display_name: params.displayName,
             created_at: new Date().toISOString(),
           };
-          return [optimisticActivity, ...(old || [])];
+          const newData = [optimisticActivity, ...(old || [])];
+          console.log('[useCreateRenewalActivity] Optimistic data set:', newData.length, 'activities');
+          return newData;
         }
       );
 
-      return { previousSummary, todayStr };
+      return { previousSummary, todayStr, queryKey };
     },
     onError: (err, params, context) => {
       // Rollback optimistic update on error
-      if (context?.previousSummary) {
-        queryClient.setQueryData(
-          ['renewal-activity-summary', params.agencyId, context.todayStr, !!staffSessionToken],
-          context.previousSummary
-        );
+      if (context?.previousSummary && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousSummary);
       }
       toast.error('Failed to log activity');
     },
