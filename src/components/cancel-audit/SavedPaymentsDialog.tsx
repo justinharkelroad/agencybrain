@@ -102,7 +102,13 @@ export function SavedPaymentsDialog({
       const recordMap = new Map(records?.map(r => [r.id, r]) || []);
 
       return activities.map(activity => {
-        const record = recordMap.get(activity.record_id) || {};
+        const record = recordMap.get(activity.record_id) as { 
+          insured_first_name?: string; 
+          insured_last_name?: string; 
+          policy_number?: string; 
+          product_name?: string; 
+          premium_cents?: number;
+        } | undefined;
         return {
           activityId: activity.id,
           recordId: activity.record_id,

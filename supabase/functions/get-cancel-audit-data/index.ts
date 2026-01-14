@@ -114,6 +114,9 @@ serve(async (req) => {
       case "undo_payment":
         result = await undoPayment(supabase, agencyId, params);
         break;
+      case "update_assignment":
+        result = await updateAssignment(supabase, agencyId, params);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -950,4 +953,30 @@ async function undoPayment(supabase: any, agencyId: string, params: any) {
   }
 
   return { success: true, message: "Payment undone successfully" };
+}
+
+// Update record assignment
+async function updateAssignment(supabase: any, agencyId: string, params: any) {
+  const { recordId, assignedTeamMemberId } = params;
+
+  console.log(`[updateAssignment] Updating assignment for record ${recordId} to team member ${assignedTeamMemberId}`);
+
+  const { data, error } = await supabase
+    .from("cancel_audit_records")
+    .update({ 
+      assigned_team_member_id: assignedTeamMemberId || null,
+      updated_at: new Date().toISOString() 
+    })
+    .eq("id", recordId)
+    .eq("agency_id", agencyId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("[updateAssignment] Failed to update assignment:", error);
+    throw error;
+  }
+
+  console.log(`[updateAssignment] Successfully updated assignment for record ${recordId}`);
+  return data;
 }

@@ -151,6 +151,24 @@ export function useUpdateRenewalRecord() {
       invalidate?: boolean;
       invalidateStats?: boolean;
     }) => {
+      const staffSessionToken = getStaffSessionToken();
+      
+      // Staff portal: use edge function
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            operation: 'update_record',
+            params: { id, updates, displayName, userId }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return { id, updates, silent, invalidate, invalidateStats };
+      }
+      
+      // Regular auth: direct Supabase update
       const { error } = await supabase.from('renewal_records').update({
         ...updates,
         last_activity_at: new Date().toISOString(),
@@ -159,7 +177,22 @@ export function useUpdateRenewalRecord() {
         updated_at: new Date().toISOString(),
       }).eq('id', id);
       if (error) throw error;
-      return { silent, invalidate, invalidateStats };
+      return { id, updates, silent, invalidate, invalidateStats };
+    },
+    onMutate: async ({ id, updates }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['renewal-records'] });
+      
+      // Snapshot previous value
+      const previousRecords = queryClient.getQueryData<RenewalRecord[]>(['renewal-records']);
+      
+      // Optimistically update the cache
+      queryClient.setQueriesData<RenewalRecord[]>(
+        { queryKey: ['renewal-records'] },
+        (old) => old?.map(r => r.id === id ? { ...r, ...updates } : r)
+      );
+      
+      return { previousRecords };
     },
     onSuccess: (result) => {
       if (result?.invalidate !== false) {
@@ -172,7 +205,11 @@ export function useUpdateRenewalRecord() {
         toast.success('Record updated');
       }
     },
-    onError: (_, variables) => {
+    onError: (_, variables, context) => {
+      // Roll back on error
+      if (context?.previousRecords) {
+        queryClient.setQueriesData({ queryKey: ['renewal-records'] }, context.previousRecords);
+      }
       if (!variables.silent) {
         toast.error('Failed to update record');
       }

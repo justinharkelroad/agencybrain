@@ -39,10 +39,17 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [sendingToWinback, setSendingToWinback] = useState(false);
+  // Local state for assignment to allow optimistic UI updates
+  const [localAssignment, setLocalAssignment] = useState<string | null>(record?.assigned_team_member_id || null);
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const createActivity = useCreateRenewalActivity();
   const queryClient = useQueryClient();
+
+  // Sync local state when record changes (e.g., drawer reopened with different record)
+  useEffect(() => {
+    setLocalAssignment(record?.assigned_team_member_id || null);
+  }, [record?.id, record?.assigned_team_member_id]);
 
   // Listen for sidebar navigation to force close drawer
   useEffect(() => {
@@ -209,7 +216,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             {/* Actions / Notes / History */}
             <div className="p-4 space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
               {/* Action buttons */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
                 </Button>
@@ -222,6 +229,33 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="success">Success</SelectItem>
                     <SelectItem value="unsuccessful">Unsuccessful</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={localAssignment || 'unassigned'} 
+                  onValueChange={(value) => {
+                    const newValue = value === 'unassigned' ? null : value;
+                    // Optimistically update local state immediately
+                    setLocalAssignment(newValue);
+                    updateRecord.mutate({ 
+                      id: record.id, 
+                      updates: { assigned_team_member_id: newValue },
+                      displayName: context.displayName,
+                      userId: context.userId,
+                      silent: true
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-[160px] bg-[#0d1117] border-gray-700 text-white">
+                    <SelectValue placeholder="Assign LSP" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

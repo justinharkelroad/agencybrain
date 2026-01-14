@@ -50,7 +50,43 @@ serve(async (req) => {
     console.log('[get_staff_renewals] Valid session for agency:', agencyId);
 
     const body = await req.json().catch(() => ({}));
-    const { filters = {} } = body;
+    const { operation, filters = {}, params = {} } = body;
+
+    // Handle update_record operation
+    if (operation === 'update_record') {
+      const { id, updates, displayName, userId } = params;
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'Missing record id' }), { 
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      const { data, error } = await supabase
+        .from('renewal_records')
+        .update({
+          ...updates,
+          last_activity_at: new Date().toISOString(),
+          last_activity_by: userId,
+          last_activity_by_display_name: displayName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('agency_id', agencyId)
+        .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)')
+        .single();
+
+      if (error) {
+        console.error('[get_staff_renewals] Update error:', error);
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      console.log('[get_staff_renewals] Updated record:', id);
+      return new Response(JSON.stringify({ record: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Build query
     let query = supabase

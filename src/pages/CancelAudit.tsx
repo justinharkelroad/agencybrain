@@ -45,6 +45,7 @@ const CancelAuditPage = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [staffMemberId, setStaffMemberId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('Unknown User');
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
 
   // View mode - default to "Needs Attention"
   const [viewMode, setViewMode] = useState<ViewMode>('needs_attention');
@@ -196,6 +197,20 @@ const CancelAuditPage = () => {
         setStaffMemberId(staffUser.team_member_id);
         setDisplayName(staffUser.team_member_name || staffUser.display_name || staffUser.username);
         setHasAccess(true);
+        
+        // Fetch team members for staff user
+        try {
+          const { data: members } = await supabase
+            .from('team_members')
+            .select('id, name')
+            .eq('agency_id', staffUser.agency_id)
+            .eq('status', 'active')
+            .order('name');
+          setTeamMembers(members || []);
+        } catch (err) {
+          console.error('Error fetching team members for staff:', err);
+        }
+        
         setLoading(false);
         return;
       }
@@ -266,6 +281,19 @@ const CancelAuditPage = () => {
         // Regular auth user
         setUserId(user.id);
         setDisplayName(profile?.full_name || profile?.email || user.email || 'Unknown User');
+      }
+
+      // Fetch team members for regular user
+      try {
+        const { data: members } = await supabase
+          .from('team_members')
+          .select('id, name')
+          .eq('agency_id', userAgencyId)
+          .eq('status', 'active')
+          .order('name');
+        setTeamMembers(members || []);
+      } catch (err) {
+        console.error('Error fetching team members:', err);
       }
 
       setHasAccess(true);
@@ -493,6 +521,7 @@ const CancelAuditPage = () => {
                         userId={userId || undefined}
                         staffMemberId={staffMemberId || undefined}
                         userDisplayName={displayName}
+                        teamMembers={teamMembers}
                       />
                     </div>
                   </div>
