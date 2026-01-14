@@ -20,20 +20,29 @@ export function useLogActivity() {
   return useMutation({
     mutationFn: async (params: LogActivityParams) => {
       const staffSessionToken = getStaffSessionToken();
+      console.log('[useLogActivity] Staff token:', staffSessionToken ? 'present' : 'absent');
 
       // Staff portal: use edge function
       if (staffSessionToken) {
-        return callCancelAuditApi({
-          operation: "log_activity",
-          params: {
-            recordId: params.recordId,
-            householdKey: params.householdKey,
-            activityType: params.activityType,
-            notes: params.notes,
-            userDisplayName: params.userDisplayName,
-          },
-          sessionToken: staffSessionToken,
-        });
+        console.log('[useLogActivity] Calling edge function for staff activity:', params.activityType);
+        try {
+          const result = await callCancelAuditApi({
+            operation: "log_activity",
+            params: {
+              recordId: params.recordId,
+              householdKey: params.householdKey,
+              activityType: params.activityType,
+              notes: params.notes,
+              userDisplayName: params.userDisplayName,
+            },
+            sessionToken: staffSessionToken,
+          });
+          console.log('[useLogActivity] Edge function result:', result);
+          return result;
+        } catch (err) {
+          console.error('[useLogActivity] Edge function error:', err);
+          throw err;
+        }
       }
 
       // Regular auth: use direct Supabase query
