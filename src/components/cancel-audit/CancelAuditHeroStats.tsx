@@ -22,13 +22,24 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
   const staffSessionToken = getStaffSessionToken();
 
+  console.log('[CancelAuditHeroStats] Render state:', {
+    agencyId,
+    hasStaffToken: !!staffSessionToken,
+    staffQueryEnabled: !!agencyId && !!staffSessionToken
+  });
+
   // Staff users: fetch hero stats via edge function
   const { data: staffHeroData, isLoading: loadingStaffHero } = useQuery({
     queryKey: ['cancel-audit-hero-staff', agencyId, format(currentWeekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
-      if (!agencyId || !staffSessionToken) return null;
+      console.log('[CancelAuditHeroStats] Staff query running...');
+      if (!agencyId || !staffSessionToken) {
+        console.log('[CancelAuditHeroStats] Skipping - missing agencyId or token');
+        return null;
+      }
 
       try {
+        console.log('[CancelAuditHeroStats] Calling get_hero_stats edge function');
         const result = await callCancelAuditApi({
           operation: 'get_hero_stats',
           params: {
@@ -39,6 +50,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
           },
           sessionToken: staffSessionToken,
         });
+        console.log('[CancelAuditHeroStats] Edge function result:', result);
         return result;
       } catch (error) {
         console.error('[CancelAuditHeroStats] Error fetching staff hero stats:', error);
@@ -205,8 +217,15 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
   // Calculate stats - Working list and At Risk are all-time, Saved is this week only
   const stats = useMemo(() => {
+    console.log('[CancelAuditHeroStats] Calculating stats:', {
+      hasStaffToken: !!staffSessionToken,
+      staffHeroData,
+      allRecordsCount: allRecords?.length,
+    });
+
     // Staff users: use edge function data
     if (staffSessionToken && staffHeroData) {
+      console.log('[CancelAuditHeroStats] Using staff hero data');
       return {
         workingListCount: staffHeroData.workingListCount || 0,
         atRiskPremium: staffHeroData.atRiskPremium || 0,
@@ -216,6 +235,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
     // Regular users: use direct query data
     if (!allRecords) {
+      console.log('[CancelAuditHeroStats] No data available, returning zeros');
       return {
         workingListCount: 0,
         atRiskPremium: 0,
