@@ -7,6 +7,8 @@ interface StaffApiOptions {
 }
 
 export async function callCancelAuditApi({ operation, params, sessionToken }: StaffApiOptions) {
+  console.log('[callCancelAuditApi] Invoking edge function:', operation, params);
+
   const { data, error } = await supabase.functions.invoke("get-cancel-audit-data", {
     body: { operation, params },
     headers: {
@@ -14,7 +16,19 @@ export async function callCancelAuditApi({ operation, params, sessionToken }: St
     },
   });
 
-  if (error) throw error;
+  console.log('[callCancelAuditApi] Response:', { data, error });
+
+  if (error) {
+    console.error('[callCancelAuditApi] Edge function error:', error);
+    throw error;
+  }
+
+  // Check if the data contains an error (edge function returned 200 but with error in body)
+  if (data?.error) {
+    console.error('[callCancelAuditApi] Edge function returned error in body:', data.error);
+    throw new Error(data.error);
+  }
+
   return data;
 }
 

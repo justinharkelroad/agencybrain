@@ -155,7 +155,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
 
       // Get the record IDs to fetch their premiums
       const recordIds = [...new Set(activities.map(a => a.record_id))];
-      
+
       const { data: records, error: recordsError } = await supabase
         .from('cancel_audit_records')
         .select('id, premium_cents')
@@ -195,7 +195,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
       if (!activities || activities.length === 0) return 0;
 
       const recordIds = [...new Set(activities.map(a => a.record_id))];
-      
+
       const { data: records, error: recordsError } = await supabase
         .from('cancel_audit_records')
         .select('id, premium_cents')
@@ -276,8 +276,8 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
   }, [inStaffContext, staffHeroData, currentWeekData, priorWeekData, currentWeekSaved, priorWeekSaved]);
 
   // Determine loading state based on context
-  const isLoading = inStaffContext 
-    ? loadingStaffData 
+  const isLoading = inStaffContext
+    ? loadingStaffData
     : (loadingCurrent || loadingPrior || loadingAll || loadingCurrentSaved || loadingPriorSaved);
 
   if (isLoading) {

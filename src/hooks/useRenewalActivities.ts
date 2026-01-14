@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { RenewalActivity, ActivityType, WorkflowStatus } from '@/types/renewal';
 import { getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { format, startOfDay, isToday } from 'date-fns';
 
 export function useRenewalActivities(renewalRecordId: string | null) {
   const staffSessionToken = getStaffSessionToken();
@@ -138,12 +139,54 @@ export function useCreateRenewalActivity() {
         .eq('id', params.renewalRecordId);
       if (updateError) throw updateError;
     },
-    onSuccess: (_, { renewalRecordId }) => {
+    onMutate: async (params) => {
+      // Cancel any outgoing refetches for activity summary
+      const todayStr = format(startOfDay(new Date()), 'yyyy-MM-dd');
+      await queryClient.cancelQueries({ queryKey: ['renewal-activity-summary'] });
+
+      // Get the current staff token state for accurate query key matching
+      const currentStaffToken = getStaffSessionToken();
+      const isStaff = !!currentStaffToken;
+
+      // Snapshot the previous value for rollback
+      const queryKey = ['renewal-activity-summary', params.agencyId, todayStr, isStaff];
+      const previousSummary = queryClient.getQueryData(queryKey);
+
+      console.log('[useCreateRenewalActivity] Optimistic update:', { queryKey, previousCount: (previousSummary as any[])?.length || 0 });
+
+      // Optimistically add the new activity to today's summary
+      queryClient.setQueryData(
+        queryKey,
+        (old: any[] | undefined) => {
+          const optimisticActivity = {
+            id: 'temp-' + Date.now(),
+            activity_type: params.activityType,
+            created_by: params.userId,
+            created_by_display_name: params.displayName,
+            created_at: new Date().toISOString(),
+          };
+          const newData = [optimisticActivity, ...(old || [])];
+          console.log('[useCreateRenewalActivity] Optimistic data set:', newData.length, 'activities');
+          return newData;
+        }
+      );
+
+      return { previousSummary, todayStr, queryKey };
+    },
+    onError: (err, params, context) => {
+      // Rollback optimistic update on error
+      if (context?.previousSummary && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousSummary);
+      }
+      toast.error('Failed to log activity');
+    },
+    onSuccess: (_, { renewalRecordId, agencyId }) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-activities', renewalRecordId] });
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      // Invalidate activity summary for instant update (matches cancel audit behavior)
+      queryClient.invalidateQueries({ queryKey: ['renewal-activity-summary'] });
       toast.success('Activity logged');
     },
-    onError: () => toast.error('Failed to log activity'),
   });
 }

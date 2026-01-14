@@ -98,11 +98,12 @@ export function useUserPermissions() {
         return;
       }
 
-      // Otherwise, check if user has a linked team member via staff_users
+      // Otherwise, check if user has a linked team member via staff_users (matched by email)
       const { data: staffUser } = await supabase
         .from('staff_users')
         .select('team_member_id')
         .eq('agency_id', profile.agency_id)
+        .eq('email', user.email)
         .maybeSingle();
 
       if (staffUser?.team_member_id) {

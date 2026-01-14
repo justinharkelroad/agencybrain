@@ -19,6 +19,7 @@ import { format, subDays, addDays, startOfDay, isToday, isFuture } from 'date-fn
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getStaffSessionToken, callCancelAuditApi } from '@/lib/cancel-audit-api';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -58,32 +59,55 @@ function getLocalDayBoundsInUTC(localDate: Date) {
 export function CancelAuditActivitySummary({ agencyId }: CancelAuditActivitySummaryProps) {
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [calendarOpen, setCalendarOpen] = useState(false);
-  
+
+  const staffSessionToken = getStaffSessionToken();
+
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const displayDate = isToday(selectedDate) 
-    ? 'Today' 
+  const displayDate = isToday(selectedDate)
+    ? 'Today'
     : format(selectedDate, 'EEEE, MMM d');
-  
+
   const { data: activities, isLoading } = useQuery({
-    queryKey: ['cancel-audit-activity-summary', agencyId, dateStr],
+    queryKey: ['cancel-audit-activity-summary', agencyId, dateStr, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
-      
+
       // Get UTC bounds for the selected local date (handles timezone correctly)
       const { startUTC, endUTC } = getLocalDayBoundsInUTC(selectedDate);
-      
+
+      // Staff users: call edge function to bypass RLS
+      if (staffSessionToken) {
+        console.log('[CancelAuditActivitySummary] Staff user, calling edge function');
+        try {
+          const result = await callCancelAuditApi({
+            operation: 'get_activity_summary',
+            params: {
+              startDate: startUTC,
+              endDate: endUTC,
+            },
+            sessionToken: staffSessionToken,
+          });
+          console.log('[CancelAuditActivitySummary] Edge function result:', result);
+          return result?.activities || [];
+        } catch (error) {
+          console.error('[CancelAuditActivitySummary] Edge function error:', error);
+          return [];
+        }
+      }
+
+      // Regular users: direct Supabase query
       const { data, error } = await supabase
         .from('cancel_audit_activities')
         .select('id, activity_type, user_id, user_display_name, created_at')
         .eq('agency_id', agencyId)
         .gte('created_at', startUTC)
         .lte('created_at', endUTC);
-      
+
       if (error) {
         console.error('Error fetching activities:', error);
         return [];
       }
-      
+
       return data || [];
     },
     enabled: !!agencyId,

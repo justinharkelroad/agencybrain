@@ -22,13 +22,13 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
+
     // Create service role client (bypasses RLS)
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Get staff session token from header
     const sessionToken = req.headers.get("x-staff-session-token");
-    
+
     if (!sessionToken) {
       console.error("[get-cancel-audit-data] Missing staff session token");
       return new Response(
@@ -104,6 +104,9 @@ serve(async (req) => {
         break;
       case "get_hero_stats":
         result = await getHeroStats(supabase, agencyId);
+        break;
+      case "get_activity_summary":
+        result = await getActivitySummary(supabase, agencyId, params);
         break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
@@ -464,7 +467,7 @@ async function updateStatus(supabase: any, agencyId: string, params: any) {
         .delete()
         .eq("record_id", recordId)
         .eq("activity_type", "payment_made");
-      
+
       if (deleteError) {
         console.error("[updateStatus] Failed to delete payment_made activities:", deleteError);
       } else {
@@ -489,7 +492,7 @@ async function updateStatus(supabase: any, agencyId: string, params: any) {
 async function uploadRecords(supabase: any, agencyId: string, teamMemberId: string, params: any) {
   const { records, reportType, fileName, displayName } = params;
   const BATCH_SIZE = 50;
-  
+
   console.log(`[upload_records] Starting upload: ${records.length} records, type: ${reportType}`);
 
   const errors: string[] = [];
@@ -612,18 +615,18 @@ async function getHeroStats(supabase: any, agencyId: string) {
   const now = new Date();
   const currentDay = now.getDay();
   const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
-  
+
   const currentWeekStart = new Date(now);
   currentWeekStart.setDate(now.getDate() + mondayOffset);
   currentWeekStart.setHours(0, 0, 0, 0);
-  
+
   const currentWeekEnd = new Date(currentWeekStart);
   currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
   currentWeekEnd.setHours(23, 59, 59, 999);
-  
+
   const priorWeekStart = new Date(currentWeekStart);
   priorWeekStart.setDate(priorWeekStart.getDate() - 7);
-  
+
   const priorWeekEnd = new Date(currentWeekStart);
   priorWeekEnd.setMilliseconds(-1);
 
@@ -634,7 +637,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .eq("agency_id", agencyId)
     .eq("is_active", true)
     .in("status", ["new", "in_progress"]);
-  
+
   if (activeError) throw activeError;
 
   // Get current week records
@@ -646,7 +649,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .in("status", ["new", "in_progress"])
     .gte("created_at", currentWeekStart.toISOString())
     .lte("created_at", currentWeekEnd.toISOString());
-  
+
   if (cwError) throw cwError;
 
   // Get prior week records
@@ -658,7 +661,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .in("status", ["new", "in_progress"])
     .gte("created_at", priorWeekStart.toISOString())
     .lte("created_at", priorWeekEnd.toISOString());
-  
+
   if (pwError) throw pwError;
 
   // Get current week payment_made activities
@@ -669,7 +672,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .eq("activity_type", "payment_made")
     .gte("created_at", currentWeekStart.toISOString())
     .lte("created_at", currentWeekEnd.toISOString());
-  
+
   if (cwsError) throw cwsError;
 
   // Get prior week payment_made activities
@@ -680,11 +683,11 @@ async function getHeroStats(supabase: any, agencyId: string) {
     .eq("activity_type", "payment_made")
     .gte("created_at", priorWeekStart.toISOString())
     .lte("created_at", priorWeekEnd.toISOString());
-  
+
   if (pwsError) throw pwsError;
 
   const workingListCount = activeRecords?.length || 0;
-  const atRiskPremium = activeRecords?.reduce((sum: number, r: any) => 
+  const atRiskPremium = activeRecords?.reduce((sum: number, r: any) =>
     sum + (r.premium_cents || 0), 0) / 100 || 0;
 
   const currentSavedRecordIds = new Set(currentWeekSaved?.map((a: any) => a.record_id) || []);
@@ -698,7 +701,7 @@ async function getHeroStats(supabase: any, agencyId: string) {
       .from("cancel_audit_records")
       .select("id, premium_cents")
       .in("id", Array.from(currentSavedRecordIds));
-    currentSavedPremium = savedRecords?.reduce((sum: number, r: any) => 
+    currentSavedPremium = savedRecords?.reduce((sum: number, r: any) =>
       sum + (r.premium_cents || 0), 0) / 100 || 0;
   }
 
@@ -707,15 +710,15 @@ async function getHeroStats(supabase: any, agencyId: string) {
       .from("cancel_audit_records")
       .select("id, premium_cents")
       .in("id", Array.from(priorSavedRecordIds));
-    priorSavedPremium = savedRecords?.reduce((sum: number, r: any) => 
+    priorSavedPremium = savedRecords?.reduce((sum: number, r: any) =>
       sum + (r.premium_cents || 0), 0) / 100 || 0;
   }
 
   const currentWeekCount = currentWeekRecords?.length || 0;
   const priorWeekCount = priorWeekRecords?.length || 0;
-  const currentWeekPremium = currentWeekRecords?.reduce((sum: number, r: any) => 
+  const currentWeekPremium = currentWeekRecords?.reduce((sum: number, r: any) =>
     sum + (r.premium_cents || 0), 0) / 100 || 0;
-  const priorWeekPremium = priorWeekRecords?.reduce((sum: number, r: any) => 
+  const priorWeekPremium = priorWeekRecords?.reduce((sum: number, r: any) =>
     sum + (r.premium_cents || 0), 0) / 100 || 0;
 
   return {
@@ -728,24 +731,49 @@ async function getHeroStats(supabase: any, agencyId: string) {
       workingList: {
         current: currentWeekCount,
         prior: priorWeekCount,
-        change: priorWeekCount > 0 
-          ? ((currentWeekCount - priorWeekCount) / priorWeekCount) * 100 
+        change: priorWeekCount > 0
+          ? ((currentWeekCount - priorWeekCount) / priorWeekCount) * 100
           : 0,
       },
       atRisk: {
         current: currentWeekPremium,
         prior: priorWeekPremium,
-        change: priorWeekPremium > 0 
-          ? ((currentWeekPremium - priorWeekPremium) / priorWeekPremium) * 100 
+        change: priorWeekPremium > 0
+          ? ((currentWeekPremium - priorWeekPremium) / priorWeekPremium) * 100
           : 0,
       },
       saved: {
         current: currentSavedPremium,
         prior: priorSavedPremium,
-        change: priorSavedPremium > 0 
-          ? ((currentSavedPremium - priorSavedPremium) / priorSavedPremium) * 100 
+        change: priorSavedPremium > 0
+          ? ((currentSavedPremium - priorSavedPremium) / priorSavedPremium) * 100
           : 0,
       },
     },
+  };
+}
+
+// Get activity summary for daily stats display
+async function getActivitySummary(supabase: any, agencyId: string, params: any) {
+  const { startDate, endDate } = params;
+
+  console.log("[getActivitySummary] Fetching activities for agency:", agencyId, "from", startDate, "to", endDate);
+
+  const { data, error } = await supabase
+    .from("cancel_audit_activities")
+    .select("id, activity_type, user_id, user_display_name, created_at")
+    .eq("agency_id", agencyId)
+    .gte("created_at", startDate)
+    .lte("created_at", endDate);
+
+  if (error) {
+    console.error("[getActivitySummary] Error fetching activities:", error);
+    throw error;
+  }
+
+  console.log("[getActivitySummary] Found", data?.length || 0, "activities");
+
+  return {
+    activities: data || [],
   };
 }
