@@ -175,6 +175,19 @@ export function CallScoringSubmissionsSection({
     };
   };
 
+  // Score ranges for the new scoring system
+  const SCORE_RANGES = [
+    { label: 'Excellent', min: 80, max: 100, bgClass: 'bg-green-600 hover:bg-green-600' },
+    { label: 'Good', min: 60, max: 79, bgClass: 'bg-yellow-600 hover:bg-yellow-600' },
+    { label: 'Needs Work', min: 40, max: 59, bgClass: 'bg-orange-600 hover:bg-orange-600' },
+    { label: 'Poor', min: 0, max: 39, bgClass: 'bg-red-600 hover:bg-red-600' },
+  ];
+
+  const getScoreRange = (score: number) => {
+    return SCORE_RANGES.find(r => score >= r.min && score <= r.max) || SCORE_RANGES[SCORE_RANGES.length - 1];
+  };
+
+  // Legacy function for historical calls with rank but no score
   const getPriorityColor = (rank: string | null) => {
     switch (rank?.toLowerCase()) {
       case 'high':
@@ -270,12 +283,16 @@ export function CallScoringSubmissionsSection({
                       {format(createdDate, 'MM/dd/yyyy')}
                     </div>
 
-                    {/* Score or Priority Badge */}
+                    {/* Score Badge - using score ranges */}
                     {submission.overall_score !== null ? (
-                      <Badge className="bg-amber-600 hover:bg-amber-600 min-w-[55px] justify-center">
-                        {submission.overall_score.toFixed(1)}/10
+                      <Badge className={cn(
+                        'min-w-[55px] justify-center text-white',
+                        getScoreRange(submission.overall_score).bgClass
+                      )}>
+                        {submission.overall_score}%
                       </Badge>
                     ) : submission.potential_rank ? (
+                      // Legacy: show rank for historical calls without score
                       <Badge
                         variant="outline"
                         className={cn(
