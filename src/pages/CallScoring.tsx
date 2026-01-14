@@ -263,7 +263,7 @@ export default function CallScoring() {
       setTotalCalls(data.total_calls || 0);
       
       // Set analytics calls for managers
-      if (isStaffManager) {
+      if (isManager) {
         setAnalyticsCalls(data.analytics_calls || []);
       }
       
