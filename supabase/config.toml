@@ -297,3 +297,18 @@ verify_jwt = false
 [functions.get_staff_upload_url]
 verify_jwt = false
 
+[functions.auto_setup_mappings]
+verify_jwt = false
+
+[functions.backfill_quoted_details]
+verify_jwt = false
+
+[functions.fix_quarter_months]
+verify_jwt = false
+
+[functions.get_staff_sale_details]
+verify_jwt = false
+
+[functions.run_backfill]
+verify_jwt = false
+
