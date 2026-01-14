@@ -9,6 +9,8 @@ import { useUpdateRenewalRecord } from '@/hooks/useRenewalRecords';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RenewalRecord, RenewalUploadContext, ActivityType, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
+import { sendRenewalToWinback } from '@/lib/sendToWinback';
+import { toast } from 'sonner';
 
 interface Props { open: boolean; onClose: () => void; record: RenewalRecord; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; initialActivityType?: string; }
 
@@ -80,7 +82,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
     if (selectedType === 'review_winback') {
       setSendingToWinback(true);
       try {
-        // Update record status to unsuccessful
+        // 1. Update record status to unsuccessful
         await updateRecord.mutateAsync({
           id: record.id,
           updates: { current_status: 'unsuccessful' },
@@ -88,14 +90,37 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
           userId: context.userId,
         });
         
-        // Log the activity
+        // 2. ACTUALLY SEND TO WIN-BACK
+        const winbackResult = await sendRenewalToWinback({
+          id: record.id,
+          agency_id: record.agency_id,
+          first_name: record.first_name,
+          last_name: record.last_name,
+          email: record.email,
+          phone: record.phone,
+          policy_number: record.policy_number,
+          product_name: record.product_name,
+          renewal_effective_date: record.renewal_effective_date,
+          premium_old: record.premium_old,
+          premium_new: record.premium_new,
+          agent_number: record.agent_number,
+          household_key: record.household_key,
+        });
+        
+        if (!winbackResult.success) {
+          toast.error(winbackResult.error || 'Failed to send to Win-Back');
+        } else {
+          toast.success('Sent to Win-Back HQ');
+        }
+        
+        // 3. Log the activity with clear subject
         createActivity.mutate({
           renewalRecordId: record.id,
           agencyId: context.agencyId,
           activityType,
           activityStatus: 'unsuccessful',
-          subject: `${activityLabel}: ${record.first_name} ${record.last_name}`,
-          comments: comments || undefined,
+          subject: `Sent to WinBack: ${record.first_name} ${record.last_name}`,
+          comments: comments || 'Pushed to Win-Back HQ from renewal review',
           displayName: context.displayName,
           userId: context.userId,
           updateRecordStatus,
@@ -105,6 +130,9 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
             handleClose();
           } 
         });
+      } catch (error) {
+        console.error('Failed to process Win-Back:', error);
+        toast.error('Failed to process Win-Back');
       } finally {
         setSendingToWinback(false);
       }
