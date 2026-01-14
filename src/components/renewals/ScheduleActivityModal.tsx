@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Phone, Voicemail, MessageSquare, Mail, CheckCircle } from 'lucide-react';
+import { Phone, Voicemail, MessageSquare, Mail, CheckCircle, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ const quickActions = [
   { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'border-purple-500 text-purple-400 hover:bg-purple-500/10' },
   { type: 'text', label: 'Text', icon: MessageSquare, color: 'border-cyan-500 text-cyan-400 hover:bg-cyan-500/10' },
   { type: 'email', label: 'Email', icon: Mail, color: 'border-green-500 text-green-400 hover:bg-green-500/10' },
+  { type: 'appointment', label: 'Appointment', icon: Calendar, color: 'border-orange-500 text-orange-400 hover:bg-orange-500/10' },
   { type: 'review_done', label: 'Review Done', icon: CheckCircle, color: 'border-yellow-500 text-yellow-400 hover:bg-yellow-500/10' },
 ];
 

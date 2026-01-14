@@ -364,9 +364,10 @@ export default function CallScoring() {
             .from('staff_users')
             .select('team_member_id')
             .eq('agency_id', profile.agency_id)
+            .eq('email', user!.email)
             .maybeSingle();
-          
-          console.log('Staff user lookup:', { staffUser, staffError, userId: user!.id });
+
+          console.log('Staff user lookup:', { staffUser, staffError, userId: user!.id, email: user!.email });
           
           if (staffUser?.team_member_id) {
             teamMemberId = staffUser.team_member_id;
