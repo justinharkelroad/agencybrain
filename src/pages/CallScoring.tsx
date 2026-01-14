@@ -1284,8 +1284,25 @@ export default function CallScoring() {
                           {new Date(call.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      {/* Status Badge - show potential rank for sales calls, score for service calls */}
-                      {call.status === 'analyzed' && call.potential_rank ? (
+                      {/* Status Badge - prioritize score over rank */}
+                      {call.status === 'analyzed' && call.overall_score !== null && call.overall_score > 0 ? (
+                        <div className={`px-2 py-1 rounded text-sm font-medium ${
+                          call.call_type === 'service'
+                            ? (call.overall_score >= 8 ? 'bg-green-500/20 text-green-400' :
+                               call.overall_score >= 6 ? 'bg-yellow-500/20 text-yellow-400' :
+                               call.overall_score >= 4 ? 'bg-orange-500/20 text-orange-400' :
+                               'bg-red-500/20 text-red-400')
+                            : (call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
+                               call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
+                               call.overall_score >= 40 ? 'bg-orange-500/20 text-orange-400' :
+                               'bg-red-500/20 text-red-400')
+                        }`}>
+                          {call.call_type === 'service' 
+                            ? `${call.overall_score}/10`
+                            : `${call.overall_score}%`
+                          }
+                        </div>
+                      ) : call.status === 'analyzed' && call.potential_rank ? (
                         <Badge className={`text-xs ${
                           call.potential_rank === 'VERY HIGH' || call.potential_rank === 'HIGH' 
                             ? 'bg-green-500/20 text-green-400' 
@@ -1295,21 +1312,6 @@ export default function CallScoring() {
                         }`}>
                           {call.potential_rank}
                         </Badge>
-                      ) : call.status === 'analyzed' && call.overall_score !== null ? (
-                        <div className={`px-2 py-1 rounded text-sm font-medium ${
-                          call.call_type === 'service'
-                            ? (call.overall_score >= 8 ? 'bg-green-500/20 text-green-400' :
-                               call.overall_score >= 6 ? 'bg-yellow-500/20 text-yellow-400' :
-                               'bg-red-500/20 text-red-400')
-                            : (call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
-                               call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
-                               'bg-red-500/20 text-red-400')
-                        }`}>
-                          {call.call_type === 'service' 
-                            ? `${call.overall_score}/10`
-                            : `${call.overall_score}%`
-                          }
-                        </div>
                       ) : call.status === 'analyzed' ? (
                         <div className="px-2 py-1 rounded text-sm bg-muted text-muted-foreground">
                           Analyzed
