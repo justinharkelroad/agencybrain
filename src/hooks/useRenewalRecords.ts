@@ -143,7 +143,7 @@ export function useRenewalStats(agencyId: string | null, dateRange?: { start: st
 export function useUpdateRenewalRecord() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, updates, displayName, userId, silent, invalidate, invalidateStats }: {
+    mutationFn: async ({ id, updates, displayName, userId, silent, invalidate, invalidateStats, sendToWinback }: {
       id: string;
       updates: Partial<Pick<RenewalRecord, 'current_status' | 'notes' | 'assigned_team_member_id' | 'is_priority'>>;
       displayName: string;
@@ -151,6 +151,7 @@ export function useUpdateRenewalRecord() {
       silent?: boolean;
       invalidate?: boolean;
       invalidateStats?: boolean;
+      sendToWinback?: boolean;
     }) => {
       const staffSessionToken = getStaffSessionToken();
       
@@ -159,14 +160,14 @@ export function useUpdateRenewalRecord() {
         const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
           body: { 
             operation: 'update_record',
-            params: { id, updates, displayName, userId }
+            params: { id, updates, displayName, userId, sendToWinback }
           },
           headers: { 'x-staff-session': staffSessionToken }
         });
         
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        return { id, updates, silent, invalidate, invalidateStats };
+        return { id, updates, silent, invalidate, invalidateStats, winbackResult: data?.winbackResult };
       }
       
       // Regular auth: direct Supabase update
