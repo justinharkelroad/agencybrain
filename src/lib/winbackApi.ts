@@ -16,17 +16,22 @@ export interface WinbackStats {
 export interface WinbackHousehold {
   id: string;
   agency_id: string;
+  household_key: string;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
   email: string | null;
+  street_address: string | null;
+  city: string | null;
+  state: string | null;
   zip_code: string | null;
   status: 'untouched' | 'in_progress' | 'won_back' | 'dismissed';
   assigned_to: string | null;
   assigned_name?: string | null;
+  notes: string | null;
   earliest_winback_date: string | null;
-  policy_count: number | null;
-  total_premium_potential_cents: number | null;
+  policy_count: number;
+  total_premium_potential_cents: number;
   created_at: string;
   updated_at: string;
 }
