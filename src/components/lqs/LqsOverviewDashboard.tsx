@@ -106,7 +106,7 @@ export function LqsOverviewDashboard({ metrics, loading, onBucketClick, showReve
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <BucketCard
-        title="Leads"
+        title="Open Leads"
         count={metrics?.leadsCount ?? 0}
         secondaryLabel="quoted"
         secondaryValue={formatPercent(metrics?.leadsToQuotedRate ?? 0)}
@@ -116,7 +116,7 @@ export function LqsOverviewDashboard({ metrics, loading, onBucketClick, showReve
       />
       
       <BucketCard
-        title="Quoted"
+        title="Quoted Households"
         count={metrics?.quotedCount ?? 0}
         secondaryLabel="closed"
         secondaryValue={formatPercent(metrics?.quotedToSoldRate ?? 0)}
@@ -126,7 +126,7 @@ export function LqsOverviewDashboard({ metrics, loading, onBucketClick, showReve
       />
       
       <BucketCard
-        title="Sold"
+        title="Sold Households"
         count={metrics?.soldCount ?? 0}
         secondaryLabel={showRevenue ? 'premium' : 'sold'}
         secondaryValue={showRevenue ? formatCurrency(metrics?.totalPremiumSoldCents ?? 0) : `${metrics?.soldCount ?? 0}`}

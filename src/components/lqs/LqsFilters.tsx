@@ -134,7 +134,7 @@ export function LqsFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="lead">Lead</SelectItem>
+          <SelectItem value="lead">Open Lead</SelectItem>
           <SelectItem value="quoted">Quoted</SelectItem>
           <SelectItem value="sold">Sold</SelectItem>
         </SelectContent>
