@@ -1,5 +1,8 @@
 project_id = "wjqyccbytctqwceuhzhk"
 
+[functions.get_staff_winback]
+verify_jwt = false
+
 [functions.parse-bonus-qualifiers]
 verify_jwt = false
 

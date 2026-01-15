@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCw, Upload, Users, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react';
-import { startOfWeek, endOfWeek } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import {
   WinbackUploadModal,
@@ -23,6 +22,7 @@ import {
 } from '@/components/winback';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface Stats {
   totalHouseholds: number;
@@ -108,39 +108,47 @@ export default function WinbackHQ() {
     }
   }, [agencyId, activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
 
-  // Fetch data for staff portal users
+  // Fetch data for staff portal users (uses edge function via winbackApi)
   const fetchStaffData = async (staffAgencyId: string) => {
     setLoading(true);
     try {
-      // Get winback settings
-      const { data: settings } = await supabase
-        .from('winback_settings')
-        .select('contact_days_before')
-        .eq('agency_id', staffAgencyId)
-        .single();
+      // Get winback settings via API
+      const settings = await winbackApi.getSettings(staffAgencyId);
+      setContactDaysBefore(settings.contact_days_before);
 
-      if (settings) {
-        setContactDaysBefore(settings.contact_days_before);
-      }
-
-      // Get team members
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('id, name, email')
-        .eq('agency_id', staffAgencyId)
-        .eq('status', 'active')
-        .order('name');
-
-      setTeamMembers(members || []);
+      // Get team members via API
+      const members = await winbackApi.listTeamMembers(staffAgencyId);
+      setTeamMembers(members);
 
       // Set current user's team member ID from staff user
       if (staffUser?.team_member_id) {
         setCurrentUserTeamMemberId(staffUser.team_member_id);
       }
 
-      // Fetch stats and households
-      await fetchStats(staffAgencyId);
-      await fetchHouseholds(staffAgencyId, members || []);
+      // Fetch stats and households via API
+      const statsData = await winbackApi.getStats(staffAgencyId);
+      setStats(statsData);
+
+      const { households: householdsData, count } = await winbackApi.listHouseholds({
+        agencyId: staffAgencyId,
+        activeTab,
+        search,
+        statusFilter,
+        dateRange,
+        sortColumn,
+        sortDirection,
+        currentPage,
+        pageSize,
+      });
+
+      // Map assigned_to to assigned_name
+      const householdsWithNames = householdsData.map((h) => ({
+        ...h,
+        assigned_name: members.find((m) => m.id === h.assigned_to)?.name || null,
+      }));
+
+      setHouseholds(householdsWithNames as Household[]);
+      setTotalCount(count);
     } catch (err) {
       console.error('Error fetching staff data:', err);
       toast.error('Failed to load data');
