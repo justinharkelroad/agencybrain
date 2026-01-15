@@ -117,7 +117,7 @@ export const DEFAULT_SPL_TIERS: BonusTierInput[] = SPL_TIER_PERCENTAGES.map(
 );
 
 export const DEFAULT_INPUTS: CalculatorInputs = {
-  estimatedYearEndPremium: 16000000,
+  estimatedYearEndPremium: 7500000,
   autoItemsInForce: 0,
   autoPremiumWritten: 0,
   autoRetention: 85,

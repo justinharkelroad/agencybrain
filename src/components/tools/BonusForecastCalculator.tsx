@@ -56,6 +56,7 @@ function LabeledInput({
   min,
   max,
   step,
+  formatWithCommas = false,
 }: {
   label: string;
   tooltip?: string;
@@ -67,7 +68,24 @@ function LabeledInput({
   min?: number;
   max?: number;
   step?: number;
+  formatWithCommas?: boolean;
 }) {
+  // Format number with commas for display
+  const formatNumber = (num: number): string => {
+    if (num === 0) return '';
+    return num.toLocaleString('en-US');
+  };
+
+  // Parse string with commas back to number
+  const parseNumber = (str: string): number => {
+    const cleaned = str.replace(/,/g, '');
+    return cleaned === '' ? 0 : parseFloat(cleaned) || 0;
+  };
+
+  const displayValue = formatWithCommas && typeof value === 'number' 
+    ? formatNumber(value) 
+    : (typeof value === 'number' && value === 0 ? '' : value);
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1">
@@ -92,11 +110,18 @@ function LabeledInput({
           </span>
         )}
         <Input
-          type={type}
-          value={typeof value === 'number' && value === 0 ? '' : value}
+          type={formatWithCommas ? 'text' : type}
+          inputMode={formatWithCommas ? 'numeric' : undefined}
+          value={displayValue}
           onChange={(e) => {
             const raw = e.target.value;
-            onChange(raw === '' ? 0 : parseFloat(raw) || 0);
+            if (formatWithCommas) {
+              // Allow only digits and commas
+              const cleaned = raw.replace(/[^0-9,]/g, '');
+              onChange(parseNumber(cleaned));
+            } else {
+              onChange(raw === '' ? 0 : parseFloat(raw) || 0);
+            }
           }}
           className={`${prefix ? 'pl-7' : ''} ${suffix ? 'pr-8' : ''} bg-[#D9EAD3]/20 border-[#D9EAD3]/40`}
           min={min}
@@ -540,6 +565,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
                 value={inputs.estimatedYearEndPremium}
                 onChange={(v) => updateInput('estimatedYearEndPremium', v)}
                 prefix="$"
+                formatWithCommas
               />
               <p className="text-center text-xs text-destructive">
                 This is an estimated value. Adjust manually if needed.
