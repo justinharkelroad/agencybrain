@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface WinbackActivitySummaryProps {
   agencyId: string | null;
@@ -35,18 +36,6 @@ interface ActivityByUser {
   wonBack: number;
 }
 
-// Get UTC timestamp strings for a local date's boundaries
-function getLocalDayBoundsInUTC(localDate: Date) {
-  const localStart = startOfDay(localDate);
-  const localEnd = new Date(localStart);
-  localEnd.setHours(23, 59, 59, 999);
-  
-  return {
-    startUTC: localStart.toISOString(),
-    endUTC: localEnd.toISOString(),
-  };
-}
-
 export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps) {
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -60,22 +49,7 @@ export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps
     queryKey: ['winback-activity-summary', agencyId, dateStr],
     queryFn: async () => {
       if (!agencyId) return [];
-      
-      const { startUTC, endUTC } = getLocalDayBoundsInUTC(selectedDate);
-      
-      const { data, error } = await supabase
-        .from('winback_activities')
-        .select('id, activity_type, created_by_name, new_status, created_at')
-        .eq('agency_id', agencyId)
-        .gte('created_at', startUTC)
-        .lte('created_at', endUTC);
-      
-      if (error) {
-        console.error('Error fetching winback activities:', error);
-        return [];
-      }
-      
-      return data || [];
+      return winbackApi.getActivitySummary(agencyId, dateStr);
     },
     enabled: !!agencyId,
     refetchInterval: isToday(selectedDate) ? 30000 : false,

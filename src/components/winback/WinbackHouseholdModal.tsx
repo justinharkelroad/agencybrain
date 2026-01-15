@@ -17,12 +17,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { WinbackActivityLog } from './WinbackActivityLog';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Trash2, Clock } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface Policy {
   id: string;
@@ -61,6 +61,7 @@ interface WinbackHouseholdModalProps {
   currentUserTeamMemberId: string | null;
   agencyId: string | null;
   onUpdate: () => void;
+  contactDaysBefore?: number;
 }
 
 function formatCurrency(cents: number | null | undefined): string {
@@ -90,6 +91,7 @@ export function WinbackHouseholdModal({
   currentUserTeamMemberId,
   agencyId,
   onUpdate,
+  contactDaysBefore = 45,
 }: WinbackHouseholdModalProps) {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -103,44 +105,23 @@ export function WinbackHouseholdModal({
     if (open && household) {
       setAssignedTo(household.assigned_to || 'unassigned');
       setLocalStatus(household.status);
-      fetchPolicies(household.id);
-      fetchActivities(household.id);
+      fetchHouseholdDetails(household.id);
     }
   }, [open, household]);
 
-  const fetchPolicies = async (householdId: string) => {
+  const fetchHouseholdDetails = async (householdId: string) => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('winback_policies')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('calculated_winback_date', { ascending: true });
-
-      if (error) throw error;
-      setPolicies(data || []);
-    } catch (err) {
-      console.error('Error fetching policies:', err);
-      toast.error('Failed to load policies');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActivities = async (householdId: string) => {
     setActivitiesLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('winback_activities')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setActivities(data || []);
+      const { policies: fetchedPolicies, activities: fetchedActivities } = 
+        await winbackApi.getHouseholdDetails(householdId);
+      setPolicies(fetchedPolicies as Policy[]);
+      setActivities(fetchedActivities as Activity[]);
     } catch (err) {
-      console.error('Error fetching activities:', err);
+      console.error('Error fetching household details:', err);
+      toast.error('Failed to load household details');
     } finally {
+      setLoading(false);
       setActivitiesLoading(false);
     }
   };
@@ -149,25 +130,18 @@ export function WinbackHouseholdModal({
     if (!household || !agencyId) return;
 
     try {
-      // Get current user's name for attribution
-      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
-
-      const { error } = await supabase
-        .from('winback_activities')
-        .insert({
-          household_id: household.id,
-          agency_id: agencyId,
-          activity_type: type,
-          notes: notes || null,
-          created_by_user_id: null,
-          created_by_team_member_id: currentUserTeamMemberId || null,
-          created_by_name: userName,
-        });
-
-      if (error) throw error;
+      await winbackApi.logActivity(
+        household.id,
+        agencyId,
+        type,
+        notes,
+        currentUserTeamMemberId,
+        teamMembers
+      );
       
       // Refresh activities
-      fetchActivities(household.id);
+      const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+      setActivities(refreshedActivities as Activity[]);
       toast.success(`${type.replace('_', ' ')} logged`);
     } catch (err) {
       console.error('Error logging activity:', err);
@@ -181,22 +155,16 @@ export function WinbackHouseholdModal({
     
     setSaving(true);
     try {
-      const updateData: Record<string, any> = {
-        assigned_to: newAssignedTo === 'unassigned' ? null : newAssignedTo,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (newAssignedTo && newAssignedTo !== 'unassigned' && household.status === 'untouched') {
-        updateData.status = 'in_progress';
-        setLocalStatus('in_progress');
+      const result = await winbackApi.updateAssignment(
+        household.id,
+        newAssignedTo,
+        localStatus
+      );
+      
+      if (result.newStatus) {
+        setLocalStatus(result.newStatus as Household['status']);
       }
-
-      const { error } = await supabase
-        .from('winback_households')
-        .update(updateData)
-        .eq('id', household.id);
-
-      if (error) throw error;
+      
       toast.success('Assignment updated');
       onUpdate();
     } catch (err) {
@@ -214,36 +182,19 @@ export function WinbackHouseholdModal({
     setSaving(true);
     
     try {
-      const updateData: Record<string, any> = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      };
+      const result = await winbackApi.updateHouseholdStatus(
+        household.id,
+        agencyId,
+        newStatus,
+        oldStatus,
+        currentUserTeamMemberId,
+        teamMembers,
+        assignedTo === 'unassigned' ? null : assignedTo
+      );
 
-      if (newStatus === 'in_progress' && !household.assigned_to && assignedTo === 'unassigned') {
-        if (currentUserTeamMemberId) {
-          updateData.assigned_to = currentUserTeamMemberId;
-          setAssignedTo(currentUserTeamMemberId);
-        }
+      if (result.assigned_to) {
+        setAssignedTo(result.assigned_to);
       }
-
-      const { error } = await supabase
-        .from('winback_households')
-        .update(updateData)
-        .eq('id', household.id);
-
-      if (error) throw error;
-
-      // Log the status change as an activity
-      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
-      await supabase.from('winback_activities').insert({
-        household_id: household.id,
-        agency_id: agencyId,
-        activity_type: 'status_change',
-        old_status: oldStatus,
-        new_status: newStatus,
-        created_by_team_member_id: currentUserTeamMemberId || null,
-        created_by_name: userName,
-      });
 
       setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
@@ -265,86 +216,13 @@ export function WinbackHouseholdModal({
     setSaving(true);
 
     try {
-      const { data: householdPolicies, error: fetchError } = await supabase
-        .from('winback_policies')
-        .select('id, policy_term_months, termination_effective_date')
-        .eq('household_id', household.id);
-
-      if (fetchError) throw fetchError;
-
-      if (!householdPolicies || householdPolicies.length === 0) {
-        toast.error('No policies found');
-        setSaving(false);
-        return;
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const contactDaysBefore = 45;
-
-      for (const policy of householdPolicies) {
-        const terminationDate = new Date(policy.termination_effective_date);
-        const policyTermMonths = policy.policy_term_months || 12;
-        
-        let competitorRenewalDate = new Date(terminationDate);
-        competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
-        
-        while (competitorRenewalDate <= today) {
-          competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
-        }
-        
-        competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
-        
-        const newWinbackDate = new Date(competitorRenewalDate);
-        newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
-
-        await supabase
-          .from('winback_policies')
-          .update({ calculated_winback_date: newWinbackDate.toISOString().split('T')[0] })
-          .eq('id', policy.id);
-      }
-
-      const { error: rpcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
-        p_household_id: household.id,
-      });
-
-      if (rpcError) {
-        const { data: updatedPolicies } = await supabase
-          .from('winback_policies')
-          .select('calculated_winback_date')
-          .eq('household_id', household.id)
-          .order('calculated_winback_date', { ascending: true })
-          .limit(1);
-
-        if (updatedPolicies && updatedPolicies.length > 0) {
-          await supabase
-            .from('winback_households')
-            .update({ earliest_winback_date: updatedPolicies[0].calculated_winback_date })
-            .eq('id', household.id);
-        }
-      }
-
-      await supabase
-        .from('winback_households')
-        .update({ 
-          status: 'untouched',
-          assigned_to: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', household.id);
-
-      // Log the "not now" action
-      const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
-    await supabase.from('winback_activities').insert({
-      household_id: household.id,
-      agency_id: agencyId,
-      activity_type: 'note',
-      old_status: null,
-      new_status: null,
-      notes: 'Pushed to next renewal cycle',
-      created_by_team_member_id: currentUserTeamMemberId || null,
-      created_by_name: userName,
-    });
+      await winbackApi.pushToNextCycle(
+        household.id,
+        agencyId,
+        contactDaysBefore,
+        currentUserTeamMemberId,
+        teamMembers
+      );
 
       toast.success('Pushed to next renewal cycle');
       onUpdate();
@@ -362,35 +240,7 @@ export function WinbackHouseholdModal({
     setSaving(true);
 
     try {
-      // Delete all policies for this household
-      const { error: policiesError } = await supabase
-        .from('winback_policies')
-        .delete()
-        .eq('household_id', household.id);
-
-      if (policiesError) throw policiesError;
-
-      // Delete all activities for this household
-      const { error: activitiesError } = await supabase
-        .from('winback_activities')
-        .delete()
-        .eq('household_id', household.id);
-
-      if (activitiesError) throw activitiesError;
-
-      // Clear the winback_household_id reference on any renewal_records
-      await supabase
-        .from('renewal_records')
-        .update({ winback_household_id: null, sent_to_winback_at: null })
-        .eq('winback_household_id', household.id);
-
-      // Delete the household itself
-      const { error: householdError } = await supabase
-        .from('winback_households')
-        .delete()
-        .eq('id', household.id);
-
-      if (householdError) throw householdError;
+      await winbackApi.permanentDeleteHousehold(household.id);
 
       toast.success('Household permanently deleted');
       onUpdate();
