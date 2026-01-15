@@ -849,20 +849,20 @@ export default function StaffFormSubmission() {
                             {collection.name} #{i + 1}
                           </div>
                           {collection.fields?.map((field: any) => (
-                            <div key={field.key} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
+                            <div key={field.fieldKey} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
                               <label className="text-xs font-medium text-muted-foreground">
                                 {field.label}{field.required && <span className="text-destructive"> *</span>}
                               </label>
                               {field.type === "select" || field.type === "dropdown" ? (
                                 <select
                                   required={field.required}
-                                  value={row[field.key] || ""}
+                                  value={row[field.fieldKey] || ""}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setValues(prev => {
                                       const currentArray = [...(prev[collection.id] || [])];
                                       const currentItem = { ...(currentArray[i] || {}) };
-                                      currentItem[field.key] = v;
+                                      currentItem[field.fieldKey] = v;
                                       currentArray[i] = currentItem;
                                       return { ...prev, [collection.id]: currentArray };
                                     });
@@ -876,13 +876,13 @@ export default function StaffFormSubmission() {
                                 </select>
                               ) : field.type === "longtext" || field.type === "textarea" ? (
                                 <textarea
-                                  value={row[field.key] || ""}
+                                  value={row[field.fieldKey] || ""}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setValues(prev => {
                                       const currentArray = [...(prev[collection.id] || [])];
                                       const currentItem = { ...(currentArray[i] || {}) };
-                                      currentItem[field.key] = v;
+                                      currentItem[field.fieldKey] = v;
                                       currentArray[i] = currentItem;
                                       return { ...prev, [collection.id]: currentArray };
                                     });
@@ -894,13 +894,13 @@ export default function StaffFormSubmission() {
                                 <label className="flex items-center space-x-2">
                                   <input
                                     type="checkbox"
-                                    checked={row[field.key] === "yes" || row[field.key] === true}
+                                    checked={row[field.fieldKey] === "yes" || row[field.fieldKey] === true}
                                     onChange={e => {
                                       const v = e.target.checked ? "yes" : "no";
                                       setValues(prev => {
                                         const currentArray = [...(prev[collection.id] || [])];
                                         const currentItem = { ...(currentArray[i] || {}) };
-                                        currentItem[field.key] = v;
+                                        currentItem[field.fieldKey] = v;
                                         currentArray[i] = currentItem;
                                         return { ...prev, [collection.id]: currentArray };
                                       });
@@ -912,13 +912,13 @@ export default function StaffFormSubmission() {
                               ) : (
                                 <input
                                   type={field.type === "number" ? "number" : "text"}
-                                  value={row[field.key] || ""}
+                                  value={row[field.fieldKey] || ""}
                                   onChange={e => {
                                     const v = e.target.value;
                                     setValues(prev => {
                                       const currentArray = [...(prev[collection.id] || [])];
                                       const currentItem = { ...(currentArray[i] || {}) };
-                                      currentItem[field.key] = v;
+                                      currentItem[field.fieldKey] = v;
                                       currentArray[i] = currentItem;
                                       return { ...prev, [collection.id]: currentArray };
                                     });
