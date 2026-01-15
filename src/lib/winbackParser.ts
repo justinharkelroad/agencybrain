@@ -21,6 +21,9 @@ export interface ParsedWinbackRecord {
   premiumOldCents: number | null;
   accountType: string | null;
   companyCode: string | null;
+  // Extended termination report fields
+  itemsCount: number;
+  lineCode: string | null;
   // Calculated fields
   policyTermMonths: number;
   isCancelRewrite: boolean;
@@ -54,12 +57,15 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   'Premium Old($)': 'premiumOldCents',
   'Account Type': 'accountType',
   'Company Code': 'companyCode',
-  
+
+  // Extended termination report columns
+  'Number Of Items': 'itemsCount',
+  'Line Code': 'lineCode',
+
   // Alternate headers (some agencies use these)
   'Agent Number': 'agentNumber',
   'Phone Number': 'phone',
   'Email': 'email',
-  'Line Code': 'productName',  // ROIA format uses "Line Code" for product
   'First Name': 'firstName',
   'Last Name': 'lastName',
   'Zip': 'zipCode',
@@ -67,6 +73,8 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   'Pol Nbr': 'policyNumber',
   'Premium New': 'premiumNewCents',
   'Premium Old': 'premiumOldCents',
+  'Items': 'itemsCount',
+  'Item Count': 'itemsCount',
 };
 
 // Determine policy term based on product name
@@ -268,6 +276,13 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
           continue;
         }
 
+        // Parse items count (default to 1 if not present)
+        const itemsCountRaw = row[columnIndex['itemsCount']];
+        const itemsCount = itemsCountRaw ? parseInt(String(itemsCountRaw), 10) : 1;
+
+        // Parse line code
+        const lineCode = row[columnIndex['lineCode']] ? String(row[columnIndex['lineCode']]).trim() : null;
+
         const record: ParsedWinbackRecord = {
           firstName,
           lastName,
@@ -288,6 +303,9 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
           premiumOldCents: parseCurrencyToCents(row[columnIndex['premiumOldCents']]),
           accountType: row[columnIndex['accountType']] ? String(row[columnIndex['accountType']]).trim() : null,
           companyCode: row[columnIndex['companyCode']] ? String(row[columnIndex['companyCode']]).trim() : null,
+          // Extended termination report fields
+          itemsCount: isNaN(itemsCount) ? 1 : Math.max(1, itemsCount),
+          lineCode,
           // Calculated fields
           policyTermMonths: getPolicyTermMonths(productName),
           isCancelRewrite: isCancelRewrite(terminationReason),
