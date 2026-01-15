@@ -5,6 +5,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface ActivityStats {
   called: number;
@@ -65,32 +66,7 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     if (!agencyId) return;
     
     try {
-      // Get activity counts by type (excluding notes and status_change)
-      const { data, error } = await supabase
-        .from('winback_activities')
-        .select('activity_type')
-        .eq('agency_id', agencyId)
-        .in('activity_type', ['called', 'left_vm', 'texted', 'emailed', 'quoted']);
-
-      if (error) throw error;
-
-      const counts: ActivityStats = {
-        called: 0,
-        left_vm: 0,
-        texted: 0,
-        emailed: 0,
-        quoted: 0,
-        total: 0,
-      };
-
-      data?.forEach((row) => {
-        const type = row.activity_type as keyof Omit<ActivityStats, 'total'>;
-        if (type in counts) {
-          counts[type]++;
-          counts.total++;
-        }
-      });
-
+      const counts = await winbackApi.getActivityStats(agencyId);
       setStats(counts);
     } catch (err) {
       console.error('Error fetching activity stats:', err);

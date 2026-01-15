@@ -10,6 +10,7 @@ import { parseWinbackExcel, calculateWinbackDate, getHouseholdKey, type ParsedWi
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface WinbackUploadModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ export function WinbackUploadModal({
   onUploadComplete,
 }: WinbackUploadModalProps) {
   const { user } = useAuth();
+  const isStaff = winbackApi.isStaffUser();
   const [file, setFile] = useState<File | null>(null);
   const [parsedRecords, setParsedRecords] = useState<ParsedWinbackRecord[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
@@ -95,15 +97,60 @@ export function WinbackUploadModal({
     setUploading(true);
     setUploadProgress(0);
 
-    const stats: UploadStats = {
-      processed: 0,
-      newHouseholds: 0,
-      newPolicies: 0,
-      updated: 0,
-      skipped: 0,
-    };
-
     try {
+      // For staff users, use the edge function
+      if (isStaff) {
+        // Convert parsed records to serializable format
+        const serializedRecords = parsedRecords.map(record => ({
+          firstName: record.firstName,
+          lastName: record.lastName,
+          zipCode: record.zipCode,
+          email: record.email,
+          phone: record.phone,
+          policyNumber: record.policyNumber,
+          agentNumber: record.agentNumber,
+          originalYear: record.originalYear,
+          productCode: record.productCode,
+          productName: record.productName,
+          policyTermMonths: record.policyTermMonths,
+          renewalEffectiveDate: record.renewalEffectiveDate?.toISOString().split('T')[0],
+          anniversaryEffectiveDate: record.anniversaryEffectiveDate?.toISOString().split('T')[0],
+          terminationEffectiveDate: record.terminationEffectiveDate.toISOString().split('T')[0],
+          terminationReason: record.terminationReason,
+          terminationType: record.terminationType,
+          premiumNewCents: record.premiumNewCents,
+          premiumOldCents: record.premiumOldCents,
+          accountType: record.accountType,
+          companyCode: record.companyCode,
+          isCancelRewrite: record.isCancelRewrite,
+        }));
+
+        setUploadProgress(50);
+        const stats = await winbackApi.uploadTerminations(
+          agencyId,
+          serializedRecords,
+          file?.name || 'unknown',
+          contactDaysBefore,
+          user?.id
+        );
+        
+        setUploadProgress(100);
+        setUploadStats(stats);
+        setStep('complete');
+        toast.success(`Successfully processed ${stats.processed} records`);
+        onUploadComplete();
+        return;
+      }
+
+      // For agency owners, use direct Supabase approach
+      const stats: UploadStats = {
+        processed: 0,
+        newHouseholds: 0,
+        newPolicies: 0,
+        updated: 0,
+        skipped: 0,
+      };
+
       // Group records by household key
       const householdGroups = new Map<string, ParsedWinbackRecord[]>();
       for (const record of parsedRecords) {

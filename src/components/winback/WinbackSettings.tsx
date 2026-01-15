@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Settings, Save } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface WinbackSettingsProps {
   agencyId: string;
@@ -29,20 +29,11 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('winback_settings')
-        .upsert({
-          agency_id: agencyId,
-          contact_days_before: days,
-        }, {
-          onConflict: 'agency_id',
-        });
-
-      if (error) throw error;
-
+      await winbackApi.saveSettings(agencyId, days);
       toast.success('Settings saved');
       onSettingsChange(days);
     } catch (err) {
+      console.error('Failed to save settings:', err);
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);
