@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Phone, Voicemail, MessageSquare, Mail, CheckCircle, Calendar, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
   const createActivity = useCreateRenewalActivity();
   const updateRecord = useUpdateRenewalRecord();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const isStaffRoute = location.pathname.startsWith('/staff');
 
   // Sync with initialActivityType when it changes
   useEffect(() => {
@@ -82,35 +85,45 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
     if (selectedType === 'review_winback') {
       setSendingToWinback(true);
       try {
-        // 1. Update record status to unsuccessful
-        await updateRecord.mutateAsync({
+        // 1. Update record status to unsuccessful + send to winback via edge function for staff
+        const result = await updateRecord.mutateAsync({
           id: record.id,
           updates: { current_status: 'unsuccessful' },
           displayName: context.displayName,
           userId: context.userId,
+          sendToWinback: true, // Edge function handles winback creation for staff
         });
         
-        // 2. ACTUALLY SEND TO WIN-BACK
-        const winbackResult = await sendRenewalToWinback({
-          id: record.id,
-          agency_id: record.agency_id,
-          first_name: record.first_name,
-          last_name: record.last_name,
-          email: record.email,
-          phone: record.phone,
-          policy_number: record.policy_number,
-          product_name: record.product_name,
-          renewal_effective_date: record.renewal_effective_date,
-          premium_old: record.premium_old,
-          premium_new: record.premium_new,
-          agent_number: record.agent_number,
-          household_key: record.household_key,
-        });
-        
-        if (!winbackResult.success) {
-          toast.error(winbackResult.error || 'Failed to send to Win-Back');
+        // 2. For non-staff, also call sendRenewalToWinback directly (edge function already did it for staff)
+        if (!isStaffRoute) {
+          const winbackResult = await sendRenewalToWinback({
+            id: record.id,
+            agency_id: record.agency_id,
+            first_name: record.first_name,
+            last_name: record.last_name,
+            email: record.email,
+            phone: record.phone,
+            policy_number: record.policy_number,
+            product_name: record.product_name,
+            renewal_effective_date: record.renewal_effective_date,
+            premium_old: record.premium_old,
+            premium_new: record.premium_new,
+            agent_number: record.agent_number,
+            household_key: record.household_key,
+          });
+          
+          if (!winbackResult.success) {
+            toast.error(winbackResult.error || 'Failed to send to Win-Back');
+          } else {
+            toast.success('Sent to Win-Back HQ');
+          }
         } else {
-          toast.success('Sent to Win-Back HQ');
+          // Staff: check edge function result
+          if (result?.winbackResult?.success === false) {
+            toast.error(result.winbackResult.error || 'Failed to send to Win-Back');
+          } else {
+            toast.success('Sent to Win-Back HQ');
+          }
         }
         
         // 3. Log the activity with clear subject
@@ -127,6 +140,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
         }, { 
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+            queryClient.invalidateQueries({ queryKey: ['winback-households'] });
             handleClose();
           } 
         });

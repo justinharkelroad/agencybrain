@@ -151,7 +151,7 @@ serve(async (req) => {
 
     // Handle update_record operation
     if (operation === 'update_record') {
-      const { id, updates, displayName, userId } = params;
+      const { id, updates, displayName, userId, sendToWinback: shouldSendToWinback } = params;
       if (!id) {
         return new Response(JSON.stringify({ error: 'Missing record id' }), { 
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -179,8 +179,26 @@ serve(async (req) => {
         });
       }
 
+      // If sendToWinback flag is set and status is unsuccessful, create winback records
+      let winbackResult = null;
+      if (shouldSendToWinback && updates.current_status === 'unsuccessful') {
+        console.log('[get_staff_renewals] Sending record to Winback:', id);
+        
+        // Fetch full record details for winback
+        const { data: fullRecord } = await supabase
+          .from('renewal_records')
+          .select('id, agency_id, first_name, last_name, email, phone, policy_number, product_name, renewal_effective_date, premium_old, premium_new, agent_number, household_key')
+          .eq('id', id)
+          .single();
+        
+        if (fullRecord) {
+          winbackResult = await sendToWinback(supabase, fullRecord);
+          console.log('[get_staff_renewals] Winback result:', winbackResult);
+        }
+      }
+
       console.log('[get_staff_renewals] Updated record:', id);
-      return new Response(JSON.stringify({ record: data }), {
+      return new Response(JSON.stringify({ record: data, winbackResult }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
