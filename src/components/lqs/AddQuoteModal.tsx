@@ -375,28 +375,30 @@ export function AddQuoteModal({
             />
           </div>
 
-          {/* Sub-Producer */}
-          <div className="space-y-2">
-            <Label htmlFor="teamMember">Sub-Producer</Label>
-            <Select value={teamMemberId} onValueChange={setTeamMemberId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select producer..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
-                {teamMembers.length === 0 ? (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    No team members found
-                  </div>
-                ) : (
-                  teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Sub-Producer - hide for staff users who are pre-assigned */}
+          {(teamMembers.length > 0 || !currentTeamMemberId) && (
+            <div className="space-y-2">
+              <Label htmlFor="teamMember">Sub-Producer</Label>
+              <Select value={teamMemberId} onValueChange={setTeamMemberId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select producer..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {teamMembers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No team members found
+                    </div>
+                  ) : (
+                    teamMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Lead Source */}
           <div className="space-y-2">
