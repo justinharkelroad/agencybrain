@@ -12,6 +12,8 @@ export * from './LqsHouseholdTable';
 export * from './LqsHouseholdRow';
 export * from './AssignLeadSourceModal';
 export * from './LqsOverviewDashboard';
+export * from './LqsBucket';
+export * from './LqsWaterFlow';
 export * from './LqsBucketSelector';
 export * from './LqsActionDropdowns';
 export * from './AddLeadModal';
