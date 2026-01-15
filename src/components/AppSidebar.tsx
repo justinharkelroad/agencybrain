@@ -131,8 +131,8 @@ useEffect(() => {
   openFoldersRef.current = openFolders;
 }, [openFolders]);
 
-// Track when user manually closes a folder to prevent auto-reopen
-const [userManuallyClosed, setUserManuallyClosed] = useState(false);
+// Track when user manually interacted with folders to prevent auto-reopen/override
+const [userInteractedWithFolder, setUserInteractedWithFolder] = useState(false);
 const lastPathRef = useRef(location.pathname);
 
   const debugFolderState = localStorage.getItem('debugSidebarFolderState') === '1';
@@ -152,12 +152,9 @@ const toggleFolder = useCallback((folderId: string) => {
       console.log('setOpenFolders next:', next);
     }
 
-    // Track if user manually closed a folder
-    if (isClosing) {
-      setUserManuallyClosed(true);
-    } else {
-      setUserManuallyClosed(false);
-    }
+    // Track that user manually interacted with folders (open or close)
+    // This prevents auto-expansion from overriding their choice
+    setUserInteractedWithFolder(true);
 
     // Persist to localStorage
     if (next.length) {
@@ -338,14 +335,14 @@ const toggleFolder = useCallback((folderId: string) => {
 
 // Auto-expand folder containing active route
 useEffect(() => {
-  // Reset the manually closed flag when route actually changes
+  // Reset the interaction flag when route actually changes (user navigated)
   if (location.pathname !== lastPathRef.current) {
-    setUserManuallyClosed(false);
+    setUserInteractedWithFolder(false);
     lastPathRef.current = location.pathname;
   }
 
-  // Don't auto-open if user manually closed a folder
-  if (userManuallyClosed) return;
+  // Don't auto-open if user explicitly interacted with folders on this page
+  if (userInteractedWithFolder) return;
 
   const findFolderWithActiveChild = (): string | null => {
     for (const entry of visibleNavigation) {
@@ -396,7 +393,7 @@ useEffect(() => {
     setOpenFolders([activeFolderId]);
     localStorage.setItem(SIDEBAR_OPEN_FOLDER_KEY, activeFolderId);
   }
-}, [location.pathname, location.hash, visibleNavigation, userManuallyClosed]);
+}, [location.pathname, location.hash, visibleNavigation, userInteractedWithFolder]);
 
   const isActive = (path: string) => {
     if (path === '/training') {
