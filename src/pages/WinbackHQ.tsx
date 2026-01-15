@@ -4,7 +4,6 @@ import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { startOfWeek, endOfWeek } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,6 +47,7 @@ export default function WinbackHQ() {
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [contactDaysBefore, setContactDaysBefore] = useState(45);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'dismissed'>('active');
 
@@ -81,57 +81,11 @@ export default function WinbackHQ() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [currentUserTeamMemberId, setCurrentUserTeamMemberId] = useState<string | null>(null);
 
-  // Fetch initial data - supports both auth systems
-  useEffect(() => {
-    // Wait for auth to finish loading
-    if (authLoading || staffLoading) return;
-
-    const isStaffRoute = location.pathname.startsWith('/staff');
-
-    // Staff portal user
-    if (isStaffRoute && isStaffAuthenticated && staffUser) {
-      const staffAgencyId = staffUser.agency_id;
-      setAgencyId(staffAgencyId);
-      fetchStaffData(staffAgencyId);
-      return;
-    }
-
-    // Regular agency user
-    if (user?.id) {
-      fetchInitialData();
-    }
-  }, [user?.id, staffUser, authLoading, staffLoading, isStaffAuthenticated, location.pathname]);
-
-  // Refetch households when filters/sorting/pagination change
-  useEffect(() => {
-    if (agencyId) {
-      fetchHouseholds(agencyId);
-    }
-  }, [agencyId, activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
-
-  // Fetch data for staff portal users (uses edge function via winbackApi)
-  const fetchStaffData = async (staffAgencyId: string) => {
-    setLoading(true);
+  // Unified function to load households via winbackApi (works for both staff and non-staff)
+  const loadHouseholds = async (agency: string, members: TeamMember[]) => {
     try {
-      // Get winback settings via API
-      const settings = await winbackApi.getSettings(staffAgencyId);
-      setContactDaysBefore(settings.contact_days_before);
-
-      // Get team members via API
-      const members = await winbackApi.listTeamMembers(staffAgencyId);
-      setTeamMembers(members);
-
-      // Set current user's team member ID from staff user
-      if (staffUser?.team_member_id) {
-        setCurrentUserTeamMemberId(staffUser.team_member_id);
-      }
-
-      // Fetch stats and households via API
-      const statsData = await winbackApi.getStats(staffAgencyId);
-      setStats(statsData);
-
       const { households: householdsData, count } = await winbackApi.listHouseholds({
-        agencyId: staffAgencyId,
+        agencyId: agency,
         activeTab,
         search,
         statusFilter,
@@ -151,7 +105,72 @@ export default function WinbackHQ() {
       setHouseholds(householdsWithNames as Household[]);
       setTotalCount(count);
     } catch (err) {
-      console.error('Error fetching staff data:', err);
+      console.error('Error fetching households:', err);
+      toast.error('Failed to load households');
+    }
+  };
+
+  // Unified function to load stats via winbackApi
+  const loadStats = async (agency: string) => {
+    try {
+      const statsData = await winbackApi.getStats(agency);
+      setStats(statsData);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
+
+  // Fetch initial data - supports both auth systems
+  useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading || staffLoading) return;
+
+    const isStaffRoute = location.pathname.startsWith('/staff');
+
+    // Staff portal user
+    if (isStaffRoute && isStaffAuthenticated && staffUser) {
+      const staffAgencyId = staffUser.agency_id;
+      setAgencyId(staffAgencyId);
+      fetchInitialData(staffAgencyId, staffUser.team_member_id || null);
+      return;
+    }
+
+    // Regular agency user
+    if (user?.id) {
+      fetchInitialDataForRegularUser();
+    }
+  }, [user?.id, staffUser, authLoading, staffLoading, isStaffAuthenticated, location.pathname]);
+
+  // Refetch households when filters/sorting/pagination change (using winbackApi)
+  useEffect(() => {
+    // Skip on initial load when we don't have teamMembers yet
+    if (agencyId && teamMembers.length > 0) {
+      loadHouseholds(agencyId, teamMembers);
+    }
+  }, [agencyId, activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
+
+  // Unified initial data fetch (uses winbackApi for both staff and non-staff)
+  const fetchInitialData = async (agency: string, staffTeamMemberId: string | null) => {
+    setLoading(true);
+    try {
+      // Get winback settings via API
+      const settings = await winbackApi.getSettings(agency);
+      setContactDaysBefore(settings.contact_days_before);
+
+      // Get team members via API
+      const members = await winbackApi.listTeamMembers(agency);
+      setTeamMembers(members);
+
+      // Set current user's team member ID
+      if (staffTeamMemberId) {
+        setCurrentUserTeamMemberId(staffTeamMemberId);
+      }
+
+      // Fetch stats and households via API
+      await loadStats(agency);
+      await loadHouseholds(agency, members);
+    } catch (err) {
+      console.error('Error fetching initial data:', err);
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
@@ -159,13 +178,13 @@ export default function WinbackHQ() {
   };
 
   // Fetch data for regular agency users
-  const fetchInitialData = async () => {
+  const fetchInitialDataForRegularUser = async () => {
     setLoading(true);
     try {
       // Get agency ID from profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('agency_id')
+        .select('agency_id, email')
         .eq('id', user!.id)
         .single();
 
@@ -178,46 +197,27 @@ export default function WinbackHQ() {
 
       setAgencyId(profile.agency_id);
 
-      // Get winback settings
-      const { data: settings } = await supabase
-        .from('winback_settings')
-        .select('contact_days_before')
-        .eq('agency_id', profile.agency_id)
-        .single();
+      // Get winback settings via API
+      const settings = await winbackApi.getSettings(profile.agency_id);
+      setContactDaysBefore(settings.contact_days_before);
 
-      if (settings) {
-        setContactDaysBefore(settings.contact_days_before);
-      }
-
-      // Get team members
-      const { data: members } = await supabase
-        .from('team_members')
-        .select('id, name, email')
-        .eq('agency_id', profile.agency_id)
-        .eq('status', 'active')
-        .order('name');
-
-      setTeamMembers(members || []);
+      // Get team members via API
+      const members = await winbackApi.listTeamMembers(profile.agency_id);
+      setTeamMembers(members);
 
       // Find if current user has a matching team member record
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('id', user!.id)
-        .single();
-
-      if (userProfile?.email && members) {
+      if (profile.email && members) {
         const matchingMember = members.find(m => 
-          m.email?.toLowerCase() === userProfile.email.toLowerCase()
+          m.email?.toLowerCase() === profile.email.toLowerCase()
         );
         if (matchingMember) {
           setCurrentUserTeamMemberId(matchingMember.id);
         }
       }
 
-      // Fetch stats and households
-      await fetchStats(profile.agency_id);
-      await fetchHouseholds(profile.agency_id);
+      // Fetch stats and households via API
+      await loadStats(profile.agency_id);
+      await loadHouseholds(profile.agency_id, members);
     } catch (err) {
       console.error('Error fetching initial data:', err);
       toast.error('Failed to load data');
@@ -226,133 +226,9 @@ export default function WinbackHQ() {
     }
   };
 
-  const fetchStats = async (agency: string) => {
-    try {
-      const today = new Date();
-      const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+  // Remove duplicate fetchStats - now using loadStats with winbackApi above
 
-      // Get all counts in parallel
-      const [totalRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
-        await Promise.all([
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .neq('status', 'dismissed'),
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .eq('status', 'untouched'),
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .eq('status', 'in_progress'),
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .eq('status', 'won_back'),
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .eq('status', 'dismissed'),
-          supabase
-            .from('winback_households')
-            .select('id', { count: 'exact', head: true })
-            .eq('agency_id', agency)
-            .neq('status', 'dismissed')
-            .gte('earliest_winback_date', weekStart.toISOString())
-            .lte('earliest_winback_date', weekEnd.toISOString()),
-        ]);
-
-      setStats({
-        totalHouseholds: totalRes.count || 0,
-        untouched: untouchedRes.count || 0,
-        inProgress: inProgressRes.count || 0,
-        wonBack: wonBackRes.count || 0,
-        dismissed: dismissedRes.count || 0,
-        teedUpThisWeek: teedUpRes.count || 0,
-      });
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    }
-  };
-
-  const fetchHouseholds = async (agency: string, members?: typeof teamMembers) => {
-    const membersToUse = members || teamMembers;
-    try {
-      let query = supabase
-        .from('winback_households')
-        .select('*', { count: 'exact' })
-        .eq('agency_id', agency);
-
-      // Tab filter
-      if (activeTab === 'dismissed') {
-        query = query.eq('status', 'dismissed');
-      } else {
-        query = query.neq('status', 'dismissed');
-        // Exclude households with no winback date (cancel/rewrite only policies)
-        query = query.not('earliest_winback_date', 'is', null);
-      }
-
-      // Status filter
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
-
-      // Date range filter
-      if (dateRange?.from) {
-        query = query.gte('earliest_winback_date', dateRange.from.toISOString());
-      }
-      if (dateRange?.to) {
-        query = query.lte('earliest_winback_date', dateRange.to.toISOString());
-      }
-
-      // Search filter
-      if (search) {
-        const searchLower = search.toLowerCase();
-        query = query.or(
-          `first_name.ilike.%${searchLower}%,last_name.ilike.%${searchLower}%,phone.ilike.%${searchLower}%,email.ilike.%${searchLower}%`
-        );
-      }
-
-      // Sorting
-      const sortColumnMap: Record<SortColumn, string> = {
-        name: 'last_name',
-        policy_count: 'policy_count',
-        total_premium_potential_cents: 'total_premium_potential_cents',
-        earliest_winback_date: 'earliest_winback_date',
-        status: 'status',
-        assigned_name: 'assigned_to',
-      };
-      query = query.order(sortColumnMap[sortColumn], { ascending: sortDirection === 'asc' });
-
-      // Pagination
-      const from = (currentPage - 1) * pageSize;
-      const to = from + pageSize - 1;
-      query = query.range(from, to);
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      // Map assigned_to to assigned_name
-      const householdsWithNames = (data || []).map((h) => ({
-        ...h,
-        assigned_name: membersToUse.find((m) => m.id === h.assigned_to)?.name || null,
-      }));
-
-      setHouseholds(householdsWithNames as Household[]);
-      setTotalCount(count || 0);
-    } catch (err) {
-      console.error('Error fetching households:', err);
-      toast.error('Failed to load households');
-    }
-  };
+  // Remove duplicate fetchHouseholds - now using loadHouseholds with winbackApi above
 
   const handleSort = (column: SortColumn) => {
     if (column === sortColumn) {
@@ -379,15 +255,31 @@ export default function WinbackHQ() {
 
   const handleModalUpdate = async () => {
     if (agencyId) {
-      await fetchStats(agencyId);
-      await fetchHouseholds(agencyId, teamMembers);
+      await loadStats(agencyId);
+      await loadHouseholds(agencyId, teamMembers);
     }
   };
 
   const handleUploadComplete = async () => {
     if (agencyId) {
-      await fetchStats(agencyId);
-      await fetchHouseholds(agencyId, teamMembers);
+      await loadStats(agencyId);
+      await loadHouseholds(agencyId, teamMembers);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (agencyId) {
+      setRefreshing(true);
+      try {
+        await loadStats(agencyId);
+        await loadHouseholds(agencyId, teamMembers);
+        toast.success('Data refreshed');
+      } catch (err) {
+        console.error('Error refreshing:', err);
+        toast.error('Failed to refresh data');
+      } finally {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -416,10 +308,16 @@ export default function WinbackHQ() {
             <p className="text-muted-foreground">Track and manage terminated policy opportunities</p>
           </div>
         </div>
-        <Button onClick={() => setUploadModalOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Terminations
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={() => setUploadModalOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Terminations
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
