@@ -81,20 +81,20 @@ export function LqsMetricTiles({ metrics, loading, onTileClick, activeBucket = '
     switch (activeBucket) {
       case 'leads':
         return {
-          title: 'All Leads',
+          title: 'All Open Leads',
           value: bucketCount ?? metrics?.totalQuotes ?? 0,
           icon: <Users className="h-5 w-5" />,
         };
       case 'sold':
         return {
-          title: 'All Sold',
+          title: 'All Sold Households',
           value: bucketCount ?? metrics?.sold ?? 0,
           icon: <CheckCircle className="h-5 w-5" />,
         };
       case 'quoted':
       default:
         return {
-          title: 'Quoted Households',
+          title: 'All Quoted Households',
           value: bucketCount ?? metrics?.totalQuotes ?? 0,
           icon: <FileText className="h-5 w-5" />,
         };

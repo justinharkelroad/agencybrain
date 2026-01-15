@@ -62,21 +62,21 @@ export function LqsBucketSelector({ activeBucket, onBucketChange, counts }: LqsB
   return (
     <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-xl w-fit">
       <BucketTab
-        label="Leads"
+        label="Open Leads"
         count={counts.leads}
         isActive={activeBucket === 'leads'}
         onClick={() => onBucketChange('leads')}
         variant="blue"
       />
       <BucketTab
-        label="Quoted"
+        label="Quoted Households"
         count={counts.quoted}
         isActive={activeBucket === 'quoted'}
         onClick={() => onBucketChange('quoted')}
         variant="amber"
       />
       <BucketTab
-        label="Sold"
+        label="Sold Households"
         count={counts.sold}
         isActive={activeBucket === 'sold'}
         onClick={() => onBucketChange('sold')}
