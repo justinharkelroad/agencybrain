@@ -183,15 +183,16 @@ export function StaffDashboard() {
       
       const [sourcesRes, membersRes] = await Promise.all([
         supabase
-          .from('lqs_lead_sources')
+          .from('lead_sources')
           .select('id, name, is_self_generated, bucket:lqs_marketing_buckets(id, name)')
           .eq('agency_id', user.agency_id)
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .order('name'),
         supabase
           .from('team_members')
           .select('id, name')
           .eq('agency_id', user.agency_id)
-          .eq('active', true)
+          .eq('status', 'Active')
           .order('name')
       ]);
 
