@@ -94,7 +94,7 @@ export function useCreateRenewalActivity() {
       }
       
       // Regular users: direct Supabase call
-      // Get display name from profiles table for accuracy
+      // Get display name from profiles table, fallback to team_members by email
       let displayName = params.displayName;
       if (params.userId) {
         const { data: profile } = await supabase
@@ -104,6 +104,20 @@ export function useCreateRenewalActivity() {
           .single();
         if (profile?.full_name) {
           displayName = profile.full_name;
+        } else {
+          // If no profile name, try to get name from team_members by user email
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.email) {
+            const { data: teamMember } = await supabase
+              .from('team_members')
+              .select('name')
+              .eq('agency_id', params.agencyId)
+              .eq('email', user.email)
+              .single();
+            if (teamMember?.name) {
+              displayName = teamMember.name;
+            }
+          }
         }
       }
       
