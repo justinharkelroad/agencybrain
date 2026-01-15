@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,7 +39,9 @@ interface TeamMember {
 }
 
 export default function WinbackHQ() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated } = useStaffAuth();
+  const location = useLocation();
 
   // Core state
   const [agencyId, setAgencyId] = useState<string | null>(null);
@@ -76,12 +80,26 @@ export default function WinbackHQ() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [currentUserTeamMemberId, setCurrentUserTeamMemberId] = useState<string | null>(null);
 
-  // Fetch initial data
+  // Fetch initial data - supports both auth systems
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading || staffLoading) return;
+
+    const isStaffRoute = location.pathname.startsWith('/staff');
+
+    // Staff portal user
+    if (isStaffRoute && isStaffAuthenticated && staffUser) {
+      const staffAgencyId = staffUser.agency_id;
+      setAgencyId(staffAgencyId);
+      fetchStaffData(staffAgencyId);
+      return;
+    }
+
+    // Regular agency user
     if (user?.id) {
       fetchInitialData();
     }
-  }, [user?.id]);
+  }, [user?.id, staffUser, authLoading, staffLoading, isStaffAuthenticated, location.pathname]);
 
   // Refetch households when filters/sorting/pagination change
   useEffect(() => {
@@ -90,6 +108,48 @@ export default function WinbackHQ() {
     }
   }, [agencyId, activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
 
+  // Fetch data for staff portal users
+  const fetchStaffData = async (staffAgencyId: string) => {
+    setLoading(true);
+    try {
+      // Get winback settings
+      const { data: settings } = await supabase
+        .from('winback_settings')
+        .select('contact_days_before')
+        .eq('agency_id', staffAgencyId)
+        .single();
+
+      if (settings) {
+        setContactDaysBefore(settings.contact_days_before);
+      }
+
+      // Get team members
+      const { data: members } = await supabase
+        .from('team_members')
+        .select('id, name, email')
+        .eq('agency_id', staffAgencyId)
+        .eq('status', 'active')
+        .order('name');
+
+      setTeamMembers(members || []);
+
+      // Set current user's team member ID from staff user
+      if (staffUser?.team_member_id) {
+        setCurrentUserTeamMemberId(staffUser.team_member_id);
+      }
+
+      // Fetch stats and households
+      await fetchStats(staffAgencyId);
+      await fetchHouseholds(staffAgencyId, members || []);
+    } catch (err) {
+      console.error('Error fetching staff data:', err);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data for regular agency users
   const fetchInitialData = async () => {
     setLoading(true);
     try {
