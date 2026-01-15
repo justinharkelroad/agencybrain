@@ -91,11 +91,20 @@ async function sendToWinback(supabase: any, record: any): Promise<{ success: boo
       await supabase.rpc('recalculate_winback_household_aggregates', { p_household_id: householdId });
     }
 
-    // Update renewal record
-    await supabase.from('renewal_records').update({
-      winback_household_id: householdId,
-      sent_to_winback_at: new Date().toISOString(),
-    }).eq('id', record.id);
+    // Update renewal record (link it to the created household)
+    const { error: linkError } = await supabase
+      .from('renewal_records')
+      .update({
+        winback_household_id: householdId,
+        sent_to_winback_at: new Date().toISOString(),
+      })
+      .eq('id', record.id)
+      .eq('agency_id', record.agency_id);
+
+    if (linkError) {
+      console.error('[get_staff_renewals] Failed to link renewal to winback household:', linkError);
+      return { success: false, error: linkError.message };
+    }
 
     return { success: true };
   } catch (err) {
