@@ -260,6 +260,8 @@ export function WinbackUploadModal({
                 premium_change_percent: premiumChangePercent,
                 is_cancel_rewrite: record.isCancelRewrite,
                 calculated_winback_date: winbackDate.toISOString().split('T')[0],
+                items_count: record.itemsCount,
+                line_code: record.lineCode,
               })
               .eq('id', existingPolicy.id);
 
@@ -290,6 +292,8 @@ export function WinbackUploadModal({
                 company_code: record.companyCode,
                 is_cancel_rewrite: record.isCancelRewrite,
                 calculated_winback_date: winbackDate.toISOString().split('T')[0],
+                items_count: record.itemsCount,
+                line_code: record.lineCode,
               });
 
             if (policyError) {

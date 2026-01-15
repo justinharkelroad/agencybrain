@@ -8,3 +8,4 @@ export { WinbackPagination } from './WinbackPagination';
 export { WinbackActivityLog } from './WinbackActivityLog';
 export { WinbackActivityStats } from './WinbackActivityStats';
 export { WinbackActivitySummary } from './WinbackActivitySummary';
+export { TerminationAnalytics } from './TerminationAnalytics';

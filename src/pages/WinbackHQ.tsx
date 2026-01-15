@@ -19,6 +19,7 @@ import {
   WinbackPagination,
   WinbackActivityStats,
   WinbackActivitySummary,
+  TerminationAnalytics,
 } from '@/components/winback';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
@@ -49,6 +50,7 @@ export default function WinbackHQ() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [mainTab, setMainTab] = useState<'opportunities' | 'analysis'>('opportunities');
   const [activeTab, setActiveTab] = useState<'active' | 'dismissed'>('active');
 
   // Data
@@ -320,163 +322,177 @@ export default function WinbackHQ() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Households</CardDescription>
-            <CardTitle className="text-3xl">{stats.totalHouseholds}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Users className="h-4 w-4 mr-1" />
-              Active opportunities
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Teed Up This Week</CardDescription>
-            <CardTitle className="text-3xl">{stats.teedUpThisWeek}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4 mr-1" />
-              Ready to contact
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Untouched</CardDescription>
-            <CardTitle className="text-3xl">{stats.untouched}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <AlertCircle className="h-4 w-4 mr-1" />
-              Need attention
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>In Progress</CardDescription>
-            <CardTitle className="text-3xl">{stats.inProgress}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-1" />
-              Being worked
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Won Back</CardDescription>
-            <CardTitle className="text-3xl">{stats.wonBack}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Successfully retained
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Activity Stats - Real-time */}
-      {agencyId && (
-        <WinbackActivityStats 
-          agencyId={agencyId} 
-          wonBackCount={stats.wonBack} 
-        />
-      )}
-
-      {/* Daily Activity Summary by Team Member */}
-      {agencyId && (
-        <WinbackActivitySummary agencyId={agencyId} />
-      )}
-
-      {/* Settings (collapsible) */}
-      {agencyId && (
-        <WinbackSettings
-          agencyId={agencyId}
-          contactDaysBefore={contactDaysBefore}
-          onSettingsChange={(days) => setContactDaysBefore(days)}
-        />
-      )}
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'dismissed')}>
-        <TabsList>
-          <TabsTrigger value="active">Active ({stats.totalHouseholds})</TabsTrigger>
-          <TabsTrigger value="dismissed">Dismissed ({stats.dismissed})</TabsTrigger>
+      {/* Main Tabs */}
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'opportunities' | 'analysis')}>
+        <TabsList className="mb-6">
+          <TabsTrigger value="opportunities">Win-Back Opportunities</TabsTrigger>
+          <TabsTrigger value="analysis">Termination Analysis</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active" className="space-y-4 mt-4">
-          <WinbackFilters
-            search={search}
-            onSearchChange={(v) => {
-              setSearch(v);
-              setCurrentPage(1);
-            }}
-            statusFilter={statusFilter}
-            onStatusChange={(v) => {
-              setStatusFilter(v);
-              setCurrentPage(1);
-            }}
-            quickDateFilter={quickDateFilter}
-            onQuickDateChange={(v) => {
-              setQuickDateFilter(v);
-              setCurrentPage(1);
-            }}
-            dateRange={dateRange}
-            onDateRangeChange={(v) => {
-              setDateRange(v);
-              setCurrentPage(1);
-            }}
-            onClearFilters={handleClearFilters}
-          />
+        <TabsContent value="opportunities" className="space-y-6 mt-0">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Total Households</CardDescription>
+                <CardTitle className="text-3xl">{stats.totalHouseholds}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Users className="h-4 w-4 mr-1" />
+                  Active opportunities
+                </div>
+              </CardContent>
+            </Card>
 
-          <WinbackHouseholdTable
-            households={households}
-            loading={false}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-            onRowClick={handleRowClick}
-          />
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Teed Up This Week</CardDescription>
+                <CardTitle className="text-3xl">{stats.teedUpThisWeek}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Ready to contact
+                </div>
+              </CardContent>
+            </Card>
 
-          <WinbackPagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-          />
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Untouched</CardDescription>
+                <CardTitle className="text-3xl">{stats.untouched}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  Need attention
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>In Progress</CardDescription>
+                <CardTitle className="text-3xl">{stats.inProgress}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 mr-1" />
+                  Being worked
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Won Back</CardDescription>
+                <CardTitle className="text-3xl">{stats.wonBack}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Successfully retained
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Activity Stats - Real-time */}
+          {agencyId && (
+            <WinbackActivityStats
+              agencyId={agencyId}
+              wonBackCount={stats.wonBack}
+            />
+          )}
+
+          {/* Daily Activity Summary by Team Member */}
+          {agencyId && (
+            <WinbackActivitySummary agencyId={agencyId} />
+          )}
+
+          {/* Settings (collapsible) */}
+          {agencyId && (
+            <WinbackSettings
+              agencyId={agencyId}
+              contactDaysBefore={contactDaysBefore}
+              onSettingsChange={(days) => setContactDaysBefore(days)}
+            />
+          )}
+
+          {/* Household Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'dismissed')}>
+            <TabsList>
+              <TabsTrigger value="active">Active ({stats.totalHouseholds})</TabsTrigger>
+              <TabsTrigger value="dismissed">Dismissed ({stats.dismissed})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="active" className="space-y-4 mt-4">
+              <WinbackFilters
+                search={search}
+                onSearchChange={(v) => {
+                  setSearch(v);
+                  setCurrentPage(1);
+                }}
+                statusFilter={statusFilter}
+                onStatusChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+                quickDateFilter={quickDateFilter}
+                onQuickDateChange={(v) => {
+                  setQuickDateFilter(v);
+                  setCurrentPage(1);
+                }}
+                dateRange={dateRange}
+                onDateRangeChange={(v) => {
+                  setDateRange(v);
+                  setCurrentPage(1);
+                }}
+                onClearFilters={handleClearFilters}
+              />
+
+              <WinbackHouseholdTable
+                households={households}
+                loading={false}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                onRowClick={handleRowClick}
+              />
+
+              <WinbackPagination
+                currentPage={currentPage}
+                pageSize={pageSize}
+                totalCount={totalCount}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+              />
+            </TabsContent>
+
+            <TabsContent value="dismissed" className="space-y-4 mt-4">
+              <WinbackHouseholdTable
+                households={households}
+                loading={false}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                onRowClick={handleRowClick}
+              />
+
+              <WinbackPagination
+                currentPage={currentPage}
+                pageSize={pageSize}
+                totalCount={totalCount}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+              />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="dismissed" className="space-y-4 mt-4">
-          <WinbackHouseholdTable
-            households={households}
-            loading={false}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-            onRowClick={handleRowClick}
-          />
-
-          <WinbackPagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-          />
+        <TabsContent value="analysis" className="mt-0">
+          {agencyId && <TerminationAnalytics agencyId={agencyId} />}
         </TabsContent>
       </Tabs>
 
