@@ -335,16 +335,16 @@ export function WinbackHouseholdModal({
 
       // Log the "not now" action
       const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
-      await supabase.from('winback_activities').insert({
-        household_id: household.id,
-        agency_id: agencyId,
-        activity_type: 'status_change',
-        old_status: localStatus,
-        new_status: 'untouched',
-        notes: 'Pushed to next renewal cycle',
-        created_by_team_member_id: currentUserTeamMemberId || null,
-        created_by_name: userName,
-      });
+    await supabase.from('winback_activities').insert({
+      household_id: household.id,
+      agency_id: agencyId,
+      activity_type: 'note',
+      old_status: null,
+      new_status: null,
+      notes: 'Pushed to next renewal cycle',
+      created_by_team_member_id: currentUserTeamMemberId || null,
+      created_by_name: userName,
+    });
 
       toast.success('Pushed to next renewal cycle');
       onUpdate();
