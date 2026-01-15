@@ -157,7 +157,7 @@ export function LqsBucket({
           {loading ? (
             <div className="h-10 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
           ) : (
-            <p className={cn('text-3xl md:text-4xl font-bold', styles.text)}>
+            <p className={cn('text-xl md:text-2xl font-bold', styles.text)}>
               {count.toLocaleString()}
             </p>
           )}
