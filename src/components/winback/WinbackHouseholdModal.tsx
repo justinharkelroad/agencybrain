@@ -4,11 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { WinbackActivityLog } from './WinbackActivityLog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Save, Trash2, Clock } from 'lucide-react';
+import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Trash2, Clock } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
@@ -346,6 +357,52 @@ export function WinbackHouseholdModal({
     }
   };
 
+  const handlePermanentDelete = async () => {
+    if (!household || !agencyId) return;
+    setSaving(true);
+
+    try {
+      // Delete all policies for this household
+      const { error: policiesError } = await supabase
+        .from('winback_policies')
+        .delete()
+        .eq('household_id', household.id);
+
+      if (policiesError) throw policiesError;
+
+      // Delete all activities for this household
+      const { error: activitiesError } = await supabase
+        .from('winback_activities')
+        .delete()
+        .eq('household_id', household.id);
+
+      if (activitiesError) throw activitiesError;
+
+      // Clear the winback_household_id reference on any renewal_records
+      await supabase
+        .from('renewal_records')
+        .update({ winback_household_id: null, sent_to_winback_at: null })
+        .eq('winback_household_id', household.id);
+
+      // Delete the household itself
+      const { error: householdError } = await supabase
+        .from('winback_households')
+        .delete()
+        .eq('id', household.id);
+
+      if (householdError) throw householdError;
+
+      toast.success('Household permanently deleted');
+      onUpdate();
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Error deleting household:', err);
+      toast.error('Failed to delete household');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!household) return null;
 
   const today = startOfDay(new Date());
@@ -510,10 +567,19 @@ export function WinbackHouseholdModal({
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t">
             <div className="flex flex-wrap gap-2">
               {localStatus === 'untouched' && (
-                <Button onClick={() => handleStatusChange('in_progress')} disabled={saving}>
-                  <Play className="h-4 w-4 mr-2" />
-                  Start Working
-                </Button>
+                <>
+                  <Button onClick={() => handleStatusChange('in_progress')} disabled={saving}>
+                    <Play className="h-4 w-4 mr-2" />
+                    Start Working
+                  </Button>
+                  <Button variant="outline" onClick={handleNotNow} disabled={saving} className="flex flex-col items-center py-3 h-auto">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Not Now
+                    </div>
+                    <span className="text-xs text-muted-foreground mt-1">(pushes to next renewal)</span>
+                  </Button>
+                </>
               )}
               
               {localStatus === 'in_progress' && (
@@ -522,9 +588,12 @@ export function WinbackHouseholdModal({
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Won Back
                   </Button>
-                  <Button variant="outline" onClick={handleNotNow} disabled={saving}>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Not Now
+                  <Button variant="outline" onClick={handleNotNow} disabled={saving} className="flex flex-col items-center py-3 h-auto">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Not Now
+                    </div>
+                    <span className="text-xs text-muted-foreground mt-1">(pushes to next renewal)</span>
                   </Button>
                 </>
               )}
@@ -544,11 +613,29 @@ export function WinbackHouseholdModal({
               )}
             </div>
             
-            {localStatus !== 'dismissed' && localStatus !== 'won_back' && (
-              <Button variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => handleStatusChange('dismissed')} disabled={saving}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Dismiss
-              </Button>
+            {localStatus !== 'won_back' && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" className="text-red-500 hover:text-red-600" disabled={saving}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this household?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete {household?.first_name} {household?.last_name} and all associated policies from Win-Back HQ. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handlePermanentDelete} className="bg-red-600 hover:bg-red-700">
+                      Delete Permanently
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         </div>
