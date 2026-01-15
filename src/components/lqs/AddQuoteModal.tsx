@@ -162,7 +162,7 @@ export function AddQuoteModal({
           updates.status = 'quoted';
           updates.first_quote_date = quoteDate;
         }
-        if (phone) updates.phone = phone;
+        if (phone) updates.phone = [phone.trim()];
         if (email) updates.email = email;
         if (leadSourceId) {
           updates.lead_source_id = leadSourceId;
@@ -189,7 +189,7 @@ export function AddQuoteModal({
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             zip_code: zipCode.trim(),
-            phone: phone || null,
+            phone: phone ? [phone.trim()] : null,
             email: email || null,
             status: 'quoted',
             first_quote_date: quoteDate,
