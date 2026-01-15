@@ -27,7 +27,7 @@ import {
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { staffNavigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
+import { staffNavigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem, NavSubFolder } from "@/config/navigation";
 import { StaffSidebarFolder } from "./StaffSidebarFolder";
 import { CalcKey } from "@/components/ROIForecastersModal";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
@@ -151,40 +151,78 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     // IDs that require sales beta access
     const salesBetaRequiredIds = ['sales', 'sales-dashboard'];
     
-    const filterItems = (items: NavItem[], folderId?: string): NavItem[] => {
-      return items.filter(item => {
-        // For Call Scoring tier: remove call-scoring from inside Accountability folder
-        // (we show it as top-level call-scoring-top instead)
-        if (isCallScoringTier && folderId === 'accountability' && item.id === 'call-scoring') {
-          return false;
-        }
-        
-        // Check email restriction first - most restrictive
-        if (item.emailRestriction) {
-          const staffEmail = user?.email?.toLowerCase();
-          if (!staffEmail || staffEmail !== item.emailRestriction.toLowerCase()) {
+    const filterItems = (items: (NavItem | NavSubFolder)[], folderId?: string) => {
+      return items
+        .filter(item => {
+          // Check if this is a sub-folder
+          if (isNavSubFolder(item)) {
+            return canAccessItem(item.access);
+          }
+          
+          // For Call Scoring tier: remove call-scoring from inside Accountability folder
+          // (we show it as top-level call-scoring-top instead)
+          if (isCallScoringTier && folderId === 'accountability' && item.id === 'call-scoring') {
             return false;
           }
-        }
-        
-        // Check sales beta access
-        if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
-          return false;
-        }
-        
-        // Check role-based access
-        const canAccess = canAccessItem(item.access);
-        if (!canAccess) {
-          return false;
-        }
-        
-        // Check settingCheck for callScoringEnabled
-        if (item.settingCheck === 'callScoringEnabled') {
-          return callScoringEnabled === true;
-        }
-        
-        return true;
-      });
+          
+          // Check email restriction first - most restrictive
+          if (item.emailRestriction) {
+            const staffEmail = user?.email?.toLowerCase();
+            if (!staffEmail || staffEmail !== item.emailRestriction.toLowerCase()) {
+              return false;
+            }
+          }
+          
+          // Check sales beta access
+          if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
+            return false;
+          }
+          
+          // Check role-based access
+          const canAccess = canAccessItem(item.access);
+          if (!canAccess) {
+            return false;
+          }
+          
+          // Check settingCheck for callScoringEnabled
+          if (item.settingCheck === 'callScoringEnabled') {
+            return callScoringEnabled === true;
+          }
+          
+          return true;
+        })
+        .map(item => {
+          // Filter items within sub-folders
+          if (isNavSubFolder(item)) {
+            const filteredSubItems = item.items.filter(subItem => {
+              if (subItem.emailRestriction) {
+                const staffEmail = user?.email?.toLowerCase();
+                if (!staffEmail || staffEmail !== subItem.emailRestriction.toLowerCase()) {
+                  return false;
+                }
+              }
+              if (salesBetaRequiredIds.includes(subItem.id) && !salesEnabled) {
+                return false;
+              }
+              if (!canAccessItem(subItem.access)) {
+                return false;
+              }
+              if (subItem.settingCheck === 'callScoringEnabled') {
+                return callScoringEnabled === true;
+              }
+              return true;
+            });
+            return { ...item, items: filteredSubItems };
+          }
+          return item;
+        })
+        .filter(item => {
+          // Remove empty sub-folders
+          if (isNavSubFolder(item)) {
+            return item.items.length > 0;
+          }
+          return true;
+        });
     };
 
     let filtered = staffNavigationConfig
@@ -296,6 +334,16 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       for (const entry of filteredNavigation) {
         if (isNavFolder(entry)) {
           for (const item of entry.items) {
+            // Skip sub-folders
+            if (isNavSubFolder(item)) {
+              for (const subItem of item.items) {
+                if (!subItem.url) continue;
+                if (location.pathname.startsWith(subItem.url)) {
+                  return entry.id;
+                }
+              }
+              continue;
+            }
             if (!item.url) continue;
             const itemHasHash = item.url.includes('#');
             if (itemHasHash) {

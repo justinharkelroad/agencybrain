@@ -8,7 +8,7 @@ import {
   SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { NavFolder, NavItem } from "@/config/navigation";
+import { NavFolder, NavItem, NavSubFolder, isNavSubFolder } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
@@ -16,7 +16,7 @@ import { getFeatureGateConfig } from "@/config/featureGates";
 
 interface StaffSidebarFolderProps {
   folder: NavFolder;
-  visibleItems: NavItem[];
+  visibleItems: (NavItem | NavSubFolder)[];
   storageKey: string;
   onNavClick?: () => void;
   onOpenModal?: (modalKey: string) => void;
@@ -51,6 +51,7 @@ export function StaffSidebarFolder({
 
   // Check if ANY hash-based item in this folder matches the current route
   const activeHashItem = visibleItems.find((item) => {
+    if (isNavSubFolder(item)) return false;
     if (!item.url?.includes("#")) return false;
     const [itemPath, itemHash] = item.url.split("#");
     return location.pathname === itemPath && location.hash === `#${itemHash}`;
@@ -68,7 +69,7 @@ export function StaffSidebarFolder({
 
     // For regular URLs: if a hash item is currently active,
     // don't also highlight the base route
-    if (activeHashItem) {
+    if (activeHashItem && !isNavSubFolder(activeHashItem)) {
       const [hashItemPath] = activeHashItem.url!.split("#");
       if (item.url === hashItemPath || hashItemPath.startsWith(item.url)) {
         return false;
@@ -78,7 +79,10 @@ export function StaffSidebarFolder({
     return location.pathname.startsWith(item.url);
   };
 
-  const hasActiveChild = visibleItems.some((item) => isItemActive(item));
+  const hasActiveChild = visibleItems.some((item) => {
+    if (isNavSubFolder(item)) return false;
+    return isItemActive(item);
+  });
 
   // Use controlled state if accordion props provided, otherwise local state
   const isControlled = openFolderId !== undefined && onFolderToggle !== undefined;
@@ -180,6 +184,17 @@ export function StaffSidebarFolder({
         {effectiveOpen && (
           <SidebarMenuSub>
             {visibleItems.map((item) => {
+              // Handle sub-folders
+              if (isNavSubFolder(item)) {
+                return (
+                  <SidebarMenuSubItem key={item.id}>
+                    <SidebarMenuSubButton asChild>
+                      <span className="text-muted-foreground text-xs">{item.title} (sub-folder)</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                );
+              }
+              
               const isActive = isItemActive(item);
               const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
 

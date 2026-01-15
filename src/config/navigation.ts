@@ -29,6 +29,7 @@ import {
   RotateCcw,
   type LucideIcon
 } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 export type NavItemType = 'link' | 'modal' | 'external';
 
@@ -54,12 +55,22 @@ export type NavItem = {
   emailRestriction?: string;  // Only visible to this specific email address
 };
 
-export type NavFolder = {
+// Sub-folder that can appear inside a NavFolder
+export type NavSubFolder = {
   id: string;
   title: string;
   icon: LucideIcon;
   access: AccessConfig;
   items: NavItem[];
+  isSubFolder: true;
+};
+
+export type NavFolder = {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  access: AccessConfig;
+  items: (NavItem | NavSubFolder)[];  // Can contain items or sub-folders
   isFolder: true;
 };
 
@@ -67,6 +78,10 @@ export type NavEntry = NavItem | NavFolder;
 
 export const isNavFolder = (entry: NavEntry): entry is NavFolder => {
   return 'isFolder' in entry && entry.isFolder === true;
+};
+
+export const isNavSubFolder = (item: NavItem | NavSubFolder): item is NavSubFolder => {
+  return 'isSubFolder' in item && item.isSubFolder === true;
 };
 
 export const navigationConfig: NavEntry[] = [
@@ -277,30 +292,6 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
       },
       {
-        id: 'data-lead-forecaster',
-        title: 'Data Forecaster',
-        icon: BarChart3,
-        type: 'modal',
-        modalKey: 'data',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'live-transfer-forecaster',
-        title: 'Transfer Forecaster',
-        icon: PhoneIncoming,
-        type: 'modal',
-        modalKey: 'transfer',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'mailer-forecaster',
-        title: 'Mailer Forecaster',
-        icon: Mail,
-        type: 'modal',
-        modalKey: 'mailer',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
         id: 'producer-quote-dashboard',
         title: 'Quote Details',
         icon: ExternalLink,
@@ -308,21 +299,55 @@ export const navigationConfig: NavEntry[] = [
         externalUrl: 'https://quickquote-reality.lovable.app/',
         access: { staff: false, manager: true, owner: true },
       },
+      // Agency ROI Sub-folder
       {
-        id: 'roi-on-staff',
-        title: 'ROI on Staff',
-        icon: Users,
-        type: 'modal',
-        modalKey: 'staff_roi',
+        id: 'agency-roi',
+        title: 'Agency ROI',
+        icon: TrendingUp,
+        isSubFolder: true,
         access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'vendor-verifier',
-        title: 'Vendor Verifier',
-        icon: ShieldCheck,
-        type: 'modal',
-        modalKey: 'vendor',
-        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'data-lead-forecaster',
+            title: 'Data Forecaster',
+            icon: BarChart3,
+            type: 'modal',
+            modalKey: 'data',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'live-transfer-forecaster',
+            title: 'Transfer Forecaster',
+            icon: PhoneIncoming,
+            type: 'modal',
+            modalKey: 'transfer',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'mailer-forecaster',
+            title: 'Mailer Forecaster',
+            icon: Mail,
+            type: 'modal',
+            modalKey: 'mailer',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'roi-on-staff',
+            title: 'ROI on Staff',
+            icon: Users,
+            type: 'modal',
+            modalKey: 'staff_roi',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'vendor-verifier',
+            title: 'Vendor Verifier',
+            icon: ShieldCheck,
+            type: 'modal',
+            modalKey: 'vendor',
+            access: { staff: false, manager: true, owner: true },
+          },
+        ],
       },
     ],
   },
@@ -597,30 +622,6 @@ export const staffNavigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
       },
       {
-        id: 'data-lead-forecaster',
-        title: 'Data Forecaster',
-        icon: BarChart3,
-        type: 'modal',
-        modalKey: 'data',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'live-transfer-forecaster',
-        title: 'Transfer Forecaster',
-        icon: PhoneIncoming,
-        type: 'modal',
-        modalKey: 'transfer',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'mailer-forecaster',
-        title: 'Mailer Forecaster',
-        icon: Mail,
-        type: 'modal',
-        modalKey: 'mailer',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
         id: 'producer-quote-dashboard',
         title: 'Quote Details',
         icon: ExternalLink,
@@ -628,21 +629,55 @@ export const staffNavigationConfig: NavEntry[] = [
         externalUrl: 'https://quickquote-reality.lovable.app/',
         access: { staff: false, manager: true, owner: true },
       },
+      // Agency ROI Sub-folder
       {
-        id: 'roi-on-staff',
-        title: 'ROI on Staff',
-        icon: Users,
-        type: 'modal',
-        modalKey: 'staff_roi',
+        id: 'agency-roi',
+        title: 'Agency ROI',
+        icon: TrendingUp,
+        isSubFolder: true,
         access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'vendor-verifier',
-        title: 'Vendor Verifier',
-        icon: ShieldCheck,
-        type: 'modal',
-        modalKey: 'vendor',
-        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'data-lead-forecaster',
+            title: 'Data Forecaster',
+            icon: BarChart3,
+            type: 'modal',
+            modalKey: 'data',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'live-transfer-forecaster',
+            title: 'Transfer Forecaster',
+            icon: PhoneIncoming,
+            type: 'modal',
+            modalKey: 'transfer',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'mailer-forecaster',
+            title: 'Mailer Forecaster',
+            icon: Mail,
+            type: 'modal',
+            modalKey: 'mailer',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'roi-on-staff',
+            title: 'ROI on Staff',
+            icon: Users,
+            type: 'modal',
+            modalKey: 'staff_roi',
+            access: { staff: false, manager: true, owner: true },
+          },
+          {
+            id: 'vendor-verifier',
+            title: 'Vendor Verifier',
+            icon: ShieldCheck,
+            type: 'modal',
+            modalKey: 'vendor',
+            access: { staff: false, manager: true, owner: true },
+          },
+        ],
       },
     ],
   },

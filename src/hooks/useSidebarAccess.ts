@@ -5,8 +5,10 @@ import {
   NavEntry, 
   NavItem, 
   NavFolder, 
+  NavSubFolder,
   AccessConfig, 
-  isNavFolder 
+  isNavFolder,
+  isNavSubFolder 
 } from '@/config/navigation';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 
@@ -87,10 +89,32 @@ export function useSidebarAccess() {
         })
         .map((entry) => {
           if (isNavFolder(entry)) {
-            // Filter items within the folder
-            const filteredItems = entry.items.filter((item) =>
-              checkItemAccess(item, callScoringEnabled, userEmail)
-            );
+            // Filter items within the folder (including sub-folders)
+            const filteredItems = entry.items
+              .filter((item) => {
+                if (isNavSubFolder(item)) {
+                  // Check sub-folder access
+                  return canAccess(item.access);
+                }
+                return checkItemAccess(item, callScoringEnabled, userEmail);
+              })
+              .map((item) => {
+                if (isNavSubFolder(item)) {
+                  // Filter items within sub-folder
+                  const filteredSubItems = item.items.filter((subItem) =>
+                    checkItemAccess(subItem, callScoringEnabled, userEmail)
+                  );
+                  return { ...item, items: filteredSubItems };
+                }
+                return item;
+              })
+              .filter((item) => {
+                // Remove empty sub-folders
+                if (isNavSubFolder(item)) {
+                  return item.items.length > 0;
+                }
+                return true;
+              });
             // Return folder with filtered items (or exclude if empty)
             return { ...entry, items: filteredItems };
           }

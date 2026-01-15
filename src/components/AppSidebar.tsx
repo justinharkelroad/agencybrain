@@ -57,9 +57,9 @@ import { getFeatureGateConfig } from "@/config/featureGates";
 import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess";
 
 // New imports for navigation system
-import { navigationConfig, isNavFolder, NavEntry, NavItem } from "@/config/navigation";
+import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from "@/config/navigation";
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
-import { SidebarNavItem, SidebarFolder } from "@/components/sidebar";
+import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
 const SIDEBAR_OPEN_FOLDER_KEY = 'sidebarOpenFolder';
@@ -351,6 +351,25 @@ useEffect(() => {
     for (const entry of visibleNavigation) {
       if (isNavFolder(entry)) {
         for (const item of entry.items) {
+          // Skip sub-folders when checking for active URL
+          if (isNavSubFolder(item)) {
+            for (const subItem of item.items) {
+              if (!subItem.url) continue;
+              const itemHasHash = subItem.url.includes('#');
+              if (itemHasHash) {
+                const [itemPath, itemHash] = subItem.url.split('#');
+                if (location.pathname === itemPath && location.hash === `#${itemHash}`) {
+                  return entry.id;
+                }
+              } else {
+                if (location.hash && location.pathname === subItem.url) continue;
+                if (location.pathname.startsWith(subItem.url)) {
+                  return entry.id;
+                }
+              }
+            }
+            continue;
+          }
           if (!item.url) continue;
           const itemHasHash = item.url.includes('#');
           if (itemHasHash) {
@@ -426,31 +445,46 @@ useEffect(() => {
                     // Get visible items for this folder
                     const visibleItems = entry.items;
 
-                    return (
-                      <SidebarFolder
-                        key={entry.id}
-                        folder={{
-                          id: entry.id,
-                          title: entry.title,
-                          icon: entry.icon,
-                          items: [],
-                        }}
-                        isOpen={openFolders.includes(entry.id)}
-                        onToggle={() => toggleFolder(entry.id)}
-                      >
-                        {visibleItems.map((item) => (
-                          <SidebarNavItem
-                            key={item.id}
-                            item={item}
-                            isNested
-                            onOpenModal={handleOpenModal}
-                            membershipTier={membershipTier}
-                            isCallScoringTier={isCallScoringTier}
-                            callScoringAccessibleIds={callScoringAccessibleIds}
-                          />
-                        ))}
-                      </SidebarFolder>
-                    );
+                      return (
+                        <SidebarFolder
+                          key={entry.id}
+                          folder={{
+                            id: entry.id,
+                            title: entry.title,
+                            icon: entry.icon,
+                            items: [],
+                          }}
+                          isOpen={openFolders.includes(entry.id)}
+                          onToggle={() => toggleFolder(entry.id)}
+                        >
+                          {visibleItems.map((item) => {
+                            // Check if this is a sub-folder
+                            if (isNavSubFolder(item)) {
+                              return (
+                                <SidebarSubFolder
+                                  key={item.id}
+                                  subFolder={item}
+                                  onOpenModal={handleOpenModal}
+                                  membershipTier={membershipTier}
+                                  isCallScoringTier={isCallScoringTier}
+                                  callScoringAccessibleIds={callScoringAccessibleIds}
+                                />
+                              );
+                            }
+                            return (
+                              <SidebarNavItem
+                                key={item.id}
+                                item={item}
+                                isNested
+                                onOpenModal={handleOpenModal}
+                                membershipTier={membershipTier}
+                                isCallScoringTier={isCallScoringTier}
+                                callScoringAccessibleIds={callScoringAccessibleIds}
+                              />
+                            );
+                          })}
+                        </SidebarFolder>
+                      );
                   }
                   
                   // Single nav item (not in folder)
