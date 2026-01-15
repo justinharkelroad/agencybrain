@@ -60,22 +60,22 @@ export function LqsBucket({
       )}
       onClick={onClick}
     >
-      {/* Title ABOVE the bucket */}
-      <h3 className={cn('text-sm md:text-base font-bold uppercase tracking-wider mb-1', styles.text)}>
+      {/* Title ABOVE the bucket - centered */}
+      <h3 className={cn('text-sm md:text-base font-bold uppercase tracking-wider mb-1 text-center whitespace-nowrap', styles.text)}>
         {title}
       </h3>
 
       {/* SVG Bucket */}
       <div className="relative">
         <svg
-          viewBox="0 0 200 200"
+          viewBox="0 0 200 180"
           className={cn('w-full h-auto transition-all duration-300', styles.glow)}
-          style={{ maxWidth: '180px', margin: '0 auto', display: 'block' }}
+          style={{ width: '140px', margin: '0 auto', display: 'block' }}
         >
           <defs>
             {/* Wave animation for water surface */}
             <clipPath id={`bucket-clip-${variant}`}>
-              <path d="M30 50 L30 160 Q30 180 50 180 L150 180 Q170 180 170 160 L170 50 Z" />
+              <path d="M30 40 L30 140 Q30 160 50 160 L150 160 Q170 160 170 140 L170 40 Z" />
             </clipPath>
 
             {/* Gradient for water */}
@@ -87,19 +87,19 @@ export function LqsBucket({
 
           {/* Bucket handle */}
           <path
-            d="M50 35 Q100 5 150 35"
+            d="M50 28 Q100 2 150 28"
             className={cn('fill-none stroke-[4]', styles.stroke)}
             strokeLinecap="round"
           />
 
           {/* Handle attachments */}
-          <circle cx="50" cy="35" r="5" className={cn('stroke-[3] fill-none', styles.stroke)} />
-          <circle cx="150" cy="35" r="5" className={cn('stroke-[3] fill-none', styles.stroke)} />
+          <circle cx="50" cy="28" r="5" className={cn('stroke-[3] fill-none', styles.stroke)} />
+          <circle cx="150" cy="28" r="5" className={cn('stroke-[3] fill-none', styles.stroke)} />
 
           {/* Bucket rim (ellipse at top) */}
           <ellipse
             cx="100"
-            cy="50"
+            cy="40"
             rx="70"
             ry="12"
             className={cn('stroke-[3] fill-none', styles.stroke)}
@@ -107,7 +107,7 @@ export function LqsBucket({
 
           {/* Bucket body outline */}
           <path
-            d="M30 50 L30 160 Q30 180 50 180 L150 180 Q170 180 170 160 L170 50"
+            d="M30 40 L30 140 Q30 160 50 160 L150 160 Q170 160 170 140 L170 40"
             className={cn('stroke-[3] fill-none', styles.stroke)}
           />
 
@@ -116,16 +116,16 @@ export function LqsBucket({
             {/* Static water body */}
             <rect
               x="30"
-              y="80"
+              y="70"
               width="140"
-              height="100"
+              height="90"
               fill={`url(#water-gradient-${variant})`}
               className="opacity-80"
             />
 
             {/* Animated wave surface */}
             <path
-              d="M30 80 Q55 70 80 80 T130 80 T180 80 L180 80 Q155 90 130 80 T80 80 T30 80"
+              d="M30 70 Q55 60 80 70 T130 70 T180 70 L180 70 Q155 80 130 70 T80 70 T30 70"
               fill={`url(#water-gradient-${variant})`}
               className="opacity-90"
             >
@@ -134,9 +134,9 @@ export function LqsBucket({
                 dur="3s"
                 repeatCount="indefinite"
                 values="
-                  M30 80 Q55 70 80 80 T130 80 T180 80 L180 80 Q155 90 130 80 T80 80 T30 80;
-                  M30 80 Q55 90 80 80 T130 80 T180 80 L180 80 Q155 70 130 80 T80 80 T30 80;
-                  M30 80 Q55 70 80 80 T130 80 T180 80 L180 80 Q155 90 130 80 T80 80 T30 80
+                  M30 70 Q55 60 80 70 T130 70 T180 70 L180 70 Q155 80 130 70 T80 70 T30 70;
+                  M30 70 Q55 80 80 70 T130 70 T180 70 L180 70 Q155 60 130 70 T80 70 T30 70;
+                  M30 70 Q55 60 80 70 T130 70 T180 70 L180 70 Q155 80 130 70 T80 70 T30 70
                 "
               />
             </path>
@@ -145,42 +145,39 @@ export function LqsBucket({
           {/* Inner rim shadow for depth */}
           <ellipse
             cx="100"
-            cy="50"
+            cy="40"
             rx="65"
             ry="10"
             className={cn('fill-none stroke-[1] opacity-30', styles.stroke)}
           />
         </svg>
 
-        {/* Content overlay - only count and percentage INSIDE bucket */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pt-6">
-          <div className="text-center space-y-1">
-            {/* Count */}
-            {loading ? (
-              <div className="h-10 w-16 mx-auto bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            ) : (
-              <p className={cn('text-3xl md:text-4xl font-bold', styles.text)}>
-                {count.toLocaleString()}
-              </p>
-            )}
-
-            {/* Secondary metric badge */}
-            {loading ? (
-              <div className="h-5 w-20 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
-            ) : (
-              <div className={cn(
-                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-                styles.badge
-              )}>
-                <span>{secondaryValue}</span>
-                <span className="opacity-70">{secondaryLabel}</span>
-              </div>
-            )}
-          </div>
+        {/* Content overlay - ONLY the count centered inside bucket */}
+        <div className="absolute inset-0 flex items-center justify-center pt-4">
+          {loading ? (
+            <div className="h-10 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          ) : (
+            <p className={cn('text-3xl md:text-4xl font-bold', styles.text)}>
+              {count.toLocaleString()}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* View link BELOW the bucket */}
+      {/* Secondary metric badge BELOW the bucket */}
+      {loading ? (
+        <div className="h-5 w-20 mt-2 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+      ) : (
+        <div className={cn(
+          'mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+          styles.badge
+        )}>
+          <span>{secondaryValue}</span>
+          <span className="opacity-70">{secondaryLabel}</span>
+        </div>
+      )}
+
+      {/* View link BELOW the badge */}
       <div className={cn(
         'mt-1 text-xs font-medium flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity',
         styles.text
