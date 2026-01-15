@@ -6,6 +6,139 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const PASSING_SCORE = 70; // Hardcoded since no column exists
 
+// Helper to get accountability style instructions
+function getAccountabilityStyleInstructions(style: string | null): string {
+  if (style === 'direct_challenge') {
+    return `ACCOUNTABILITY STYLE = Direct Challenge:
+- Speak the hard truth, but root it in their potential
+- Example: "You know you're capable of better. Here's the gap..."`;
+  } else if (style === 'gentle_nudge') {
+    return `ACCOUNTABILITY STYLE = Gentle Nudge:
+- Wrap the truth in grace. Validate first, then offer insight
+- Lead with acknowledgment before the challenge`;
+  } else if (style === 'questions_discover') {
+    return `ACCOUNTABILITY STYLE = Questions to Discover:
+- Use the Socratic approach
+- Ask questions that help them discover insights themselves`;
+  }
+  return '';
+}
+
+// Helper to get feedback preference instructions
+function getFeedbackPreferenceInstructions(pref: string | null): string {
+  if (pref === 'blunt_truth') {
+    return `FEEDBACK PREFERENCE = Blunt Truth:
+- Get to the point quickly without sugarcoating
+- Keep empathy high but cut the fluff`;
+  } else if (pref === 'encouragement_then_truth') {
+    return `FEEDBACK PREFERENCE = Encouragement then Truth:
+- Acknowledge what they did well before challenging them
+- Sandwich growth points between affirmation and future vision`;
+  } else if (pref === 'questions_to_discover') {
+    return `FEEDBACK PREFERENCE = Socratic Approach:
+- Frame insights as questions that help them discover truth themselves
+- Weight the provocative questions heavily`;
+  }
+  return '';
+}
+
+// Build the therapeutic coaching prompt
+function buildCoachingPrompt(
+  profile: any,
+  categoryName: string,
+  moduleName: string,
+  lessonName: string,
+  lessonDescription: string,
+  lessonContent: string,
+  reflection1: string,
+  reflection2: string
+): string {
+  // Build user profile context
+  let profileContext = '';
+  if (profile) {
+    const parts = [];
+    if (profile.preferred_name) parts.push(`Name: ${profile.preferred_name}`);
+    if (profile.life_roles?.length) parts.push(`Life Roles: ${profile.life_roles.join(', ')}`);
+    if (profile.core_values?.length) parts.push(`Core Values: ${profile.core_values.join(', ')}`);
+    if (profile.current_goals) parts.push(`Current Focus: ${profile.current_goals}`);
+    if (profile.current_challenges) parts.push(`Challenges: ${profile.current_challenges}`);
+    if (profile.growth_edge) parts.push(`Growth Edge: ${profile.growth_edge}`);
+    if (profile.spiritual_beliefs) parts.push(`Spiritual Context: ${profile.spiritual_beliefs}`);
+
+    if (parts.length > 0) {
+      profileContext = `
+=== USER PROFILE CONTEXT ===
+${parts.join('\n')}
+`;
+    }
+  }
+
+  // Build response calibration
+  let responseCalibration = '';
+  if (profile?.accountability_style || profile?.feedback_preference) {
+    const calibrationParts = [];
+    if (profile.accountability_style) {
+      calibrationParts.push(getAccountabilityStyleInstructions(profile.accountability_style));
+    }
+    if (profile.feedback_preference) {
+      calibrationParts.push(getFeedbackPreferenceInstructions(profile.feedback_preference));
+    }
+    if (calibrationParts.length > 0) {
+      responseCalibration = `
+=== RESPONSE CALIBRATION ===
+${calibrationParts.join('\n\n')}
+`;
+    }
+  }
+
+  return `You are Agency Brain — a wise, empathetic, and spiritually grounded training coach.
+
+Your goal is to provide personalized coaching feedback that helps this team member integrate what they've learned and take action.
+${profileContext}
+=== TRAINING CONTEXT ===
+Category: ${categoryName}
+Module: ${moduleName}
+Lesson: ${lessonName}
+${lessonDescription ? `Description: ${lessonDescription}` : ''}
+${lessonContent ? `Key Content: ${lessonContent.substring(0, 1500)}...` : ''}
+
+=== THEIR REFLECTION ANSWERS ===
+1. Most valuable insight: "${reflection1}"
+2. How they'll apply it: "${reflection2}"
+
+=== THERAPEUTIC FRAMEWORK: VALIDATE → REFRAME → ANCHOR ===
+
+A. VALIDATE: Make them feel SEEN
+   - Acknowledge the SPECIFIC insight they captured
+   - Show you understand WHY this resonated with them
+   - Don't just say "good job" — name what was meaningful
+
+B. REFRAME: Connect to their bigger picture
+   ${profile?.core_values?.length ? `- How does this lesson connect to their core values (${profile.core_values.join(', ')})?` : '- How does this lesson connect to their professional growth?'}
+   ${profile?.current_goals ? `- How does it support their current focus: ${profile.current_goals}?` : '- How does it support their career development?'}
+   ${profile?.growth_edge ? `- What does mastering this enable for their growth edge (${profile.growth_edge})?` : '- What does mastering this skill unlock?'}
+
+C. ANCHOR: Create a memorable takeaway
+   - Give this insight a name or metaphor they'll remember
+   ${profile?.spiritual_beliefs ? `- If relevant, weave in a principle from their spiritual context` : ''}
+   - Connect to ACTION — what's the ONE thing they should do this week?
+${responseCalibration}
+=== OUTPUT REQUIREMENTS ===
+
+Write your response in sales letter style:
+- Short sentences, each on its own line
+- Blank lines between sentences for easy scanning
+- One paragraph validating their specific takeaway (show you HEARD them)
+- One paragraph connecting to their profile/goals (make it personal)
+- 2-3 specific action items they should implement THIS WEEK
+- One sentence anchoring the insight to their values or identity
+
+Keep total response under 250 words.
+Be encouraging but direct — if their takeaway could be stronger, coach them on how.
+Never be generic — every sentence should reference something SPECIFIC they said.`;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -220,64 +353,71 @@ Deno.serve(async (req) => {
       reflection_2: answers['reflection_2'] || ''
     };
 
-    // Generate AI coaching feedback
+    // Generate AI coaching feedback with therapeutic framework
     let aiFeedback = null;
     try {
-      // Use reflection answers for AI feedback
       const reflection1 = reflectionAnswers.reflection_1 || '';
       const reflection2 = reflectionAnswers.reflection_2 || '';
 
       // Only generate AI feedback if we have reflection answers
       if (reflection1 || reflection2) {
-        // Build context parts conditionally
-        let contextParts = [
-          `Module: ${moduleName}`,
-          `Lesson: ${lessonName}`
-        ];
+        // Fetch user profile for personalization
+        // Try to get flow_profile via staff_users -> team_members -> profiles -> flow_profiles chain
+        let userProfile = null;
 
-        if (lesson?.description) {
-          contextParts.push(`Lesson Description: ${lesson.description}`);
-        }
+        // First get the staff user's team_member link
+        const { data: staffUser } = await supabase
+          .from('staff_users')
+          .select('team_member_id, agency_id, display_name')
+          .eq('id', staffUserId)
+          .single();
 
-        // Only include content if it exists and is not empty
-        if (lesson?.content_html && lesson.content_html.trim()) {
-          const contentText = lesson.content_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-          if (contentText) {
-            contextParts.push(`Lesson Content: ${contentText.substring(0, 500)}...`);
+        if (staffUser?.agency_id) {
+          // Try to find associated flow profile via agency's profiles
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, user_id')
+            .eq('agency_id', staffUser.agency_id);
+
+          if (profiles?.length) {
+            // Get flow profiles for any of these profiles
+            for (const profile of profiles) {
+              const { data: flowProfile } = await supabase
+                .from('flow_profiles')
+                .select('*')
+                .eq('user_id', profile.user_id)
+                .single();
+
+              if (flowProfile) {
+                userProfile = flowProfile;
+                break;
+              }
+            }
           }
         }
 
-        const lessonContext = contextParts.join('\n');
+        // Extract lesson content (more content for better context - 2000 chars)
+        const lessonContent = lesson?.content_html
+          ? lesson.content_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+          : '';
 
-        const prompt = `You are a professional sales coach with an encouraging, therapeutic tone. A team member just completed a training lesson and answered reflection questions.
-
-LESSON CONTEXT:
-${lessonContext}
-
-THEIR REFLECTION ANSWERS:
-1. Main Takeaway: ${reflection1}
-2. Why It's Important: ${reflection2}
-
-YOUR TASK:
-Provide coaching feedback that:
-1. Acknowledges what they shared (show you heard them)
-2. Reinforces strong takeaways or gently redirects weak ones
-3. Evaluates if their takeaway is ACTIONABLE — can they actually DO something with it?
-4. If not actionable, coach them on how to make it actionable
-5. Provide 1-2 clear, specific action items they should implement
-
-FORMAT:
-- Write in sales letter style — short sentences, each on its own line
-- Add a blank line between sentences for easy scanning
-- One paragraph acknowledging their response
-- One paragraph evaluating if the takeaway is actionable
-- Numbered action items at the end (1-2 specific items)
-- Keep total response under 200 words
-- Be encouraging but direct when something needs improvement`;
+        // Build the therapeutic coaching prompt
+        const prompt = buildCoachingPrompt(
+          userProfile,
+          categoryName,
+          moduleName,
+          lessonName,
+          lesson?.description || '',
+          lessonContent,
+          reflection1,
+          reflection2
+        );
 
         const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
         if (OPENAI_API_KEY) {
-          console.log('Calling OpenAI for coaching feedback...');
+          console.log('Calling OpenAI for therapeutic coaching feedback...');
+          console.log('User profile available:', !!userProfile);
+
           const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -287,7 +427,7 @@ FORMAT:
             body: JSON.stringify({
               model: 'gpt-4o',
               messages: [{ role: 'user', content: prompt }],
-              max_tokens: 500,
+              max_tokens: 700,
               temperature: 0.7
             })
           });
@@ -295,13 +435,16 @@ FORMAT:
           if (openAIResponse.ok) {
             const openAIData = await openAIResponse.json();
             aiFeedback = openAIData.choices?.[0]?.message?.content || null;
-            console.log('AI feedback generated successfully');
+            console.log('Therapeutic AI feedback generated successfully');
 
             // Update the attempt with AI feedback
             if (aiFeedback) {
               await supabase
                 .from('training_quiz_attempts')
-                .update({ ai_feedback: aiFeedback })
+                .update({
+                  ai_feedback: aiFeedback,
+                  reflection_answers_final: reflectionAnswers
+                })
                 .eq('id', attempt.id);
             }
           } else {

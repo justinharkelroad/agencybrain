@@ -312,3 +312,6 @@ verify_jwt = false
 [functions.run_backfill]
 verify_jwt = false
 
+[functions.evaluate_quiz_engagement]
+verify_jwt = false
+
