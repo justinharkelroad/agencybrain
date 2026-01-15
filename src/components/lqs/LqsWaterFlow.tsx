@@ -21,11 +21,11 @@ export function LqsWaterFlow({
 
   if (direction === 'horizontal') {
     return (
-      <div className={cn('relative flex items-center justify-center', className)}>
+      <div className={cn('relative flex items-center justify-center -mx-2', className)}>
         <svg
           viewBox="0 0 120 100"
           className="w-full h-auto"
-          style={{ maxWidth: '100px' }}
+          style={{ maxWidth: '80px', minWidth: '60px' }}
         >
           <defs>
             {/* Gradient for the pour stream */}
@@ -112,11 +112,11 @@ export function LqsWaterFlow({
 
   // Vertical direction for mobile
   return (
-    <div className={cn('relative flex items-center justify-center py-2', className)}>
+    <div className={cn('relative flex items-center justify-center py-1', className)}>
       <svg
         viewBox="0 0 60 80"
         className="w-auto h-full"
-        style={{ maxHeight: '60px' }}
+        style={{ height: '50px', width: '40px' }}
       >
         <defs>
           <linearGradient id={`pour-gradient-v-${fromVariant}-${toVariant}`} x1="0%" y1="0%" x2="0%" y2="100%">

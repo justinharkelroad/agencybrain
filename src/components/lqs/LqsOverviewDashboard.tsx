@@ -25,7 +25,7 @@ export function LqsOverviewDashboard({ metrics, loading, onBucketClick, showReve
   return (
     <>
       {/* Desktop layout - horizontal with water flow */}
-      <div className="hidden md:flex items-center justify-center gap-2">
+      <div className="hidden md:flex items-center justify-center gap-4 lg:gap-6">
         <LqsBucket
           variant="blue"
           title="Open Leads"
@@ -73,7 +73,7 @@ export function LqsOverviewDashboard({ metrics, loading, onBucketClick, showReve
       </div>
 
       {/* Mobile layout - vertical with water flow */}
-      <div className="flex md:hidden flex-col items-center gap-1">
+      <div className="flex md:hidden flex-col items-center gap-0">
         <LqsBucket
           variant="blue"
           title="Open Leads"
