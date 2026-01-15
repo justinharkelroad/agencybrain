@@ -64,7 +64,7 @@ export function LqsBucket({
       <svg
         viewBox="0 0 200 220"
         className={cn('w-full h-auto transition-all duration-300', styles.glow)}
-        style={{ maxWidth: '280px', margin: '0 auto', display: 'block' }}
+        style={{ maxWidth: '200px', margin: '0 auto', display: 'block' }}
       >
         <defs>
           {/* Wave animation for water surface */}
