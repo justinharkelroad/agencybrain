@@ -6,6 +6,103 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
+// Helper function to send renewal to Winback
+async function sendToWinback(supabase: any, record: any): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!record.first_name || !record.last_name) return { success: false, error: 'Missing name' };
+    if (!record.renewal_effective_date) return { success: false, error: 'Missing date' };
+    if (!record.policy_number) return { success: false, error: 'Missing policy' };
+
+    const terminationDate = new Date(record.renewal_effective_date);
+    const policyTermMonths = record.product_name?.toUpperCase().includes('AUTO') ? 6 : 12;
+    const contactDaysBefore = 45;
+    
+    // Calculate winback date
+    let competitorRenewal = new Date(terminationDate);
+    competitorRenewal.setMonth(competitorRenewal.getMonth() + policyTermMonths);
+    let winbackDate = new Date(competitorRenewal);
+    winbackDate.setDate(winbackDate.getDate() - contactDaysBefore);
+    const today = new Date();
+    while (winbackDate <= today) {
+      competitorRenewal.setMonth(competitorRenewal.getMonth() + policyTermMonths);
+      winbackDate = new Date(competitorRenewal);
+      winbackDate.setDate(winbackDate.getDate() - contactDaysBefore);
+    }
+
+    const zipCode = record.household_key?.match(/\d{5}/)?.[0] || '00000';
+
+    // Check/create household
+    const { data: existingHousehold } = await supabase
+      .from('winback_households')
+      .select('id')
+      .eq('agency_id', record.agency_id)
+      .ilike('first_name', record.first_name.trim())
+      .ilike('last_name', record.last_name.trim())
+      .maybeSingle();
+
+    let householdId: string;
+    if (existingHousehold) {
+      householdId = existingHousehold.id;
+    } else {
+      const { data: newHousehold, error } = await supabase
+        .from('winback_households')
+        .insert({
+          agency_id: record.agency_id,
+          first_name: record.first_name.trim().toUpperCase(),
+          last_name: record.last_name.trim().toUpperCase(),
+          zip_code: zipCode,
+          email: record.email || null,
+          phone: record.phone || null,
+          status: 'untouched',
+        })
+        .select('id')
+        .single();
+      if (error) return { success: false, error: error.message };
+      householdId = newHousehold.id;
+    }
+
+    // Check for existing policy
+    const { data: existingPolicy } = await supabase
+      .from('winback_policies')
+      .select('id')
+      .eq('agency_id', record.agency_id)
+      .eq('policy_number', record.policy_number)
+      .maybeSingle();
+
+    if (!existingPolicy) {
+      const premiumNewCents = record.premium_new ? Math.round(record.premium_new * 100) : null;
+      const premiumOldCents = record.premium_old ? Math.round(record.premium_old * 100) : null;
+      
+      await supabase.from('winback_policies').insert({
+        household_id: householdId,
+        agency_id: record.agency_id,
+        policy_number: record.policy_number,
+        agent_number: record.agent_number || null,
+        product_name: record.product_name || 'Unknown',
+        policy_term_months: policyTermMonths,
+        termination_effective_date: record.renewal_effective_date,
+        termination_reason: 'Renewal Not Taken - From Renewal Audit',
+        premium_new_cents: premiumNewCents,
+        premium_old_cents: premiumOldCents,
+        calculated_winback_date: winbackDate.toISOString().split('T')[0],
+        is_cancel_rewrite: false,
+      });
+
+      await supabase.rpc('recalculate_winback_household_aggregates', { p_household_id: householdId });
+    }
+
+    // Update renewal record
+    await supabase.from('renewal_records').update({
+      winback_household_id: householdId,
+      sent_to_winback_at: new Date().toISOString(),
+    }).eq('id', record.id);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -90,14 +187,14 @@ serve(async (req) => {
 
     // Handle bulk_update_records operation
     if (operation === 'bulk_update_records') {
-      const { ids, updates, displayName, userId } = params;
+      const { ids, updates, displayName, userId, sendToWinback } = params;
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return new Response(JSON.stringify({ error: 'ids array is required' }), { 
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         });
       }
 
-      console.log(`[get_staff_renewals] Bulk updating ${ids.length} records`);
+      console.log(`[get_staff_renewals] Bulk updating ${ids.length} records, sendToWinback: ${sendToWinback}`);
 
       // Verify all records belong to this agency
       const { data: verifyRecords, error: verifyError } = await supabase
@@ -139,8 +236,35 @@ serve(async (req) => {
         });
       }
 
-      console.log(`[get_staff_renewals] Bulk updated ${data.length} records`);
-      return new Response(JSON.stringify({ count: data.length }), {
+      // If updating to unsuccessful, also send to Winback
+      let winbackCount = 0;
+      if (sendToWinback && updates.current_status === 'unsuccessful') {
+        console.log('[get_staff_renewals] Sending records to Winback...');
+        
+        // Fetch full record details
+        const { data: fullRecords } = await supabase
+          .from('renewal_records')
+          .select('id, agency_id, first_name, last_name, email, phone, policy_number, product_name, renewal_effective_date, premium_old, premium_new, agent_number, household_key')
+          .in('id', ids);
+        
+        if (fullRecords) {
+          for (const record of fullRecords) {
+            try {
+              const result = await sendToWinback(supabase, record);
+              if (result.success) {
+                winbackCount++;
+              } else {
+                console.warn(`[get_staff_renewals] Failed to send ${record.policy_number} to winback:`, result.error);
+              }
+            } catch (err) {
+              console.error(`[get_staff_renewals] Error sending ${record.policy_number} to winback:`, err);
+            }
+          }
+        }
+      }
+
+      console.log(`[get_staff_renewals] Bulk updated ${data.length} records, ${winbackCount} sent to Winback`);
+      return new Response(JSON.stringify({ count: data.length, winbackCount }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

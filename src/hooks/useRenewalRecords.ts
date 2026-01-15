@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { toast } from 'sonner';
 import type { RenewalRecord, WorkflowStatus } from '@/types/renewal';
 
@@ -227,6 +228,7 @@ export function useBulkUpdateRenewals() {
       userId: string | null;
     }) => {
       const staffSessionToken = getStaffSessionToken();
+      const isUnsuccessful = updates.current_status === 'unsuccessful';
       
       if (staffSessionToken) {
         // Staff portal: use edge function to bypass RLS
@@ -234,14 +236,14 @@ export function useBulkUpdateRenewals() {
         const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
           body: { 
             operation: 'bulk_update_records',
-            params: { ids, updates, displayName, userId }
+            params: { ids, updates, displayName, userId, sendToWinback: isUnsuccessful }
           },
           headers: { 'x-staff-session': staffSessionToken }
         });
         
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        return data;
+        return { count: data?.count || ids.length, winbackCount: data?.winbackCount || 0 };
       }
       
       // Agency portal: direct Supabase update (RLS handles access)
@@ -254,12 +256,49 @@ export function useBulkUpdateRenewals() {
         updated_at: new Date().toISOString(),
       }).in('id', ids);
       if (error) throw error;
-      return { count: ids.length };
+      
+      // If updating to unsuccessful, also send to Winback
+      let winbackCount = 0;
+      if (isUnsuccessful) {
+        console.log('[useBulkUpdateRenewals] Status is unsuccessful, sending to Winback...');
+        
+        // Fetch full record details for winback
+        const { data: records, error: fetchError } = await supabase
+          .from('renewal_records')
+          .select('id, agency_id, first_name, last_name, email, phone, policy_number, product_name, renewal_effective_date, premium_old, premium_new, agent_number, household_key')
+          .in('id', ids);
+        
+        if (fetchError) {
+          console.error('[useBulkUpdateRenewals] Failed to fetch records for winback:', fetchError);
+        } else if (records) {
+          // Send each record to winback
+          for (const record of records) {
+            try {
+              const result = await sendRenewalToWinback(record);
+              if (result.success) {
+                winbackCount++;
+              } else {
+                console.warn(`[useBulkUpdateRenewals] Failed to send ${record.policy_number} to winback:`, result.error);
+              }
+            } catch (err) {
+              console.error(`[useBulkUpdateRenewals] Error sending ${record.policy_number} to winback:`, err);
+            }
+          }
+        }
+      }
+      
+      return { count: ids.length, winbackCount };
     },
-    onSuccess: (_, { ids }) => {
+    onSuccess: (result, { ids, updates }) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
-      toast.success(`${ids.length} records updated`);
+      
+      if (updates.current_status === 'unsuccessful' && result.winbackCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+        toast.success(`${ids.length} records updated, ${result.winbackCount} sent to Win-Back HQ`);
+      } else {
+        toast.success(`${ids.length} records updated`);
+      }
     },
     onError: (error) => {
       console.error('[useBulkUpdateRenewals] Error:', error);
