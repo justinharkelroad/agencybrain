@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseClient";
+import { deduplicateKpisBySlug } from "@/utils/kpiUtils";
 
 // Original interface for legacy edge function
 interface KPI {
@@ -26,6 +27,8 @@ interface KPIsResponse {
 }
 
 // New hook for direct RPC call to list_agency_kpis with optional role filtering
+// Includes defensive deduplication to prevent duplicate KPIs from appearing
+// even if the database function returns duplicates (e.g., due to role mismatches)
 export function useAgencyKpis(agencyId: string, role?: string) {
   return useQuery({
     queryKey: ["agency-kpis", agencyId, role],
@@ -37,7 +40,10 @@ export function useAgencyKpis(agencyId: string, role?: string) {
       });
       
       if (error) throw new Error(error.message);
-      return data || [];
+      
+      // Defensive deduplication: ensure no duplicate slugs are returned
+      // This prevents UI issues even if the database function has bugs
+      return deduplicateKpisBySlug(data || []);
     },
   });
 }
