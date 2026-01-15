@@ -117,6 +117,12 @@ serve(async (req) => {
       case "update_assignment":
         result = await updateAssignment(supabase, agencyId, params);
         break;
+      case "bulk_update_status":
+        result = await bulkUpdateStatus(supabase, agencyId, params);
+        break;
+      case "bulk_delete_records":
+        result = await bulkDeleteRecords(supabase, agencyId, params);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -979,4 +985,104 @@ async function updateAssignment(supabase: any, agencyId: string, params: any) {
 
   console.log(`[updateAssignment] Successfully updated assignment for record ${recordId}`);
   return data;
+}
+
+// Bulk update status for multiple records
+async function bulkUpdateStatus(supabase: any, agencyId: string, params: any) {
+  const { recordIds, status } = params;
+  
+  if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+    throw new Error("recordIds array is required");
+  }
+  
+  if (!status) {
+    throw new Error("status is required");
+  }
+  
+  console.log(`[bulkUpdateStatus] Updating ${recordIds.length} records to status: ${status}`);
+  
+  // Verify all records belong to this agency
+  const { data: verifyRecords, error: verifyError } = await supabase
+    .from("cancel_audit_records")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .in("id", recordIds);
+  
+  if (verifyError) {
+    console.error("[bulkUpdateStatus] Verification error:", verifyError);
+    throw verifyError;
+  }
+  
+  if (verifyRecords.length !== recordIds.length) {
+    throw new Error("Some records do not belong to this agency or do not exist");
+  }
+  
+  // Perform the bulk update
+  const { data, error } = await supabase
+    .from("cancel_audit_records")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("agency_id", agencyId)
+    .in("id", recordIds)
+    .select();
+  
+  if (error) {
+    console.error("[bulkUpdateStatus] Update error:", error);
+    throw error;
+  }
+  
+  console.log(`[bulkUpdateStatus] Successfully updated ${data.length} records`);
+  return { count: data.length, status };
+}
+
+// Bulk delete records and their activities
+async function bulkDeleteRecords(supabase: any, agencyId: string, params: any) {
+  const { recordIds } = params;
+  
+  if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+    throw new Error("recordIds array is required");
+  }
+  
+  console.log(`[bulkDeleteRecords] Deleting ${recordIds.length} records`);
+  
+  // Verify all records belong to this agency
+  const { data: verifyRecords, error: verifyError } = await supabase
+    .from("cancel_audit_records")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .in("id", recordIds);
+  
+  if (verifyError) {
+    console.error("[bulkDeleteRecords] Verification error:", verifyError);
+    throw verifyError;
+  }
+  
+  if (verifyRecords.length !== recordIds.length) {
+    throw new Error("Some records do not belong to this agency or do not exist");
+  }
+  
+  // First delete all activities for these records
+  const { error: activitiesError } = await supabase
+    .from("cancel_audit_activities")
+    .delete()
+    .in("record_id", recordIds);
+  
+  if (activitiesError) {
+    console.error("[bulkDeleteRecords] Activities delete error:", activitiesError);
+    throw activitiesError;
+  }
+  
+  // Then delete the records themselves
+  const { error: recordsError } = await supabase
+    .from("cancel_audit_records")
+    .delete()
+    .eq("agency_id", agencyId)
+    .in("id", recordIds);
+  
+  if (recordsError) {
+    console.error("[bulkDeleteRecords] Records delete error:", recordsError);
+    throw recordsError;
+  }
+  
+  console.log(`[bulkDeleteRecords] Successfully deleted ${recordIds.length} records`);
+  return { count: recordIds.length };
 }

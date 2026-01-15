@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 import { toast } from 'sonner';
 
 export function useBulkDeleteCancelAuditRecords() {
@@ -7,6 +8,27 @@ export function useBulkDeleteCancelAuditRecords() {
 
   return useMutation({
     mutationFn: async (recordIds: string[]) => {
+      const staffSessionToken = getStaffSessionToken();
+
+      if (staffSessionToken) {
+        // Staff portal: use edge function to bypass RLS
+        console.log('[useBulkDeleteCancelAuditRecords] Staff user, calling edge function');
+        const result = await callCancelAuditApi({
+          operation: 'bulk_delete_records',
+          params: { recordIds },
+          sessionToken: staffSessionToken,
+        });
+        
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        
+        return result.count || recordIds.length;
+      }
+
+      // Agency portal: direct Supabase delete (RLS handles access)
+      console.log('[useBulkDeleteCancelAuditRecords] Agency user, direct Supabase call');
+      
       // First delete all activities for these records
       const { error: activitiesError } = await supabase
         .from('cancel_audit_activities')
@@ -40,7 +62,8 @@ export function useBulkDeleteCancelAuditRecords() {
       });
       toast.success(`${count} record${count > 1 ? 's' : ''} deleted`);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('[useBulkDeleteCancelAuditRecords] Error:', error);
       toast.error('Failed to delete records');
     },
   });
