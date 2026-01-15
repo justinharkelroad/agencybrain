@@ -3,8 +3,9 @@ import { format, subDays } from 'date-fns';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { AlertTriangle, CheckCircle, XCircle, Target } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Target, Plus } from 'lucide-react';
 import { RING_COLORS } from '@/components/rings/colors';
 import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
@@ -14,6 +15,7 @@ import { StaffCore4Card } from './StaffCore4Card';
 import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 interface KPIData {
   key: string;
   slug: string;
@@ -95,6 +97,9 @@ export function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   
   const isManager = user?.role === 'Manager';
   const previousBusinessDay = getPreviousBusinessDay();
@@ -171,6 +176,38 @@ export function StaffDashboard() {
     loadDashboardData();
   }, [user, sessionToken, previousBusinessDayStr]);
 
+  // Fetch lead sources and team members for the quote modal
+  useEffect(() => {
+    async function fetchModalData() {
+      if (!user?.agency_id) return;
+      
+      const [sourcesRes, membersRes] = await Promise.all([
+        supabase
+          .from('lqs_lead_sources')
+          .select('id, name, is_self_generated, bucket:lqs_marketing_buckets(id, name)')
+          .eq('agency_id', user.agency_id)
+          .eq('is_active', true),
+        supabase
+          .from('team_members')
+          .select('id, name')
+          .eq('agency_id', user.agency_id)
+          .eq('active', true)
+          .order('name')
+      ]);
+
+      if (sourcesRes.data) {
+        setLeadSources(sourcesRes.data.map(s => ({
+          ...s,
+          is_self_generated: s.is_self_generated ?? false,
+          bucket: s.bucket ?? null
+        })));
+      }
+      if (membersRes.data) setTeamMembers(membersRes.data);
+    }
+
+    fetchModalData();
+  }, [user?.agency_id]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -186,9 +223,16 @@ export function StaffDashboard() {
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Welcome Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Welcome, {firstName}!</h1>
-        <p className="text-muted-foreground">{currentDate}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Welcome, {firstName}!</h1>
+          <p className="text-muted-foreground">{currentDate}</p>
+        </div>
+        <Button variant="outline" onClick={() => setShowQuoteModal(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Add Quoted Household</span>
+          <span className="sm:hidden">Add Quote</span>
+        </Button>
       </div>
 
       {/* Sales Summary Widget - At Top (only for whitelisted agencies) */}
@@ -336,6 +380,19 @@ export function StaffDashboard() {
           <StaffTeamOverview />
           <StaffRoleplaySessions />
         </>
+      )}
+
+      {/* Add Quoted Household Modal */}
+      {user?.agency_id && (
+        <AddQuoteModal
+          open={showQuoteModal}
+          onOpenChange={setShowQuoteModal}
+          agencyId={user.agency_id}
+          leadSources={leadSources}
+          teamMembers={teamMembers}
+          currentTeamMemberId={user.team_member_id}
+          onSuccess={() => {}}
+        />
       )}
     </div>
   );

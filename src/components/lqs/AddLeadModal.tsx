@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,6 +70,7 @@ export function AddLeadModal({
   const [productsInterested, setProductsInterested] = useState<string[]>([]);
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadDate, setLeadDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [notes, setNotes] = useState('');
 
   const resetForm = () => {
     setFirstName('');
@@ -80,6 +82,7 @@ export function AddLeadModal({
     setProductsInterested([]);
     setTeamMemberId(currentTeamMemberId || '');
     setLeadDate(format(new Date(), 'yyyy-MM-dd'));
+    setNotes('');
   };
 
   const handleAddPhone = () => {
@@ -145,6 +148,7 @@ export function AddLeadModal({
             team_member_id: teamMemberId || null,
             needs_attention: false,
             products_interested: productsInterested.length > 0 ? productsInterested : null,
+            notes: notes || null,
           })
           .eq('id', existingHousehold.id);
 
@@ -168,6 +172,7 @@ export function AddLeadModal({
             needs_attention: false,
             lead_received_date: leadDate,
             products_interested: productsInterested.length > 0 ? productsInterested : null,
+            notes: notes || null,
           });
 
         if (insertError) throw insertError;
@@ -344,6 +349,18 @@ export function AddLeadModal({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any additional notes about this lead..."
+              rows={3}
+            />
           </div>
 
           {/* Sub-Producer & Lead Date */}

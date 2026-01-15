@@ -3710,6 +3710,7 @@ export type Database = {
           lead_received_date: string | null
           lead_source_id: string | null
           needs_attention: boolean
+          notes: string | null
           phone: string[] | null
           products_interested: string[] | null
           sold_date: string | null
@@ -3730,6 +3731,7 @@ export type Database = {
           lead_received_date?: string | null
           lead_source_id?: string | null
           needs_attention?: boolean
+          notes?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
           sold_date?: string | null
@@ -3750,6 +3752,7 @@ export type Database = {
           lead_received_date?: string | null
           lead_source_id?: string | null
           needs_attention?: boolean
+          notes?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
           sold_date?: string | null
