@@ -162,15 +162,29 @@ export default function Renewals() {
           .select('agency_id, full_name')
           .eq('id', user.id)
           .single();
-        
+
         if (p?.agency_id) {
+          // Try to get display name from team_members if profile full_name is missing
+          let displayName = p.full_name;
+          if (!displayName && user.email) {
+            const { data: teamMember } = await supabase
+              .from('team_members')
+              .select('name')
+              .eq('agency_id', p.agency_id)
+              .eq('email', user.email)
+              .single();
+            if (teamMember?.name) {
+              displayName = teamMember.name;
+            }
+          }
+
           setContext({
             agencyId: p.agency_id,
             userId: user.id,
             staffMemberId: null,
-            displayName: p.full_name || user.email || 'Unknown'
+            displayName: displayName || user.email || 'Unknown'
           });
-          
+
           const { data: members } = await supabase
             .from('team_members')
             .select('id, name')
