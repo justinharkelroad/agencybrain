@@ -138,7 +138,7 @@ export const navigationConfig: NavEntry[] = [
         icon: BarChart3,
         type: 'link',
         url: '/lqs-roi',
-        access: { staff: false, manager: true, owner: true },
+        access: { staff: true, manager: true, owner: true },
         emailRestriction: 'justin@hfiagencies.com',
       },
       {
@@ -411,7 +411,7 @@ export const navigationConfig: NavEntry[] = [
     icon: ArrowLeftRight,
     type: 'link',
     url: '/exchange',
-    access: { staff: false, manager: true, owner: true },
+        access: { staff: true, manager: true, owner: true },
   },
 ];
 
