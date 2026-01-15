@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { getFeatureGateConfig } from "@/config/featureGates";
+import { SidebarSubFolder } from "@/components/sidebar/SidebarSubFolder";
 
 interface StaffSidebarFolderProps {
   folder: NavFolder;
@@ -187,11 +188,14 @@ export function StaffSidebarFolder({
               // Handle sub-folders
               if (isNavSubFolder(item)) {
                 return (
-                  <SidebarMenuSubItem key={item.id}>
-                    <SidebarMenuSubButton asChild>
-                      <span className="text-muted-foreground text-xs">{item.title} (sub-folder)</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
+                  <SidebarSubFolder
+                    key={item.id}
+                    subFolder={item}
+                    onOpenModal={onOpenModal}
+                    membershipTier={membershipTier}
+                    isCallScoringTier={isCallScoringTier}
+                    callScoringAccessibleIds={callScoringAccessibleIds}
+                  />
                 );
               }
               
