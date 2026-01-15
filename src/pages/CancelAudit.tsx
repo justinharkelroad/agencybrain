@@ -22,6 +22,7 @@ import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
 import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
 import { useBulkDeleteCancelAuditRecords } from "@/hooks/useCancelAuditDelete";
+import { useBulkUpdateCancelAuditStatus } from "@/hooks/useBulkCancelAuditOperations";
 import { useToast } from "@/hooks/use-toast";
 import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-audit";
 import { useQueryClient } from "@tanstack/react-query";
@@ -65,8 +66,9 @@ const CancelAuditPage = () => {
   // Selection state for bulk actions
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
   
-  // Bulk delete mutation
+  // Bulk actions mutations
   const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
+  const bulkUpdateStatusMutation = useBulkUpdateCancelAuditStatus();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Clear stale staff tokens when on non-staff route
@@ -337,28 +339,23 @@ const CancelAuditPage = () => {
     );
   }, []);
 
-  const handleBulkStatusUpdate = useCallback(async (status: RecordStatus) => {
+  const handleBulkStatusUpdate = useCallback((status: RecordStatus) => {
     if (selectedRecordIds.length === 0) return;
     
     setIsBulkUpdating(true);
-    try {
-      const { error } = await supabase
-        .from('cancel_audit_records')
-        .update({ status, updated_at: new Date().toISOString() })
-        .in('id', selectedRecordIds);
-      
-      if (error) throw error;
-      
-      toast.success(`Updated ${selectedRecordIds.length} records to ${status.replace('_', ' ')}`);
-      setSelectedRecordIds([]);
-      queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
-      queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
-    } catch (error) {
-      toast.error('Failed to update records');
-    } finally {
-      setIsBulkUpdating(false);
-    }
-  }, [selectedRecordIds, queryClient]);
+    bulkUpdateStatusMutation.mutate(
+      { recordIds: selectedRecordIds, status: status as RecordStatusType },
+      {
+        onSuccess: () => {
+          setSelectedRecordIds([]);
+          setIsBulkUpdating(false);
+        },
+        onError: () => {
+          setIsBulkUpdating(false);
+        },
+      }
+    );
+  }, [selectedRecordIds, bulkUpdateStatusMutation]);
 
   const handleBulkDelete = useCallback(() => {
     if (selectedRecordIds.length === 0) return;

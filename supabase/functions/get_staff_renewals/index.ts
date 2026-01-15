@@ -88,7 +88,128 @@ serve(async (req) => {
       });
     }
 
-    // Build query
+    // Handle bulk_update_records operation
+    if (operation === 'bulk_update_records') {
+      const { ids, updates, displayName, userId } = params;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return new Response(JSON.stringify({ error: 'ids array is required' }), { 
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      console.log(`[get_staff_renewals] Bulk updating ${ids.length} records`);
+
+      // Verify all records belong to this agency
+      const { data: verifyRecords, error: verifyError } = await supabase
+        .from('renewal_records')
+        .select('id')
+        .eq('agency_id', agencyId)
+        .in('id', ids);
+
+      if (verifyError) {
+        console.error('[get_staff_renewals] Bulk update verification error:', verifyError);
+        return new Response(JSON.stringify({ error: verifyError.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      if (verifyRecords.length !== ids.length) {
+        return new Response(JSON.stringify({ error: 'Some records do not belong to this agency' }), { 
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      const { data, error } = await supabase
+        .from('renewal_records')
+        .update({
+          ...updates,
+          last_activity_at: new Date().toISOString(),
+          last_activity_by: userId,
+          last_activity_by_display_name: displayName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('agency_id', agencyId)
+        .in('id', ids)
+        .select();
+
+      if (error) {
+        console.error('[get_staff_renewals] Bulk update error:', error);
+        return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      console.log(`[get_staff_renewals] Bulk updated ${data.length} records`);
+      return new Response(JSON.stringify({ count: data.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle bulk_delete_records operation
+    if (operation === 'bulk_delete_records') {
+      const { ids } = params;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return new Response(JSON.stringify({ error: 'ids array is required' }), { 
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      console.log(`[get_staff_renewals] Bulk deleting ${ids.length} records`);
+
+      // Verify all records belong to this agency
+      const { data: verifyRecords, error: verifyError } = await supabase
+        .from('renewal_records')
+        .select('id')
+        .eq('agency_id', agencyId)
+        .in('id', ids);
+
+      if (verifyError) {
+        console.error('[get_staff_renewals] Bulk delete verification error:', verifyError);
+        return new Response(JSON.stringify({ error: verifyError.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      if (verifyRecords.length !== ids.length) {
+        return new Response(JSON.stringify({ error: 'Some records do not belong to this agency' }), { 
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      // First delete associated activities
+      const { error: activitiesError } = await supabase
+        .from('renewal_activities')
+        .delete()
+        .in('renewal_record_id', ids);
+
+      if (activitiesError) {
+        console.error('[get_staff_renewals] Bulk delete activities error:', activitiesError);
+        return new Response(JSON.stringify({ error: activitiesError.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      // Then delete the records
+      const { error: recordsError } = await supabase
+        .from('renewal_records')
+        .delete()
+        .eq('agency_id', agencyId)
+        .in('id', ids);
+
+      if (recordsError) {
+        console.error('[get_staff_renewals] Bulk delete records error:', recordsError);
+        return new Response(JSON.stringify({ error: recordsError.message }), { 
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      console.log(`[get_staff_renewals] Bulk deleted ${ids.length} records`);
+      return new Response(JSON.stringify({ count: ids.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Build query for fetching records
     let query = supabase
       .from('renewal_records')
       .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)')

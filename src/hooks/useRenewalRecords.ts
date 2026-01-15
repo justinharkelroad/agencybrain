@@ -226,6 +226,26 @@ export function useBulkUpdateRenewals() {
       displayName: string;
       userId: string | null;
     }) => {
+      const staffSessionToken = getStaffSessionToken();
+      
+      if (staffSessionToken) {
+        // Staff portal: use edge function to bypass RLS
+        console.log('[useBulkUpdateRenewals] Staff user, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            operation: 'bulk_update_records',
+            params: { ids, updates, displayName, userId }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return data;
+      }
+      
+      // Agency portal: direct Supabase update (RLS handles access)
+      console.log('[useBulkUpdateRenewals] Agency user, direct Supabase call');
       const { error } = await supabase.from('renewal_records').update({
         ...updates,
         last_activity_at: new Date().toISOString(),
@@ -234,13 +254,17 @@ export function useBulkUpdateRenewals() {
         updated_at: new Date().toISOString(),
       }).in('id', ids);
       if (error) throw error;
+      return { count: ids.length };
     },
     onSuccess: (_, { ids }) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
       toast.success(`${ids.length} records updated`);
     },
-    onError: () => toast.error('Failed to update records'),
+    onError: (error) => {
+      console.error('[useBulkUpdateRenewals] Error:', error);
+      toast.error('Failed to update records');
+    },
   });
 }
 
@@ -248,6 +272,27 @@ export function useBulkDeleteRenewals() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (ids: string[]) => {
+      const staffSessionToken = getStaffSessionToken();
+      
+      if (staffSessionToken) {
+        // Staff portal: use edge function to bypass RLS
+        console.log('[useBulkDeleteRenewals] Staff user, calling edge function');
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            operation: 'bulk_delete_records',
+            params: { ids }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return ids.length;
+      }
+      
+      // Agency portal: direct Supabase delete (RLS handles access)
+      console.log('[useBulkDeleteRenewals] Agency user, direct Supabase call');
+      
       // Batch size to avoid URL length limits (Supabase .in() encodes IDs in URL)
       const BATCH_SIZE = 50;
       
@@ -277,12 +322,14 @@ export function useBulkDeleteRenewals() {
           throw error;
         }
       }
+      
+      return ids.length;
     },
-    onSuccess: (_, ids) => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
-      toast.success(`${ids.length} records deleted`);
+      toast.success(`${count} records deleted`);
     },
     onError: (error) => {
       console.error('[useBulkDeleteRenewals] Bulk delete failed:', error);
