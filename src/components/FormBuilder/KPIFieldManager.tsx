@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
+import { deduplicateKpisBySlug } from "@/utils/kpiUtils";
 
 interface KPIField {
   key: string;
@@ -51,6 +53,13 @@ export default function KPIFieldManager({
   onAddField,
   onRemoveField
 }: KPIFieldManagerProps) {
+  // Defensive deduplication: prevent duplicate KPIs from appearing in dropdown
+  // even if the database returns duplicates (e.g., due to role mismatches)
+  const uniqueAvailableKpis = useMemo(() => 
+    deduplicateKpisBySlug(availableKpis || []),
+    [availableKpis]
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -85,10 +94,10 @@ export default function KPIFieldManager({
                       <SelectValue placeholder="Choose a KPI" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableKpis.map(availKpi => (
-                     <SelectItem key={availKpi.kpi_id} value={availKpi.kpi_id}>
-                       {availKpi.label}
-                     </SelectItem>
+                      {uniqueAvailableKpis.map(availKpi => (
+                        <SelectItem key={availKpi.kpi_id} value={availKpi.kpi_id}>
+                          {availKpi.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
