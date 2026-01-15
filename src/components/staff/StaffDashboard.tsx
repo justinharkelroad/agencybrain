@@ -176,38 +176,35 @@ export function StaffDashboard() {
     loadDashboardData();
   }, [user, sessionToken, previousBusinessDayStr]);
 
-  // Fetch lead sources and team members for the quote modal
+  // Fetch lead sources for the quote modal via edge function (staff users bypass RLS)
   useEffect(() => {
     async function fetchModalData() {
-      if (!user?.agency_id) return;
+      if (!user?.agency_id || !sessionToken) return;
       
-      const [sourcesRes, membersRes] = await Promise.all([
-        supabase
-          .from('lead_sources')
-          .select('id, name, is_self_generated, bucket:lqs_marketing_buckets(id, name)')
-          .eq('agency_id', user.agency_id)
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('team_members')
-          .select('id, name')
-          .eq('agency_id', user.agency_id)
-          .eq('status', 'Active')
-          .order('name')
-      ]);
-
-      if (sourcesRes.data) {
-        setLeadSources(sourcesRes.data.map(s => ({
-          ...s,
-          is_self_generated: s.is_self_generated ?? false,
-          bucket: s.bucket ?? null
-        })));
+      try {
+        const { data, error } = await supabase.functions.invoke('get_staff_lead_sources', {
+          headers: { 'x-staff-session': sessionToken },
+        });
+        
+        if (error) {
+          console.error('Error fetching lead sources:', error);
+          return;
+        }
+        
+        if (data?.lead_sources) {
+          setLeadSources(data.lead_sources.map((s: any) => ({
+            ...s,
+            is_self_generated: s.is_self_generated ?? false,
+            bucket: s.bucket ?? null
+          })));
+        }
+      } catch (err) {
+        console.error('Error in fetchModalData:', err);
       }
-      if (membersRes.data) setTeamMembers(membersRes.data);
     }
 
     fetchModalData();
-  }, [user?.agency_id]);
+  }, [user?.agency_id, sessionToken]);
 
   if (loading) {
     return (

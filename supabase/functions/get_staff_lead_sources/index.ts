@@ -60,10 +60,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch lead sources for the agency
+    // Fetch lead sources with bucket info for the agency
     const { data: leadSources, error: lsError } = await supabase
       .from("lead_sources")
-      .select("id, name")
+      .select(`
+        id, 
+        name, 
+        is_self_generated,
+        bucket:marketing_buckets(id, name)
+      `)
       .eq("agency_id", staffUser.agency_id)
       .eq("is_active", true)
       .order("name");
