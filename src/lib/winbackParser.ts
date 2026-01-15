@@ -75,9 +75,10 @@ const COLUMN_MAP: Record<string, keyof ParsedWinbackRecord> = {
   'Premium Old': 'premiumOldCents',
   'Items': 'itemsCount',
   'Item Count': 'itemsCount',
+  'Policy Type': 'productName', // Alternate header for product
 };
 
-// Determine policy term based on product name
+// Determine policy term based on product name or line code (e.g., "072 - Landlords")
 function getPolicyTermMonths(productName: string): number {
   if (!productName) return 12; // Default to 12 if no product name
   
@@ -87,7 +88,7 @@ function getPolicyTermMonths(productName: string): number {
   if (lowerName.includes('auto')) return 6;
   
   // Property products = 12 month term
-  if (lowerName.includes('homeowner')) return 12;
+  if (lowerName.includes('homeowner') || lowerName.includes('home')) return 12;
   if (lowerName.includes('landlord')) return 12;
   if (lowerName.includes('renter')) return 12;
   if (lowerName.includes('umbrella')) return 12;
@@ -239,6 +240,13 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
         }
       }
     });
+
+    // Fallback: If productName column not found, use lineCode as product source
+    // This handles files with "Line Code" (e.g., "072 - Landlords") instead of "Product Name"
+    if (columnIndex['productName'] === undefined && columnIndex['lineCode'] !== undefined) {
+      columnIndex['productName'] = columnIndex['lineCode'];
+      console.log('Using lineCode as fallback for productName');
+    }
 
     // Validate required columns
     const requiredFields = ['firstName', 'lastName', 'zipCode', 'policyNumber', 'productName', 'terminationEffectiveDate'];
