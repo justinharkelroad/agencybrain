@@ -273,7 +273,13 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
         const firstName = String(row[columnIndex['firstName']] || '').trim().toUpperCase();
         const lastName = String(row[columnIndex['lastName']] || '').trim().toUpperCase();
         const zipCode = cleanZipCode(row[columnIndex['zipCode']]);
-        const productName = String(row[columnIndex['productName']] || '').trim();
+
+        // Parse line code early so it can be used as a per-row fallback for productName
+        const lineCode = row[columnIndex['lineCode']] ? String(row[columnIndex['lineCode']]).trim() : null;
+
+        // Some reports include the "Policy Type" column but it is blank; in that case use Line Code.
+        const productName = (String(row[columnIndex['productName']] || '').trim() || lineCode || '').trim();
+
         const terminationDate = parseDate(row[columnIndex['terminationEffectiveDate']]);
         const terminationReason = row[columnIndex['terminationReason']] ? String(row[columnIndex['terminationReason']]).trim() : null;
 
@@ -287,9 +293,6 @@ export function parseWinbackExcel(workbook: XLSX.WorkBook): ParseResult {
         // Parse items count (default to 1 if not present)
         const itemsCountRaw = row[columnIndex['itemsCount']];
         const itemsCount = itemsCountRaw ? parseInt(String(itemsCountRaw), 10) : 1;
-
-        // Parse line code
-        const lineCode = row[columnIndex['lineCode']] ? String(row[columnIndex['lineCode']]).trim() : null;
 
         const record: ParsedWinbackRecord = {
           firstName,
