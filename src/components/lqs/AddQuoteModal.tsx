@@ -17,12 +17,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
 import { format } from 'date-fns';
-
 interface AddQuoteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -73,6 +73,7 @@ export function AddQuoteModal({
   const [leadSourceId, setLeadSourceId] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [notes, setNotes] = useState('');
 
   const resetForm = () => {
     setFirstName('');
@@ -84,6 +85,7 @@ export function AddQuoteModal({
     setLeadSourceId('');
     setPhone('');
     setEmail('');
+    setNotes('');
   };
 
   const addProduct = () => {
@@ -167,6 +169,7 @@ export function AddQuoteModal({
           updates.needs_attention = false;
         }
         if (teamMemberId) updates.team_member_id = teamMemberId;
+        if (notes) updates.notes = notes;
 
         if (Object.keys(updates).length > 0) {
           const { error: updateError } = await supabase
@@ -193,6 +196,7 @@ export function AddQuoteModal({
             lead_source_id: leadSourceId || null,
             team_member_id: teamMemberId || null,
             needs_attention: !leadSourceId,
+            notes: notes || null,
           })
           .select('id')
           .single();
@@ -246,9 +250,9 @@ export function AddQuoteModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Quote</DialogTitle>
+          <DialogTitle>Add Quoted Household</DialogTitle>
           <DialogDescription>
-            Enter quote information. You can add multiple products for the same household.
+            Enter household quote information. You can add multiple products for the same household.
           </DialogDescription>
         </DialogHeader>
 
@@ -439,6 +443,18 @@ export function AddQuoteModal({
                 placeholder="john@example.com"
               />
             </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any additional notes about this household..."
+              rows={3}
+            />
           </div>
         </div>
 

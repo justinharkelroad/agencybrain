@@ -23,6 +23,8 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
 import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { Plus } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -62,6 +64,9 @@ const Dashboard = () => {
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
 
   const fetchAgencyName = async () => {
     if (!user) return;
@@ -91,6 +96,38 @@ const Dashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Fetch lead sources and team members for the quote modal
+  useEffect(() => {
+    async function fetchModalData() {
+      if (!agencyId) return;
+      
+      const [sourcesRes, membersRes] = await Promise.all([
+        supabase
+          .from('lqs_lead_sources')
+          .select('id, name, is_self_generated, bucket:lqs_marketing_buckets(id, name)')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true),
+        supabase
+          .from('team_members')
+          .select('id, name')
+          .eq('agency_id', agencyId)
+          .eq('active', true)
+          .order('name')
+      ]);
+
+      if (sourcesRes.data) {
+        setLeadSources(sourcesRes.data.map(s => ({
+          ...s,
+          is_self_generated: s.is_self_generated ?? false,
+          bucket: s.bucket ?? null
+        })));
+      }
+      if (membersRes.data) setTeamMembers(membersRes.data);
+    }
+
+    fetchModalData();
+  }, [agencyId]);
+
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-6 space-y-6 overflow-x-hidden">
@@ -108,22 +145,29 @@ const Dashboard = () => {
               </h2>
             )}
           </div>
-          {canSubmitCoachingCall && normalizeTier(membershipTier) === 'one_on_one' && (
-            <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
-              <Link to="/submit?mode=new">
-                <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
-                <span className="sm:hidden">Submit New Form</span>
-              </Link>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowQuoteModal(true)} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Add Quoted Household</span>
+              <span className="sm:hidden">Add Quote</span>
             </Button>
-          )}
-          {canSubmitMetrics && normalizeTier(membershipTier) === 'boardroom' && (
-            <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
-              <Link to="/submit?mode=new&tier=boardroom">
-                <span className="hidden sm:inline">Submit Dashboard Metrics</span>
-                <span className="sm:hidden">Submit Metrics</span>
+            {canSubmitCoachingCall && normalizeTier(membershipTier) === 'one_on_one' && (
+              <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
+                <Link to="/submit?mode=new">
+                  <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
+                  <span className="sm:hidden">Submit New Form</span>
+                </Link>
+              </Button>
+            )}
+            {canSubmitMetrics && normalizeTier(membershipTier) === 'boardroom' && (
+              <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
+                <Link to="/submit?mode=new&tier=boardroom">
+                  <span className="hidden sm:inline">Submit Dashboard Metrics</span>
+                  <span className="sm:hidden">Submit Metrics</span>
               </Link>
-            </Button>
-          )}
+              </Button>
+            )}
+          </div>
         </div>
         <PeriodRefreshProvider>
           {/* 0. Sales Dashboard Widget - admin and beta agencies */}
@@ -175,6 +219,19 @@ const Dashboard = () => {
           Version: {versionLabel}
         </div>
       </main>
+
+      {/* Add Quoted Household Modal */}
+      {agencyId && (
+        <AddQuoteModal
+          open={showQuoteModal}
+          onOpenChange={setShowQuoteModal}
+          agencyId={agencyId}
+          leadSources={leadSources}
+          teamMembers={teamMembers}
+          currentTeamMemberId={null}
+          onSuccess={() => {}}
+        />
+      )}
     </div>
   );
 };

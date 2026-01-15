@@ -94,7 +94,7 @@ export function LqsMetricTiles({ metrics, loading, onTileClick, activeBucket = '
       case 'quoted':
       default:
         return {
-          title: 'All Quotes',
+          title: 'Quoted Households',
           value: bucketCount ?? metrics?.totalQuotes ?? 0,
           icon: <FileText className="h-5 w-5" />,
         };
