@@ -17,10 +17,27 @@ import { CustomCollectionSchemaItem } from "@/types/custom-collections";
 
 import KPIManagementDialog from "@/components/dialogs/KPIManagementDialog";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-  import { useAgencyKpis } from "@/hooks/useKpis";
-  import { toast } from "sonner";
-  import { supabase } from '@/lib/supabaseClient';
-  import { useAuth } from "@/lib/auth";
+import { useAgencyKpis } from "@/hooks/useKpis";
+import { toast } from "sonner";
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from "@/lib/auth";
+
+// Validate that all KPI IDs in schema exist in active KPI list
+function validateKpiIds(
+  kpis: { selectedKpiId?: string; label: string }[], 
+  activeKpis: { kpi_id: string }[]
+): { valid: boolean; invalidLabels: string[] } {
+  const activeIds = new Set(activeKpis.map(k => k.kpi_id));
+  const invalidLabels: string[] = [];
+  
+  for (const kpi of kpis) {
+    if (kpi.selectedKpiId && !activeIds.has(kpi.selectedKpiId)) {
+      invalidLabels.push(kpi.label);
+    }
+  }
+  
+  return { valid: invalidLabels.length === 0, invalidLabels };
+}
 
 interface KPIField {
   key: string;
@@ -297,6 +314,13 @@ export default function ScorecardFormBuilder() {
   const handleSave = async () => {
     if (!agencyId) {
       toast.error("Agency information not found");
+      return;
+    }
+
+    // Validate all KPI IDs are current before saving
+    const validation = validateKpiIds(formSchema.kpis, agencyKpis);
+    if (!validation.valid) {
+      toast.error(`Cannot save: Some KPIs have stale IDs: ${validation.invalidLabels.join(', ')}. Please re-select them.`);
       return;
     }
 

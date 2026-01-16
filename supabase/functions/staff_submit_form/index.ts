@@ -202,7 +202,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 6: Resolve active KPI binding
+    // Step 6: Resolve active KPI binding (with slug-based fallback)
+    let kpiVersionId: string | null = null;
+    let labelAtSubmit: string | null = null;
+
     const { data: kpiBindings, error: bindingError } = await supabase
       .from('forms_kpi_bindings')
       .select(`
@@ -216,16 +219,71 @@ Deno.serve(async (req) => {
       .eq('form_template_id', template.id)
       .is('kpi_versions.valid_to', null);
 
-    if (bindingError || !kpiBindings || kpiBindings.length === 0) {
-      logStructured('warn', 'no_active_kpi_binding', {
+    if (!bindingError && kpiBindings && kpiBindings.length > 0) {
+      // Use bindings if available
+      kpiVersionId = kpiBindings[0].kpi_version_id;
+      labelAtSubmit = kpiBindings[0].kpi_versions.label;
+    } else {
+      // Fallback: Try to resolve KPIs by slug from form schema
+      logStructured('info', 'attempting_slug_fallback', {
         request_id: requestId,
         form_template_id: template.id
       });
-      return json(400, { error: 'Form has no active KPI bindings' });
+
+      // Get form schema to extract KPI slugs
+      const { data: formTemplate } = await supabase
+        .from('form_templates')
+        .select('schema_json')
+        .eq('id', template.id)
+        .single();
+
+      if (formTemplate?.schema_json) {
+        const schema = formTemplate.schema_json as any;
+        const kpiSlugs = (schema.kpis || [])
+          .filter((k: any) => k.selectedKpiSlug)
+          .map((k: any) => k.selectedKpiSlug);
+
+        if (kpiSlugs.length > 0) {
+          // Look up current active KPI versions by slug
+          const { data: slugResolved } = await supabase
+            .from('kpis')
+            .select(`
+              id, 
+              slug,
+              kpi_versions!inner (
+                id,
+                label,
+                valid_to
+              )
+            `)
+            .eq('agency_id', staffUser.agency_id)
+            .eq('is_active', true)
+            .in('slug', kpiSlugs)
+            .is('kpi_versions.valid_to', null);
+
+          if (slugResolved && slugResolved.length > 0) {
+            const firstMatch = slugResolved[0];
+            kpiVersionId = firstMatch.kpi_versions[0]?.id;
+            labelAtSubmit = firstMatch.kpi_versions[0]?.label;
+            
+            logStructured('info', 'slug_fallback_success', {
+              request_id: requestId,
+              resolved_kpis: slugResolved.map(k => k.slug),
+              kpi_version_id: kpiVersionId
+            });
+          }
+        }
+      }
     }
 
-    const kpiVersionId = kpiBindings[0].kpi_version_id;
-    const labelAtSubmit = kpiBindings[0].kpi_versions.label;
+    // If still no KPI binding, log warning but continue (submission still valid)
+    if (!kpiVersionId) {
+      logStructured('warn', 'no_kpi_binding_resolved', {
+        request_id: requestId,
+        form_template_id: template.id,
+        message: 'Submission will proceed without KPI version binding'
+      });
+    }
 
     // Step 7: Insert submission (team_member_id from session, NOT request)
     const { data: ins, error: insErr } = await supabase
