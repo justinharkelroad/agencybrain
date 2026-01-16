@@ -124,8 +124,14 @@ export function PayoutPreview({
     if (dataSource === "sales_report" && salesReportMetrics) {
       // Convert SubProducerSalesMetrics to SubProducerMetrics format
       const converted = convertToCompensationMetrics(salesReportMetrics);
+      console.log('[PayoutPreview] Converted metrics:', converted.map(m => ({
+        code: m.code,
+        creditInsuredsCount: m.creditInsureds?.length || 0,
+        creditTransactionsCount: m.creditTransactions?.length || 0,
+      })));
       return converted.map((m) => ({
         code: m.code,
+        displayName: m.displayName,
         itemsIssued: m.itemsIssued,
         policiesIssued: m.policiesIssued,
         premiumWritten: m.premiumWritten,
@@ -133,10 +139,15 @@ export function PayoutPreview({
         netPremium: m.netPremium,
         premiumChargebacks: m.premiumChargebacks,
         chargebackCount: m.chargebackCount,
-        creditTransactions: [],
-        chargebackTransactions: [],
-        creditInsureds: [],
-        chargebackInsureds: [],
+        commissionEarned: m.commissionEarned,
+        commissionChargebacks: m.commissionChargebacks,
+        netCommission: m.netCommission,
+        effectiveRate: m.effectiveRate,
+        // Pass through credit/chargeback detail data for PayoutDetailSheet
+        creditTransactions: m.creditTransactions,
+        chargebackTransactions: m.chargebackTransactions,
+        creditInsureds: m.creditInsureds,
+        chargebackInsureds: m.chargebackInsureds,
         byBundleType: m.byBundleType,
         byProduct: m.byProduct,
       })) as SubProducerMetrics[];

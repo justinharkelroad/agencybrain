@@ -550,15 +550,58 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
   }
 }
 
+// Types matching the Comp Analyzer structures for compatibility
+interface InsuredAggregate {
+  insuredName: string;
+  netPremium: number;
+  netCommission: number;
+  transactionCount: number;
+}
+
+interface SubProducerTransaction {
+  policyNumber: string;
+  insuredName: string;
+  product: string;
+  transType: string;
+  premium: number;
+  commission: number;
+  origPolicyEffDate: string;
+  isAuto: boolean;
+  bundleType: string;
+}
+
+interface BundleTypeBreakdown {
+  bundleType: string;
+  premiumWritten: number;
+  premiumChargebacks: number;
+  netPremium: number;
+  itemsIssued: number;
+  creditCount: number;
+  chargebackCount: number;
+}
+
+interface ProductBreakdown {
+  product: string;
+  premiumWritten: number;
+  premiumChargebacks: number;
+  netPremium: number;
+  itemsIssued: number;
+  creditCount: number;
+  chargebackCount: number;
+}
+
 /**
  * Convert SubProducerSalesMetrics to the format expected by the compensation calculator
  * This bridges the new sales report format with the existing compensation system
+ *
+ * Includes creditInsureds and creditTransactions for the detail sheet display
  */
 export function convertToCompensationMetrics(
   metrics: SubProducerSalesMetrics[]
 ): Array<{
   code: string;
   name: string | null;
+  displayName: string;
   itemsIssued: number;
   policiesIssued: number;
   premiumWritten: number;
@@ -566,36 +609,110 @@ export function convertToCompensationMetrics(
   netPremium: number;
   premiumChargebacks: number;
   chargebackCount: number;
-  byBundleType: Array<{
-    bundleType: string;
-    itemsIssued: number;
-    netPremium: number;
-  }>;
-  byProduct: Array<{
-    product: string;
-    itemsIssued: number;
-    netPremium: number;
-  }>;
+  commissionEarned: number;
+  commissionChargebacks: number;
+  netCommission: number;
+  effectiveRate: number;
+  // Credit/chargeback detail data for PayoutDetailSheet
+  creditInsureds: InsuredAggregate[];
+  chargebackInsureds: InsuredAggregate[];
+  creditTransactions: SubProducerTransaction[];
+  chargebackTransactions: SubProducerTransaction[];
+  // Breakdowns
+  byBundleType: BundleTypeBreakdown[];
+  byProduct: ProductBreakdown[];
 }> {
-  return metrics.map(m => ({
-    code: m.code,
-    name: m.name,
-    itemsIssued: m.totalItems,
-    policiesIssued: m.totalPolicies,
-    premiumWritten: m.totalPremium,
-    creditCount: m.totalPolicies, // Use policies as credit count
-    netPremium: m.totalPremium, // No chargebacks in new business report
-    premiumChargebacks: 0,
-    chargebackCount: 0,
-    byBundleType: m.byBundleType.map(b => ({
+  return metrics.map(m => {
+    // Aggregate transactions by customer name to create insured-level data
+    const insuredMap = new Map<string, {
+      netPremium: number;
+      netCommission: number;
+      transactionCount: number;
+    }>();
+
+    console.log(`[convertToCompensationMetrics] Processing sub-producer ${m.code} with ${m.transactions.length} transactions`);
+
+    for (const tx of m.transactions) {
+      const key = tx.customerName.toUpperCase().trim();
+      const existing = insuredMap.get(key) || { netPremium: 0, netCommission: 0, transactionCount: 0 };
+      existing.netPremium += tx.writtenPremium;
+      existing.netCommission += tx.writtenPremium * 0.15; // Approximate commission (15% default)
+      existing.transactionCount += 1;
+      insuredMap.set(key, existing);
+    }
+
+    // Convert to creditInsureds array (all new business is credits)
+    const creditInsureds: InsuredAggregate[] = Array.from(insuredMap.entries()).map(([name, data]) => ({
+      insuredName: name,
+      netPremium: data.netPremium,
+      netCommission: data.netCommission,
+      transactionCount: data.transactionCount,
+    }));
+
+    console.log(`[convertToCompensationMetrics] Sub-producer ${m.code}: ${creditInsureds.length} creditInsureds created`);
+
+    // Convert transactions to SubProducerTransaction format
+    const creditTransactions: SubProducerTransaction[] = m.transactions.map(tx => {
+      const normalizedProduct = normalizeProductType(tx.product);
+      const isAuto = normalizedProduct === 'Auto';
+      return {
+        policyNumber: tx.policyNumber,
+        insuredName: tx.customerName,
+        product: normalizedProduct,
+        transType: 'New Business',
+        premium: tx.writtenPremium,
+        commission: tx.writtenPremium * 0.15, // Approximate commission
+        origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'), // Convert to MM/DD/YYYY format
+        isAuto,
+        bundleType: tx.packageType || 'Monoline',
+      };
+    });
+
+    // Build bundle type breakdowns with full structure
+    const byBundleType: BundleTypeBreakdown[] = m.byBundleType.map(b => ({
       bundleType: b.bundleType,
-      itemsIssued: b.items,
+      premiumWritten: b.premium,
+      premiumChargebacks: 0,
       netPremium: b.premium,
-    })),
-    byProduct: m.byProduct.map(p => ({
+      itemsIssued: b.items,
+      creditCount: b.items,
+      chargebackCount: 0,
+    }));
+
+    // Build product breakdowns with full structure
+    const byProduct: ProductBreakdown[] = m.byProduct.map(p => ({
       product: p.product,
-      itemsIssued: p.items,
+      premiumWritten: p.premium,
+      premiumChargebacks: 0,
       netPremium: p.premium,
-    })),
-  }));
+      itemsIssued: p.items,
+      creditCount: p.policies,
+      chargebackCount: 0,
+    }));
+
+    return {
+      code: m.code,
+      name: m.name,
+      displayName: m.name || `Sub-Producer: ${m.code}`,
+      itemsIssued: m.totalItems,
+      policiesIssued: m.totalPolicies,
+      premiumWritten: m.totalPremium,
+      creditCount: creditInsureds.length, // Count of unique customers
+      netPremium: m.totalPremium, // No chargebacks in new business report
+      premiumChargebacks: 0,
+      chargebackCount: 0,
+      commissionEarned: m.totalPremium * 0.15, // Approximate commission
+      commissionChargebacks: 0,
+      netCommission: m.totalPremium * 0.15,
+      effectiveRate: 15, // Default rate
+      // Credit/chargeback detail data
+      creditInsureds,
+      chargebackInsureds: [], // No chargebacks in new business report
+      creditTransactions,
+      chargebackTransactions: [], // No chargebacks in new business report
+      // Breakdowns
+      byBundleType,
+      byProduct,
+    };
+  });
 }
