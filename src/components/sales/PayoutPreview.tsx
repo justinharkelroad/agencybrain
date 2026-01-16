@@ -126,6 +126,7 @@ export function PayoutPreview({
       const converted = convertToCompensationMetrics(salesReportMetrics);
       return converted.map((m) => ({
         code: m.code,
+        displayName: m.displayName,
         itemsIssued: m.itemsIssued,
         policiesIssued: m.policiesIssued,
         premiumWritten: m.premiumWritten,
@@ -133,10 +134,15 @@ export function PayoutPreview({
         netPremium: m.netPremium,
         premiumChargebacks: m.premiumChargebacks,
         chargebackCount: m.chargebackCount,
-        creditTransactions: [],
-        chargebackTransactions: [],
-        creditInsureds: [],
-        chargebackInsureds: [],
+        commissionEarned: m.commissionEarned,
+        commissionChargebacks: m.commissionChargebacks,
+        netCommission: m.netCommission,
+        effectiveRate: m.effectiveRate,
+        // Pass through credit/chargeback detail data for PayoutDetailSheet
+        creditTransactions: m.creditTransactions,
+        chargebackTransactions: m.chargebackTransactions,
+        creditInsureds: m.creditInsureds,
+        chargebackInsureds: m.chargebackInsureds,
         byBundleType: m.byBundleType,
         byProduct: m.byProduct,
       })) as SubProducerMetrics[];
