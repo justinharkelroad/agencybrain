@@ -70,7 +70,7 @@ function getMetricValue(data: CommissionData): number {
 
 function getMetricLabel(tierMetric: string): string {
   switch (tierMetric) {
-    case 'items': return 'items';
+    case 'items': return 'items written';
     case 'policies': return 'policies';
     case 'households': return 'households';
     case 'points': return 'points';
@@ -104,7 +104,7 @@ function formatMetricDisplay(value: number, tierMetric: string): string {
 
 function getProductionLabel(tierMetric: string): string {
   switch (tierMetric) {
-    case 'items': return 'Written Items';
+    case 'items': return 'Items Written';
     case 'policies': return 'Written Policies';
     case 'households': return 'Households';
     case 'points': return 'Points';

@@ -18,7 +18,7 @@ interface CompPlanCardProps {
 }
 
 const TIER_METRIC_LABELS: Record<string, string> = {
-  items: "Items",
+  items: "Items Written",
   policies: "Policies",
   premium: "Premium",
   points: "Points",

@@ -53,7 +53,7 @@ const BROKERED_PAYOUT_TYPES = [
 ];
 
 const TIER_METRICS = [
-  { value: "items", label: "Items Sold" },
+  { value: "items", label: "Items Written" },
   { value: "policies", label: "Policies Written" },
   { value: "premium", label: "Written Premium" },
   { value: "points", label: "Points Earned" },
