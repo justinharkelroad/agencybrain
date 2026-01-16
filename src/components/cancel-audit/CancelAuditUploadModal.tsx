@@ -3,12 +3,12 @@ import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
 import { parseCancelAuditExcel, type ParseResult } from '@/lib/cancel-audit-parser';
-import { useCancelAuditUpload } from '@/hooks/useCancelAuditUpload';
+import { useCancelAuditBackgroundUpload } from '@/hooks/useCancelAuditBackgroundUpload';
 import type { ReportType } from '@/types/cancel-audit';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface CancelAuditUploadModalProps {
   open: boolean;
@@ -18,16 +18,6 @@ interface CancelAuditUploadModalProps {
   staffMemberId: string | null;
   displayName: string;
   onUploadComplete: () => void;
-}
-
-type UploadState = 'idle' | 'parsing' | 'uploading' | 'success' | 'error';
-
-interface UploadSummary {
-  recordsProcessed: number;
-  recordsCreated: number;
-  recordsUpdated: number;
-  duplicatesSkipped: number;
-  errors: string[];
 }
 
 export function CancelAuditUploadModal({
@@ -41,11 +31,10 @@ export function CancelAuditUploadModal({
 }: CancelAuditUploadModalProps) {
   const [reportType, setReportType] = useState<ReportType | ''>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadState, setUploadState] = useState<UploadState>('idle');
-  const [summary, setSummary] = useState<UploadSummary | null>(null);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [parsedRecords, setParsedRecords] = useState<ParseResult | null>(null);
 
-  const { uploadRecords, isUploading, progress } = useCancelAuditUpload();
+  const { startBackgroundUpload } = useCancelAuditBackgroundUpload();
 
   // Listen for sidebar navigation to force close dialog
   useEffect(() => {
@@ -63,8 +52,8 @@ export function CancelAuditUploadModal({
       const file = acceptedFiles[0];
       if (file.name.endsWith('.xlsx')) {
         setSelectedFile(file);
-        setUploadState('idle');
         setParseErrors([]);
+        setParsedRecords(null);
       } else {
         setParseErrors(['Please select an Excel file (.xlsx format only)']);
       }
@@ -83,7 +72,6 @@ export function CancelAuditUploadModal({
   const handleUpload = async () => {
     if (!selectedFile || !reportType) return;
 
-    setUploadState('parsing');
     setParseErrors([]);
 
     try {
@@ -95,20 +83,16 @@ export function CancelAuditUploadModal({
 
       if (!parseResult.success) {
         setParseErrors(parseResult.errors);
-        setUploadState('error');
         return;
       }
 
       if (parseResult.records.length === 0) {
         setParseErrors(['No valid records found in the file']);
-        setUploadState('error');
         return;
       }
 
-      // Upload to database
-      setUploadState('uploading');
-      
-      const result = await uploadRecords(
+      // Start background upload and close modal immediately
+      await startBackgroundUpload(
         parseResult.records,
         reportType,
         selectedFile.name,
@@ -120,227 +104,121 @@ export function CancelAuditUploadModal({
         }
       );
 
-      if (result.success) {
-        setSummary({
-          recordsProcessed: result.recordsProcessed,
-          recordsCreated: result.recordsCreated,
-          recordsUpdated: result.recordsUpdated,
-          duplicatesSkipped: parseResult.duplicatesRemoved,
-          errors: [...parseResult.errors, ...result.errors],
-        });
-        setUploadState('success');
-      } else {
-        setParseErrors(result.errors);
-        setUploadState('error');
-      }
+      // Trigger refresh and close modal
+      onUploadComplete();
+      handleClose();
     } catch (err) {
       setParseErrors([err instanceof Error ? err.message : 'Failed to process file']);
-      setUploadState('error');
     }
   };
 
   const handleClose = () => {
-    if (uploadState === 'success') {
-      onUploadComplete();
-    }
     // Reset state
     setReportType('');
     setSelectedFile(null);
-    setUploadState('idle');
-    setSummary(null);
     setParseErrors([]);
+    setParsedRecords(null);
     onOpenChange(false);
   };
 
-  const handleViewRecords = () => {
-    onUploadComplete();
-    handleClose();
-  };
-
-  const canUpload = reportType && selectedFile && uploadState === 'idle';
+  const canUpload = reportType && selectedFile;
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
-        {uploadState === 'success' && summary ? (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-green-500">
-                <CheckCircle2 className="h-5 w-5" />
-                Upload Complete
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Upload and process cancel audit report files
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="rounded-lg border border-border bg-muted/50 p-4">
-                <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Upload Summary
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Records Processed:</span>
-                    <span className="font-medium text-foreground">{summary.recordsProcessed}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">New Records:</span>
-                    <span className="font-medium text-green-500">{summary.recordsCreated}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Updated Records:</span>
-                    <span className="font-medium text-blue-500">{summary.recordsUpdated}</span>
-                  </div>
-                  {summary.duplicatesSkipped > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Duplicates Skipped:</span>
-                      <span className="font-medium text-muted-foreground">{summary.duplicatesSkipped}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+        <DialogHeader>
+          <DialogTitle>Upload Cancel Audit Report</DialogTitle>
+          <DialogDescription className="sr-only">
+            Upload and process cancel audit report files
+          </DialogDescription>
+        </DialogHeader>
 
-              <p className="text-sm text-muted-foreground">
-                Your {reportType === 'cancellation' ? 'Cancellation Audit' : 'Pending Cancel'} report has been uploaded successfully.
-              </p>
+        <div className="space-y-4">
+          {/* Report Type Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Report Type <span className="text-destructive">*</span>
+            </label>
+            <Select
+              value={reportType}
+              onValueChange={(value) => setReportType(value as ReportType)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select report type..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cancellation">Cancellation Audit</SelectItem>
+                <SelectItem value="pending_cancel">Pending Cancel</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              {summary.errors.length > 0 && (
-                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3">
-                  <p className="text-sm font-medium text-yellow-500 mb-1">Warnings:</p>
-                  <ul className="text-xs text-yellow-500/80 list-disc list-inside">
-                    {summary.errors.slice(0, 5).map((error, idx) => (
+          {/* Dropzone */}
+          <div
+            {...getRootProps()}
+            className={cn(
+              'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
+              isDragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-muted-foreground/50'
+            )}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              {isDragActive
+                ? 'Drop the file here...'
+                : 'Drag and drop your .xlsx file here'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
+          </div>
+
+          {/* Selected File */}
+          {selectedFile && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+              <FileSpreadsheet className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-foreground flex-1 truncate">
+                {selectedFile.name}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedFile(null);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Errors */}
+          {parseErrors.length > 0 && (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Error</p>
+                  <ul className="text-xs text-destructive/80 mt-1 list-disc list-inside">
+                    {parseErrors.map((error, idx) => (
                       <li key={idx}>{error}</li>
                     ))}
-                    {summary.errors.length > 5 && (
-                      <li>...and {summary.errors.length - 5} more</li>
-                    )}
                   </ul>
                 </div>
-              )}
-
-              <div className="flex justify-end">
-                <Button onClick={handleViewRecords}>View Records</Button>
               </div>
             </div>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Upload Cancel Audit Report</DialogTitle>
-              <DialogDescription className="sr-only">
-                Upload and process cancel audit report files
-              </DialogDescription>
-            </DialogHeader>
+          )}
 
-            <div className="space-y-4">
-              {/* Report Type Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  Report Type <span className="text-destructive">*</span>
-                </label>
-                <Select
-                  value={reportType}
-                  onValueChange={(value) => setReportType(value as ReportType)}
-                  disabled={uploadState !== 'idle'}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select report type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cancellation">Cancellation Audit</SelectItem>
-                    <SelectItem value="pending_cancel">Pending Cancel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Dropzone */}
-              <div
-                {...getRootProps()}
-                className={cn(
-                  'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-                  isDragActive
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-muted-foreground/50',
-                  uploadState !== 'idle' && 'pointer-events-none opacity-50'
-                )}
-              >
-                <input {...getInputProps()} />
-                <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  {isDragActive
-                    ? 'Drop the file here...'
-                    : 'Drag and drop your .xlsx file here'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
-              </div>
-
-              {/* Selected File */}
-              {selectedFile && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                  <FileSpreadsheet className="h-4 w-4 text-green-500" />
-                  <span className="text-sm text-foreground flex-1 truncate">
-                    {selectedFile.name}
-                  </span>
-                  {uploadState === 'idle' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFile(null);
-                      }}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Progress */}
-              {(uploadState === 'parsing' || uploadState === 'uploading') && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {uploadState === 'parsing' ? 'Parsing file...' : 'Uploading records...'}
-                    </span>
-                    {uploadState === 'uploading' && (
-                      <span className="text-muted-foreground">{progress}%</span>
-                    )}
-                  </div>
-                  <Progress value={uploadState === 'parsing' ? 50 : progress} />
-                </div>
-              )}
-
-              {/* Errors */}
-              {parseErrors.length > 0 && (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-destructive">Upload Failed</p>
-                      <ul className="text-xs text-destructive/80 mt-1 list-disc list-inside">
-                        {parseErrors.map((error, idx) => (
-                          <li key={idx}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={handleClose} disabled={isUploading}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpload} disabled={!canUpload || isUploading}>
-                  {isUploading ? 'Uploading...' : 'Upload'}
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={!canUpload}>
+              Upload
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
