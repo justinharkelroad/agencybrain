@@ -84,8 +84,25 @@ Deno.serve(async (req) => {
     // 7-day expiry
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // 5. Generate username from team member name
-    const username = teamMember.name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+    // 5. Generate unique username - prioritize email (more unique), fallback to name
+    let baseUsername = teamMember.email 
+      ? teamMember.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '.')
+      : teamMember.name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+    
+    // Clean up multiple dots
+    baseUsername = baseUsername.replace(/\.+/g, '.').replace(/^\.|\.$/, '');
+    
+    // Check if username exists (including inactive - database constraint is global)
+    const { data: existingUsername } = await supabase
+      .from('staff_users')
+      .select('id')
+      .eq('username', baseUsername)
+      .maybeSingle();
+    
+    // Add random suffix if collision
+    const username = existingUsername 
+      ? `${baseUsername}.${crypto.randomUUID().substring(0, 4)}`
+      : baseUsername;
 
     let staffUserId: string;
 

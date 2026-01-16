@@ -143,17 +143,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if username already exists among ACTIVE users
+    // Check if username already exists (active OR inactive - database constraint is global)
     const { data: existingUser } = await supabase
       .from('staff_users')
-      .select('id')
+      .select('id, is_active')
       .eq('username', username)
-      .eq('is_active', true)  // Only check active users - deactivated usernames can be reused
       .maybeSingle();
 
     if (existingUser) {
+      const message = existingUser.is_active 
+        ? 'Username already exists' 
+        : 'Username is reserved by a deactivated account. Please choose a different username.';
       return new Response(
-        JSON.stringify({ error: 'Username already exists' }),
+        JSON.stringify({ error: 'username_conflict', message }),
         { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
