@@ -5,7 +5,7 @@ import { RING_COLORS, RING_LABELS } from "./colors";
 import { Check, X } from "lucide-react";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
-import { getMetricValue } from "@/lib/kpiKeyMapping";
+import { getMetricValue, normalizeMetricKey } from "@/lib/kpiKeyMapping";
 import { getTeamRingsData } from "@/lib/scorecardsApi";
 import { hasStaffToken } from "@/lib/staffRequest";
 import { supabase } from '@/integrations/supabase/client';
@@ -224,14 +224,22 @@ export default function TeamPerformanceRings({
         const rawMetrics = rules?.ring_metrics || (role === 'Sales' 
           ? ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
-        // Defensive dedupe: preserve order, keep first occurrence
+        
+        // Normalize all metric keys to standard format AND dedupe
+        // This ensures legacy keys like 'policies_quoted' become 'quoted_households'
         const seen = new Set<string>();
-        const dedupedMetrics = rawMetrics.filter((m: string) => {
-          if (seen.has(m)) return false;
-          seen.add(m);
-          return true;
-        });
-        setRingMetrics(dedupedMetrics);
+        const normalizedMetrics = rawMetrics
+          .map((m: string) => normalizeMetricKey(m))
+          .filter((m: string) => {
+            if (seen.has(m)) return false;
+            seen.add(m);
+            return true;
+          });
+        
+        console.log('[TeamPerformanceRings] Raw ring_metrics:', rawMetrics);
+        console.log('[TeamPerformanceRings] Normalized metrics:', normalizedMetrics);
+        
+        setRingMetrics(normalizedMetrics);
         setNRequired(rules?.n_required || 2);
 
         // Role-based default targets and metrics
@@ -244,7 +252,7 @@ export default function TeamPerformanceRings({
 
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
-          const memberMetrics: RingMetric[] = dedupedMetrics.map((metricKey: string) => {
+          const memberMetrics: RingMetric[] = normalizedMetrics.map((metricKey: string) => {
             // Use getMetricValue for graceful fallback between UI keys and column names
             const actual = getMetricValue(member, metricKey);
             
