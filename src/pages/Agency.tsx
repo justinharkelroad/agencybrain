@@ -550,6 +550,11 @@ export default function Agency() {
           return;
         }
         
+        if (errorData.error === 'username_conflict') {
+          toast.error(errorData.message || "This username is already taken. Please choose a different one.", { duration: 6000 });
+          return;
+        }
+        
         throw new Error(errorData.message || error.message || 'Failed to create staff user');
       }
       
