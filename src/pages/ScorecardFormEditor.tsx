@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Save, AlertTriangle } from "lucide-react";
 import KPIFieldManager from "@/components/FormBuilder/KPIFieldManager";
 import CustomFieldManager from "@/components/FormBuilder/CustomFieldManager";
 import AdvancedSettings from "@/components/FormBuilder/AdvancedSettings";
@@ -141,6 +142,7 @@ export default function ScorecardFormEditor() {
   const [saving, setSaving] = useState(false);
   const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
   const [agencyId, setAgencyId] = useState<string>("");
+  const [needsAttention, setNeedsAttention] = useState(false);
   const [showKpiUpdateDialog, setShowKpiUpdateDialog] = useState(false);
   const [dialogDismissed, setDialogDismissed] = useState(false);
   const [kpisHealed, setKpisHealed] = useState(false);
@@ -270,6 +272,7 @@ export default function ScorecardFormEditor() {
         if (data?.error) throw new Error(data.error);
         
         setFormSchema(data.schema_json as unknown as FormSchema);
+        setNeedsAttention(data.needs_attention || false);
       } else {
         // Owner mode: direct Supabase queries
         const { data: profile } = await supabase
@@ -291,6 +294,7 @@ export default function ScorecardFormEditor() {
         if (error) throw error;
 
         setFormSchema(template.schema_json as unknown as FormSchema);
+        setNeedsAttention(template.needs_attention || false);
       }
     } catch (error: any) {
       console.error('Error loading form:', error);
@@ -314,16 +318,24 @@ export default function ScorecardFormEditor() {
 
     setSaving(true);
     try {
+      // If form had needs_attention, clear it on save (manager is fixing it)
+      const updatePayload: any = {
+        name: formSchema.title,
+        slug: formSchema.title.toLowerCase().replace(/\s+/g, '-'),
+        role: formSchema.role,
+        schema_json: formSchema as any,
+        settings_json: formSchema.settings as any,
+        field_mappings: formSchema.fieldMappings as any,
+      };
+      
+      // Clear needs_attention flag when saving (admin is fixing the issue)
+      if (needsAttention) {
+        updatePayload.needs_attention = false;
+      }
+
       const { error } = await supabase
         .from('form_templates')
-        .update({
-          name: formSchema.title,
-          slug: formSchema.title.toLowerCase().replace(/\s+/g, '-'),
-          role: formSchema.role,
-          schema_json: formSchema as any,
-          settings_json: formSchema.settings as any,
-          field_mappings: formSchema.fieldMappings as any,
-        })
+        .update(updatePayload)
         .eq('id', formId);
 
       if (error) throw error;
@@ -339,8 +351,9 @@ export default function ScorecardFormEditor() {
         toast.error("Form updated but KPI bindings failed: " + bindError.message);
       }
 
-      // Clear healed flag after successful save
+      // Clear healed flag and needs_attention after successful save
       setKpisHealed(false);
+      setNeedsAttention(false);
 
       if (isAutoSave) {
         toast.success("KPI updates saved automatically");
@@ -489,6 +502,19 @@ export default function ScorecardFormEditor() {
             </p>
           </div>
         </div>
+
+        {/* LAYER 5: Show "Needs Attention" Banner when form is broken */}
+        {needsAttention && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>This Form is Broken - Team Members Cannot Submit</AlertTitle>
+            <AlertDescription>
+              One or more KPIs used in this form have been deleted or deactivated. 
+              Review each KPI field below - any showing warnings need to be updated or removed.
+              <strong className="block mt-2">Save the form after fixing to re-enable submissions.</strong>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Form Configuration */}

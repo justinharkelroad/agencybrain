@@ -30,6 +30,9 @@ export default function KPIManagementDialog({
   const [editingKpi, setEditingKpi] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState("");
   const [deleteKpiId, setDeleteKpiId] = useState<string | null>(null);
+  const [deleteKpiSlug, setDeleteKpiSlug] = useState<string | null>(null);
+  const [affectedForms, setAffectedForms] = useState<string[]>([]);
+  const [checkingImpact, setCheckingImpact] = useState(false);
   const [formUpdateDialog, setFormUpdateDialog] = useState<{
     formId: string;
     formName: string;
@@ -38,6 +41,28 @@ export default function KPIManagementDialog({
   
   const { data: kpiData, refetch } = useAgencyKpis(""); // All KPIs for management - no role filter needed
   const { data: outdatedForms } = useOutdatedFormKpis(""); // TODO: Get agency ID properly
+
+  // LAYER 3: Check affected forms before showing delete dialog
+  const handleDeleteClick = async (kpiId: string, kpiSlug: string) => {
+    setCheckingImpact(true);
+    try {
+      // Query for forms that use this KPI
+      const { data: forms } = await supabase
+        .from('form_templates')
+        .select('name')
+        .eq('is_active', true)
+        .ilike('schema_json::text', `%"${kpiSlug}"%`);
+      
+      setAffectedForms(forms?.map(f => f.name) || []);
+      setDeleteKpiId(kpiId);
+      setDeleteKpiSlug(kpiSlug);
+    } catch (error) {
+      console.error('Error checking form impact:', error);
+      toast.error('Failed to check KPI usage');
+    } finally {
+      setCheckingImpact(false);
+    }
+  };
 
   const handleRename = async (kpiId: string, newLabel: string) => {
     // TODO: Implement KPI renaming functionality
@@ -135,7 +160,8 @@ export default function KPIManagementDialog({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setDeleteKpiId(kpi.kpi_id)}
+                        onClick={() => handleDeleteClick(kpi.kpi_id, kpi.slug)}
+                        disabled={checkingImpact}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -148,12 +174,41 @@ export default function KPIManagementDialog({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteKpiId} onOpenChange={() => setDeleteKpiId(null)}>
+      <AlertDialog open={!!deleteKpiId} onOpenChange={() => { setDeleteKpiId(null); setAffectedForms([]); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete KPI</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this KPI? This will remove it from future forms but preserve historical data.
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Delete KPI
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {affectedForms.length > 0 ? (
+                  <>
+                    <div className="bg-destructive/10 border border-destructive rounded-md p-3">
+                      <p className="font-semibold text-destructive">
+                        STOP - This KPI is actively being used
+                      </p>
+                    </div>
+                    <p>This KPI is currently used in these forms:</p>
+                    <ul className="list-disc ml-6 font-medium">
+                      {affectedForms.map(name => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                    <p className="text-destructive font-medium">
+                      If you delete this KPI, team members will NOT be able to submit these forms until you fix them.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      To safely delete: First edit the forms above to remove or replace this KPI, then come back and delete it.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    This will archive the KPI. Historical data will be preserved. No active forms use this KPI.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -161,8 +216,9 @@ export default function KPIManagementDialog({
             <AlertDialogAction 
               onClick={() => deleteKpiId && handleDelete(deleteKpiId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={affectedForms.length > 0}
             >
-              Delete KPI
+              {affectedForms.length > 0 ? "Cannot Delete - Forms Using This KPI" : "Delete KPI"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

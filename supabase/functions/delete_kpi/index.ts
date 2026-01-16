@@ -61,6 +61,33 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // LAYER 1: Block deletion if KPI is used in any active forms
+    // Check schema_json for selectedKpiSlug or key references
+    const { data: affectedForms, error: formsError } = await supabase
+      .from('form_templates')
+      .select('id, name')
+      .eq('agency_id', agency_id)
+      .eq('is_active', true)
+      .or(`schema_json::text.ilike.%"selectedKpiSlug":"${kpi_key}"%,schema_json::text.ilike.%"${kpi_key}"%`);
+
+    if (formsError) {
+      console.error('Error checking affected forms:', formsError);
+      // Continue anyway - don't block on query error, let transaction handle it
+    }
+
+    if (affectedForms && affectedForms.length > 0) {
+      const formNames = affectedForms.map(f => f.name).join(', ');
+      console.log(`Blocking KPI deletion - used in active forms: ${formNames}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Cannot delete "${kpi_key}" because it is currently used in these active forms: ${formNames}. To delete this KPI, first remove it from those forms or deactivate the forms, then try again.`,
+          affected_forms: affectedForms.map(f => ({ id: f.id, name: f.name })),
+          blocked: true
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Call the database function with actual user ID for audit trail
     const { data, error } = await supabase.rpc('delete_kpi_transaction', {
       p_agency_id: agency_id,
