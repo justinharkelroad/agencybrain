@@ -1627,6 +1627,7 @@ export type Database = {
           brokered_counts_toward_tier: boolean | null
           brokered_flat_rate: number | null
           brokered_payout_type: string | null
+          bundle_configs: Json | null
           chargeback_rule: string
           created_at: string | null
           description: string | null
@@ -1635,6 +1636,7 @@ export type Database = {
           name: string
           payout_type: string
           policy_type_filter: string[] | null
+          product_rates: Json | null
           tier_metric: string
           updated_at: string | null
         }
@@ -1643,6 +1645,7 @@ export type Database = {
           brokered_counts_toward_tier?: boolean | null
           brokered_flat_rate?: number | null
           brokered_payout_type?: string | null
+          bundle_configs?: Json | null
           chargeback_rule?: string
           created_at?: string | null
           description?: string | null
@@ -1651,6 +1654,7 @@ export type Database = {
           name: string
           payout_type?: string
           policy_type_filter?: string[] | null
+          product_rates?: Json | null
           tier_metric?: string
           updated_at?: string | null
         }
@@ -1659,6 +1663,7 @@ export type Database = {
           brokered_counts_toward_tier?: boolean | null
           brokered_flat_rate?: number | null
           brokered_payout_type?: string | null
+          bundle_configs?: Json | null
           chargeback_rule?: string
           created_at?: string | null
           description?: string | null
@@ -1667,6 +1672,7 @@ export type Database = {
           name?: string
           payout_type?: string
           policy_type_filter?: string[] | null
+          product_rates?: Json | null
           tier_metric?: string
           updated_at?: string | null
         }
