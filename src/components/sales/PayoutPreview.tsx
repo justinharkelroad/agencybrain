@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
+import { useChargebackData, getChargebacksForProducer } from "@/hooks/useChargebackData";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
@@ -80,8 +81,8 @@ export function PayoutPreview({
     onStatementReportSelect?.(report);
   }, [onStatementReportSelect]);
 
-  const { 
-    calculatePayouts, 
+  const {
+    calculatePayouts,
     savePayouts,
     savePayoutsAsync,
     isSaving,
@@ -91,6 +92,13 @@ export function PayoutPreview({
     plans,
     assignments
   } = usePayoutCalculator(agencyId);
+
+  // Fetch chargebacks from cancel_audit_records for the selected period
+  const { data: chargebackData, isLoading: isLoadingChargebacks } = useChargebackData(
+    agencyId,
+    selectedMonth,
+    selectedYear
+  );
 
   // Generate year options
   const yearOptions = useMemo(() => {
@@ -120,6 +128,7 @@ export function PayoutPreview({
   );
 
   // Convert sales report metrics to the format expected by the calculator
+  // Also merges chargeback data from cancel_audit_records
   const getProducersForCalculation = useCallback((): SubProducerMetrics[] | null => {
     if (dataSource === "sales_report" && salesReportMetrics) {
       // Convert SubProducerSalesMetrics to SubProducerMetrics format
@@ -129,33 +138,68 @@ export function PayoutPreview({
         creditInsuredsCount: m.creditInsureds?.length || 0,
         creditTransactionsCount: m.creditTransactions?.length || 0,
       })));
-      return converted.map((m) => ({
-        code: m.code,
-        displayName: m.displayName,
-        itemsIssued: m.itemsIssued,
-        policiesIssued: m.policiesIssued,
-        premiumWritten: m.premiumWritten,
-        creditCount: m.creditCount,
-        netPremium: m.netPremium,
-        premiumChargebacks: m.premiumChargebacks,
-        chargebackCount: m.chargebackCount,
-        commissionEarned: m.commissionEarned,
-        commissionChargebacks: m.commissionChargebacks,
-        netCommission: m.netCommission,
-        effectiveRate: m.effectiveRate,
-        // Pass through credit/chargeback detail data for PayoutDetailSheet
-        creditTransactions: m.creditTransactions,
-        chargebackTransactions: m.chargebackTransactions,
-        creditInsureds: m.creditInsureds,
-        chargebackInsureds: m.chargebackInsureds,
-        byBundleType: m.byBundleType,
-        byProduct: m.byProduct,
-      })) as SubProducerMetrics[];
+
+      // Merge chargeback data from cancel_audit_records
+      return converted.map((m) => {
+        // Look up chargebacks for this sub-producer
+        const producerChargebacks = getChargebacksForProducer(chargebackData, m.code);
+
+        // Build chargeback transactions for detail view
+        const chargebackTransactions = producerChargebacks?.chargebacks.map(cb => ({
+          policyNumber: cb.policyNumber,
+          insuredName: cb.insuredName,
+          product: cb.productName || 'Unknown',
+          transType: 'Cancellation',
+          premium: -cb.premiumCents / 100, // Negative premium for chargebacks
+          commission: -(cb.premiumCents / 100) * 0.15,
+          origPolicyEffDate: cb.saleDate || cb.cancelDate,
+          isAuto: (cb.productName || '').toLowerCase().includes('auto'),
+          bundleType: 'Unknown',
+        })) || [];
+
+        // Build chargeback insureds for detail view
+        const chargebackInsureds = producerChargebacks?.chargebacks.map(cb => ({
+          insuredName: cb.insuredName,
+          netPremium: -cb.premiumCents / 100,
+          netCommission: -(cb.premiumCents / 100) * 0.15,
+          transactionCount: 1,
+        })) || [];
+
+        const chargebackPremium = producerChargebacks?.totalPremium || 0;
+        const chargebackCount = producerChargebacks?.chargebacks.length || 0;
+
+        if (chargebackCount > 0) {
+          console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks ($${chargebackPremium.toFixed(2)})`);
+        }
+
+        return {
+          code: m.code,
+          displayName: m.displayName,
+          itemsIssued: m.itemsIssued,
+          policiesIssued: m.policiesIssued,
+          premiumWritten: m.premiumWritten,
+          creditCount: m.creditCount,
+          netPremium: m.netPremium - chargebackPremium, // Subtract chargebacks from net
+          premiumChargebacks: chargebackPremium,
+          chargebackCount: chargebackCount,
+          commissionEarned: m.commissionEarned,
+          commissionChargebacks: chargebackPremium * 0.15, // Approximate commission on chargebacks
+          netCommission: m.netCommission - (chargebackPremium * 0.15),
+          effectiveRate: m.effectiveRate,
+          // Pass through credit/chargeback detail data for PayoutDetailSheet
+          creditTransactions: m.creditTransactions,
+          chargebackTransactions,
+          creditInsureds: m.creditInsureds,
+          chargebackInsureds,
+          byBundleType: m.byBundleType,
+          byProduct: m.byProduct,
+        };
+      }) as SubProducerMetrics[];
     } else if (dataSource === "commission_statement" && subProducerData?.producers) {
       return subProducerData.producers;
     }
     return null;
-  }, [dataSource, salesReportMetrics, subProducerData]);
+  }, [dataSource, salesReportMetrics, subProducerData, chargebackData]);
 
   const handleCalculate = async () => {
     const producers = getProducersForCalculation();
