@@ -262,18 +262,66 @@ Deno.serve(async (req) => {
     const effectiveWorkDate = sRow.work_date ?? sRow.submission_date;
 
     // Clear any existing finals for same TM + date
-    await supabase
+    const { error: clearError } = await supabase
       .from('submissions')
       .update({ final: false })
       .eq('team_member_id', sRow.team_member_id)
       .or(`work_date.eq.${effectiveWorkDate},and(work_date.is.null,submission_date.eq.${effectiveWorkDate})`)
       .eq('final', true);
 
+    if (clearError) {
+      logStructured('warn', 'clear_finals_failed', {
+        request_id: requestId,
+        submission_id: sid,
+        error: clearError.message
+      });
+      // Continue anyway - this isn't fatal, but log it
+    }
+
     // Finalize this submission
-    await supabase
+    const { error: finalizeError } = await supabase
       .from('submissions')
       .update({ final: true })
       .eq('id', sid);
+
+    if (finalizeError) {
+      logStructured('error', 'finalization_failed', {
+        request_id: requestId,
+        submission_id: sid,
+        error: finalizeError.message
+      });
+      return json(500, { 
+        error: 'Failed to finalize submission',
+        submission_id: sid,
+        detail: finalizeError.message 
+      });
+    }
+
+    // VERIFICATION: Re-fetch to confirm final=true (belt and suspenders)
+    const { data: verified, error: verifyError } = await supabase
+      .from('submissions')
+      .select('final')
+      .eq('id', sid)
+      .single();
+
+    if (verifyError || !verified || verified.final !== true) {
+      logStructured('error', 'finalization_verification_failed', {
+        request_id: requestId,
+        submission_id: sid,
+        actual_final: verified?.final,
+        verify_error: verifyError?.message
+      });
+      return json(500, { 
+        error: 'Submission created but finalization could not be verified. Please try again.',
+        submission_id: sid
+      });
+    }
+
+    logStructured('info', 'finalization_verified', {
+      request_id: requestId,
+      submission_id: sid,
+      final: verified.final
+    });
 
     // Background: Flatten quoted_household_details
     if (Array.isArray(v.quoted_details) && v.quoted_details.length > 0) {

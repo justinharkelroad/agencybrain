@@ -91,6 +91,10 @@ export function SalesReportUpload({ agencyId, teamMembers, onDataParsed }: Sales
             totalPolicies: 0,
             subProducerCount: 0,
             endorsementsSkipped: 0,
+            chargebackRecords: 0,
+            chargebackItems: 0,
+            chargebackPremium: 0,
+            netPremium: 0,
           },
         });
       } finally {
