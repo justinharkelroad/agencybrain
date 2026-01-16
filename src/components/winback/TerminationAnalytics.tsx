@@ -46,6 +46,8 @@ import {
   calculatePointsLost,
   formatCurrency,
   formatCompactNumber,
+  getActiveTypesWithStats,
+  getPolicyTypeLabel,
   type TerminationStats,
 } from '@/lib/terminationPointsCalculator';
 import { cn } from '@/lib/utils';
@@ -282,13 +284,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     return Array.from(producerMap.values()).sort((a, b) => b.itemsLost - a.itemsLost);
   }, [policies, teamMembers]);
 
-  // Policy type breakdown
+  // Policy type breakdown - using granular types
   const policyTypeData = useMemo(() => {
     const typeMap = new Map<string, { name: string; value: number; items: number; premium: number }>();
 
     for (const policy of policies) {
       const type = detectPolicyType(policy.product_name, policy.line_code);
-      const label = type === 'auto' ? 'Auto' : type === 'home' ? 'Home' : type === 'spl' ? 'SPL' : 'Other';
+      const label = getPolicyTypeLabel(type);
       const existing = typeMap.get(label) || { name: label, value: 0, items: 0, premium: 0 };
       existing.value += 1;
       existing.items += policy.items_count || 1;
@@ -296,7 +298,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       typeMap.set(label, existing);
     }
 
-    return Array.from(typeMap.values());
+    return Array.from(typeMap.values()).sort((a, b) => b.items - a.items);
   }, [policies]);
 
   // Reason breakdown (top 10)
@@ -376,9 +378,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-red-500">
-              Auto: -{stats.autoPointsLost} | Home: -{stats.homePointsLost} | SPL: -{stats.splPointsLost}
-            </p>
+            <div className="text-xs text-red-500 space-y-0.5">
+              {getActiveTypesWithStats(stats).slice(0, 4).map(({ label, stats: typeStats }) => (
+                <span key={label} className="inline-block mr-2">
+                  {label}: -{typeStats.pointsLost}
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -393,9 +399,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-amber-500">
-              Auto: -{stats.autoItemsLost} | Home: -{stats.homeItemsLost} | SPL: -{stats.splItemsLost}
-            </p>
+            <div className="text-xs text-amber-500 space-y-0.5">
+              {getActiveTypesWithStats(stats).slice(0, 4).map(({ label, stats: typeStats }) => (
+                <span key={label} className="inline-block mr-2">
+                  {label}: -{typeStats.itemsLost}
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

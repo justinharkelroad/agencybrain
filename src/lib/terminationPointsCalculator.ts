@@ -1,11 +1,21 @@
 // Termination Points Calculator
 // Calculates points lost based on policy type and item count
-// Uses PPI values: Auto=10, Home=20, SPL=5
+// Uses exact Allstate PPI values
 
-// Point values per item type
-const AUTO_POINTS_PER_ITEM = 10;
-const HOME_POINTS_PER_ITEM = 20;
-const DEFAULT_SPL_POINTS_PER_ITEM = 5;
+// Point values per policy type
+const POINTS_BY_TYPE: Record<PolicyType, number> = {
+  auto: 10,
+  homeowners: 20,
+  condo: 20,
+  landlords: 20,
+  dwelling_fire: 20,
+  manufactured_home: 20,
+  renters: 5,
+  umbrella: 5,
+  boat: 5,
+  motorcycle: 10,
+  unknown: 10, // Default to auto
+};
 
 // Allstate line codes for policy type detection
 const LINE_CODES = {
@@ -16,48 +26,79 @@ const LINE_CODES = {
   CONDO: ['074'],
   DWELLING_FIRE: ['075'],
   UMBRELLA: ['090'],
+  BOAT: ['080'],
+  MOTORCYCLE: ['020', '021'],
+  MANUFACTURED_HOME: ['071', '076'],
 } as const;
 
-export type PolicyType = 'auto' | 'home' | 'spl' | 'unknown';
+// All granular policy types
+export type PolicyType = 
+  | 'auto' 
+  | 'homeowners' 
+  | 'condo' 
+  | 'landlords' 
+  | 'dwelling_fire'
+  | 'manufactured_home'
+  | 'renters' 
+  | 'umbrella' 
+  | 'boat'
+  | 'motorcycle'
+  | 'unknown';
+
+// Display order for UI
+export const POLICY_TYPE_ORDER: PolicyType[] = [
+  'auto',
+  'homeowners',
+  'condo',
+  'landlords',
+  'dwelling_fire',
+  'manufactured_home',
+  'renters',
+  'umbrella',
+  'boat',
+  'motorcycle',
+  'unknown',
+];
 
 /**
- * Detect policy type from product name or line code
+ * Detect specific policy type from product name or line code
  */
 export function detectPolicyType(
   productName: string | null,
   lineCode: string | null
 ): PolicyType {
-  // First try line code
+  // First try line code for accuracy
   if (lineCode) {
     const code = lineCode.trim();
     if (LINE_CODES.AUTO.includes(code as any)) return 'auto';
-    if (LINE_CODES.HOMEOWNERS.includes(code as any)) return 'home';
-    if (LINE_CODES.LANDLORDS.includes(code as any)) return 'home';
-    if (LINE_CODES.RENTERS.includes(code as any)) return 'spl';
-    if (LINE_CODES.CONDO.includes(code as any)) return 'home';
-    if (LINE_CODES.DWELLING_FIRE.includes(code as any)) return 'home';
-    if (LINE_CODES.UMBRELLA.includes(code as any)) return 'spl';
+    if (LINE_CODES.HOMEOWNERS.includes(code as any)) return 'homeowners';
+    if (LINE_CODES.LANDLORDS.includes(code as any)) return 'landlords';
+    if (LINE_CODES.RENTERS.includes(code as any)) return 'renters';
+    if (LINE_CODES.CONDO.includes(code as any)) return 'condo';
+    if (LINE_CODES.DWELLING_FIRE.includes(code as any)) return 'dwelling_fire';
+    if (LINE_CODES.UMBRELLA.includes(code as any)) return 'umbrella';
+    if (LINE_CODES.BOAT.includes(code as any)) return 'boat';
+    if (LINE_CODES.MOTORCYCLE.includes(code as any)) return 'motorcycle';
+    if (LINE_CODES.MANUFACTURED_HOME.includes(code as any)) return 'manufactured_home';
   }
 
   // Fall back to product name
   if (productName) {
     const lowerName = productName.toLowerCase();
 
-    // Auto detection
-    if (lowerName.includes('auto')) return 'auto';
-    if (lowerName.includes('vehicle')) return 'auto';
-    if (lowerName.includes('car')) return 'auto';
-
-    // Home detection
-    if (lowerName.includes('homeowner')) return 'home';
-    if (lowerName.includes('landlord')) return 'home';
-    if (lowerName.includes('condo')) return 'home';
-    if (lowerName.includes('dwelling')) return 'home';
-
-    // SPL detection
-    if (lowerName.includes('renter')) return 'spl';
-    if (lowerName.includes('umbrella')) return 'spl';
-    if (lowerName.includes('personal liability')) return 'spl';
+    // Specific types first (more specific matches)
+    if (lowerName.includes('renter')) return 'renters';
+    if (lowerName.includes('umbrella')) return 'umbrella';
+    if (lowerName.includes('boat') || lowerName.includes('watercraft')) return 'boat';
+    if (lowerName.includes('motorcycle') || lowerName.includes('cycle')) return 'motorcycle';
+    if (lowerName.includes('condo')) return 'condo';
+    if (lowerName.includes('landlord')) return 'landlords';
+    if (lowerName.includes('manufactured') || lowerName.includes('mobile home')) return 'manufactured_home';
+    if (lowerName.includes('dwelling') || lowerName.includes('fire')) return 'dwelling_fire';
+    
+    // General types
+    if (lowerName.includes('homeowner') || lowerName.includes('home owner')) return 'homeowners';
+    if (lowerName.includes('auto') || lowerName.includes('vehicle') || lowerName.includes('car')) return 'auto';
   }
 
   return 'unknown';
@@ -67,17 +108,7 @@ export function detectPolicyType(
  * Get points per item for a given policy type
  */
 export function getPointsPerItem(policyType: PolicyType): number {
-  switch (policyType) {
-    case 'auto':
-      return AUTO_POINTS_PER_ITEM;
-    case 'home':
-      return HOME_POINTS_PER_ITEM;
-    case 'spl':
-      return DEFAULT_SPL_POINTS_PER_ITEM;
-    case 'unknown':
-      // Default to auto points for unknown types
-      return AUTO_POINTS_PER_ITEM;
-  }
+  return POINTS_BY_TYPE[policyType];
 }
 
 /**
@@ -94,6 +125,16 @@ export function calculatePointsLost(
 }
 
 /**
+ * Stats for a single policy type
+ */
+export interface PolicyTypeStats {
+  pointsLost: number;
+  itemsLost: number;
+  policiesLost: number;
+  premiumLostCents: number;
+}
+
+/**
  * Calculate aggregate termination stats
  */
 export interface TerminationStats {
@@ -101,12 +142,7 @@ export interface TerminationStats {
   totalItemsLost: number;
   totalPoliciesLost: number;
   totalPremiumLostCents: number;
-  autoPointsLost: number;
-  homePointsLost: number;
-  splPointsLost: number;
-  autoItemsLost: number;
-  homeItemsLost: number;
-  splItemsLost: number;
+  byType: Record<PolicyType, PolicyTypeStats>;
 }
 
 export interface TerminationPolicy {
@@ -115,6 +151,18 @@ export interface TerminationPolicy {
   items_count: number | null;
   premium_new_cents: number | null;
   is_cancel_rewrite: boolean | null;
+}
+
+/**
+ * Create empty stats for a policy type
+ */
+function createEmptyTypeStats(): PolicyTypeStats {
+  return {
+    pointsLost: 0,
+    itemsLost: 0,
+    policiesLost: 0,
+    premiumLostCents: 0,
+  };
 }
 
 /**
@@ -128,12 +176,19 @@ export function calculateTerminationStats(
     totalItemsLost: 0,
     totalPoliciesLost: 0,
     totalPremiumLostCents: 0,
-    autoPointsLost: 0,
-    homePointsLost: 0,
-    splPointsLost: 0,
-    autoItemsLost: 0,
-    homeItemsLost: 0,
-    splItemsLost: 0,
+    byType: {
+      auto: createEmptyTypeStats(),
+      homeowners: createEmptyTypeStats(),
+      condo: createEmptyTypeStats(),
+      landlords: createEmptyTypeStats(),
+      dwelling_fire: createEmptyTypeStats(),
+      manufactured_home: createEmptyTypeStats(),
+      renters: createEmptyTypeStats(),
+      umbrella: createEmptyTypeStats(),
+      boat: createEmptyTypeStats(),
+      motorcycle: createEmptyTypeStats(),
+      unknown: createEmptyTypeStats(),
+    },
   };
 
   for (const policy of policies) {
@@ -144,26 +199,19 @@ export function calculateTerminationStats(
       policy.line_code,
       itemsCount
     );
+    const premiumLost = policy.premium_new_cents ?? 0;
 
+    // Update totals
     stats.totalPointsLost += pointsLost;
     stats.totalItemsLost += itemsCount;
     stats.totalPoliciesLost += 1;
-    stats.totalPremiumLostCents += policy.premium_new_cents ?? 0;
+    stats.totalPremiumLostCents += premiumLost;
 
-    switch (policyType) {
-      case 'auto':
-        stats.autoPointsLost += pointsLost;
-        stats.autoItemsLost += itemsCount;
-        break;
-      case 'home':
-        stats.homePointsLost += pointsLost;
-        stats.homeItemsLost += itemsCount;
-        break;
-      case 'spl':
-        stats.splPointsLost += pointsLost;
-        stats.splItemsLost += itemsCount;
-        break;
-    }
+    // Update by-type breakdown
+    stats.byType[policyType].pointsLost += pointsLost;
+    stats.byType[policyType].itemsLost += itemsCount;
+    stats.byType[policyType].policiesLost += 1;
+    stats.byType[policyType].premiumLostCents += premiumLost;
   }
 
   return stats;
@@ -173,16 +221,40 @@ export function calculateTerminationStats(
  * Get a human-readable label for policy type
  */
 export function getPolicyTypeLabel(policyType: PolicyType): string {
-  switch (policyType) {
-    case 'auto':
-      return 'Auto';
-    case 'home':
-      return 'Home';
-    case 'spl':
-      return 'SPL';
-    case 'unknown':
-      return 'Other';
-  }
+  const labels: Record<PolicyType, string> = {
+    auto: 'Auto',
+    homeowners: 'Homeowners',
+    condo: 'Condo',
+    landlords: 'Landlords',
+    dwelling_fire: 'Dwelling Fire',
+    manufactured_home: 'Manufactured Home',
+    renters: 'Renters',
+    umbrella: 'Umbrella',
+    boat: 'Boat',
+    motorcycle: 'Motorcycle',
+    unknown: 'Other',
+  };
+  return labels[policyType];
+}
+
+/**
+ * Get active types (types with data) sorted by items lost
+ */
+export function getActiveTypesWithStats(stats: TerminationStats): Array<{
+  type: PolicyType;
+  label: string;
+  stats: PolicyTypeStats;
+  pointsPerItem: number;
+}> {
+  return POLICY_TYPE_ORDER
+    .filter(type => stats.byType[type].itemsLost > 0)
+    .map(type => ({
+      type,
+      label: getPolicyTypeLabel(type),
+      stats: stats.byType[type],
+      pointsPerItem: POINTS_BY_TYPE[type],
+    }))
+    .sort((a, b) => b.stats.itemsLost - a.stats.itemsLost);
 }
 
 /**
