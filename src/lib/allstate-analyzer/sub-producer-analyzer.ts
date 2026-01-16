@@ -10,6 +10,7 @@ export interface SubProducerTransaction {
   commission: number;
   origPolicyEffDate: string;
   isAuto: boolean;
+  bundleType: string; // 'Monoline', 'Standard', 'Preferred', or raw value from statement
 }
 
 // Aggregated insured record (net per insured)
@@ -18,6 +19,28 @@ export interface InsuredAggregate {
   netPremium: number;
   netCommission: number;
   transactionCount: number;
+}
+
+// Breakdown of metrics by bundle type for compensation calculation
+export interface BundleTypeBreakdown {
+  bundleType: string; // 'monoline', 'standard', 'preferred'
+  premiumWritten: number;
+  premiumChargebacks: number;
+  netPremium: number;
+  itemsIssued: number;
+  creditCount: number;
+  chargebackCount: number;
+}
+
+// Breakdown of metrics by product for compensation calculation
+export interface ProductBreakdown {
+  product: string;
+  premiumWritten: number;
+  premiumChargebacks: number;
+  netPremium: number;
+  itemsIssued: number;
+  creditCount: number;
+  chargebackCount: number;
 }
 
 export interface SubProducerMetrics {
@@ -52,6 +75,10 @@ export interface SubProducerMetrics {
   // Keep raw transactions for reference if needed
   creditTransactions: SubProducerTransaction[];
   chargebackTransactions: SubProducerTransaction[];
+
+  // Breakdowns for advanced compensation calculation
+  byBundleType: BundleTypeBreakdown[];
+  byProduct: ProductBreakdown[];
 }
 
 export interface SubProducerSummary {
@@ -123,6 +150,184 @@ function parseOrigDate(dateStr: string): Date | null {
 function isAutoProduct(product: string): boolean {
   const productLower = (product || '').toLowerCase();
   return productLower.includes('auto') || productLower.includes('alpac');
+}
+
+// Helper: Normalize bundle type to standard values
+// Returns 'monoline', 'standard', 'preferred', or the original value lowercased
+function normalizeBundleType(bundleType: string): string {
+  const normalized = (bundleType || '').trim().toLowerCase();
+
+  // Map common variations to standard values
+  if (!normalized || normalized === 'mono' || normalized === 'monoline' || normalized === 'mono line') {
+    return 'monoline';
+  }
+  if (normalized === 'standard' || normalized === 'std' || normalized === 'standard bundle') {
+    return 'standard';
+  }
+  if (normalized === 'preferred' || normalized === 'pref' || normalized === 'preferred bundle') {
+    return 'preferred';
+  }
+
+  // Return as-is if not recognized (lowercased)
+  return normalized || 'monoline'; // Default to monoline if empty
+}
+
+// Helper: Normalize product name for grouping
+function normalizeProductName(product: string): string {
+  const normalized = (product || '').trim().toLowerCase();
+
+  // Normalize common product names
+  if (normalized.includes('auto') || normalized.includes('alpac')) {
+    return 'Auto';
+  }
+  if (normalized.includes('home') && !normalized.includes('homeowner')) {
+    return 'Home';
+  }
+  if (normalized.includes('homeowner')) {
+    return 'Homeowners';
+  }
+  if (normalized.includes('condo')) {
+    return 'Condo';
+  }
+  if (normalized.includes('renter')) {
+    return 'Renters';
+  }
+  if (normalized.includes('umbrella')) {
+    return 'Umbrella';
+  }
+  if (normalized.includes('landlord') || normalized.includes('dwelling')) {
+    return 'Landlord/Dwelling';
+  }
+
+  // Return original with title case if not recognized
+  return product.trim() || 'Other';
+}
+
+// Helper: Calculate breakdown by bundle type from transactions
+function calculateBundleTypeBreakdown(
+  creditTransactions: SubProducerTransaction[],
+  chargebackTransactions: SubProducerTransaction[]
+): BundleTypeBreakdown[] {
+  const bundleMap = new Map<string, BundleTypeBreakdown>();
+
+  // Initialize standard bundle types
+  ['monoline', 'standard', 'preferred'].forEach(bt => {
+    bundleMap.set(bt, {
+      bundleType: bt,
+      premiumWritten: 0,
+      premiumChargebacks: 0,
+      netPremium: 0,
+      itemsIssued: 0,
+      creditCount: 0,
+      chargebackCount: 0
+    });
+  });
+
+  // Process credit transactions
+  for (const tx of creditTransactions) {
+    const bt = tx.bundleType || 'monoline';
+    if (!bundleMap.has(bt)) {
+      bundleMap.set(bt, {
+        bundleType: bt,
+        premiumWritten: 0,
+        premiumChargebacks: 0,
+        netPremium: 0,
+        itemsIssued: 0,
+        creditCount: 0,
+        chargebackCount: 0
+      });
+    }
+    const breakdown = bundleMap.get(bt)!;
+    breakdown.premiumWritten += tx.premium;
+    breakdown.itemsIssued += 1;
+    breakdown.creditCount += 1;
+  }
+
+  // Process chargeback transactions
+  for (const tx of chargebackTransactions) {
+    const bt = tx.bundleType || 'monoline';
+    if (!bundleMap.has(bt)) {
+      bundleMap.set(bt, {
+        bundleType: bt,
+        premiumWritten: 0,
+        premiumChargebacks: 0,
+        netPremium: 0,
+        itemsIssued: 0,
+        creditCount: 0,
+        chargebackCount: 0
+      });
+    }
+    const breakdown = bundleMap.get(bt)!;
+    breakdown.premiumChargebacks += Math.abs(tx.premium);
+    breakdown.chargebackCount += 1;
+  }
+
+  // Calculate net premium for each bundle type
+  for (const breakdown of bundleMap.values()) {
+    breakdown.netPremium = breakdown.premiumWritten - breakdown.premiumChargebacks;
+  }
+
+  // Return only bundle types with activity
+  return Array.from(bundleMap.values()).filter(b =>
+    b.premiumWritten > 0 || b.premiumChargebacks > 0
+  );
+}
+
+// Helper: Calculate breakdown by product from transactions
+function calculateProductBreakdown(
+  creditTransactions: SubProducerTransaction[],
+  chargebackTransactions: SubProducerTransaction[]
+): ProductBreakdown[] {
+  const productMap = new Map<string, ProductBreakdown>();
+
+  // Process credit transactions
+  for (const tx of creditTransactions) {
+    const product = normalizeProductName(tx.product);
+    if (!productMap.has(product)) {
+      productMap.set(product, {
+        product,
+        premiumWritten: 0,
+        premiumChargebacks: 0,
+        netPremium: 0,
+        itemsIssued: 0,
+        creditCount: 0,
+        chargebackCount: 0
+      });
+    }
+    const breakdown = productMap.get(product)!;
+    breakdown.premiumWritten += tx.premium;
+    breakdown.itemsIssued += 1;
+    breakdown.creditCount += 1;
+  }
+
+  // Process chargeback transactions
+  for (const tx of chargebackTransactions) {
+    const product = normalizeProductName(tx.product);
+    if (!productMap.has(product)) {
+      productMap.set(product, {
+        product,
+        premiumWritten: 0,
+        premiumChargebacks: 0,
+        netPremium: 0,
+        itemsIssued: 0,
+        creditCount: 0,
+        chargebackCount: 0
+      });
+    }
+    const breakdown = productMap.get(product)!;
+    breakdown.premiumChargebacks += Math.abs(tx.premium);
+    breakdown.chargebackCount += 1;
+  }
+
+  // Calculate net premium for each product
+  for (const breakdown of productMap.values()) {
+    breakdown.netPremium = breakdown.premiumWritten - breakdown.premiumChargebacks;
+  }
+
+  // Return only products with activity, sorted by premium descending
+  return Array.from(productMap.values())
+    .filter(p => p.premiumWritten > 0 || p.premiumChargebacks > 0)
+    .sort((a, b) => b.premiumWritten - a.premiumWritten);
 }
 
 export function analyzeSubProducers(
@@ -260,7 +465,8 @@ export function analyzeSubProducers(
       premium: premium,
       commission: commission,
       origPolicyEffDate: tx.origPolicyEffDate || '',
-      isAuto: isAutoProduct(tx.product || '')
+      isAuto: isAutoProduct(tx.product || ''),
+      bundleType: normalizeBundleType(tx.policyBundleType || '')
     });
   }
   
@@ -313,10 +519,14 @@ export function analyzeSubProducers(
     // Sort insureds: credits by net descending, chargebacks by net ascending (most negative first)
     creditInsureds.sort((a, b) => b.netPremium - a.netPremium);
     chargebackInsureds.sort((a, b) => a.netPremium - b.netPremium);
-    
+
     const netPremium = premiumWritten - premiumChargebacks;
     const netCommission = commissionEarned - commissionChargebacks;
-    
+
+    // Calculate breakdowns by bundle type and product
+    const byBundleType = calculateBundleTypeBreakdown(creditTransactions, chargebackTransactions);
+    const byProduct = calculateProductBreakdown(creditTransactions, chargebackTransactions);
+
     producers.push({
       code,
       displayName: code === '' ? 'Agency' : `Sub-Producer: ${code}`,
@@ -334,7 +544,9 @@ export function analyzeSubProducers(
       creditInsureds,
       chargebackInsureds,
       creditTransactions,
-      chargebackTransactions
+      chargebackTransactions,
+      byBundleType,
+      byProduct
     });
   }
   
@@ -362,6 +574,10 @@ export function analyzeSubProducers(
   allCreditInsureds.sort((a, b) => b.netPremium - a.netPremium);
   allChargebackInsureds.sort((a, b) => a.netPremium - b.netPremium);
   
+  // Calculate total breakdowns
+  const totalByBundleType = calculateBundleTypeBreakdown(allCreditTx, allChargebackTx);
+  const totalByProduct = calculateProductBreakdown(allCreditTx, allChargebackTx);
+
   const totals: SubProducerMetrics = {
     code: 'TOTAL',
     displayName: 'All Producers',
@@ -379,7 +595,9 @@ export function analyzeSubProducers(
     creditInsureds: allCreditInsureds,
     chargebackInsureds: allChargebackInsureds,
     creditTransactions: allCreditTx,
-    chargebackTransactions: allChargebackTx
+    chargebackTransactions: allChargebackTx,
+    byBundleType: totalByBundleType,
+    byProduct: totalByProduct
   };
   
   totals.effectiveRate = totals.netPremium !== 0 

@@ -1,7 +1,7 @@
 // Core payout calculation logic
 
-import { CompPlan, CompPlanTier } from "@/hooks/useCompPlans";
-import { SubProducerMetrics, SubProducerTransaction } from "@/lib/allstate-analyzer/sub-producer-analyzer";
+import { CompPlan, CompPlanTier, BundleConfigs, BundleTypeConfig, ProductRates } from "@/hooks/useCompPlans";
+import { SubProducerMetrics, SubProducerTransaction, BundleTypeBreakdown, ProductBreakdown } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { PayoutCalculation, TierMatch, SubProducerPerformance, AchievedPromo } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePromoProgress, PromoGoal } from "@/hooks/usePromoGoals";
@@ -222,6 +222,208 @@ export function calculateCommission(
 }
 
 /**
+ * Calculate commission for a single bundle type or product segment
+ */
+function calculateSegmentCommission(
+  premium: number,
+  items: number,
+  payoutType: string,
+  rate: number,
+  chargebackCount: number = 0
+): number {
+  let commission = 0;
+
+  switch (payoutType) {
+    case 'percent_of_premium':
+      commission = premium * (rate / 100);
+      break;
+    case 'flat_per_item':
+      commission = Math.max(0, items - chargebackCount) * rate;
+      break;
+    case 'flat_per_policy':
+      // For segments, treat items as policies
+      commission = Math.max(0, items - chargebackCount) * rate;
+      break;
+    case 'flat_per_household':
+      // For segments, approximate households as unique items
+      commission = items * rate;
+      break;
+    default:
+      commission = premium * (rate / 100);
+  }
+
+  return Math.max(0, commission);
+}
+
+/**
+ * Get the effective rate for a bundle type config, considering tiers if applicable
+ */
+function getBundleTypeEffectiveRate(
+  config: BundleTypeConfig,
+  metricValue: number
+): number {
+  if (!config.enabled) return 0;
+
+  // If tiers are defined, find matching tier
+  if (config.tiers && config.tiers.length > 0) {
+    const sortedTiers = [...config.tiers].sort((a, b) => b.min_threshold - a.min_threshold);
+    for (const tier of sortedTiers) {
+      if (metricValue >= tier.min_threshold) {
+        return tier.commission_value;
+      }
+    }
+    // No tier matched, return 0
+    return 0;
+  }
+
+  // Simple rate (no tiers)
+  return config.rate || 0;
+}
+
+/**
+ * Calculate commission using bundle type configurations
+ * Returns the total commission and a breakdown by bundle type
+ */
+export function calculateCommissionWithBundleConfigs(
+  performance: SubProducerPerformance,
+  bundleConfigs: BundleConfigs,
+  tierMetric: string,
+  chargebackRule: string
+): {
+  totalCommission: number;
+  breakdown: Array<{ bundleType: string; premium: number; items: number; commission: number }>;
+} {
+  const breakdown: Array<{ bundleType: string; premium: number; items: number; commission: number }> = [];
+  let totalCommission = 0;
+
+  // Get the overall metric value for tier matching
+  const metricValue = getMetricValue(performance, tierMetric);
+
+  // Calculate effective chargeback count based on rule
+  let effectiveChargebackCount = 0;
+  if (chargebackRule === 'full') {
+    effectiveChargebackCount = performance.chargebackCount;
+  } else if (chargebackRule === 'three_month') {
+    effectiveChargebackCount = performance.eligibleChargebackCount;
+  }
+  // 'none' rule = 0 chargebacks
+
+  // Process each bundle type
+  for (const bundleData of performance.byBundleType) {
+    const bundleType = bundleData.bundleType.toLowerCase();
+    const config = bundleConfigs[bundleType as keyof BundleConfigs];
+
+    if (!config || !config.enabled) {
+      // No config for this bundle type, skip it (or could use default)
+      continue;
+    }
+
+    const effectiveRate = getBundleTypeEffectiveRate(config, metricValue);
+
+    if (effectiveRate <= 0) {
+      breakdown.push({
+        bundleType: bundleData.bundleType,
+        premium: bundleData.netPremium,
+        items: bundleData.itemsIssued,
+        commission: 0
+      });
+      continue;
+    }
+
+    // Proportional chargebacks for this bundle type
+    const totalItems = performance.issuedItems || 1;
+    const bundleChargebacks = Math.round(
+      (bundleData.itemsIssued / totalItems) * effectiveChargebackCount
+    );
+
+    const commission = calculateSegmentCommission(
+      bundleData.netPremium,
+      bundleData.itemsIssued,
+      config.payout_type,
+      effectiveRate,
+      bundleChargebacks
+    );
+
+    breakdown.push({
+      bundleType: bundleData.bundleType,
+      premium: bundleData.netPremium,
+      items: bundleData.itemsIssued,
+      commission
+    });
+
+    totalCommission += commission;
+  }
+
+  return { totalCommission, breakdown };
+}
+
+/**
+ * Calculate commission using product rate configurations
+ * Returns the total commission and a breakdown by product
+ */
+export function calculateCommissionWithProductRates(
+  performance: SubProducerPerformance,
+  productRates: ProductRates,
+  chargebackRule: string
+): {
+  totalCommission: number;
+  breakdown: Array<{ product: string; premium: number; items: number; commission: number }>;
+} {
+  const breakdown: Array<{ product: string; premium: number; items: number; commission: number }> = [];
+  let totalCommission = 0;
+
+  // Calculate effective chargeback count based on rule
+  let effectiveChargebackCount = 0;
+  if (chargebackRule === 'full') {
+    effectiveChargebackCount = performance.chargebackCount;
+  } else if (chargebackRule === 'three_month') {
+    effectiveChargebackCount = performance.eligibleChargebackCount;
+  }
+
+  // Process each product
+  for (const productData of performance.byProduct) {
+    const productName = productData.product;
+    const config = productRates[productName];
+
+    if (!config) {
+      // No rate configured for this product, skip it
+      breakdown.push({
+        product: productName,
+        premium: productData.netPremium,
+        items: productData.itemsIssued,
+        commission: 0
+      });
+      continue;
+    }
+
+    // Proportional chargebacks for this product
+    const totalItems = performance.issuedItems || 1;
+    const productChargebacks = Math.round(
+      (productData.itemsIssued / totalItems) * effectiveChargebackCount
+    );
+
+    const commission = calculateSegmentCommission(
+      productData.netPremium,
+      productData.itemsIssued,
+      config.payout_type,
+      config.rate,
+      productChargebacks
+    );
+
+    breakdown.push({
+      product: productName,
+      premium: productData.netPremium,
+      items: productData.itemsIssued,
+      commission
+    });
+
+    totalCommission += commission;
+  }
+
+  return { totalCommission, breakdown };
+}
+
+/**
  * Convert SubProducerMetrics to SubProducerPerformance
  * Includes 3-month rule filtering when applicable
  */
@@ -289,6 +491,10 @@ export function convertToPerformance(
     chargebackInsureds: metrics.chargebackInsureds || [],
     creditTransactions: metrics.creditTransactions || [],
     chargebackTransactions: metrics.chargebackTransactions || [],
+
+    // Breakdowns for advanced compensation calculation
+    byBundleType: metrics.byBundleType || [],
+    byProduct: metrics.byProduct || [],
   };
 }
 
@@ -392,7 +598,28 @@ export async function calculatePromoBonus(
 }
 
 /**
+ * Check if bundle configs have any enabled configurations
+ */
+function hasBundleConfigs(bundleConfigs: BundleConfigs | null | undefined): boolean {
+  if (!bundleConfigs) return false;
+  return (
+    bundleConfigs.monoline?.enabled ||
+    bundleConfigs.standard?.enabled ||
+    bundleConfigs.preferred?.enabled
+  ) || false;
+}
+
+/**
+ * Check if product rates have any configurations
+ */
+function hasProductRates(productRates: ProductRates | null | undefined): boolean {
+  if (!productRates) return false;
+  return Object.keys(productRates).length > 0;
+}
+
+/**
  * Calculate payout for a single team member
+ * Supports bundle-type-specific and product-specific rate configurations
  */
 export function calculateMemberPayout(
   performance: SubProducerPerformance,
@@ -403,20 +630,44 @@ export function calculateMemberPayout(
 ): PayoutCalculation {
   // Get the metric value for tier matching
   const metricValue = getMetricValue(performance, plan.tier_metric);
-  
-  // Find matching tier
+
+  // Find matching tier (used for default calculation and display)
   const tierMatch = findMatchingTier(plan.tiers, metricValue);
-  
-  // Calculate commission
-  const { baseCommission } = calculateCommission(
-    performance,
-    plan,
-    tierMatch
-  );
-  
+
+  // Determine which calculation method to use
+  // Priority: product_rates > bundle_configs > default
+  let baseCommission = 0;
+  let commissionByBundleType: Array<{ bundleType: string; premium: number; items: number; commission: number }> | undefined;
+  let commissionByProduct: Array<{ product: string; premium: number; items: number; commission: number }> | undefined;
+
+  if (hasProductRates(plan.product_rates)) {
+    // Use product-specific rates
+    const result = calculateCommissionWithProductRates(
+      performance,
+      plan.product_rates!,
+      plan.chargeback_rule
+    );
+    baseCommission = result.totalCommission;
+    commissionByProduct = result.breakdown;
+  } else if (hasBundleConfigs(plan.bundle_configs)) {
+    // Use bundle-type-specific rates
+    const result = calculateCommissionWithBundleConfigs(
+      performance,
+      plan.bundle_configs!,
+      plan.tier_metric,
+      plan.chargeback_rule
+    );
+    baseCommission = result.totalCommission;
+    commissionByBundleType = result.breakdown;
+  } else {
+    // Use default calculation (existing behavior)
+    const result = calculateCommission(performance, plan, tierMatch);
+    baseCommission = result.baseCommission;
+  }
+
   // Add promo bonus to total
   const totalPayout = baseCommission + promoBonus.bonusAmount;
-  
+
   return {
     teamMemberId: performance.teamMemberId || '',
     teamMemberName: performance.teamMemberName || performance.subProdCode,
@@ -424,53 +675,57 @@ export function calculateMemberPayout(
     compPlanName: plan.name,
     periodMonth,
     periodYear,
-    
+
     // Written metrics
     writtenPremium: performance.writtenPremium,
     writtenItems: performance.writtenItems,
     writtenPolicies: performance.writtenPolicies,
     writtenHouseholds: performance.writtenHouseholds,
     writtenPoints: performance.writtenPoints,
-    
+
     // Issued metrics
     issuedPremium: performance.issuedPremium,
     issuedItems: performance.issuedItems,
     issuedPolicies: performance.issuedPolicies,
     issuedPoints: performance.issuedPoints,
-    
+
     // Chargebacks (all)
     chargebackPremium: performance.chargebackPremium,
     chargebackCount: performance.chargebackCount,
-    
+
     // 3-Month Rule tracking
     eligibleChargebackPremium: performance.eligibleChargebackPremium,
     eligibleChargebackCount: performance.eligibleChargebackCount,
     excludedChargebackCount: performance.excludedChargebackCount,
     chargebackRule: plan.chargeback_rule,
-    
+
     // Net
     netPremium: performance.netPremium,
     netItems: performance.netItems,
-    
+
     // Tier
     tierMatch,
     tierThresholdMet: tierMatch?.minThreshold || 0,
     tierCommissionValue: tierMatch?.commissionValue || 0,
-    
+
     // Commission
     baseCommission,
     bonusAmount: promoBonus.bonusAmount,
     totalPayout,
-    
+
+    // Commission breakdowns (when using advanced configurations)
+    commissionByBundleType,
+    commissionByProduct,
+
     // Promo bonuses
     achievedPromos: promoBonus.achievedPromos,
-    
+
     // Rollover (written - issued for future months)
     rolloverPremium: 0, // Calculated separately if needed
-    
+
     // Status
     status: 'draft',
-    
+
     // Raw data for detail views
     creditInsureds: performance.creditInsureds,
     chargebackInsureds: performance.chargebackInsureds,

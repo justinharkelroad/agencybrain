@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BundleConfigs, ProductRates } from "./useCompPlans";
 
 export interface CompPlanFormData {
   id?: string;
@@ -17,6 +18,9 @@ export interface CompPlanFormData {
   tiers: TierFormData[];
   brokered_tiers: TierFormData[];
   assigned_member_ids: string[];
+  // New optional fields for advanced compensation configuration
+  bundle_configs?: BundleConfigs | null;
+  product_rates?: ProductRates | null;
 }
 
 export interface TierFormData {
@@ -48,6 +52,8 @@ export function useCompPlanMutations(agencyId: string | null) {
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
           is_active: data.is_active,
+          bundle_configs: data.bundle_configs || null,
+          product_rates: data.product_rates || null,
         })
         .select("id")
         .single();
@@ -135,6 +141,8 @@ export function useCompPlanMutations(agencyId: string | null) {
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
           is_active: data.is_active,
+          bundle_configs: data.bundle_configs || null,
+          product_rates: data.product_rates || null,
         })
         .eq("id", data.id);
 
