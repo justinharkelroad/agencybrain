@@ -65,6 +65,7 @@ export default function FlowSession() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showAddToFocus, setShowAddToFocus] = useState(false);
   const [addingToFocus, setAddingToFocus] = useState(false);
+  const [pendingAnswer, setPendingAnswer] = useState<string | null>(null);
   const [userPhotoUrl, setUserPhotoUrl] = useState<string | null>(null);
   const [userInitials, setUserInitials] = useState('??');
   
@@ -332,6 +333,9 @@ export default function FlowSession() {
         clearTimeout(typingTimeoutRef.current);
       }
       
+      // Store the pending answer to display immediately
+      setPendingAnswer(valueToSubmit);
+      
       // Start typing animation
       setShowCurrentQuestion(false);
       setIsTyping(true);
@@ -342,6 +346,7 @@ export default function FlowSession() {
       typingTimeoutRef.current = setTimeout(() => {
         console.log('[FlowSession] Timeout fired, advancing to next question');
         setIsTyping(false);
+        setPendingAnswer(null);
         goToNextQuestion();
         typingTimeoutRef.current = null;
       }, 2000);
@@ -372,12 +377,16 @@ export default function FlowSession() {
         clearTimeout(typingTimeoutRef.current);
       }
       
+      // Store the pending answer to display immediately
+      setPendingAnswer(responses[currentQuestion?.id || ''] || currentValue);
+      
       // Start typing animation
       setShowCurrentQuestion(false);
       setIsTyping(true);
       
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
+        setPendingAnswer(null);
         goToNextQuestion();
         typingTimeoutRef.current = null;
       }, 2000);
@@ -512,6 +521,35 @@ export default function FlowSession() {
             </div>
           )}
 
+          {/* Show the pending answer during typing state */}
+          {isTyping && pendingAnswer && currentQuestion && (
+            <div className="space-y-3">
+              {/* Show current question as faded (now part of history) */}
+              <ChatBubble 
+                variant="incoming" 
+                icon={flowIcon}
+                className="opacity-70"
+              >
+                {promptSegments.map((segment, idx) => (
+                  <span 
+                    key={idx}
+                    className={segment.type === 'interpolated' ? 'font-medium' : ''}
+                  >
+                    {segment.content}
+                  </span>
+                ))}
+              </ChatBubble>
+              
+              {/* Show the user's answer immediately */}
+              <ChatBubble 
+                variant="outgoing"
+                avatarUrl={userPhotoUrl}
+                avatarFallback={userInitials}
+              >
+                {pendingAnswer}
+              </ChatBubble>
+            </div>
+          )}
 
           {/* Typing Indicator */}
           {isTyping && (
