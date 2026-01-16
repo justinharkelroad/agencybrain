@@ -6,6 +6,18 @@ import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
 
+// Manual override interface for testing compensation calculations
+export interface ManualOverride {
+  subProdCode: string;
+  teamMemberId: string | null;
+  teamMemberName: string | null;
+  writtenItems: number | null;
+  writtenPremium: number | null;
+  writtenPolicies: number | null;
+  writtenHouseholds: number | null;
+  writtenPoints: number | null;
+}
+
 // Helper function to send payout notifications
 async function sendPayoutNotifications(
   payoutIds: string[],
@@ -130,17 +142,18 @@ export function usePayoutCalculator(agencyId: string | null) {
   const calculatePayouts = async (
     subProducerData: SubProducerMetrics[] | undefined | null,
     month: number,
-    year: number
+    year: number,
+    manualOverrides?: ManualOverride[]
   ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> => {
     // Guard against missing data
     if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
       return { payouts: [], warnings: ['No sub-producer data available for this statement'] };
     }
-    
+
     if (!agencyId) {
       return { payouts: [], warnings: ['No agency ID available'] };
     }
-    
+
     return await calculateAllPayouts(
       subProducerData,
       plans,
@@ -148,7 +161,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       teamMembers,
       month,
       year,
-      agencyId
+      agencyId,
+      manualOverrides
     );
   };
 

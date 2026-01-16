@@ -12,6 +12,7 @@ import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyze
 import { toast } from "sonner";
 import { PayoutDetailRow } from "./PayoutDetailRow";
 import { PayoutDetailSheet } from "./PayoutDetailSheet";
+import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
 
 // The subProducerData from comparison reports is an object with producers array
 interface SubProducerDataWrapper {
@@ -46,6 +47,7 @@ export function PayoutPreview({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
+  const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
 
   const { 
     calculatePayouts, 
@@ -77,7 +79,15 @@ export function PayoutPreview({
       return;
     }
 
-    const result = await calculatePayouts(producers, selectedMonth, selectedYear);
+    // Check if any overrides are active for user feedback
+    const hasActiveOverrides = manualOverrides.some(
+      (o) => o.writtenItems !== null || o.writtenPremium !== null
+    );
+    if (hasActiveOverrides) {
+      toast.info("Calculating with manual overrides applied");
+    }
+
+    const result = await calculatePayouts(producers, selectedMonth, selectedYear, manualOverrides);
     setCalculatedPayouts(result.payouts);
     setWarnings(result.warnings);
     setHasCalculated(true);
@@ -222,6 +232,16 @@ export function PayoutPreview({
           </div>
         </CardContent>
       </Card>
+
+      {/* Manual Override Panel */}
+      {subProducerData?.producers && subProducerData.producers.length > 0 && (
+        <ManualOverridePanel
+          subProducerData={subProducerData.producers}
+          teamMembers={teamMembers}
+          overrides={manualOverrides}
+          onChange={setManualOverrides}
+        />
+      )}
 
       {/* Warnings */}
       {warnings.length > 0 && (
