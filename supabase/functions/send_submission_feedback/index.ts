@@ -55,6 +55,71 @@ function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data
   }
 }
 
+// ========== KPI Key Normalization (mirrors frontend logic) ==========
+const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted', 'households_quoted'];
+const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
+
+function normalizeMetricKey(key: string): string {
+  const lower = key?.toLowerCase() || '';
+  if (QUOTED_ALIASES.includes(lower)) return 'quoted_households';
+  if (SOLD_ALIASES.includes(lower)) return 'items_sold';
+  return key;
+}
+
+// Get metric value from payload, trying aliases if primary key missing
+function getMetricValueFromPayload(payload: Record<string, any>, kpiSlug: string, kpiKey: string): { value: number; resolvedFrom: string } {
+  // 1. Try selectedKpiSlug directly
+  if (payload[kpiSlug] !== undefined && payload[kpiSlug] !== null) {
+    return { value: Number(payload[kpiSlug]) || 0, resolvedFrom: kpiSlug };
+  }
+  // 2. Try kpi.key directly
+  if (kpiKey && payload[kpiKey] !== undefined && payload[kpiKey] !== null) {
+    return { value: Number(payload[kpiKey]) || 0, resolvedFrom: kpiKey };
+  }
+  // 3. Determine aliases based on normalized key
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey);
+  let aliases: string[] = [];
+  if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
+  else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
+  else aliases = [kpiSlug, kpiKey].filter(Boolean);
+  
+  for (const alias of aliases) {
+    if (payload[alias] !== undefined && payload[alias] !== null) {
+      return { value: Number(payload[alias]) || 0, resolvedFrom: alias };
+    }
+  }
+  return { value: 0, resolvedFrom: 'none' };
+}
+
+// Get target value, trying aliases if primary key missing
+function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpiKey: string, kpiGoal?: number): { value: number; resolvedFrom: string } {
+  // 1. If kpi has explicit goal, use it
+  if (kpiGoal !== undefined && kpiGoal !== null && kpiGoal > 0) {
+    return { value: kpiGoal, resolvedFrom: 'kpi.target.goal' };
+  }
+  // 2. Try selectedKpiSlug in targets
+  if (targetsMap[kpiSlug] !== undefined) {
+    return { value: targetsMap[kpiSlug], resolvedFrom: `targets.${kpiSlug}` };
+  }
+  // 3. Try kpi.key in targets
+  if (kpiKey && targetsMap[kpiKey] !== undefined) {
+    return { value: targetsMap[kpiKey], resolvedFrom: `targets.${kpiKey}` };
+  }
+  // 4. Try aliases
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey);
+  let aliases: string[] = [];
+  if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
+  else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
+  else aliases = [kpiSlug, kpiKey].filter(Boolean);
+  
+  for (const alias of aliases) {
+    if (targetsMap[alias] !== undefined) {
+      return { value: targetsMap[alias], resolvedFrom: `targets.${alias}` };
+    }
+  }
+  return { value: 0, resolvedFrom: 'none' };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -181,11 +246,29 @@ Deno.serve(async (req) => {
     }> = [];
 
     for (const kpi of kpis) {
-      // Try selectedKpiSlug first (matches payload keys like "outbound_calls"), then fall back to full key
-      const actual = Number(payload[kpi.selectedKpiSlug]) || Number(payload[kpi.key]) || 0;
-      // Priority: kpi.target.goal → targets table by selectedKpiSlug → targets table by key
-      const target = kpi.target?.goal || targetsMap[kpi.selectedKpiSlug] || targetsMap[kpi.key] || 0;
+      const kpiSlug = kpi.selectedKpiSlug || '';
+      const kpiKey = kpi.key || '';
+      
+      // Use alias-aware resolution for actual and target
+      const actualResult = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+      const targetResult = getTargetValue(targetsMap, kpiSlug, kpiKey, kpi.target?.goal);
+      
+      const actual = actualResult.value;
+      const target = targetResult.value;
       const percentage = target > 0 ? Math.round((actual / target) * 100) : 100;
+      
+      // Debug logging for KPI resolution
+      logStructured('info', 'kpi_resolution', {
+        request_id: requestId,
+        label: kpi.label,
+        selectedKpiSlug: kpiSlug,
+        key: kpiKey,
+        actual,
+        actualResolvedFrom: actualResult.resolvedFrom,
+        target,
+        targetResolvedFrom: targetResult.resolvedFrom,
+        percentage
+      });
       
       performanceData.push({
         metric: kpi.label,

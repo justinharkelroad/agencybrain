@@ -19,6 +19,71 @@ function logStructured(event: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }));
 }
 
+// ========== KPI Key Normalization (mirrors frontend logic) ==========
+const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted', 'households_quoted'];
+const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
+
+function normalizeMetricKey(key: string): string {
+  const lower = key?.toLowerCase() || '';
+  if (QUOTED_ALIASES.includes(lower)) return 'quoted_households';
+  if (SOLD_ALIASES.includes(lower)) return 'items_sold';
+  return key;
+}
+
+// Get metric value from payload, trying aliases if primary key missing
+function getMetricValueFromPayload(payload: Record<string, unknown>, kpiSlug: string, kpiKey: string): number {
+  // 1. Try selectedKpiSlug directly
+  if (payload[kpiSlug] !== undefined && payload[kpiSlug] !== null) {
+    return Number(payload[kpiSlug]) || 0;
+  }
+  // 2. Try kpi.key directly
+  if (kpiKey && payload[kpiKey] !== undefined && payload[kpiKey] !== null) {
+    return Number(payload[kpiKey]) || 0;
+  }
+  // 3. Determine aliases based on normalized key
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey);
+  let aliases: string[] = [];
+  if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
+  else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
+  else aliases = [kpiSlug, kpiKey].filter(Boolean);
+  
+  for (const alias of aliases) {
+    if (payload[alias] !== undefined && payload[alias] !== null) {
+      return Number(payload[alias]) || 0;
+    }
+  }
+  return 0;
+}
+
+// Get target value, trying aliases if primary key missing
+function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpiKey: string, kpiGoal?: number): number {
+  // 1. If kpi has explicit goal, use it
+  if (kpiGoal !== undefined && kpiGoal !== null && kpiGoal > 0) {
+    return kpiGoal;
+  }
+  // 2. Try selectedKpiSlug in targets
+  if (targetsMap[kpiSlug] !== undefined) {
+    return targetsMap[kpiSlug];
+  }
+  // 3. Try kpi.key in targets
+  if (kpiKey && targetsMap[kpiKey] !== undefined) {
+    return targetsMap[kpiKey];
+  }
+  // 4. Try aliases
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey);
+  let aliases: string[] = [];
+  if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
+  else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
+  else aliases = [kpiSlug, kpiKey].filter(Boolean);
+  
+  for (const alias of aliases) {
+    if (targetsMap[alias] !== undefined) {
+      return targetsMap[alias];
+    }
+  }
+  return 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -163,8 +228,13 @@ Deno.serve(async (req) => {
           if (submission) {
             const payload = submission.payload_json || {};
             const memberKpis = kpis.map((kpi: { selectedKpiSlug?: string; key?: string; label?: string; target?: { goal?: number } }) => {
-              const actual = Number(payload[kpi.selectedKpiSlug || '']) || Number(payload[kpi.key || '']) || 0;
-              const target = kpi.target?.goal || targetsMap[kpi.selectedKpiSlug || ''] || targetsMap[kpi.key || ''] || 0;
+              const kpiSlug = kpi.selectedKpiSlug || '';
+              const kpiKey = kpi.key || '';
+              
+              // Use alias-aware resolution for actual and target
+              const actual = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+              const target = getTargetValue(targetsMap, kpiSlug, kpiKey, kpi.target?.goal);
+              
               return {
                 metric: kpi.label || kpi.selectedKpiSlug || kpi.key || 'Unknown',
                 actual,
