@@ -96,24 +96,33 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   // Filter state
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    // Default to current month
+    // Default to last 90 days to show more data
     const today = new Date();
     return {
-      from: startOfMonth(today),
-      to: endOfMonth(today),
+      from: subDays(today, 90),
+      to: today,
     };
   });
+  const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('leaderboard');
+  const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
 
   // Table state
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Fetch data
+  // Fetch team members first (only once)
   useEffect(() => {
-    fetchPolicies();
     fetchTeamMembers();
-  }, [agencyId, dateRange]);
+  }, [agencyId]);
+
+  // Fetch policies when date range changes
+  useEffect(() => {
+    if (teamMembersLoaded) {
+      fetchPolicies();
+    }
+  }, [agencyId, dateRange, teamMembersLoaded]);
 
   const fetchTeamMembers = async () => {
     const { data } = await supabase
@@ -130,6 +139,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       });
       setTeamMembers(map);
     }
+    setTeamMembersLoaded(true);
   };
 
   const fetchPolicies = async () => {
@@ -334,7 +344,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     );
   };
 
-  if (loading) {
+  if (loading || !teamMembersLoaded) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -443,7 +453,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
           <Button variant="outline" size="sm" onClick={() => handleQuickDate('last90Days')}>
             Last 90 Days
           </Button>
-          <Popover>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <CalendarIcon className="h-4 w-4" />
@@ -463,10 +473,46 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="range"
-                selected={dateRange}
-                onSelect={setDateRange}
+                selected={pendingDateRange || dateRange}
+                onSelect={(range) => {
+                  setPendingDateRange(range);
+                  // Only apply and close when both dates are selected
+                  if (range?.from && range?.to) {
+                    setDateRange(range);
+                    setPendingDateRange(undefined);
+                    setDatePickerOpen(false);
+                  }
+                }}
                 numberOfMonths={2}
               />
+              <div className="flex justify-end gap-2 p-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPendingDateRange(undefined);
+                    setDatePickerOpen(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!pendingDateRange?.from}
+                  onClick={() => {
+                    if (pendingDateRange?.from) {
+                      setDateRange({
+                        from: pendingDateRange.from,
+                        to: pendingDateRange.to || pendingDateRange.from,
+                      });
+                      setPendingDateRange(undefined);
+                      setDatePickerOpen(false);
+                    }
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
