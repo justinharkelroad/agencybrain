@@ -794,6 +794,57 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "get_termination_team_members": {
+        // Fetch team members with agent codes for mapping in termination analytics
+        const { data, error } = await supabase
+          .from("team_members")
+          .select("id, name, agent_number, sub_producer_code")
+          .eq("agency_id", agencyId);
+
+        if (error) throw error;
+        result = { members: data || [] };
+        break;
+      }
+
+      case "get_termination_policies": {
+        // Fetch termination policies for analytics
+        const { dateFrom, dateTo } = params;
+
+        let query = supabase
+          .from("winback_policies")
+          .select(`
+            id,
+            policy_number,
+            agent_number,
+            product_name,
+            line_code,
+            items_count,
+            premium_new_cents,
+            termination_effective_date,
+            termination_reason,
+            is_cancel_rewrite,
+            household_id,
+            winback_households!inner (
+              first_name,
+              last_name
+            )
+          `)
+          .eq("agency_id", agencyId)
+          .order("termination_effective_date", { ascending: false });
+
+        if (dateFrom) {
+          query = query.gte("termination_effective_date", dateFrom);
+        }
+        if (dateTo) {
+          query = query.lte("termination_effective_date", dateTo);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        result = { policies: data || [] };
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Unknown operation" }), {
           status: 400,
