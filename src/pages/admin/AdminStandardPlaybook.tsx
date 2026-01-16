@@ -16,6 +16,7 @@ import {
   Users,
   Building2,
   Briefcase,
+  UserCog,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -45,7 +46,8 @@ interface SPCategory {
 const TIER_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   boardroom: { label: 'Boardroom', icon: <Building2 className="h-3 w-3" />, color: 'bg-purple-500/20 text-purple-400' },
   one_on_one: { label: '1:1 Coaching', icon: <Briefcase className="h-3 w-3" />, color: 'bg-blue-500/20 text-blue-400' },
-  staff: { label: 'Staff', icon: <Users className="h-3 w-3" />, color: 'bg-green-500/20 text-green-400' },
+  staff: { label: 'All Staff', icon: <Users className="h-3 w-3" />, color: 'bg-green-500/20 text-green-400' },
+  manager: { label: 'Managers', icon: <UserCog className="h-3 w-3" />, color: 'bg-amber-500/20 text-amber-400' },
 };
 
 export default function AdminStandardPlaybook() {
