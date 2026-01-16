@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
-import { useChargebackData, getChargebacksForProducer } from "@/hooks/useChargebackData";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
@@ -16,8 +15,16 @@ import { PayoutDetailRow } from "./PayoutDetailRow";
 import { PayoutDetailSheet } from "./PayoutDetailSheet";
 import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
 import { SalesReportUpload } from "./SalesReportUpload";
+import { TerminationReportUpload } from "./TerminationReportUpload";
 import { StatementReportSelector } from "./StatementReportSelector";
 import { SubProducerSalesMetrics, NewBusinessParseResult, convertToCompensationMetrics } from "@/lib/new-business-details-parser";
+import {
+  TerminationRecord,
+  TerminationParseResult,
+  matchTerminationsToProducers,
+  calculateChargebacks,
+  ChargebackRule,
+} from "@/lib/bob-termination-parser";
 
 // The subProducerData from comparison reports is an object with producers array
 interface SubProducerDataWrapper {
@@ -69,6 +76,10 @@ export function PayoutPreview({
   const [salesReportResult, setSalesReportResult] = useState<NewBusinessParseResult | null>(null);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
+  // Termination report data (chargebacks)
+  const [terminationRecords, setTerminationRecords] = useState<TerminationRecord[] | null>(null);
+  const [terminationResult, setTerminationResult] = useState<TerminationParseResult | null>(null);
+
   // Handle statement report selection
   const handleStatementReportSelect = useCallback((report: StatementReport | null) => {
     if (report) {
@@ -92,13 +103,6 @@ export function PayoutPreview({
     plans,
     assignments
   } = usePayoutCalculator(agencyId);
-
-  // Fetch chargebacks from cancel_audit_records for the selected period
-  const { data: chargebackData, isLoading: isLoadingChargebacks } = useChargebackData(
-    agencyId,
-    selectedMonth,
-    selectedYear
-  );
 
   // Generate year options
   const yearOptions = useMemo(() => {
@@ -127,8 +131,63 @@ export function PayoutPreview({
     []
   );
 
+  // Handler for when termination report is parsed
+  const handleTerminationReportParsed = useCallback(
+    (records: TerminationRecord[], result: TerminationParseResult) => {
+      setTerminationRecords(records);
+      setTerminationResult(result);
+      toast.success(`Loaded ${result.summary.totalRecords} terminations for chargebacks`);
+    },
+    []
+  );
+
+  // Build policy-to-producer map from sales report records
+  const policyToProducerMap = useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    if (salesReportResult?.records) {
+      for (const record of salesReportResult.records) {
+        if (record.policyNumber && record.subProducerCode) {
+          map.set(record.policyNumber, record.subProducerCode);
+        }
+      }
+    }
+    console.log(`[PayoutPreview] Built policy-to-producer map: ${map.size} policies`);
+    return map;
+  }, [salesReportResult]);
+
+  // Match terminations to producers and calculate chargebacks
+  const chargebacksByProducer = useMemo(() => {
+    if (!terminationRecords || terminationRecords.length === 0) {
+      return new Map<string, { records: TerminationRecord[]; premium: number; count: number }>();
+    }
+
+    // Match terminations to producers by policy number
+    const matched = matchTerminationsToProducers(terminationRecords, policyToProducerMap);
+
+    // Build summary by producer
+    const summary = new Map<string, { records: TerminationRecord[]; premium: number; count: number }>();
+
+    for (const [code, records] of matched) {
+      // Apply chargeback calculation with 'full' rule (use settings later)
+      const chargebackRule: ChargebackRule = 'full'; // TODO: Get from comp plan settings
+      const result = calculateChargebacks(records, chargebackRule);
+
+      summary.set(code, {
+        records: result.chargebackTransactions,
+        premium: result.totalChargebackPremium,
+        count: result.chargebackCount,
+      });
+
+      if (result.chargebackCount > 0) {
+        console.log(`[PayoutPreview] ${code}: ${result.chargebackCount} chargebacks ($${result.totalChargebackPremium.toFixed(2)}), ${result.excludedCount} excluded`);
+      }
+    }
+
+    return summary;
+  }, [terminationRecords, policyToProducerMap]);
+
   // Convert sales report metrics to the format expected by the calculator
-  // Also merges chargeback data from cancel_audit_records
+  // Also merges chargeback data from termination report
   const getProducersForCalculation = useCallback((): SubProducerMetrics[] | null => {
     if (dataSource === "sales_report" && salesReportMetrics) {
       // Convert SubProducerSalesMetrics to SubProducerMetrics format
@@ -139,37 +198,39 @@ export function PayoutPreview({
         creditTransactionsCount: m.creditTransactions?.length || 0,
       })));
 
-      // Merge chargeback data from cancel_audit_records
+      // Merge chargeback data from termination report
       return converted.map((m) => {
-        // Look up chargebacks for this sub-producer
-        const producerChargebacks = getChargebacksForProducer(chargebackData, m.code);
+        // Look up chargebacks for this sub-producer from termination report
+        const producerChargebacks = chargebacksByProducer.get(m.code);
 
         // Build chargeback transactions for detail view
-        const chargebackTransactions = producerChargebacks?.chargebacks.map(cb => ({
-          policyNumber: cb.policyNumber,
-          insuredName: cb.insuredName,
-          product: cb.productName || 'Unknown',
-          transType: 'Cancellation',
-          premium: -cb.premiumCents / 100, // Negative premium for chargebacks
-          commission: -(cb.premiumCents / 100) * 0.15,
-          origPolicyEffDate: cb.saleDate || cb.cancelDate,
-          isAuto: (cb.productName || '').toLowerCase().includes('auto'),
+        const chargebackTransactions = producerChargebacks?.records.map(term => ({
+          policyNumber: term.policyNumber,
+          insuredName: term.insuredName,
+          product: term.lineCode || 'Unknown',
+          transType: 'Termination',
+          premium: -term.premiumNew, // Negative premium for chargebacks
+          commission: -term.premiumNew * 0.15,
+          origPolicyEffDate: term.originalEffectiveDate || term.terminationEffectiveDate,
+          isAuto: term.isAutoProduct,
           bundleType: 'Unknown',
+          terminationReason: term.terminationReason,
+          daysInForce: term.daysInForce,
         })) || [];
 
         // Build chargeback insureds for detail view
-        const chargebackInsureds = producerChargebacks?.chargebacks.map(cb => ({
-          insuredName: cb.insuredName,
-          netPremium: -cb.premiumCents / 100,
-          netCommission: -(cb.premiumCents / 100) * 0.15,
+        const chargebackInsureds = producerChargebacks?.records.map(term => ({
+          insuredName: term.insuredName,
+          netPremium: -term.premiumNew,
+          netCommission: -term.premiumNew * 0.15,
           transactionCount: 1,
         })) || [];
 
-        const chargebackPremium = producerChargebacks?.totalPremium || 0;
-        const chargebackCount = producerChargebacks?.chargebacks.length || 0;
+        const chargebackPremium = producerChargebacks?.premium || 0;
+        const chargebackCount = producerChargebacks?.count || 0;
 
         if (chargebackCount > 0) {
-          console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks ($${chargebackPremium.toFixed(2)})`);
+          console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks from termination report ($${chargebackPremium.toFixed(2)})`);
         }
 
         return {
@@ -199,7 +260,7 @@ export function PayoutPreview({
       return subProducerData.producers;
     }
     return null;
-  }, [dataSource, salesReportMetrics, subProducerData, chargebackData]);
+  }, [dataSource, salesReportMetrics, subProducerData, chargebacksByProducer]);
 
   const handleCalculate = async () => {
     const producers = getProducersForCalculation();
@@ -308,12 +369,37 @@ export function PayoutPreview({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sales_report" className="mt-4">
+            <TabsContent value="sales_report" className="mt-4 space-y-4">
               <SalesReportUpload
                 agencyId={agencyId}
                 teamMembers={teamMembers}
                 onDataParsed={handleSalesReportParsed}
               />
+
+              {/* Termination Report for Chargebacks */}
+              <TerminationReportUpload
+                onDataParsed={handleTerminationReportParsed}
+              />
+
+              {/* Chargeback matching status */}
+              {terminationRecords && salesReportResult && (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {chargebacksByProducer.size > 0 ? (
+                      <>
+                        Matched {Array.from(chargebacksByProducer.values()).reduce((sum, p) => sum + p.count, 0)} chargebacks
+                        to {chargebacksByProducer.size} sub-producers
+                        ({policyToProducerMap.size} policies in lookup table)
+                      </>
+                    ) : (
+                      <>
+                        {terminationRecords.length} terminations loaded, matching to {policyToProducerMap.size} policies
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
             </TabsContent>
 
             <TabsContent value="commission_statement" className="mt-4 space-y-4">
