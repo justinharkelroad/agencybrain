@@ -64,12 +64,7 @@ function CompactRing({
   const reduced = usePrefersReducedMotion();
   const circleRef = useRef<SVGCircleElement>(null);
 
-  // Debug: Log progress and target values
-  console.log('CompactRing render:', { progress, target, circumference, actual });
-
   useEffect(() => {
-    console.log('CompactRing useEffect:', { target, dashArray, reduced });
-    
     if (reduced) {
       setDashArray(target);
       return;
@@ -77,14 +72,10 @@ function CompactRing({
 
     // Prevent unnecessary animations by checking if target actually changed
     const currentDashArray = dashArray;
-    if (Math.abs(currentDashArray - target) < 0.01) {
-      console.log('CompactRing: skipping animation, threshold not met');
-      return; // No significant change, skip animation
-    }
+    if (Math.abs(currentDashArray - target) < 0.01) return;
 
     // Start from current position and animate to target
     const id = requestAnimationFrame(() => {
-      console.log('CompactRing: setting dashArray to', target);
       if (circleRef.current) {
         circleRef.current.style.transition = `stroke-dasharray ${duration}ms ease-out`;
       }
@@ -236,17 +227,22 @@ export default function TeamPerformanceRings({
             return true;
           });
         
-        console.log('[TeamPerformanceRings] Raw ring_metrics:', rawMetrics);
-        console.log('[TeamPerformanceRings] Normalized metrics:', normalizedMetrics);
-        
         setRingMetrics(normalizedMetrics);
         setNRequired(rules?.n_required || 2);
 
-        // Role-based default targets and metrics
+        // Role-based default targets and metrics (use STANDARD UI keys)
         const getDefaultTarget = (metricKey: string) => {
-          const defaults = role === 'Sales' 
-            ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2, sold_policies: 1, sold_premium: 500 }
+          const defaults = role === 'Sales'
+            ? {
+                outbound_calls: 100,
+                talk_minutes: 180,
+                quoted_households: 5,
+                items_sold: 2,
+                sold_policies: 1,
+                sold_premium_cents: 50000,
+              }
             : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+
           return (defaults as any)[metricKey] || 0;
         };
 
@@ -257,15 +253,18 @@ export default function TeamPerformanceRings({
             const actual = getMetricValue(member, metricKey);
             
             // Get target: member-specific first, then agency default, then role default
-            const memberTarget = targets?.find((t: any) => 
-              t.team_member_id === member.team_member_id && t.metric_key === metricKey
+            // NOTE: targets.metric_key may be legacy keys, so normalize before comparing.
+            const memberTarget = targets?.find((t: any) =>
+              t.team_member_id === member.team_member_id &&
+              normalizeMetricKey(t.metric_key) === metricKey
             )?.value_number;
-            
-            const agencyTarget = targets?.find((t: any) => 
-              t.team_member_id === null && t.metric_key === metricKey
+
+            const agencyTarget = targets?.find((t: any) =>
+              t.team_member_id === null &&
+              normalizeMetricKey(t.metric_key) === metricKey
             )?.value_number;
-            
-            const target = memberTarget || agencyTarget || getDefaultTarget(metricKey);
+
+            const target = (memberTarget ?? agencyTarget ?? getDefaultTarget(metricKey)) ?? 0;
             
             return {
               key: metricKey,
