@@ -33,9 +33,12 @@ export interface NewBusinessRecord {
   packageType: string | null; // "Standard", "Gold Protection", or null
   transactionType: string;
   itemCount: number;
-  writtenPremium: number; // In dollars
+  writtenPremium: number; // In dollars (can be negative for cancellations)
   dispositionCode: string;
   rowNumber: number;
+  // Chargeback classification
+  isChargeback: boolean;
+  chargebackReason: string | null; // Why this was classified as a chargeback
 }
 
 // Aggregated metrics by sub-producer for compensation
@@ -43,10 +46,18 @@ export interface SubProducerSalesMetrics {
   code: string;
   name: string | null;
 
-  // Totals
+  // Totals (new business only - positive premium)
   totalItems: number;
   totalPolicies: number;
   totalPremium: number;
+
+  // Chargebacks (cancellations - negative premium or cancellation disposition)
+  chargebackItems: number;
+  chargebackPolicies: number;
+  chargebackPremium: number; // Stored as positive value
+
+  // Net
+  netPremium: number;
 
   // By product type
   byProduct: {
@@ -54,6 +65,8 @@ export interface SubProducerSalesMetrics {
     items: number;
     policies: number;
     premium: number;
+    chargebackItems: number;
+    chargebackPremium: number;
   }[];
 
   // By bundle type (monoline vs bundled - inferred from customer patterns)
@@ -61,10 +74,13 @@ export interface SubProducerSalesMetrics {
     bundleType: 'monoline' | 'standard' | 'preferred';
     items: number;
     premium: number;
+    chargebackItems: number;
+    chargebackPremium: number;
   }[];
 
   // Individual transactions for detail view
   transactions: NewBusinessRecord[];
+  chargebackTransactions: NewBusinessRecord[];
 }
 
 export interface NewBusinessParseResult {
@@ -80,7 +96,111 @@ export interface NewBusinessParseResult {
     totalPolicies: number;
     subProducerCount: number;
     endorsementsSkipped: number;
+    // Chargeback summary
+    chargebackRecords: number;
+    chargebackItems: number;
+    chargebackPremium: number;
+    netPremium: number;
   };
+}
+
+/**
+ * Chargeback disposition code patterns
+ * These indicate a cancellation/refund that should be treated as a chargeback
+ */
+const CHARGEBACK_DISPOSITION_PATTERNS = [
+  /cancel/i,
+  /cancelled/i,
+  /flat\s*cancel/i,
+  /reinstatement/i, // Often has negative premium to reverse a cancellation
+  /rescind/i,
+  /rescission/i,
+  /void/i,
+  /refund/i,
+  /reversal/i,
+  /lapse/i,
+  /non-?renew/i,
+];
+
+/**
+ * Disposition codes that indicate new business (credits)
+ */
+const NEW_BUSINESS_DISPOSITION_PATTERNS = [
+  /new\s*policy/i,
+  /new\s*business/i,
+  /policy\s*issued/i,
+];
+
+/**
+ * Classify a record as a chargeback based on disposition code and premium
+ * Returns { isChargeback: boolean, reason: string | null }
+ */
+function classifyChargeback(
+  dispositionCode: string,
+  writtenPremium: number,
+  transactionType: string
+): { isChargeback: boolean; reason: string | null } {
+  const disp = (dispositionCode || '').trim();
+  const trans = (transactionType || '').trim();
+
+  // Rule 1: Negative premium is always a chargeback
+  if (writtenPremium < 0) {
+    return {
+      isChargeback: true,
+      reason: `Negative premium (${writtenPremium.toFixed(2)})`
+    };
+  }
+
+  // Rule 2: Check disposition code for cancellation patterns
+  for (const pattern of CHARGEBACK_DISPOSITION_PATTERNS) {
+    if (pattern.test(disp)) {
+      return {
+        isChargeback: true,
+        reason: `Disposition: ${disp}`
+      };
+    }
+  }
+
+  // Rule 3: Check transaction type for cancellation patterns
+  for (const pattern of CHARGEBACK_DISPOSITION_PATTERNS) {
+    if (pattern.test(trans)) {
+      return {
+        isChargeback: true,
+        reason: `Transaction type: ${trans}`
+      };
+    }
+  }
+
+  // Not a chargeback
+  return { isChargeback: false, reason: null };
+}
+
+/**
+ * Check if a record should be included (not an endorsement/add-item)
+ * Endorsements are skipped entirely
+ */
+function shouldIncludeRecord(dispositionCode: string, transactionType: string): boolean {
+  const disp = (dispositionCode || '').toUpperCase();
+  const trans = (transactionType || '').toUpperCase();
+
+  // Skip endorsements/add-items - these are mid-term changes, not new business or chargebacks
+  const endorsementPatterns = [
+    /endorsement/i,
+    /add\s*item/i,
+    /add\s*coverage/i,
+    /drop\s*item/i,
+    /drop\s*coverage/i,
+    /coverage\s*change/i,
+    /policy\s*change/i,
+  ];
+
+  for (const pattern of endorsementPatterns) {
+    if (pattern.test(disp) || pattern.test(trans)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -236,6 +356,7 @@ function inferBundleTypes(
 
 /**
  * Aggregate records by sub-producer
+ * Separates credits (new business) from chargebacks (cancellations)
  */
 function aggregateBySubProducer(
   records: NewBusinessRecord[],
@@ -250,43 +371,86 @@ function aggregateBySubProducer(
       byProducer.set(code, {
         code,
         name: record.subProducerName,
+        // Credits (new business)
         totalItems: 0,
         totalPolicies: 0,
         totalPremium: 0,
+        // Chargebacks
+        chargebackItems: 0,
+        chargebackPolicies: 0,
+        chargebackPremium: 0,
+        // Net
+        netPremium: 0,
         byProduct: [],
         byBundleType: [],
         transactions: [],
+        chargebackTransactions: [],
       });
     }
 
     const metrics = byProducer.get(code)!;
-
-    // Update totals
-    metrics.totalItems += record.itemCount;
-    metrics.totalPolicies += 1;
-    metrics.totalPremium += record.writtenPremium;
-    metrics.transactions.push(record);
-
-    // Update by product
     const normalizedProduct = normalizeProductType(record.product);
+    const bundleType = bundleTypes.get(record.policyNumber) || 'monoline';
+
+    // Find or create product entry
     let productEntry = metrics.byProduct.find(p => p.product === normalizedProduct);
     if (!productEntry) {
-      productEntry = { product: normalizedProduct, items: 0, policies: 0, premium: 0 };
+      productEntry = {
+        product: normalizedProduct,
+        items: 0,
+        policies: 0,
+        premium: 0,
+        chargebackItems: 0,
+        chargebackPremium: 0,
+      };
       metrics.byProduct.push(productEntry);
     }
-    productEntry.items += record.itemCount;
-    productEntry.policies += 1;
-    productEntry.premium += record.writtenPremium;
 
-    // Update by bundle type
-    const bundleType = bundleTypes.get(record.policyNumber) || 'monoline';
+    // Find or create bundle type entry
     let bundleEntry = metrics.byBundleType.find(b => b.bundleType === bundleType);
     if (!bundleEntry) {
-      bundleEntry = { bundleType, items: 0, premium: 0 };
+      bundleEntry = {
+        bundleType,
+        items: 0,
+        premium: 0,
+        chargebackItems: 0,
+        chargebackPremium: 0,
+      };
       metrics.byBundleType.push(bundleEntry);
     }
-    bundleEntry.items += record.itemCount;
-    bundleEntry.premium += record.writtenPremium;
+
+    if (record.isChargeback) {
+      // This is a chargeback (cancellation)
+      const absAmount = Math.abs(record.writtenPremium);
+      metrics.chargebackItems += record.itemCount;
+      metrics.chargebackPolicies += 1;
+      metrics.chargebackPremium += absAmount;
+      metrics.chargebackTransactions.push(record);
+
+      productEntry.chargebackItems += record.itemCount;
+      productEntry.chargebackPremium += absAmount;
+
+      bundleEntry.chargebackItems += record.itemCount;
+      bundleEntry.chargebackPremium += absAmount;
+    } else {
+      // This is a credit (new business)
+      metrics.totalItems += record.itemCount;
+      metrics.totalPolicies += 1;
+      metrics.totalPremium += record.writtenPremium;
+      metrics.transactions.push(record);
+
+      productEntry.items += record.itemCount;
+      productEntry.policies += 1;
+      productEntry.premium += record.writtenPremium;
+
+      bundleEntry.items += record.itemCount;
+      bundleEntry.premium += record.writtenPremium;
+    }
+  }
+
+  // Calculate net premium for each producer
+  for (const metrics of byProducer.values()) {
+    metrics.netPremium = metrics.totalPremium - metrics.chargebackPremium;
   }
 
   return Array.from(byProducer.values());
@@ -419,15 +583,25 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
 
       const getValue = (idx: number) => idx >= 0 && idx < row.length ? row[idx] : null;
 
-      // Check disposition code - only accept "New Policy Issued"
+      // Get disposition code and transaction type for classification
       const dispositionCode = String(getValue(colIndex.dispositionCode) || '').trim();
-      if (dispositionCode) {
-        const upperDisp = dispositionCode.toUpperCase();
-        if (!upperDisp.includes('NEW POLICY') && !upperDisp.includes('NEW BUSINESS')) {
-          endorsementsSkipped++;
-          continue;
-        }
+      const transactionType = String(getValue(colIndex.transactionType) || '').trim();
+
+      // Skip endorsements/add-items (mid-term changes)
+      if (!shouldIncludeRecord(dispositionCode, transactionType)) {
+        endorsementsSkipped++;
+        continue;
       }
+
+      // Parse premium first (needed for chargeback classification)
+      const writtenPremium = parseCurrency(getValue(colIndex.writtenPremium));
+
+      // Classify as chargeback or new business (credit)
+      const { isChargeback, reason: chargebackReason } = classifyChargeback(
+        dispositionCode,
+        writtenPremium,
+        transactionType
+      );
 
       // Parse sub-producer code and name
       const subProducerRaw = String(getValue(colIndex.subProducer) || '').trim();
@@ -489,11 +663,13 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
         lineGroup: String(getValue(colIndex.lineGroup) || '').trim(),
         productDescription: String(getValue(colIndex.productDescription) || '').trim(),
         packageType: getValue(colIndex.packageType) ? String(getValue(colIndex.packageType)).trim() : null,
-        transactionType: String(getValue(colIndex.transactionType) || '').trim(),
+        transactionType,
         itemCount: parseInt(String(getValue(colIndex.itemCount) || '1')) || 1,
-        writtenPremium: parseCurrency(getValue(colIndex.writtenPremium)),
+        writtenPremium,
         dispositionCode,
         rowNumber: absoluteRowNum,
+        isChargeback,
+        chargebackReason,
       };
 
       records.push(record);
@@ -508,27 +684,53 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
           ? [`No new policy records found. ${endorsementsSkipped} endorsements/add-items were skipped.`]
           : ['No valid records found in the file'],
         dateRange: null,
-        summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped }
+        summary: {
+          totalRecords: 0,
+          totalItems: 0,
+          totalPremium: 0,
+          totalPolicies: 0,
+          subProducerCount: 0,
+          endorsementsSkipped,
+          chargebackRecords: 0,
+          chargebackItems: 0,
+          chargebackPremium: 0,
+          netPremium: 0,
+        }
       };
     }
 
     // Infer bundle types based on customer product combinations
-    const bundleTypes = inferBundleTypes(records);
+    // Only use non-chargeback records for bundle inference
+    const creditRecords = records.filter(r => !r.isChargeback);
+    const bundleTypes = inferBundleTypes(creditRecords);
 
     // Aggregate by sub-producer
     const subProducerMetrics = aggregateBySubProducer(records, bundleTypes);
 
+    // Separate credits from chargebacks for summary
+    const chargebackRecords = records.filter(r => r.isChargeback);
+    const totalCreditPremium = creditRecords.reduce((sum, r) => sum + r.writtenPremium, 0);
+    const totalChargebackPremium = chargebackRecords.reduce((sum, r) => sum + Math.abs(r.writtenPremium), 0);
+
     // Calculate summary
     const summary = {
-      totalRecords: records.length,
-      totalItems: records.reduce((sum, r) => sum + r.itemCount, 0),
-      totalPremium: records.reduce((sum, r) => sum + r.writtenPremium, 0),
-      totalPolicies: records.length,
+      totalRecords: creditRecords.length,
+      totalItems: creditRecords.reduce((sum, r) => sum + r.itemCount, 0),
+      totalPremium: totalCreditPremium,
+      totalPolicies: creditRecords.length,
       subProducerCount: subProducerMetrics.length,
       endorsementsSkipped,
+      // Chargeback stats
+      chargebackRecords: chargebackRecords.length,
+      chargebackItems: chargebackRecords.reduce((sum, r) => sum + r.itemCount, 0),
+      chargebackPremium: totalChargebackPremium,
+      netPremium: totalCreditPremium - totalChargebackPremium,
     };
 
     console.log('[NewBusiness Parser] Success:', summary);
+    console.log(`[NewBusiness Parser] Credits: ${creditRecords.length} records, $${totalCreditPremium.toFixed(2)} premium`);
+    console.log(`[NewBusiness Parser] Chargebacks: ${chargebackRecords.length} records, $${totalChargebackPremium.toFixed(2)} premium`);
+    console.log(`[NewBusiness Parser] Net Premium: $${summary.netPremium.toFixed(2)}`);
 
     return {
       success: true,
@@ -545,7 +747,18 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
       subProducerMetrics: [],
       errors: [`Failed to parse Excel file: ${err instanceof Error ? err.message : 'Unknown error'}`],
       dateRange: null,
-      summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped: 0 }
+      summary: {
+        totalRecords: 0,
+        totalItems: 0,
+        totalPremium: 0,
+        totalPolicies: 0,
+        subProducerCount: 0,
+        endorsementsSkipped: 0,
+        chargebackRecords: 0,
+        chargebackItems: 0,
+        chargebackPremium: 0,
+        netPremium: 0,
+      }
     };
   }
 }
@@ -595,6 +808,7 @@ interface ProductBreakdown {
  * This bridges the new sales report format with the existing compensation system
  *
  * Includes creditInsureds and creditTransactions for the detail sheet display
+ * Now also includes chargebackInsureds and chargebackTransactions
  */
 export function convertToCompensationMetrics(
   metrics: SubProducerSalesMetrics[]
@@ -623,35 +837,62 @@ export function convertToCompensationMetrics(
   byProduct: ProductBreakdown[];
 }> {
   return metrics.map(m => {
-    // Aggregate transactions by customer name to create insured-level data
-    const insuredMap = new Map<string, {
+    // Aggregate CREDIT transactions by customer name to create insured-level data
+    const creditInsuredMap = new Map<string, {
       netPremium: number;
       netCommission: number;
       transactionCount: number;
     }>();
 
-    console.log(`[convertToCompensationMetrics] Processing sub-producer ${m.code} with ${m.transactions.length} transactions`);
+    console.log(`[convertToCompensationMetrics] Processing sub-producer ${m.code}`);
+    console.log(`  - ${m.transactions.length} credit transactions, ${m.chargebackTransactions.length} chargeback transactions`);
 
     for (const tx of m.transactions) {
       const key = tx.customerName.toUpperCase().trim();
-      const existing = insuredMap.get(key) || { netPremium: 0, netCommission: 0, transactionCount: 0 };
+      const existing = creditInsuredMap.get(key) || { netPremium: 0, netCommission: 0, transactionCount: 0 };
       existing.netPremium += tx.writtenPremium;
       existing.netCommission += tx.writtenPremium * 0.15; // Approximate commission (15% default)
       existing.transactionCount += 1;
-      insuredMap.set(key, existing);
+      creditInsuredMap.set(key, existing);
     }
 
-    // Convert to creditInsureds array (all new business is credits)
-    const creditInsureds: InsuredAggregate[] = Array.from(insuredMap.entries()).map(([name, data]) => ({
+    // Convert to creditInsureds array
+    const creditInsureds: InsuredAggregate[] = Array.from(creditInsuredMap.entries()).map(([name, data]) => ({
       insuredName: name,
       netPremium: data.netPremium,
       netCommission: data.netCommission,
       transactionCount: data.transactionCount,
     }));
 
-    console.log(`[convertToCompensationMetrics] Sub-producer ${m.code}: ${creditInsureds.length} creditInsureds created`);
+    // Aggregate CHARGEBACK transactions by customer name
+    const chargebackInsuredMap = new Map<string, {
+      netPremium: number;
+      netCommission: number;
+      transactionCount: number;
+    }>();
 
-    // Convert transactions to SubProducerTransaction format
+    for (const tx of m.chargebackTransactions) {
+      const key = tx.customerName.toUpperCase().trim();
+      const existing = chargebackInsuredMap.get(key) || { netPremium: 0, netCommission: 0, transactionCount: 0 };
+      // Store as negative values for chargebacks
+      const absAmount = Math.abs(tx.writtenPremium);
+      existing.netPremium -= absAmount;  // Negative premium for chargebacks
+      existing.netCommission -= absAmount * 0.15;
+      existing.transactionCount += 1;
+      chargebackInsuredMap.set(key, existing);
+    }
+
+    // Convert to chargebackInsureds array
+    const chargebackInsureds: InsuredAggregate[] = Array.from(chargebackInsuredMap.entries()).map(([name, data]) => ({
+      insuredName: name,
+      netPremium: data.netPremium,  // Will be negative
+      netCommission: data.netCommission,  // Will be negative
+      transactionCount: data.transactionCount,
+    }));
+
+    console.log(`[convertToCompensationMetrics] Sub-producer ${m.code}: ${creditInsureds.length} credits, ${chargebackInsureds.length} chargebacks`);
+
+    // Convert credit transactions to SubProducerTransaction format
     const creditTransactions: SubProducerTransaction[] = m.transactions.map(tx => {
       const normalizedProduct = normalizeProductType(tx.product);
       const isAuto = normalizedProduct === 'Auto';
@@ -661,34 +902,57 @@ export function convertToCompensationMetrics(
         product: normalizedProduct,
         transType: 'New Business',
         premium: tx.writtenPremium,
-        commission: tx.writtenPremium * 0.15, // Approximate commission
-        origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'), // Convert to MM/DD/YYYY format
+        commission: tx.writtenPremium * 0.15,
+        origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'),
         isAuto,
         bundleType: tx.packageType || 'Monoline',
       };
     });
 
-    // Build bundle type breakdowns with full structure
+    // Convert chargeback transactions to SubProducerTransaction format
+    const chargebackTransactions: SubProducerTransaction[] = m.chargebackTransactions.map(tx => {
+      const normalizedProduct = normalizeProductType(tx.product);
+      const isAuto = normalizedProduct === 'Auto';
+      const absAmount = Math.abs(tx.writtenPremium);
+      return {
+        policyNumber: tx.policyNumber,
+        insuredName: tx.customerName,
+        product: normalizedProduct,
+        transType: tx.chargebackReason || 'Cancellation',
+        premium: -absAmount,  // Negative for chargebacks
+        commission: -absAmount * 0.15,
+        origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'),
+        isAuto,
+        bundleType: tx.packageType || 'Monoline',
+      };
+    });
+
+    // Build bundle type breakdowns with full structure (including chargebacks)
     const byBundleType: BundleTypeBreakdown[] = m.byBundleType.map(b => ({
       bundleType: b.bundleType,
       premiumWritten: b.premium,
-      premiumChargebacks: 0,
-      netPremium: b.premium,
+      premiumChargebacks: b.chargebackPremium,
+      netPremium: b.premium - b.chargebackPremium,
       itemsIssued: b.items,
       creditCount: b.items,
-      chargebackCount: 0,
+      chargebackCount: b.chargebackItems,
     }));
 
-    // Build product breakdowns with full structure
+    // Build product breakdowns with full structure (including chargebacks)
     const byProduct: ProductBreakdown[] = m.byProduct.map(p => ({
       product: p.product,
       premiumWritten: p.premium,
-      premiumChargebacks: 0,
-      netPremium: p.premium,
+      premiumChargebacks: p.chargebackPremium,
+      netPremium: p.premium - p.chargebackPremium,
       itemsIssued: p.items,
       creditCount: p.policies,
-      chargebackCount: 0,
+      chargebackCount: p.chargebackItems,
     }));
+
+    // Calculate commission values
+    const commissionEarned = m.totalPremium * 0.15;
+    const commissionChargebacks = m.chargebackPremium * 0.15;
+    const netCommission = commissionEarned - commissionChargebacks;
 
     return {
       code: m.code,
@@ -697,19 +961,19 @@ export function convertToCompensationMetrics(
       itemsIssued: m.totalItems,
       policiesIssued: m.totalPolicies,
       premiumWritten: m.totalPremium,
-      creditCount: creditInsureds.length, // Count of unique customers
-      netPremium: m.totalPremium, // No chargebacks in new business report
-      premiumChargebacks: 0,
-      chargebackCount: 0,
-      commissionEarned: m.totalPremium * 0.15, // Approximate commission
-      commissionChargebacks: 0,
-      netCommission: m.totalPremium * 0.15,
-      effectiveRate: 15, // Default rate
+      creditCount: creditInsureds.length,
+      netPremium: m.netPremium,
+      premiumChargebacks: m.chargebackPremium,
+      chargebackCount: chargebackInsureds.length,
+      commissionEarned,
+      commissionChargebacks,
+      netCommission,
+      effectiveRate: m.netPremium !== 0 ? (netCommission / m.netPremium) * 100 : 15,
       // Credit/chargeback detail data
       creditInsureds,
-      chargebackInsureds: [], // No chargebacks in new business report
+      chargebackInsureds,
       creditTransactions,
-      chargebackTransactions: [], // No chargebacks in new business report
+      chargebackTransactions,
       // Breakdowns
       byBundleType,
       byProduct,
