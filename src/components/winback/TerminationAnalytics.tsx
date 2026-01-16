@@ -127,14 +127,18 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   const fetchTeamMembers = async () => {
     const { data } = await supabase
       .from('team_members')
-      .select('id, name, agent_number')
+      .select('id, name, agent_number, sub_producer_code')
       .eq('agency_id', agencyId);
 
     if (data) {
       const map = new Map<string, string>();
       data.forEach((member) => {
+        // Map both agent_number AND sub_producer_code to the name for maximum matching
         if (member.agent_number) {
           map.set(member.agent_number, member.name);
+        }
+        if (member.sub_producer_code) {
+          map.set(member.sub_producer_code, member.name);
         }
       });
       setTeamMembers(map);
@@ -475,15 +479,11 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                 mode="range"
                 selected={pendingDateRange || dateRange}
                 onSelect={(range) => {
+                  // Only update pending range - don't auto-close, let user click Apply
                   setPendingDateRange(range);
-                  // Only apply and close when both dates are selected
-                  if (range?.from && range?.to) {
-                    setDateRange(range);
-                    setPendingDateRange(undefined);
-                    setDatePickerOpen(false);
-                  }
                 }}
                 numberOfMonths={2}
+                className="pointer-events-auto"
               />
               <div className="flex justify-end gap-2 p-3 border-t">
                 <Button

@@ -6852,6 +6852,7 @@ export type Database = {
       team_members: {
         Row: {
           agency_id: string
+          agent_number: string | null
           created_at: string
           email: string
           employment: Database["public"]["Enums"]["app_employment_type"]
@@ -6867,6 +6868,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          agent_number?: string | null
           created_at?: string
           email: string
           employment: Database["public"]["Enums"]["app_employment_type"]
@@ -6882,6 +6884,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          agent_number?: string | null
           created_at?: string
           email?: string
           employment?: Database["public"]["Enums"]["app_employment_type"]
@@ -8087,6 +8090,8 @@ export type Database = {
           household_id: string
           id: string
           is_cancel_rewrite: boolean
+          items_count: number | null
+          line_code: string | null
           original_year: number | null
           policy_number: string
           policy_term_months: number
@@ -8113,6 +8118,8 @@ export type Database = {
           household_id: string
           id?: string
           is_cancel_rewrite?: boolean
+          items_count?: number | null
+          line_code?: string | null
           original_year?: number | null
           policy_number: string
           policy_term_months?: number
@@ -8139,6 +8146,8 @@ export type Database = {
           household_id?: string
           id?: string
           is_cancel_rewrite?: boolean
+          items_count?: number | null
+          line_code?: string | null
           original_year?: number | null
           policy_number?: string
           policy_term_months?: number
