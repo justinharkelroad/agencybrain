@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import * as winbackApi from '@/lib/winbackApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -163,23 +163,24 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   }, [agencyId, dateRange, teamMembersLoaded]);
 
   const fetchTeamMembers = async () => {
-    const { data } = await supabase
-      .from('team_members')
-      .select('id, name, agent_number, sub_producer_code')
-      .eq('agency_id', agencyId);
+    try {
+      const data = await winbackApi.getTerminationTeamMembers(agencyId);
 
-    if (data) {
-      const map = new Map<string, string>();
-      data.forEach((member) => {
-        // Map both agent_number AND sub_producer_code to the name for maximum matching
-        if (member.agent_number) {
-          map.set(member.agent_number, member.name);
-        }
-        if (member.sub_producer_code) {
-          map.set(member.sub_producer_code, member.name);
-        }
-      });
-      setTeamMembers(map);
+      if (data) {
+        const map = new Map<string, string>();
+        data.forEach((member) => {
+          // Map both agent_number AND sub_producer_code to the name for maximum matching
+          if (member.agent_number) {
+            map.set(member.agent_number, member.name);
+          }
+          if (member.sub_producer_code) {
+            map.set(member.sub_producer_code, member.name);
+          }
+        });
+        setTeamMembers(map);
+      }
+    } catch (err) {
+      console.error('Error fetching team members:', err);
     }
     setTeamMembersLoaded(true);
   };
@@ -187,38 +188,10 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   const fetchPolicies = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('winback_policies')
-        .select(`
-          id,
-          policy_number,
-          agent_number,
-          product_name,
-          line_code,
-          items_count,
-          premium_new_cents,
-          termination_effective_date,
-          termination_reason,
-          is_cancel_rewrite,
-          household_id,
-          winback_households!inner (
-            first_name,
-            last_name
-          )
-        `)
-        .eq('agency_id', agencyId)
-        .order('termination_effective_date', { ascending: false });
+      const dateFrom = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+      const dateTo = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
 
-      if (dateRange?.from) {
-        query = query.gte('termination_effective_date', format(dateRange.from, 'yyyy-MM-dd'));
-      }
-      if (dateRange?.to) {
-        query = query.lte('termination_effective_date', format(dateRange.to, 'yyyy-MM-dd'));
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const data = await winbackApi.getTerminationPolicies(agencyId, dateFrom, dateTo);
       setPolicies((data || []) as TerminationPolicy[]);
     } catch (err) {
       console.error('Error fetching termination policies:', err);

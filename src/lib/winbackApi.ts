@@ -643,3 +643,92 @@ export async function uploadTerminations(
   // This keeps the existing behavior for agency owners
   throw new Error('Use WinbackUploadModal direct implementation for non-staff users');
 }
+
+// ============ Termination Analytics ============
+
+export interface TerminationTeamMember {
+  id: string;
+  name: string;
+  agent_number: string | null;
+  sub_producer_code: string | null;
+}
+
+export interface TerminationPolicy {
+  id: string;
+  policy_number: string;
+  agent_number: string | null;
+  product_name: string | null;
+  line_code: string | null;
+  items_count: number | null;
+  premium_new_cents: number | null;
+  termination_effective_date: string;
+  termination_reason: string | null;
+  is_cancel_rewrite: boolean | null;
+  household_id: string;
+  winback_households?: {
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export async function getTerminationTeamMembers(agencyId: string): Promise<TerminationTeamMember[]> {
+  if (isStaffUser()) {
+    const result = await callStaffWinback<{ members: TerminationTeamMember[] }>('get_termination_team_members', {});
+    return result.members;
+  }
+
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('id, name, agent_number, sub_producer_code')
+    .eq('agency_id', agencyId);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getTerminationPolicies(
+  agencyId: string,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<TerminationPolicy[]> {
+  if (isStaffUser()) {
+    const result = await callStaffWinback<{ policies: TerminationPolicy[] }>('get_termination_policies', {
+      dateFrom,
+      dateTo,
+    });
+    return result.policies;
+  }
+
+  let query = supabase
+    .from('winback_policies')
+    .select(`
+      id,
+      policy_number,
+      agent_number,
+      product_name,
+      line_code,
+      items_count,
+      premium_new_cents,
+      termination_effective_date,
+      termination_reason,
+      is_cancel_rewrite,
+      household_id,
+      winback_households!inner (
+        first_name,
+        last_name
+      )
+    `)
+    .eq('agency_id', agencyId)
+    .order('termination_effective_date', { ascending: false });
+
+  if (dateFrom) {
+    query = query.gte('termination_effective_date', dateFrom);
+  }
+  if (dateTo) {
+    query = query.lte('termination_effective_date', dateTo);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as TerminationPolicy[];
+}
