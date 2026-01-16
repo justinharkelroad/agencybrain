@@ -251,13 +251,35 @@ export default function SubmissionDetail() {
     
     setDeleting(true);
     try {
-      // Delete related custom_detail_entries first (if any)
+      // 1. Clear metrics_daily.final_submission_id references (FK without CASCADE)
+      const { error: metricsError } = await supabase
+        .from('metrics_daily')
+        .update({ final_submission_id: null })
+        .eq('final_submission_id', submissionId);
+      
+      if (metricsError) {
+        console.error('Error clearing metrics_daily reference:', metricsError);
+        // Continue anyway - might not have metrics_daily references
+      }
+
+      // 2. Delete quoted_household_details (FK without CASCADE)
+      const { error: qhdError } = await supabase
+        .from('quoted_household_details')
+        .delete()
+        .eq('submission_id', submissionId);
+      
+      if (qhdError) {
+        console.error('Error deleting quoted_household_details:', qhdError);
+        // Continue anyway - might not have these records
+      }
+
+      // 3. Delete custom_detail_entries (has CASCADE but being explicit)
       await supabase
         .from('custom_detail_entries')
         .delete()
         .eq('submission_id', submissionId);
 
-      // Delete the submission
+      // 4. Delete the submission (cascades to quoted_households, sold_policy_details)
       const { error } = await supabase
         .from('submissions')
         .delete()
