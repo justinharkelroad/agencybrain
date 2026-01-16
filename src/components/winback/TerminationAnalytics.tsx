@@ -103,8 +103,8 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       to: today,
     };
   });
-  const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('leaderboard');
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
 
@@ -457,62 +457,57 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
           <Button variant="outline" size="sm" onClick={() => handleQuickDate('last90Days')}>
             Last 90 Days
           </Button>
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+          {/* Start Date */}
+          <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">
                 <CalendarIcon className="h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
-                    </>
-                  ) : (
-                    format(dateRange.from, 'MMM d, yyyy')
-                  )
-                ) : (
-                  'Custom Range'
-                )}
+                {dateRange?.from ? format(dateRange.from, 'MMM d, yyyy') : 'Start Date'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
-                mode="range"
-                selected={pendingDateRange || dateRange}
-                onSelect={(range) => {
-                  // Only update pending range - don't auto-close, let user click Apply
-                  setPendingDateRange(range);
+                mode="single"
+                selected={dateRange?.from}
+                onSelect={(date) => {
+                  if (date) {
+                    setDateRange(prev => ({
+                      from: date,
+                      to: prev?.to && prev.to >= date ? prev.to : date
+                    }));
+                    setStartDateOpen(false);
+                  }
                 }}
-                numberOfMonths={2}
                 className="pointer-events-auto"
               />
-              <div className="flex justify-end gap-2 p-3 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPendingDateRange(undefined);
-                    setDatePickerOpen(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!pendingDateRange?.from}
-                  onClick={() => {
-                    if (pendingDateRange?.from) {
-                      setDateRange({
-                        from: pendingDateRange.from,
-                        to: pendingDateRange.to || pendingDateRange.from,
-                      });
-                      setPendingDateRange(undefined);
-                      setDatePickerOpen(false);
-                    }
-                  }}
-                >
-                  Apply
-                </Button>
-              </div>
+            </PopoverContent>
+          </Popover>
+
+          <span className="text-muted-foreground">→</span>
+
+          {/* End Date */}
+          <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                {dateRange?.to ? format(dateRange.to, 'MMM d, yyyy') : 'End Date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateRange?.to}
+                onSelect={(date) => {
+                  if (date) {
+                    setDateRange(prev => ({
+                      from: prev?.from && prev.from <= date ? prev.from : date,
+                      to: date
+                    }));
+                    setEndDateOpen(false);
+                  }
+                }}
+                className="pointer-events-auto"
+              />
             </PopoverContent>
           </Popover>
         </div>
