@@ -10,6 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -51,6 +59,15 @@ import {
   type TerminationStats,
 } from '@/lib/terminationPointsCalculator';
 import { cn } from '@/lib/utils';
+
+// Types for drill-down modal
+type DrillDownType = 'producer' | 'type' | 'reason';
+interface DrillDownState {
+  open: boolean;
+  type: DrillDownType;
+  title: string;
+  filterValue: string;
+}
 
 interface TerminationAnalyticsProps {
   agencyId: string;
@@ -113,6 +130,14 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   // Table state
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Drill-down modal state
+  const [drillDown, setDrillDown] = useState<DrillDownState>({
+    open: false,
+    type: 'producer',
+    title: '',
+    filterValue: '',
+  });
 
   // Fetch team members first (only once)
   useEffect(() => {
@@ -326,6 +351,64 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       .slice(0, 10)
       .map(([reason, count]) => ({ reason, count }));
   }, [policies]);
+
+  // Drill-down filtered policies
+  const drillDownPolicies = useMemo(() => {
+    if (!drillDown.open) return [];
+    
+    switch (drillDown.type) {
+      case 'producer':
+        return policies.filter(p => {
+          const agentNumber = p.agent_number || 'Unknown';
+          const producerName = teamMembers.get(agentNumber) || agentNumber;
+          return producerName === drillDown.filterValue || agentNumber === drillDown.filterValue;
+        });
+      case 'type':
+        return policies.filter(p => {
+          const type = detectPolicyType(p.product_name, p.line_code);
+          const label = getPolicyTypeLabel(type);
+          return label === drillDown.filterValue;
+        });
+      case 'reason':
+        return policies.filter(p => (p.termination_reason || 'Unknown') === drillDown.filterValue);
+      default:
+        return [];
+    }
+  }, [drillDown, policies, teamMembers]);
+
+  // Chart click handlers
+  const handleProducerBarClick = (data: any) => {
+    if (data?.name) {
+      setDrillDown({
+        open: true,
+        type: 'producer',
+        title: `Policies for ${data.name}`,
+        filterValue: data.name,
+      });
+    }
+  };
+
+  const handleTypeBarClick = (data: any) => {
+    if (data?.name) {
+      setDrillDown({
+        open: true,
+        type: 'type',
+        title: `${data.name} Policies`,
+        filterValue: data.name,
+      });
+    }
+  };
+
+  const handleReasonBarClick = (data: any) => {
+    if (data?.reason) {
+      setDrillDown({
+        open: true,
+        type: 'reason',
+        title: `Policies: ${data.reason.slice(0, 40)}${data.reason.length > 40 ? '...' : ''}`,
+        filterValue: data.reason,
+      });
+    }
+  };
 
   const handleSort = (column: SortColumn) => {
     if (column === sortColumn) {
@@ -569,7 +652,12 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                         return null;
                       }}
                     />
-                    <Bar dataKey="negativeItems" radius={[4, 4, 0, 0]}>
+                    <Bar 
+                      dataKey="negativeItems" 
+                      radius={[4, 4, 0, 0]} 
+                      className="cursor-pointer"
+                      onClick={(data) => handleProducerBarClick(data)}
+                    >
                       {producerStats.slice(0, 10).map((_, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
@@ -785,7 +873,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                           return null;
                         }}
                       />
-                      <Bar dataKey="items" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      <Bar 
+                        dataKey="items" 
+                        fill="#10b981" 
+                        radius={[0, 4, 4, 0]} 
+                        className="cursor-pointer"
+                        onClick={(data) => handleTypeBarClick(data)}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -815,7 +909,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       tickFormatter={(value: string) => value.length > 35 ? value.slice(0, 35) + '...' : value}
                     />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#8b5cf6" 
+                      radius={[0, 4, 4, 0]} 
+                      className="cursor-pointer"
+                      onClick={(data) => handleReasonBarClick(data)}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -849,6 +949,63 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Drill-Down Modal */}
+      <Dialog open={drillDown.open} onOpenChange={(open) => setDrillDown(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{drillDown.title}</DialogTitle>
+            <DialogDescription>
+              {drillDownPolicies.length} policies found
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[500px] pr-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Policy #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Items</TableHead>
+                  <TableHead className="text-right">Premium</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drillDownPolicies.map((policy) => {
+                  const itemsCount = policy.items_count || 1;
+                  return (
+                    <TableRow key={policy.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(policy.termination_effective_date), 'M/d/yyyy')}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{policy.policy_number}</TableCell>
+                      <TableCell>
+                        {policy.winback_households?.first_name} {policy.winback_households?.last_name}
+                      </TableCell>
+                      <TableCell>{policy.product_name || '-'}</TableCell>
+                      <TableCell className="text-right">-{itemsCount}</TableCell>
+                      <TableCell className="text-right">
+                        ({formatCurrency(policy.premium_new_cents || 0)})
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {policy.is_cancel_rewrite ? (
+                          <Badge variant="outline" className="bg-cyan-100 dark:bg-cyan-900">
+                            Cancel/Rewrite
+                          </Badge>
+                        ) : (
+                          policy.termination_reason || '-'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
