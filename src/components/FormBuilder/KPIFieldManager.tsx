@@ -60,6 +60,23 @@ export default function KPIFieldManager({
     [availableKpis]
   );
 
+  // Resolve the display value for the Select - fall back to slug matching if ID not found
+  // This handles KPIs that were recreated with new IDs but same slug
+  const resolveKpiSelection = (kpi: KPIField, kpiList: AgencyKPI[]): string => {
+    // First try exact ID match
+    if (kpi.selectedKpiId && kpiList.some(k => k.kpi_id === kpi.selectedKpiId)) {
+      return kpi.selectedKpiId;
+    }
+    // Fall back to slug match (handles KPIs that were recreated with new IDs)
+    if (kpi.selectedKpiSlug) {
+      const slugMatch = kpiList.find(k => k.slug === kpi.selectedKpiSlug);
+      if (slugMatch) {
+        return slugMatch.kpi_id;
+      }
+    }
+    return '';
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -82,9 +99,9 @@ export default function KPIFieldManager({
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Select KPI</Label>
                   <Select 
-                    value={kpi.selectedKpiId || ''} 
+                    value={resolveKpiSelection(kpi, uniqueAvailableKpis)} 
                     onValueChange={(kpiId) => {
-                      const selectedKpi = availableKpis.find(k => k.kpi_id === kpiId);
+                      const selectedKpi = uniqueAvailableKpis.find(k => k.kpi_id === kpiId);
                       if (selectedKpi) {
                         onUpdateKpiSelection(index, kpiId, selectedKpi.slug, selectedKpi.label);
                       }
