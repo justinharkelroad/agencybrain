@@ -4,10 +4,36 @@
  * This module provides bidirectional mapping between:
  * - Display/UI keys (used in kpis table, scorecard_rules): items_sold, quoted_households
  * - Database column names (in metrics_daily): sold_items, quoted_count
+ * - Legacy keys (policies_quoted, items_quoted)
  * 
  * The database view vw_metrics_with_team and RPC get_dashboard_daily now alias
  * columns to standard UI keys, but this utility serves as a safety net fallback.
  */
+
+// Standard UI key - the canonical key we want to use everywhere
+export const STANDARD_KEYS = {
+  QUOTED: 'quoted_households',
+  SOLD: 'items_sold',
+} as const;
+
+// All possible aliases for quoted metrics -> try these in order
+const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted'];
+
+// All possible aliases for sold metrics -> try these in order  
+const SOLD_ALIASES = ['items_sold', 'sold_items'];
+
+// Map any key to its list of fallback aliases to try
+const KEY_ALIASES: Record<string, string[]> = {
+  // Quoted variations
+  quoted_households: QUOTED_ALIASES,
+  quoted_count: QUOTED_ALIASES,
+  policies_quoted: QUOTED_ALIASES,
+  items_quoted: QUOTED_ALIASES,
+  
+  // Sold variations
+  items_sold: SOLD_ALIASES,
+  sold_items: SOLD_ALIASES,
+};
 
 // Map UI keys to database column names
 export const KPI_KEY_TO_COLUMN: Record<string, string> = {
@@ -47,6 +73,10 @@ export const COLUMN_TO_KPI_KEY: Record<string, string> = {
   // Already standard keys
   items_sold: 'items_sold',
   quoted_households: 'quoted_households',
+  
+  // Legacy keys -> standard
+  policies_quoted: 'quoted_households',
+  items_quoted: 'quoted_households',
 };
 
 /**
@@ -66,26 +96,51 @@ export function toKpiKey(column: string): string {
 }
 
 /**
+ * Normalize a metric key to its standard UI format
+ * Converts legacy keys to canonical keys:
+ * - policies_quoted, items_quoted, quoted_count -> quoted_households
+ * - sold_items -> items_sold
+ */
+export function normalizeMetricKey(key: string): string {
+  return COLUMN_TO_KPI_KEY[key] || key;
+}
+
+/**
  * Normalize an array of metric keys to standard UI format
  * Useful for cleaning up scorecard_rules.ring_metrics or selected_metrics
  */
 export function normalizeMetricKeys(keys: string[]): string[] {
-  return keys.map(toKpiKey);
+  return keys.map(normalizeMetricKey);
 }
 
 /**
- * Get a value from a data object using either the kpi key or column name
- * Provides graceful fallback for data that might use either format
+ * Get a value from a data object using either the kpi key or any of its aliases
+ * Provides graceful fallback for data that might use different key formats
+ * 
+ * IMPORTANT: This tries multiple possible field names to find the value,
+ * handling cases where scorecard_rules uses legacy keys but data uses standard keys
  */
 export function getMetricValue(data: Record<string, any>, kpiKey: string): number {
-  // First try the standard UI key (what RPC now returns)
-  if (data[kpiKey] !== undefined) {
+  // Get the list of aliases to try for this key
+  const aliases = KEY_ALIASES[kpiKey];
+  
+  if (aliases) {
+    // Try each alias in order until we find a value
+    for (const alias of aliases) {
+      if (data[alias] !== undefined && data[alias] !== null) {
+        return Number(data[alias]) || 0;
+      }
+    }
+  }
+  
+  // No aliases defined, try direct access
+  if (data[kpiKey] !== undefined && data[kpiKey] !== null) {
     return Number(data[kpiKey]) || 0;
   }
   
   // Fallback to database column name (legacy data)
   const column = toColumn(kpiKey);
-  if (data[column] !== undefined) {
+  if (column !== kpiKey && data[column] !== undefined && data[column] !== null) {
     return Number(data[column]) || 0;
   }
   
