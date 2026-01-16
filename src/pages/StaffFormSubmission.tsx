@@ -337,6 +337,11 @@ export default function StaffFormSubmission() {
         throw new Error(data.error);
       }
 
+      // Verify we got a valid submission_id back (confirms server-side finalization)
+      if (!data?.success || !data?.submission_id) {
+        throw new Error('Submission may not have been saved correctly. Please verify and try again.');
+      }
+
       setSubmitted(true);
       toast.success('Form submitted successfully!');
 
