@@ -375,31 +375,6 @@ export function PayoutPreview({
                 teamMembers={teamMembers}
                 onDataParsed={handleSalesReportParsed}
               />
-
-              {/* Termination Report for Chargebacks */}
-              <TerminationReportUpload
-                onDataParsed={handleTerminationReportParsed}
-              />
-
-              {/* Chargeback matching status */}
-              {terminationRecords && salesReportResult && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {chargebacksByProducer.size > 0 ? (
-                      <>
-                        Matched {Array.from(chargebacksByProducer.values()).reduce((sum, p) => sum + p.count, 0)} chargebacks
-                        to {chargebacksByProducer.size} sub-producers
-                        ({policyToProducerMap.size} policies in lookup table)
-                      </>
-                    ) : (
-                      <>
-                        {terminationRecords.length} terminations loaded, matching to {policyToProducerMap.size} policies
-                      </>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
             </TabsContent>
 
             <TabsContent value="commission_statement" className="mt-4 space-y-4">
@@ -428,6 +403,35 @@ export function PayoutPreview({
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Termination Report for Chargebacks - Always visible */}
+          <TerminationReportUpload
+            onDataParsed={handleTerminationReportParsed}
+          />
+
+          {/* Chargeback matching status */}
+          {terminationRecords && terminationRecords.length > 0 && (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                {chargebacksByProducer.size > 0 ? (
+                  <>
+                    Matched {Array.from(chargebacksByProducer.values()).reduce((sum, p) => sum + p.count, 0)} chargebacks
+                    to {chargebacksByProducer.size} sub-producers
+                    ({policyToProducerMap.size} policies in lookup table)
+                  </>
+                ) : dataSource === "sales_report" && salesReportResult ? (
+                  <>
+                    {terminationRecords.length} terminations loaded, matching to {policyToProducerMap.size} policies
+                  </>
+                ) : (
+                  <>
+                    {terminationRecords.length} terminations loaded (upload Sales Report to match chargebacks to producers)
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Period Selection & Actions */}
           <div className="flex flex-wrap gap-4 items-end pt-4 border-t">
