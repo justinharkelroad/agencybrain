@@ -365,83 +365,35 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards - Negative values */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-red-600 dark:text-red-400">Points Lost</CardDescription>
-              <TrendingDown className="h-4 w-4 text-red-500" />
-            </div>
-            <CardTitle className="text-3xl text-red-600 dark:text-red-400">
-              -{formatCompactNumber(stats.totalPointsLost)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-red-500 space-y-0.5">
-              {getActiveTypesWithStats(stats).slice(0, 4).map(({ label, stats: typeStats }) => (
-                <span key={label} className="inline-block mr-2">
-                  {label}: -{typeStats.pointsLost}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Stats Orbs - Reordered: Premium, Items, Policies, Points */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {/* Premium Lost - Emerald */}
+        <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+          <DollarSign className="h-5 w-5 text-emerald-400 mb-1" />
+          <span className="text-2xl font-bold text-white">-{formatCurrency(stats.totalPremiumLostCents)}</span>
+          <span className="text-xs text-muted-foreground">Premium Lost</span>
+        </div>
 
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-amber-600 dark:text-amber-400">Items Lost</CardDescription>
-              <Package className="h-4 w-4 text-amber-500" />
-            </div>
-            <CardTitle className="text-3xl text-amber-600 dark:text-amber-400">
-              -{stats.totalItemsLost}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-amber-500 space-y-0.5">
-              {getActiveTypesWithStats(stats).slice(0, 4).map(({ label, stats: typeStats }) => (
-                <span key={label} className="inline-block mr-2">
-                  {label}: -{typeStats.itemsLost}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Items Lost - Amber */}
+        <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <Package className="h-5 w-5 text-amber-400 mb-1" />
+          <span className="text-2xl font-bold text-white">-{stats.totalItemsLost}</span>
+          <span className="text-xs text-muted-foreground">Items Lost</span>
+        </div>
 
-        <Card className="border-violet-200 bg-violet-50 dark:border-violet-900 dark:bg-violet-950">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-violet-600 dark:text-violet-400">Policies Lost</CardDescription>
-              <FileText className="h-4 w-4 text-violet-500" />
-            </div>
-            <CardTitle className="text-3xl text-violet-600 dark:text-violet-400">
-              -{stats.totalPoliciesLost}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-violet-500">
-              Terminated policies in period
-            </p>
-          </CardContent>
-        </Card>
+        {/* Policies Lost - Violet */}
+        <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-violet-500/50 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+          <FileText className="h-5 w-5 text-violet-400 mb-1" />
+          <span className="text-2xl font-bold text-white">-{stats.totalPoliciesLost}</span>
+          <span className="text-xs text-muted-foreground">Policies Lost</span>
+        </div>
 
-        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-emerald-600 dark:text-emerald-400">Premium Lost</CardDescription>
-              <DollarSign className="h-4 w-4 text-emerald-500" />
-            </div>
-            <CardTitle className="text-3xl text-emerald-600 dark:text-emerald-400">
-              -{formatCurrency(stats.totalPremiumLostCents)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-emerald-500">
-              Annual premium value
-            </p>
-          </CardContent>
-        </Card>
+        {/* Points Lost - Red */}
+        <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+          <TrendingDown className="h-5 w-5 text-red-400 mb-1" />
+          <span className="text-2xl font-bold text-white">-{formatCompactNumber(stats.totalPointsLost)}</span>
+          <span className="text-xs text-muted-foreground">Points Lost</span>
+        </div>
       </div>
 
       {/* Filters */}
@@ -802,10 +754,10 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={policyTypeData} layout="vertical">
+                    <BarChart data={policyTypeData} layout="vertical" margin={{ left: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={60} />
+                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
                       <Tooltip
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
@@ -841,14 +793,15 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reasonData} layout="vertical" margin={{ left: 150 }}>
+                  <BarChart data={reasonData} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis
                       dataKey="reason"
                       type="category"
-                      width={140}
-                      tick={{ fontSize: 12 }}
+                      width={200}
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value: string) => value.length > 35 ? value.slice(0, 35) + '...' : value}
                     />
                     <Tooltip />
                     <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
