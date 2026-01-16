@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, FileText } from "lucide-react";
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
@@ -13,6 +14,8 @@ import { toast } from "sonner";
 import { PayoutDetailRow } from "./PayoutDetailRow";
 import { PayoutDetailSheet } from "./PayoutDetailSheet";
 import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
+import { SalesReportUpload } from "./SalesReportUpload";
+import { SubProducerSalesMetrics, NewBusinessParseResult, convertToCompensationMetrics } from "@/lib/new-business-details-parser";
 
 // The subProducerData from comparison reports is an object with producers array
 interface SubProducerDataWrapper {
@@ -49,6 +52,11 @@ export function PayoutPreview({
   const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
 
+  // Sales report data (new flow)
+  const [dataSource, setDataSource] = useState<"sales_report" | "commission_statement">("sales_report");
+  const [salesReportMetrics, setSalesReportMetrics] = useState<SubProducerSalesMetrics[] | null>(null);
+  const [salesReportResult, setSalesReportResult] = useState<NewBusinessParseResult | null>(null);
+
   const { 
     calculatePayouts, 
     savePayouts,
@@ -70,12 +78,62 @@ export function PayoutPreview({
     return years;
   }, [currentDate]);
 
+  // Handler for when sales report is parsed
+  const handleSalesReportParsed = useCallback(
+    (metrics: SubProducerSalesMetrics[], result: NewBusinessParseResult) => {
+      setSalesReportMetrics(metrics);
+      setSalesReportResult(result);
+
+      // Auto-set period based on date range
+      if (result.dateRange) {
+        const [year, month] = result.dateRange.end.split("-");
+        setSelectedYear(parseInt(year));
+        setSelectedMonth(parseInt(month));
+      }
+
+      toast.success(`Loaded ${result.summary.totalRecords} sales records`);
+    },
+    []
+  );
+
+  // Convert sales report metrics to the format expected by the calculator
+  const getProducersForCalculation = useCallback((): SubProducerMetrics[] | null => {
+    if (dataSource === "sales_report" && salesReportMetrics) {
+      // Convert SubProducerSalesMetrics to SubProducerMetrics format
+      const converted = convertToCompensationMetrics(salesReportMetrics);
+      return converted.map((m) => ({
+        code: m.code,
+        itemsIssued: m.itemsIssued,
+        policiesIssued: m.policiesIssued,
+        premiumWritten: m.premiumWritten,
+        creditCount: m.creditCount,
+        netPremium: m.netPremium,
+        premiumChargebacks: m.premiumChargebacks,
+        chargebackCount: m.chargebackCount,
+        creditTransactions: [],
+        chargebackTransactions: [],
+        creditInsureds: [],
+        chargebackInsureds: [],
+        byBundleType: m.byBundleType,
+        byProduct: m.byProduct,
+      })) as SubProducerMetrics[];
+    } else if (dataSource === "commission_statement" && subProducerData?.producers) {
+      return subProducerData.producers;
+    }
+    return null;
+  }, [dataSource, salesReportMetrics, subProducerData]);
+
   const handleCalculate = async () => {
-    // subProducerData is an object with producers array, not an array itself
-    const producers = subProducerData?.producers;
+    const producers = getProducersForCalculation();
+
     if (!producers || producers.length === 0) {
-      toast.error("Please select a statement report with sub-producer data");
-      setWarnings(["No sub-producer data available. Upload a commission statement first."]);
+      if (dataSource === "sales_report") {
+        toast.error("Please upload a New Business Details report first");
+        setWarnings(["No sales data available. Upload a New Business Details report."]);
+      } else {
+        toast.error("Please select a statement report with sub-producer data");
+        setWarnings(["No sub-producer data available. Upload a commission statement first."]);
+      }
       return;
     }
 
@@ -92,6 +150,11 @@ export function PayoutPreview({
     setWarnings(result.warnings);
     setHasCalculated(true);
   };
+
+  // Check if we have data ready for calculation
+  const hasDataForCalculation =
+    (dataSource === "sales_report" && salesReportMetrics && salesReportMetrics.length > 0) ||
+    (dataSource === "commission_statement" && subProducerData?.producers && subProducerData.producers.length > 0);
 
   const handleSave = async () => {
     if (calculatedPayouts.length === 0) return;
@@ -131,9 +194,18 @@ export function PayoutPreview({
     }
   };
 
+  // Get sub-producer count based on data source
+  const subProducerCount =
+    dataSource === "sales_report"
+      ? salesReportMetrics?.length || 0
+      : subProducerData?.producerCount || subProducerData?.producers?.length || 0;
+
+  // Get producers for manual override panel
+  const producersForOverride = getProducersForCalculation();
+
   return (
     <div className="space-y-6">
-      {/* Period Selection */}
+      {/* Data Source Selection */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -144,8 +216,50 @@ export function PayoutPreview({
             Calculate commissions based on sub-producer performance and compensation plans
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-end">
+        <CardContent className="space-y-6">
+          {/* Data Source Tabs */}
+          <Tabs value={dataSource} onValueChange={(v) => setDataSource(v as "sales_report" | "commission_statement")}>
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsTrigger value="sales_report" className="flex items-center gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                Sales Report
+              </TabsTrigger>
+              <TabsTrigger value="commission_statement" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Commission Statement
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sales_report" className="mt-4">
+              <SalesReportUpload
+                agencyId={agencyId}
+                teamMembers={teamMembers}
+                onDataParsed={handleSalesReportParsed}
+              />
+            </TabsContent>
+
+            <TabsContent value="commission_statement" className="mt-4">
+              {subProducerData?.producers && subProducerData.producers.length > 0 ? (
+                <Alert>
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Commission statement loaded with {subProducerData.producers.length} sub-producers.
+                    {subProducerData.statementMonth && ` Statement period: ${subProducerData.statementMonth}`}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    No commission statement selected. Go to the Comp Analyzer tab to upload and select a statement.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Period Selection & Actions */}
+          <div className="flex flex-wrap gap-4 items-end pt-4 border-t">
             <div className="space-y-2">
               <label className="text-sm font-medium">Month</label>
               <Select
@@ -184,23 +298,23 @@ export function PayoutPreview({
               </Select>
             </div>
 
-            <Button onClick={handleCalculate} disabled={!subProducerData}>
+            <Button onClick={handleCalculate} disabled={!hasDataForCalculation}>
               <Calculator className="h-4 w-4 mr-2" />
               Calculate Payouts
             </Button>
 
             {hasCalculated && calculatedPayouts.length > 0 && (
               <>
-                <Button 
-                  onClick={handleSave} 
+                <Button
+                  onClick={handleSave}
                   disabled={isSaving}
                   variant="secondary"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   {isSaving ? "Saving..." : "Save Draft"}
                 </Button>
-                <Button 
-                  onClick={handleFinalize} 
+                <Button
+                  onClick={handleFinalize}
                   disabled={isFinalizingPayouts}
                   variant="default"
                 >
@@ -212,7 +326,7 @@ export function PayoutPreview({
           </div>
 
           {/* Status Summary */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-3 rounded-lg bg-muted">
               <div className="text-sm text-muted-foreground">Team Members</div>
               <div className="text-2xl font-bold">{teamMembers.length}</div>
@@ -227,16 +341,16 @@ export function PayoutPreview({
             </div>
             <div className="p-3 rounded-lg bg-muted">
               <div className="text-sm text-muted-foreground">Sub-Producers</div>
-              <div className="text-2xl font-bold">{subProducerData?.producerCount || subProducerData?.producers?.length || 0}</div>
+              <div className="text-2xl font-bold">{subProducerCount}</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Manual Override Panel */}
-      {subProducerData?.producers && subProducerData.producers.length > 0 && (
+      {producersForOverride && producersForOverride.length > 0 && (
         <ManualOverridePanel
-          subProducerData={subProducerData.producers}
+          subProducerData={producersForOverride}
           teamMembers={teamMembers}
           overrides={manualOverrides}
           onChange={setManualOverrides}
