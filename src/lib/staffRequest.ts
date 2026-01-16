@@ -11,24 +11,35 @@ export interface StaffRequestContext {
 
 /**
  * Get the current authentication context.
- * Returns staff token if present, otherwise tries to get Supabase JWT.
+ * Supabase Auth (owner) takes precedence over staff tokens to prevent stale token collisions.
  */
 export async function getAuthContext(): Promise<StaffRequestContext> {
-  const staffToken = localStorage.getItem("staff_session_token");
+  // ALWAYS check Supabase session first - owner auth takes precedence
+  const { data: { session: supabaseSession } } = await supabase.auth.getSession();
   
+  // If user has a Supabase Auth session, use that (they're an owner/admin)
+  // Staff tokens should be ignored when Supabase Auth is active
+  if (supabaseSession?.access_token) {
+    return {
+      isStaff: false,
+      staffToken: undefined,
+      supabaseToken: supabaseSession.access_token,
+    };
+  }
+  
+  // Only use staff token if no Supabase session exists
+  const staffToken = localStorage.getItem("staff_session_token");
   if (staffToken) {
     return {
       isStaff: true,
       staffToken,
+      supabaseToken: undefined,
     };
   }
   
-  // Try to get Supabase session
-  const { data: { session } } = await supabase.auth.getSession();
-  
   return {
     isStaff: false,
-    supabaseToken: session?.access_token,
+    supabaseToken: undefined,
   };
 }
 

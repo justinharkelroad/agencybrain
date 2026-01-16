@@ -30,8 +30,13 @@ export async function verifyRequest(
   const authHeader = req.headers.get("Authorization");
   const staffSession = req.headers.get("X-Staff-Session");
 
-  // Path 1: Staff session token
-  if (staffSession) {
+  // DEFENSE: If BOTH headers are present, prefer Supabase JWT (owner takes precedence)
+  // This handles edge cases where stale staff tokens weren't cleared from localStorage
+  const hasValidJwt = authHeader && authHeader.startsWith("Bearer ");
+  const useStaffSession = staffSession && !hasValidJwt;
+
+  // Path 1: Staff session token (only if no JWT present)
+  if (useStaffSession) {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Step 1: Fetch staff session by token (without expires_at filter in SQL)
