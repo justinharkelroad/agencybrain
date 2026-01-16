@@ -209,10 +209,19 @@ export function parseBOBTerminationReport(file: ArrayBuffer): TerminationParseRe
     }
 
     if (headerRowIndex === -1) {
+      // Debug: show what we found in first few rows
+      const firstRowsDebug = rawData.slice(0, 10).map((row, i) =>
+        `Row ${i + 1}: ${row?.slice(0, 5).map(c => String(c || '').substring(0, 20)).join(' | ')}`
+      ).join('\n');
+      console.log('[BOB Termination Parser] Could not find header. First rows:', firstRowsDebug);
+
       return {
         success: false,
         records: [],
-        errors: ['Could not find header row. Expected columns like "Agent Number", "Policy Number", "Termination Effective Date", etc.'],
+        errors: [
+          'Could not find header row. Expected columns: "Agent Number", "Policy Number", "Termination Effective Date", "Line Code", "Premium New".',
+          'Make sure this is the BOB Termination Audit Report (not New Business Details).'
+        ],
         dateRange: null,
         summary: { totalRecords: 0, totalPremium: 0, autoTerminations: 0, propertyTerminations: 0 }
       };
@@ -268,10 +277,15 @@ export function parseBOBTerminationReport(file: ArrayBuffer): TerminationParseRe
     const missingCols = requiredCols.filter(col => colIndex[col as keyof typeof colIndex] === -1);
 
     if (missingCols.length > 0) {
+      console.log('[BOB Termination Parser] Missing columns. Found headers:', headers);
+      console.log('[BOB Termination Parser] Column index map:', colIndex);
       return {
         success: false,
         records: [],
-        errors: [`Missing required columns: ${missingCols.join(', ')}`],
+        errors: [
+          `Missing required columns: ${missingCols.join(', ')}`,
+          `Found columns: ${headers.filter(h => h).join(', ')}`
+        ],
         dateRange: null,
         summary: { totalRecords: 0, totalPremium: 0, autoTerminations: 0, propertyTerminations: 0 }
       };

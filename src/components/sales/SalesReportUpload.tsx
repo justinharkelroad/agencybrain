@@ -185,19 +185,19 @@ export function SalesReportUpload({ agencyId, teamMembers, onDataParsed }: Sales
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
             isDragActive
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-primary/50"
+              ? "border-blue-500 bg-blue-50"
+              : "border-blue-300 hover:border-blue-400 bg-blue-50/30"
           } ${isProcessing ? "opacity-50 cursor-wait" : ""}`}
         >
           <input {...getInputProps()} />
-          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <Upload className="h-8 w-8 mx-auto mb-2 text-blue-500" />
           {isProcessing ? (
             <p className="text-sm text-muted-foreground">Processing file...</p>
           ) : isDragActive ? (
-            <p className="text-sm text-primary">Drop the file here...</p>
+            <p className="text-sm text-blue-600 font-medium">Drop the file here...</p>
           ) : (
             <div>
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium text-blue-700">
                 Drag & drop your New Business Details report here
               </p>
               <p className="text-xs text-muted-foreground mt-1">

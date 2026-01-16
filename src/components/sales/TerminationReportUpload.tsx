@@ -115,24 +115,24 @@ export function TerminationReportUpload({ onDataParsed }: TerminationReportUploa
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Dropzone */}
+        {/* Dropzone - Amber/Orange theme to distinguish from blue Sales Report */}
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
             isDragActive
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-primary/50"
+              ? "border-amber-500 bg-amber-50"
+              : "border-amber-300 hover:border-amber-400 bg-amber-50/30"
           } ${isProcessing ? "opacity-50 cursor-wait" : ""}`}
         >
           <input {...getInputProps()} />
-          <Upload className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+          <Upload className="h-6 w-6 mx-auto mb-1 text-amber-500" />
           {isProcessing ? (
             <p className="text-xs text-muted-foreground">Processing file...</p>
           ) : isDragActive ? (
-            <p className="text-xs text-primary">Drop the file here...</p>
+            <p className="text-xs text-amber-600 font-medium">Drop the file here...</p>
           ) : (
             <div>
-              <p className="text-xs font-medium">
+              <p className="text-xs font-medium text-amber-700">
                 Drop BOB Termination Audit Report here
               </p>
               <p className="text-xs text-muted-foreground">
