@@ -165,6 +165,34 @@ export default function ScorecardFormEditor() {
     }
   }, [outdatedBinding, currentKpiVersion, showKpiUpdateDialog, dialogDismissed]);
 
+  // Auto-heal stale KPI IDs by matching on slug when IDs are outdated
+  useEffect(() => {
+    if (!formSchema || !agencyKpis.length) return;
+    
+    let needsUpdate = false;
+    const healedKpis = formSchema.kpis.map(kpi => {
+      // Check if selectedKpiId exists in available KPIs
+      const idMatch = agencyKpis.find(k => k.kpi_id === kpi.selectedKpiId);
+      if (idMatch) return kpi; // ID is valid, no change needed
+      
+      // ID not found - try slug match
+      if (kpi.selectedKpiSlug) {
+        const slugMatch = agencyKpis.find(k => k.slug === kpi.selectedKpiSlug);
+        if (slugMatch && slugMatch.kpi_id !== kpi.selectedKpiId) {
+          console.log(`Healing stale KPI: ${kpi.selectedKpiSlug} from ${kpi.selectedKpiId} to ${slugMatch.kpi_id}`);
+          needsUpdate = true;
+          return { ...kpi, selectedKpiId: slugMatch.kpi_id };
+        }
+      }
+      return kpi;
+    });
+    
+    if (needsUpdate) {
+      setFormSchema(prev => prev ? { ...prev, kpis: healedKpis } : null);
+      toast.info("KPI selections updated to match current definitions");
+    }
+  }, [agencyKpis]);
+
   const loadForm = async () => {
     try {
       if (isStaffMode) {
