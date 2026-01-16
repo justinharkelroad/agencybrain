@@ -227,6 +227,17 @@ async function processInBackground(
 
           stats.updated++;
         } else {
+          // Validate required fields before insert
+          if (!record.productName && !record.lineCode) {
+            console.error('Policy skipped - missing product_name and line_code:', {
+              policyNumber: record.policyNumber,
+              record,
+            });
+            stats.skipped++;
+            stats.processed++;
+            continue;
+          }
+
           const { error: policyError } = await supabase
             .from('winback_policies')
             .insert({
@@ -236,7 +247,7 @@ async function processInBackground(
               agent_number: record.agentNumber,
               original_year: record.originalYear,
               product_code: record.productCode,
-              product_name: record.productName,
+              product_name: record.productName || `Line ${record.lineCode}`,
               policy_term_months: record.policyTermMonths,
               renewal_effective_date: record.renewalEffectiveDate?.toISOString().split('T')[0] || null,
               anniversary_effective_date: record.anniversaryEffectiveDate?.toISOString().split('T')[0] || null,
@@ -256,7 +267,15 @@ async function processInBackground(
             });
 
           if (policyError) {
-            console.error('Error inserting policy:', policyError);
+            console.error('Policy INSERT failed:', {
+              error: policyError,
+              code: policyError.code,
+              message: policyError.message,
+              details: policyError.details,
+              policyNumber: record.policyNumber,
+              productName: record.productName,
+              householdId,
+            });
             stats.skipped++;
           } else {
             stats.newPolicies++;
