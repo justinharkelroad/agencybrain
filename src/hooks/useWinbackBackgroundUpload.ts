@@ -329,4 +329,7 @@ function invalidateWinbackQueries(queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: ['winback-policies'] });
   queryClient.invalidateQueries({ queryKey: ['winback-uploads'] });
   queryClient.invalidateQueries({ queryKey: ['winback-stats'] });
+  
+  // Dispatch custom event to trigger TerminationAnalytics refresh
+  window.dispatchEvent(new CustomEvent('winback-upload-complete'));
 }

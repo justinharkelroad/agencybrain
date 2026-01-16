@@ -126,6 +126,17 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
   }, [agencyId, dateRange, teamMembersLoaded]);
 
+  // Auto-refresh when winback data is uploaded
+  useEffect(() => {
+    const handleWinbackUpload = () => {
+      console.log('[TerminationAnalytics] Winback upload detected, refreshing data...');
+      fetchPolicies();
+    };
+
+    window.addEventListener('winback-upload-complete', handleWinbackUpload);
+    return () => window.removeEventListener('winback-upload-complete', handleWinbackUpload);
+  }, [agencyId, dateRange, teamMembersLoaded]);
+
   const fetchTeamMembers = async () => {
     const { data } = await supabase
       .from('team_members')
