@@ -49,17 +49,36 @@ serve(async (req) => {
 
     const staffUserId = session.staff_user_id;
 
+    // Check if staff user has Manager or Owner role via team_member link
+    const { data: staffUser } = await supabase
+      .from('staff_users')
+      .select('team_member_id, team_members(role)')
+      .eq('id', staffUserId)
+      .single();
+
+    const staffRole = (staffUser?.team_members as any)?.role;
+    const isManager = staffRole === 'Manager' || staffRole === 'Owner';
+    console.log(`Staff user ${staffUserId} role: ${staffRole}, isManager: ${isManager}`);
+
+    // Helper to check if category is accessible based on role
+    const canAccessCategory = (accessTiers: string[]) => {
+      if (!accessTiers) return false;
+      if (accessTiers.includes('staff')) return true;
+      if (isManager && accessTiers.includes('manager')) return true;
+      return false;
+    };
+
     // If requesting a specific lesson
     if (lesson_slug) {
       console.log('Fetching specific lesson:', lesson_slug);
-      
+
       const { data: lessonData, error: lessonError } = await supabase
         .from('sp_lessons')
         .select(`
           *,
           module:sp_modules(
             id, name, slug,
-            category:sp_categories(id, name, slug)
+            category:sp_categories(id, name, slug, access_tiers)
           )
         `)
         .eq('slug', lesson_slug)
@@ -71,6 +90,16 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: 'Lesson not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify access to this lesson's category
+      const categoryAccessTiers = (lessonData.module as any)?.category?.access_tiers || [];
+      if (!canAccessCategory(categoryAccessTiers)) {
+        console.log('Access denied to lesson - category access_tiers:', categoryAccessTiers);
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -124,12 +153,12 @@ serve(async (req) => {
     if (category_slug) {
       console.log('Fetching specific category:', category_slug);
 
+      // Fetch category and check access based on role
       const { data: catData, error: catError } = await supabase
         .from('sp_categories')
         .select('*')
         .eq('slug', category_slug)
         .eq('is_published', true)
-        .contains('access_tiers', ['staff'])
         .single();
 
       if (catError) {
@@ -137,6 +166,15 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: 'Category not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify access to this category
+      if (!canAccessCategory(catData.access_tiers)) {
+        console.log('Access denied to category - access_tiers:', catData.access_tiers);
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -186,9 +224,10 @@ serve(async (req) => {
     }
 
     // Default: fetch all categories for training hub
-    console.log('Fetching all SP categories for staff');
+    console.log('Fetching all SP categories for staff, isManager:', isManager);
 
-    const { data: catData, error: catError } = await supabase
+    // Fetch all published categories, then filter by role-based access
+    const { data: allCatData, error: catError } = await supabase
       .from('sp_categories')
       .select(`
         *,
@@ -198,7 +237,6 @@ serve(async (req) => {
         )
       `)
       .eq('is_published', true)
-      .contains('access_tiers', ['staff'])
       .order('display_order', { ascending: true });
 
     if (catError) {
@@ -208,6 +246,9 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Filter categories based on role
+    const catData = (allCatData || []).filter(cat => canAccessCategory(cat.access_tiers));
 
     // Get staff's progress
     const { data: progressData, error: progressError } = await supabase
