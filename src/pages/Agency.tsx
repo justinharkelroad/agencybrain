@@ -18,7 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
@@ -111,6 +112,8 @@ export default function Agency() {
     hybridTeamAssignments: [] as string[],
     subProducerCode: "",
   });
+  const [editingMemberOriginalRole, setEditingMemberOriginalRole] = useState<Role | null>(null);
+  const [editingMemberHasStaffUser, setEditingMemberHasStaffUser] = useState(false);
 
   // Staff Invite dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -305,21 +308,25 @@ export default function Agency() {
   const startCreate = () => {
     setEditingId(null);
     setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "" });
+    setEditingMemberOriginalRole(null);
+    setEditingMemberHasStaffUser(false);
     setMemberDialogOpen(true);
   };
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setMemberForm({ 
-      name: m.name, 
-      email: m.email, 
-      role: m.role, 
-      employment: m.employment, 
-      status: m.status, 
+    setMemberForm({
+      name: m.name,
+      email: m.email,
+      role: m.role,
+      employment: m.employment,
+      status: m.status,
       notes: m.notes || "",
       hybridTeamAssignments: m.hybrid_team_assignments || [],
       subProducerCode: m.sub_producer_code || ""
     });
+    setEditingMemberOriginalRole(m.role);
+    setEditingMemberHasStaffUser(staffByTeamMemberId.has(m.id));
     setMemberDialogOpen(true);
   };
 
@@ -1053,6 +1060,16 @@ export default function Agency() {
                        </SelectContent>
                      </Select>
                    </div>
+                   {editingMemberHasStaffUser && editingMemberOriginalRole && memberForm.role !== editingMemberOriginalRole && (
+                     <Alert className="border-amber-500/50 bg-amber-500/10">
+                       <AlertTriangle className="h-4 w-4 text-amber-500" />
+                       <AlertDescription className="text-amber-200 text-sm">
+                         This member has a staff portal login. Changing their role from <strong>{editingMemberOriginalRole}</strong> to <strong>{memberForm.role}</strong> will affect their training access.
+                         {memberForm.role === 'Manager' && ' They will now see Manager-only training content.'}
+                         {editingMemberOriginalRole === 'Manager' && memberForm.role !== 'Manager' && ' They will lose access to Manager-only training content.'}
+                       </AlertDescription>
+                     </Alert>
+                   )}
                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                      <Label className="sm:text-right" htmlFor="subProducerCode">Sub Producer Code</Label>
                      <Input 
