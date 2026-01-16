@@ -176,14 +176,72 @@ function classifyChargeback(
 }
 
 /**
- * Check if a record should be included (not an endorsement/add-item)
- * Endorsements are skipped entirely
+ * Check if a product is Auto (6-month term) vs Property (12-month term)
  */
-function shouldIncludeRecord(dispositionCode: string, transactionType: string): boolean {
-  const disp = (dispositionCode || '').toUpperCase();
-  const trans = (transactionType || '').toUpperCase();
+function isAutoProduct(product: string): boolean {
+  const p = (product || '').toLowerCase();
+  return p.includes('auto') || p.includes('motorcycle') || p.includes('motor club');
+}
 
-  // Skip endorsements/add-items - these are mid-term changes, not new business or chargebacks
+/**
+ * Calculate months between two dates
+ */
+function monthsBetween(dateStr1: string, dateStr2: string): number {
+  // Parse YYYY-MM-DD format
+  const [y1, m1] = dateStr1.split('-').map(Number);
+  const [y2, m2] = dateStr2.split('-').map(Number);
+  return Math.abs((y2 - y1) * 12 + (m2 - m1));
+}
+
+/**
+ * Determine if a record should be included based on first-term rules
+ *
+ * Include if:
+ * 1. Transaction type contains "First Term" (explicit first-term indicator)
+ * 2. It's a new policy (disposition = "New Policy Issued", etc.)
+ * 3. It's a cancellation (negative premium or cancellation disposition)
+ *
+ * Exclude if:
+ * - It's an endorsement/add-item that is NOT first term (old policy changes)
+ */
+function shouldIncludeRecord(
+  dispositionCode: string,
+  transactionType: string,
+  product: string,
+  dateWritten: string | null,
+  reportEndDate: string | null,
+  writtenPremium: number
+): { include: boolean; reason: string } {
+  const disp = (dispositionCode || '').trim();
+  const trans = (transactionType || '').trim();
+  const dispUpper = disp.toUpperCase();
+  const transUpper = trans.toUpperCase();
+
+  // Rule 1: If transaction type explicitly says "First Term", always include
+  if (transUpper.includes('FIRST TERM')) {
+    return { include: true, reason: 'First term transaction' };
+  }
+
+  // Rule 2: New policy dispositions - always include
+  for (const pattern of NEW_BUSINESS_DISPOSITION_PATTERNS) {
+    if (pattern.test(disp)) {
+      return { include: true, reason: 'New business disposition' };
+    }
+  }
+
+  // Rule 3: Cancellation patterns - always include (these are chargebacks)
+  for (const pattern of CHARGEBACK_DISPOSITION_PATTERNS) {
+    if (pattern.test(disp) || pattern.test(trans)) {
+      return { include: true, reason: 'Cancellation/chargeback' };
+    }
+  }
+
+  // Rule 4: Negative premium - always include as chargeback
+  if (writtenPremium < 0) {
+    return { include: true, reason: 'Negative premium' };
+  }
+
+  // Rule 5: Check if this is an endorsement/add-item
   const endorsementPatterns = [
     /endorsement/i,
     /add\s*item/i,
@@ -194,13 +252,30 @@ function shouldIncludeRecord(dispositionCode: string, transactionType: string): 
     /policy\s*change/i,
   ];
 
-  for (const pattern of endorsementPatterns) {
-    if (pattern.test(disp) || pattern.test(trans)) {
-      return false;
+  const isEndorsement = endorsementPatterns.some(p => p.test(disp) || p.test(trans));
+
+  if (isEndorsement) {
+    // For endorsements without "First Term" label, check date-based first-term window
+    if (dateWritten && reportEndDate) {
+      const termMonths = isAutoProduct(product) ? 6 : 12;
+      const monthsOld = monthsBetween(dateWritten, reportEndDate);
+
+      if (monthsOld <= termMonths) {
+        return { include: true, reason: `Endorsement within ${termMonths}-month first term` };
+      }
     }
+
+    // Endorsement outside first term - exclude
+    return { include: false, reason: 'Endorsement outside first term' };
   }
 
-  return true;
+  // Rule 6: "Sales Issued" without other indicators - include as new business
+  if (transUpper.includes('SALES ISSUED') || transUpper.includes('NEW ISSUED')) {
+    return { include: true, reason: 'Sales/new issued transaction' };
+  }
+
+  // Default: include (we'll classify as credit or chargeback later)
+  return { include: true, reason: 'Default include' };
 }
 
 /**
@@ -512,7 +587,7 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
         subProducerMetrics: [],
         errors: ['Could not find header row. Expected columns like "Agent Number", "Sub Producer", "Policy No", etc.'],
         dateRange: null,
-        summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped: 0 }
+        summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped: 0, chargebackRecords: 0, chargebackItems: 0, chargebackPremium: 0, netPremium: 0 }
       };
     }
 
@@ -570,11 +645,29 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
         subProducerMetrics: [],
         errors: [`Missing required columns: ${missingCols.join(', ')}`],
         dateRange: null,
-        summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped: 0 }
+        summary: { totalRecords: 0, totalItems: 0, totalPremium: 0, totalPolicies: 0, subProducerCount: 0, endorsementsSkipped: 0, chargebackRecords: 0, chargebackItems: 0, chargebackPremium: 0, netPremium: 0 }
       };
     }
 
-    // Process each data row
+    // FIRST PASS: Find the report's date range (needed for first-term calculations)
+    let reportEndDate: string | null = null;
+    for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
+      const row = dataRows[rowIdx];
+      if (!row || row.every(cell => cell === null || cell === '')) continue;
+
+      const getValue = (idx: number) => idx >= 0 && idx < row.length ? row[idx] : null;
+      const issuedDate = parseDate(getValue(colIndex.issuedDate));
+
+      if (issuedDate) {
+        if (!reportEndDate || issuedDate > reportEndDate) {
+          reportEndDate = issuedDate;
+        }
+      }
+    }
+
+    console.log('[NewBusiness Parser] Report end date (for first-term calc):', reportEndDate);
+
+    // SECOND PASS: Process each data row with first-term filtering
     for (let rowIdx = 0; rowIdx < dataRows.length; rowIdx++) {
       const row = dataRows[rowIdx];
       const absoluteRowNum = rowIdx + headerRowIndex + 2; // Excel row number (1-indexed)
@@ -583,18 +676,27 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
 
       const getValue = (idx: number) => idx >= 0 && idx < row.length ? row[idx] : null;
 
-      // Get disposition code and transaction type for classification
+      // Get fields needed for inclusion check
       const dispositionCode = String(getValue(colIndex.dispositionCode) || '').trim();
       const transactionType = String(getValue(colIndex.transactionType) || '').trim();
+      const product = String(getValue(colIndex.product) || '').trim();
+      const writtenPremium = parseCurrency(getValue(colIndex.writtenPremium));
+      const dateWritten = parseDate(getValue(colIndex.dateWritten));
 
-      // Skip endorsements/add-items (mid-term changes)
-      if (!shouldIncludeRecord(dispositionCode, transactionType)) {
+      // Check if record should be included (first-term logic)
+      const includeResult = shouldIncludeRecord(
+        dispositionCode,
+        transactionType,
+        product,
+        dateWritten,
+        reportEndDate,
+        writtenPremium
+      );
+
+      if (!includeResult.include) {
         endorsementsSkipped++;
         continue;
       }
-
-      // Parse premium first (needed for chargeback classification)
-      const writtenPremium = parseCurrency(getValue(colIndex.writtenPremium));
 
       // Classify as chargeback or new business (credit)
       const { isChargeback, reason: chargebackReason } = classifyChargeback(
@@ -625,7 +727,6 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
 
       // Parse dates
       const issuedDate = parseDate(getValue(colIndex.issuedDate));
-      const dateWritten = parseDate(getValue(colIndex.dateWritten));
 
       if (!issuedDate) {
         errors.push(`Row ${absoluteRowNum}: Invalid or missing Issued Date, skipped`);
