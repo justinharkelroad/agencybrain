@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
 
     const { data: template, error: templateError } = await supabase
       .from('form_templates')
-      .select('id, slug, status, agency_id')
+      .select('id, slug, status, agency_id, name, needs_attention')
       .eq('slug', formSlug)
       .eq('agency_id', staffUser.agency_id)
       .single();
@@ -144,6 +144,20 @@ Deno.serve(async (req) => {
 
     if (template.status !== 'published') {
       return json(403, { error: 'Form is not published' });
+    }
+
+    // LAYER 4: Block submissions for forms that need admin attention
+    if (template.needs_attention) {
+      logStructured('warn', 'form_needs_attention_blocked', {
+        request_id: requestId,
+        form_template_id: template.id,
+        form_name: template.name
+      });
+      return json(400, { 
+        error: `The "${template.name}" form has a configuration issue. One or more KPIs used in this form were recently deleted or modified by a manager. Your manager needs to open this form in the Form Editor and update the KPI settings before you can submit. Please let them know so they can fix it.`,
+        error_code: 'FORM_NEEDS_ATTENTION',
+        form_name: template.name
+      });
     }
 
     // Step 5: Normalize payload (same as public form)
@@ -276,12 +290,32 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If still no KPI binding, log warning but continue (submission still valid)
+    // If still no KPI binding after slug fallback, block with clear error
     if (!kpiVersionId) {
-      logStructured('warn', 'no_kpi_binding_resolved', {
+      // Get KPI slugs from schema to show in error message
+      const { data: formTemplateSchema } = await supabase
+        .from('form_templates')
+        .select('schema_json')
+        .eq('id', template.id)
+        .single();
+      
+      const schema = formTemplateSchema?.schema_json as any;
+      const kpiLabels = (schema?.kpis || [])
+        .filter((k: any) => k.selectedKpiSlug)
+        .map((k: any) => k.label || k.selectedKpiSlug)
+        .join(', ');
+
+      logStructured('error', 'kpi_resolution_failed', {
         request_id: requestId,
         form_template_id: template.id,
-        message: 'Submission will proceed without KPI version binding'
+        kpi_labels: kpiLabels
+      });
+
+      return json(400, { 
+        error: `Cannot submit "${template.name}" - the following KPIs are missing or have been deleted: ${kpiLabels || 'unknown KPIs'}. Your manager needs to open this form in the Form Editor and update the KPI settings. Please let them know so they can fix it.`,
+        error_code: 'MISSING_KPIS',
+        form_name: template.name,
+        missing_kpis: kpiLabels
       });
     }
 

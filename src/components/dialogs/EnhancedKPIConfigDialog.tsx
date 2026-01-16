@@ -42,6 +42,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
     kpi: KPIData;
     impact: {
       forms_affected: number;
+      affected_form_names: string[];
       rules_touched: boolean;
       remaining_kpis: number;
     };
@@ -169,8 +170,17 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
         return;
       }
 
+      // LAYER 2: Actually query for affected forms instead of hardcoding 0
+      const { data: affectedForms } = await supabase
+        .from('form_templates')
+        .select('id, name')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .ilike('schema_json::text', `%"${kpi.key}"%`);
+
       const impact = {
-        forms_affected: 0,
+        forms_affected: affectedForms?.length || 0,
+        affected_form_names: affectedForms?.map(f => f.name) || [],
         rules_touched: true,
         remaining_kpis: remainingCount
       };
@@ -551,24 +561,57 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>Are you sure you want to delete this custom KPI? This action cannot be undone.</p>
-                
-                {deleteConfirm && (
-                  <div className="bg-muted p-3 rounded-md space-y-2">
-                    <h4 className="font-medium text-sm">Impact Analysis:</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• Remaining enabled KPIs: {deleteConfirm.impact.remaining_kpis}</li>
-                      <li>• Scorecard rules will be updated</li>
+                {deleteConfirm && deleteConfirm.impact.forms_affected > 0 ? (
+                  <>
+                    <div className="bg-destructive/10 border border-destructive rounded-md p-3">
+                      <p className="font-semibold text-destructive flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        STOP - This KPI is actively being used
+                      </p>
+                    </div>
+                    <p>
+                      <strong>"{deleteConfirm.kpi.label}"</strong> is currently used in these forms:
+                    </p>
+                    <ul className="list-disc ml-6 font-medium">
+                      {deleteConfirm.impact.affected_form_names.map(name => (
+                        <li key={name}>{name}</li>
+                      ))}
                     </ul>
-                  </div>
+                    <p className="text-destructive font-medium">
+                      If you delete this KPI, team members will NOT be able to submit these forms until you fix them.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      To safely delete: First edit the forms above to remove or replace this KPI, then come back and delete it.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      This will archive <strong>"{deleteConfirm?.kpi.label}"</strong>. 
+                      Historical data will be preserved. No active forms use this KPI.
+                    </p>
+                    <div className="bg-muted p-3 rounded-md space-y-2">
+                      <h4 className="font-medium text-sm">Impact:</h4>
+                      <ul className="text-sm space-y-1">
+                        <li>• Remaining enabled KPIs: {deleteConfirm?.impact.remaining_kpis}</li>
+                        <li>• Scorecard rules will be updated</li>
+                      </ul>
+                    </div>
+                  </>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteKpi} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete KPI
+            <AlertDialogAction 
+              onClick={confirmDeleteKpi} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirm?.impact.forms_affected ? deleteConfirm.impact.forms_affected > 0 : false}
+            >
+              {deleteConfirm?.impact.forms_affected && deleteConfirm.impact.forms_affected > 0 
+                ? "Cannot Delete - Forms Using This KPI" 
+                : "Delete KPI"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
