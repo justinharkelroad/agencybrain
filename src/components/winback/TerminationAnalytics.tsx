@@ -635,22 +635,23 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-background border rounded-lg p-3 shadow-lg">
-                              <p className="font-medium">{data.name}</p>
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-semibold text-foreground">{data.name}</p>
                               <p className="text-sm text-muted-foreground">
-                                Items Lost: {data.itemsLost}
+                                Items Lost: <span className="font-medium text-foreground">{data.itemsLost}</span>
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Points Lost: {data.pointsLost}
+                                Points Lost: <span className="font-medium text-foreground">{data.pointsLost}</span>
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Premium: {formatCurrency(data.premiumLostCents)}
+                                Premium: <span className="font-medium text-foreground">{formatCurrency(data.premiumLostCents)}</span>
                               </p>
                             </div>
                           );
                         }
                         return null;
                       }}
+                      cursor={false}
                     />
                     <Bar 
                       dataKey="negativeItems" 
@@ -838,7 +839,28 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                           <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                                <p className="font-semibold text-foreground">{data.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Policies: <span className="font-medium text-foreground">{data.value}</span>
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Items: <span className="font-medium text-foreground">{data.items}</span>
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Premium: <span className="font-medium text-foreground">{formatCurrency(data.premium)}</span>
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -857,22 +879,29 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" />
                       <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-background border rounded-lg p-3 shadow-lg">
-                                <p className="font-medium">{data.name}</p>
-                                <p className="text-sm">Items: {data.items}</p>
-                                <p className="text-sm">Policies: {data.value}</p>
-                                <p className="text-sm">Premium: {formatCurrency(data.premium)}</p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-semibold text-foreground">{data.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Items: <span className="font-medium text-foreground">{data.items}</span>
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Policies: <span className="font-medium text-foreground">{data.value}</span>
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Premium: <span className="font-medium text-foreground">{formatCurrency(data.premium)}</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                      cursor={false}
+                    />
                       <Bar 
                         dataKey="items" 
                         fill="#10b981" 
@@ -908,7 +937,23 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       tick={{ fontSize: 11 }}
                       tickFormatter={(value: string) => value.length > 35 ? value.slice(0, 35) + '...' : value}
                     />
-                    <Tooltip />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+                              <p className="font-semibold text-foreground">{data.reason}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Count: <span className="font-medium text-foreground">{data.count}</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                      cursor={false}
+                    />
                     <Bar 
                       dataKey="count" 
                       fill="#8b5cf6" 
