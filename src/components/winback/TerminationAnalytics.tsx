@@ -115,11 +115,11 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   // Filter state
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    // Default to last 90 days to show more data
+    // Default to current month (1st to last day)
     const today = new Date();
     return {
-      from: subDays(today, 90),
-      to: today,
+      from: startOfMonth(today),
+      to: endOfMonth(today),
     };
   });
   const [startDateOpen, setStartDateOpen] = useState(false);
