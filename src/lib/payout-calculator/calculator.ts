@@ -17,6 +17,18 @@ interface Assignment {
   comp_plan_id: string;
 }
 
+// Manual override interface for testing compensation calculations
+export interface ManualOverride {
+  subProdCode: string;
+  teamMemberId: string | null;
+  teamMemberName: string | null;
+  writtenItems: number | null;
+  writtenPremium: number | null;
+  writtenPolicies: number | null;
+  writtenHouseholds: number | null;
+  writtenPoints: number | null;
+}
+
 /**
  * Parse a date string that could be in various formats
  */
@@ -734,6 +746,7 @@ export function calculateMemberPayout(
 
 /**
  * Calculate payouts for all assigned team members (async for promo bonus calculation)
+ * @param manualOverrides - Optional manual overrides for written metrics (for testing)
  */
 export async function calculateAllPayouts(
   subProducerData: SubProducerMetrics[] | undefined | null,
@@ -742,7 +755,8 @@ export async function calculateAllPayouts(
   teamMembers: TeamMember[],
   periodMonth: number,
   periodYear: number,
-  agencyId: string
+  agencyId: string,
+  manualOverrides?: ManualOverride[]
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -773,7 +787,17 @@ export async function calculateAllPayouts(
     existing.push(a.comp_plan_id);
     assignmentsByMember.set(a.team_member_id, existing);
   });
-  
+
+  // Create lookup map for manual overrides by sub-producer code
+  const overrideByCode = new Map<string, ManualOverride>();
+  if (manualOverrides && manualOverrides.length > 0) {
+    manualOverrides.forEach(o => {
+      if (o.subProdCode) {
+        overrideByCode.set(o.subProdCode.trim(), o);
+      }
+    });
+  }
+
   // Cache promo bonuses by team member to avoid duplicate calculations
   const promoBonusCache = new Map<string, { bonusAmount: number; achievedPromos: AchievedPromo[] }>();
   
@@ -815,14 +839,34 @@ export async function calculateAllPayouts(
       
       // Convert metrics to performance with plan's chargeback rule
       const performance = convertToPerformance(
-        metrics, 
-        teamMember.id, 
+        metrics,
+        teamMember.id,
         teamMember.name,
         plan.chargeback_rule,
         periodMonth,
         periodYear
       );
-      
+
+      // Apply manual overrides if present (for testing compensation calculations)
+      const override = overrideByCode.get(code);
+      if (override) {
+        if (override.writtenItems !== null) {
+          performance.writtenItems = override.writtenItems;
+        }
+        if (override.writtenPremium !== null) {
+          performance.writtenPremium = override.writtenPremium;
+        }
+        if (override.writtenPolicies !== null) {
+          performance.writtenPolicies = override.writtenPolicies;
+        }
+        if (override.writtenHouseholds !== null) {
+          performance.writtenHouseholds = override.writtenHouseholds;
+        }
+        if (override.writtenPoints !== null) {
+          performance.writtenPoints = override.writtenPoints;
+        }
+      }
+
       const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear, promoBonus);
       payouts.push(payout);
     }
