@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,23 @@ import { useAgencyKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
+
+// Validate that all KPI IDs in schema exist in active KPI list
+function validateKpiIds(
+  kpis: { selectedKpiId?: string; label: string }[], 
+  activeKpis: { kpi_id: string }[]
+): { valid: boolean; invalidLabels: string[] } {
+  const activeIds = new Set(activeKpis.map(k => k.kpi_id));
+  const invalidLabels: string[] = [];
+  
+  for (const kpi of kpis) {
+    if (kpi.selectedKpiId && !activeIds.has(kpi.selectedKpiId)) {
+      invalidLabels.push(kpi.label);
+    }
+  }
+  
+  return { valid: invalidLabels.length === 0, invalidLabels };
+}
 
 interface KPIField {
   key: string;
@@ -126,6 +143,7 @@ export default function ScorecardFormEditor() {
   const [agencyId, setAgencyId] = useState<string>("");
   const [showKpiUpdateDialog, setShowKpiUpdateDialog] = useState(false);
   const [dialogDismissed, setDialogDismissed] = useState(false);
+  const [kpisHealed, setKpisHealed] = useState(false);
   const [outdatedKpiInfo, setOutdatedKpiInfo] = useState<{
     kpi_id: string;
     current_label: string;
@@ -144,7 +162,30 @@ export default function ScorecardFormEditor() {
   const { data: currentKpiVersion } = useCurrentKpiVersion(outdatedBinding?.kpi_versions.kpi_id || "");
   
   // Load agency KPIs for dropdown - pass role from formSchema for filtering
-  const { data: agencyKpis = [] } = useAgencyKpis(agencyId, formSchema?.role);
+  const { data: agencyKpis = [], refetch: refetchAgencyKpis } = useAgencyKpis(agencyId, formSchema?.role);
+
+  // Refetch KPIs when window regains focus (handles edits in other tabs)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (agencyId) {
+        refetchAgencyKpis();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [agencyId, refetchAgencyKpis]);
+
+  // Warn user if navigating away with unsaved healed KPIs
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (kpisHealed && !saving) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [kpisHealed, saving]);
 
   useEffect(() => {
     if (formId && (user?.id || isStaffMode)) {
@@ -166,6 +207,14 @@ export default function ScorecardFormEditor() {
   }, [outdatedBinding, currentKpiVersion, showKpiUpdateDialog, dialogDismissed]);
 
   // Auto-heal stale KPI IDs by matching on slug when IDs are outdated
+  // Also auto-save to persist the healed IDs
+  const triggerAutoSave = useCallback(() => {
+    // Small delay to ensure state is updated before save
+    setTimeout(() => {
+      handleSaveInternal(true);
+    }, 500);
+  }, []);
+
   useEffect(() => {
     if (!formSchema || !agencyKpis.length) return;
     
@@ -189,9 +238,17 @@ export default function ScorecardFormEditor() {
     
     if (needsUpdate) {
       setFormSchema(prev => prev ? { ...prev, kpis: healedKpis } : null);
-      toast.info("KPI selections updated to match current definitions");
+      setKpisHealed(true);
+      toast.info("KPI selections updated - auto-saving...");
     }
   }, [agencyKpis]);
+
+  // Trigger auto-save when kpisHealed becomes true
+  useEffect(() => {
+    if (kpisHealed && formSchema && !saving) {
+      triggerAutoSave();
+    }
+  }, [kpisHealed, formSchema, saving, triggerAutoSave]);
 
   const loadForm = async () => {
     try {
@@ -244,8 +301,16 @@ export default function ScorecardFormEditor() {
     }
   };
 
-  const handleSave = async () => {
+  // Internal save function used by both manual save and auto-save
+  const handleSaveInternal = async (isAutoSave: boolean = false) => {
     if (!formSchema) return;
+
+    // Validate all KPI IDs are current before saving
+    const validation = validateKpiIds(formSchema.kpis, agencyKpis);
+    if (!validation.valid) {
+      toast.error(`Cannot save: Some KPIs have stale IDs: ${validation.invalidLabels.join(', ')}. Please re-select them.`);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -274,8 +339,15 @@ export default function ScorecardFormEditor() {
         toast.error("Form updated but KPI bindings failed: " + bindError.message);
       }
 
-      toast.success("Form updated successfully!");
-      navigate('/scorecard-forms');
+      // Clear healed flag after successful save
+      setKpisHealed(false);
+
+      if (isAutoSave) {
+        toast.success("KPI updates saved automatically");
+      } else {
+        toast.success("Form updated successfully!");
+        navigate('/scorecard-forms');
+      }
     } catch (error: any) {
       console.error('Error updating form:', error);
       toast.error(error.message || "Failed to update form");
@@ -283,6 +355,8 @@ export default function ScorecardFormEditor() {
       setSaving(false);
     }
   };
+
+  const handleSave = () => handleSaveInternal(false);
 
   const updateKPILabel = (index: number, label: string) => {
     if (!formSchema) return;
