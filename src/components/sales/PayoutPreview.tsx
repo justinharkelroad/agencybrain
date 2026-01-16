@@ -124,6 +124,11 @@ export function PayoutPreview({
     if (dataSource === "sales_report" && salesReportMetrics) {
       // Convert SubProducerSalesMetrics to SubProducerMetrics format
       const converted = convertToCompensationMetrics(salesReportMetrics);
+      console.log('[PayoutPreview] Converted metrics:', converted.map(m => ({
+        code: m.code,
+        creditInsuredsCount: m.creditInsureds?.length || 0,
+        creditTransactionsCount: m.creditTransactions?.length || 0,
+      })));
       return converted.map((m) => ({
         code: m.code,
         displayName: m.displayName,

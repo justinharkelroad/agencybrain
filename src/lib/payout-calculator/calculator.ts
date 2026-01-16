@@ -680,6 +680,8 @@ export function calculateMemberPayout(
   // Add promo bonus to total
   const totalPayout = baseCommission + promoBonus.bonusAmount;
 
+  console.log(`[calculateMemberPayout] ${performance.teamMemberName}: creditInsureds=${performance.creditInsureds?.length || 0}, chargebackInsureds=${performance.chargebackInsureds?.length || 0}`);
+
   return {
     teamMemberId: performance.teamMemberId || '',
     teamMemberName: performance.teamMemberName || performance.subProdCode,
@@ -804,6 +806,7 @@ export async function calculateAllPayouts(
   // Process each sub-producer's data
   for (const metrics of subProducerData) {
     const code = metrics.code.trim();
+    console.log(`[calculateAllPayouts] Processing ${code}: creditInsureds=${metrics.creditInsureds?.length || 0}, chargebackInsureds=${metrics.chargebackInsureds?.length || 0}`);
     const teamMember = memberByCode.get(code);
     
     if (!teamMember) {

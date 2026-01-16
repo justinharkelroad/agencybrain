@@ -630,6 +630,8 @@ export function convertToCompensationMetrics(
       transactionCount: number;
     }>();
 
+    console.log(`[convertToCompensationMetrics] Processing sub-producer ${m.code} with ${m.transactions.length} transactions`);
+
     for (const tx of m.transactions) {
       const key = tx.customerName.toUpperCase().trim();
       const existing = insuredMap.get(key) || { netPremium: 0, netCommission: 0, transactionCount: 0 };
@@ -646,6 +648,8 @@ export function convertToCompensationMetrics(
       netCommission: data.netCommission,
       transactionCount: data.transactionCount,
     }));
+
+    console.log(`[convertToCompensationMetrics] Sub-producer ${m.code}: ${creditInsureds.length} creditInsureds created`);
 
     // Convert transactions to SubProducerTransaction format
     const creditTransactions: SubProducerTransaction[] = m.transactions.map(tx => {
