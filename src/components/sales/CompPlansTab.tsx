@@ -148,33 +148,13 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
           </TabsList>
 
           <TabsContent value="calculate" className="mt-6 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Calculate Payouts
-                </CardTitle>
-                <CardDescription>
-                  Select a statement report to calculate team member commissions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <StatementReportSelector
-                  agencyId={agencyId}
-                  selectedReportId={selectedReportId}
-                  onSelect={handleReportSelect}
-                />
-              </CardContent>
-            </Card>
-
-            {selectedReportId && (
-              <PayoutPreview
-                agencyId={agencyId}
-                subProducerData={subProducerData}
-                statementMonth={statementMonth}
-                statementYear={statementYear}
-              />
-            )}
+            <PayoutPreview
+              agencyId={agencyId}
+              subProducerData={subProducerData}
+              statementMonth={statementMonth}
+              statementYear={statementYear}
+              onStatementReportSelect={handleReportSelect}
+            />
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">

@@ -15,6 +15,7 @@ import { PayoutDetailRow } from "./PayoutDetailRow";
 import { PayoutDetailSheet } from "./PayoutDetailSheet";
 import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
 import { SalesReportUpload } from "./SalesReportUpload";
+import { StatementReportSelector } from "./StatementReportSelector";
 import { SubProducerSalesMetrics, NewBusinessParseResult, convertToCompensationMetrics } from "@/lib/new-business-details-parser";
 
 // The subProducerData from comparison reports is an object with producers array
@@ -25,11 +26,19 @@ interface SubProducerDataWrapper {
   statementMonth?: string;
 }
 
+interface StatementReport {
+  id: string;
+  statement_month: number;
+  statement_year: number;
+  comparison_data: { subProducerData?: SubProducerDataWrapper };
+}
+
 interface PayoutPreviewProps {
   agencyId: string | null;
   subProducerData?: SubProducerDataWrapper;
   statementMonth?: number;
   statementYear?: number;
+  onStatementReportSelect?: (report: StatementReport | null) => void;
 }
 
 const MONTHS = [
@@ -37,11 +46,12 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-export function PayoutPreview({ 
-  agencyId, 
+export function PayoutPreview({
+  agencyId,
   subProducerData,
   statementMonth,
-  statementYear 
+  statementYear,
+  onStatementReportSelect
 }: PayoutPreviewProps) {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(statementMonth || currentDate.getMonth() + 1);
@@ -56,6 +66,19 @@ export function PayoutPreview({
   const [dataSource, setDataSource] = useState<"sales_report" | "commission_statement">("sales_report");
   const [salesReportMetrics, setSalesReportMetrics] = useState<SubProducerSalesMetrics[] | null>(null);
   const [salesReportResult, setSalesReportResult] = useState<NewBusinessParseResult | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+
+  // Handle statement report selection
+  const handleStatementReportSelect = useCallback((report: StatementReport | null) => {
+    if (report) {
+      setSelectedReportId(report.id);
+      if (report.statement_month) setSelectedMonth(report.statement_month);
+      if (report.statement_year) setSelectedYear(report.statement_year);
+    } else {
+      setSelectedReportId(null);
+    }
+    onStatementReportSelect?.(report);
+  }, [onStatementReportSelect]);
 
   const { 
     calculatePayouts, 
@@ -238,20 +261,27 @@ export function PayoutPreview({
               />
             </TabsContent>
 
-            <TabsContent value="commission_statement" className="mt-4">
-              {subProducerData?.producers && subProducerData.producers.length > 0 ? (
+            <TabsContent value="commission_statement" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Select Commission Statement</CardTitle>
+                  <CardDescription>
+                    Choose a statement from the Comp Analyzer to use for calculations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <StatementReportSelector
+                    agencyId={agencyId}
+                    selectedReportId={selectedReportId}
+                    onSelect={handleStatementReportSelect}
+                  />
+                </CardContent>
+              </Card>
+              {subProducerData?.producers && subProducerData.producers.length > 0 && (
                 <Alert>
                   <CheckCircle className="h-4 w-4" />
                   <AlertDescription>
                     Commission statement loaded with {subProducerData.producers.length} sub-producers.
-                    {subProducerData.statementMonth && ` Statement period: ${subProducerData.statementMonth}`}
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    No commission statement selected. Go to the Comp Analyzer tab to upload and select a statement.
                   </AlertDescription>
                 </Alert>
               )}
