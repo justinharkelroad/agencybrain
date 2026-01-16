@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Loader2, Users, Building2, Briefcase } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Users, Building2, Briefcase, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMOJI_OPTIONS = ['📚', '🎯', '💼', '🚀', '⭐', '🔥', '💡', '📈', '🎓', '🏆', '📊', '🤝', '💪', '🧠'];
@@ -15,7 +15,8 @@ const EMOJI_OPTIONS = ['📚', '🎯', '💼', '🚀', '⭐', '🔥', '💡', '�
 const ACCESS_TIER_OPTIONS = [
   { value: 'boardroom', label: 'Boardroom', icon: <Building2 className="h-4 w-4" />, description: 'Boardroom agency owners' },
   { value: 'one_on_one', label: '1:1 Coaching', icon: <Briefcase className="h-4 w-4" />, description: '1:1 Coaching agency owners' },
-  { value: 'staff', label: 'Staff', icon: <Users className="h-4 w-4" />, description: 'Staff members only' },
+  { value: 'staff', label: 'All Staff', icon: <Users className="h-4 w-4" />, description: 'All staff members' },
+  { value: 'manager', label: 'Managers Only', icon: <UserCog className="h-4 w-4" />, description: 'Staff with Manager or Owner role only' },
 ];
 
 export default function AdminSPCategoryEditor() {
