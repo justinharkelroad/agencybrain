@@ -28,9 +28,15 @@ const EMPTY_ASSIGNMENTS: string[] = [];
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CompPlan } from "@/hooks/useCompPlans";
+import { CompPlan, BundleConfigs, BundleTypeConfig, ProductRates } from "@/hooks/useCompPlans";
 import { useCompPlanMutations, TierFormData } from "@/hooks/useCompPlanMutations";
 import { CommissionTierEditor } from "./CommissionTierEditor";
+import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface CreateCompPlanModalProps {
   open: boolean;
@@ -94,6 +100,22 @@ export function CreateCompPlanModal({
     { min_threshold: 0, commission_value: 0, sort_order: 0 },
   ]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+
+  // Advanced compensation configuration state
+  const [useBundleConfigs, setUseBundleConfigs] = useState(false);
+  const [bundleConfigs, setBundleConfigs] = useState<BundleConfigs>({
+    monoline: { enabled: false, payout_type: 'percent_of_premium', rate: 5 },
+    standard: { enabled: false, payout_type: 'flat_per_item', rate: 20 },
+    preferred: { enabled: false, payout_type: 'flat_per_item', rate: 25 },
+  });
+  const [expandedBundleTypes, setExpandedBundleTypes] = useState<Record<string, boolean>>({
+    monoline: false,
+    standard: false,
+    preferred: false,
+  });
+
+  const [useProductRates, setUseProductRates] = useState(false);
+  const [productRates, setProductRates] = useState<ProductRates>({});
 
   // Fetch team members
   const { data: teamMembersData } = useQuery({
@@ -163,6 +185,32 @@ export function CreateCompPlanModal({
             }))
           : [{ min_threshold: 0, commission_value: 0, sort_order: 0 }]
       );
+
+      // Initialize bundle configs if present
+      if (editPlan.bundle_configs) {
+        setUseBundleConfigs(true);
+        setBundleConfigs({
+          monoline: editPlan.bundle_configs.monoline || { enabled: false, payout_type: 'percent_of_premium', rate: 5 },
+          standard: editPlan.bundle_configs.standard || { enabled: false, payout_type: 'flat_per_item', rate: 20 },
+          preferred: editPlan.bundle_configs.preferred || { enabled: false, payout_type: 'flat_per_item', rate: 25 },
+        });
+      } else {
+        setUseBundleConfigs(false);
+        setBundleConfigs({
+          monoline: { enabled: false, payout_type: 'percent_of_premium', rate: 5 },
+          standard: { enabled: false, payout_type: 'flat_per_item', rate: 20 },
+          preferred: { enabled: false, payout_type: 'flat_per_item', rate: 25 },
+        });
+      }
+
+      // Initialize product rates if present
+      if (editPlan.product_rates && Object.keys(editPlan.product_rates).length > 0) {
+        setUseProductRates(true);
+        setProductRates(editPlan.product_rates);
+      } else {
+        setUseProductRates(false);
+        setProductRates({});
+      }
     } else {
       resetForm();
     }
@@ -198,6 +246,16 @@ export function CreateCompPlanModal({
     setBrokeredTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setSelectedMembers([]);
+    // Reset advanced configuration
+    setUseBundleConfigs(false);
+    setBundleConfigs({
+      monoline: { enabled: false, payout_type: 'percent_of_premium', rate: 5 },
+      standard: { enabled: false, payout_type: 'flat_per_item', rate: 20 },
+      preferred: { enabled: false, payout_type: 'flat_per_item', rate: 25 },
+    });
+    setExpandedBundleTypes({ monoline: false, standard: false, preferred: false });
+    setUseProductRates(false);
+    setProductRates({});
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -217,6 +275,18 @@ export function CreateCompPlanModal({
     const sortedTiers = [...tiers].sort((a, b) => a.min_threshold - b.min_threshold);
     const sortedBrokeredTiers = [...brokeredTiers].sort((a, b) => a.min_threshold - b.min_threshold);
 
+    // Prepare bundle configs only if enabled and at least one bundle type is configured
+    const effectiveBundleConfigs = useBundleConfigs && (
+      bundleConfigs.monoline?.enabled ||
+      bundleConfigs.standard?.enabled ||
+      bundleConfigs.preferred?.enabled
+    ) ? bundleConfigs : null;
+
+    // Prepare product rates only if enabled and has entries
+    const effectiveProductRates = useProductRates && Object.keys(productRates).length > 0
+      ? productRates
+      : null;
+
     const formData = {
       id: editPlan?.id,
       name: name.trim(),
@@ -232,6 +302,8 @@ export function CreateCompPlanModal({
       tiers: sortedTiers,
       brokered_tiers: brokeredPayoutType === 'tiered' ? sortedBrokeredTiers : [],
       assigned_member_ids: selectedMembers,
+      bundle_configs: effectiveBundleConfigs,
+      product_rates: effectiveProductRates,
     };
 
     if (isEditing) {
@@ -470,6 +542,284 @@ export function CreateCompPlanModal({
                   Counts toward tier threshold
                 </Label>
               </div>
+            </div>
+
+            {/* Bundle Type Configuration Section */}
+            <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="use-bundle-configs"
+                    checked={useBundleConfigs}
+                    onCheckedChange={setUseBundleConfigs}
+                  />
+                  <Label htmlFor="use-bundle-configs" className="font-medium">
+                    Configure by Bundle Type
+                  </Label>
+                </div>
+                {useBundleConfigs && (
+                  <span className="text-xs text-muted-foreground">
+                    Pay different rates for Mono/Standard/Preferred
+                  </span>
+                )}
+              </div>
+
+              {useBundleConfigs && (
+                <div className="space-y-3 pt-2">
+                  {(['monoline', 'standard', 'preferred'] as const).map((bundleType) => {
+                    const config = bundleConfigs[bundleType];
+                    const isExpanded = expandedBundleTypes[bundleType];
+                    const bundleLabel = bundleType === 'monoline' ? 'Monoline' :
+                                       bundleType === 'standard' ? 'Standard Bundle' : 'Preferred Bundle';
+
+                    return (
+                      <Collapsible
+                        key={bundleType}
+                        open={isExpanded}
+                        onOpenChange={(open) =>
+                          setExpandedBundleTypes((prev) => ({ ...prev, [bundleType]: open }))
+                        }
+                      >
+                        <div className="rounded-md border bg-background">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between p-3 hover:bg-muted/50"
+                            >
+                              <div className="flex items-center gap-3">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <span className="font-medium">{bundleLabel}</span>
+                                {config?.enabled && (
+                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                    {config.payout_type === 'percent_of_premium'
+                                      ? `${config.rate || 0}%`
+                                      : `$${config.rate || 0}/item`}
+                                  </span>
+                                )}
+                              </div>
+                              <Switch
+                                checked={config?.enabled || false}
+                                onCheckedChange={(checked) => {
+                                  setBundleConfigs((prev) => ({
+                                    ...prev,
+                                    [bundleType]: { ...prev[bundleType]!, enabled: checked },
+                                  }));
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </button>
+                          </CollapsibleTrigger>
+
+                          <CollapsibleContent>
+                            {config?.enabled && (
+                              <div className="space-y-4 p-4 pt-0 border-t">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Payout Type</Label>
+                                    <Select
+                                      value={config.payout_type}
+                                      onValueChange={(value) => {
+                                        setBundleConfigs((prev) => ({
+                                          ...prev,
+                                          [bundleType]: { ...prev[bundleType]!, payout_type: value },
+                                        }));
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PAYOUT_TYPES.map((type) => (
+                                          <SelectItem key={type.value} value={type.value}>
+                                            {type.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>
+                                      {config.payout_type === 'percent_of_premium'
+                                        ? 'Percentage'
+                                        : 'Amount'}
+                                    </Label>
+                                    <div className="relative">
+                                      <Input
+                                        type="number"
+                                        value={config.rate || ''}
+                                        onChange={(e) => {
+                                          setBundleConfigs((prev) => ({
+                                            ...prev,
+                                            [bundleType]: {
+                                              ...prev[bundleType]!,
+                                              rate: parseFloat(e.target.value) || 0,
+                                            },
+                                          }));
+                                        }}
+                                        className={
+                                          config.payout_type === 'percent_of_premium'
+                                            ? 'pr-7'
+                                            : 'pl-6'
+                                        }
+                                        placeholder="0"
+                                        step="0.01"
+                                        min="0"
+                                      />
+                                      {config.payout_type === 'percent_of_premium' ? (
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                          %
+                                        </span>
+                                      ) : (
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                          $
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Product Rates Configuration Section */}
+            <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="use-product-rates"
+                    checked={useProductRates}
+                    onCheckedChange={setUseProductRates}
+                  />
+                  <Label htmlFor="use-product-rates" className="font-medium">
+                    Configure by Product
+                  </Label>
+                </div>
+                {useProductRates && (
+                  <span className="text-xs text-muted-foreground">
+                    Set specific rates per product (overrides bundle rates)
+                  </span>
+                )}
+              </div>
+
+              {useProductRates && (
+                <div className="space-y-3 pt-2">
+                  {Object.entries(productRates).map(([productName, config]) => (
+                    <div
+                      key={productName}
+                      className="flex items-center gap-3 p-3 rounded-md border bg-background"
+                    >
+                      <div className="flex-1 grid grid-cols-3 gap-3 items-center">
+                        <span className="font-medium">{productName}</span>
+                        <Select
+                          value={config.payout_type}
+                          onValueChange={(value) => {
+                            setProductRates((prev) => ({
+                              ...prev,
+                              [productName]: { ...prev[productName], payout_type: value },
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PAYOUT_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={config.rate || ''}
+                            onChange={(e) => {
+                              setProductRates((prev) => ({
+                                ...prev,
+                                [productName]: {
+                                  ...prev[productName],
+                                  rate: parseFloat(e.target.value) || 0,
+                                },
+                              }));
+                            }}
+                            className={`h-9 ${
+                              config.payout_type === 'percent_of_premium' ? 'pr-7' : 'pl-6'
+                            }`}
+                            placeholder="0"
+                            step="0.01"
+                            min="0"
+                          />
+                          {config.payout_type === 'percent_of_premium' ? (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              %
+                            </span>
+                          ) : (
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              $
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setProductRates((prev) => {
+                            const updated = { ...prev };
+                            delete updated[productName];
+                            return updated;
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {/* Add Product Button */}
+                  <div className="flex gap-2">
+                    <Select
+                      value=""
+                      onValueChange={(value) => {
+                        if (value && !productRates[value]) {
+                          setProductRates((prev) => ({
+                            ...prev,
+                            [value]: { payout_type: 'flat_per_item', rate: 0 },
+                          }));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Add a product..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['Auto', 'Homeowners', 'Renters', 'Condo', 'Umbrella', 'Landlord/Dwelling']
+                          .filter((p) => !productRates[p])
+                          .map((product) => (
+                            <SelectItem key={product} value={product}>
+                              {product}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Commission Tiers */}

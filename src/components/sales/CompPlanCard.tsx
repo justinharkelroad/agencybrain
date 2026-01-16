@@ -133,6 +133,64 @@ export function CompPlanCard({ plan, onEdit }: CompPlanCardProps) {
           </div>
         )}
 
+        {/* Bundle Type Configurations */}
+        {plan.bundle_configs && (
+          plan.bundle_configs.monoline?.enabled ||
+          plan.bundle_configs.standard?.enabled ||
+          plan.bundle_configs.preferred?.enabled
+        ) && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground font-medium">Bundle Type Rates:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {plan.bundle_configs.monoline?.enabled && (
+                <Badge variant="outline" className="text-xs">
+                  Monoline:{" "}
+                  {plan.bundle_configs.monoline.payout_type === "percent_of_premium"
+                    ? `${plan.bundle_configs.monoline.rate}%`
+                    : `$${plan.bundle_configs.monoline.rate}/item`}
+                </Badge>
+              )}
+              {plan.bundle_configs.standard?.enabled && (
+                <Badge variant="outline" className="text-xs">
+                  Standard:{" "}
+                  {plan.bundle_configs.standard.payout_type === "percent_of_premium"
+                    ? `${plan.bundle_configs.standard.rate}%`
+                    : `$${plan.bundle_configs.standard.rate}/item`}
+                </Badge>
+              )}
+              {plan.bundle_configs.preferred?.enabled && (
+                <Badge variant="outline" className="text-xs">
+                  Preferred:{" "}
+                  {plan.bundle_configs.preferred.payout_type === "percent_of_premium"
+                    ? `${plan.bundle_configs.preferred.rate}%`
+                    : `$${plan.bundle_configs.preferred.rate}/item`}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Product-Specific Rates */}
+        {plan.product_rates && Object.keys(plan.product_rates).length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground font-medium">Product Rates:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(plan.product_rates).map(([product, config]) => (
+                <Badge key={product} variant="secondary" className="text-xs">
+                  {product}:{" "}
+                  {config.payout_type === "percent_of_premium"
+                    ? `${config.rate}%`
+                    : `$${config.rate}/item`}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tiers Table */}
         {plan.tiers.length > 0 && (
           <div className="rounded-md border">

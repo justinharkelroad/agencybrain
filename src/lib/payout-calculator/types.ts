@@ -1,6 +1,6 @@
 // Types for payout calculation engine
 
-import { SubProducerTransaction, InsuredAggregate } from '@/lib/allstate-analyzer/sub-producer-analyzer';
+import { SubProducerTransaction, InsuredAggregate, BundleTypeBreakdown, ProductBreakdown } from '@/lib/allstate-analyzer/sub-producer-analyzer';
 
 export interface SubProducerPerformance {
   subProdCode: string;
@@ -38,6 +38,10 @@ export interface SubProducerPerformance {
   chargebackInsureds: InsuredAggregate[];
   creditTransactions: SubProducerTransaction[];
   chargebackTransactions: SubProducerTransaction[];
+
+  // Breakdowns for advanced compensation calculation
+  byBundleType: BundleTypeBreakdown[];
+  byProduct: ProductBreakdown[];
 }
 
 export interface TierMatch {
@@ -99,7 +103,23 @@ export interface PayoutCalculation {
   baseCommission: number;
   bonusAmount: number;
   totalPayout: number;
-  
+
+  // Commission breakdown by bundle type (when bundle_configs is used)
+  commissionByBundleType?: Array<{
+    bundleType: string;
+    premium: number;
+    items: number;
+    commission: number;
+  }>;
+
+  // Commission breakdown by product (when product_rates is used)
+  commissionByProduct?: Array<{
+    product: string;
+    premium: number;
+    items: number;
+    commission: number;
+  }>;
+
   // Promo bonuses
   achievedPromos: AchievedPromo[];
   

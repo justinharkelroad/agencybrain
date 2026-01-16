@@ -8,6 +8,32 @@ export interface CompPlanTier {
   sort_order: number;
 }
 
+// Bundle type configuration for Monoline, Standard, or Preferred bundles
+export interface BundleTypeConfig {
+  enabled: boolean;
+  payout_type: string; // 'flat_per_item' | 'percent_of_premium' | 'flat_per_policy' | 'flat_per_household'
+  rate?: number; // Simple rate when not using tiers
+  tiers?: Array<{ min_threshold: number; commission_value: number }>;
+}
+
+// All bundle configurations
+export interface BundleConfigs {
+  monoline?: BundleTypeConfig;
+  standard?: BundleTypeConfig;
+  preferred?: BundleTypeConfig;
+}
+
+// Product-specific rate configuration
+export interface ProductRateConfig {
+  payout_type: string;
+  rate: number;
+}
+
+// All product rate configurations
+export interface ProductRates {
+  [productName: string]: ProductRateConfig;
+}
+
 export interface CompPlan {
   id: string;
   agency_id: string;
@@ -26,6 +52,9 @@ export interface CompPlan {
   tiers: CompPlanTier[];
   brokered_tiers: CompPlanTier[];
   assigned_count: number;
+  // New optional bundle and product configuration fields
+  bundle_configs: BundleConfigs | null;
+  product_rates: ProductRates | null;
 }
 
 export function useCompPlans(agencyId: string | null) {
