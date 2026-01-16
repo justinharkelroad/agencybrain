@@ -1,12 +1,11 @@
 // Termination Points Calculator
 // Calculates points lost based on policy type and item count
-// Uses PPI values: Auto=10, Home=20, SPL=7.5 (or 5 for Florida)
+// Uses PPI values: Auto=10, Home=20, SPL=5
 
-// Point values per item type (matching bonusCalculations.ts)
+// Point values per item type
 const AUTO_POINTS_PER_ITEM = 10;
 const HOME_POINTS_PER_ITEM = 20;
-const DEFAULT_SPL_POINTS_PER_ITEM = 7.5;
-const FLORIDA_SPL_POINTS_PER_ITEM = 5;
+const DEFAULT_SPL_POINTS_PER_ITEM = 5;
 
 // Allstate line codes for policy type detection
 const LINE_CODES = {
@@ -67,17 +66,14 @@ export function detectPolicyType(
 /**
  * Get points per item for a given policy type
  */
-export function getPointsPerItem(
-  policyType: PolicyType,
-  useFivePointSPL: boolean = false
-): number {
+export function getPointsPerItem(policyType: PolicyType): number {
   switch (policyType) {
     case 'auto':
       return AUTO_POINTS_PER_ITEM;
     case 'home':
       return HOME_POINTS_PER_ITEM;
     case 'spl':
-      return useFivePointSPL ? FLORIDA_SPL_POINTS_PER_ITEM : DEFAULT_SPL_POINTS_PER_ITEM;
+      return DEFAULT_SPL_POINTS_PER_ITEM;
     case 'unknown':
       // Default to auto points for unknown types
       return AUTO_POINTS_PER_ITEM;
@@ -90,11 +86,10 @@ export function getPointsPerItem(
 export function calculatePointsLost(
   productName: string | null,
   lineCode: string | null,
-  itemsCount: number,
-  useFivePointSPL: boolean = false
+  itemsCount: number
 ): number {
   const policyType = detectPolicyType(productName, lineCode);
-  const pointsPerItem = getPointsPerItem(policyType, useFivePointSPL);
+  const pointsPerItem = getPointsPerItem(policyType);
   return itemsCount * pointsPerItem;
 }
 
@@ -126,8 +121,7 @@ export interface TerminationPolicy {
  * Calculate aggregate stats from a list of terminated policies
  */
 export function calculateTerminationStats(
-  policies: TerminationPolicy[],
-  useFivePointSPL: boolean = false
+  policies: TerminationPolicy[]
 ): TerminationStats {
   const stats: TerminationStats = {
     totalPointsLost: 0,
@@ -148,8 +142,7 @@ export function calculateTerminationStats(
     const pointsLost = calculatePointsLost(
       policy.product_name,
       policy.line_code,
-      itemsCount,
-      useFivePointSPL
+      itemsCount
     );
 
     stats.totalPointsLost += pointsLost;
