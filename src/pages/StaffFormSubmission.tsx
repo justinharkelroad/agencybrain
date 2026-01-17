@@ -338,12 +338,35 @@ export default function StaffFormSubmission() {
         }
       });
 
-      // Handle fetch-level errors
+      // Handle fetch-level errors (non-2xx responses)
       if (error) {
+        // Try to extract structured error from the response body
+        // Supabase functions.invoke puts the response in error.context for non-2xx
+        let errorData: any = null;
+        try {
+          if (error.context && typeof error.context === 'object') {
+            errorData = error.context;
+          } else if (error.message) {
+            // Try parsing the message as JSON (some versions include it there)
+            errorData = JSON.parse(error.message);
+          }
+        } catch {
+          // Not JSON, continue with generic error handling
+        }
+
+        // If we got structured error data, use it
+        if (errorData?.error) {
+          setSubmissionError(errorData.error);
+          setSubmissionErrorMessage(errorData.message || null);
+          setSubmitting(false);
+          return;
+        }
+
+        // Fall back to generic error
         throw new Error(error.message || 'Submission failed');
       }
 
-      // Handle structured error responses from backend
+      // Handle structured error responses from backend (2xx with error field)
       if (data?.error) {
         setSubmissionError(data.error);
         setSubmissionErrorMessage(data.message || null);

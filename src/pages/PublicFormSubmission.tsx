@@ -411,23 +411,38 @@ export default function PublicFormSubmission() {
       
       const { data, error } = await supabase.functions.invoke("submit_public_form", { body: payload });
       
-      // Handle fetch-level errors
-      if (error) { 
+      // Handle fetch-level errors (non-2xx responses)
+      if (error) {
         log('❌ Submission error details:', {
           error,
           errorMessage: error.message,
           errorCode: error.code,
-          errorDetails: error.details
+          errorDetails: error.details,
+          errorContext: (error as any).context
         });
-        
-        // Check if error contains structured error code
-        if ((error as any).error && typeof (error as any).error === 'string') {
-          setSubmissionError((error as any).error);
-          setSubmissionErrorMessage((error as any).message || null);
+
+        // Try to extract structured error from the response body
+        // Supabase functions.invoke puts the response in error.context for non-2xx
+        let errorData: any = null;
+        try {
+          if ((error as any).context && typeof (error as any).context === 'object') {
+            errorData = (error as any).context;
+          } else if (error.message) {
+            // Try parsing the message as JSON (some versions include it there)
+            errorData = JSON.parse(error.message);
+          }
+        } catch {
+          // Not JSON, continue with generic error handling
+        }
+
+        // If we got structured error data, use it
+        if (errorData?.error) {
+          setSubmissionError(errorData.error);
+          setSubmissionErrorMessage(errorData.message || null);
           setIsSubmitting(false);
           return;
         }
-        
+
         // Fallback for unstructured errors
         let errorMessage = "Submission failed";
         if (error.message) {
@@ -437,9 +452,9 @@ export default function PublicFormSubmission() {
             errorMessage = error.message;
           }
         }
-        
-        setErr(errorMessage); 
-        return; 
+
+        setErr(errorMessage);
+        return;
       }
       
       // Handle structured error responses from backend

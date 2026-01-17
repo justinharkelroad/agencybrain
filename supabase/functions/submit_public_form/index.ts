@@ -544,14 +544,14 @@ serve(async (req) => {
 
     logStructured('info', 'submission_created', {
       request_id: requestId,
-      submission_id: ins.id
+      submission_id: sid
     });
 
     const duration = performance.now() - startTime;
 
     // Success logging with required artifacts
     logStructured('info', 'submission_success', {
-      submission_id: ins.id,
+      submission_id: sid,
       team_member_id: body.teamMemberId,
       kpi_version_id: kpiVersionId,
       label_at_submit: labelAtSubmit,
@@ -560,8 +560,8 @@ serve(async (req) => {
       request_id: requestId
     });
 
-    return j(200, { 
-      submission_id: ins.id
+    return j(200, {
+      submission_id: sid
     });
 
   } catch (e) {
