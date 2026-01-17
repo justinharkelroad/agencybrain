@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ArrowLeft, Clock, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { hasStaffToken } from "@/lib/staffRequest";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -288,7 +289,8 @@ export default function SubmissionDetail() {
       if (error) throw error;
 
       toast.success('Submission deleted successfully');
-      navigate('/scorecards/submissions');
+      const isStaffUser = hasStaffToken();
+      navigate(isStaffUser ? '/staff/metrics' : '/metrics');
     } catch (error: any) {
       console.error('Error deleting submission:', error);
       toast.error('Failed to delete submission');
