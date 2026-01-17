@@ -338,8 +338,16 @@ export default function StaffFormSubmission() {
         }
       });
 
-      // Handle fetch-level errors
+      // Handle fetch-level errors (including non-2xx responses)
       if (error) {
+        // Check if error.context contains structured error data from the edge function
+        const ctx = (error as any).context;
+        if (ctx && typeof ctx === 'object' && ctx.error) {
+          setSubmissionError(ctx.error);
+          setSubmissionErrorMessage(ctx.message || null);
+          setSubmitting(false);
+          return;
+        }
         throw new Error(error.message || 'Submission failed');
       }
 
