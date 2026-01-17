@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from "@/lib/auth";
@@ -55,15 +53,6 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
     fetchAgencyId();
   }, [user?.id]);
 
-  const handleSave = () => {
-    // TODO: Implement actual settings save
-    toast.success("Settings saved successfully!");
-  };
-
-  const handleCancel = () => {
-    // Reset or handle cancel logic
-    toast.info("Changes cancelled");
-  };
 
   return (
     <div className="space-y-6">
@@ -213,10 +202,9 @@ export function UnifiedSettingsDialog({ title, icon, children }: UnifiedSettings
         )}
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-        <Button onClick={handleSave}>Save Settings</Button>
-      </div>
+      <p className="text-xs text-muted-foreground pt-4">
+        Lead sources and policy types are saved automatically. Other preferences are session-only.
+      </p>
     </div>
   );
 }

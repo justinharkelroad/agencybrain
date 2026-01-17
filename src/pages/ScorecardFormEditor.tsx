@@ -147,6 +147,7 @@ export default function ScorecardFormEditor() {
   const [dialogDismissed, setDialogDismissed] = useState(false);
   const [kpisHealed, setKpisHealed] = useState(false);
   const [formUpdatedAt, setFormUpdatedAt] = useState<string | null>(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [outdatedKpiInfo, setOutdatedKpiInfo] = useState<{
     kpi_id: string;
     current_label: string;
@@ -247,11 +248,12 @@ export default function ScorecardFormEditor() {
   }, [agencyKpis]);
 
   // Trigger auto-save when kpisHealed becomes true
+  // Wait for initialLoadComplete to prevent race condition with child component initialization
   useEffect(() => {
-    if (kpisHealed && formSchema && !saving) {
+    if (kpisHealed && formSchema && !saving && initialLoadComplete) {
       triggerAutoSave();
     }
-  }, [kpisHealed, formSchema, saving, triggerAutoSave]);
+  }, [kpisHealed, formSchema, saving, initialLoadComplete, triggerAutoSave]);
 
   const loadForm = async () => {
     try {
@@ -305,6 +307,11 @@ export default function ScorecardFormEditor() {
       navigate(isStaffMode ? '/staff/metrics' : '/scorecard-forms');
     } finally {
       setLoading(false);
+      // Delay marking initial load complete to allow child components
+      // (RepeaterSectionManager) to load sticky fields, lead sources, and policy types
+      setTimeout(() => {
+        setInitialLoadComplete(true);
+      }, 1500);
     }
   };
 
