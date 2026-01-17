@@ -25,19 +25,44 @@ import { useAuth } from "@/lib/auth";
 
 // Validate that all KPI IDs in schema exist in active KPI list
 function validateKpiIds(
-  kpis: { selectedKpiId?: string; label: string }[], 
+  kpis: { selectedKpiId?: string; label: string }[],
   activeKpis: { kpi_id: string }[]
 ): { valid: boolean; invalidLabels: string[] } {
   const activeIds = new Set(activeKpis.map(k => k.kpi_id));
   const invalidLabels: string[] = [];
-  
+
   for (const kpi of kpis) {
     if (kpi.selectedKpiId && !activeIds.has(kpi.selectedKpiId)) {
       invalidLabels.push(kpi.label);
     }
   }
-  
+
   return { valid: invalidLabels.length === 0, invalidLabels };
+}
+
+// Validate that custom dropdown fields have options configured
+function validateDropdownFields(schema: FormSchema): string[] {
+  const errors: string[] = [];
+
+  // Check repeater sections
+  Object.entries(schema.repeaterSections || {}).forEach(([key, section]: [string, any]) => {
+    section?.fields?.forEach((field: any) => {
+      if ((field.type === 'select' || field.type === 'dropdown') &&
+          !field.isSticky && // Sticky fields load options dynamically
+          (!field.options || field.options.length === 0)) {
+        errors.push(`"${field.label}" in ${section.title || key}`);
+      }
+    });
+  });
+
+  // Check custom fields at root level
+  schema.customFields?.forEach((field: any) => {
+    if (field.type === 'dropdown' && (!field.options || field.options.length === 0)) {
+      errors.push(`Custom field "${field.label}"`);
+    }
+  });
+
+  return errors;
 }
 
 interface KPIField {
@@ -323,6 +348,13 @@ export default function ScorecardFormEditor() {
     const validation = validateKpiIds(formSchema.kpis, agencyKpis);
     if (!validation.valid) {
       toast.error(`Cannot save: Some KPIs have stale IDs: ${validation.invalidLabels.join(', ')}. Please re-select them.`);
+      return;
+    }
+
+    // Validate custom dropdown fields have options
+    const dropdownErrors = validateDropdownFields(formSchema);
+    if (dropdownErrors.length > 0) {
+      toast.error(`Cannot save: These dropdowns have no options: ${dropdownErrors.join(', ')}`);
       return;
     }
 

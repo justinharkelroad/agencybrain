@@ -730,6 +730,11 @@ export default function StaffFormSubmission() {
                                 {field.label}{field.required && <span className="text-destructive"> *</span>}
                               </label>
                               {field.type === "select" ? (
+                                field.key !== 'lead_source' && (!field.options || field.options.length === 0) ? (
+                                  <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                                    No options configured for "{field.label}". Contact your administrator.
+                                  </div>
+                                ) : (
                                 <div className="space-y-1">
                                 <select
                                   required={field.required}
@@ -743,7 +748,7 @@ export default function StaffFormSubmission() {
                                         currentArray[i] = currentItem;
                                         return { ...prev, [sectionKey]: currentArray };
                                       });
-                                      
+
                                       const errorKey = `${sectionKey}.${i}.${field.key}`;
                                       if (fieldErrors[errorKey]) {
                                         setFieldErrors(prev => ({ ...prev, [errorKey]: '' }));
@@ -768,6 +773,7 @@ export default function StaffFormSubmission() {
                                     <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                   )}
                                 </div>
+                                )
                               ) : field.type === "multiselect" ? (
                                 <div className="space-y-2">
                                   <div className="flex flex-wrap gap-2">
@@ -929,6 +935,11 @@ export default function StaffFormSubmission() {
                                 {field.label}{field.required && <span className="text-destructive"> *</span>}
                               </label>
                               {field.type === "select" || field.type === "dropdown" ? (
+                                (!field.options || field.options.length === 0) ? (
+                                  <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                                    No options configured for "{field.label}". Contact your administrator.
+                                  </div>
+                                ) : (
                                 <select
                                   required={field.required}
                                   value={row[field.fieldKey] || ""}
@@ -949,6 +960,7 @@ export default function StaffFormSubmission() {
                                     <option key={o} value={o}>{o}</option>
                                   ))}
                                 </select>
+                                )
                               ) : field.type === "longtext" || field.type === "textarea" ? (
                                 <textarea
                                   value={row[field.fieldKey] || ""}
@@ -1022,6 +1034,11 @@ export default function StaffFormSubmission() {
                           {field.required && <span className="text-destructive ml-1">*</span>}
                         </Label>
                         {field.type === 'dropdown' ? (
+                          (!field.options || field.options.length === 0) ? (
+                            <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                              No options configured for "{field.label}". Contact your administrator.
+                            </div>
+                          ) : (
                           <select
                             id={field.key}
                             required={field.required}
@@ -1035,6 +1052,7 @@ export default function StaffFormSubmission() {
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
+                          )
                         ) : field.type === 'longtext' ? (
                           <Textarea
                             id={field.key}
