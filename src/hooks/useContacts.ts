@@ -81,37 +81,58 @@ async function computeContactStatuses(contacts: Contact[], agencyId: string): Pr
 
   const contactIds = contacts.map(c => c.id);
 
-  // Fetch linked records in parallel
-  const [lqsResult, renewalResult, cancelAuditResult, winbackResult, activityResult] = await Promise.all([
-    supabase
-      .from('lqs_households')
-      .select('contact_id, status, created_at')
-      .eq('agency_id', agencyId)
-      .in('contact_id', contactIds),
-    supabase
-      .from('renewal_records')
-      .select('contact_id, current_status, renewal_effective_date')
-      .eq('agency_id', agencyId)
-      .eq('is_active', true)
-      .in('contact_id', contactIds),
-    supabase
-      .from('cancel_audit_records')
-      .select('contact_id, cancel_status')
-      .eq('agency_id', agencyId)
-      .in('contact_id', contactIds),
-    supabase
-      .from('winback_households')
-      .select('contact_id, status')
-      .eq('agency_id', agencyId)
-      .in('contact_id', contactIds),
-    supabase
-      .from('contact_activities')
-      .select('contact_id, activity_type, activity_date')
-      .eq('agency_id', agencyId)
-      .in('contact_id', contactIds)
-      .order('activity_date', { ascending: false })
-      .limit(1),
-  ]);
+  // Batch the queries to avoid 400 Bad Request with too many IDs
+  // PostgREST has limits on query URL length
+  const BATCH_SIZE = 200;
+  const batches: string[][] = [];
+  for (let i = 0; i < contactIds.length; i += BATCH_SIZE) {
+    batches.push(contactIds.slice(i, i + BATCH_SIZE));
+  }
+
+  // Fetch linked records in batches
+  const lqsResults: any[] = [];
+  const renewalResults: any[] = [];
+  const cancelAuditResults: any[] = [];
+  const winbackResults: any[] = [];
+  const activityResults: any[] = [];
+
+  for (const batch of batches) {
+    const [lqsResult, renewalResult, cancelAuditResult, winbackResult, activityResult] = await Promise.all([
+      supabase
+        .from('lqs_households')
+        .select('contact_id, status, created_at')
+        .eq('agency_id', agencyId)
+        .in('contact_id', batch),
+      supabase
+        .from('renewal_records')
+        .select('contact_id, current_status, renewal_effective_date')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .in('contact_id', batch),
+      supabase
+        .from('cancel_audit_records')
+        .select('contact_id, cancel_status')
+        .eq('agency_id', agencyId)
+        .in('contact_id', batch),
+      supabase
+        .from('winback_households')
+        .select('contact_id, status')
+        .eq('agency_id', agencyId)
+        .in('contact_id', batch),
+      supabase
+        .from('contact_activities')
+        .select('contact_id, activity_type, activity_date')
+        .eq('agency_id', agencyId)
+        .in('contact_id', batch)
+        .order('activity_date', { ascending: false }),
+    ]);
+
+    if (lqsResult.data) lqsResults.push(...lqsResult.data);
+    if (renewalResult.data) renewalResults.push(...renewalResult.data);
+    if (cancelAuditResult.data) cancelAuditResults.push(...cancelAuditResult.data);
+    if (winbackResult.data) winbackResults.push(...winbackResult.data);
+    if (activityResult.data) activityResults.push(...activityResult.data);
+  }
 
   // Build lookup maps
   const lqsMap = new Map<string, any[]>();
@@ -120,27 +141,32 @@ async function computeContactStatuses(contacts: Contact[], agencyId: string): Pr
   const winbackMap = new Map<string, any[]>();
   const lastActivityMap = new Map<string, { type: string; date: string }>();
 
-  (lqsResult.data || []).forEach(r => {
+  lqsResults.forEach(r => {
+    if (!r.contact_id) return;
     if (!lqsMap.has(r.contact_id)) lqsMap.set(r.contact_id, []);
     lqsMap.get(r.contact_id)!.push(r);
   });
 
-  (renewalResult.data || []).forEach(r => {
+  renewalResults.forEach(r => {
+    if (!r.contact_id) return;
     if (!renewalMap.has(r.contact_id)) renewalMap.set(r.contact_id, []);
     renewalMap.get(r.contact_id)!.push(r);
   });
 
-  (cancelAuditResult.data || []).forEach(r => {
+  cancelAuditResults.forEach(r => {
+    if (!r.contact_id) return;
     if (!cancelAuditMap.has(r.contact_id)) cancelAuditMap.set(r.contact_id, []);
     cancelAuditMap.get(r.contact_id)!.push(r);
   });
 
-  (winbackResult.data || []).forEach(r => {
+  winbackResults.forEach(r => {
+    if (!r.contact_id) return;
     if (!winbackMap.has(r.contact_id)) winbackMap.set(r.contact_id, []);
     winbackMap.get(r.contact_id)!.push(r);
   });
 
-  (activityResult.data || []).forEach(r => {
+  activityResults.forEach(r => {
+    if (!r.contact_id) return;
     if (!lastActivityMap.has(r.contact_id)) {
       lastActivityMap.set(r.contact_id, { type: r.activity_type, date: r.activity_date });
     }
