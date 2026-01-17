@@ -411,7 +411,7 @@ export default function PublicFormSubmission() {
       
       const { data, error } = await supabase.functions.invoke("submit_public_form", { body: payload });
       
-      // Handle fetch-level errors
+      // Handle fetch-level errors (including non-2xx responses)
       if (error) { 
         log('❌ Submission error details:', {
           error,
@@ -420,12 +420,20 @@ export default function PublicFormSubmission() {
           errorDetails: error.details
         });
         
-        // Check if error contains structured error code
-        if ((error as any).error && typeof (error as any).error === 'string') {
-          setSubmissionError((error as any).error);
-          setSubmissionErrorMessage((error as any).message || null);
-          setIsSubmitting(false);
-          return;
+        // FunctionsHttpError has response body in error.context - need to parse it
+        if ((error as any).context?.json) {
+          try {
+            const errorData = await (error as any).context.json();
+            console.log('[PublicFormSubmission] Edge function error data:', errorData);
+            if (errorData?.error || errorData?.error_code) {
+              setSubmissionError(errorData.error_code || 'SUBMISSION_ERROR');
+              setSubmissionErrorMessage(errorData.error || errorData.message || null);
+              setIsSubmitting(false);
+              return;
+            }
+          } catch (parseError) {
+            console.error('[PublicFormSubmission] Could not parse error response:', parseError);
+          }
         }
         
         // Fallback for unstructured errors

@@ -340,13 +340,20 @@ export default function StaffFormSubmission() {
 
       // Handle fetch-level errors (including non-2xx responses)
       if (error) {
-        // Check if error.context contains structured error data from the edge function
-        const ctx = (error as any).context;
-        if (ctx && typeof ctx === 'object' && ctx.error) {
-          setSubmissionError(ctx.error);
-          setSubmissionErrorMessage(ctx.message || null);
-          setSubmitting(false);
-          return;
+        // FunctionsHttpError has response body in error.context - need to parse it
+        if ((error as any).context?.json) {
+          try {
+            const errorData = await (error as any).context.json();
+            console.log('[StaffFormSubmission] Edge function error data:', errorData);
+            if (errorData?.error || errorData?.error_code) {
+              setSubmissionError(errorData.error_code || 'SUBMISSION_ERROR');
+              setSubmissionErrorMessage(errorData.error || errorData.message || null);
+              setSubmitting(false);
+              return;
+            }
+          } catch (parseError) {
+            console.error('[StaffFormSubmission] Could not parse error response:', parseError);
+          }
         }
         throw new Error(error.message || 'Submission failed');
       }
