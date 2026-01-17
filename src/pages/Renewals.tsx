@@ -700,13 +700,15 @@ export default function Renewals() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Records</AlertDialogTitle><AlertDialogDescription>Delete {selectedIds.size} record(s)?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
       {/* Contact Profile Modal */}
-      <ContactProfileModal
-        contactId={profileContactId}
-        agencyId={context.agencyId}
-        open={!!profileContactId}
-        onClose={() => setProfileContactId(null)}
-        defaultSourceModule="renewal"
-      />
+      {context && (
+        <ContactProfileModal
+          contactId={profileContactId}
+          agencyId={context.agencyId}
+          open={!!profileContactId}
+          onClose={() => setProfileContactId(null)}
+          defaultSourceModule="renewal"
+        />
+      )}
     </div>
   );
 }

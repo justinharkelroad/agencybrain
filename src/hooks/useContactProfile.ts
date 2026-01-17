@@ -385,30 +385,37 @@ function determineLifecycleStage(
   cancelAuditRecords: LinkedCancelAuditRecord[],
   winbackRecords: LinkedWinbackRecord[]
 ): LifecycleStage {
-  // Check for active winback
+  // Check for active winback - priority 1
+  // Valid winback statuses: 'untouched', 'in_progress', 'won_back', 'declined', 'no_contact', 'dismissed'
   const activeWinback = winbackRecords.find(r =>
-    r.status === 'in_progress' || r.status === 'untouched' || r.status === 'teed_up_this_week'
+    r.status === 'in_progress' || r.status === 'untouched'
   );
   if (activeWinback) return 'winback';
 
-  // Check for won back
+  // Check for won back - priority 2
   const wonBack = winbackRecords.find(r => r.status === 'won_back');
   if (wonBack) return 'won_back';
 
-  // Check for cancel audit (at risk)
-  const atRisk = cancelAuditRecords.find(r =>
-    r.cancel_status === 'Uncontacted' ||
-    r.cancel_status === 'In Progress' ||
-    r.cancel_status === 'uncontacted' ||
-    r.cancel_status === 'in_progress'
-  );
+  // Check for cancel audit - "at risk" means savable cancellation
+  // cancel_status values: 'Cancel' (pending/savable), 'Cancelled' (already lost), 'Saved', 'Lost'
+  const atRisk = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'cancel'; // "Cancel" means still savable = at risk
+  });
   if (atRisk) return 'at_risk';
 
-  // Check for cancelled
-  const cancelled = cancelAuditRecords.find(r =>
-    r.cancel_status === 'Lost' || r.cancel_status === 'lost'
-  );
-  if (cancelled && !renewalRecords.length && !wonBack) return 'cancelled';
+  // Check for saved from cancel audit (became customer again)
+  const savedFromCancel = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'saved';
+  });
+
+  // Check for cancelled/lost
+  const cancelled = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'cancelled' || status === 'lost';
+  });
+  if (cancelled && !savedFromCancel && !wonBack && !renewalRecords.length) return 'cancelled';
 
   // Check for pending renewal
   const pendingRenewal = renewalRecords.find(r =>
@@ -416,10 +423,10 @@ function determineLifecycleStage(
   );
   if (pendingRenewal) return 'renewal';
 
-  // Check for successful renewal or sold LQS
+  // Check for successful renewal or sold LQS or saved from cancel (active customer)
   const successfulRenewal = renewalRecords.find(r => r.current_status === 'success');
   const soldLqs = lqsRecords.find(r => r.status === 'sold' || r.status === 'Sold');
-  if (successfulRenewal || soldLqs) return 'customer';
+  if (successfulRenewal || soldLqs || savedFromCancel) return 'customer';
 
   // Default to lead
   if (lqsRecords.length > 0) return 'lead';
