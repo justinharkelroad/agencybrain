@@ -1,18 +1,25 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 import type { Contact, ContactWithStatus, ContactFilters, LifecycleStage } from '@/types/contact';
 
+const PAGE_SIZE = 100;
+
 export function useContacts(agencyId: string | null, filters: ContactFilters = {}) {
   const staffSessionToken = getStaffSessionToken();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['contacts', agencyId, filters, !!staffSessionToken],
-    queryFn: async (): Promise<ContactWithStatus[]> => {
-      if (!agencyId) return [];
+    queryFn: async ({ pageParam = 0 }): Promise<{ contacts: ContactWithStatus[]; nextCursor: number | null; total: number }> => {
+      if (!agencyId) return { contacts: [], nextCursor: null, total: 0 };
 
-      // For now, use direct queries for both staff and regular users
-      // Staff edge function can be added later if RLS issues arise
+      // First get total count
+      const { count } = await supabase
+        .from('agency_contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', agencyId);
+
+      // Build query with pagination
       let query = supabase
         .from('agency_contacts')
         .select('*')
@@ -20,7 +27,8 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         .order(filters.sortBy === 'last_activity' ? 'updated_at' : filters.sortBy === 'created_at' ? 'created_at' : 'last_name', {
           ascending: filters.sortDirection !== 'desc'
         })
-        .order('first_name', { ascending: true });
+        .order('first_name', { ascending: true })
+        .range(pageParam, pageParam + PAGE_SIZE - 1);
 
       // Apply search filter
       if (filters.search) {
@@ -36,13 +44,22 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
       // Compute current stage for each contact by checking linked records
       const contactsWithStatus = await computeContactStatuses(contacts || [], agencyId);
 
-      // Filter by stage if specified
+      // Filter by stage if specified (client-side for now)
+      // Note: This is not ideal for large datasets - consider pre-computing stages in DB
+      let filteredContacts = contactsWithStatus;
       if (filters.stage?.length) {
-        return contactsWithStatus.filter(c => filters.stage!.includes(c.current_stage));
+        filteredContacts = contactsWithStatus.filter(c => filters.stage!.includes(c.current_stage));
       }
 
-      return contactsWithStatus;
+      const hasMore = (pageParam + PAGE_SIZE) < (count || 0);
+      return {
+        contacts: filteredContacts,
+        nextCursor: hasMore ? pageParam + PAGE_SIZE : null,
+        total: count || 0,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: 0,
     enabled: !!agencyId,
   });
 }

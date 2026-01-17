@@ -17,7 +17,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { ActivityLogForm, ActivityFormData } from './ActivityLogForm';
 import { CustomerJourney, CustomerJourneyBadge } from './CustomerJourney';
 import { SystemRecords } from './SystemRecords';
-import type { SourceModule, ContactProfileContext } from '@/types/contact';
+import type { SourceModule } from '@/types/contact';
 import { SOURCE_MODULE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
 
@@ -25,24 +25,41 @@ interface ContactProfileModalProps {
   contactId: string | null;
   open: boolean;
   onClose: () => void;
-  context: ContactProfileContext;
+  // Direct props (used by pages)
+  agencyId?: string | null;
+  defaultSourceModule?: SourceModule;
+  sourceRecordId?: string;
+  userId?: string;
+  staffMemberId?: string;
+  displayName?: string;
 }
 
 export function ContactProfileModal({
   contactId,
   open,
   onClose,
-  context,
+  agencyId = null,
+  defaultSourceModule = 'manual',
+  sourceRecordId,
+  userId,
+  staffMemberId,
+  displayName,
 }: ContactProfileModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
 
-  // Fetch contact profile
-  const { data: profile, isLoading, error } = useContactProfile(contactId, context.agencyId);
+  // Fetch contact profile - only when we have valid IDs and modal is open
+  const { data: profile, isLoading, error } = useContactProfile(
+    open ? contactId : null,
+    agencyId
+  );
 
   // Fetch journey events
-  const { data: journeyEvents } = useContactJourney(contactId, context.agencyId);
+  const { data: journeyEvents } = useContactJourney(
+    open ? contactId : null,
+    agencyId
+  );
 
   // Activity logging mutation
   const logActivity = useLogContactActivity();
@@ -56,22 +73,22 @@ export function ContactProfileModal({
 
   // Handle activity logging
   const handleLogActivity = async (data: ActivityFormData) => {
-    if (!contactId) return;
+    if (!contactId || !agencyId) return;
 
     await logActivity.mutateAsync({
       contactId,
-      agencyId: context.agencyId,
+      agencyId,
       activityType: data.activityType,
       sourceModule: data.sourceModule,
-      sourceRecordId: context.sourceRecordId,
+      sourceRecordId,
       callDirection: data.callDirection,
       outcome: data.outcome,
       subject: data.subject,
       notes: data.notes,
       scheduledDate: data.scheduledDate,
-      createdByUserId: context.userId,
-      createdByStaffId: context.staffMemberId,
-      createdByDisplayName: context.displayName,
+      createdByUserId: userId,
+      createdByStaffId: staffMemberId,
+      createdByDisplayName: displayName,
     });
 
     setShowActivityForm(false);
@@ -105,7 +122,7 @@ export function ContactProfileModal({
     return parts.length > 0 ? parts.join(', ') : null;
   };
 
-  const sourceConfig = SOURCE_MODULE_CONFIGS[context.sourceModule];
+  const sourceConfig = defaultSourceModule ? SOURCE_MODULE_CONFIGS[defaultSourceModule] : null;
 
   return (
     <>
@@ -284,7 +301,7 @@ export function ContactProfileModal({
           setActivityFormType(undefined);
         }}
         onSubmit={handleLogActivity}
-        defaultSourceModule={context.sourceModule}
+        defaultSourceModule={defaultSourceModule}
         isLoading={logActivity.isPending}
         activityType={activityFormType}
       />

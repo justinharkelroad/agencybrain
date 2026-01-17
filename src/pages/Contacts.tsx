@@ -25,7 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactProfileModal, CustomerJourneyBadge } from '@/components/contacts';
-import type { ContactWithStatus, LifecycleStage, ContactFilters, ContactProfileContext, SourceModule } from '@/types/contact';
+import type { ContactWithStatus, LifecycleStage, ContactFilters } from '@/types/contact';
 import { LIFECYCLE_STAGE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -64,11 +64,23 @@ export default function Contacts() {
     [searchQuery, stageFilter, sortBy, sortDirection]
   );
 
-  // Fetch contacts
-  const { data: contacts, isLoading: contactsLoading, refetch } = useContacts(
-    context?.agencyId || null,
-    filters
-  );
+  // Fetch contacts with infinite scroll
+  const {
+    data: contactsData,
+    isLoading: contactsLoading,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useContacts(context?.agencyId || null, filters);
+
+  // Flatten paginated data
+  const contacts = useMemo(() => {
+    if (!contactsData?.pages) return [];
+    return contactsData.pages.flatMap((page) => page.contacts);
+  }, [contactsData]);
+
+  const totalCount = contactsData?.pages?.[0]?.total ?? 0;
 
   // Clear any stale staff tokens when on non-staff route
   useEffect(() => {
@@ -143,16 +155,6 @@ export default function Contacts() {
     setProfileModalOpen(true);
   };
 
-  // Build profile context
-  const profileContext: ContactProfileContext | null = context
-    ? {
-        agencyId: context.agencyId,
-        userId: context.userId,
-        staffMemberId: context.staffMemberId,
-        displayName: context.displayName,
-        sourceModule: 'manual' as SourceModule,
-      }
-    : null;
 
   // Format phone for display
   const formatPhone = (phone: string) => {
@@ -344,15 +346,27 @@ export default function Contacts() {
         )}
       </Card>
 
-      {/* Results count */}
+      {/* Results count and Load More */}
       {contacts && contacts.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          Showing {contacts.length} contact{contacts.length === 1 ? '' : 's'}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {contacts.length} of {totalCount.toLocaleString()} contact{totalCount === 1 ? '' : 's'}
+          </p>
+          {hasNextPage && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? 'Loading...' : 'Load More'}
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Profile Modal */}
-      {profileContext && (
+      {context && (
         <ContactProfileModal
           contactId={selectedContactId}
           open={profileModalOpen}
@@ -360,7 +374,11 @@ export default function Contacts() {
             setProfileModalOpen(false);
             setSelectedContactId(null);
           }}
-          context={profileContext}
+          agencyId={context.agencyId}
+          defaultSourceModule="manual"
+          userId={context.userId ?? undefined}
+          staffMemberId={context.staffMemberId ?? undefined}
+          displayName={context.displayName}
         />
       )}
     </div>

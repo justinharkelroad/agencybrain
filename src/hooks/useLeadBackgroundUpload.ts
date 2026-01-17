@@ -94,6 +94,24 @@ async function processInBackground(
             throw new Error(fetchError.message);
           }
 
+          // Find or create unified contact for this household
+          let contactId: string | null = null;
+          if (record.lastName && record.lastName.trim()) {
+            try {
+              const { data: contactData } = await supabase.rpc('find_or_create_contact', {
+                p_agency_id: context.agencyId,
+                p_first_name: record.firstName || null,
+                p_last_name: record.lastName,
+                p_zip_code: record.zipCode || null,
+                p_phone: record.phones?.[0] || null, // Use first phone
+                p_email: record.email || null,
+              });
+              contactId = contactData;
+            } catch (contactErr) {
+              console.warn('Failed to create contact for LQS lead:', contactErr);
+            }
+          }
+
           if (existing) {
             // UPDATE existing - merge data, KEEP existing lead_source if already set
             const updates: Record<string, any> = {};
@@ -106,7 +124,7 @@ async function processInBackground(
                 updates.phone = mergedPhones;
               }
             }
-            
+
             // Only update email if new value exists and existing is null
             if (record.email && !existing.email) {
               updates.email = record.email;
@@ -119,6 +137,11 @@ async function processInBackground(
             if (!existing.lead_source_id) {
               updates.lead_source_id = context.leadSourceId;
               updates.needs_attention = false;
+            }
+
+            // Link contact if not already linked
+            if (contactId) {
+              updates.contact_id = contactId;
             }
 
             if (Object.keys(updates).length > 0) {
@@ -150,6 +173,7 @@ async function processInBackground(
                 status: 'lead',
                 lead_received_date: record.leadDate || today,
                 needs_attention: false,
+                contact_id: contactId,
               });
 
             if (insertError) {
