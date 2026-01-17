@@ -34,8 +34,24 @@ export function useProactiveTip({
 }: UseProactiveTipProps): UseProactiveTipReturn {
   const location = useLocation();
   const [showTip, setShowTip] = useState(false);
-  const [dismissedPages, setDismissedPages] = useState<Set<string>>(new Set());
   const [activeTip, setActiveTip] = useState<ProactiveTip | null>(null);
+  
+  // Persist dismissed pages in sessionStorage so tips don't keep popping up
+  const [dismissedPages, setDismissedPages] = useState<Set<string>>(() => {
+    try {
+      const stored = sessionStorage.getItem('stan_dismissed_pages');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Sync dismissed pages to sessionStorage
+  useEffect(() => {
+    if (dismissedPages.size > 0) {
+      sessionStorage.setItem('stan_dismissed_pages', JSON.stringify([...dismissedPages]));
+    }
+  }, [dismissedPages]);
 
   // Fetch all proactive tips
   const { data: tips = [] } = useQuery({

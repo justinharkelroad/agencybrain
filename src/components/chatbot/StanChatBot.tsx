@@ -52,7 +52,18 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
   const [messages, setMessages] = useState<ChatMessageData[]>([INITIAL_MESSAGE]);
   const [isTyping, setIsTyping] = useState(false);
   const [stanMood, setStanMood] = useState<StanVariant>('idle');
-  const [hasInteractedWithStan, setHasInteractedWithStan] = useState(false);
+  
+  // Persist interaction state in sessionStorage so tips don't keep popping up
+  const [hasInteractedWithStan, setHasInteractedWithStan] = useState(() => {
+    return sessionStorage.getItem('stan_interacted') === 'true';
+  });
+
+  // Sync interaction state to sessionStorage
+  useEffect(() => {
+    if (hasInteractedWithStan) {
+      sessionStorage.setItem('stan_interacted', 'true');
+    }
+  }, [hasInteractedWithStan]);
 
   // Proactive tips hook
   const { activeTip, dismissTip, showTip } = useProactiveTip({
@@ -164,7 +175,10 @@ export function StanChatBot({ portal = 'brain' }: StanChatBotProps) {
     setTimeout(() => setStanMood('idle'), 3000);
   }, []);
 
-  const handleOpen = () => setIsOpen(true);
+  const handleOpen = () => {
+    setIsOpen(true);
+    setHasInteractedWithStan(true); // Mark as interacted when Stan is opened
+  };
   const handleClose = () => setIsOpen(false);
 
   // Handle accepting a proactive tip
