@@ -1,11 +1,11 @@
-import { 
-  LayoutDashboard, 
-  Bot, 
+import {
+  LayoutDashboard,
+  Bot,
   FileX,
   RefreshCw,
-  ClipboardList, 
-  Phone, 
-  BookOpen, 
+  ClipboardList,
+  Phone,
+  BookOpen,
   GraduationCap,
   Video,
   Building2,
@@ -27,6 +27,7 @@ import {
   FileSpreadsheet,
   Settings,
   RotateCcw,
+  Contact,
   type LucideIcon
 } from "lucide-react";
 import { TrendingUp } from "lucide-react";
@@ -92,6 +93,16 @@ export const navigationConfig: NavEntry[] = [
     icon: LayoutDashboard,
     type: 'link',
     url: '/dashboard',
+    access: { staff: true, manager: true, owner: true },
+  },
+
+  // Contacts - unified contact profiles
+  {
+    id: 'contacts',
+    title: 'Contacts',
+    icon: Contact,
+    type: 'link',
+    url: '/contacts',
     access: { staff: true, manager: true, owner: true },
   },
 
@@ -430,6 +441,16 @@ export const staffNavigationConfig: NavEntry[] = [
     icon: LayoutDashboard,
     type: 'link',
     url: '/staff/dashboard',
+    access: { staff: true, manager: true, owner: true },
+  },
+
+  // Contacts - unified contact profiles
+  {
+    id: 'contacts',
+    title: 'Contacts',
+    icon: Contact,
+    type: 'link',
+    url: '/staff/contacts',
     access: { staff: true, manager: true, owner: true },
   },
 

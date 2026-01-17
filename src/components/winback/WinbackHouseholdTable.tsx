@@ -25,6 +25,7 @@ export interface Household {
   policy_count: number;
   total_premium_potential_cents: number;
   earliest_winback_date: string | null;
+  contact_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +40,7 @@ interface WinbackHouseholdTableProps {
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
   onRowClick: (household: Household) => void;
+  onViewProfile?: (contactId: string) => void;
 }
 
 function SortHeader({
@@ -105,6 +107,7 @@ export function WinbackHouseholdTable({
   sortDirection,
   onSort,
   onRowClick,
+  onViewProfile,
 }: WinbackHouseholdTableProps) {
   const today = startOfDay(new Date());
 
@@ -199,7 +202,19 @@ export function WinbackHouseholdTable({
                 onClick={() => onRowClick(household)}
               >
                 <TableCell className="font-medium">
-                  {household.first_name} {household.last_name}
+                  {household.contact_id && onViewProfile ? (
+                    <button
+                      className="text-left hover:text-primary hover:underline focus:outline-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewProfile(household.contact_id!);
+                      }}
+                    >
+                      {household.first_name} {household.last_name}
+                    </button>
+                  ) : (
+                    <span>{household.first_name} {household.last_name}</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

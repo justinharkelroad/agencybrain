@@ -65,6 +65,7 @@ import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
+import Contacts from "./pages/Contacts";
 import WinbackHQ from "./pages/WinbackHQ";
 import LqsRoadmapPage from "./pages/LqsRoadmapPage";
 import LqsRoiPage from "./pages/LqsRoiPage";
@@ -207,6 +208,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <Dashboard />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/contacts" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <Contacts />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -890,6 +898,7 @@ const App = () => {
             }>
               <Route index element={<StaffIndexRedirect />} />
               <Route path="dashboard" element={<StaffDashboard />} />
+              <Route path="contacts" element={<Contacts />} />
               <Route path="submit" element={<StaffSubmitWrapper />} />
               <Route path="submit/:formSlug" element={<StaffFormSubmission />} />
               {/* Unified Training Hub */}

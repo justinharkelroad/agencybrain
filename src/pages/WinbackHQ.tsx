@@ -21,6 +21,7 @@ import {
   WinbackActivitySummary,
   TerminationAnalytics,
 } from '@/components/winback';
+import { ContactProfileModal } from '@/components/contacts';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
@@ -82,6 +83,9 @@ export default function WinbackHQ() {
   const [selectedHousehold, setSelectedHousehold] = useState<Household | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [currentUserTeamMemberId, setCurrentUserTeamMemberId] = useState<string | null>(null);
+
+  // Contact profile modal
+  const [profileContactId, setProfileContactId] = useState<string | null>(null);
 
   // Unified function to load households via winbackApi (works for both staff and non-staff)
   const loadHouseholds = async (agency: string, members: TeamMember[]) => {
@@ -459,6 +463,7 @@ export default function WinbackHQ() {
                 sortDirection={sortDirection}
                 onSort={handleSort}
                 onRowClick={handleRowClick}
+                onViewProfile={setProfileContactId}
               />
 
               <WinbackPagination
@@ -478,6 +483,7 @@ export default function WinbackHQ() {
                 sortDirection={sortDirection}
                 onSort={handleSort}
                 onRowClick={handleRowClick}
+                onViewProfile={setProfileContactId}
               />
 
               <WinbackPagination
@@ -516,6 +522,17 @@ export default function WinbackHQ() {
         agencyId={agencyId}
         onUpdate={handleModalUpdate}
       />
+
+      {/* Contact Profile Modal */}
+      {agencyId && (
+        <ContactProfileModal
+          contactId={profileContactId}
+          agencyId={agencyId}
+          open={!!profileContactId}
+          onClose={() => setProfileContactId(null)}
+          defaultSourceModule="winback"
+        />
+      )}
     </div>
   );
 }
