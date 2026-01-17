@@ -445,11 +445,39 @@ export default function SubmissionDetail() {
                                 }
                               </div>
                             )}
+                            {detail.items_quoted != null && (
+                              <div>
+                                <span className="font-semibold"># Items Quoted:</span> {detail.items_quoted}
+                              </div>
+                            )}
+                            {detail.policies_quoted != null && (
+                              <div>
+                                <span className="font-semibold"># Policies Quoted:</span> {detail.policies_quoted}
+                              </div>
+                            )}
+                            {detail.premium_potential != null && (
+                              <div>
+                                <span className="font-semibold">Premium Potential:</span> ${Number(detail.premium_potential).toLocaleString()}
+                              </div>
+                            )}
                             {detail.detailed_notes && (
                               <div>
                                 <span className="font-semibold">Notes:</span> {detail.detailed_notes}
                               </div>
                             )}
+                            {/* Render any custom/extra fields dynamically */}
+                            {Object.entries(detail).map(([key, value]) => {
+                              // Skip known fields already rendered above
+                              const knownFields = ['prospect_name', 'lead_source_id', 'lead_source', 'items_quoted', 'policies_quoted', 'premium_potential', 'detailed_notes'];
+                              if (knownFields.includes(key) || value == null || value === '') return null;
+                              // Format key for display (convert snake_case to Title Case)
+                              const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                              return (
+                                <div key={key}>
+                                  <span className="font-semibold">{displayKey}:</span> {String(value)}
+                                </div>
+                              );
+                            })}
                           </div>
                         </li>
                       ))}
