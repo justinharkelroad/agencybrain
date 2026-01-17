@@ -85,12 +85,15 @@ export default function RepeaterSectionManager({
   useEffect(() => {
     if (stickyFields.length > 0) {
       console.log('🔧 Sticky fields from database:', stickyFields);
-      
-      const existingFieldKeys = section.fields.map(f => f.key);
-      const stickyFieldKeys = stickyFields.map(sf => sf.field_key);
-      
-      // Create sticky fields from database
+
+      const stickyFieldKeys = new Set(stickyFields.map(sf => sf.field_key));
+
+      // Create map of ALL existing fields to preserve their options
+      const existingFieldMap = new Map(section.fields.map(f => [f.key, f]));
+
+      // Create sticky fields from database, preserving any existing options
       const newStickyFields: RepeaterField[] = stickyFields.map(sf => {
+        const existing = existingFieldMap.get(sf.field_key);
         const field = {
           key: sf.field_key,
           label: sf.field_label,
@@ -98,18 +101,20 @@ export default function RepeaterSectionManager({
           required: sf.is_system_required,
           isSticky: true,
           isSystemRequired: sf.is_system_required,
-          // Options will be populated by separate useEffect hooks for lead_source and policy_type
-          options: sf.field_key === 'lead_source' ? [] : sf.field_key === 'policy_type' ? [] : undefined
+          // Preserve existing options, otherwise initialize empty for dynamic fields
+          options: existing?.options ?? (sf.field_key === 'lead_source' || sf.field_key === 'policy_type' ? [] : undefined)
         };
         console.log('🔧 Created sticky field:', field);
         return field;
       });
 
-      // Keep only custom fields that don't conflict with sticky fields
-      const customFields = section.fields.filter(f => !stickyFieldKeys.includes(f.key) && !f.isSticky);
-      
+      // Keep custom fields with ALL their properties intact (including options)
+      const customFields = section.fields
+        .filter(f => !stickyFieldKeys.has(f.key) && !f.isSticky)
+        .map(f => ({ ...f })); // Spread to preserve all properties
+
       console.log('🔧 Final fields array:', [...newStickyFields, ...customFields]);
-      
+
       // Always replace with sticky fields first, then custom fields
       updateSection({
         fields: [...newStickyFields, ...customFields]

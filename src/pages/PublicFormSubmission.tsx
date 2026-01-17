@@ -751,8 +751,13 @@ export default function PublicFormSubmission() {
                          <span className="text-sm text-foreground">Yes</span>
                        </label>
                      ) : field.type === "dropdown" ? (
-                      <select 
-                        value={values[field.key] ?? ""} 
+                      (!field.options || field.options.length === 0) ? (
+                        <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                          No options configured for "{field.label}". Contact your administrator.
+                        </div>
+                      ) : (
+                      <select
+                        value={values[field.key] ?? ""}
                         onChange={e=>onChange(field.key, e.target.value)}
                         className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent text-foreground"
                       >
@@ -761,6 +766,7 @@ export default function PublicFormSubmission() {
                           <option key={o} value={o}>{o}</option>
                         ))}
                       </select>
+                      )
                     ) : (
                       <input 
                         type={field.type === "number" ? "number" : "text"}
@@ -798,6 +804,11 @@ export default function PublicFormSubmission() {
                               {field.label}{field.required && <span className="text-destructive"> *</span>}
                             </label>
                             {field.type === "select" ? (
+                              field.key !== 'lead_source' && (!field.options || field.options.length === 0) ? (
+                                <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                                  No options configured for "{field.label}". Contact your administrator.
+                                </div>
+                              ) : (
                               <div className="space-y-1">
                               <select
                                 required={field.required}
@@ -812,7 +823,7 @@ export default function PublicFormSubmission() {
                                       currentArray[i] = currentItem;
                                       return { ...prev, [sectionKey]: currentArray };
                                     });
-                                    
+
                                     // Clear field error if exists
                                     const errorKey = `${sectionKey}.${i}.${field.key}`;
                                     if (fieldErrors[errorKey]) {
@@ -838,6 +849,7 @@ export default function PublicFormSubmission() {
                                   <p className="text-xs text-destructive">{fieldErrors[`${sectionKey}.${i}.${field.key}`]}</p>
                                 )}
                               </div>
+                              )
                             ) : field.type === "multiselect" ? (
                               <div className="space-y-2">
                                 <div className="flex flex-wrap gap-2">
@@ -1006,6 +1018,11 @@ export default function PublicFormSubmission() {
                               {field.label}{field.required && <span className="text-destructive"> *</span>}
                             </label>
                             {field.type === "select" || field.type === "dropdown" ? (
+                              (!field.options || field.options.length === 0) ? (
+                                <div className="text-sm text-destructive italic p-2 border border-destructive/30 rounded bg-destructive/10">
+                                  No options configured for "{field.label}". Contact your administrator.
+                                </div>
+                              ) : (
                               <select
                                 required={field.required}
                                 value={row[fk] || ""}
@@ -1026,6 +1043,7 @@ export default function PublicFormSubmission() {
                                   <option key={o} value={o}>{o}</option>
                                 ))}
                               </select>
+                              )
                             ) : field.type === "longtext" || field.type === "textarea" ? (
                               <textarea
                                 value={row[fk] || ""}
