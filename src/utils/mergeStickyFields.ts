@@ -55,21 +55,30 @@ export async function mergeStickyFieldsIntoSchema(schema: any, agencyId?: string
       }
 
       const section = schema.repeaterSections[sectionKey] as RepeaterSection;
-      const existingFieldKeys = new Set(section.fields.map(f => f.key));
       const stickyFieldKeys = new Set(stickyFields.map(sf => sf.field_key));
 
-      // Create sticky fields array from database
-      const stickyFieldsArray: FormField[] = stickyFields.map(sf => ({
-        key: sf.field_key,
-        label: sf.field_label,
-        type: sf.field_type,
-        required: sf.is_system_required,
-        isSticky: true,
-        isSystemRequired: sf.is_system_required
-      }));
+      // Create map of existing fields to preserve their options
+      const existingFieldMap = new Map(section.fields.map(f => [f.key, f]));
 
-      // Keep custom fields that aren't sticky (added by admin)
-      const customFields = section.fields.filter(f => !stickyFieldKeys.has(f.key) && !f.isSticky);
+      // Create sticky fields array from database, preserving existing options
+      const stickyFieldsArray: FormField[] = stickyFields.map(sf => {
+        const existing = existingFieldMap.get(sf.field_key);
+        return {
+          key: sf.field_key,
+          label: sf.field_label,
+          type: sf.field_type,
+          required: sf.is_system_required,
+          isSticky: true,
+          isSystemRequired: sf.is_system_required,
+          // Preserve options from existing schema if present
+          ...(existing?.options ? { options: existing.options } : {})
+        };
+      });
+
+      // Keep custom fields that aren't sticky (added by admin) with all their properties
+      const customFields = section.fields
+        .filter(f => !stickyFieldKeys.has(f.key) && !f.isSticky)
+        .map(f => ({ ...f })); // Shallow copy to prevent mutation
 
       // Merge: sticky fields first (by order_index), then custom fields
       section.fields = [...stickyFieldsArray, ...customFields];

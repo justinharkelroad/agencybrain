@@ -1,13 +1,9 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Settings } from "lucide-react";
-import { toast } from "sonner";
-
 interface GeneralSettingsDialogProps {
   title: string;
   icon?: React.ReactNode;
@@ -25,11 +21,6 @@ export function GeneralSettingsDialog({ title, icon, children }: GeneralSettings
     defaultForm: "",
     autoReminders: true
   });
-
-  const handleSave = () => {
-    // TODO: Implement actual settings save
-    toast.success("Settings saved successfully!");
-  };
 
   return (
     <Dialog>
@@ -116,10 +107,9 @@ export function GeneralSettingsDialog({ title, icon, children }: GeneralSettings
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => {}}>Cancel</Button>
-            <Button onClick={handleSave}>Save Settings</Button>
-          </div>
+          <p className="text-xs text-muted-foreground pt-4">
+            These preferences are session-only and will reset when you close the browser.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
