@@ -38,11 +38,20 @@ export function ContactProfileModal({
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
 
-  // Fetch contact profile
-  const { data: profile, isLoading, error } = useContactProfile(contactId, context.agencyId);
+  // Guard against undefined context
+  const agencyId = context?.agencyId ?? null;
+
+  // Fetch contact profile - only when we have valid IDs and modal is open
+  const { data: profile, isLoading, error } = useContactProfile(
+    open ? contactId : null,
+    agencyId
+  );
 
   // Fetch journey events
-  const { data: journeyEvents } = useContactJourney(contactId, context.agencyId);
+  const { data: journeyEvents } = useContactJourney(
+    open ? contactId : null,
+    agencyId
+  );
 
   // Activity logging mutation
   const logActivity = useLogContactActivity();
@@ -56,22 +65,22 @@ export function ContactProfileModal({
 
   // Handle activity logging
   const handleLogActivity = async (data: ActivityFormData) => {
-    if (!contactId) return;
+    if (!contactId || !agencyId) return;
 
     await logActivity.mutateAsync({
       contactId,
-      agencyId: context.agencyId,
+      agencyId,
       activityType: data.activityType,
       sourceModule: data.sourceModule,
-      sourceRecordId: context.sourceRecordId,
+      sourceRecordId: context?.sourceRecordId,
       callDirection: data.callDirection,
       outcome: data.outcome,
       subject: data.subject,
       notes: data.notes,
       scheduledDate: data.scheduledDate,
-      createdByUserId: context.userId,
-      createdByStaffId: context.staffMemberId,
-      createdByDisplayName: context.displayName,
+      createdByUserId: context?.userId,
+      createdByStaffId: context?.staffMemberId,
+      createdByDisplayName: context?.displayName,
     });
 
     setShowActivityForm(false);
@@ -105,7 +114,7 @@ export function ContactProfileModal({
     return parts.length > 0 ? parts.join(', ') : null;
   };
 
-  const sourceConfig = SOURCE_MODULE_CONFIGS[context.sourceModule];
+  const sourceConfig = context?.sourceModule ? SOURCE_MODULE_CONFIGS[context.sourceModule] : null;
 
   return (
     <>
@@ -284,7 +293,7 @@ export function ContactProfileModal({
           setActivityFormType(undefined);
         }}
         onSubmit={handleLogActivity}
-        defaultSourceModule={context.sourceModule}
+        defaultSourceModule={context?.sourceModule ?? 'manual'}
         isLoading={logActivity.isPending}
         activityType={activityFormType}
       />
