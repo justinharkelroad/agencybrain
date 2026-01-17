@@ -34,18 +34,16 @@ export function FormKpiUpdateDialog({
   const updateBinding = useUpdateFormKpiBinding();
 
   const handleUpdate = async () => {
-    if (!currentVersion) return;
-    
     setIsUpdating(true);
     try {
+      // Call RPC to rebind ALL KPIs for this form (not just one)
       await updateBinding.mutateAsync({
         formTemplateId: formId,
-        kpiVersionId: currentVersion.id,
       });
       
       toast({
         title: "Form Updated",
-        description: `Form "${formName}" now uses the current KPI version.`,
+        description: `All KPI bindings for "${formName}" have been synced to current versions.`,
       });
       
       onOpenChange(false);
@@ -108,10 +106,10 @@ export function FormKpiUpdateDialog({
           <div className="flex gap-3 pt-4">
             <Button 
               onClick={handleUpdate} 
-              disabled={isUpdating || !currentVersion}
+              disabled={isUpdating}
               className="flex-1"
             >
-              {isUpdating ? "Updating..." : "Update Form"}
+              {isUpdating ? "Syncing..." : "Sync All KPIs"}
             </Button>
             <Button 
               variant="outline" 
