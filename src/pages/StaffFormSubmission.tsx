@@ -355,7 +355,10 @@ export default function StaffFormSubmission() {
             console.error('[StaffFormSubmission] Could not parse error response:', parseError);
           }
         }
-        throw new Error(error.message || 'Submission failed');
+        // Show toast for non-structured errors instead of throwing (prevents app crash)
+        toast.error(error.message || 'Submission failed');
+        setSubmitting(false);
+        return;
       }
 
       // Handle structured error responses from backend
