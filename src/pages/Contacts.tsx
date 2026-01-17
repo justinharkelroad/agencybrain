@@ -25,7 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactProfileModal, CustomerJourneyBadge } from '@/components/contacts';
-import type { ContactWithStatus, LifecycleStage, ContactFilters, ContactProfileContext, SourceModule } from '@/types/contact';
+import type { ContactWithStatus, LifecycleStage, ContactFilters } from '@/types/contact';
 import { LIFECYCLE_STAGE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -143,16 +143,6 @@ export default function Contacts() {
     setProfileModalOpen(true);
   };
 
-  // Build profile context
-  const profileContext: ContactProfileContext | null = context
-    ? {
-        agencyId: context.agencyId,
-        userId: context.userId,
-        staffMemberId: context.staffMemberId,
-        displayName: context.displayName,
-        sourceModule: 'manual' as SourceModule,
-      }
-    : null;
 
   // Format phone for display
   const formatPhone = (phone: string) => {
@@ -352,7 +342,7 @@ export default function Contacts() {
       )}
 
       {/* Profile Modal */}
-      {profileContext && (
+      {context && (
         <ContactProfileModal
           contactId={selectedContactId}
           open={profileModalOpen}
@@ -360,7 +350,11 @@ export default function Contacts() {
             setProfileModalOpen(false);
             setSelectedContactId(null);
           }}
-          context={profileContext}
+          agencyId={context.agencyId}
+          defaultSourceModule="manual"
+          userId={context.userId ?? undefined}
+          staffMemberId={context.staffMemberId ?? undefined}
+          displayName={context.displayName}
         />
       )}
     </div>
