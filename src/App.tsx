@@ -35,6 +35,7 @@ import ScorecardFormEditor from "./pages/ScorecardFormEditor";
 import PublicFormRoute from "./pages/PublicFormRoute";
 import Dashboard from "./pages/Dashboard";
 import MetricsEditRedirect from "./components/MetricsEditRedirect";
+import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecardsRedirect";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -420,6 +421,8 @@ const App = () => {
                 {/* Legacy scorecard-forms routes redirect to metrics */}
                 <Route path="/scorecard-forms/builder" element={<Navigate to="/metrics/builder" replace />} />
                 <Route path="/scorecard-forms/edit/:formId" element={<MetricsEditRedirect />} />
+                {/* Legacy scorecards/submissions route - redirects to correct portal */}
+                <Route path="/scorecards/submissions" element={<LegacyScorecardsSubmissionsRedirect />} />
               </>
             )}
             {/* Public form submission - no auth required */}
