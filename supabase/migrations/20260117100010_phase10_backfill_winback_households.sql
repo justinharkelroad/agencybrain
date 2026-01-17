@@ -1,6 +1,12 @@
 -- Phase 10: Backfill from winback_households
 -- Links winback records to contacts by phone, then creates new contacts for unmatched
 
+-- IMPORTANT: If this migration times out, run these statements separately:
+-- 1. First UPDATE (link by phone)
+-- 2. INSERT statement (create contacts)
+-- 3. Second UPDATE (link by phone)
+-- 4. Third UPDATE (link by household_key)
+
 -- Link by phone first (most reliable match)
 UPDATE winback_households wh
 SET contact_id = ac.id
@@ -54,17 +60,22 @@ DO UPDATE SET
   zip_code = COALESCE(agency_contacts.zip_code, EXCLUDED.zip_code),
   updated_at = now();
 
--- Link remaining unlinked records
+-- Link remaining by phone
 UPDATE winback_households wh
 SET contact_id = ac.id
 FROM agency_contacts ac
 WHERE wh.agency_id = ac.agency_id
   AND wh.contact_id IS NULL
-  AND (
-    (normalize_phone(wh.phone) IS NOT NULL AND normalize_phone(wh.phone) = ANY(ac.phones))
-    OR
-    (generate_household_key(wh.first_name, wh.last_name, wh.zip_code) = ac.household_key)
-  );
+  AND normalize_phone(wh.phone) IS NOT NULL
+  AND normalize_phone(wh.phone) = ANY(ac.phones);
+
+-- Link remaining by household_key
+UPDATE winback_households wh
+SET contact_id = ac.id
+FROM agency_contacts ac
+WHERE wh.agency_id = ac.agency_id
+  AND wh.contact_id IS NULL
+  AND generate_household_key(wh.first_name, wh.last_name, wh.zip_code) = ac.household_key;
 
 -- Verification query (run after migration):
 -- SELECT

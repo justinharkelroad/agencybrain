@@ -1,5 +1,12 @@
 -- Phase 9: Backfill from renewal_records
 -- Links renewal records to contacts by phone, then creates new contacts for unmatched
+-- NOTE: renewal_records does NOT have zip_code column - uses NULL for household_key generation
+
+-- IMPORTANT: If this migration times out, run these statements separately:
+-- 1. First UPDATE (link by phone)
+-- 2. INSERT statement (create contacts)
+-- 3. Second UPDATE (link by phone)
+-- 4. Third UPDATE (link by household_key)
 
 -- Link by phone first (most reliable match)
 UPDATE renewal_records rr
@@ -12,18 +19,17 @@ WHERE rr.agency_id = ac.agency_id
 
 -- Create new contacts for unlinked records
 INSERT INTO agency_contacts (
-  agency_id, first_name, last_name, household_key, zip_code, phones, emails
+  agency_id, first_name, last_name, household_key, phones, emails
 )
 SELECT DISTINCT ON (agency_id, generated_key)
   agency_id,
   UPPER(COALESCE(first_name, 'UNKNOWN')),
   UPPER(last_name),
   generated_key,
-  LEFT(zip_code, 5),
   CASE WHEN normalize_phone(phone) IS NOT NULL THEN ARRAY[normalize_phone(phone)] ELSE '{}' END,
   CASE WHEN email IS NOT NULL AND TRIM(email) != '' THEN ARRAY[LOWER(TRIM(email))] ELSE '{}' END
 FROM (
-  SELECT *, generate_household_key(first_name, last_name, zip_code) as generated_key
+  SELECT *, generate_household_key(first_name, last_name, NULL) as generated_key
   FROM renewal_records
   WHERE contact_id IS NULL
     AND last_name IS NOT NULL
@@ -44,20 +50,24 @@ DO UPDATE SET
     THEN array_append(agency_contacts.emails, EXCLUDED.emails[1])
     ELSE agency_contacts.emails
   END,
-  zip_code = COALESCE(agency_contacts.zip_code, EXCLUDED.zip_code),
   updated_at = now();
 
--- Link remaining unlinked records
+-- Link remaining by phone
 UPDATE renewal_records rr
 SET contact_id = ac.id
 FROM agency_contacts ac
 WHERE rr.agency_id = ac.agency_id
   AND rr.contact_id IS NULL
-  AND (
-    (normalize_phone(rr.phone) IS NOT NULL AND normalize_phone(rr.phone) = ANY(ac.phones))
-    OR
-    (generate_household_key(rr.first_name, rr.last_name, rr.zip_code) = ac.household_key)
-  );
+  AND normalize_phone(rr.phone) IS NOT NULL
+  AND normalize_phone(rr.phone) = ANY(ac.phones);
+
+-- Link remaining by household_key
+UPDATE renewal_records rr
+SET contact_id = ac.id
+FROM agency_contacts ac
+WHERE rr.agency_id = ac.agency_id
+  AND rr.contact_id IS NULL
+  AND generate_household_key(rr.first_name, rr.last_name, NULL) = ac.household_key;
 
 -- Verification query (run after migration):
 -- SELECT
