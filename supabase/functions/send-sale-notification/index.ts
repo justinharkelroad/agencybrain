@@ -398,7 +398,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('[send-sale-notification] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to send notification' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to send notification' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

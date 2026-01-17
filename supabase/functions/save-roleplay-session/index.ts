@@ -59,7 +59,7 @@ serve(async (req) => {
         `)
         .eq('session_token', staffSessionToken)
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .single() as { data: any; error: any };
 
       if (sessionError || !sessionData) {
         console.log('Invalid staff session token for saving:', sessionError?.message);
@@ -359,7 +359,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in save-roleplay-session:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...extendedCorsHeaders, 'Content-Type': 'application/json' } }
     );
   }

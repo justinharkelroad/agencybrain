@@ -177,7 +177,7 @@ Set confidence based on how many fields were successfully extracted:
   } catch (error) {
     console.error('[parse-sale-pdf] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to parse PDF' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to parse PDF' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

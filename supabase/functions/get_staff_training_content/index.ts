@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       .eq('session_token', session_token)
       .eq('is_valid', true)
       .gt('expires_at', new Date().toISOString())
-      .single();
+      .single() as { data: any; error: any };
 
     if (sessionError || !session) {
       return new Response(

@@ -21,18 +21,19 @@ async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      lastError = error;
-      const isTransient = error.message?.includes('connection reset') ||
-                          error.message?.includes('timeout') ||
-                          error.message?.includes('ECONNRESET') ||
-                          error.message?.includes('network');
-      
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorMsg = lastError.message;
+      const isTransient = errorMsg?.includes('connection reset') ||
+                          errorMsg?.includes('timeout') ||
+                          errorMsg?.includes('ECONNRESET') ||
+                          errorMsg?.includes('network');
+
       if (!isTransient || attempt === maxAttempts) {
         throw error;
       }
-      
+
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
-      console.log(`Retry attempt ${attempt}/${maxAttempts} after ${delay}ms due to: ${error.message}`);
+      console.log(`Retry attempt ${attempt}/${maxAttempts} after ${delay}ms due to: ${errorMsg}`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -374,7 +375,7 @@ serve(async (req) => {
         if (whisperAttempts === maxWhisperAttempts) {
           await cleanupStorage(supabase, storagePath);
           return new Response(
-            JSON.stringify({ error: "Transcription failed. Please try again.", details: error.message }),
+            JSON.stringify({ error: "Transcription failed. Please try again.", details: error instanceof Error ? error.message : 'Unknown error' }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -519,7 +520,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Transcription error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to transcribe audio" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Failed to transcribe audio" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

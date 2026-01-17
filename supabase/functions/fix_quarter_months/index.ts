@@ -98,10 +98,10 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Fix quarter months error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

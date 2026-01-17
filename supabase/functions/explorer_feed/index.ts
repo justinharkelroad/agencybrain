@@ -120,7 +120,7 @@ serve(async (req) => {
       if (prospectError) {
         console.error("Prospect query error:", prospectError);
       } else {
-        prospects = (prospectData || []).map(row => ({
+        prospects = (prospectData || []).map((row: any) => ({
           id: row.id,
           submission_id: row.submission_id,
           form_template_id: row.submissions?.form_template_id,
@@ -196,7 +196,7 @@ serve(async (req) => {
         
         const leadSourceMap = new Map((leadSourcesData || []).map(ls => [ls.id, ls.name]));
 
-        customers = (customerData || []).map(row => ({
+        customers = (customerData || []).map((row: any) => ({
           id: row.id,
           submission_id: row.submission_id,
           form_template_id: row.submissions?.form_template_id,

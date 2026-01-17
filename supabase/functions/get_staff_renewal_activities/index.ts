@@ -30,19 +30,19 @@ serve(async (req) => {
       .from('staff_sessions')
       .select('staff_user_id, expires_at, staff_users(id, agency_id, is_active)')
       .eq('session_token', sessionToken)
-      .single();
+      .single() as { data: any; error: any };
 
     if (sessionError) {
       console.error('[get_staff_renewal_activities] Session lookup error:', sessionError);
-      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Invalid session' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     if (!session || new Date(session.expires_at) < new Date() || !session.staff_users?.is_active) {
       console.error('[get_staff_renewal_activities] Session expired or user inactive');
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), { 
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -75,8 +75,8 @@ serve(async (req) => {
     
     if (error) {
       console.error('[get_staff_renewal_activities] Query error:', error);
-      return new Response(JSON.stringify({ error: error.message }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Query failed' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 

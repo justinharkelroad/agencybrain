@@ -3,7 +3,8 @@ import { corsHeaders, handleOptions } from "../_shared/cors.ts";
 import { supaFromReq } from "../_shared/client.ts";
 
 serve(async (req) => {
-  if (handleOptions(req)) return handleOptions(req);
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
     const supabase = supaFromReq(req);
