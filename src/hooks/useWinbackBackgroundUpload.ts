@@ -147,11 +147,30 @@ async function processInBackground(
 
       let householdId: string;
 
+      // Find or create unified contact for this household
+      let contactId: string | null = null;
+      if (firstRecord.lastName && firstRecord.lastName.trim()) {
+        try {
+          const { data: contactData } = await supabase.rpc('find_or_create_contact', {
+            p_agency_id: agencyId,
+            p_first_name: firstRecord.firstName || null,
+            p_last_name: firstRecord.lastName,
+            p_zip_code: firstRecord.zipCode || null,
+            p_phone: firstRecord.phone || null,
+            p_email: firstRecord.email || null,
+          });
+          contactId = contactData;
+        } catch (contactErr) {
+          console.warn('Failed to create contact for winback household:', contactErr);
+        }
+      }
+
       if (existingHousehold) {
         householdId = existingHousehold.id;
-        const updateData: Record<string, string> = {};
+        const updateData: Record<string, any> = {};
         if (firstRecord.email) updateData.email = firstRecord.email;
         if (firstRecord.phone) updateData.phone = firstRecord.phone;
+        if (contactId) updateData.contact_id = contactId;
 
         if (Object.keys(updateData).length > 0) {
           await supabase
@@ -170,6 +189,7 @@ async function processInBackground(
             email: firstRecord.email,
             phone: firstRecord.phone,
             status: 'untouched',
+            contact_id: contactId,
           })
           .select('id')
           .single();

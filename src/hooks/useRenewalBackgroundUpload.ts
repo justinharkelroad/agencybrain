@@ -135,6 +135,24 @@ async function processInBackground(
             .eq('is_active', true)
             .maybeSingle();
 
+          // Find or create a unified contact for this record
+          let contactId: string | null = null;
+          if (r.lastName && r.lastName.trim()) {
+            try {
+              const { data: contactData } = await supabase.rpc('find_or_create_contact', {
+                p_agency_id: agencyId,
+                p_first_name: r.firstName || null,
+                p_last_name: r.lastName,
+                p_zip_code: null, // renewal records don't have zip
+                p_phone: r.phone || null,
+                p_email: r.email || null,
+              });
+              contactId = contactData;
+            } catch (contactErr) {
+              console.warn('Failed to create contact for renewal:', contactErr);
+            }
+          }
+
           if (existing) {
             // Update existing record
             const { error } = await supabase
@@ -160,10 +178,11 @@ async function processInBackground(
                 years_prior_insurance: r.yearsPriorInsurance,
                 household_key: r.householdKey,
                 last_upload_id: upload.id,
+                contact_id: contactId || existing.contact_id, // preserve existing if new fails
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
-            
+
             if (error) throw error;
             return 'updated';
           } else {
@@ -199,8 +218,9 @@ async function processInBackground(
                 uploaded_by_display_name: displayName,
                 current_status: 'uncontacted',
                 is_active: true,
+                contact_id: contactId,
               });
-            
+
             if (error) throw error;
             return 'new';
           }
