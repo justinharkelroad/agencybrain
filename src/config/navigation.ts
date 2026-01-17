@@ -513,7 +513,7 @@ export const staffNavigationConfig: NavEntry[] = [
         icon: ClipboardList,
         type: 'link',
         url: '/staff/metrics',
-        access: { staff: true, manager: true, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'call-scoring',
