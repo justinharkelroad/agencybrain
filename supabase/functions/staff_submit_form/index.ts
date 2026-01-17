@@ -5,6 +5,21 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const FUNCTION_VERSION = "1.0.0";
 
+// Date validation - ensure work date is within 7 days
+function validateWorkDate(workDate: string): { valid: boolean; error?: string } {
+  const submitted = new Date(workDate + 'T12:00:00Z');
+  const now = new Date();
+  const daysDiff = Math.abs((now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysDiff > 7) {
+    return {
+      valid: false,
+      error: `Work date must be within 7 days of today. You submitted for ${workDate} but today is ${now.toISOString().split('T')[0]}.`
+    };
+  }
+  return { valid: true };
+}
+
 function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data: Record<string, any>) {
   const logEntry = {
     timestamp: new Date().toISOString(),
@@ -103,12 +118,14 @@ Deno.serve(async (req) => {
 
     // Step 3: Verify staff is linked to a team member (SECURITY CRITICAL)
     if (!staffUser.team_member_id) {
-      logStructured('warn', 'staff_not_linked', { 
+      logStructured('warn', 'staff_not_linked', {
         request_id: requestId,
         staff_user_id: staffUser.id
       });
-      return json(403, { 
-        error: 'Staff user not linked to a team member. Please contact your administrator.' 
+      return json(403, {
+        error: 'staff_not_linked',
+        message: 'Your account is not connected to a team member profile.',
+        action: 'Ask your manager to link your account in Team Settings.'
       });
     }
 
@@ -120,15 +137,25 @@ Deno.serve(async (req) => {
     });
 
     // Step 4: Resolve form template by slug
-    const { formSlug, submissionDate, workDate, values } = body;
+    const { formSlug, submissionDate, workDate, values, schemaVersion } = body;
 
     if (!formSlug || !submissionDate) {
       return json(400, { error: 'formSlug and submissionDate are required' });
     }
 
+    // 1A: Date validation - ensure work date is within 7 days
+    const effectiveDateForValidation = workDate || submissionDate;
+    const dateCheck = validateWorkDate(effectiveDateForValidation);
+    if (!dateCheck.valid) {
+      return json(400, {
+        error: 'invalid_work_date',
+        message: dateCheck.error
+      });
+    }
+
     const { data: template, error: templateError } = await supabase
       .from('form_templates')
-      .select('id, slug, status, agency_id, name, needs_attention')
+      .select('id, slug, status, agency_id, name, needs_attention, form_kpi_version')
       .eq('slug', formSlug)
       .eq('agency_id', staffUser.agency_id)
       .single();
@@ -144,6 +171,16 @@ Deno.serve(async (req) => {
 
     if (template.status !== 'published') {
       return json(403, { error: 'Form is not published' });
+    }
+
+    // 1B: Schema version validation - detect if form was updated while user had it open
+    if (schemaVersion && template.form_kpi_version && template.form_kpi_version > schemaVersion) {
+      return json(409, {
+        error: 'form_schema_changed',
+        message: 'This form was updated while you had it open. Please refresh and try again.',
+        client_version: schemaVersion,
+        current_version: template.form_kpi_version
+      });
     }
 
     // LAYER 4: Block submissions for forms that need admin attention
@@ -320,100 +357,122 @@ Deno.serve(async (req) => {
     }
 
     // Step 7: Insert submission (team_member_id from session, NOT request)
-    const { data: ins, error: insErr } = await supabase
-      .from('submissions')
-      .insert({
-        form_template_id: template.id,
-        team_member_id: staffUser.team_member_id, // SECURE: from session
-        submission_date: submissionDate,
-        work_date: workDate ?? null,
-        late: false,
-        final: false,
-        payload_json: v
-      })
-      .select('id')
-      .single();
+    // 1D: Wrap in try-catch to handle unique constraint violations
+    let sid: string;
+    try {
+      const { data: ins, error: insErr } = await supabase
+        .from('submissions')
+        .insert({
+          form_template_id: template.id,
+          team_member_id: staffUser.team_member_id, // SECURE: from session
+          submission_date: submissionDate,
+          work_date: workDate ?? null,
+          late: false,
+          final: false,
+          payload_json: v
+        })
+        .select('id')
+        .single();
 
-    if (insErr) {
-      logStructured('error', 'submission_insert_failed', {
-        request_id: requestId,
-        error: insErr.message
-      });
-      return json(500, { error: 'Failed to create submission' });
-    }
+      if (insErr) {
+        // Check for unique constraint violation on metrics_daily
+        if (insErr.code === '23505' || insErr.message?.includes('unique_member_date')) {
+          return json(409, {
+            error: 'duplicate_submission',
+            message: 'A submission already exists for this date.',
+            work_date: workDate ?? submissionDate
+          });
+        }
+        logStructured('error', 'submission_insert_failed', {
+          request_id: requestId,
+          error: insErr.message
+        });
+        return json(500, { error: 'Failed to create submission' });
+      }
 
-    const sid = ins.id;
+      sid = ins.id;
 
-    // Step 8: Finalize submission (same pattern as public form)
-    const { data: sRow } = await supabase
-      .from('submissions')
-      .select('team_member_id, work_date, submission_date')
-      .eq('id', sid)
-      .single();
-    
-    const effectiveWorkDate = sRow.work_date ?? sRow.submission_date;
+      // Step 8: Finalize submission (same pattern as public form)
+      const { data: sRow } = await supabase
+        .from('submissions')
+        .select('team_member_id, work_date, submission_date')
+        .eq('id', sid)
+        .single();
 
-    // Clear any existing finals for same TM + date
-    const { error: clearError } = await supabase
-      .from('submissions')
-      .update({ final: false })
-      .eq('team_member_id', sRow.team_member_id)
-      .or(`work_date.eq.${effectiveWorkDate},and(work_date.is.null,submission_date.eq.${effectiveWorkDate})`)
-      .eq('final', true);
+      const effectiveWorkDate = sRow.work_date ?? sRow.submission_date;
 
-    if (clearError) {
-      logStructured('warn', 'clear_finals_failed', {
+      // Clear any existing finals for same TM + date
+      const { error: clearError } = await supabase
+        .from('submissions')
+        .update({ final: false })
+        .eq('team_member_id', sRow.team_member_id)
+        .or(`work_date.eq.${effectiveWorkDate},and(work_date.is.null,submission_date.eq.${effectiveWorkDate})`)
+        .eq('final', true);
+
+      if (clearError) {
+        logStructured('warn', 'clear_finals_failed', {
+          request_id: requestId,
+          submission_id: sid,
+          error: clearError.message
+        });
+        // Continue anyway - this isn't fatal, but log it
+      }
+
+      // Finalize this submission
+      const { error: finalizeError } = await supabase
+        .from('submissions')
+        .update({ final: true })
+        .eq('id', sid);
+
+      if (finalizeError) {
+        logStructured('error', 'finalization_failed', {
+          request_id: requestId,
+          submission_id: sid,
+          error: finalizeError.message
+        });
+        return json(500, {
+          error: 'Failed to finalize submission',
+          submission_id: sid,
+          detail: finalizeError.message
+        });
+      }
+
+      // VERIFICATION: Re-fetch to confirm final=true (belt and suspenders)
+      const { data: verified, error: verifyError } = await supabase
+        .from('submissions')
+        .select('final')
+        .eq('id', sid)
+        .single();
+
+      if (verifyError || !verified || verified.final !== true) {
+        logStructured('error', 'finalization_verification_failed', {
+          request_id: requestId,
+          submission_id: sid,
+          actual_final: verified?.final,
+          verify_error: verifyError?.message
+        });
+        return json(500, {
+          error: 'Submission created but finalization could not be verified. Please try again.',
+          submission_id: sid
+        });
+      }
+
+      logStructured('info', 'finalization_verified', {
         request_id: requestId,
         submission_id: sid,
-        error: clearError.message
+        final: verified.final
       });
-      // Continue anyway - this isn't fatal, but log it
+    } catch (error: any) {
+      // Check for unique constraint violation on metrics_daily
+      if (error?.code === '23505' || error?.message?.includes('unique_member_date')) {
+        return json(409, {
+          error: 'duplicate_submission',
+          message: 'A submission already exists for this date.',
+          work_date: workDate ?? submissionDate
+        });
+      }
+      throw error; // Re-throw if not a duplicate error
     }
-
-    // Finalize this submission
-    const { error: finalizeError } = await supabase
-      .from('submissions')
-      .update({ final: true })
-      .eq('id', sid);
-
-    if (finalizeError) {
-      logStructured('error', 'finalization_failed', {
-        request_id: requestId,
-        submission_id: sid,
-        error: finalizeError.message
-      });
-      return json(500, { 
-        error: 'Failed to finalize submission',
-        submission_id: sid,
-        detail: finalizeError.message 
-      });
-    }
-
-    // VERIFICATION: Re-fetch to confirm final=true (belt and suspenders)
-    const { data: verified, error: verifyError } = await supabase
-      .from('submissions')
-      .select('final')
-      .eq('id', sid)
-      .single();
-
-    if (verifyError || !verified || verified.final !== true) {
-      logStructured('error', 'finalization_verification_failed', {
-        request_id: requestId,
-        submission_id: sid,
-        actual_final: verified?.final,
-        verify_error: verifyError?.message
-      });
-      return json(500, { 
-        error: 'Submission created but finalization could not be verified. Please try again.',
-        submission_id: sid
-      });
-    }
-
-    logStructured('info', 'finalization_verified', {
-      request_id: requestId,
-      submission_id: sid,
-      final: verified.final
-    });
 
     // Background: Flatten quoted_household_details
     if (Array.isArray(v.quoted_details) && v.quoted_details.length > 0) {

@@ -4,8 +4,23 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FUNCTION_VERSION = "3.8-SAFE-FINALIZATION";
-const DEPLOYMENT_ID = "deploy-20250915-r3-normalized";
+const FUNCTION_VERSION = "3.9-BACKEND-HARDENING";
+const DEPLOYMENT_ID = "deploy-20260117-hardening";
+
+// Date validation - ensure work date is within 7 days
+function validateWorkDate(workDate: string): { valid: boolean; error?: string } {
+  const submitted = new Date(workDate + 'T12:00:00Z');
+  const now = new Date();
+  const daysDiff = Math.abs((now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysDiff > 7) {
+    return {
+      valid: false,
+      error: `Work date must be within 7 days of today. You submitted for ${workDate} but today is ${now.toISOString().split('T')[0]}.`
+    };
+  }
+  return { valid: true };
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,6 +98,7 @@ type Body = {
   submissionDate: string;  // YYYY-MM-DD
   workDate?: string;       // optional
   values: Record<string, unknown>;
+  schemaVersion?: number;  // optional - for form schema change detection
 };
 
 serve(async (req) => {
@@ -142,10 +158,25 @@ serve(async (req) => {
     if (!body.teamMemberId || !body.submissionDate) {
       logStructured('warn', 'validation_failed', {
         request_id: requestId,
-        error_type: 'invalid_payload', 
+        error_type: 'invalid_payload',
         missing_fields: ['teamMemberId', 'submissionDate'].filter(f => !body[f as keyof Body])
       });
       return errorResponse(400, "invalid_payload");
+    }
+
+    // Date validation - ensure work date is within 7 days
+    const effectiveDateForValidation = body.workDate || body.submissionDate;
+    const dateCheck = validateWorkDate(effectiveDateForValidation);
+    if (!dateCheck.valid) {
+      logStructured('warn', 'invalid_work_date', {
+        request_id: requestId,
+        work_date: body.workDate,
+        submission_date: body.submissionDate
+      });
+      return j(400, {
+        error: 'invalid_work_date',
+        message: dateCheck.error
+      });
     }
 
     // Build payload
@@ -193,6 +224,7 @@ serve(async (req) => {
     });
 
     // TOKEN VALIDATION - public, no user auth required
+    // 2A: Better token error handling - distinguish between expired and disabled
     const { data: link, error: linkError } = await supabase
       .from('form_links')
       .select('id, token, enabled, expires_at, form_template_id, agency_id')
@@ -205,17 +237,33 @@ serve(async (req) => {
         token: body.token.substring(0, 8) + '...',
         error: linkError?.message
       });
-      return errorResponse(401, "unauthorized");
+      return j(401, {
+        error: 'token_expired',
+        message: 'This form link is invalid or has expired.'
+      });
     }
 
-    if (!link.enabled || (link.expires_at && new Date(link.expires_at) < new Date())) {
-      logStructured('warn', 'token_expired_disabled', {
+    if (!link.enabled) {
+      logStructured('warn', 'token_disabled', {
+        request_id: requestId,
+        token: body.token.substring(0, 8) + '...'
+      });
+      return j(401, {
+        error: 'token_disabled',
+        message: 'This form link has been disabled by your manager.'
+      });
+    }
+
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      logStructured('warn', 'token_expired', {
         request_id: requestId,
         token: body.token.substring(0, 8) + '...',
-        enabled: link.enabled,
         expires_at: link.expires_at
       });
-      return errorResponse(401, "unauthorized");
+      return j(401, {
+        error: 'token_expired',
+        message: 'This form link has expired.'
+      });
     }
 
     logStructured('info', 'token_validated', {
@@ -226,10 +274,10 @@ serve(async (req) => {
     // Get form template
     const { data: template, error: templateError } = await supabase
       .from('form_templates')
-      .select('id, slug, status, settings_json, agency_id')
+      .select('id, slug, status, settings_json, agency_id, form_kpi_version')
       .eq('id', link.form_template_id)
       .single();
-      
+
     if (templateError || !template) {
       const errorId = crypto.randomUUID();
       logStructured('error', 'template_lookup_failed', {
@@ -248,6 +296,21 @@ serve(async (req) => {
         status: template.status
       });
       return errorResponse(403, "form_unpublished");
+    }
+
+    // Schema version validation - detect if form was updated while user had it open
+    if (body.schemaVersion && template.form_kpi_version && template.form_kpi_version > body.schemaVersion) {
+      logStructured('warn', 'form_schema_changed', {
+        request_id: requestId,
+        client_version: body.schemaVersion,
+        current_version: template.form_kpi_version
+      });
+      return j(409, {
+        error: 'form_schema_changed',
+        message: 'This form was updated while you had it open. Please refresh and try again.',
+        client_version: body.schemaVersion,
+        current_version: template.form_kpi_version
+      });
     }
 
     // Get agency
@@ -353,54 +416,76 @@ serve(async (req) => {
     });
 
     // Step 1: Insert submission with final=false (bypasses trigger)
-    const { data: ins, error: insErr } = await supabase
-      .from("submissions")
-      .insert({
-        form_template_id: template.id,
-        team_member_id: body.teamMemberId,
-        submission_date: body.submissionDate,
-        work_date: body.workDate ?? null,
-        late: isLate,
-        final: false,  // Critical: start as false to bypass trigger
-        payload_json: v // Use normalized values
-      })
-      .select("id")
-      .single();
+    // Wrap in try-catch to handle unique constraint violations
+    let sid: string;
+    try {
+      const { data: ins, error: insErr } = await supabase
+        .from("submissions")
+        .insert({
+          form_template_id: template.id,
+          team_member_id: body.teamMemberId,
+          submission_date: body.submissionDate,
+          work_date: body.workDate ?? null,
+          late: isLate,
+          final: false,  // Critical: start as false to bypass trigger
+          payload_json: v // Use normalized values
+        })
+        .select("id")
+        .single();
 
-    if (insErr) {
-      const errorId = crypto.randomUUID();
-      logStructured('error', 'submission_insert_failed', {
-        request_id: requestId,
-        error_id: errorId,
-        error: insErr.message
-      });
-      return j(500, { error: "internal_error", id: errorId, message: insErr.message });
+      if (insErr) {
+        // Check for unique constraint violation on metrics_daily
+        if (insErr.code === '23505' || insErr.message?.includes('unique_member_date')) {
+          return j(409, {
+            error: 'duplicate_submission',
+            message: 'A submission already exists for this date.',
+            work_date: body.workDate ?? body.submissionDate
+          });
+        }
+        const errorId = crypto.randomUUID();
+        logStructured('error', 'submission_insert_failed', {
+          request_id: requestId,
+          error_id: errorId,
+          error: insErr.message
+        });
+        return j(500, { error: "internal_error", id: errorId, message: insErr.message });
+      }
+
+      // after the INSERT (which MUST use payload_json: v and final=false)
+      sid = ins.id;
+
+      // Use the submission's work_date (or submission_date if work_date is null)
+      const { data: sRow } = await supabase
+        .from('submissions')
+        .select('team_member_id, work_date, submission_date')
+        .eq('id', sid)
+        .single();
+      const workDate = sRow.work_date ?? sRow.submission_date;
+
+      // 1) Clear any existing finals for same TM + date
+      await supabase
+        .from('submissions')
+        .update({ final: false })
+        .eq('team_member_id', sRow.team_member_id)
+        .or(`work_date.eq.${workDate},and(work_date.is.null,submission_date.eq.${workDate})`)
+        .eq('final', true);
+
+      // 2) Finalize this submission (lets trigger fire exactly once)
+      await supabase
+        .from('submissions')
+        .update({ final: true })
+        .eq('id', sid);
+    } catch (error: any) {
+      // Check for unique constraint violation on metrics_daily
+      if (error?.code === '23505' || error?.message?.includes('unique_member_date')) {
+        return j(409, {
+          error: 'duplicate_submission',
+          message: 'A submission already exists for this date.',
+          work_date: body.workDate ?? body.submissionDate
+        });
+      }
+      throw error; // Re-throw if not a duplicate error
     }
-
-    // after the INSERT (which MUST use payload_json: v and final=false)
-    const sid = ins.id;
-
-    // Use the submission's work_date (or submission_date if work_date is null)
-    const { data: sRow } = await supabase
-      .from('submissions')
-      .select('team_member_id, work_date, submission_date')
-      .eq('id', sid)
-      .single();
-    const workDate = sRow.work_date ?? sRow.submission_date;
-
-    // 1) Clear any existing finals for same TM + date
-    await supabase
-      .from('submissions')
-      .update({ final: false })
-      .eq('team_member_id', sRow.team_member_id)
-      .or(`work_date.eq.${workDate},and(work_date.is.null,submission_date.eq.${workDate})`)
-      .eq('final', true);
-
-    // 2) Finalize this submission (lets trigger fire exactly once)
-    await supabase
-      .from('submissions')
-      .update({ final: true })
-      .eq('id', sid);
 
     // Background task: Automatically flatten quoted_household_details
     // This runs asynchronously and doesn't block the response

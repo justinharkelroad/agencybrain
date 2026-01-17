@@ -118,13 +118,32 @@ serve(async (req) => {
       }
 
       case 'form_update': {
-        const { formId, patch } = params;
-        
+        const { formId, patch, expected_updated_at } = params;
+
         if (!formId) {
           return new Response(
             JSON.stringify({ error: 'formId is required' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
+        }
+
+        // 3B: Optimistic lock check
+        if (expected_updated_at) {
+          const { data: current } = await supabase
+            .from('form_templates')
+            .select('updated_at')
+            .eq('id', formId)
+            .single();
+
+          if (current && current.updated_at !== expected_updated_at) {
+            return new Response(
+              JSON.stringify({
+                error: 'concurrent_edit',
+                message: 'Another admin modified this form while you were editing. Please refresh and try again.'
+              }),
+              { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
         }
 
         const { data, error } = await supabase
@@ -289,6 +308,20 @@ serve(async (req) => {
       case 'scorecard_rules_upsert': {
         const { role, selected_metrics, ring_metrics, n_required, weights, counted_days, count_weekend_if_submitted, backfill_days } = params;
 
+        // 3A: Validate weights total = 100
+        if (weights && Object.keys(weights).length > 0) {
+          const total = Object.values(weights).reduce((sum: number, w: any) => sum + Number(w), 0);
+          if (total !== 100) {
+            return new Response(
+              JSON.stringify({
+                error: 'invalid_weights',
+                message: `Weights must total 100%. Current total: ${total}%`
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
         // Dedupe arrays to prevent duplicate metrics (preserve order, keep first occurrence)
         const dedupeArray = (arr: string[] | null | undefined): string[] | null => {
           if (!arr) return null;
@@ -299,7 +332,7 @@ serve(async (req) => {
             return true;
           });
         };
-        
+
         const dedupedSelectedMetrics = dedupeArray(selected_metrics);
         const dedupedRingMetrics = dedupeArray(ring_metrics);
 
