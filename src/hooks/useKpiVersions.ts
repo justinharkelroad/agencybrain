@@ -95,34 +95,25 @@ export function useUpdateFormKpiBinding() {
 
   return useMutation({
     mutationFn: async ({ 
-      formTemplateId, 
-      kpiVersionId 
+      formTemplateId 
     }: { 
       formTemplateId: string; 
-      kpiVersionId: string; 
     }) => {
-      // Remove existing bindings for this form
-      await supabase
-        .from("forms_kpi_bindings")
-        .delete()
-        .eq("form_template_id", formTemplateId);
-
-      // Add new binding
-      const { data, error } = await supabase
-        .from("forms_kpi_bindings")
-        .insert({
-          form_template_id: formTemplateId,
-          kpi_version_id: kpiVersionId,
-        })
-        .select()
-        .single();
-
+      // Call the RPC that properly rebinds ALL KPIs from schema_json
+      // This ensures all KPI bindings are synced, not just one
+      const { error } = await supabase.rpc('bind_form_kpis', {
+        p_form: formTemplateId
+      });
+      
       if (error) throw new Error(error.message);
-      return data;
+      return { success: true };
     },
     onSuccess: (_, { formTemplateId }) => {
       queryClient.invalidateQueries({ 
         queryKey: ["form-kpi-bindings", formTemplateId] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["outdated-form-kpis"] 
       });
     },
   });
