@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Target } from "lucide-react";
 import { mergeStickyFieldsIntoSchema } from "@/utils/mergeStickyFields";
+import { SubmissionError } from '@/components/scorecard/SubmissionError';
 
 // Helper function to get current local date in YYYY-MM-DD format
 const getCurrentLocalDate = (): string => {
@@ -63,6 +64,11 @@ export default function PublicFormSubmission() {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const token = useMemo(() => new URLSearchParams(window.location.search).get("t"), []);
   
+  // Error handling state for structured errors
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionErrorMessage, setSubmissionErrorMessage] = useState<string | null>(null);
+  const [schemaVersion, setSchemaVersion] = useState<number>(1);
+  
   // Conditional logger - only for admin diagnostics
   const log = (import.meta.env.DEV || import.meta.env.VITE_SHOW_DIAGNOSTICS === 'true') ? console.log : () => {};
   const logError = console.error; // Always log errors
@@ -109,6 +115,8 @@ export default function PublicFormSubmission() {
         }
         
         setForm(form);
+        // Capture form version for schema validation on submit
+        setSchemaVersion(form.form_kpi_version || 1);
         // seed defaults - both submission_date and work_date default to today (submission_date will be locked)
         const today = getCurrentLocalDate();
         setValues(v => ({ ...v, submission_date: today, work_date: today }));
@@ -395,6 +403,7 @@ export default function PublicFormSubmission() {
         workDate: values.work_date || null,
         values: values,
         performanceSummary: performanceSummary, // Include performance data for AI email
+        schemaVersion: schemaVersion, // Add schema version for validation
       };
 
       log('📤 POST to submit_public_form...');
@@ -402,6 +411,7 @@ export default function PublicFormSubmission() {
       
       const { data, error } = await supabase.functions.invoke("submit_public_form", { body: payload });
       
+      // Handle fetch-level errors
       if (error) { 
         log('❌ Submission error details:', {
           error,
@@ -410,17 +420,19 @@ export default function PublicFormSubmission() {
           errorDetails: error.details
         });
         
-        // Provide more specific error messages
+        // Check if error contains structured error code
+        if ((error as any).error && typeof (error as any).error === 'string') {
+          setSubmissionError((error as any).error);
+          setSubmissionErrorMessage((error as any).message || null);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Fallback for unstructured errors
         let errorMessage = "Submission failed";
         if (error.message) {
           if (error.message.includes('UUID')) {
             errorMessage = "Invalid data format. Please refresh the page and try again.";
-          } else if (error.message.includes('FORM_NOT_FOUND')) {
-            errorMessage = "This form link is no longer valid.";
-          } else if (error.message.includes('FORM_EXPIRED')) {
-            errorMessage = "This form link has expired.";
-          } else if (error.message.includes('FORM_DISABLED')) {
-            errorMessage = "This form is currently disabled.";
           } else {
             errorMessage = error.message;
           }
@@ -430,8 +442,21 @@ export default function PublicFormSubmission() {
         return; 
       }
       
+      // Handle structured error responses from backend
+      if (data?.error) {
+        log('❌ Backend returned error:', data.error);
+        setSubmissionError(data.error);
+        setSubmissionErrorMessage(data.message || null);
+        setIsSubmitting(false);
+        return;
+      }
+      
       log('✅ 200 OK - Form submitted successfully!');
       log('📋 Response data:', data);
+      
+      // Clear any previous errors on success
+      setSubmissionError(null);
+      setSubmissionErrorMessage(null);
       setErr(null);
       toast.success("Form submitted successfully!");
       
@@ -454,6 +479,24 @@ export default function PublicFormSubmission() {
     }
   };
 
+  // Show structured submission errors with SubmissionError component
+  if (submissionError) return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <SubmissionError
+          errorCode={submissionError}
+          errorMessage={submissionErrorMessage || undefined}
+          onRetry={() => {
+            setSubmissionError(null);
+            setSubmissionErrorMessage(null);
+          }}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    </div>
+  );
+
+  // Show generic errors (network, validation, etc.)
   if (err) return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full text-center">

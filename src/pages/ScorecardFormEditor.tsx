@@ -146,6 +146,7 @@ export default function ScorecardFormEditor() {
   const [showKpiUpdateDialog, setShowKpiUpdateDialog] = useState(false);
   const [dialogDismissed, setDialogDismissed] = useState(false);
   const [kpisHealed, setKpisHealed] = useState(false);
+  const [formUpdatedAt, setFormUpdatedAt] = useState<string | null>(null);
   const [outdatedKpiInfo, setOutdatedKpiInfo] = useState<{
     kpi_id: string;
     current_label: string;
@@ -273,6 +274,7 @@ export default function ScorecardFormEditor() {
         
         setFormSchema(data.schema_json as unknown as FormSchema);
         setNeedsAttention(data.needs_attention || false);
+        setFormUpdatedAt(data.updated_at || null);
       } else {
         // Owner mode: direct Supabase queries
         const { data: profile } = await supabase
@@ -295,6 +297,7 @@ export default function ScorecardFormEditor() {
 
         setFormSchema(template.schema_json as unknown as FormSchema);
         setNeedsAttention(template.needs_attention || false);
+        setFormUpdatedAt(template.updated_at || null);
       }
     } catch (error: any) {
       console.error('Error loading form:', error);
@@ -333,12 +336,34 @@ export default function ScorecardFormEditor() {
         updatePayload.needs_attention = false;
       }
 
-      const { error } = await supabase
+      // Optimistic locking: check if form was modified by another admin
+      if (formUpdatedAt) {
+        const { data: currentForm, error: checkError } = await supabase
+          .from('form_templates')
+          .select('updated_at')
+          .eq('id', formId)
+          .single();
+
+        if (!checkError && currentForm && currentForm.updated_at !== formUpdatedAt) {
+          toast.error('Another admin modified this form while you were editing. Please refresh to see their changes.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { data: updatedData, error } = await supabase
         .from('form_templates')
         .update(updatePayload)
-        .eq('id', formId);
+        .eq('id', formId)
+        .select('updated_at')
+        .single();
 
       if (error) throw error;
+
+      // Update tracked timestamp after successful save
+      if (updatedData?.updated_at) {
+        setFormUpdatedAt(updatedData.updated_at);
+      }
 
       // Bind KPI fields to their versions
       const { error: bindError } = await supabase.rpc('bind_form_kpis', {
