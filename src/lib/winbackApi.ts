@@ -30,6 +30,7 @@ export interface WinbackHousehold {
   assigned_name?: string | null;
   notes: string | null;
   earliest_winback_date: string | null;
+  contact_id: string | null;
   policy_count: number;
   total_premium_potential_cents: number;
   created_at: string;

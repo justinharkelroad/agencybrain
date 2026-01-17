@@ -10,6 +10,7 @@ import { clearStaffTokenIfNotStaffRoute } from "@/lib/cancel-audit-api";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
 import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilterBar";
 import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditRecordCard";
+import { ContactProfileModal } from "@/components/contacts";
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
@@ -65,7 +66,10 @@ const CancelAuditPage = () => {
   
   // Selection state for bulk actions
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
-  
+
+  // Contact profile modal state
+  const [profileContactId, setProfileContactId] = useState<string | null>(null);
+
   // Bulk actions mutations
   const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
   const bulkUpdateStatusMutation = useBulkUpdateCancelAuditStatus();
@@ -519,6 +523,7 @@ const CancelAuditPage = () => {
                         staffMemberId={staffMemberId || undefined}
                         userDisplayName={displayName}
                         teamMembers={teamMembers}
+                        onViewProfile={record.contact_id ? () => setProfileContactId(record.contact_id!) : undefined}
                       />
                     </div>
                   </div>
@@ -563,6 +568,17 @@ const CancelAuditPage = () => {
           staffMemberId={staffMemberId}
           displayName={displayName}
           onUploadComplete={handleUploadComplete}
+        />
+      )}
+
+      {/* Contact Profile Modal */}
+      {agencyId && (
+        <ContactProfileModal
+          contactId={profileContactId}
+          agencyId={agencyId}
+          open={!!profileContactId}
+          onClose={() => setProfileContactId(null)}
+          defaultSourceModule="cancel_audit"
         />
       )}
     </div>

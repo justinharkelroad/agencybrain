@@ -21,6 +21,7 @@ import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
 import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
+import { ContactProfileModal } from '@/components/contacts';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -59,6 +60,9 @@ export default function Renewals() {
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
   const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+
+  // Contact profile modal state
+  const [profileContactId, setProfileContactId] = useState<string | null>(null);
 
   const handleSort = (column: string, event?: React.MouseEvent) => {
     const isShiftClick = event?.shiftKey;
@@ -561,7 +565,21 @@ export default function Renewals() {
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} /></TableCell>
                   <TableCell>{r.renewal_effective_date}</TableCell>
-                  <TableCell className="font-medium">{r.first_name} {r.last_name}</TableCell>
+                  <TableCell className="font-medium">
+                    {r.contact_id ? (
+                      <button
+                        className="text-left hover:text-primary hover:underline focus:outline-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProfileContactId(r.contact_id!);
+                        }}
+                      >
+                        {r.first_name} {r.last_name}
+                      </button>
+                    ) : (
+                      <span>{r.first_name} {r.last_name}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-mono text-sm">{r.policy_number}</TableCell>
                   <TableCell>{r.product_name}</TableCell>
                   <TableCell className="text-right">${r.premium_new?.toLocaleString() ?? '-'}</TableCell>
@@ -680,6 +698,15 @@ export default function Renewals() {
       )}
       
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Records</AlertDialogTitle><AlertDialogDescription>Delete {selectedIds.size} record(s)?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+
+      {/* Contact Profile Modal */}
+      <ContactProfileModal
+        contactId={profileContactId}
+        agencyId={context.agencyId}
+        open={!!profileContactId}
+        onClose={() => setProfileContactId(null)}
+        defaultSourceModule="renewal"
+      />
     </div>
   );
 }

@@ -43,6 +43,7 @@ interface CancelAuditRecordCardProps {
   staffMemberId?: string;
   userDisplayName: string;
   teamMembers: Array<{ id: string; name: string }>;
+  onViewProfile?: () => void;
 }
 
 export function CancelAuditRecordCard({
@@ -54,6 +55,7 @@ export function CancelAuditRecordCard({
   staffMemberId,
   userDisplayName,
   teamMembers,
+  onViewProfile,
 }: CancelAuditRecordCardProps) {
   const displayName = getDisplayName(record.insured_first_name, record.insured_last_name);
   const primaryDate = record.pending_cancel_date || record.cancel_date;
@@ -96,7 +98,19 @@ export function CancelAuditRecordCard({
 
           {/* Name */}
           <div className="min-w-0 flex-1 sm:flex-none sm:w-48">
-            <p className="font-semibold text-foreground truncate">{displayName}</p>
+            {onViewProfile ? (
+              <button
+                className="text-left font-semibold text-foreground truncate hover:text-primary hover:underline focus:outline-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewProfile();
+                }}
+              >
+                {displayName}
+              </button>
+            ) : (
+              <p className="font-semibold text-foreground truncate">{displayName}</p>
+            )}
             <p className="text-xs text-muted-foreground">Policy</p>
           </div>
 
