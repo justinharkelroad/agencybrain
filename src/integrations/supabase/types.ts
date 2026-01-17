@@ -24,9 +24,13 @@ export type Database = {
           agency_email: string | null
           agent_cell: string | null
           agent_name: string | null
+          auto_reminders_enabled: boolean | null
           call_scoring_email_enabled: boolean | null
           cc_owner_on_reminders: boolean | null
           contest_board_enabled: boolean
+          contest_end_date: string | null
+          contest_prize: string | null
+          contest_start_date: string | null
           created_at: string
           daily_quoted_households_target: number | null
           daily_sold_items_target: number | null
@@ -36,6 +40,9 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          notifications_email_enabled: boolean | null
+          notifications_lateness_enabled: boolean | null
+          notifications_submissions_enabled: boolean | null
           owner_rollup_time: string | null
           phone: string | null
           reminder_times_json: Json | null
@@ -56,9 +63,13 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          auto_reminders_enabled?: boolean | null
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
+          contest_end_date?: string | null
+          contest_prize?: string | null
+          contest_start_date?: string | null
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
@@ -68,6 +79,9 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          notifications_email_enabled?: boolean | null
+          notifications_lateness_enabled?: boolean | null
+          notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
@@ -88,9 +102,13 @@ export type Database = {
           agency_email?: string | null
           agent_cell?: string | null
           agent_name?: string | null
+          auto_reminders_enabled?: boolean | null
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
+          contest_end_date?: string | null
+          contest_prize?: string | null
+          contest_start_date?: string | null
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
@@ -100,6 +118,9 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          notifications_email_enabled?: boolean | null
+          notifications_lateness_enabled?: boolean | null
+          notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
