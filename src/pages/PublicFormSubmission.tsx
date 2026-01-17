@@ -426,8 +426,27 @@ export default function PublicFormSubmission() {
             const errorData = await (error as any).context.json();
             console.log('[PublicFormSubmission] Edge function error data:', errorData);
             if (errorData?.error || errorData?.error_code) {
-              setSubmissionError(errorData.error_code || 'SUBMISSION_ERROR');
-              setSubmissionErrorMessage(errorData.error || errorData.message || null);
+              // Smart extraction: determine code vs message
+              let code: string;
+              let msg: string | null;
+              
+              if (errorData.error_code) {
+                // Format: {error_code: 'CODE', error: 'message'} or {error_code: 'CODE', message: 'msg'}
+                code = errorData.error_code;
+                msg = errorData.message || errorData.error || null;
+              } else if (errorData.error && /^[a-z_]+$/.test(errorData.error)) {
+                // Format: {error: 'snake_case_code', message: 'human message'}
+                code = errorData.error;
+                msg = errorData.message || null;
+              } else {
+                // Unknown format: treat error as message
+                code = 'SUBMISSION_ERROR';
+                msg = errorData.error || errorData.message || null;
+              }
+              
+              console.log('[PublicFormSubmission] Extracted error - code:', code, 'msg:', msg);
+              setSubmissionError(code);
+              setSubmissionErrorMessage(msg);
               setIsSubmitting(false);
               return;
             }
