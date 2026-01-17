@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, BarChart3, Users, Target, FileText, Award, Filter, UserCheck, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useScorecardForms } from "@/hooks/useScorecardForms";
 import FormTemplateCard from "@/components/scorecards/FormTemplateCard";
 import { SubmissionsList } from "@/components/scorecards/SubmissionsList";
@@ -33,7 +33,14 @@ interface StaffFormTemplate {
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("metrics");
+  const [searchParams] = useSearchParams();
+  
+  // Initialize tab from URL query param if valid
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    const validTabs = ['metrics', 'forms', 'submissions', 'explorer', 'targets'];
+    return validTabs.includes(tabParam || '') ? tabParam! : 'metrics';
+  });
   const [formFilter, setFormFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const { forms: ownerForms, loading: ownerLoading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
   const { isAdmin } = useAuth();
