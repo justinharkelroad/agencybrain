@@ -164,7 +164,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Backfill error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }), 
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }), 
       { 
         status: 500, 
         headers: { "content-type": "application/json", "Access-Control-Allow-Origin": "*" }

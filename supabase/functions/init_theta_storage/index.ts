@@ -98,9 +98,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in init_theta_storage:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

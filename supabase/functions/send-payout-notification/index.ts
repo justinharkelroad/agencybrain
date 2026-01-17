@@ -182,7 +182,7 @@ const handler = async (req: Request): Promise<Response> => {
         )
       `)
       .in("id", payout_ids)
-      .eq("agency_id", agency_id);
+      .eq("agency_id", agency_id) as { data: PayoutWithMember[] | null; error: any };
 
     if (fetchError) {
       console.error("Error fetching payouts:", fetchError);
@@ -229,9 +229,9 @@ const handler = async (req: Request): Promise<Response> => {
           console.log(`Email sent to ${memberName} (${email})`);
           sent++;
         }
-      } catch (emailError: any) {
+      } catch (emailError) {
         console.error(`Error sending to ${email}:`, emailError);
-        errors.push(`${memberName}: ${emailError.message}`);
+        errors.push(`${memberName}: ${emailError instanceof Error ? emailError.message : 'Send failed'}`);
       }
     }
 
@@ -249,10 +249,10 @@ const handler = async (req: Request): Promise<Response> => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in send-payout-notification:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

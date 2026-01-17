@@ -450,7 +450,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('[send-daily-sales-summary] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to send daily summary' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to send daily summary' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

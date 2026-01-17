@@ -59,7 +59,7 @@ serve(async (req) => {
         `)
         .eq('session_token', staffSessionToken)
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .single() as { data: any; error: any };
 
       if (sessionError || !sessionData) {
         console.log('Invalid staff session token:', sessionError?.message);

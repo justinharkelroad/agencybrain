@@ -788,7 +788,7 @@ serve(async (req) => {
     console.error('[send-call-score-notification] Error:', error);
     // Never throw - always return success to not block analyze-call
     return new Response(
-      JSON.stringify({ success: true, error: error.message || 'Notification failed but analysis complete' }),
+      JSON.stringify({ success: true, error: error instanceof Error ? error.message : 'Notification failed but analysis complete' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

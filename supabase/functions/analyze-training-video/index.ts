@@ -240,7 +240,7 @@ async function uploadToGeminiFiles(
       'X-Goog-Upload-Offset': '0',
       'X-Goog-Upload-Command': 'upload, finalize',
     },
-    body: fileBytes,
+    body: fileBytes as BodyInit,
   });
 
   if (!uploadResponse.ok) {

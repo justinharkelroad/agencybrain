@@ -51,7 +51,7 @@ serve(async (req) => {
         `)
         .eq('session_token', staffSessionToken)
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .single() as { data: any; error: any };
 
       if (!sessionError && sessionData && sessionData.staff_users?.is_active) {
         isAuthorized = true;
@@ -304,12 +304,12 @@ Use the grade_sales_call tool to provide your structured analysis.`;
     return new Response(JSON.stringify(gradingResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in grade-roleplay function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || 'Failed to grade transcript',
-        details: error.toString()
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to grade transcript',
+        details: String(error)
       }),
       {
         status: 500,

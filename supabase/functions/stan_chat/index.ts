@@ -208,7 +208,7 @@ IMPORTANT: Find the section for "${current_page}" in the knowledge base and answ
     return new Response(
       JSON.stringify({ 
         response: "I'm having a moment! Please try again, or reach out to info@standardplaybook.com if this keeps happening.",
-        error: error.message 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
