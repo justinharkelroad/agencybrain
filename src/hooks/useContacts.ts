@@ -7,28 +7,28 @@ const PAGE_SIZE = 100;
 
 export function useContacts(agencyId: string | null, filters: ContactFilters = {}) {
   const staffSessionToken = getStaffSessionToken();
+  const hasStageFilter = filters.stage && filters.stage.length > 0;
 
   return useInfiniteQuery({
     queryKey: ['contacts', agencyId, filters, !!staffSessionToken],
     queryFn: async ({ pageParam = 0 }): Promise<{ contacts: ContactWithStatus[]; nextCursor: number | null; total: number }> => {
       if (!agencyId) return { contacts: [], nextCursor: null, total: 0 };
 
-      // First get total count
-      const { count } = await supabase
-        .from('agency_contacts')
-        .select('*', { count: 'exact', head: true })
-        .eq('agency_id', agencyId);
+      // When stage filter is applied, we need to fetch all contacts and filter client-side
+      // because the stage is computed from linked records
+      const fetchLimit = hasStageFilter ? 10000 : PAGE_SIZE;
+      const startOffset = hasStageFilter ? 0 : pageParam;
 
-      // Build query with pagination
+      // Build query - pagination only when no stage filter
       let query = supabase
         .from('agency_contacts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('agency_id', agencyId)
         .order(filters.sortBy === 'last_activity' ? 'updated_at' : filters.sortBy === 'created_at' ? 'created_at' : 'last_name', {
           ascending: filters.sortDirection !== 'desc'
         })
         .order('first_name', { ascending: true })
-        .range(pageParam, pageParam + PAGE_SIZE - 1);
+        .range(startOffset, startOffset + fetchLimit - 1);
 
       // Apply search filter
       if (filters.search) {
@@ -38,24 +38,35 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         );
       }
 
-      const { data: contacts, error } = await query;
+      const { data: contacts, error, count } = await query;
       if (error) throw error;
 
       // Compute current stage for each contact by checking linked records
       const contactsWithStatus = await computeContactStatuses(contacts || [], agencyId);
 
-      // Filter by stage if specified (client-side for now)
-      // Note: This is not ideal for large datasets - consider pre-computing stages in DB
+      // Filter by stage if specified (client-side)
       let filteredContacts = contactsWithStatus;
-      if (filters.stage?.length) {
+      if (hasStageFilter) {
         filteredContacts = contactsWithStatus.filter(c => filters.stage!.includes(c.current_stage));
       }
 
-      const hasMore = (pageParam + PAGE_SIZE) < (count || 0);
+      // When stage filter is applied, apply client-side pagination
+      let paginatedContacts = filteredContacts;
+      let hasMore = false;
+
+      if (hasStageFilter) {
+        const startIdx = pageParam;
+        const endIdx = startIdx + PAGE_SIZE;
+        paginatedContacts = filteredContacts.slice(startIdx, endIdx);
+        hasMore = endIdx < filteredContacts.length;
+      } else {
+        hasMore = (pageParam + PAGE_SIZE) < (count || 0);
+      }
+
       return {
-        contacts: filteredContacts,
+        contacts: paginatedContacts,
         nextCursor: hasMore ? pageParam + PAGE_SIZE : null,
-        total: count || 0,
+        total: hasStageFilter ? filteredContacts.length : (count || 0),
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -166,26 +177,37 @@ function determineLifecycleStage(
   cancelAuditRecords: any[],
   winbackRecords: any[]
 ): LifecycleStage {
-  // Check for active winback
-  const activeWinback = winbackRecords.find(r => r.status === 'in_progress' || r.status === 'untouched' || r.status === 'teed_up_this_week');
+  // Check for active winback - priority 1
+  // Valid winback statuses: 'untouched', 'in_progress', 'won_back', 'declined', 'no_contact', 'dismissed'
+  const activeWinback = winbackRecords.find(r =>
+    r.status === 'in_progress' || r.status === 'untouched'
+  );
   if (activeWinback) return 'winback';
 
-  // Check for won back
+  // Check for won back - priority 2
   const wonBack = winbackRecords.find(r => r.status === 'won_back');
   if (wonBack) return 'won_back';
 
-  // Check for cancel audit (at risk)
-  const atRisk = cancelAuditRecords.find(r =>
-    r.cancel_status === 'Uncontacted' ||
-    r.cancel_status === 'In Progress' ||
-    r.cancel_status === 'uncontacted' ||
-    r.cancel_status === 'in_progress'
-  );
+  // Check for cancel audit - "at risk" means savable cancellation
+  // cancel_status values: 'Cancel' (pending/savable), 'Cancelled' (already lost), 'Saved', 'Lost'
+  const atRisk = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'cancel'; // "Cancel" means still savable = at risk
+  });
   if (atRisk) return 'at_risk';
 
-  // Check for cancelled
-  const cancelled = cancelAuditRecords.find(r => r.cancel_status === 'Lost' || r.cancel_status === 'lost');
-  if (cancelled && !renewalRecords.length && !wonBack) return 'cancelled';
+  // Check for saved from cancel audit (became customer again)
+  const savedFromCancel = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'saved';
+  });
+
+  // Check for cancelled/lost
+  const cancelled = cancelAuditRecords.find(r => {
+    const status = (r.cancel_status || '').toLowerCase();
+    return status === 'cancelled' || status === 'lost';
+  });
+  if (cancelled && !savedFromCancel && !wonBack && !renewalRecords.length) return 'cancelled';
 
   // Check for pending renewal
   const pendingRenewal = renewalRecords.find(r =>
@@ -194,10 +216,10 @@ function determineLifecycleStage(
   );
   if (pendingRenewal) return 'renewal';
 
-  // Check for successful renewal or sold LQS (active customer)
+  // Check for successful renewal or sold LQS or saved from cancel (active customer)
   const successfulRenewal = renewalRecords.find(r => r.current_status === 'success');
   const soldLqs = lqsRecords.find(r => r.status === 'sold' || r.status === 'Sold');
-  if (successfulRenewal || soldLqs) return 'customer';
+  if (successfulRenewal || soldLqs || savedFromCancel) return 'customer';
 
   // Default to lead if only LQS records exist
   if (lqsRecords.length > 0) return 'lead';
