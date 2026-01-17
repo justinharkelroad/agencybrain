@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, User, XCircle, Target } from 'lucide-react';
 import { mergeStickyFieldsIntoSchema } from '@/utils/mergeStickyFields';
+import { SubmissionError } from '@/components/scorecard/SubmissionError';
 
 interface FormField {
   key: string;
@@ -55,6 +56,11 @@ export default function StaffFormSubmission() {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string }>>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  
+  // Error handling state for structured errors
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionErrorMessage, setSubmissionErrorMessage] = useState<string | null>(null);
+  const [schemaVersion, setSchemaVersion] = useState<number>(1);
 
   // Load form template, team member info, and targets
   useEffect(() => {
@@ -89,6 +95,8 @@ export default function StaffFormSubmission() {
         }
 
         setFormTemplate(template);
+        // Capture form version for schema validation on submit
+        setSchemaVersion((template as any).form_kpi_version || 1);
 
 
         // Load lead sources for repeater dropdowns
@@ -322,19 +330,25 @@ export default function StaffFormSubmission() {
           submissionDate: values.submission_date,
           workDate: values.work_date,
           values: values,
-          performanceSummary: performanceSummary
+          performanceSummary: performanceSummary,
+          schemaVersion: schemaVersion // Add schema version for validation
         },
         headers: {
           'x-staff-session': sessionToken
         }
       });
 
+      // Handle fetch-level errors
       if (error) {
         throw new Error(error.message || 'Submission failed');
       }
 
+      // Handle structured error responses from backend
       if (data?.error) {
-        throw new Error(data.error);
+        setSubmissionError(data.error);
+        setSubmissionErrorMessage(data.message || null);
+        setSubmitting(false);
+        return;
       }
 
       // Verify we got a valid submission_id back (confirms server-side finalization)
@@ -342,12 +356,18 @@ export default function StaffFormSubmission() {
         throw new Error('Submission may not have been saved correctly. Please verify and try again.');
       }
 
+      // Clear any previous errors on success
+      setSubmissionError(null);
+      setSubmissionErrorMessage(null);
       setSubmitted(true);
       toast.success('Form submitted successfully!');
 
     } catch (err: any) {
       console.error('Submission error:', err);
-      toast.error(err.message || 'Failed to submit form');
+      // Only show toast for unstructured errors (structured errors show in SubmissionError component)
+      if (!submissionError) {
+        toast.error(err.message || 'Failed to submit form');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -467,6 +487,19 @@ export default function StaffFormSubmission() {
   // Render form
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
+
+        {/* Submission Error Display */}
+        {submissionError && (
+          <SubmissionError
+            errorCode={submissionError}
+            errorMessage={submissionErrorMessage || undefined}
+            onRetry={() => {
+              setSubmissionError(null);
+              setSubmissionErrorMessage(null);
+            }}
+            onRefresh={() => window.location.reload()}
+          />
+        )}
 
         {/* Identity Card - Shows who is submitting (no dropdown!) */}
         <Card className="bg-muted/50 border-primary/20">
