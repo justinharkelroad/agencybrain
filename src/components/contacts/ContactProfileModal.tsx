@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote } from 'lucide-react';
 import {
   Sheet,
@@ -73,6 +74,9 @@ export function ContactProfileModal({
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
   const [inlineNote, setInlineNote] = useState('');
   const [moduleActionLoading, setModuleActionLoading] = useState<string | null>(null);
+
+  // Query client for cache invalidation
+  const queryClient = useQueryClient();
 
   // Fetch contact profile - only when we have valid IDs and modal is open
   const { data: profile, isLoading, error } = useContactProfile(
@@ -194,6 +198,9 @@ export function ContactProfileModal({
         toast.success('Activity logged');
       }
 
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
@@ -218,6 +225,10 @@ export function ContactProfileModal({
       );
 
       toast.success('Activity logged');
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });

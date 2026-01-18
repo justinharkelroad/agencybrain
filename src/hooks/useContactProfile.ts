@@ -34,9 +34,12 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
         throw contactError;
       }
 
+      // First, get household_key from the contact to find related module activities
+      const householdKey = contact.household_key;
+
       // Fetch all linked records and activities in parallel
-      const [activitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
-        // Activities
+      const [activitiesResult, winbackActivitiesResult, cancelAuditActivitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
+        // Unified activities from contact_activities
         supabase
           .from('contact_activities')
           .select('*')
@@ -44,6 +47,33 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
           .eq('agency_id', agencyId)
           .order('activity_date', { ascending: false })
           .limit(100),
+
+        // Winback activities (linked by household_key or contact's winback records)
+        supabase
+          .from('winback_activities')
+          .select(`
+            id,
+            activity_type,
+            notes,
+            created_by_name,
+            created_at,
+            household_id,
+            winback_households!inner (contact_id)
+          `)
+          .eq('agency_id', agencyId)
+          .eq('winback_households.contact_id', contactId)
+          .order('created_at', { ascending: false })
+          .limit(50),
+
+        // Cancel audit activities (linked by household_key)
+        householdKey ? supabase
+          .from('cancel_audit_activities')
+          .select('id, activity_type, notes, created_by_name, created_at, household_key')
+          .eq('agency_id', agencyId)
+          .eq('household_key', householdKey)
+          .order('created_at', { ascending: false })
+          .limit(50)
+        : Promise.resolve({ data: [], error: null }),
 
         // LQS records
         supabase
@@ -147,10 +177,43 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
       // Determine current stage
       const currentStage = determineLifecycleStage(lqsRecords, renewalRecords, cancelAuditRecords, winbackRecords);
 
+      // Merge activities from all sources
+      const unifiedActivities: ContactActivity[] = (activitiesResult.data || []) as ContactActivity[];
+
+      // Convert and add winback activities
+      const winbackActivities: ContactActivity[] = (winbackActivitiesResult.data || []).map((wa: any) => ({
+        id: wa.id,
+        contact_id: contactId,
+        agency_id: agencyId,
+        source_module: 'winback' as const,
+        activity_type: mapWinbackActivityType(wa.activity_type),
+        notes: wa.notes,
+        created_by_display_name: wa.created_by_name,
+        activity_date: wa.created_at,
+        created_at: wa.created_at,
+      }));
+
+      // Convert and add cancel audit activities
+      const cancelAuditActivities: ContactActivity[] = (cancelAuditActivitiesResult.data || []).map((ca: any) => ({
+        id: ca.id,
+        contact_id: contactId,
+        agency_id: agencyId,
+        source_module: 'cancel_audit' as const,
+        activity_type: mapCancelAuditActivityType(ca.activity_type),
+        notes: ca.notes,
+        created_by_display_name: ca.created_by_name,
+        activity_date: ca.created_at,
+        created_at: ca.created_at,
+      }));
+
+      // Merge and sort all activities by date (most recent first)
+      const allActivities = [...unifiedActivities, ...winbackActivities, ...cancelAuditActivities]
+        .sort((a, b) => new Date(b.activity_date || b.created_at).getTime() - new Date(a.activity_date || a.created_at).getTime());
+
       return {
         ...contact,
         current_stage: currentStage,
-        activities: (activitiesResult.data || []) as ContactActivity[],
+        activities: allActivities,
         lqs_records: lqsRecords,
         renewal_records: renewalRecords,
         cancel_audit_records: cancelAuditRecords,
@@ -377,6 +440,34 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
     },
     enabled: !!contactId && !!agencyId,
   });
+}
+
+// Map winback activity types to unified activity types
+function mapWinbackActivityType(type: string): string {
+  const mapping: Record<string, string> = {
+    'called': 'call',
+    'left_vm': 'voicemail',
+    'texted': 'text',
+    'emailed': 'email',
+    'note': 'note',
+    'status_change': 'status_change',
+  };
+  return mapping[type] || type;
+}
+
+// Map cancel audit activity types to unified activity types
+function mapCancelAuditActivityType(type: string): string {
+  const mapping: Record<string, string> = {
+    'attempted_call': 'call',
+    'voicemail_left': 'voicemail',
+    'text_sent': 'text',
+    'email_sent': 'email',
+    'spoke_with_client': 'spoke',
+    'payment_made': 'payment',
+    'payment_promised': 'payment_promised',
+    'note': 'note',
+  };
+  return mapping[type] || type;
 }
 
 // Helper function to determine lifecycle stage
