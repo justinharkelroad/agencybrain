@@ -1,5 +1,5 @@
 -- Server-side function to get contacts filtered by lifecycle stage
--- This replaces client-side filtering which doesn't scale
+-- Uses pure CTEs (no temp tables) to work in Supabase's read-only RPC context
 
 CREATE OR REPLACE FUNCTION get_contacts_by_stage(
   p_agency_id UUID,
@@ -24,12 +24,10 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+STABLE  -- Mark as STABLE since it only reads data
 AS $$
-DECLARE
-  v_total BIGINT;
 BEGIN
-  -- Create temp table with contacts and their computed stages
-  CREATE TEMP TABLE temp_staged_contacts ON COMMIT DROP AS
+  RETURN QUERY
   WITH contact_stages AS (
     SELECT
       ac.id,
@@ -42,7 +40,6 @@ BEGIN
       ac.zip_code,
       ac.created_at,
       ac.updated_at,
-      -- Compute stage based on priority
       CASE
         -- Priority 1: Active winback
         WHEN EXISTS (
@@ -125,7 +122,6 @@ BEGIN
       END AS computed_stage
     FROM agency_contacts ac
     WHERE ac.agency_id = p_agency_id
-      -- Apply search filter if provided
       AND (
         p_search IS NULL
         OR p_search = ''
@@ -134,30 +130,30 @@ BEGIN
         OR EXISTS (SELECT 1 FROM unnest(ac.phones) p WHERE p ILIKE '%' || p_search || '%')
         OR EXISTS (SELECT 1 FROM unnest(ac.emails) e WHERE e ILIKE '%' || p_search || '%')
       )
+  ),
+  filtered_contacts AS (
+    SELECT * FROM contact_stages
+    WHERE p_stage IS NULL OR p_stage = 'all' OR computed_stage = p_stage
+  ),
+  counted AS (
+    SELECT COUNT(*) AS total FROM filtered_contacts
   )
-  SELECT * FROM contact_stages
-  WHERE p_stage IS NULL OR p_stage = 'all' OR computed_stage = p_stage;
-
-  -- Get total count
-  SELECT COUNT(*) INTO v_total FROM temp_staged_contacts;
-
-  -- Return paginated results with total count
-  RETURN QUERY
   SELECT
-    tsc.id,
-    tsc.agency_id,
-    tsc.first_name,
-    tsc.last_name,
-    tsc.phones,
-    tsc.emails,
-    tsc.household_key,
-    tsc.zip_code,
-    tsc.created_at,
-    tsc.updated_at,
-    tsc.computed_stage,
-    v_total
-  FROM temp_staged_contacts tsc
-  ORDER BY tsc.last_name, tsc.first_name
+    fc.id,
+    fc.agency_id,
+    fc.first_name,
+    fc.last_name,
+    fc.phones,
+    fc.emails,
+    fc.household_key,
+    fc.zip_code,
+    fc.created_at,
+    fc.updated_at,
+    fc.computed_stage,
+    c.total
+  FROM filtered_contacts fc
+  CROSS JOIN counted c
+  ORDER BY fc.last_name, fc.first_name
   LIMIT p_limit
   OFFSET p_offset;
 END;
@@ -168,4 +164,4 @@ GRANT EXECUTE ON FUNCTION get_contacts_by_stage TO authenticated;
 GRANT EXECUTE ON FUNCTION get_contacts_by_stage TO anon;
 
 -- Add comment
-COMMENT ON FUNCTION get_contacts_by_stage IS 'Returns contacts filtered by lifecycle stage with server-side computation. Handles priority logic for stage determination.';
+COMMENT ON FUNCTION get_contacts_by_stage IS 'Returns contacts filtered by lifecycle stage with server-side computation. Uses pure CTEs for read-only RPC compatibility.';
