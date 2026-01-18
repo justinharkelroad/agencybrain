@@ -29,7 +29,7 @@ export type CallOutcome =
   | 'disconnected';
 
 // Customer lifecycle stages
-export type LifecycleStage = 'lead' | 'customer' | 'renewal' | 'at_risk' | 'cancelled' | 'winback' | 'won_back';
+export type LifecycleStage = 'open_lead' | 'quoted' | 'customer' | 'renewal' | 'winback' | 'cancel_audit';
 
 // Contact record from agency_contacts table
 export interface Contact {
@@ -229,11 +229,10 @@ export const SOURCE_MODULE_CONFIGS: Record<SourceModule, SourceModuleConfig> = {
 
 // Lifecycle stage display configuration
 export const LIFECYCLE_STAGE_CONFIGS: Record<LifecycleStage, { label: string; icon: string; color: string }> = {
-  lead: { label: 'Lead', icon: '🆕', color: 'text-blue-600' },
+  open_lead: { label: 'Open Lead', icon: '🆕', color: 'text-blue-600' },
+  quoted: { label: 'Quoted HH', icon: '📋', color: 'text-cyan-600' },
   customer: { label: 'Customer', icon: '✅', color: 'text-green-600' },
   renewal: { label: 'Renewal', icon: '🔄', color: 'text-yellow-600' },
-  at_risk: { label: 'At Risk', icon: '⚠️', color: 'text-orange-600' },
-  cancelled: { label: 'Cancelled', icon: '❌', color: 'text-red-600' },
   winback: { label: 'Winback', icon: '🎯', color: 'text-purple-600' },
-  won_back: { label: 'Won Back', icon: '🎉', color: 'text-green-600' },
+  cancel_audit: { label: 'Cancel Status', icon: '⚠️', color: 'text-orange-600' },
 };
