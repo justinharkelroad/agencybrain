@@ -27,6 +27,8 @@ import type { RenewalRecord, ActivityType as RenewalActivityType, WorkflowStatus
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
+import { supabase } from '@/integrations/supabase/client';
+import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -210,9 +212,11 @@ export function ContactProfileModal({
         toast.success('Activity logged');
       }
 
-      // Invalidate queries to refresh data
+      // Invalidate queries to refresh data - including contacts for real-time stage updates
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
@@ -265,28 +269,71 @@ export function ContactProfileModal({
     }
   };
 
-  // Winback outcome handler - Won Back only
-  const handleWinbackOutcome = async (outcome: 'won_back') => {
-    if (!agencyId || !winbackHousehold) return;
+  // Winback outcome handler - Won Back or Quoted
+  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted') => {
+    if (!agencyId || !winbackHousehold || !profile) return;
 
     setModuleActionLoading(outcome);
     try {
-      // Update to won_back status - this transitions contact to Customer
-      await winbackApi.updateHouseholdStatus(
-        winbackHousehold.id,
-        agencyId,
-        'won_back',
-        'in_progress', // Can also be from untouched
-        currentUserTeamMemberId || null,
-        teamMembers,
-        null
-      );
-      toast.success('Customer won back!', { description: 'Contact is now a Customer' });
+      if (outcome === 'quoted') {
+        // Create LQS record with status 'quoted' - this moves contact to "Quoted HH" stage
+        const householdKey = generateHouseholdKey(
+          profile.first_name,
+          profile.last_name,
+          profile.zip_code
+        );
 
-      // Invalidate queries to refresh data
+        // Upsert LQS record - if exists, update status to quoted; if not, create it
+        const { error: lqsError } = await supabase
+          .from('lqs_households')
+          .upsert({
+            agency_id: agencyId,
+            household_key: householdKey,
+            first_name: profile.first_name.toUpperCase(),
+            last_name: profile.last_name.toUpperCase(),
+            zip_code: profile.zip_code || '',
+            contact_id: contactId,
+            status: 'quoted',
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'agency_id,household_key',
+          });
+
+        if (lqsError) throw lqsError;
+
+        // Mark winback as declined (they're moving to quoted, not won back)
+        await winbackApi.updateHouseholdStatus(
+          winbackHousehold.id,
+          agencyId,
+          'declined',
+          'in_progress',
+          currentUserTeamMemberId || null,
+          teamMembers,
+          null
+        ).catch(() => {
+          // Ignore status update errors - LQS record is the important part
+        });
+
+        toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+      } else {
+        // Update to won_back status - this transitions contact to Customer
+        await winbackApi.updateHouseholdStatus(
+          winbackHousehold.id,
+          agencyId,
+          'won_back',
+          'in_progress', // Can also be from untouched
+          currentUserTeamMemberId || null,
+          teamMembers,
+          null
+        );
+        toast.success('Customer won back!', { description: 'Contact is now a Customer' });
+      }
+
+      // Invalidate queries to refresh data - including contacts for real-time stage updates
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
       queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to update status', { description: error.message });
@@ -323,11 +370,12 @@ export function ContactProfileModal({
         toast.success('Activity logged');
       }
 
-      // Invalidate queries to refresh data
+      // Invalidate queries to refresh data - including contacts for real-time stage updates
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
       queryClient.invalidateQueries({ queryKey: ['renewal-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
@@ -692,7 +740,7 @@ function WinbackQuickActions({
   loadingAction,
 }: {
   onAction: (type: string) => void;
-  onOutcome: (outcome: 'won_back') => void;
+  onOutcome: (outcome: 'won_back' | 'quoted') => void;
   loadingAction: string | null;
 }) {
   const contactActions = [
@@ -700,6 +748,11 @@ function WinbackQuickActions({
     { type: 'left_vm', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
     { type: 'texted', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
     { type: 'emailed', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  ];
+
+  const outcomeActions = [
+    { outcome: 'quoted' as const, label: 'Quoted', icon: FileText, color: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+    { outcome: 'won_back' as const, label: 'Won Back', icon: CheckCircle2, color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30' },
   ];
 
   return (
@@ -724,22 +777,25 @@ function WinbackQuickActions({
           </Button>
         ))}
       </div>
-      {/* Outcome button - Won Back only */}
+      {/* Outcome buttons - Quoted and Won Back */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn('border transition-colors bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30', loadingAction && 'opacity-50')}
-          onClick={() => onOutcome('won_back')}
-          disabled={loadingAction !== null}
-        >
-          {loadingAction === 'won_back' ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-          )}
-          Won Back
-        </Button>
+        {outcomeActions.map(({ outcome, label, icon: Icon, color }) => (
+          <Button
+            key={outcome}
+            variant="outline"
+            size="sm"
+            className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+            onClick={() => onOutcome(outcome)}
+            disabled={loadingAction !== null}
+          >
+            {loadingAction === outcome ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Icon className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {label}
+          </Button>
+        ))}
       </div>
     </div>
   );
