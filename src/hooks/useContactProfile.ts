@@ -37,8 +37,8 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
       // First, get household_key from the contact to find related module activities
       const householdKey = contact.household_key;
 
-      // Fetch all linked records and activities in parallel
-      const [activitiesResult, winbackActivitiesResult, cancelAuditActivitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
+      // Fetch linked records and unified activities in parallel
+      const [activitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
         // Unified activities from contact_activities
         supabase
           .from('contact_activities')
@@ -47,33 +47,6 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
           .eq('agency_id', agencyId)
           .order('activity_date', { ascending: false })
           .limit(100),
-
-        // Winback activities (linked by household_key or contact's winback records)
-        supabase
-          .from('winback_activities')
-          .select(`
-            id,
-            activity_type,
-            notes,
-            created_by_name,
-            created_at,
-            household_id,
-            winback_households!inner (contact_id)
-          `)
-          .eq('agency_id', agencyId)
-          .eq('winback_households.contact_id', contactId)
-          .order('created_at', { ascending: false })
-          .limit(50),
-
-        // Cancel audit activities (linked by household_key)
-        householdKey ? supabase
-          .from('cancel_audit_activities')
-          .select('id, activity_type, notes, created_by_name, created_at, household_key')
-          .eq('agency_id', agencyId)
-          .eq('household_key', householdKey)
-          .order('created_at', { ascending: false })
-          .limit(50)
-        : Promise.resolve({ data: [], error: null }),
 
         // LQS records
         supabase
@@ -111,6 +84,7 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
           .from('cancel_audit_records')
           .select(`
             id,
+            household_key,
             cancel_status,
             cancel_reason,
             created_at,
@@ -176,6 +150,38 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
 
       // Determine current stage
       const currentStage = determineLifecycleStage(lqsRecords, renewalRecords, cancelAuditRecords, winbackRecords);
+
+      // Now fetch module-specific activities using the linked record IDs
+      const winbackHouseholdIds = winbackRecords.map(r => r.id);
+      // Get household_keys from cancel audit records for activity lookup
+      const cancelAuditHouseholdKeys = (cancelAuditResult.data || [])
+        .map((r: any) => r.household_key)
+        .filter((key: string | null): key is string => !!key);
+
+      // Fetch module activities in parallel
+      const [winbackActivitiesResult, cancelAuditActivitiesResult] = await Promise.all([
+        // Winback activities (using household IDs we just fetched)
+        winbackHouseholdIds.length > 0
+          ? supabase
+              .from('winback_activities')
+              .select('id, activity_type, notes, created_by_name, created_at, household_id')
+              .eq('agency_id', agencyId)
+              .in('household_id', winbackHouseholdIds)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+
+        // Cancel audit activities (using household_keys from cancel audit records OR contact's household_key)
+        (cancelAuditHouseholdKeys.length > 0 || householdKey)
+          ? supabase
+              .from('cancel_audit_activities')
+              .select('id, activity_type, notes, created_by_name, created_at, household_key')
+              .eq('agency_id', agencyId)
+              .in('household_key', householdKey ? [...cancelAuditHouseholdKeys, householdKey] : cancelAuditHouseholdKeys)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
       // Merge activities from all sources
       const unifiedActivities: ContactActivity[] = (activitiesResult.data || []) as ContactActivity[];
