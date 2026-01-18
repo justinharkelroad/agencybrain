@@ -515,8 +515,17 @@ function determineLifecycleStage(
   );
   if (activeWinback) return 'winback';
 
-  // Check for cancel audit - priority 2 (any contact in cancel audit)
-  if (cancelAuditRecords.length > 0) return 'cancel_audit';
+  // Check for cancel audit - priority 2 (only active/pending cancel audits, not resolved/saved)
+  const activeCancelAudit = cancelAuditRecords.find(r =>
+    r.cancel_status !== 'Saved' && r.cancel_status !== 'saved'
+  );
+  if (activeCancelAudit) return 'cancel_audit';
+
+  // Check if any cancel audit was saved (they're now a customer again)
+  const savedCancelAudit = cancelAuditRecords.find(r =>
+    r.cancel_status === 'Saved' || r.cancel_status === 'saved'
+  );
+  if (savedCancelAudit) return 'customer';
 
   // Check for pending renewal - priority 3
   const pendingRenewal = renewalRecords.find(r =>
