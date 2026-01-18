@@ -69,6 +69,13 @@ const CancelAuditPage = () => {
 
   // Contact profile modal state
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
+  const [profileRecord, setProfileRecord] = useState<{ id: string; household_key: string } | null>(null);
+
+  // Handler for viewing contact profile - captures the record data
+  const handleViewProfile = (contactId: string, record: { id: string; household_key: string }) => {
+    setProfileContactId(contactId);
+    setProfileRecord(record);
+  };
 
   // Bulk actions mutations
   const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
@@ -523,7 +530,7 @@ const CancelAuditPage = () => {
                         staffMemberId={staffMemberId || undefined}
                         userDisplayName={displayName}
                         teamMembers={teamMembers}
-                        onViewProfile={record.contact_id ? () => setProfileContactId(record.contact_id!) : undefined}
+                        onViewProfile={record.contact_id ? () => handleViewProfile(record.contact_id!, { id: record.id, household_key: record.household_key }) : undefined}
                       />
                     </div>
                   </div>
@@ -577,8 +584,20 @@ const CancelAuditPage = () => {
           contactId={profileContactId}
           agencyId={agencyId}
           open={!!profileContactId}
-          onClose={() => setProfileContactId(null)}
+          onClose={() => {
+            setProfileContactId(null);
+            setProfileRecord(null);
+          }}
           defaultSourceModule="cancel_audit"
+          currentStage="cancel_audit"
+          cancelAuditRecord={profileRecord || undefined}
+          userId={userId || undefined}
+          staffMemberId={staffMemberId || undefined}
+          displayName={displayName}
+          onActivityLogged={() => {
+            // Refresh the records when activity is logged
+            refetch();
+          }}
         />
       )}
     </div>
