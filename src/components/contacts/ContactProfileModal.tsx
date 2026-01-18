@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote } from 'lucide-react';
+import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -16,12 +16,14 @@ import { Separator } from '@/components/ui/separator';
 import { useContactProfile, useContactJourney } from '@/hooks/useContactProfile';
 import { useLogContactActivity } from '@/hooks/useLogContactActivity';
 import { useLogActivity as useLogCancelAuditActivity } from '@/hooks/useCancelAuditActivities';
+import { useCreateRenewalActivity } from '@/hooks/useRenewalActivities';
 import { ActivityTimeline } from './ActivityTimeline';
 import { ActivityLogForm, ActivityFormData } from './ActivityLogForm';
 import { CustomerJourney, CustomerJourneyBadge } from './CustomerJourney';
 import { SystemRecords } from './SystemRecords';
 import type { SourceModule, LifecycleStage } from '@/types/contact';
 import { SOURCE_MODULE_CONFIGS } from '@/types/contact';
+import type { RenewalRecord, ActivityType as RenewalActivityType, WorkflowStatus } from '@/types/renewal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
@@ -47,6 +49,9 @@ interface ContactProfileModalProps {
   winbackHousehold?: {
     id: string;
   };
+  renewalRecord?: {
+    id: string;
+  };
   teamMembers?: Array<{ id: string; name: string }>;
   currentUserTeamMemberId?: string | null;
   onActivityLogged?: () => void;
@@ -65,6 +70,7 @@ export function ContactProfileModal({
   currentStage: passedStage,
   cancelAuditRecord,
   winbackHousehold,
+  renewalRecord,
   teamMembers = [],
   currentUserTeamMemberId,
   onActivityLogged,
@@ -99,6 +105,7 @@ export function ContactProfileModal({
 
   // Module-specific activity logging
   const logCancelAuditActivity = useLogCancelAuditActivity();
+  const createRenewalActivity = useCreateRenewalActivity();
 
   // Determine which stage to display (prefer passed stage over computed)
   const displayStage = passedStage || profile?.current_stage;
@@ -257,6 +264,47 @@ export function ContactProfileModal({
     }
   };
 
+  // Module-specific activity handlers for Renewals
+  const handleRenewalActivity = async (
+    activityType: RenewalActivityType,
+    activityStatus?: string,
+    updateRecordStatus?: WorkflowStatus
+  ) => {
+    if (!agencyId || !renewalRecord || !displayName) return;
+
+    setModuleActionLoading(activityType + (activityStatus || ''));
+    try {
+      await createRenewalActivity.mutateAsync({
+        renewalRecordId: renewalRecord.id,
+        agencyId,
+        activityType,
+        activityStatus,
+        displayName,
+        userId: userId || null,
+        updateRecordStatus,
+      });
+
+      if (activityStatus === 'successful') {
+        toast.success('Renewal marked as successful!', { description: 'Great work!' });
+      } else if (activityStatus === 'push_to_winback') {
+        toast.success('Pushed to Winback', { description: 'Record will appear in Winback module' });
+      } else {
+        toast.success('Activity logged');
+      }
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to log activity', { description: error.message });
+    } finally {
+      setModuleActionLoading(null);
+    }
+  };
+
   // Format phone for display
   const formatPhone = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
@@ -358,6 +406,11 @@ export function ContactProfileModal({
                 ) : defaultSourceModule === 'winback' && winbackHousehold ? (
                   <WinbackQuickActions
                     onAction={handleWinbackActivity}
+                    loadingAction={moduleActionLoading}
+                  />
+                ) : defaultSourceModule === 'renewal' && renewalRecord ? (
+                  <RenewalQuickActions
+                    onAction={handleRenewalActivity}
                     loadingAction={moduleActionLoading}
                   />
                 ) : (
@@ -634,6 +687,90 @@ function WinbackQuickActions({
           {label}
         </Button>
       ))}
+    </div>
+  );
+}
+
+// Renewal Quick Actions - matches the existing ScheduleActivityModal actions
+function RenewalQuickActions({
+  onAction,
+  loadingAction,
+}: {
+  onAction: (activityType: RenewalActivityType, activityStatus?: string, updateRecordStatus?: WorkflowStatus) => void;
+  loadingAction: string | null;
+}) {
+  const contactActions = [
+    { type: 'call' as RenewalActivityType, label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { type: 'voicemail' as RenewalActivityType, label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    { type: 'text' as RenewalActivityType, label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    { type: 'email' as RenewalActivityType, label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { type: 'appointment' as RenewalActivityType, label: 'Appt', icon: Calendar, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+  ];
+
+  const outcomeActions = [
+    {
+      type: 'review_done' as RenewalActivityType,
+      status: 'successful',
+      updateStatus: 'success' as WorkflowStatus,
+      label: 'Successful',
+      icon: CheckCircle2,
+      color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30'
+    },
+    {
+      type: 'review_done' as RenewalActivityType,
+      status: 'push_to_winback',
+      updateStatus: 'unsuccessful' as WorkflowStatus,
+      label: 'To Winback',
+      icon: ArrowRightLeft,
+      color: 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30'
+    },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {/* Contact activity buttons */}
+      <div className="flex flex-wrap gap-2">
+        {contactActions.map(({ type, label, icon: Icon, color }) => (
+          <Button
+            key={type}
+            variant="outline"
+            size="sm"
+            className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+            onClick={() => onAction(type)}
+            disabled={loadingAction !== null}
+          >
+            {loadingAction === type ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Icon className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {label}
+          </Button>
+        ))}
+      </div>
+      {/* Review outcome buttons */}
+      <div className="flex flex-wrap gap-2">
+        {outcomeActions.map(({ type, status, updateStatus, label, icon: Icon, color }) => {
+          const key = type + status;
+          return (
+            <Button
+              key={key}
+              variant="outline"
+              size="sm"
+              className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+              onClick={() => onAction(type, status, updateStatus)}
+              disabled={loadingAction !== null}
+            >
+              {loadingAction === key ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Icon className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              {label}
+            </Button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -65,9 +65,14 @@ export function useLogActivity() {
 
       // Determine what status to set based on activity type
       if (params.activityType === 'payment_made') {
+        // Payment made = account saved, transition to Customer
         await supabase
           .from('cancel_audit_records')
-          .update({ status: 'resolved', updated_at: new Date().toISOString() })
+          .update({
+            status: 'resolved',
+            cancel_status: 'Saved',
+            updated_at: new Date().toISOString()
+          })
           .eq('agency_id', params.agencyId)
           .eq('household_key', params.householdKey);
       } else if (params.activityType === 'payment_promised') {
