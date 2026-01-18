@@ -10,11 +10,12 @@ interface CustomerJourneyProps {
 
 // Define the standard journey stages in order
 const JOURNEY_STAGES: LifecycleStage[] = [
-  'lead',
+  'open_lead',
+  'quoted',
   'customer',
   'renewal',
-  'at_risk',
   'winback',
+  'cancel_audit',
 ];
 
 export function CustomerJourney({ events, currentStage }: CustomerJourneyProps) {
@@ -100,8 +101,8 @@ export function CustomerJourney({ events, currentStage }: CustomerJourneyProps) 
       {/* Current status indicator */}
       <div className="mt-6 flex items-center justify-center gap-2">
         <span className="text-sm text-muted-foreground">Current Status:</span>
-        <span className={cn('text-sm font-medium', LIFECYCLE_STAGE_CONFIGS[currentStage].color)}>
-          {LIFECYCLE_STAGE_CONFIGS[currentStage].icon} {LIFECYCLE_STAGE_CONFIGS[currentStage].label}
+        <span className={cn('text-sm font-medium', LIFECYCLE_STAGE_CONFIGS[currentStage]?.color || 'text-gray-600')}>
+          {LIFECYCLE_STAGE_CONFIGS[currentStage]?.icon || '❓'} {LIFECYCLE_STAGE_CONFIGS[currentStage]?.label || currentStage}
         </span>
       </div>
     </div>
@@ -111,6 +112,10 @@ export function CustomerJourney({ events, currentStage }: CustomerJourneyProps) 
 // Compact version for inline display
 export function CustomerJourneyCompact({ currentStage }: { currentStage: LifecycleStage }) {
   const config = LIFECYCLE_STAGE_CONFIGS[currentStage];
+
+  if (!config) {
+    return <span className="text-sm text-gray-600">{currentStage}</span>;
+  }
 
   return (
     <div className={cn('inline-flex items-center gap-1.5 text-sm', config.color)}>
@@ -125,20 +130,23 @@ export function CustomerJourneyBadge({ currentStage }: { currentStage: Lifecycle
   const config = LIFECYCLE_STAGE_CONFIGS[currentStage];
 
   const bgColors: Record<LifecycleStage, string> = {
-    lead: 'bg-blue-100 text-blue-700 border-blue-200',
+    open_lead: 'bg-blue-100 text-blue-700 border-blue-200',
+    quoted: 'bg-cyan-100 text-cyan-700 border-cyan-200',
     customer: 'bg-green-100 text-green-700 border-green-200',
     renewal: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    at_risk: 'bg-orange-100 text-orange-700 border-orange-200',
-    cancelled: 'bg-red-100 text-red-700 border-red-200',
     winback: 'bg-purple-100 text-purple-700 border-purple-200',
-    won_back: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    cancel_audit: 'bg-orange-100 text-orange-700 border-orange-200',
   };
+
+  if (!config) {
+    return <span className="text-xs text-gray-600">{currentStage}</span>;
+  }
 
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
-        bgColors[currentStage]
+        bgColors[currentStage] || 'bg-gray-100 text-gray-700 border-gray-200'
       )}
     >
       <span>{config.icon}</span>
