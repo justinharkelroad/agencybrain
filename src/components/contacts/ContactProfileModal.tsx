@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Phone, Mail, MapPin, Calendar, FileText, X } from 'lucide-react';
+import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -7,6 +7,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,7 @@ export function ContactProfileModal({
   const [activeTab, setActiveTab] = useState('overview');
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
+  const [inlineNote, setInlineNote] = useState('');
 
   // Fetch contact profile - only when we have valid IDs and modal is open
   const { data: profile, isLoading, error } = useContactProfile(
@@ -99,6 +101,44 @@ export function ContactProfileModal({
   const openActivityForm = (type?: 'call' | 'note' | 'email' | 'appointment') => {
     setActivityFormType(type);
     setShowActivityForm(true);
+  };
+
+  // Quick log handlers for one-click activities
+  const quickLogActivity = async (type: 'email' | 'text') => {
+    if (!contactId || !agencyId) return;
+
+    const subject = type === 'email' ? 'Sent email' : 'Sent text message';
+
+    await logActivity.mutateAsync({
+      contactId,
+      agencyId,
+      activityType: type,
+      sourceModule: defaultSourceModule,
+      sourceRecordId,
+      subject,
+      createdByUserId: userId,
+      createdByStaffId: staffMemberId,
+      createdByDisplayName: displayName,
+    });
+  };
+
+  // Inline note submission
+  const handleSaveNote = async () => {
+    if (!contactId || !agencyId || !inlineNote.trim()) return;
+
+    await logActivity.mutateAsync({
+      contactId,
+      agencyId,
+      activityType: 'note',
+      sourceModule: defaultSourceModule,
+      sourceRecordId,
+      notes: inlineNote.trim(),
+      createdByUserId: userId,
+      createdByStaffId: staffMemberId,
+      createdByDisplayName: displayName,
+    });
+
+    setInlineNote('');
   };
 
   // Format phone for display
@@ -206,26 +246,28 @@ export function ContactProfileModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => openActivityForm('appointment')}
+                    onClick={() => quickLogActivity('email')}
+                    disabled={logActivity.isPending}
                   >
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Schedule
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openActivityForm('note')}
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    Add Note
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openActivityForm('email')}
-                  >
-                    <Mail className="h-4 w-4 mr-1" />
+                    {logActivity.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4 mr-1" />
+                    )}
                     Log Email
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => quickLogActivity('text')}
+                    disabled={logActivity.isPending}
+                  >
+                    {logActivity.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                    )}
+                    Log Text
                   </Button>
                 </div>
               </SheetHeader>
@@ -248,6 +290,37 @@ export function ContactProfileModal({
                       events={journeyEvents || []}
                       currentStage={profile.current_stage}
                     />
+                  </div>
+
+                  {/* Inline Add Note */}
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Add Note</h3>
+                    <div className="flex gap-2">
+                      <Textarea
+                        value={inlineNote}
+                        onChange={(e) => setInlineNote(e.target.value)}
+                        placeholder="Type a note..."
+                        rows={2}
+                        className="flex-1 resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            handleSaveNote();
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={handleSaveNote}
+                        disabled={!inlineNote.trim() || logActivity.isPending}
+                        className="self-end"
+                      >
+                        {logActivity.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Save'
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Recent Activity Preview */}
