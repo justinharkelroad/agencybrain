@@ -16,7 +16,8 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
 
       // When stage filter is applied, we need to fetch all contacts and filter client-side
       // because the stage is computed from linked records
-      const fetchLimit = hasStageFilter ? 10000 : PAGE_SIZE;
+      // Fetch all contacts (up to 15000) when filtering by stage
+      const fetchLimit = hasStageFilter ? 15000 : PAGE_SIZE;
       const startOffset = hasStageFilter ? 0 : pageParam;
 
       // Build query - pagination only when no stage filter
@@ -83,7 +84,8 @@ async function computeContactStatuses(contacts: Contact[], agencyId: string): Pr
 
   // Batch the queries to avoid 400 Bad Request with too many IDs
   // PostgREST has limits on query URL length
-  const BATCH_SIZE = 200;
+  // Using smaller batch to avoid hitting row limits (contacts may have multiple records)
+  const BATCH_SIZE = 100;
   const batches: string[][] = [];
   for (let i = 0; i < contactIds.length; i += BATCH_SIZE) {
     batches.push(contactIds.slice(i, i + BATCH_SIZE));
@@ -97,34 +99,41 @@ async function computeContactStatuses(contacts: Contact[], agencyId: string): Pr
   const activityResults: any[] = [];
 
   for (const batch of batches) {
+    // Note: Adding explicit limits to avoid Supabase default 1000 row limit
+    // Some contacts may have multiple records in each table
     const [lqsResult, renewalResult, cancelAuditResult, winbackResult, activityResult] = await Promise.all([
       supabase
         .from('lqs_households')
         .select('contact_id, status, created_at')
         .eq('agency_id', agencyId)
-        .in('contact_id', batch),
+        .in('contact_id', batch)
+        .limit(5000),
       supabase
         .from('renewal_records')
         .select('contact_id, current_status, renewal_effective_date')
         .eq('agency_id', agencyId)
         .eq('is_active', true)
-        .in('contact_id', batch),
+        .in('contact_id', batch)
+        .limit(5000),
       supabase
         .from('cancel_audit_records')
         .select('contact_id, cancel_status')
         .eq('agency_id', agencyId)
-        .in('contact_id', batch),
+        .in('contact_id', batch)
+        .limit(5000),
       supabase
         .from('winback_households')
         .select('contact_id, status')
         .eq('agency_id', agencyId)
-        .in('contact_id', batch),
+        .in('contact_id', batch)
+        .limit(5000),
       supabase
         .from('contact_activities')
         .select('contact_id, activity_type, activity_date')
         .eq('agency_id', agencyId)
         .in('contact_id', batch)
-        .order('activity_date', { ascending: false }),
+        .order('activity_date', { ascending: false })
+        .limit(5000),
     ]);
 
     if (lqsResult.data) lqsResults.push(...lqsResult.data);
