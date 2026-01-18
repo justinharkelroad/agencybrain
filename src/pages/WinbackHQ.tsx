@@ -86,6 +86,14 @@ export default function WinbackHQ() {
 
   // Contact profile modal
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
+  const [profileHouseholdId, setProfileHouseholdId] = useState<string | null>(null);
+
+  // Handler for viewing profile - finds the household to pass to modal
+  const handleViewProfile = (contactId: string) => {
+    const household = households.find(h => h.contact_id === contactId);
+    setProfileContactId(contactId);
+    setProfileHouseholdId(household?.id || null);
+  };
 
   // Unified function to load households via winbackApi (works for both staff and non-staff)
   const loadHouseholds = async (agency: string, members: TeamMember[]) => {
@@ -463,7 +471,7 @@ export default function WinbackHQ() {
                 sortDirection={sortDirection}
                 onSort={handleSort}
                 onRowClick={handleRowClick}
-                onViewProfile={setProfileContactId}
+                onViewProfile={handleViewProfile}
               />
 
               <WinbackPagination
@@ -483,7 +491,7 @@ export default function WinbackHQ() {
                 sortDirection={sortDirection}
                 onSort={handleSort}
                 onRowClick={handleRowClick}
-                onViewProfile={setProfileContactId}
+                onViewProfile={handleViewProfile}
               />
 
               <WinbackPagination
@@ -529,8 +537,19 @@ export default function WinbackHQ() {
           contactId={profileContactId}
           agencyId={agencyId}
           open={!!profileContactId}
-          onClose={() => setProfileContactId(null)}
+          onClose={() => {
+            setProfileContactId(null);
+            setProfileHouseholdId(null);
+          }}
           defaultSourceModule="winback"
+          currentStage="winback"
+          winbackHousehold={profileHouseholdId ? { id: profileHouseholdId } : undefined}
+          teamMembers={teamMembers}
+          currentUserTeamMemberId={currentUserTeamMemberId}
+          onActivityLogged={() => {
+            // Refresh data when activity is logged
+            if (agencyId) loadHouseholds(agencyId, teamMembers);
+          }}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2 } from 'lucide-react';
+import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -14,13 +14,16 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useContactProfile, useContactJourney } from '@/hooks/useContactProfile';
 import { useLogContactActivity } from '@/hooks/useLogContactActivity';
+import { useLogActivity as useLogCancelAuditActivity } from '@/hooks/useCancelAuditActivities';
 import { ActivityTimeline } from './ActivityTimeline';
 import { ActivityLogForm, ActivityFormData } from './ActivityLogForm';
 import { CustomerJourney, CustomerJourneyBadge } from './CustomerJourney';
 import { SystemRecords } from './SystemRecords';
-import type { SourceModule } from '@/types/contact';
+import type { SourceModule, LifecycleStage } from '@/types/contact';
 import { SOURCE_MODULE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import * as winbackApi from '@/lib/winbackApi';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -33,6 +36,19 @@ interface ContactProfileModalProps {
   userId?: string;
   staffMemberId?: string;
   displayName?: string;
+  // Optional: pass stage from parent to avoid re-computing
+  currentStage?: LifecycleStage;
+  // For module-specific quick actions
+  cancelAuditRecord?: {
+    id: string;
+    household_key: string;
+  };
+  winbackHousehold?: {
+    id: string;
+  };
+  teamMembers?: Array<{ id: string; name: string }>;
+  currentUserTeamMemberId?: string | null;
+  onActivityLogged?: () => void;
 }
 
 export function ContactProfileModal({
@@ -45,11 +61,18 @@ export function ContactProfileModal({
   userId,
   staffMemberId,
   displayName,
+  currentStage: passedStage,
+  cancelAuditRecord,
+  winbackHousehold,
+  teamMembers = [],
+  currentUserTeamMemberId,
+  onActivityLogged,
 }: ContactProfileModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
   const [inlineNote, setInlineNote] = useState('');
+  const [moduleActionLoading, setModuleActionLoading] = useState<string | null>(null);
 
   // Fetch contact profile - only when we have valid IDs and modal is open
   const { data: profile, isLoading, error } = useContactProfile(
@@ -65,6 +88,12 @@ export function ContactProfileModal({
 
   // Activity logging mutation
   const logActivity = useLogContactActivity();
+
+  // Module-specific activity logging
+  const logCancelAuditActivity = useLogCancelAuditActivity();
+
+  // Determine which stage to display (prefer passed stage over computed)
+  const displayStage = passedStage || profile?.current_stage;
 
   // Handle sidebar navigation event to close modal
   useEffect(() => {
@@ -141,6 +170,62 @@ export function ContactProfileModal({
     setInlineNote('');
   };
 
+  // Module-specific activity handlers for Cancel Audit
+  const handleCancelAuditActivity = async (activityType: string) => {
+    if (!agencyId || !cancelAuditRecord || !displayName) return;
+
+    setModuleActionLoading(activityType);
+    try {
+      await logCancelAuditActivity.mutateAsync({
+        agencyId,
+        recordId: cancelAuditRecord.id,
+        householdKey: cancelAuditRecord.household_key,
+        activityType: activityType as any,
+        userId,
+        staffMemberId,
+        userDisplayName: displayName,
+      });
+
+      if (activityType === 'payment_made') {
+        toast.success('🎉 Payment recorded!', { description: 'Great job saving this policy!' });
+      } else if (activityType === 'payment_promised') {
+        toast.success('Payment promised logged', { description: 'Follow up if not received' });
+      } else {
+        toast.success('Activity logged');
+      }
+
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to log activity', { description: error.message });
+    } finally {
+      setModuleActionLoading(null);
+    }
+  };
+
+  // Module-specific activity handlers for Winback
+  const handleWinbackActivity = async (activityType: string) => {
+    if (!agencyId || !winbackHousehold) return;
+
+    setModuleActionLoading(activityType);
+    try {
+      await winbackApi.logActivity(
+        winbackHousehold.id,
+        agencyId,
+        activityType,
+        '',
+        currentUserTeamMemberId || null,
+        teamMembers
+      );
+
+      toast.success('Activity logged');
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to log activity', { description: error.message });
+    } finally {
+      setModuleActionLoading(null);
+    }
+  };
+
   // Format phone for display
   const formatPhone = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
@@ -182,7 +267,7 @@ export function ContactProfileModal({
                       {profile.first_name} {profile.last_name}
                     </SheetTitle>
                     <div className="mt-1">
-                      <CustomerJourneyBadge currentStage={profile.current_stage} />
+                      <CustomerJourneyBadge currentStage={displayStage || 'open_lead'} />
                     </div>
                   </div>
                   {sourceConfig && (
@@ -233,43 +318,55 @@ export function ContactProfileModal({
                   )}
                 </div>
 
-                {/* Quick actions */}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openActivityForm('call')}
-                  >
-                    <Phone className="h-4 w-4 mr-1" />
-                    Log Call
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => quickLogActivity('email')}
-                    disabled={logActivity.isPending}
-                  >
-                    {logActivity.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Mail className="h-4 w-4 mr-1" />
-                    )}
-                    Log Email
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => quickLogActivity('text')}
-                    disabled={logActivity.isPending}
-                  >
-                    {logActivity.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <MessageSquare className="h-4 w-4 mr-1" />
-                    )}
-                    Log Text
-                  </Button>
-                </div>
+                {/* Quick actions - module-specific or generic */}
+                {defaultSourceModule === 'cancel_audit' && cancelAuditRecord ? (
+                  <CancelAuditQuickActions
+                    onAction={handleCancelAuditActivity}
+                    loadingAction={moduleActionLoading}
+                  />
+                ) : defaultSourceModule === 'winback' && winbackHousehold ? (
+                  <WinbackQuickActions
+                    onAction={handleWinbackActivity}
+                    loadingAction={moduleActionLoading}
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openActivityForm('call')}
+                    >
+                      <Phone className="h-4 w-4 mr-1" />
+                      Log Call
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickLogActivity('email')}
+                      disabled={logActivity.isPending}
+                    >
+                      {logActivity.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4 mr-1" />
+                      )}
+                      Log Email
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickLogActivity('text')}
+                      disabled={logActivity.isPending}
+                    >
+                      {logActivity.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                      )}
+                      Log Text
+                    </Button>
+                  </div>
+                )}
               </SheetHeader>
 
               <Separator className="my-4" />
@@ -288,7 +385,7 @@ export function ContactProfileModal({
                     <h3 className="text-sm font-medium mb-2">Customer Journey</h3>
                     <CustomerJourney
                       events={journeyEvents || []}
-                      currentStage={profile.current_stage}
+                      currentStage={displayStage || 'open_lead'}
                     />
                   </div>
 
@@ -427,6 +524,85 @@ function EmptyState({ onClose }: { onClose: () => void }) {
       <Button variant="outline" onClick={onClose}>
         Close
       </Button>
+    </div>
+  );
+}
+
+// Cancel Audit Quick Actions - matches the existing QuickActions component
+function CancelAuditQuickActions({
+  onAction,
+  loadingAction,
+}: {
+  onAction: (type: string) => void;
+  loadingAction: string | null;
+}) {
+  const actions = [
+    { type: 'attempted_call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { type: 'voicemail_left', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    { type: 'text_sent', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    { type: 'email_sent', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { type: 'spoke_with_client', label: 'Spoke', icon: MessageCircle, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+    { type: 'payment_made', label: 'Paid', icon: DollarSign, color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30' },
+    { type: 'payment_promised', label: 'Promised', icon: Handshake, color: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {actions.map(({ type, label, icon: Icon, color }) => (
+        <Button
+          key={type}
+          variant="outline"
+          size="sm"
+          className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+          onClick={() => onAction(type)}
+          disabled={loadingAction !== null}
+        >
+          {loadingAction === type ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <Icon className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+// Winback Quick Actions - matches the existing WinbackHouseholdModal actions
+function WinbackQuickActions({
+  onAction,
+  loadingAction,
+}: {
+  onAction: (type: string) => void;
+  loadingAction: string | null;
+}) {
+  const actions = [
+    { type: 'called', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { type: 'left_vm', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    { type: 'texted', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    { type: 'emailed', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {actions.map(({ type, label, icon: Icon, color }) => (
+        <Button
+          key={type}
+          variant="outline"
+          size="sm"
+          className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+          onClick={() => onAction(type)}
+          disabled={loadingAction !== null}
+        >
+          {loadingAction === type ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <Icon className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {label}
+        </Button>
+      ))}
     </div>
   );
 }
