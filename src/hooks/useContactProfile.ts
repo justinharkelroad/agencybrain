@@ -17,6 +17,7 @@ interface UseContactProfileOptions {
   // Direct IDs from parent page - more reliable than trying to discover via contact_id
   cancelAuditHouseholdKey?: string;
   winbackHouseholdId?: string;
+  renewalRecordId?: string;
 }
 
 export function useContactProfile(
@@ -25,10 +26,10 @@ export function useContactProfile(
   options?: UseContactProfileOptions
 ) {
   const staffSessionToken = getStaffSessionToken();
-  const { cancelAuditHouseholdKey, winbackHouseholdId } = options || {};
+  const { cancelAuditHouseholdKey, winbackHouseholdId, renewalRecordId } = options || {};
 
   return useQuery({
-    queryKey: ['contact-profile', contactId, agencyId, cancelAuditHouseholdKey, winbackHouseholdId, !!staffSessionToken],
+    queryKey: ['contact-profile', contactId, agencyId, cancelAuditHouseholdKey, winbackHouseholdId, renewalRecordId, !!staffSessionToken],
     queryFn: async (): Promise<ContactProfile | null> => {
       if (!contactId || !agencyId) return null;
 
@@ -184,8 +185,13 @@ export function useContactProfile(
       });
       const cancelAuditHouseholdKeys = Array.from(cancelAuditKeys);
 
+      // Get renewal record IDs - prefer direct ID from props, fall back to linked records
+      const renewalRecordIds = renewalRecordId
+        ? [renewalRecordId]
+        : renewalRecords.map(r => r.id);
+
       // Fetch module activities in parallel
-      const [winbackActivitiesResult, cancelAuditActivitiesResult] = await Promise.all([
+      const [winbackActivitiesResult, cancelAuditActivitiesResult, renewalActivitiesResult] = await Promise.all([
         // Winback activities
         winbackHouseholdIds.length > 0
           ? supabase
@@ -204,6 +210,17 @@ export function useContactProfile(
               .select('id, activity_type, notes, user_display_name, created_at, household_key')
               .eq('agency_id', agencyId)
               .in('household_key', cancelAuditHouseholdKeys)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+
+        // Renewal activities
+        renewalRecordIds.length > 0
+          ? supabase
+              .from('renewal_activities')
+              .select('id, activity_type, activity_status, comments, created_by_display_name, created_at, renewal_record_id')
+              .eq('agency_id', agencyId)
+              .in('renewal_record_id', renewalRecordIds)
               .order('created_at', { ascending: false })
               .limit(50)
           : Promise.resolve({ data: [], error: null }),
@@ -238,8 +255,21 @@ export function useContactProfile(
         created_at: ca.created_at,
       }));
 
+      // Convert and add renewal activities
+      const renewalActivities: ContactActivity[] = (renewalActivitiesResult.data || []).map((ra: any) => ({
+        id: ra.id,
+        contact_id: contactId,
+        agency_id: agencyId,
+        source_module: 'renewal' as const,
+        activity_type: mapRenewalActivityType(ra.activity_type, ra.activity_status),
+        notes: ra.comments,
+        created_by_display_name: ra.created_by_display_name,
+        activity_date: ra.created_at,
+        created_at: ra.created_at,
+      }));
+
       // Merge and sort all activities by date (most recent first)
-      const allActivities = [...unifiedActivities, ...winbackActivities, ...cancelAuditActivities]
+      const allActivities = [...unifiedActivities, ...winbackActivities, ...cancelAuditActivities, ...renewalActivities]
         .sort((a, b) => new Date(b.activity_date || b.created_at).getTime() - new Date(a.activity_date || a.created_at).getTime());
 
       return {
@@ -502,6 +532,26 @@ function mapCancelAuditActivityType(type: string): string {
   return mapping[type] || type;
 }
 
+// Map renewal activity types to unified activity types
+function mapRenewalActivityType(type: string, status?: string): string {
+  // Handle review_done with status
+  if (type === 'review_done') {
+    if (status === 'successful') return 'renewal_success';
+    if (status === 'push_to_winback') return 'renewal_to_winback';
+    return 'review_done';
+  }
+  const mapping: Record<string, string> = {
+    'call': 'call',
+    'phone_call': 'call',
+    'voicemail': 'voicemail',
+    'text': 'text',
+    'email': 'email',
+    'appointment': 'appointment',
+    'note': 'note',
+  };
+  return mapping[type] || type;
+}
+
 // Helper function to determine lifecycle stage
 function determineLifecycleStage(
   lqsRecords: LinkedLQSRecord[],
@@ -515,13 +565,17 @@ function determineLifecycleStage(
   );
   if (activeWinback) return 'winback';
 
-  // Check for cancel audit - priority 2 (only active/pending cancel audits, not resolved/saved)
+  // Check for cancel audit - need to handle both active and resolved states
+  // A record is "resolved" if cancel_status is 'Saved' (account saved/paid)
+  // A record is "active" if cancel_status is null or not 'Saved'
   const activeCancelAudit = cancelAuditRecords.find(r =>
-    r.cancel_status !== 'Saved' && r.cancel_status !== 'saved'
+    !r.cancel_status || (r.cancel_status !== 'Saved' && r.cancel_status !== 'saved')
   );
+
+  // If there's an active cancel audit, show cancel_audit stage
   if (activeCancelAudit) return 'cancel_audit';
 
-  // Check if any cancel audit was saved (they're now a customer again)
+  // If ALL cancel audits are saved (no active ones), they're a customer
   const savedCancelAudit = cancelAuditRecords.find(r =>
     r.cancel_status === 'Saved' || r.cancel_status === 'saved'
   );
@@ -539,9 +593,10 @@ function determineLifecycleStage(
   const soldLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'sold');
   if (successfulRenewal || soldLqs || wonBack) return 'customer';
 
-  // Check for quoted - priority 5
+  // Check for quoted - priority 5 (either from LQS or winback with quoted status)
   const quotedLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'quoted');
-  if (quotedLqs) return 'quoted';
+  const quotedWinback = winbackRecords.find(r => r.status === 'quoted');
+  if (quotedLqs || quotedWinback) return 'quoted';
 
   // Check for open lead - priority 6
   const leadLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'lead');
