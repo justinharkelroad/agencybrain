@@ -707,6 +707,7 @@ export default function Renewals() {
           open={!!profileContactId}
           onClose={() => setProfileContactId(null)}
           defaultSourceModule="renewal"
+          currentStage="renewal"
         />
       )}
     </div>
