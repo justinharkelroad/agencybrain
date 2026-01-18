@@ -380,12 +380,17 @@ export async function updateHouseholdStatus(
     updateData.assigned_to = currentUserTeamMemberId;
   }
 
-  const { error: updateError } = await supabase
+  // Only update if old status matches (prevents overwriting won_back or in_progress)
+  const { error: updateError, count } = await supabase
     .from('winback_households')
     .update(updateData)
-    .eq('id', householdId);
+    .eq('id', householdId)
+    .eq('status', oldStatus);
 
   if (updateError) throw updateError;
+
+  // If no rows were updated (status didn't match), skip logging
+  if (count === 0) return { assigned_to: undefined };
 
   // Log status change
   const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
