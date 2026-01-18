@@ -279,18 +279,27 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
 
       // LQS events
       (lqsResult.data || []).forEach((r: any) => {
-        events.push({
-          stage: 'lead',
-          date: r.created_at,
-          label: 'Lead Created',
-          source_module: 'lqs',
-          source_record_id: r.id,
-        });
-
-        if (r.status === 'sold' || r.status === 'Sold') {
+        const status = (r.status || '').toLowerCase();
+        if (status === 'lead') {
+          events.push({
+            stage: 'open_lead',
+            date: r.created_at,
+            label: 'Lead Created',
+            source_module: 'lqs',
+            source_record_id: r.id,
+          });
+        } else if (status === 'quoted') {
+          events.push({
+            stage: 'quoted',
+            date: r.created_at,
+            label: 'Quote Provided',
+            source_module: 'lqs',
+            source_record_id: r.id,
+          });
+        } else if (status === 'sold') {
           events.push({
             stage: 'customer',
-            date: r.created_at, // Would be better with actual sold date
+            date: r.created_at,
             label: 'Policy Sold',
             source_module: 'lqs',
             source_record_id: r.id,
@@ -322,7 +331,7 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
       // Cancel audit events
       (cancelAuditResult.data || []).forEach((r: any) => {
         events.push({
-          stage: 'at_risk',
+          stage: 'cancel_audit',
           date: r.created_at,
           label: 'Cancel Request',
           source_module: 'cancel_audit',
@@ -334,14 +343,6 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
             stage: 'customer',
             date: r.created_at,
             label: 'Account Saved',
-            source_module: 'cancel_audit',
-            source_record_id: r.id,
-          });
-        } else if (r.cancel_status === 'Lost' || r.cancel_status === 'lost') {
-          events.push({
-            stage: 'cancelled',
-            date: r.created_at,
-            label: 'Policy Cancelled',
             source_module: 'cancel_audit',
             source_record_id: r.id,
           });
@@ -360,7 +361,7 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
 
         if (r.status === 'won_back') {
           events.push({
-            stage: 'won_back',
+            stage: 'customer',
             date: r.created_at,
             label: 'Customer Won Back',
             source_module: 'winback',
@@ -386,50 +387,34 @@ function determineLifecycleStage(
   winbackRecords: LinkedWinbackRecord[]
 ): LifecycleStage {
   // Check for active winback - priority 1
-  // Valid winback statuses: 'untouched', 'in_progress', 'won_back', 'declined', 'no_contact', 'dismissed'
   const activeWinback = winbackRecords.find(r =>
     r.status === 'in_progress' || r.status === 'untouched'
   );
   if (activeWinback) return 'winback';
 
-  // Check for won back - priority 2
-  const wonBack = winbackRecords.find(r => r.status === 'won_back');
-  if (wonBack) return 'won_back';
+  // Check for cancel audit - priority 2 (any contact in cancel audit)
+  if (cancelAuditRecords.length > 0) return 'cancel_audit';
 
-  // Check for cancel audit - "at risk" means savable cancellation
-  // cancel_status values: 'Cancel' (pending/savable), 'Cancelled' (already lost), 'Saved', 'Lost'
-  const atRisk = cancelAuditRecords.find(r => {
-    const status = (r.cancel_status || '').toLowerCase();
-    return status === 'cancel'; // "Cancel" means still savable = at risk
-  });
-  if (atRisk) return 'at_risk';
-
-  // Check for saved from cancel audit (became customer again)
-  const savedFromCancel = cancelAuditRecords.find(r => {
-    const status = (r.cancel_status || '').toLowerCase();
-    return status === 'saved';
-  });
-
-  // Check for cancelled/lost
-  const cancelled = cancelAuditRecords.find(r => {
-    const status = (r.cancel_status || '').toLowerCase();
-    return status === 'cancelled' || status === 'lost';
-  });
-  if (cancelled && !savedFromCancel && !wonBack && !renewalRecords.length) return 'cancelled';
-
-  // Check for pending renewal
+  // Check for pending renewal - priority 3
   const pendingRenewal = renewalRecords.find(r =>
     r.current_status === 'uncontacted' || r.current_status === 'pending'
   );
   if (pendingRenewal) return 'renewal';
 
-  // Check for successful renewal or sold LQS or saved from cancel (active customer)
+  // Check for customer (sold LQS, successful renewal, or won_back) - priority 4
+  const wonBack = winbackRecords.find(r => r.status === 'won_back');
   const successfulRenewal = renewalRecords.find(r => r.current_status === 'success');
-  const soldLqs = lqsRecords.find(r => r.status === 'sold' || r.status === 'Sold');
-  if (successfulRenewal || soldLqs || savedFromCancel) return 'customer';
+  const soldLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'sold');
+  if (successfulRenewal || soldLqs || wonBack) return 'customer';
 
-  // Default to lead
-  if (lqsRecords.length > 0) return 'lead';
+  // Check for quoted - priority 5
+  const quotedLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'quoted');
+  if (quotedLqs) return 'quoted';
 
-  return 'lead';
+  // Check for open lead - priority 6
+  const leadLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'lead');
+  if (leadLqs) return 'open_lead';
+
+  // Default to open_lead
+  return 'open_lead';
 }
