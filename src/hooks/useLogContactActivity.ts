@@ -50,37 +50,46 @@ export function useLogContactActivity() {
         createdByDisplayName,
       } = params;
 
-      const activityData = {
-        contact_id: contactId,
-        agency_id: agencyId,
-        activity_type: activityType,
-        source_module: sourceModule,
-        source_record_id: sourceRecordId || null,
-        activity_date: scheduledDate || new Date().toISOString(),
-        outcome: outcome || null,
-        subject: subject || null,
-        notes: notes || null,
-        call_direction: callDirection || null,
-        phone_number: phoneNumber || null,
-        created_by_user_id: createdByUserId || null,
-        created_by_staff_id: createdByStaffId || null,
-        created_by_display_name: createdByDisplayName,
-      };
+      // Use RPC function with SECURITY DEFINER to bypass RLS issues
+      const { data: activityId, error: insertError } = await supabase.rpc(
+        'insert_contact_activity',
+        {
+          p_agency_id: agencyId,
+          p_contact_id: contactId,
+          p_source_module: sourceModule,
+          p_activity_type: activityType,
+          p_source_record_id: sourceRecordId || null,
+          p_subject: subject || null,
+          p_notes: notes || null,
+          p_outcome: outcome || null,
+          p_call_direction: callDirection || null,
+          p_phone_number: phoneNumber || null,
+          p_activity_date: scheduledDate || new Date().toISOString(),
+          p_created_by_user_id: createdByUserId || null,
+          p_created_by_staff_id: createdByStaffId || null,
+          p_created_by_display_name: createdByDisplayName,
+        }
+      );
 
-      // For now, use direct insert for both staff and regular users
-      // The contact_activities table has RLS based on agency_id
-      const { data, error } = await supabase
-        .from('contact_activities')
-        .insert(activityData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('[useLogContactActivity] Insert error:', error);
-        throw error;
+      if (insertError) {
+        console.error('[useLogContactActivity] Insert error:', insertError);
+        throw insertError;
       }
 
-      return data as ContactActivity;
+      // Fetch the created activity to return the full object
+      const { data: activity, error: fetchError } = await supabase
+        .from('contact_activities')
+        .select('*')
+        .eq('id', activityId)
+        .single();
+
+      if (fetchError) {
+        console.error('[useLogContactActivity] Fetch error:', fetchError);
+        // Activity was created, just can't fetch it - still return something
+        return { id: activityId } as ContactActivity;
+      }
+
+      return activity as ContactActivity;
     },
     onSuccess: (_, params) => {
       // Invalidate relevant queries
