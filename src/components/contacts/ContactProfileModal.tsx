@@ -81,7 +81,11 @@ export function ContactProfileModal({
   // Fetch contact profile - only when we have valid IDs and modal is open
   const { data: profile, isLoading, error } = useContactProfile(
     open ? contactId : null,
-    agencyId
+    agencyId,
+    {
+      cancelAuditHouseholdKey: cancelAuditRecord?.household_key,
+      winbackHouseholdId: winbackHousehold?.id,
+    }
   );
 
   // Fetch journey events

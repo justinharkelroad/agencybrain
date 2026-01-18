@@ -13,11 +13,22 @@ import type {
   JourneyEvent,
 } from '@/types/contact';
 
-export function useContactProfile(contactId: string | null, agencyId: string | null) {
+interface UseContactProfileOptions {
+  // Direct IDs from parent page - more reliable than trying to discover via contact_id
+  cancelAuditHouseholdKey?: string;
+  winbackHouseholdId?: string;
+}
+
+export function useContactProfile(
+  contactId: string | null,
+  agencyId: string | null,
+  options?: UseContactProfileOptions
+) {
   const staffSessionToken = getStaffSessionToken();
+  const { cancelAuditHouseholdKey, winbackHouseholdId } = options || {};
 
   return useQuery({
-    queryKey: ['contact-profile', contactId, agencyId, !!staffSessionToken],
+    queryKey: ['contact-profile', contactId, agencyId, cancelAuditHouseholdKey, winbackHouseholdId, !!staffSessionToken],
     queryFn: async (): Promise<ContactProfile | null> => {
       if (!contactId || !agencyId) return null;
 
@@ -151,16 +162,29 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
       // Determine current stage
       const currentStage = determineLifecycleStage(lqsRecords, renewalRecords, cancelAuditRecords, winbackRecords);
 
-      // Now fetch module-specific activities using the linked record IDs
-      const winbackHouseholdIds = winbackRecords.map(r => r.id);
-      // Get household_keys from cancel audit records for activity lookup
-      const cancelAuditHouseholdKeys = (cancelAuditResult.data || [])
-        .map((r: any) => r.household_key)
-        .filter((key: string | null): key is string => !!key);
+      // Build list of IDs for activity lookup
+      // Prefer direct IDs from props, fall back to discovered IDs from linked records
+      const winbackHouseholdIds = winbackHouseholdId
+        ? [winbackHouseholdId]
+        : winbackRecords.map(r => r.id);
+
+      // Get household_keys for cancel audit - prefer direct key from props
+      const cancelAuditKeys = new Set<string>();
+      if (cancelAuditHouseholdKey) {
+        cancelAuditKeys.add(cancelAuditHouseholdKey);
+      }
+      if (householdKey) {
+        cancelAuditKeys.add(householdKey);
+      }
+      // Also add keys from linked cancel audit records
+      (cancelAuditResult.data || []).forEach((r: any) => {
+        if (r.household_key) cancelAuditKeys.add(r.household_key);
+      });
+      const cancelAuditHouseholdKeys = Array.from(cancelAuditKeys);
 
       // Fetch module activities in parallel
       const [winbackActivitiesResult, cancelAuditActivitiesResult] = await Promise.all([
-        // Winback activities (using household IDs we just fetched)
+        // Winback activities
         winbackHouseholdIds.length > 0
           ? supabase
               .from('winback_activities')
@@ -171,13 +195,13 @@ export function useContactProfile(contactId: string | null, agencyId: string | n
               .limit(50)
           : Promise.resolve({ data: [], error: null }),
 
-        // Cancel audit activities (using household_keys from cancel audit records OR contact's household_key)
-        (cancelAuditHouseholdKeys.length > 0 || householdKey)
+        // Cancel audit activities
+        cancelAuditHouseholdKeys.length > 0
           ? supabase
               .from('cancel_audit_activities')
               .select('id, activity_type, notes, created_by_name, created_at, household_key')
               .eq('agency_id', agencyId)
-              .in('household_key', householdKey ? [...cancelAuditHouseholdKeys, householdKey] : cancelAuditHouseholdKeys)
+              .in('household_key', cancelAuditHouseholdKeys)
               .order('created_at', { ascending: false })
               .limit(50)
           : Promise.resolve({ data: [], error: null }),
