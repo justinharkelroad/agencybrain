@@ -276,12 +276,50 @@ export function ContactProfileModal({
     setModuleActionLoading(outcome);
     try {
       if (outcome === 'quoted') {
-        // Create LQS record with status 'quoted' - this moves contact to "Quoted HH" stage
+        // Step 1: Find or create "Winback" lead source
+        let winbackLeadSourceId: string | null = null;
+        let createdNewLeadSource = false;
+
+        // Look for existing "Winback" lead source (case-insensitive)
+        const { data: existingSource } = await supabase
+          .from('lead_sources')
+          .select('id')
+          .eq('agency_id', agencyId)
+          .ilike('name', 'winback')
+          .limit(1)
+          .single();
+
+        if (existingSource) {
+          winbackLeadSourceId = existingSource.id;
+        } else {
+          // Create "Winback" lead source for this agency
+          const { data: newSource, error: createError } = await supabase
+            .from('lead_sources')
+            .insert({
+              agency_id: agencyId,
+              name: 'Winback',
+              is_active: true,
+              is_self_generated: false, // Not self-generated - originally paid marketing
+              cost_type: 'per_lead',
+              cost_per_lead_cents: 0,
+            })
+            .select('id')
+            .single();
+
+          if (!createError && newSource) {
+            winbackLeadSourceId = newSource.id;
+            createdNewLeadSource = true;
+          }
+        }
+
+        // Step 2: Create/update LQS record with status 'quoted' and Winback lead source
         const householdKey = generateHouseholdKey(
           profile.first_name,
           profile.last_name,
           profile.zip_code
         );
+
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
         // Upsert LQS record - if exists, update status to quoted; if not, create it
         const { error: lqsError } = await supabase
@@ -294,6 +332,9 @@ export function ContactProfileModal({
             zip_code: profile.zip_code || '',
             contact_id: contactId,
             status: 'quoted',
+            lead_source_id: winbackLeadSourceId,
+            first_quote_date: today, // Reset quote date for new quote cycle
+            lead_received_date: today,
             updated_at: new Date().toISOString(),
           }, {
             onConflict: 'agency_id,household_key',
@@ -301,11 +342,11 @@ export function ContactProfileModal({
 
         if (lqsError) throw lqsError;
 
-        // Mark winback as declined (they're moving to quoted, not won back)
+        // Step 3: Mark winback as moved_to_quoted (they agreed to get a quote)
         await winbackApi.updateHouseholdStatus(
           winbackHousehold.id,
           agencyId,
-          'declined',
+          'moved_to_quoted',
           'in_progress',
           currentUserTeamMemberId || null,
           teamMembers,
@@ -314,7 +355,7 @@ export function ContactProfileModal({
           // Ignore status update errors - LQS record is the important part
         });
 
-        // Log the quoted activity so it appears in Daily Activity Summary
+        // Step 4: Log the quoted activity so it appears in Daily Activity Summary
         await winbackApi.logActivity(
           winbackHousehold.id,
           agencyId,
@@ -324,7 +365,14 @@ export function ContactProfileModal({
           teamMembers
         );
 
-        toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+        // Show success with note if we created a new lead source
+        if (createdNewLeadSource) {
+          toast.success('Moved to Quoted!', {
+            description: 'Contact is now a Quoted Household. "Winback" lead source was added to your settings.'
+          });
+        } else {
+          toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+        }
       } else {
         // Update to won_back status - this transitions contact to Customer
         await winbackApi.updateHouseholdStatus(
