@@ -265,37 +265,23 @@ export function ContactProfileModal({
     }
   };
 
-  // Winback outcome handlers (Won Back, Quoted)
-  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted') => {
+  // Winback outcome handler - Won Back only
+  const handleWinbackOutcome = async (outcome: 'won_back') => {
     if (!agencyId || !winbackHousehold) return;
 
     setModuleActionLoading(outcome);
     try {
-      if (outcome === 'won_back') {
-        // Update to won_back status - this transitions contact to Customer
-        await winbackApi.updateHouseholdStatus(
-          winbackHousehold.id,
-          agencyId,
-          'won_back',
-          'in_progress', // Can also be from untouched
-          currentUserTeamMemberId || null,
-          teamMembers,
-          null
-        );
-        toast.success('Customer won back!', { description: 'Contact is now a Customer' });
-      } else if (outcome === 'quoted') {
-        // Update to quoted status - this transitions contact to Quoted HH
-        await winbackApi.updateHouseholdStatus(
-          winbackHousehold.id,
-          agencyId,
-          'quoted',
-          'in_progress',
-          currentUserTeamMemberId || null,
-          teamMembers,
-          null
-        );
-        toast.success('Moved to Quoted', { description: 'Contact is now in Quoted Household status' });
-      }
+      // Update to won_back status - this transitions contact to Customer
+      await winbackApi.updateHouseholdStatus(
+        winbackHousehold.id,
+        agencyId,
+        'won_back',
+        'in_progress', // Can also be from untouched
+        currentUserTeamMemberId || null,
+        teamMembers,
+        null
+      );
+      toast.success('Customer won back!', { description: 'Contact is now a Customer' });
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
@@ -706,7 +692,7 @@ function WinbackQuickActions({
   loadingAction,
 }: {
   onAction: (type: string) => void;
-  onOutcome: (outcome: 'won_back' | 'quoted') => void;
+  onOutcome: (outcome: 'won_back') => void;
   loadingAction: string | null;
 }) {
   const contactActions = [
@@ -714,11 +700,6 @@ function WinbackQuickActions({
     { type: 'left_vm', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
     { type: 'texted', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
     { type: 'emailed', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  ];
-
-  const outcomeActions = [
-    { type: 'won_back' as const, label: 'Won Back', icon: CheckCircle2, color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30' },
-    { type: 'quoted' as const, label: 'Quoted', icon: FileText, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
   ];
 
   return (
@@ -743,25 +724,22 @@ function WinbackQuickActions({
           </Button>
         ))}
       </div>
-      {/* Outcome buttons */}
+      {/* Outcome button - Won Back only */}
       <div className="flex flex-wrap gap-2">
-        {outcomeActions.map(({ type, label, icon: Icon, color }) => (
-          <Button
-            key={type}
-            variant="outline"
-            size="sm"
-            className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
-            onClick={() => onOutcome(type)}
-            disabled={loadingAction !== null}
-          >
-            {loadingAction === type ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Icon className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            {label}
-          </Button>
-        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn('border transition-colors bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30', loadingAction && 'opacity-50')}
+          onClick={() => onOutcome('won_back')}
+          disabled={loadingAction !== null}
+        >
+          {loadingAction === 'won_back' ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          Won Back
+        </Button>
       </div>
     </div>
   );

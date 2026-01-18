@@ -148,7 +148,9 @@ function groupActivitiesByDate(activities: ContactActivity[]): Record<string, Co
 }
 
 function formatDateHeader(dateKey: string): string {
-  const date = new Date(dateKey);
+  // Append T00:00:00 to parse as local time, not UTC
+  // Without this, 'YYYY-MM-DD' is treated as UTC midnight which shifts back a day in US timezones
+  const date = new Date(dateKey + 'T00:00:00');
 
   if (isToday(date)) {
     return 'Today';
