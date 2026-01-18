@@ -314,6 +314,16 @@ export function ContactProfileModal({
           // Ignore status update errors - LQS record is the important part
         });
 
+        // Log the quoted activity so it appears in Daily Activity Summary
+        await winbackApi.logActivity(
+          winbackHousehold.id,
+          agencyId,
+          'quoted',
+          'Moved to Quoted Household',
+          currentUserTeamMemberId || null,
+          teamMembers
+        );
+
         toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
       } else {
         // Update to won_back status - this transitions contact to Customer
@@ -326,6 +336,17 @@ export function ContactProfileModal({
           teamMembers,
           null
         );
+
+        // Log the won_back activity so it appears in Daily Activity Summary
+        await winbackApi.logActivity(
+          winbackHousehold.id,
+          agencyId,
+          'won_back',
+          'Customer won back!',
+          currentUserTeamMemberId || null,
+          teamMembers
+        );
+
         toast.success('Customer won back!', { description: 'Contact is now a Customer' });
       }
 

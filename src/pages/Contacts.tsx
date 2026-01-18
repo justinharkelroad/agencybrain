@@ -51,6 +51,7 @@ export default function Contacts() {
 
   // Profile modal state
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [selectedContactStage, setSelectedContactStage] = useState<LifecycleStage | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   // Build filters
@@ -150,8 +151,9 @@ export default function Contacts() {
   }, [user, staffUser, staffLoading]);
 
   // Handle opening profile modal
-  const openProfile = (contactId: string) => {
+  const openProfile = (contactId: string, stage: LifecycleStage) => {
     setSelectedContactId(contactId);
+    setSelectedContactStage(stage);
     setProfileModalOpen(true);
   };
 
@@ -292,7 +294,7 @@ export default function Contacts() {
                 <TableRow
                   key={contact.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => openProfile(contact.id)}
+                  onClick={() => openProfile(contact.id, contact.current_stage)}
                 >
                   <TableCell className="font-medium">
                     {contact.first_name} {contact.last_name}
@@ -373,9 +375,11 @@ export default function Contacts() {
           onClose={() => {
             setProfileModalOpen(false);
             setSelectedContactId(null);
+            setSelectedContactStage(null);
           }}
           agencyId={context.agencyId}
           defaultSourceModule="manual"
+          currentStage={selectedContactStage || undefined}
           userId={context.userId ?? undefined}
           staffMemberId={context.staffMemberId ?? undefined}
           displayName={context.displayName}
