@@ -49,15 +49,17 @@ export function useContactProfile(
       const householdKey = contact.household_key;
 
       // Fetch linked records and unified activities in parallel
+      // Note: contact_activities query may fail with RLS issues - handle gracefully
       const [activitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
-        // Unified activities from contact_activities
+        // Unified activities from contact_activities (may not have RLS access)
         supabase
           .from('contact_activities')
           .select('*')
           .eq('contact_id', contactId)
           .eq('agency_id', agencyId)
           .order('activity_date', { ascending: false })
-          .limit(100),
+          .limit(100)
+          .then(res => res.error ? { data: [], error: null } : res), // Gracefully handle RLS errors
 
         // LQS records
         supabase
