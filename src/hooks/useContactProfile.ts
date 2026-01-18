@@ -593,10 +593,11 @@ function determineLifecycleStage(
   const soldLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'sold');
   if (successfulRenewal || soldLqs || wonBack) return 'customer';
 
-  // Check for quoted - priority 5 (either from LQS or winback with quoted status)
+  // Check for quoted - priority 5
+  // LQS 'quoted' status OR winback 'moved_to_quoted' (agreed to get a quote)
   const quotedLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'quoted');
-  const quotedWinback = winbackRecords.find(r => r.status === 'quoted');
-  if (quotedLqs || quotedWinback) return 'quoted';
+  const movedToQuotedWinback = winbackRecords.find(r => r.status === 'moved_to_quoted');
+  if (quotedLqs || movedToQuotedWinback) return 'quoted';
 
   // Check for open lead - priority 6
   const leadLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'lead');
