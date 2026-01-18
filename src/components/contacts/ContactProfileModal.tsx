@@ -219,6 +219,7 @@ export function ContactProfileModal({
 
     setModuleActionLoading(activityType);
     try {
+      // Log the activity
       await winbackApi.logActivity(
         winbackHousehold.id,
         agencyId,
@@ -228,11 +229,26 @@ export function ContactProfileModal({
         teamMembers
       );
 
+      // Also update status from untouched to in_progress if needed
+      // This marks the household as "touched"
+      await winbackApi.updateHouseholdStatus(
+        winbackHousehold.id,
+        agencyId,
+        'in_progress',
+        'untouched', // old status - only changes if currently untouched
+        currentUserTeamMemberId || null,
+        teamMembers,
+        null // assignedTo
+      ).catch(() => {
+        // Ignore errors - status may already be in_progress or won_back
+      });
+
       toast.success('Activity logged');
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
       queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['winback-households'] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });

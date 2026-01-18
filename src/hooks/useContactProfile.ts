@@ -195,11 +195,11 @@ export function useContactProfile(
               .limit(50)
           : Promise.resolve({ data: [], error: null }),
 
-        // Cancel audit activities
+        // Cancel audit activities (note: uses user_display_name, not created_by_name)
         cancelAuditHouseholdKeys.length > 0
           ? supabase
               .from('cancel_audit_activities')
-              .select('id, activity_type, notes, created_by_name, created_at, household_key')
+              .select('id, activity_type, notes, user_display_name, created_at, household_key')
               .eq('agency_id', agencyId)
               .in('household_key', cancelAuditHouseholdKeys)
               .order('created_at', { ascending: false })
@@ -231,7 +231,7 @@ export function useContactProfile(
         source_module: 'cancel_audit' as const,
         activity_type: mapCancelAuditActivityType(ca.activity_type),
         notes: ca.notes,
-        created_by_display_name: ca.created_by_name,
+        created_by_display_name: ca.user_display_name, // cancel_audit uses user_display_name
         activity_date: ca.created_at,
         created_at: ca.created_at,
       }));
