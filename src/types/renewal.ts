@@ -28,6 +28,7 @@ export interface RenewalRecord {
   is_priority?: boolean;
   winback_household_id?: string | null;
   sent_to_winback_at?: string | null;
+  contact_id?: string | null;
   created_at: string; updated_at: string;
   assigned_team_member?: { id: string; name: string } | null;
 }

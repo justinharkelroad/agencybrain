@@ -507,14 +507,15 @@ serve(async (req) => {
 
     // Background task: Automatically flatten quoted_household_details
     // This runs asynchronously and doesn't block the response
-    if (Array.isArray(v.quoted_details) && v.quoted_details.length > 0) {
+    const quotedDetails = Array.isArray(v.quoted_details) ? v.quoted_details : [];
+    if (quotedDetails.length > 0) {
       EdgeRuntime.waitUntil(
         (async () => {
           try {
             logStructured('info', 'flatten_start', {
               request_id: requestId,
               submission_id: sid,
-              quoted_details_count: v.quoted_details.length
+              quoted_details_count: quotedDetails.length
             });
 
             const { data: flattenResult, error: flattenError } = await supabase

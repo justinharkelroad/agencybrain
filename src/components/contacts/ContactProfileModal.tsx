@@ -53,6 +53,7 @@ interface ContactProfileModalProps {
   };
   renewalRecord?: {
     id: string;
+    winback_household_id?: string | null;
   };
   teamMembers?: Array<{ id: string; name: string }>;
   currentUserTeamMemberId?: string | null;
