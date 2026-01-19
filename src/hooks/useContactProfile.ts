@@ -117,8 +117,8 @@ export function useContactProfile(
             status,
             termination_date,
             earliest_winback_date,
-            assigned_team_member_id,
-            team_members:assigned_team_member_id (id, name)
+            assigned_to,
+            team_members:assigned_to (id, name)
           `)
           .eq('contact_id', contactId)
           .eq('agency_id', agencyId)

@@ -361,7 +361,7 @@ export async function updateHouseholdStatus(
   currentUserTeamMemberId: string | null,
   teamMembers: TeamMember[],
   assignedTo: string | null
-): Promise<{ assigned_to?: string }> {
+): Promise<{ success: boolean; assigned_to?: string }> {
   if (isStaffUser()) {
     return callStaffWinback('update_household_status', {
       householdId,
@@ -389,8 +389,8 @@ export async function updateHouseholdStatus(
 
   if (updateError) throw updateError;
 
-  // If no rows were updated (status didn't match), skip logging
-  if (count === 0) return { assigned_to: undefined };
+  // If no rows were updated (status didn't match), return failure
+  if (count === 0) return { success: false, assigned_to: undefined };
 
   // Log status change
   const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
@@ -404,7 +404,7 @@ export async function updateHouseholdStatus(
     created_by_name: userName,
   });
 
-  return { assigned_to: updateData.assigned_to };
+  return { success: true, assigned_to: updateData.assigned_to };
 }
 
 // ============ Assignment ============

@@ -180,7 +180,7 @@ export function WinbackHouseholdModal({
 
     const oldStatus = localStatus;
     setSaving(true);
-    
+
     try {
       const result = await winbackApi.updateHouseholdStatus(
         household.id,
@@ -192,6 +192,15 @@ export function WinbackHouseholdModal({
         assignedTo === 'unassigned' ? null : assignedTo
       );
 
+      // Check if update actually succeeded
+      if (!result.success) {
+        toast.error('Failed to update status', { description: 'Status may have already been changed' });
+        // Refresh to get actual state
+        fetchHouseholdDetails(household.id);
+        onUpdate();
+        return;
+      }
+
       if (result.assigned_to) {
         setAssignedTo(result.assigned_to);
       }
@@ -199,7 +208,7 @@ export function WinbackHouseholdModal({
       setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       onUpdate();
-      
+
       if (newStatus === 'dismissed') {
         onOpenChange(false);
       }
