@@ -567,7 +567,7 @@ export async function permanentDeleteHousehold(householdId: string): Promise<voi
 
 // ============ Activity Stats ============
 
-export async function getActivityStats(agencyId: string): Promise<{
+export async function getActivityStats(agencyId: string, weekStart: Date, weekEnd: Date): Promise<{
   called: number;
   left_vm: number;
   texted: number;
@@ -576,14 +576,19 @@ export async function getActivityStats(agencyId: string): Promise<{
   total: number;
 }> {
   if (isStaffUser()) {
-    return callStaffWinback('get_activity_stats', {});
+    return callStaffWinback('get_activity_stats', {
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+    });
   }
 
   const { data, error } = await supabase
     .from('winback_activities')
     .select('activity_type')
     .eq('agency_id', agencyId)
-    .in('activity_type', ['called', 'left_vm', 'texted', 'emailed', 'quoted']);
+    .in('activity_type', ['called', 'left_vm', 'texted', 'emailed', 'quoted'])
+    .gte('created_at', weekStart.toISOString())
+    .lte('created_at', weekEnd.toISOString());
 
   if (error) throw error;
 
@@ -605,6 +610,28 @@ export async function getActivityStats(agencyId: string): Promise<{
   });
 
   return counts;
+}
+
+// Get weekly won back count
+export async function getWeeklyWonBackCount(agencyId: string, weekStart: Date, weekEnd: Date): Promise<number> {
+  if (isStaffUser()) {
+    const result = await callStaffWinback<{ count: number }>('get_weekly_won_back', {
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+    });
+    return result.count;
+  }
+
+  const { count, error } = await supabase
+    .from('winback_households')
+    .select('id', { count: 'exact', head: true })
+    .eq('agency_id', agencyId)
+    .eq('status', 'won_back')
+    .gte('updated_at', weekStart.toISOString())
+    .lte('updated_at', weekEnd.toISOString());
+
+  if (error) throw error;
+  return count || 0;
 }
 
 // ============ Activity Summary ============

@@ -538,11 +538,22 @@ Deno.serve(async (req) => {
       }
 
       case "get_activity_stats": {
-        const { data, error } = await supabase
+        const { weekStart, weekEnd } = params;
+        
+        let query = supabase
           .from("winback_activities")
           .select("activity_type")
           .eq("agency_id", agencyId)
           .in("activity_type", ["called", "left_vm", "texted", "emailed", "quoted"]);
+
+        if (weekStart) {
+          query = query.gte("created_at", weekStart);
+        }
+        if (weekEnd) {
+          query = query.lte("created_at", weekEnd);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -564,6 +575,22 @@ Deno.serve(async (req) => {
         });
 
         result = counts;
+        break;
+      }
+
+      case "get_weekly_won_back": {
+        const { weekStart, weekEnd } = params;
+        
+        const { count, error } = await supabase
+          .from("winback_households")
+          .select("id", { count: "exact", head: true })
+          .eq("agency_id", agencyId)
+          .eq("status", "won_back")
+          .gte("updated_at", weekStart)
+          .lte("updated_at", weekEnd);
+
+        if (error) throw error;
+        result = { count: count || 0 };
         break;
       }
 
