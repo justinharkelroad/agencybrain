@@ -30,9 +30,11 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
       }
 
       const contacts = data || [];
-      const total = contacts.length > 0 ? Number(contacts[0].total_count) : 0;
+      // Safely extract total_count, fallback to contacts.length if NaN
+      const rawTotal = contacts.length > 0 ? Number(contacts[0].total_count) : 0;
+      const total = Number.isFinite(rawTotal) ? rawTotal : contacts.length;
 
-      // Map to ContactWithStatus format
+      // Map to ContactWithStatus format - use current_stage (not computed_stage)
       const contactsWithStatus: ContactWithStatus[] = contacts.map((c: any) => ({
         id: c.id,
         agency_id: c.agency_id,
@@ -44,7 +46,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         zip_code: c.zip_code,
         created_at: c.created_at,
         updated_at: c.updated_at,
-        current_stage: c.computed_stage as LifecycleStage,
+        current_stage: (c.current_stage || 'open_lead') as LifecycleStage,
         last_activity_at: c.last_activity_at || null,
         last_activity_type: c.last_activity_type || null,
         assigned_team_member_name: c.assigned_team_member_name || null,

@@ -8906,6 +8906,7 @@ export type Database = {
           last_activity_type: string
           last_name: string
           phones: string[]
+          total_count: number
         }[]
       }
       get_conversation_participants: {
