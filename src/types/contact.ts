@@ -53,6 +53,7 @@ export interface ContactWithStatus extends Contact {
   current_stage: LifecycleStage;
   last_activity_at: string | null;
   last_activity_type: ContactActivityType | null;
+  assigned_team_member_name: string | null;
 }
 
 // Activity record from contact_activities table

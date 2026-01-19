@@ -47,6 +47,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         current_stage: c.computed_stage as LifecycleStage,
         last_activity_at: c.last_activity_at || null,
         last_activity_type: c.last_activity_type || null,
+        assigned_team_member_name: c.assigned_team_member_name || null,
       }));
 
       const hasMore = (pageParam + PAGE_SIZE) < total;

@@ -8897,6 +8897,7 @@ export type Database = {
         }
         Returns: {
           agency_id: string
+          assigned_team_member_name: string
           computed_stage: string
           created_at: string
           emails: string[]
