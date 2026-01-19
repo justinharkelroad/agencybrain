@@ -39,14 +39,15 @@ serve(async (req) => {
       });
     }
 
-    if (!session || new Date(session.expires_at) < new Date() || !session.staff_users?.is_active) {
+    // Note: staff_users is returned as array from joined query
+    const staffUser = session.staff_users?.[0];
+    if (!session || new Date(session.expires_at) < new Date() || !staffUser?.is_active) {
       console.error('[log_staff_renewal_activity] Session expired or user inactive');
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), { 
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const staffUser = session.staff_users;
     const agencyId = staffUser.agency_id;
     console.log('[log_staff_renewal_activity] Valid session for agency:', agencyId);
 

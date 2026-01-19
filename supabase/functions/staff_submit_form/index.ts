@@ -3,6 +3,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
+// Declare EdgeRuntime global for Supabase Edge Functions
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
 const FUNCTION_VERSION = "1.0.0";
 
 // Date validation - ensure work date is within 7 days
@@ -272,8 +277,9 @@ Deno.serve(async (req) => {
 
     if (!bindingError && kpiBindings && kpiBindings.length > 0) {
       // Use bindings if available
+      // Note: kpi_versions is returned as array from joined query
       kpiVersionId = kpiBindings[0].kpi_version_id;
-      labelAtSubmit = kpiBindings[0].kpi_versions.label;
+      labelAtSubmit = kpiBindings[0].kpi_versions?.[0]?.label || null;
     } else {
       // Fallback: Try to resolve KPIs by slug from form schema
       logStructured('info', 'attempting_slug_fallback', {
@@ -393,11 +399,20 @@ Deno.serve(async (req) => {
       sid = ins.id;
 
       // Step 8: Finalize submission (same pattern as public form)
-      const { data: sRow } = await supabase
+      const { data: sRow, error: sRowError } = await supabase
         .from('submissions')
         .select('team_member_id, work_date, submission_date')
         .eq('id', sid)
         .single();
+
+      if (sRowError || !sRow) {
+        logStructured('error', 'submission_fetch_failed', {
+          request_id: requestId,
+          submission_id: sid,
+          error: sRowError?.message
+        });
+        return json(500, { error: 'Submission created but could not be verified' });
+      }
 
       const effectiveWorkDate = sRow.work_date ?? sRow.submission_date;
 

@@ -234,7 +234,8 @@ serve(async (req) => {
     }
 
     // 6. Build email content
-    const producerName = sale.team_member?.name || 'Unknown';
+    // Note: team_member is returned as array from joined query
+    const producerName = sale.team_member?.[0]?.name || 'Unknown';
     const customerName = sale.customer_name || 'Unknown';
     const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });

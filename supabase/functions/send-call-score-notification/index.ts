@@ -635,7 +635,8 @@ serve(async (req) => {
     }
 
     // 3. Get recipients
-    const teamMemberId = call.team_member?.id;
+    // Note: team_member is returned as array from joined query
+    const teamMemberId = call.team_member?.[0]?.id;
     if (!teamMemberId) {
       console.log('[send-call-score-notification] No team member associated with call');
       return new Response(
@@ -656,7 +657,7 @@ serve(async (req) => {
 
     // 4. Determine call type and build email content
     const callType = call.call_type || 'sales';
-    const teamMemberName = call.team_member?.name || 'Unknown';
+    const teamMemberName = call.team_member?.[0]?.name || 'Unknown';
     const filename = call.original_filename || 'Call Recording';
     const timezone = agency.timezone || 'America/New_York';
     

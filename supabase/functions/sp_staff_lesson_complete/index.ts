@@ -187,7 +187,7 @@ Expected Result: ${reflections.result}`,
                   
                   <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
                     <p style="color: #64748b; font-size: 14px; margin: 0 0 5px 0;">
-                      ${lesson?.module?.category?.name || 'Standard Playbook'} → ${lesson?.module?.name || 'Module'}
+                      ${lesson?.module?.[0]?.category?.[0]?.name || 'Standard Playbook'} → ${lesson?.module?.[0]?.name || 'Module'}
                     </p>
                     <h3 style="color: #1e293b; margin: 0; font-size: 18px;">
                       ${lesson?.name}

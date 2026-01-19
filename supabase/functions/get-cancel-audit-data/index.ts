@@ -871,7 +871,13 @@ async function getSavedPayments(supabase: any, agencyId: string, params: any) {
 
   // Combine activity and record data
   const payments = activities.map((activity: any) => {
-    const record = recordMap.get(activity.record_id) || {};
+    const record = (recordMap.get(activity.record_id) || {}) as {
+      insured_first_name?: string;
+      insured_last_name?: string;
+      policy_number?: string;
+      product_name?: string;
+      premium_cents?: number;
+    };
     return {
       activityId: activity.id,
       recordId: activity.record_id,

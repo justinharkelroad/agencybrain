@@ -134,13 +134,13 @@ serve(async (req) => {
             });
           }
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(`Exception processing submission ${submissionId}:`, err);
         errors++;
         results.push({
           submission_id: submissionId,
           success: false,
-          error: err.message
+          error: err instanceof Error ? err.message : 'Unknown error'
         });
       }
     }
