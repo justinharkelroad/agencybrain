@@ -8903,6 +8903,8 @@ export type Database = {
           first_name: string
           household_key: string
           id: string
+          last_activity_at: string
+          last_activity_type: string
           last_name: string
           phones: string[]
           total_count: number
