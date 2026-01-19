@@ -350,6 +350,29 @@ export async function logActivity(
 
   if (error) throw error;
 
+  // Also log to unified contact_activities for Contacts page "Last Activity"
+  try {
+    const { data: household } = await supabase
+      .from('winback_households')
+      .select('contact_id')
+      .eq('id', householdId)
+      .single();
+    
+    if (household?.contact_id) {
+      await supabase.rpc('insert_contact_activity', {
+        p_agency_id: agencyId,
+        p_contact_id: household.contact_id,
+        p_source_module: 'winback',
+        p_activity_type: activityType,
+        p_source_record_id: householdId,
+        p_notes: notes || null,
+        p_created_by_display_name: userName,
+      });
+    }
+  } catch (unifiedErr) {
+    console.warn('Failed to log to unified contact_activities:', unifiedErr);
+  }
+
   // Dispatch event for immediate UI updates (fallback if Realtime is slow/broken)
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('winback:activity_logged', {

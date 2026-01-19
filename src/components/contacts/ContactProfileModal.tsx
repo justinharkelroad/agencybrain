@@ -359,7 +359,8 @@ export function ContactProfileModal({
         if (lqsError) throw lqsError;
 
         // Step 3: Mark winback as moved_to_quoted (they agreed to get a quote)
-        await winbackApi.updateHouseholdStatus(
+        // Try from in_progress first, then from untouched if that fails
+        let winbackResult = await winbackApi.updateHouseholdStatus(
           winbackHousehold.id,
           agencyId,
           'moved_to_quoted',
@@ -367,9 +368,24 @@ export function ContactProfileModal({
           currentUserTeamMemberId || null,
           teamMembers,
           null
-        ).catch(() => {
-          // Ignore status update errors - LQS record is the important part
-        });
+        );
+        
+        // If in_progress didn't match, try from untouched
+        if (!winbackResult.success) {
+          winbackResult = await winbackApi.updateHouseholdStatus(
+            winbackHousehold.id,
+            agencyId,
+            'moved_to_quoted',
+            'untouched',
+            currentUserTeamMemberId || null,
+            teamMembers,
+            null
+          );
+        }
+        
+        if (!winbackResult.success) {
+          console.warn('Failed to update winback status to moved_to_quoted - status may have already changed');
+        }
 
         // Step 4: Log the quoted activity so it appears in Daily Activity Summary
         await winbackApi.logActivity(

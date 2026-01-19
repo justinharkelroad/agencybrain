@@ -136,6 +136,29 @@ export function useCreateRenewalActivity() {
         created_by_display_name: displayName,
       });
       if (activityError) throw activityError;
+
+      // Also log to unified contact_activities for Contacts page "Last Activity"
+      try {
+        const { data: record } = await supabase
+          .from('renewal_records')
+          .select('contact_id')
+          .eq('id', params.renewalRecordId)
+          .single();
+        
+        if (record?.contact_id) {
+          await supabase.rpc('insert_contact_activity', {
+            p_agency_id: params.agencyId,
+            p_contact_id: record.contact_id,
+            p_source_module: 'renewal',
+            p_activity_type: params.activityType,
+            p_source_record_id: params.renewalRecordId,
+            p_notes: params.comments || null,
+            p_created_by_display_name: displayName,
+          });
+        }
+      } catch (unifiedErr) {
+        console.warn('Failed to log to unified contact_activities:', unifiedErr);
+      }
       
       // Update parent record
       const recordUpdates: Record<string, any> = {
