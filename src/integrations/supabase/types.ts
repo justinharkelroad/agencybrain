@@ -371,6 +371,47 @@ export type Database = {
           },
         ]
       }
+      agency_comp_settings: {
+        Row: {
+          aap_level: string
+          agency_id: string
+          agency_tier: string | null
+          created_at: string | null
+          id: string
+          pif_count: number | null
+          state: string
+          updated_at: string | null
+        }
+        Insert: {
+          aap_level?: string
+          agency_id: string
+          agency_tier?: string | null
+          created_at?: string | null
+          id?: string
+          pif_count?: number | null
+          state?: string
+          updated_at?: string | null
+        }
+        Update: {
+          aap_level?: string
+          agency_id?: string
+          agency_tier?: string | null
+          created_at?: string | null
+          id?: string
+          pif_count?: number | null
+          state?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_comp_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_contacts: {
         Row: {
           agency_id: string
@@ -422,47 +463,6 @@ export type Database = {
             foreignKeyName: "agency_contacts_agency_id_fkey"
             columns: ["agency_id"]
             isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agency_comp_settings: {
-        Row: {
-          aap_level: string
-          agency_id: string
-          agency_tier: string | null
-          created_at: string | null
-          id: string
-          pif_count: number | null
-          state: string
-          updated_at: string | null
-        }
-        Insert: {
-          aap_level?: string
-          agency_id: string
-          agency_tier?: string | null
-          created_at?: string | null
-          id?: string
-          pif_count?: number | null
-          state?: string
-          updated_at?: string | null
-        }
-        Update: {
-          aap_level?: string
-          agency_id?: string
-          agency_tier?: string | null
-          created_at?: string | null
-          id?: string
-          pif_count?: number | null
-          state?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agency_comp_settings_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: true
             referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
@@ -1827,6 +1827,94 @@ export type Database = {
           },
         ]
       }
+      contact_activities: {
+        Row: {
+          activity_date: string
+          activity_subtype: string | null
+          activity_type: string
+          agency_id: string
+          call_direction: string | null
+          call_duration_seconds: number | null
+          call_recording_url: string | null
+          contact_id: string
+          created_at: string
+          created_by_display_name: string | null
+          created_by_staff_id: string | null
+          created_by_user_id: string | null
+          id: string
+          notes: string | null
+          outcome: string | null
+          phone_number: string | null
+          source_module: string
+          source_record_id: string | null
+          subject: string | null
+        }
+        Insert: {
+          activity_date?: string
+          activity_subtype?: string | null
+          activity_type: string
+          agency_id: string
+          call_direction?: string | null
+          call_duration_seconds?: number | null
+          call_recording_url?: string | null
+          contact_id: string
+          created_at?: string
+          created_by_display_name?: string | null
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          id?: string
+          notes?: string | null
+          outcome?: string | null
+          phone_number?: string | null
+          source_module: string
+          source_record_id?: string | null
+          subject?: string | null
+        }
+        Update: {
+          activity_date?: string
+          activity_subtype?: string | null
+          activity_type?: string
+          agency_id?: string
+          call_direction?: string | null
+          call_duration_seconds?: number | null
+          call_recording_url?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by_display_name?: string | null
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          id?: string
+          notes?: string | null
+          outcome?: string | null
+          phone_number?: string | null
+          source_module?: string
+          source_record_id?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_activities_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       core4_entries: {
         Row: {
           balance_completed: boolean | null
@@ -1913,90 +2001,6 @@ export type Database = {
           weekly_measurable?: string | null
         }
         Relationships: []
-      }
-      contact_activities: {
-        Row: {
-          activity_date: string
-          activity_subtype: string | null
-          activity_type: string
-          agency_id: string
-          call_direction: string | null
-          call_duration_seconds: number | null
-          call_recording_url: string | null
-          contact_id: string
-          created_at: string
-          created_by_display_name: string | null
-          created_by_staff_id: string | null
-          created_by_user_id: string | null
-          id: string
-          notes: string | null
-          outcome: string | null
-          phone_number: string | null
-          source_module: string
-          source_record_id: string | null
-          subject: string | null
-          updated_at: string
-        }
-        Insert: {
-          activity_date?: string
-          activity_subtype?: string | null
-          activity_type: string
-          agency_id: string
-          call_direction?: string | null
-          call_duration_seconds?: number | null
-          call_recording_url?: string | null
-          contact_id: string
-          created_at?: string
-          created_by_display_name?: string | null
-          created_by_staff_id?: string | null
-          created_by_user_id?: string | null
-          id?: string
-          notes?: string | null
-          outcome?: string | null
-          phone_number?: string | null
-          source_module: string
-          source_record_id?: string | null
-          subject?: string | null
-          updated_at?: string
-        }
-        Update: {
-          activity_date?: string
-          activity_subtype?: string | null
-          activity_type?: string
-          agency_id?: string
-          call_direction?: string | null
-          call_duration_seconds?: number | null
-          call_recording_url?: string | null
-          contact_id?: string
-          created_at?: string
-          created_by_display_name?: string | null
-          created_by_staff_id?: string | null
-          created_by_user_id?: string | null
-          id?: string
-          notes?: string | null
-          outcome?: string | null
-          phone_number?: string | null
-          source_module?: string
-          source_record_id?: string | null
-          subject?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "contact_activities_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "contact_activities_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "agency_contacts"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       custom_detail_collections: {
         Row: {
@@ -5393,13 +5397,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "renewal_records_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "agency_contacts"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "renewal_records_assigned_team_member_id_fkey"
             columns: ["assigned_team_member_id"]
             isOneToOne: false
@@ -5411,6 +5408,13 @@ export type Database = {
             columns: ["assigned_team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_records_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
             referencedColumns: ["id"]
           },
           {
@@ -8815,14 +8819,14 @@ export type Database = {
       find_or_create_contact: {
         Args: {
           p_agency_id: string
+          p_city?: string
+          p_email?: string
           p_first_name: string
           p_last_name: string
           p_phone?: string
-          p_email?: string
-          p_zip_code?: string
-          p_street_address?: string
-          p_city?: string
           p_state?: string
+          p_street_address?: string
+          p_zip_code?: string
         }
         Returns: string
       }
@@ -8870,6 +8874,29 @@ export type Database = {
         }[]
       }
       get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_contacts_by_stage: {
+        Args: {
+          p_agency_id: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_stage?: string
+        }
+        Returns: {
+          agency_id: string
+          computed_stage: string
+          created_at: string
+          emails: string[]
+          first_name: string
+          household_key: string
+          id: string
+          last_name: string
+          phones: string[]
+          total_count: number
+          updated_at: string
+          zip_code: string
+        }[]
+      }
       get_conversation_participants: {
         Args: { participant_ids: string[] }
         Returns: {
@@ -9012,10 +9039,9 @@ export type Database = {
               value: number
             }[]
           }
-      has_agency_access: {
-        Args: { _agency_id: string; _user_id: string }
-        Returns: boolean
-      }
+      has_agency_access:
+        | { Args: { _agency_id: string; _user_id: string }; Returns: boolean }
+        | { Args: { check_agency_id: string }; Returns: boolean }
       has_cancel_audit_access: {
         Args: { check_agency_id: string }
         Returns: boolean
@@ -9034,6 +9060,28 @@ export type Database = {
       increment_call_usage: {
         Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
+      }
+      insert_contact_activity: {
+        Args: {
+          p_activity_date?: string
+          p_activity_subtype?: string
+          p_activity_type: string
+          p_agency_id: string
+          p_call_direction?: string
+          p_call_duration_seconds?: number
+          p_call_recording_url?: string
+          p_contact_id: string
+          p_created_by_display_name?: string
+          p_created_by_staff_id?: string
+          p_created_by_user_id?: string
+          p_notes?: string
+          p_outcome?: string
+          p_phone_number?: string
+          p_source_module: string
+          p_source_record_id?: string
+          p_subject?: string
+        }
+        Returns: string
       }
       is_agency_owner_of_staff: {
         Args: { target_user_id: string }
@@ -9058,27 +9106,6 @@ export type Database = {
       link_sale_to_lqs_household: {
         Args: { p_household_id: string; p_sale_id: string }
         Returns: Json
-      }
-      log_contact_activity: {
-        Args: {
-          p_contact_id: string
-          p_agency_id: string
-          p_source_module: string
-          p_activity_type: string
-          p_source_record_id?: string
-          p_activity_subtype?: string
-          p_phone_number?: string
-          p_call_direction?: string
-          p_call_duration_seconds?: number
-          p_call_recording_url?: string
-          p_subject?: string
-          p_notes?: string
-          p_outcome?: string
-          p_created_by_user_id?: string
-          p_created_by_staff_id?: string
-          p_created_by_display_name?: string
-        }
-        Returns: string
       }
       list_agencies_safe: {
         Args: never
@@ -9109,6 +9136,27 @@ export type Database = {
           slug: string
         }[]
       }
+      log_contact_activity: {
+        Args: {
+          p_activity_subtype?: string
+          p_activity_type: string
+          p_agency_id: string
+          p_call_direction?: string
+          p_call_duration_seconds?: number
+          p_call_recording_url?: string
+          p_contact_id: string
+          p_created_by_display_name?: string
+          p_created_by_staff_id?: string
+          p_created_by_user_id?: string
+          p_notes?: string
+          p_outcome?: string
+          p_phone_number?: string
+          p_source_module: string
+          p_source_record_id?: string
+          p_subject?: string
+        }
+        Returns: string
+      }
       match_sale_to_lqs_household: {
         Args: { p_sale_id: string }
         Returns: {
@@ -9117,10 +9165,7 @@ export type Database = {
           matched_key: string
         }[]
       }
-      normalize_phone: {
-        Args: { p_phone: string }
-        Returns: string
-      }
+      normalize_phone: { Args: { phone: string }; Returns: string }
       normalize_product_type: {
         Args: { p_product_type: string }
         Returns: string

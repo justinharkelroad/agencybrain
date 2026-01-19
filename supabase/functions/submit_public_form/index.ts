@@ -405,7 +405,7 @@ serve(async (req) => {
         total_bindings: anyBindings?.length ?? 0,
         sample_binding: anyBindings?.[0] ? {
           kpi_version_id: anyBindings[0].kpi_version_id,
-          valid_to: anyBindings[0].kpi_versions?.valid_to
+          valid_to: anyBindings[0].kpi_versions?.[0]?.valid_to
         } : null
       });
     }

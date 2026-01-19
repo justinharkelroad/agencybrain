@@ -635,8 +635,8 @@ serve(async (req) => {
     }
 
     // 3. Get recipients
-    // Note: team_member is returned as object from joined query (one-to-one FK join)
-    const teamMemberId = call.team_member?.id;
+    // Note: team_member is typed as array by Supabase but returned as single object at runtime
+    const teamMemberId = (call.team_member as any)?.id;
     if (!teamMemberId) {
       console.log('[send-call-score-notification] No team member associated with call');
       return new Response(
@@ -657,7 +657,7 @@ serve(async (req) => {
 
     // 4. Determine call type and build email content
     const callType = call.call_type || 'sales';
-    const teamMemberName = call.team_member?.name || 'Unknown';
+    const teamMemberName = (call.team_member as any)?.name || 'Unknown';
     const filename = call.original_filename || 'Call Recording';
     const timezone = agency.timezone || 'America/New_York';
     
