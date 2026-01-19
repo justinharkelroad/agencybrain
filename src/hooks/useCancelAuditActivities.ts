@@ -63,6 +63,29 @@ export function useLogActivity() {
 
       if (error) throw error;
 
+      // Also log to unified contact_activities for Contacts page "Last Activity"
+      try {
+        const { data: record } = await supabase
+          .from('cancel_audit_records')
+          .select('contact_id')
+          .eq('id', params.recordId)
+          .single();
+        
+        if (record?.contact_id) {
+          await supabase.rpc('insert_contact_activity', {
+            p_agency_id: params.agencyId,
+            p_contact_id: record.contact_id,
+            p_source_module: 'cancel_audit',
+            p_activity_type: params.activityType,
+            p_source_record_id: params.recordId,
+            p_notes: params.notes || null,
+            p_created_by_display_name: params.userDisplayName,
+          });
+        }
+      } catch (unifiedErr) {
+        console.warn('Failed to log to unified contact_activities:', unifiedErr);
+      }
+
       // Determine what status to set based on activity type
       if (params.activityType === 'payment_made') {
         // Payment made = account saved, transition to Customer
