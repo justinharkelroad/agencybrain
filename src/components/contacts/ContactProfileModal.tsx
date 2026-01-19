@@ -431,7 +431,36 @@ export function ContactProfileModal({
         updateRecordStatus,
       });
 
+      // If marked as successful, also update renewal_status and close out any winback
       if (activityStatus === 'successful') {
+        // Update renewal_status to 'Renewal Taken' for display consistency
+        await supabase
+          .from('renewal_records')
+          .update({ renewal_status: 'Renewal Taken' })
+          .eq('id', renewalRecord.id);
+
+        // Close out any associated winback record - check by winback_household_id or contact_id
+        if (renewalRecord.winback_household_id) {
+          // Direct link exists - update that winback
+          await supabase
+            .from('winback_households')
+            .update({ status: 'won_back', updated_at: new Date().toISOString() })
+            .eq('id', renewalRecord.winback_household_id)
+            .eq('agency_id', agencyId);
+        } else if (contactId) {
+          // No direct link - find winback by contact_id and close it
+          await supabase
+            .from('winback_households')
+            .update({ status: 'won_back', updated_at: new Date().toISOString() })
+            .eq('contact_id', contactId)
+            .eq('agency_id', agencyId)
+            .in('status', ['untouched', 'in_progress']); // Only update active winbacks
+        }
+
+        // Invalidate winback queries too since we may have updated a winback record
+        queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+        queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
+
         toast.success('Renewal marked as successful!', { description: 'Great work!' });
       } else if (activityStatus === 'push_to_winback') {
         toast.success('Pushed to Winback', { description: 'Record will appear in Winback module' });
