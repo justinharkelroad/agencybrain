@@ -59,7 +59,7 @@ export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps
   useEffect(() => {
     if (!agencyId || !isToday(selectedDate)) return;
 
-    const channelName = `winback-activity-summary-${agencyId}-${Date.now()}`;
+    const channelName = `winback-activity-summary-${agencyId}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -80,6 +80,21 @@ export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps
     return () => {
       supabase.removeChannel(channel);
     };
+  }, [agencyId, selectedDate, refetch]);
+
+  // Fallback: listen for app-level activity events (immediate update even if Realtime is slow)
+  useEffect(() => {
+    if (!agencyId) return;
+    
+    const handleActivityLogged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.agencyId === agencyId && isToday(selectedDate)) {
+        refetch();
+      }
+    };
+    
+    window.addEventListener('winback:activity_logged', handleActivityLogged);
+    return () => window.removeEventListener('winback:activity_logged', handleActivityLogged);
   }, [agencyId, selectedDate, refetch]);
   
   // Aggregate by user

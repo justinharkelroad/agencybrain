@@ -103,6 +103,19 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     };
   }, [agencyId]);
 
+  // Fallback: listen for app-level activity events (immediate update even if Realtime is slow)
+  useEffect(() => {
+    const handleActivityLogged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.agencyId === agencyId && isCurrentWeekRef.current) {
+        fetchStatsRef.current();
+      }
+    };
+    
+    window.addEventListener('winback:activity_logged', handleActivityLogged);
+    return () => window.removeEventListener('winback:activity_logged', handleActivityLogged);
+  }, [agencyId]);
+
 
   const handlePreviousWeek = () => {
     setSelectedDate(subWeeks(selectedDate, 1));
