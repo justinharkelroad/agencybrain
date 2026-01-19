@@ -65,13 +65,20 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     }
   }, [agencyId, selectedDate]);
 
+  // Keep fetchStats ref current for subscription callback
+  const fetchStatsRef = useRef(fetchStats);
+  fetchStatsRef.current = fetchStats;
+
+  // Initial fetch + refetch when date changes
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Separate subscription - only recreates when agencyId changes
   useEffect(() => {
     if (!agencyId) return;
     
-    fetchStats();
-    
-    // Subscribe to real-time updates with server-side agency filtering
-    const channelName = `winback-activities-stats-${agencyId}-${Date.now()}`;
+    const channelName = `winback-activities-stats-${agencyId}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -83,9 +90,9 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
           filter: `agency_id=eq.${agencyId}`,
         },
         () => {
-          // Use ref to check current week status (avoids stale closure)
+          // Use refs to get current values (avoids stale closure)
           if (isCurrentWeekRef.current) {
-            fetchStats();
+            fetchStatsRef.current();
           }
         }
       )
@@ -94,7 +101,7 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [agencyId, fetchStats]);
+  }, [agencyId]);
 
 
   const handlePreviousWeek = () => {
