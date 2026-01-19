@@ -25,14 +25,14 @@ interface WinbackActivityLogProps {
   onLogActivity: (type: string, notes: string) => Promise<void>;
 }
 
-const activityConfig: Record<string, { icon: typeof Phone; label: string; color: string }> = {
-  called: { icon: Phone, label: 'Called', color: 'text-green-400' },
-  left_vm: { icon: PhoneOff, label: 'Left Voicemail', color: 'text-yellow-400' },
-  texted: { icon: MessageSquare, label: 'Texted', color: 'text-cyan-400' },
-  emailed: { icon: Mail, label: 'Emailed', color: 'text-blue-400' },
-  quoted: { icon: FileText, label: 'Quoted', color: 'text-purple-400' },
-  note: { icon: StickyNote, label: 'Note', color: 'text-gray-400' },
-  status_change: { icon: ArrowRight, label: 'Status Changed', color: 'text-orange-400' },
+const activityConfig: Record<string, { icon: typeof Phone; label: string; color: string; buttonColor: string }> = {
+  called: { icon: Phone, label: 'Called', color: 'text-blue-400', buttonColor: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  left_vm: { icon: PhoneOff, label: 'Left Voicemail', color: 'text-orange-400', buttonColor: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+  texted: { icon: MessageSquare, label: 'Texted', color: 'text-emerald-400', buttonColor: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  emailed: { icon: Mail, label: 'Emailed', color: 'text-purple-400', buttonColor: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  quoted: { icon: FileText, label: 'Quoted', color: 'text-yellow-400', buttonColor: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  note: { icon: StickyNote, label: 'Note', color: 'text-gray-400', buttonColor: 'bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border-gray-500/30' },
+  status_change: { icon: ArrowRight, label: 'Status Changed', color: 'text-orange-400', buttonColor: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
 
 export function WinbackActivityLog({ activities, loading, onLogActivity }: WinbackActivityLogProps) {
@@ -71,56 +71,27 @@ export function WinbackActivityLog({ activities, loading, onLogActivity }: Winba
     <div className="space-y-4">
       {/* Quick Action Buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuickAction('called')}
-          disabled={logging}
-          className={cn(activeAction === 'called' && 'opacity-50')}
-        >
-          <Phone className="h-4 w-4 mr-1" />
-          Called
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuickAction('left_vm')}
-          disabled={logging}
-          className={cn(activeAction === 'left_vm' && 'opacity-50')}
-        >
-          <PhoneOff className="h-4 w-4 mr-1" />
-          Left VM
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuickAction('texted')}
-          disabled={logging}
-          className={cn(activeAction === 'texted' && 'opacity-50')}
-        >
-          <MessageSquare className="h-4 w-4 mr-1" />
-          Texted
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuickAction('emailed')}
-          disabled={logging}
-          className={cn(activeAction === 'emailed' && 'opacity-50')}
-        >
-          <Mail className="h-4 w-4 mr-1" />
-          Emailed
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => handleQuickAction('quoted')}
-          disabled={logging}
-          className={cn(activeAction === 'quoted' && 'opacity-50')}
-        >
-          <FileText className="h-4 w-4 mr-1" />
-          Quoted
-        </Button>
+        {(['called', 'left_vm', 'texted', 'emailed', 'quoted'] as const).map((type) => {
+          const config = activityConfig[type];
+          const Icon = config.icon;
+          return (
+            <Button
+              key={type}
+              size="sm"
+              variant="outline"
+              onClick={() => handleQuickAction(type)}
+              disabled={logging}
+              className={cn(
+                'border transition-colors',
+                config.buttonColor,
+                activeAction === type && 'opacity-50'
+              )}
+            >
+              <Icon className="h-4 w-4 mr-1" />
+              {type === 'left_vm' ? 'Left VM' : config.label}
+            </Button>
+          );
+        })}
       </div>
 
       {/* Add Note */}
