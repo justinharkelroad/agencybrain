@@ -81,7 +81,8 @@ export default function Contacts() {
     return contactsData.pages.flatMap((page) => page.contacts);
   }, [contactsData]);
 
-  const totalCount = contactsData?.pages?.[0]?.total ?? 0;
+  const rawTotal = contactsData?.pages?.[0]?.total ?? 0;
+  const totalCount = Number.isFinite(rawTotal) ? rawTotal : contacts.length;
 
   // Clear any stale staff tokens when on non-staff route
   useEffect(() => {
