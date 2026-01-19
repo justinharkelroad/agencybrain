@@ -151,8 +151,6 @@ export interface LinkedRenewalRecord {
 export interface LinkedCancelAuditRecord {
   id: string;
   cancel_status: string | null;
-  cancel_reason: string | null;
-  resolution: string | null;
   assigned_team_member_name: string | null;
   created_at: string;
   // Extended fields
@@ -163,13 +161,15 @@ export interface LinkedCancelAuditRecord {
   cancel_date: string | null;
   pending_cancel_date: string | null;
   account_type: string | null;
+  report_type: string | null;
 }
 
 export interface LinkedWinbackRecord {
   id: string;
   status: string | null;
-  termination_date: string | null;
   earliest_winback_date: string | null;
+  total_premium_potential_cents: number | null;
+  policy_count: number | null;
   assigned_team_member_name: string | null;
   // Extended fields
   policies: WinbackPolicyDetail[];

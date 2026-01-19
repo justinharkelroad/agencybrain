@@ -112,7 +112,6 @@ export function useContactProfile(
             id,
             household_key,
             cancel_status,
-            cancel_reason,
             created_at,
             assigned_team_member_id,
             policy_number,
@@ -122,6 +121,7 @@ export function useContactProfile(
             cancel_date,
             pending_cancel_date,
             account_type,
+            report_type,
             team_members:assigned_team_member_id (id, name)
           `)
           .eq('contact_id', contactId)
@@ -134,8 +134,9 @@ export function useContactProfile(
           .select(`
             id,
             status,
-            termination_date,
             earliest_winback_date,
+            total_premium_potential_cents,
+            policy_count,
             assigned_to,
             team_members:assigned_to (id, name)
           `)
@@ -199,8 +200,6 @@ export function useContactProfile(
       const cancelAuditRecords: LinkedCancelAuditRecord[] = (cancelAuditResult.data || []).map((r: any) => ({
         id: r.id,
         cancel_status: r.cancel_status,
-        cancel_reason: r.cancel_reason,
-        resolution: null, // May need to add this field
         assigned_team_member_name: r.team_members?.name || null,
         created_at: r.created_at,
         // Extended fields
@@ -211,13 +210,15 @@ export function useContactProfile(
         cancel_date: r.cancel_date,
         pending_cancel_date: r.pending_cancel_date,
         account_type: r.account_type,
+        report_type: r.report_type,
       }));
 
       const winbackRecords: LinkedWinbackRecord[] = (winbackResult.data || []).map((r: any) => ({
         id: r.id,
         status: r.status,
-        termination_date: r.termination_date,
         earliest_winback_date: r.earliest_winback_date,
+        total_premium_potential_cents: r.total_premium_potential_cents,
+        policy_count: r.policy_count,
         assigned_team_member_name: r.team_members?.name || null,
         // Policies will be added after fetching winback_policies
         policies: [],

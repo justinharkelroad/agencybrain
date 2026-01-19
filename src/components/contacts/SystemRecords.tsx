@@ -395,11 +395,11 @@ function CancelAuditRecordCard({
             )}
           </div>
 
-          {/* Cancel reason */}
-          {record.cancel_reason && (
-            <div className="text-xs text-muted-foreground">
-              Reason: {record.cancel_reason}
-            </div>
+          {/* Report type badge */}
+          {record.report_type && (
+            <Badge variant="outline" className="text-xs py-0">
+              {record.report_type === 'cancellation' ? 'Cancellation' : 'Pending Cancel'}
+            </Badge>
           )}
         </div>
       </CardContent>
@@ -453,30 +453,25 @@ function WinbackRecordCard({
                 )}
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {record.termination_date && (
-                  <span>
-                    Terminated: {format(new Date(record.termination_date), 'MMM d, yyyy')}
-                  </span>
-                )}
                 {record.earliest_winback_date && (
                   <span className="text-purple-600">
                     Eligible: {format(new Date(record.earliest_winback_date), 'MMM d, yyyy')}
                   </span>
                 )}
               </div>
-              {/* Quick summary */}
-              {hasDetails && (
-                <div className="flex items-center gap-4 text-xs mt-1">
+              {/* Quick summary - use policy_count and premium from household */}
+              <div className="flex items-center gap-4 text-xs mt-1">
+                {(record.policy_count || 0) > 0 && (
                   <span className="text-purple-600">
-                    {record.policies?.length} terminated polic{record.policies?.length !== 1 ? 'ies' : 'y'}
+                    {record.policy_count} terminated polic{record.policy_count !== 1 ? 'ies' : 'y'}
                   </span>
-                  {totalOldPremium > 0 && (
-                    <span className="text-muted-foreground">
-                      (${(totalOldPremium / 100).toLocaleString()} potential)
-                    </span>
-                  )}
-                </div>
-              )}
+                )}
+                {(record.total_premium_potential_cents || 0) > 0 && (
+                  <span className="text-muted-foreground">
+                    (${((record.total_premium_potential_cents || 0) / 100).toLocaleString()} potential)
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1">
               {hasDetails && (
