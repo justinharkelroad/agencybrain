@@ -55,7 +55,7 @@ export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps
     refetchInterval: isToday(selectedDate) ? 30000 : false,
   });
 
-  // Subscribe to real-time updates when viewing today
+  // Subscribe to real-time updates when viewing today with server-side filtering
   useEffect(() => {
     if (!agencyId || !isToday(selectedDate)) return;
 
@@ -68,11 +68,11 @@ export function WinbackActivitySummary({ agencyId }: WinbackActivitySummaryProps
           event: 'INSERT',
           schema: 'public',
           table: 'winback_activities',
+          filter: `agency_id=eq.${agencyId}`,
         },
-        (payload) => {
-          if (payload.new && (payload.new as any).agency_id === agencyId) {
-            refetch();
-          }
+        () => {
+          // Server-side filter handles agency check, just refetch
+          refetch();
         }
       )
       .subscribe();
