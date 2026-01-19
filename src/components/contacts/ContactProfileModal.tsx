@@ -454,11 +454,14 @@ export function ContactProfileModal({
     updateRecordStatus?: WorkflowStatus
   ) => {
     if (!agencyId || !renewalRecord || !displayName) return;
+    
+    // Extract fields with correct types - TypeScript narrowing workaround
+    const record = renewalRecord as { id: string; winback_household_id?: string | null };
 
     setModuleActionLoading(activityType + (activityStatus || ''));
     try {
       await createRenewalActivity.mutateAsync({
-        renewalRecordId: renewalRecord.id,
+        renewalRecordId: record.id,
         agencyId,
         activityType,
         activityStatus,
@@ -473,15 +476,16 @@ export function ContactProfileModal({
         await supabase
           .from('renewal_records')
           .update({ renewal_status: 'Renewal Taken' })
-          .eq('id', renewalRecord.id);
+          .eq('id', record.id);
 
         // Close out any associated winback record - check by winback_household_id or contact_id
-        if (renewalRecord.winback_household_id) {
+        const winbackHouseholdId = record.winback_household_id;
+        if (winbackHouseholdId) {
           // Direct link exists - update that winback
           await supabase
             .from('winback_households')
             .update({ status: 'won_back', updated_at: new Date().toISOString() })
-            .eq('id', renewalRecord.winback_household_id)
+            .eq('id', winbackHouseholdId)
             .eq('agency_id', agencyId);
         } else if (contactId) {
           // No direct link - find winback by contact_id and close it
