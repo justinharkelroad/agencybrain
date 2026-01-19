@@ -330,11 +330,11 @@ serve(async (req) => {
         audioMimeType = 'audio/ogg';
         convertedFileSizeBytes = audioBuffer.byteLength;
         console.log(`Conversion complete in ${conversionAttempts} attempt(s): ${originalFileSizeBytes} → ${convertedFileSizeBytes} bytes`);
-      } catch (conversionError) {
+      } catch (conversionError: unknown) {
         console.error("Conversion failed:", conversionError);
         await cleanupStorage(supabase, storagePath);
         return new Response(
-          JSON.stringify({ error: conversionError.message || "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
+          JSON.stringify({ error: conversionError instanceof Error ? conversionError.message : "Unable to process this file due to size. Please contact AgencyBrain with questions." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -447,14 +447,14 @@ serve(async (req) => {
         console.log("Usage incremented for agency:", agencyId);
       }
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to save call record after retries:", err);
       await cleanupStorage(supabase, storagePath);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to save call record. Please try uploading again.", 
-          details: err.message,
-          retryable: true 
+        JSON.stringify({
+          error: "Failed to save call record. Please try uploading again.",
+          details: err instanceof Error ? err.message : 'Unknown error',
+          retryable: true
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

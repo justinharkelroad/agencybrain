@@ -240,7 +240,7 @@ function formatActivityTitle(activity: ContactActivity): string {
     case 'call_scored':
       return 'Call Scored';
     default:
-      return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      return (type as string).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 }
 

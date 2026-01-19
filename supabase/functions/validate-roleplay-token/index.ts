@@ -3,7 +3,8 @@ import { corsHeaders, handleOptions } from "../_shared/cors.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 serve(async (req) => {
-  if (handleOptions(req)) return handleOptions(req);
+  const optionsResponse = handleOptions(req);
+  if (optionsResponse) return optionsResponse;
 
   try {
     const { token } = await req.json();

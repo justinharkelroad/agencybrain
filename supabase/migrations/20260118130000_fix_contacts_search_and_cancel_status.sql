@@ -20,7 +20,7 @@ RETURNS TABLE (
   zip_code TEXT,
   created_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ,
-  current_stage TEXT,
+  computed_stage TEXT,
   total_count BIGINT
 )
 LANGUAGE plpgsql
