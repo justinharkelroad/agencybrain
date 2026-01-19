@@ -349,6 +349,13 @@ export async function logActivity(
     });
 
   if (error) throw error;
+
+  // Dispatch event for immediate UI updates (fallback if Realtime is slow/broken)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('winback:activity_logged', {
+      detail: { agencyId, activityType, householdId }
+    }));
+  }
 }
 
 // ============ Status Updates ============
