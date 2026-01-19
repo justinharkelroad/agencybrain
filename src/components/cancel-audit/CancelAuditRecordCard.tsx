@@ -329,7 +329,7 @@ export function CancelAuditRecordCard({
           <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-border">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">Status:</span>
-              <StatusDropdown recordId={record.id} currentStatus={record.status} />
+              <StatusDropdown recordId={record.id} currentStatus={record.status} record={record} />
             </div>
 
             <div className="flex items-center gap-3">

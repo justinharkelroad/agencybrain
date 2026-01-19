@@ -984,8 +984,10 @@ export type Database = {
           product_name: string | null
           renewal_effective_date: string | null
           report_type: string
+          sent_to_winback_at: string | null
           status: string
           updated_at: string
+          winback_household_id: string | null
         }
         Insert: {
           account_type?: string | null
@@ -1013,8 +1015,10 @@ export type Database = {
           product_name?: string | null
           renewal_effective_date?: string | null
           report_type: string
+          sent_to_winback_at?: string | null
           status?: string
           updated_at?: string
+          winback_household_id?: string | null
         }
         Update: {
           account_type?: string | null
@@ -1042,8 +1046,10 @@ export type Database = {
           product_name?: string | null
           renewal_effective_date?: string | null
           report_type?: string
+          sent_to_winback_at?: string | null
           status?: string
           updated_at?: string
+          winback_household_id?: string | null
         }
         Relationships: [
           {
@@ -1065,6 +1071,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancel_audit_records_winback_household_id_fkey"
+            columns: ["winback_household_id"]
+            isOneToOne: false
+            referencedRelation: "winback_households"
             referencedColumns: ["id"]
           },
         ]
