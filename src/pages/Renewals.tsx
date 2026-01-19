@@ -63,7 +63,7 @@ export default function Renewals() {
 
   // Contact profile modal state
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
-  const [profileRenewalRecord, setProfileRenewalRecord] = useState<{ id: string } | null>(null);
+  const [profileRenewalRecord, setProfileRenewalRecord] = useState<{ id: string; winback_household_id?: string | null } | null>(null);
 
   const handleSort = (column: string, event?: React.MouseEvent) => {
     const isShiftClick = event?.shiftKey;
@@ -573,7 +573,7 @@ export default function Renewals() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setProfileContactId(r.contact_id!);
-                          setProfileRenewalRecord({ id: r.id });
+                          setProfileRenewalRecord({ id: r.id, winback_household_id: r.winback_household_id });
                         }}
                       >
                         {r.first_name} {r.last_name}
