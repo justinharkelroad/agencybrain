@@ -286,6 +286,7 @@ export default function Contacts() {
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Assigned To</TableHead>
                 <TableHead>Last Activity</TableHead>
               </TableRow>
             </TableHeader>
@@ -319,6 +320,15 @@ export default function Contacts() {
                   </TableCell>
                   <TableCell>
                     <CustomerJourneyBadge currentStage={contact.current_stage} />
+                  </TableCell>
+                  <TableCell>
+                    {contact.assigned_team_member_name ? (
+                      <span className="text-muted-foreground text-sm">
+                        {contact.assigned_team_member_name}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50 text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {contact.last_activity_at ? (
