@@ -642,11 +642,10 @@ export async function getActivitySummary(agencyId: string, dateStr: string): Pro
     return result.activities;
   }
 
-  const selectedDate = new Date(dateStr);
-  const localStart = new Date(selectedDate);
-  localStart.setHours(0, 0, 0, 0);
-  const localEnd = new Date(localStart);
-  localEnd.setHours(23, 59, 59, 999);
+  // Parse date string as local date (not UTC) to avoid timezone shift
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
 
   const { data, error } = await supabase
     .from('winback_activities')
