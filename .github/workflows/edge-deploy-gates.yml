@@ -168,3 +168,26 @@ jobs:
           fi
           
           echo "✅ ALL GATES PASSED: Public form pipeline is healthy and guarded"
+
+      - name: Deploy All Edge Functions
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          echo "=== DEPLOYING ALL EDGE FUNCTIONS ==="
+
+          # Get list of functions to deploy
+          FUNCTIONS=$(ls -1 supabase/functions/*/index.ts 2>/dev/null | sed 's|supabase/functions/\(.*\)/index.ts|\1|' | grep -v '^_' | sort)
+          TOTAL=$(echo "$FUNCTIONS" | wc -l)
+
+          echo "Deploying $TOTAL edge functions to project wjqyccbytctqwceuhzhk..."
+
+          # Deploy all functions at once
+          supabase functions deploy --project-ref wjqyccbytctqwceuhzhk
+
+          if [ $? -eq 0 ]; then
+            echo "✅ Successfully deployed all $TOTAL edge functions"
+          else
+            echo "❌ Deployment failed"
+            exit 1
+          fi
