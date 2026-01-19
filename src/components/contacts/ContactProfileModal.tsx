@@ -82,6 +82,8 @@ export function ContactProfileModal({
   const [activityFormType, setActivityFormType] = useState<'call' | 'note' | 'email' | 'appointment' | undefined>();
   const [inlineNote, setInlineNote] = useState('');
   const [moduleActionLoading, setModuleActionLoading] = useState<string | null>(null);
+  // Track if a mutation has occurred - used to prefer fresh profile stage over stale passedStage
+  const [hasMutated, setHasMutated] = useState(false);
 
   // Query client for cache invalidation
   const queryClient = useQueryClient();
@@ -110,8 +112,18 @@ export function ContactProfileModal({
   const logCancelAuditActivity = useLogCancelAuditActivity();
   const createRenewalActivity = useCreateRenewalActivity();
 
-  // Determine which stage to display (prefer passed stage over computed)
-  const displayStage = passedStage || profile?.current_stage;
+  // Determine which stage to display
+  // After a mutation, prefer the fresh profile stage over the stale passedStage prop
+  const displayStage = hasMutated
+    ? (profile?.current_stage || passedStage)
+    : (passedStage || profile?.current_stage);
+
+  // Reset hasMutated flag when modal closes
+  useEffect(() => {
+    if (!open) {
+      setHasMutated(false);
+    }
+  }, [open]);
 
   // Handle sidebar navigation event to close modal
   useEffect(() => {
@@ -217,6 +229,7 @@ export function ContactProfileModal({
       queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['cancel-audit'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setHasMutated(true); // Enable real-time stage update display
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
@@ -322,6 +335,7 @@ export function ContactProfileModal({
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
         // Upsert LQS record - if exists, update status to quoted; if not, create it
+        // Auto-assign to the person who clicked Quoted
         const { error: lqsError } = await supabase
           .from('lqs_households')
           .upsert({
@@ -333,6 +347,7 @@ export function ContactProfileModal({
             contact_id: contactId,
             status: 'quoted',
             lead_source_id: winbackLeadSourceId,
+            assigned_to: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
             first_quote_date: today, // Reset quote date for new quote cycle
             lead_received_date: today,
             updated_at: new Date().toISOString(),
@@ -403,6 +418,7 @@ export function ContactProfileModal({
       queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setHasMutated(true); // Enable real-time stage update display
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to update status', { description: error.message });
@@ -474,6 +490,7 @@ export function ContactProfileModal({
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setHasMutated(true); // Enable real-time stage update display
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
