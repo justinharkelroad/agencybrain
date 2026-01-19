@@ -347,7 +347,7 @@ export function ContactProfileModal({
             contact_id: contactId,
             status: 'quoted',
             lead_source_id: winbackLeadSourceId,
-            assigned_to: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
+            team_member_id: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
             first_quote_date: today, // Reset quote date for new quote cycle
             lead_received_date: today,
             updated_at: new Date().toISOString(),
@@ -390,15 +390,34 @@ export function ContactProfileModal({
         }
       } else {
         // Update to won_back status - this transitions contact to Customer
-        await winbackApi.updateHouseholdStatus(
+        // Try from in_progress first, then from untouched if that fails
+        let result = await winbackApi.updateHouseholdStatus(
           winbackHousehold.id,
           agencyId,
           'won_back',
-          'in_progress', // Can also be from untouched
+          'in_progress',
           currentUserTeamMemberId || null,
           teamMembers,
           null
         );
+
+        // If in_progress didn't match, try from untouched
+        if (!result.success) {
+          result = await winbackApi.updateHouseholdStatus(
+            winbackHousehold.id,
+            agencyId,
+            'won_back',
+            'untouched',
+            currentUserTeamMemberId || null,
+            teamMembers,
+            null
+          );
+        }
+
+        if (!result.success) {
+          toast.error('Failed to update status', { description: 'Status may have already been changed' });
+          return;
+        }
 
         // Log the won_back activity so it appears in Daily Activity Summary
         await winbackApi.logActivity(
